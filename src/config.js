@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.2";
-export const APP_DISPLAY_VERSION = "v0.01.5";
+export const APP_VERSION = "0.9.3";
+export const APP_DISPLAY_VERSION = "v0.09.3";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
