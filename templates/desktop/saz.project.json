@@ -1,0 +1,7 @@
+{
+  "type": "desktop",
+  "title": "Desktop app",
+  "run": "wscript launch.vbs",
+  "entry": "app.html",
+  "deps": "none (opens as an Edge app window)"
+}

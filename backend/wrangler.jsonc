@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "boolean-cloud",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-07-14",
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "APP_NAME": "Boolean",
+    "PUBLIC_APP_URL": "https://boolean.local",
+    "ALLOWED_ORIGINS": "http://localhost:8765",
+    "ADMIN_EMAILS": "syfy10@gmail.com",
+    "FREE_TIER_PROVIDER": "workers-ai",
+    "FREE_TIER_MODEL": "@cf/zai-org/glm-4.7-flash"
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "boolean-cloud",
+      "database_id": "a971c58e-5482-4dc7-8af3-d2683aa3ba65",
+      "migrations_dir": "./migrations"
+    }
+  ]
+}

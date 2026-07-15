@@ -1,0 +1,126 @@
+BOOLEAN END USER LICENSE AGREEMENT
+Boolean - Version 1.0, July 2026
+
+IMPORTANT: READ CAREFULLY BEFORE INSTALLING OR USING BOOLEAN.
+By installing or using Boolean ("the Software"), you agree to be bound by this
+agreement. If you do not agree, do not install or use the Software.
+
+1. LICENSE
+Boolean, developed by saz3 Labs, grants you a personal, non-exclusive,
+non-transferable license to install and use the Software on computers you own
+or control. You may copy the installer for personal backup and offline
+installation purposes.
+
+2. AI OUTPUT CAN MAKE MISTAKES
+The Software runs AI language models that generate text, code, commands,
+summaries, and browser/notepad/email drafts. AI output may be inaccurate,
+incomplete, harmful, or wrong. The Software can execute commands and modify
+files on your computer at your direction and with your approval. You are
+responsible for reviewing every command, file change, browser action, and
+message before approving it. Enabling auto-approve means commands or actions
+may run without individual review, and you accept all consequences.
+
+3. YOUR RESPONSIBILITY
+You are responsible for:
+  (a) anything the Software does on your computer with your approval;
+  (b) maintaining backups of your data;
+  (c) complying with laws that apply to your use of the Software;
+  (d) the terms and licenses of any AI model you download, import, or use;
+  (e) the terms of any third-party API, model provider, website, payment
+      provider, or cloud service you connect or use through Boolean.
+
+4. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
+Boolean can be used locally without a Boolean account. Optional cloud features
+may require Google Sign-In and may use a cloud token balance.
+
+New users may receive a limited free cloud token grant, currently 100,000
+tokens for the first 30 days with a 10,000 token daily cap. Free grants,
+limits, models, prices, and availability may change or be discontinued. The
+free cloud tier may default to GLM-4.7-Flash through Cloudflare Workers AI or
+another low-cost cloud model selected by Boolean.
+
+Cloud tokens are usage credits for optional cloud AI features. They are not
+cash, have no cash value, are not transferable, and may expire. Token counts
+are estimates based on model/provider accounting and may differ from provider
+reported usage. Boolean may refuse or limit cloud requests when an account has
+no remaining balance, reaches a daily cap, violates policy, or appears abusive.
+
+Paid plans, subscriptions, or token packs may be processed by Stripe or another
+payment provider. You are responsible for reviewing purchase terms before
+buying. Unless a separate refund policy says otherwise, consumed tokens are not
+refundable.
+
+5. THIRD-PARTY COMPONENTS AND MODELS
+The Software includes open-source components, including Node.js and llama.cpp.
+AI models are governed by their own licenses and model cards. Some editions of
+Boolean may include a small starter AI model so the app can answer basic
+prompts immediately after installation. If included, that starter model is a
+third-party model, not owned by Boolean or saz3 Labs.
+
+You are responsible for reviewing and complying with the license for any
+bundled, downloaded, imported, or cloud-hosted model before using it for your
+own purposes.
+
+6. SYSTEM REQUIREMENTS AND INCLUDED RUNTIMES
+Boolean is intended for Windows 10 or Windows 11 on x64 PCs. The installer
+includes the Boolean app, embedded Node.js backend, local llama.cpp CPU
+inference engine, and required app-local runtime DLLs. Users do not need to
+install Node.js, .NET, Ollama, Python, or the Microsoft Visual C++
+Redistributable to run the standard local version.
+
+Boolean uses Microsoft Edge WebView2 for the app window and built-in browser.
+Most Windows 11 PCs already include WebView2. If WebView2 is missing, Windows
+or the installer/store may need to install the WebView2 Runtime before Boolean
+can display its interface.
+
+Minimum system requirements depend on how Boolean is used:
+  (a) Cloud/online mode: 4 GB RAM, internet connection, WebView2, and a
+      provider API key or Boolean Cloud account.
+  (b) Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, and
+      a CPU with AVX2 preferred.
+  (c) Starter model mode: very small bundled models such as SmolLM2-135M may
+      run on lower-end PCs, but answer quality and tool reliability are limited.
+
+Optional features may require additional software or services only if you
+choose them. Examples include internet access for web browsing or model
+downloads, optional Google Sign-In for Boolean Cloud, paid/free cloud token
+usage, cloud provider API keys, Stripe payments, and system tools such as
+winget, git, npm, or dotnet only when you ask Boolean to run workflows that
+depend on those tools.
+
+7. PRIVACY
+See the accompanying PRIVACY.txt. In short: local mode runs on your computer.
+Data leaves your computer only when you choose features that require it, such
+as cloud providers, Boolean Cloud sign-in/token features, model downloads, web
+browsing, or installation helpers.
+
+8. NO WARRANTY
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR
+A PARTICULAR PURPOSE, ACCURACY, SECURITY, OR NON-INFRINGEMENT. Boolean does
+not warrant that the Software or cloud features will be error-free, secure,
+available, uninterrupted, or compatible with every model, website, or provider.
+
+9. LIMITATION OF LIABILITY
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, BOOLEAN, SAZ3 LABS, AND ITS DEVELOPERS
+ARE NOT LIABLE FOR DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
+EXEMPLARY DAMAGES, INCLUDING LOSS OF DATA, LOSS OF PROFITS, BUSINESS
+INTERRUPTION, TOKEN LOSS, PROVIDER CHARGES, OR DAMAGE TO COMPUTER SYSTEMS,
+ARISING FROM USE OF OR INABILITY TO USE THE SOFTWARE. IF ANY LIABILITY IS
+FOUND DESPITE THE ABOVE, TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE
+AMOUNT YOU PAID FOR THE SOFTWARE OR CLOUD SERVICE IN THE 30 DAYS BEFORE THE
+CLAIM.
+
+10. INDEMNIFICATION
+You agree to indemnify and hold harmless Boolean, saz3 Labs, and its developers
+from claims, damages, or expenses arising from your use or misuse of the
+Software.
+
+11. TERMINATION
+This license terminates automatically if you breach it. Upon termination you
+must uninstall the Software and stop using Boolean Cloud services.
+
+12. GENERAL
+If any provision of this agreement is held unenforceable, the remainder remains
+in effect. This agreement is the entire agreement regarding the Software and
+supersedes any prior understanding.

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Boolean by saz3 Labs</title>
+  <meta name="description" content="Boolean is a clean Windows AI workspace: local models, an embedded browser, and a notepad in one app.">
+  <link rel="icon" href="./assets/boolean-app-icon-clear.png">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Windows AI Workspace</p>
+        <h1>One clean local AI workspace.</h1>
+        <p class="lead">Chat, an embedded browser, a notepad, and local models in one simple desktop app from saz3 Labs.</p>
+        <div class="actions">
+          <a class="button primary" href="#download">Get Boolean</a>
+          <a class="button ghost" href="#features">See what it does</a>
+        </div>
+      </div>
+
+      <div class="app-frame-wrap">
+        <p class="demo-hint"><span></span> Live app preview</p>
+        <div class="app-frame">
+          <iframe src="./app-face.html" title="Boolean app preview" loading="lazy"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <section class="local-cloud" id="models">
+      <article class="local-panel">
+        <div class="download-card">
+          <div class="download-card-head">
+            <h3>Qwen2.5-7B</h3>
+            <span>Downloading</span>
+          </div>
+          <p>Saved to <code>~/.saz/models</code></p>
+          <div class="progress"><span></span></div>
+          <small>Works offline after download</small>
+        </div>
+        <div class="local-copy">
+          <p class="eyebrow">Offline local</p>
+          <h2>Download once. Work stays on your PC.</h2>
+          <p>Boolean picks supported GGUF models, puts them in the right folder, and runs them locally. No Node.js, Python, Ollama, or separate model runner is needed for standard local use.</p>
+        </div>
+      </article>
+      <article class="cloud-panel">
+        <div class="cloud-flow" aria-hidden="true">
+          <div class="key-card">
+            <span class="key-dot"></span>
+            <strong>your key</strong>
+            <small>stored locally</small>
+          </div>
+          <div class="provider-stream">
+            <span>Claude</span>
+            <span>OpenAI</span>
+            <span>GLM</span>
+          </div>
+          <div class="flow-line"><i></i></div>
+          <div class="boolean-cloud">
+            <b>Boolean</b>
+            <small>online model ready</small>
+          </div>
+        </div>
+        <div class="cloud-copy">
+          <p class="eyebrow">Optional cloud</p>
+          <h2>Sign in only when you want it.</h2>
+          <p>Add Boolean Cloud tokens or your own provider key for OpenAI, GLM, or Claude when you want online models. Keys stay on your computer.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="features" id="features">
+      <article>
+        <div class="feature-visual chat-visual" aria-hidden="true">
+          <span class="chat-card"><i></i></span>
+          <b class="code-mark">&lt;/&gt;</b>
+          <em class="mail-mark"></em>
+        </div>
+        <h3>Chat that gets work done</h3>
+        <p>Draft emails, summarize reports, write code, and plan tasks with the current work kept in context.</p>
+      </article>
+      <article>
+        <div class="feature-visual notes-visual" aria-hidden="true">
+          <span></span><span></span><span></span><i></i>
+        </div>
+        <h3>Browser and notepad built in</h3>
+        <p>Research beside chat, then keep drafts, snippets, and screenshots in a clean paper-style notepad.</p>
+      </article>
+      <article>
+        <div class="feature-visual local-visual" aria-hidden="true">
+          <span></span><b>1</b><b>0</b><i></i>
+        </div>
+        <h3>Runs on your PC</h3>
+        <p>Use supported GGUF models locally. No account is required for standard local use.</p>
+      </article>
+    </section>
+
+  </main>
+
+  <footer class="site-footer" id="download">
+    <div class="footer-download">
+      <div>
+        <h2>Get Boolean for Windows.</h2>
+        <p>Private local work by default. Cloud is optional.</p>
+        <div class="req-list" aria-label="Requirements">
+          <span><b>Windows</b> 10 or 11, x64</span>
+          <span><b>Local LLM</b> 16 GB RAM, 20 GB disk</span>
+          <span><b>Cloud</b> 4 GB RAM and internet</span>
+        </div>
+      </div>
+      <div class="footer-actions">
+        <a class="button primary" href="mailto:saz3labs@gmail.com?subject=Boolean%20download">Request the installer</a>
+        <nav aria-label="Footer">
+          <a href="mailto:saz3labs@gmail.com">Contact</a>
+          <a href="./privacy.html">Privacy</a>
+          <a href="./policy.html">Policy</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

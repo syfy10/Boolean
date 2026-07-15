@@ -1,0 +1,27 @@
+{
+  "name": "boolean",
+  "version": "0.9.1",
+  "description": "Local AI workspace for Windows with a built-in GGUF engine, browser, notepad, and optional cloud models.",
+  "type": "module",
+  "bin": {
+    "saz": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js ui --port 8765",
+    "dev:headless": "node src/index.js ui --port 8765 --no-open",
+    "build:exe": "powershell -ExecutionPolicy Bypass -File build/build-exe.ps1",
+    "build:shell": "powershell -ExecutionPolicy Bypass -File build/build-shell.ps1",
+    "build:installer": "powershell -ExecutionPolicy Bypass -File build/build-installer.ps1",
+    "build:all": "npm run build:shell && npm run build:installer"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6",
+    "rcedit": "^5.0.2"
+  }
+}

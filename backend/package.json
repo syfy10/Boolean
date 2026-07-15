@@ -1,0 +1,17 @@
+{
+  "name": "boolean-cloud-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init": "wrangler d1 execute boolean-cloud --local --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute boolean-cloud --remote --file=./schema.sql",
+    "db:migrate": "wrangler d1 migrations apply boolean-cloud --local",
+    "db:migrate:remote": "wrangler d1 migrations apply boolean-cloud --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.24.3"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "main": "dist/bundle.cjs",
+  "output": "dist/sea-prep.blob",
+  "disableExperimentalSEAWarning": true,
+  "assets": {
+    "ui.html": "src/ui.html",
+    "icon-32.png": "assets/saz-32.png",
+    "icon-256.png": "assets/saz-256.png",
+    "saz.ico": "assets/saz.ico"
+  }
+}

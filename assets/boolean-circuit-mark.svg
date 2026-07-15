@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Boolean circuit mark">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="34" y="34" width="188" height="188" rx="44" stroke="#101712" stroke-width="12"/>
+    <path d="M34 92h72V34" stroke="#101712" stroke-width="12"/>
+    <path d="M86 222v-54l-30-30V92" stroke="#101712" stroke-width="12"/>
+    <path d="M128 222v-68l-24-24V82" stroke="#101712" stroke-width="12"/>
+    <path d="M170 34v50l30 30v42" stroke="#101712" stroke-width="12"/>
+    <path d="M222 150h-48v72" stroke="#101712" stroke-width="12"/>
+    <circle cx="56" cy="92" r="17" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="104" cy="130" r="17" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="200" cy="156" r="17" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="170" cy="84" r="17" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="86" cy="168" r="13" fill="#22c55e"/>
+  </g>
+</svg>

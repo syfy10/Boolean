@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Boolean app icon">
+  <rect x="0" y="0" width="256" height="256" rx="52" fill="#fff"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="38" y="38" width="180" height="180" rx="42" stroke="#101712" stroke-width="12"/>
+    <path d="M38 94h70V38" stroke="#101712" stroke-width="12"/>
+    <path d="M88 218v-52l-29-29V94" stroke="#101712" stroke-width="12"/>
+    <path d="M128 218v-66l-23-23V82" stroke="#101712" stroke-width="12"/>
+    <path d="M170 38v48l29 29v40" stroke="#101712" stroke-width="12"/>
+    <path d="M218 150h-46v68" stroke="#101712" stroke-width="12"/>
+    <circle cx="59" cy="94" r="16" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="105" cy="129" r="16" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="199" cy="155" r="16" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="170" cy="86" r="16" fill="#fff" stroke="#101712" stroke-width="12"/>
+    <circle cx="88" cy="166" r="13" fill="#22c55e"/>
+  </g>
+</svg>

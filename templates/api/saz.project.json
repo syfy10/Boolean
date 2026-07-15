@@ -1,0 +1,8 @@
+{
+  "type": "api",
+  "title": "JSON API",
+  "run": "node server.js",
+  "port": 3300,
+  "healthPath": "/api/health",
+  "deps": "none (Node built-ins only)"
+}

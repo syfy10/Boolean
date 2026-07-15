@@ -1,0 +1,681 @@
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
+
+const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
+const DAY = 24 * 60 * 60;
+const FREE_SIGNUP_TOKENS = 100000;
+const FREE_DAILY_LIMIT_TOKENS = 10000;
+const FREE_SIGNUP_DAYS = 30;
+const DEFAULT_FREE_TIER_PROVIDER = "workers-ai";
+const DEFAULT_FREE_TIER_MODEL = "@cf/zai-org/glm-4.7-flash";
+
+export default {
+  async fetch(request, env) {
+    try {
+      return await route(request, env);
+    } catch (err) {
+      const status = Number(err?.status || 500);
+      return json({ error: status >= 500 ? "server_error" : "request_error", message: err?.message || String(err) }, status, request, env);
+    }
+  }
+};
+
+async function route(request, env) {
+  if (request.method === "OPTIONS") return corsPreflight(request, env);
+
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/\/+$/, "") || "/";
+
+  if (path === "/health") {
+    return json({ ok: true, app: env.APP_NAME || "Boolean" }, 200, request, env);
+  }
+
+  if (path === "/auth/device/start" && request.method === "POST") {
+    return startDeviceLogin(request, env);
+  }
+
+  if (path === "/auth/device/status" && request.method === "GET") {
+    return deviceLoginStatus(request, env);
+  }
+
+  if (path === "/auth/google/callback" && request.method === "GET") {
+    return googleCallback(request, env);
+  }
+
+  if (path === "/me" && request.method === "GET") {
+    const session = await requireSession(request, env);
+    return json({
+      user: publicUser(session.user),
+      tokens: session.tokens || defaultTokenStatus()
+    }, 200, request, env);
+  }
+
+  if (path === "/tokens/debit" && request.method === "POST") {
+    const session = await requireSession(request, env);
+    const body = await request.json().catch(() => ({}));
+    const tokens = Math.max(0, Math.min(200000, Math.ceil(Number(body.tokens || 0))));
+    if (!tokens) return json({ error: "missing_tokens" }, 400, request, env);
+    const result = await debitTokens(session.user.id, tokens, body.reason || "cloud_usage", env);
+    return json(result, 200, request, env);
+  }
+
+  if (path === "/chat/completions" && request.method === "POST") {
+    return chatCompletions(request, env);
+  }
+
+  if (path === "/auth/logout" && request.method === "POST") {
+    const token = bearerToken(request);
+    if (token) {
+      const tokenHash = await sha256Hex(token);
+      await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE token_hash = ?")
+        .bind(now(), tokenHash)
+        .run();
+    }
+    return json({ ok: true }, 200, request, env);
+  }
+
+  return json({ error: "not_found" }, 404, request, env);
+}
+
+async function chatCompletions(request, env) {
+  if (!bearerToken(request)) return json({ error: "unauthorized", message: "unauthorized" }, 401, request, env);
+  const session = await requireSession(request, env);
+  if (!env.AI) throw httpError("Workers AI binding is not configured", 500);
+
+  const body = await request.json().catch(() => ({}));
+  const model = String(body.model || session.tokens?.default_model || freeTierModel(env)).trim() || freeTierModel(env);
+  const messages = normalizeChatMessages(body.messages || []);
+  if (!messages.length) return json({ error: "missing_messages" }, 400, request, env);
+
+  const maxTokens = Math.max(64, Math.min(2000, Math.round(Number(body.max_tokens || body.max_completion_tokens || 800))));
+  const temperature = Number.isFinite(Number(body.temperature)) ? Math.max(0, Math.min(2, Number(body.temperature))) : 0.7;
+  const inputTokens = estimateTokens(messages);
+  const reservedTokens = Math.max(1, inputTokens + maxTokens);
+  const reserve = await debitTokens(session.user.id, reservedTokens, "cloud_chat_reserved", env);
+  if (!reserve.ok) return json({ error: reserve.error || "token_limit", tokens: reserve.tokens }, 402, request, env);
+
+  try {
+    const aiInput = {
+      messages,
+      max_tokens: maxTokens,
+      temperature
+    };
+    if (Array.isArray(body.tools) && body.tools.length) aiInput.tools = body.tools;
+    if (body.tool_choice) aiInput.tool_choice = body.tool_choice;
+
+    const result = await env.AI.run(model, aiInput);
+    const message = extractAiMessage(result);
+    const outputTokens = estimateTokens(message);
+    const actualTokens = Math.max(1, inputTokens + outputTokens);
+    let tokenState = reserve.tokens;
+    if (reservedTokens > actualTokens) {
+      const refund = await creditTokens(session.user.id, reservedTokens - actualTokens, "cloud_chat_refund", env);
+      tokenState = refund.tokens;
+    }
+    return json({
+      id: randomId("chat"),
+      object: "chat.completion",
+      created: now(),
+      model,
+      choices: [{ index: 0, message, finish_reason: message.tool_calls?.length ? "tool_calls" : "stop" }],
+      usage: { prompt_tokens: inputTokens, completion_tokens: outputTokens, total_tokens: actualTokens },
+      tokens: tokenState
+    }, 200, request, env);
+  } catch (err) {
+    await creditTokens(session.user.id, reservedTokens, "cloud_chat_failed_refund", env);
+    throw err;
+  }
+}
+
+async function startDeviceLogin(request, env) {
+  requireGoogleConfig(env);
+
+  const createdAt = now();
+  const deviceId = randomId("dev");
+  const state = randomId("state");
+  const expiresAt = createdAt + 10 * 60;
+  const redirectUri = callbackUrl(request);
+
+  await env.DB.prepare(
+    "INSERT INTO login_devices (id, state, status, created_at, expires_at) VALUES (?, ?, 'pending', ?, ?)"
+  ).bind(deviceId, state, createdAt, expiresAt).run();
+
+  const authUrl = new URL(GOOGLE_AUTH_URL);
+  authUrl.searchParams.set("client_id", env.GOOGLE_CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", "openid email profile");
+  authUrl.searchParams.set("state", state);
+  authUrl.searchParams.set("access_type", "offline");
+  authUrl.searchParams.set("prompt", "select_account");
+
+  return json({
+    device_id: deviceId,
+    auth_url: authUrl.toString(),
+    expires_at: expiresAt
+  }, 200, request, env);
+}
+
+async function deviceLoginStatus(request, env) {
+  const url = new URL(request.url);
+  const deviceId = url.searchParams.get("device_id") || "";
+  if (!deviceId) return json({ error: "missing_device_id" }, 400, request, env);
+
+  const row = await env.DB.prepare(
+    "SELECT id, status, session_id, session_token, expires_at FROM login_devices WHERE id = ?"
+  ).bind(deviceId).first();
+
+  if (!row) return json({ error: "not_found" }, 404, request, env);
+  if (row.expires_at < now()) return json({ status: "expired" }, 200, request, env);
+  if (row.status !== "complete" || !row.session_id) return json({ status: row.status }, 200, request, env);
+
+  const session = await sessionById(row.session_id, env);
+  if (!session) return json({ status: "expired" }, 200, request, env);
+
+  return json({
+    status: "complete",
+    session_token: row.session_token,
+    user: publicUser(session.user),
+    tokens: session.tokens || defaultTokenStatus()
+  }, 200, request, env);
+}
+
+async function googleCallback(request, env) {
+  requireGoogleConfig(env);
+
+  const url = new URL(request.url);
+  const state = url.searchParams.get("state") || "";
+  const code = url.searchParams.get("code") || "";
+  const error = url.searchParams.get("error");
+
+  if (error) return htmlPage("Sign in canceled", "Google sign-in was canceled. You can close this window.");
+  if (!state || !code) return htmlPage("Sign in failed", "Missing Google sign-in information. Please try again.");
+
+  const login = await env.DB.prepare(
+    "SELECT id, expires_at, status FROM login_devices WHERE state = ?"
+  ).bind(state).first();
+
+  if (!login || login.expires_at < now()) {
+    return htmlPage("Sign in expired", "This sign-in link expired. Please start sign-in again from Boolean.");
+  }
+  if (login.status !== "pending") {
+    return htmlPage("Already signed in", "This sign-in request was already completed. You can return to Boolean.");
+  }
+
+  const tokenSet = await exchangeGoogleCode(code, callbackUrl(request), env);
+  const profile = await verifyGoogleIdToken(tokenSet.id_token, env);
+  const user = await upsertUser(profile, env);
+  const session = await createSession(user.id, env);
+
+  await env.DB.prepare(
+    "UPDATE login_devices SET status = 'complete', session_id = ?, session_token = ?, completed_at = ? WHERE id = ?"
+  ).bind(session.id, session.token, now(), login.id).run();
+
+  return htmlPage(
+    "Signed in",
+    "You are signed in to Boolean. This window will close automatically.",
+    true
+  );
+}
+
+async function exchangeGoogleCode(code, redirectUri, env) {
+  const body = new URLSearchParams();
+  body.set("code", code);
+  body.set("client_id", env.GOOGLE_CLIENT_ID);
+  body.set("client_secret", env.GOOGLE_CLIENT_SECRET);
+  body.set("redirect_uri", redirectUri);
+  body.set("grant_type", "authorization_code");
+
+  const res = await fetch(GOOGLE_TOKEN_URL, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.id_token) {
+    throw new Error(data.error_description || data.error || "Google token exchange failed");
+  }
+  return data;
+}
+
+async function verifyGoogleIdToken(idToken, env) {
+  const res = await fetch(`${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`);
+  const profile = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(profile.error_description || "Google token verification failed");
+  if (profile.aud !== env.GOOGLE_CLIENT_ID) throw new Error("Google token audience mismatch");
+  if (!profile.sub || !profile.email) throw new Error("Google profile missing required fields");
+  return profile;
+}
+
+async function upsertUser(profile, env) {
+  const existing = await env.DB.prepare("SELECT * FROM users WHERE google_sub = ?")
+    .bind(profile.sub)
+    .first();
+
+  const ts = now();
+  const admin = isAdminEmail(profile.email, env);
+  const role = admin ? "admin" : (existing?.role || "user");
+  if (existing) {
+    await env.DB.prepare(
+      "UPDATE users SET email = ?, name = ?, picture = ?, role = ?, updated_at = ? WHERE id = ?"
+    ).bind(profile.email, profile.name || "", profile.picture || "", role, ts, existing.id).run();
+    if (admin) {
+      await env.DB.prepare(
+        "UPDATE token_accounts SET plan = 'admin', unlimited_tokens = 1, free_grant_expires_at = NULL, daily_limit_tokens = 0, updated_at = ? WHERE user_id = ?"
+      ).bind(ts, existing.id).run();
+    }
+    return { ...existing, email: profile.email, name: profile.name || "", picture: profile.picture || "", role };
+  }
+
+  const id = randomId("usr");
+  const startingTokens = admin ? 0 : FREE_SIGNUP_TOKENS;
+  const expiresAt = admin ? null : ts + FREE_SIGNUP_DAYS * DAY;
+  const resetAt = nextDailyReset(ts);
+  await env.DB.prepare(
+    "INSERT INTO users (id, google_sub, email, name, picture, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(id, profile.sub, profile.email, profile.name || "", profile.picture || "", role, ts, ts).run();
+  await env.DB.prepare(
+    `INSERT INTO token_accounts
+      (user_id, balance_tokens, plan, default_provider, default_model, free_grant_tokens, free_grant_expires_at, daily_limit_tokens, daily_used_tokens, daily_reset_at, unlimited_tokens, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+  ).bind(
+    id,
+    startingTokens,
+    admin ? "admin" : "free",
+    freeTierProvider(env),
+    freeTierModel(env),
+    startingTokens,
+    expiresAt,
+    admin ? 0 : FREE_DAILY_LIMIT_TOKENS,
+    resetAt,
+    admin ? 1 : 0,
+    ts
+  ).run();
+  if (startingTokens) {
+    await env.DB.prepare(
+      "INSERT INTO token_ledger (id, user_id, delta_tokens, reason, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).bind(randomId("led"), id, startingTokens, "free_google_signup", ts).run();
+  }
+
+  return { id, google_sub: profile.sub, email: profile.email, name: profile.name || "", picture: profile.picture || "", role };
+}
+
+async function createSession(userId, env) {
+  const token = randomId("sess");
+  const tokenHash = await sha256Hex(token);
+  const id = randomId("sid");
+  const createdAt = now();
+  const expiresAt = createdAt + 90 * DAY;
+
+  await env.DB.prepare(
+    "INSERT INTO sessions (id, user_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)"
+  ).bind(id, userId, tokenHash, createdAt, expiresAt).run();
+
+  return { id, token, expires_at: expiresAt };
+}
+
+async function debitTokens(userId, tokens, reason, env) {
+  const ts = now();
+  const row = await env.DB.prepare("SELECT * FROM token_accounts WHERE user_id = ?").bind(userId).first();
+  if (!row) throw httpError("token account not found", 404);
+
+  let balance = Number(row.balance_tokens || 0);
+  let dailyUsed = Number(row.daily_used_tokens || 0);
+  let dailyResetAt = Number(row.daily_reset_at || 0);
+  const dailyLimit = Number(row.daily_limit_tokens || 0);
+  const expiresAt = Number(row.free_grant_expires_at || 0);
+  const unlimited = isUnlimitedAccount(row);
+
+  if (!dailyResetAt || dailyResetAt <= ts) {
+    dailyUsed = 0;
+    dailyResetAt = nextDailyReset(ts);
+  }
+
+  if (unlimited) {
+    const newDailyUsed = dailyUsed + tokens;
+    await env.DB.prepare(
+      "UPDATE token_accounts SET daily_used_tokens = ?, daily_reset_at = ?, updated_at = ? WHERE user_id = ?"
+    ).bind(newDailyUsed, dailyResetAt, ts, userId).run();
+    await env.DB.prepare(
+      "INSERT INTO token_ledger (id, user_id, delta_tokens, reason, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).bind(randomId("led"), userId, -tokens, String(reason || "cloud_usage").slice(0, 80), ts).run();
+    return { ok: true, tokens: tokenStatus({ ...row, daily_used_tokens: newDailyUsed, daily_reset_at: dailyResetAt }) };
+  }
+
+  if ((row.plan || "free") === "free" && expiresAt && expiresAt < ts) {
+    balance = 0;
+    await env.DB.prepare(
+      "UPDATE token_accounts SET balance_tokens = 0, daily_used_tokens = 0, daily_reset_at = ?, updated_at = ? WHERE user_id = ?"
+    ).bind(nextDailyReset(ts), ts, userId).run();
+    return { ok: false, error: "free_tokens_expired", tokens: tokenStatus({ ...row, balance_tokens: 0, daily_used_tokens: 0, daily_reset_at: nextDailyReset(ts) }) };
+  }
+
+  const dailyRemaining = dailyLimit ? Math.max(0, dailyLimit - dailyUsed) : balance;
+  if (tokens > balance) return { ok: false, error: "not_enough_tokens", tokens: tokenStatus({ ...row, balance_tokens: balance, daily_used_tokens: dailyUsed, daily_reset_at: dailyResetAt }) };
+  if (dailyLimit && tokens > dailyRemaining) return { ok: false, error: "daily_limit_reached", tokens: tokenStatus({ ...row, balance_tokens: balance, daily_used_tokens: dailyUsed, daily_reset_at: dailyResetAt }) };
+
+  const newBalance = balance - tokens;
+  const newDailyUsed = dailyUsed + tokens;
+  await env.DB.prepare(
+    "UPDATE token_accounts SET balance_tokens = ?, daily_used_tokens = ?, daily_reset_at = ?, updated_at = ? WHERE user_id = ?"
+  ).bind(newBalance, newDailyUsed, dailyResetAt, ts, userId).run();
+  await env.DB.prepare(
+    "INSERT INTO token_ledger (id, user_id, delta_tokens, reason, created_at) VALUES (?, ?, ?, ?, ?)"
+  ).bind(randomId("led"), userId, -tokens, String(reason || "cloud_usage").slice(0, 80), ts).run();
+
+  return { ok: true, tokens: tokenStatus({ ...row, balance_tokens: newBalance, daily_used_tokens: newDailyUsed, daily_reset_at: dailyResetAt }) };
+}
+
+async function creditTokens(userId, tokens, reason, env) {
+  const amount = Math.max(0, Math.ceil(Number(tokens || 0)));
+  if (!amount) {
+    const row = await env.DB.prepare("SELECT * FROM token_accounts WHERE user_id = ?").bind(userId).first();
+    return { ok: true, tokens: tokenStatus(row || {}) };
+  }
+
+  const ts = now();
+  const row = await env.DB.prepare("SELECT * FROM token_accounts WHERE user_id = ?").bind(userId).first();
+  if (!row) throw httpError("token account not found", 404);
+
+  const resetAt = Number(row.daily_reset_at || 0);
+  const dailyUsed = resetAt && resetAt > ts ? Math.max(0, Number(row.daily_used_tokens || 0) - amount) : 0;
+  if (isUnlimitedAccount(row)) {
+    await env.DB.prepare(
+      "UPDATE token_accounts SET daily_used_tokens = ?, updated_at = ? WHERE user_id = ?"
+    ).bind(dailyUsed, ts, userId).run();
+    await env.DB.prepare(
+      "INSERT INTO token_ledger (id, user_id, delta_tokens, reason, created_at) VALUES (?, ?, ?, ?, ?)"
+    ).bind(randomId("led"), userId, amount, String(reason || "cloud_refund").slice(0, 80), ts).run();
+    return { ok: true, tokens: tokenStatus({ ...row, daily_used_tokens: dailyUsed }) };
+  }
+  const balance = Math.max(0, Number(row.balance_tokens || 0)) + amount;
+  await env.DB.prepare(
+    "UPDATE token_accounts SET balance_tokens = ?, daily_used_tokens = ?, updated_at = ? WHERE user_id = ?"
+  ).bind(balance, dailyUsed, ts, userId).run();
+  await env.DB.prepare(
+    "INSERT INTO token_ledger (id, user_id, delta_tokens, reason, created_at) VALUES (?, ?, ?, ?, ?)"
+  ).bind(randomId("led"), userId, amount, String(reason || "cloud_refund").slice(0, 80), ts).run();
+
+  return { ok: true, tokens: tokenStatus({ ...row, balance_tokens: balance, daily_used_tokens: dailyUsed }) };
+}
+
+function normalizeChatMessages(messages) {
+  const out = [];
+  for (const msg of Array.isArray(messages) ? messages : []) {
+    const role = ["system", "user", "assistant", "tool"].includes(msg?.role) ? msg.role : "user";
+    let content = "";
+    if (typeof msg?.content === "string") content = msg.content;
+    else if (Array.isArray(msg?.content)) {
+      content = msg.content
+        .filter((part) => part?.type === "text" && typeof part.text === "string")
+        .map((part) => part.text)
+        .join("\n");
+    }
+    content = String(content || "").trim();
+    if (content) out.push({ role, content: content.slice(0, 120000) });
+    if (out.length >= 80) break;
+  }
+  return out;
+}
+
+function extractAiMessage(result) {
+  if (result?.choices?.[0]?.message) {
+    const msg = result.choices[0].message;
+    return {
+      role: "assistant",
+      content: typeof msg.content === "string" ? msg.content : "",
+      ...(Array.isArray(msg.tool_calls) && msg.tool_calls.length ? { tool_calls: msg.tool_calls } : {})
+    };
+  }
+  if (typeof result === "string") return { role: "assistant", content: result };
+  if (typeof result?.response === "string") return { role: "assistant", content: result.response };
+  if (typeof result?.result?.response === "string") return { role: "assistant", content: result.result.response };
+  if (typeof result?.choices?.[0]?.text === "string") return { role: "assistant", content: result.choices[0].text };
+  return { role: "assistant", content: "" };
+}
+
+function estimateTokens(value) {
+  const text = typeof value === "string" ? value : JSON.stringify(value || "");
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+async function requireSession(request, env) {
+  const token = bearerToken(request);
+  if (!token) throw httpError("unauthorized", 401);
+  const tokenHash = await sha256Hex(token);
+
+  const row = await env.DB.prepare(
+    `SELECT
+      s.id AS session_id, s.expires_at, s.revoked_at,
+      u.id AS user_id, u.email, u.name, u.picture, u.role,
+      t.balance_tokens, t.plan, t.default_provider, t.default_model, t.free_grant_tokens, t.free_grant_expires_at,
+      t.daily_limit_tokens, t.daily_used_tokens, t.daily_reset_at, t.unlimited_tokens
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     LEFT JOIN token_accounts t ON t.user_id = u.id
+     WHERE s.token_hash = ?`
+  ).bind(tokenHash).first();
+
+  if (!row || row.revoked_at || row.expires_at < now()) throw httpError("unauthorized", 401);
+  return {
+    id: row.session_id,
+    user: { id: row.user_id, email: row.email, name: row.name, picture: row.picture, role: row.role || "user" },
+    tokens: tokenStatus(row)
+  };
+}
+
+async function sessionById(sessionId, env) {
+  const row = await env.DB.prepare(
+    `SELECT
+      s.id AS session_id, s.expires_at, s.revoked_at, s.token_hash,
+      u.id AS user_id, u.email, u.name, u.picture, u.role,
+      t.balance_tokens, t.plan, t.default_provider, t.default_model, t.free_grant_tokens, t.free_grant_expires_at,
+      t.daily_limit_tokens, t.daily_used_tokens, t.daily_reset_at, t.unlimited_tokens
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     LEFT JOIN token_accounts t ON t.user_id = u.id
+     WHERE s.id = ?`
+  ).bind(sessionId).first();
+
+  if (!row || row.revoked_at || row.expires_at < now()) return null;
+  return {
+    id: row.session_id,
+    user: { id: row.user_id, email: row.email, name: row.name, picture: row.picture, role: row.role || "user" },
+    tokens: tokenStatus(row)
+  };
+}
+
+function defaultTokenStatus() {
+  return {
+    balance_tokens: 0,
+    plan: "free",
+    unlimited_tokens: false,
+    default_provider: DEFAULT_FREE_TIER_PROVIDER,
+    default_model: DEFAULT_FREE_TIER_MODEL,
+    free_grant_tokens: 0,
+    free_grant_expires_at: null,
+    daily_limit_tokens: 0,
+    daily_used_tokens: 0,
+    daily_remaining_tokens: 0,
+    daily_reset_at: nextDailyReset(now())
+  };
+}
+
+function tokenStatus(row) {
+  const ts = now();
+  const resetAt = Number(row.daily_reset_at || 0);
+  const dailyLimit = Number(row.daily_limit_tokens || 0);
+  const dailyUsed = resetAt && resetAt > ts ? Number(row.daily_used_tokens || 0) : 0;
+  const balance = Math.max(0, Number(row.balance_tokens || 0));
+  const unlimited = isUnlimitedAccount(row);
+  return {
+    balance_tokens: balance,
+    plan: row.plan || "free",
+    unlimited_tokens: unlimited,
+    default_provider: row.default_provider || DEFAULT_FREE_TIER_PROVIDER,
+    default_model: row.default_model || DEFAULT_FREE_TIER_MODEL,
+    free_grant_tokens: Number(row.free_grant_tokens || 0),
+    free_grant_expires_at: row.free_grant_expires_at || null,
+    daily_limit_tokens: dailyLimit,
+    daily_used_tokens: dailyUsed,
+    daily_remaining_tokens: unlimited ? null : (dailyLimit ? Math.max(0, Math.min(balance, dailyLimit - dailyUsed)) : balance),
+    daily_reset_at: resetAt && resetAt > ts ? resetAt : nextDailyReset(ts)
+  };
+}
+
+function freeTierProvider(env) {
+  return String(env.FREE_TIER_PROVIDER || DEFAULT_FREE_TIER_PROVIDER).trim() || DEFAULT_FREE_TIER_PROVIDER;
+}
+
+function freeTierModel(env) {
+  return String(env.FREE_TIER_MODEL || DEFAULT_FREE_TIER_MODEL).trim() || DEFAULT_FREE_TIER_MODEL;
+}
+
+function isAdminEmail(email, env) {
+  const wanted = String(env.ADMIN_EMAILS || "")
+    .split(/[\s,;]+/)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  return wanted.includes(String(email || "").trim().toLowerCase());
+}
+
+function isUnlimitedAccount(row) {
+  return Number(row?.unlimited_tokens || 0) === 1;
+}
+
+function nextDailyReset(ts) {
+  const d = new Date(ts * 1000);
+  d.setUTCHours(24, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
+}
+
+function callbackUrl(request) {
+  const url = new URL(request.url);
+  url.pathname = "/auth/google/callback";
+  url.search = "";
+  return url.toString();
+}
+
+function publicUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name || "",
+    picture: user.picture || "",
+    role: user.role || "user",
+    is_admin: (user.role || "user") === "admin"
+  };
+}
+
+function requireGoogleConfig(env) {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    throw new Error("Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
+  }
+}
+
+function bearerToken(request) {
+  const auth = request.headers.get("authorization") || "";
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+function randomId(prefix) {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const value = btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return `${prefix}_${value}`;
+}
+
+async function sha256Hex(value) {
+  const data = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function now() {
+  return Math.floor(Date.now() / 1000);
+}
+
+function httpError(message, status) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+function allowedOrigin(request, env) {
+  const origin = request.headers.get("origin") || "";
+  const allowed = String(env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (!origin) return "";
+  if (allowed.includes(origin)) return origin;
+  return "";
+}
+
+function corsHeaders(request, env) {
+  const origin = allowedOrigin(request, env);
+  return origin ? {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-headers": "content-type,authorization",
+    "access-control-max-age": "86400",
+    "vary": "origin"
+  } : {};
+}
+
+function corsPreflight(request, env) {
+  return new Response(null, { status: 204, headers: corsHeaders(request, env) });
+}
+
+function json(body, status, request, env) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...JSON_HEADERS, ...corsHeaders(request, env) }
+  });
+}
+
+function htmlPage(title, message, autoClose = false) {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
+  const closeScript = autoClose ? `
+  <script>
+    setTimeout(() => {
+      window.open("", "_self");
+      window.close();
+      document.body.classList.add("done");
+    }, 900);
+  </script>` : "";
+  return new Response(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${safeTitle}</title>
+  <style>
+    body{font-family:Inter,Segoe UI,Arial,sans-serif;background:#f8faf9;color:#111;margin:0;min-height:100vh;display:grid;place-items:center}
+    main{width:min(300px,calc(100vw - 32px));background:#fff;border:1px solid #e8ece9;border-radius:14px;padding:20px 22px;box-shadow:0 14px 38px rgba(0,0,0,.08)}
+    .mark{color:#20b764;font-weight:650;margin-bottom:12px;font-size:13px}
+    h1{font-size:20px;margin:0 0 8px}
+    p{font-size:13px;line-height:1.45;color:#49524c;margin:0}
+    body.done p:after{content:" If this window did not close, you can close it now."}
+  </style>
+</head>
+<body><main><div class="mark">Boolean</div><h1>${safeTitle}</h1><p>${safeMessage}</p></main>${closeScript}</body>
+</html>`, {
+    status: 200,
+    headers: { "content-type": "text/html; charset=utf-8" }
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[ch]));
+}

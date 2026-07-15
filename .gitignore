@@ -1,0 +1,37 @@
+# Dependencies and package output
+node_modules/
+**/node_modules/
+dist/
+
+# Local tooling and account state
+.claude/
+.wrangler/
+**/.wrangler/
+.env
+.env.*
+!.env.example
+.dev.vars
+**/.dev.vars
+*.local.json
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Models and runtime data
+*.gguf
+*.mmproj
+*.part
+*.log
+models/
+
+# OS and editor files
+desktop.ini
+Thumbs.db
+.DS_Store
+.vs/
+.vscode/
+
+# Internal handoff history is kept locally, not in the public source repository.
+AGENTS.md
+

@@ -1,0 +1,73 @@
+name: Build Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --yes --no-progress
+
+      - name: Verify release version
+        shell: powershell
+        run: |
+          $tagVersion = "${{ github.ref_name }}".TrimStart("v")
+          $packageVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($tagVersion -ne $packageVersion) {
+            throw "Tag version $tagVersion does not match package version $packageVersion"
+          }
+
+      - name: Install build dependencies
+        shell: powershell
+        run: npm.cmd ci
+
+      - name: Build installer and update manifest
+        shell: powershell
+        run: npm.cmd run build:all
+
+      - name: Verify update manifest
+        shell: powershell
+        run: |
+          $manifest = Get-Content dist/update.json -Raw | ConvertFrom-Json
+          $actual = (Get-FileHash dist/Boolean-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($manifest.sha256 -ne $actual) { throw "Installer hash does not match update.json" }
+          if ($manifest.version -ne "${{ github.ref_name }}".TrimStart("v")) {
+            throw "Manifest version does not match the release tag"
+          }
+
+      - name: Publish GitHub release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "dist/Boolean-setup.exe#Boolean Windows installer" `
+            "dist/update.json#Boolean automatic update manifest" `
+            --repo "${{ github.repository }}" `
+            --title "Boolean ${{ github.ref_name }}" `
+            --generate-notes
+
