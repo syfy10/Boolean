@@ -15,7 +15,7 @@
     --green:#3fb950; --label:#666; --shadow:0 1px 2px rgba(0,0,0,.04);
     --ui:"Segoe UI",system-ui,sans-serif;
     --mono:"Segoe UI",system-ui,sans-serif;
-    --app-fs:15px; --chat-fs:14px; --msg-pad:8px 14px; --col-gap:10px;
+    --app-fs:15px; --chat-fs:14px; --msg-pad:6px 10px; --col-gap:7px;
     --fs-xxs:10.5px; --fs-xs:11.5px; --fs-sm:12.5px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:26px;
   }
   /* dark palette, shared by system-dark and explicit dark */
@@ -32,7 +32,7 @@
   body.win-sm{ --app-fs:14px; --chat-fs:14px; --fs-xxs:10px; --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:14px; --fs-xl:24px; }
   body.win-lg{ --app-fs:16px; --chat-fs:16px; --fs-xxs:11px; --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:16px; --fs-xl:28px; }
   body.fs-small{ --chat-fs:calc(var(--app-fs) - 2px); } body.fs-large{ --chat-fs:calc(var(--app-fs) + 2px); }
-  body.compact{ --msg-pad:5px 11px; --col-gap:7px; }
+  body.compact{ --msg-pad:4px 8px; --col-gap:5px; }
   *{ box-sizing:border-box; margin:0; }
   /* flat, minimal scrollbars */
   *{ scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
@@ -397,21 +397,22 @@
   .empty{ margin-top:20vh; text-align:center; color:var(--dim); }
   .empty h1{ font-size:26px; font-weight:600; color:var(--text); margin-bottom:8px; }
 
-  .msg-user{ align-self:flex-end; max-width:80%; background:var(--bubble); padding:var(--msg-pad);
-    border-radius:18px; white-space:pre-wrap; word-break:break-word; position:relative; }
-  .msg-user img{ max-width:220px; border-radius:10px; margin-top:8px; display:block; }
-  .msg-ai{ max-width:100%; word-break:break-word; position:relative; line-height:1.42; }
-  .msg-ai.cloud{ align-self:flex-start; max-width:80%; padding:var(--msg-pad);
-    border-radius:18px; background:var(--cloud-bubble); }
-  .msg-ai p{ margin:0 0 6px; }
+  .msg-user{ align-self:flex-end; max-width:86%; background:var(--bubble); padding:var(--msg-pad);
+    border-radius:14px; white-space:pre-wrap; word-break:break-word; position:relative; line-height:1.34; }
+  .msg-user img{ max-width:220px; border-radius:8px; margin-top:5px; display:block; }
+  .msg-ai{ max-width:100%; word-break:break-word; position:relative; line-height:1.36; }
+  .msg-ai.cloud{ align-self:flex-start; max-width:86%; padding:var(--msg-pad);
+    border-radius:14px; background:var(--cloud-bubble); }
+  .msg-ai p{ margin:0 0 4px; }
   .msg-ai p:last-child{ margin-bottom:0; }
-  .msg-foot{ display:flex; align-items:center; gap:6px; min-height:18px; margin-top:3px; color:var(--dim); font:10.5px var(--mono); min-width:0; flex-wrap:wrap; }
+  .msg-foot{ display:flex; align-items:center; gap:4px; min-height:18px; margin-top:1px; color:var(--dim); font:10px var(--mono); min-width:0; flex-wrap:nowrap; overflow:hidden; }
   .usage-inline{ color:var(--dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .foot-spacer{ flex:1 1 8px; min-width:4px; }
-  .msg-foot .actions{ margin:0; display:flex; gap:2px; flex:0 0 auto; }
-  .msg-foot .actbtn{ width:20px; height:20px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:var(--text); font:12px/1 var(--ui); }
-  .note-save{ position:absolute; right:4px; top:4px; width:24px; height:24px; border:0; border-radius:50%;
-    background:var(--bg); color:var(--dim); cursor:pointer; opacity:0; transition:opacity .12s, background .12s, color .12s; box-shadow:var(--shadow); }
+  .foot-spacer{ flex:1 1 auto; min-width:2px; }
+  .msg-foot .actions{ margin:0; display:flex; gap:0; flex:0 0 auto; flex-wrap:nowrap; }
+  .msg-foot .actbtn{ width:18px; height:18px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:var(--text); font:11px/1 var(--ui); }
+  .note-save{ width:18px; height:18px; padding:0; border:0; border-radius:50%; display:grid; place-items:center;
+    background:transparent; color:var(--dim); cursor:pointer; opacity:.55; transition:opacity .12s, background .12s, color .12s; box-shadow:none; font:11px/1 var(--ui); flex:0 0 auto; }
+  .msg-user>.note-save{ position:absolute; right:2px; top:2px; opacity:0; }
   .msg-user:hover .note-save,.msg-ai:hover .note-save,.note-save:focus{ opacity:1; }
   .note-save:hover{ background:var(--hover); color:var(--green); }
   .chat-menu{ position:fixed; z-index:1000; display:none; min-width:0; padding:4px; border:1px solid var(--border);
@@ -1160,7 +1161,7 @@
     d.innerHTML='<button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+timeHtml(at);
     col.appendChild(d); updateCopyButton(); scrollDown(); return d;
   }
-  function makeAI(text, at, provider){ const d=document.createElement("div"); const cloud=provider&&provider!=="local"; d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d._raw=text||""; d.innerHTML='<button class="note-save" title="Save to notepad">↘</button><div class="body">'+md(text||"")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'<span class="usage-inline"></span><span class="foot-spacer"></span></div>'; return d; }
+  function makeAI(text, at, provider){ const d=document.createElement("div"); const cloud=provider&&provider!=="local"; d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d._raw=text||""; d.innerHTML='<div class="body">'+md(text||"")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'<span class="usage-inline"></span><span class="foot-spacer"></span><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button></div>'; return d; }
   function makeTool(entry){
     const d=document.createElement("div"); d.className="toolcard"+((state.ui&&state.ui.collapseLogs===false)?" open":"");
     const open=d.classList.contains("open");
@@ -2193,7 +2194,7 @@
     startRun(threadId, {mode:"chat", display, msg, images});
   }
 
-  function removeEndActions(){ col.querySelector(".actions")?.remove(); }
+  function removeEndActions(){ col.querySelector(".end-actions")?.remove(); }
   function removeLastTurnDom(){
     const users=[...col.querySelectorAll(".msg-user")];
     const last=users[users.length-1]; if(!last) return;
@@ -2202,8 +2203,8 @@
   function renderEndActions(){
     removeEndActions();
     if(busy() || !col.querySelector(".msg-user")) return;
-    const bar=document.createElement("div"); bar.className="actions";
-    bar.innerHTML='<button class="actbtn" data-a="retry" title="Retry">↻</button><button class="actbtn" data-a="continue" title="Continue">→</button>';
+    const bar=document.createElement("div"); bar.className="actions end-actions";
+    bar.innerHTML='<button class="actbtn" data-a="retry" title="Retry" aria-label="Retry response">&#8635;</button><button class="actbtn" data-a="continue" title="Continue" aria-label="Continue response">&#8594;</button>';
     bar.querySelector('[data-a="retry"]').onclick=retry;
     bar.querySelector('[data-a="continue"]').onclick=continueRun;
     const foot=[...col.querySelectorAll(".msg-ai .msg-foot")].pop();
