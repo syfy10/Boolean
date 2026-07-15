@@ -185,7 +185,10 @@ export async function listProviderModels(config) {
       .filter((m) => !installed.includes(m.file))
       .map((m) => ({ name: m.file, id: m.id, size: m.size, note: m.note, installed: false }));
     return [
-      ...installed.map((f) => ({ name: f, installed: true, vision: !!engine.autoMatchMmproj(f, mmprojs) })),
+      ...installed.map((f) => {
+        const health = engine.modelFileHealth(f);
+        return { name: f, installed: true, healthy: health.ok, healthReason: health.ok ? "" : health.reason, vision: !!engine.autoMatchMmproj(f, mmprojs) };
+      }),
       ...catalog
     ];
   }

@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import * as sea from "node:sea";
 import { SAZ_DIR, saveConfig } from "./config.js";
 
@@ -129,17 +130,25 @@ export async function downloadFile(url, dest, onProgress) {
   const tmp = dest + ".part";
   const out = fs.createWriteStream(tmp);
   let got = 0, lastPct = -1;
-  for await (const chunk of res.body) {
-    out.write(chunk);
-    got += chunk.length;
-    const pct = total ? Math.floor((got / total) * 100) : 0;
-    if (pct !== lastPct) {
-      lastPct = pct;
-      onProgress?.(pct, Math.round(got / 1048576));
+  try {
+    if (!res.body) throw new Error("download failed: empty response");
+    for await (const chunk of res.body) {
+      if (!out.write(chunk)) await once(out, "drain");
+      got += chunk.length;
+      const pct = total ? Math.floor((got / total) * 100) : 0;
+      if (pct !== lastPct) {
+        lastPct = pct;
+        onProgress?.(pct, Math.round(got / 1048576));
+      }
     }
+    await new Promise((resolve, reject) => out.end((err) => err ? reject(err) : resolve()));
+    if (total && got !== total) throw new Error(`download incomplete: received ${got} of ${total} bytes`);
+    fs.renameSync(tmp, dest);
+  } catch (err) {
+    out.destroy();
+    try { fs.rmSync(tmp, { force: true }); } catch { /* best effort cleanup */ }
+    throw err;
   }
-  await new Promise((r) => out.end(r));
-  fs.renameSync(tmp, dest);
 }
 
 const modelDownloads = new Map();
@@ -303,17 +312,76 @@ export async function importModel(sourcePath, onProgress) {
   return name;
 }
 
-export async function downloadModel(idOrFile, onProgress) {
-  const entry = CATALOG.find((m) => m.id === idOrFile || m.file === idOrFile);
+function catalogEntry(idOrFile) {
+  return CATALOG.find((m) => m.id === idOrFile || m.file === idOrFile);
+}
+
+function expectedBytes(entry) {
+  const match = String(entry?.size || "").match(/([\d.]+)\s*GB/i);
+  return match ? Number(match[1]) * 1_000_000_000 : 0;
+}
+
+export function modelFileHealth(idOrFile) {
+  const entry = catalogEntry(idOrFile);
+  const requested = String(idOrFile || "");
+  const file = entry?.file || requested;
+  if (!file || path.basename(file) !== file || !file.toLowerCase().endsWith(".gguf")) {
+    return { ok: false, file, reason: "invalid model filename" };
+  }
+  const modelPath = path.join(MODELS_DIR, file);
+  if (!fs.existsSync(modelPath)) return { ok: false, file, reason: "model file is missing" };
+  try {
+    const stat = fs.statSync(modelPath);
+    const expected = expectedBytes(entry);
+    if (stat.size < 1024 * 1024 || (expected && stat.size < expected * 0.72)) {
+      return { ok: false, file, reason: "model file is incomplete", size: stat.size };
+    }
+    const fd = fs.openSync(modelPath, "r");
+    const magic = Buffer.alloc(4);
+    fs.readSync(fd, magic, 0, 4, 0);
+    fs.closeSync(fd);
+    if (magic.toString("ascii") !== "GGUF") return { ok: false, file, reason: "model file is not a valid GGUF" };
+    return { ok: true, file, size: stat.size };
+  } catch (err) {
+    return { ok: false, file, reason: err.message || "model file cannot be read" };
+  }
+}
+
+export function removeLocalModel(idOrFile) {
+  const entry = catalogEntry(idOrFile);
+  const requested = String(idOrFile || "");
+  const file = entry?.file || requested;
+  if (!file || path.basename(file) !== file || !file.toLowerCase().endsWith(".gguf") || /mmproj/i.test(file)) {
+    throw new Error("invalid local model filename");
+  }
+  if (runningModel === file) stopEngine();
+  const removed = [];
+  for (const name of [file, ...(entry?.extraFiles || []).map((x) => x.file)]) {
+    const target = path.join(MODELS_DIR, name);
+    const partial = target + ".part";
+    if (fs.existsSync(target)) { fs.rmSync(target, { force: true }); removed.push(name); }
+    if (fs.existsSync(partial)) fs.rmSync(partial, { force: true });
+  }
+  return { file, removed };
+}
+
+export async function downloadModel(idOrFile, onProgress, options = {}) {
+  const entry = catalogEntry(idOrFile);
   if (!entry) throw new Error(`unknown model '${idOrFile}' — known: ${CATALOG.map((m) => m.id).join(", ")}`);
   if (modelDownloads.has(entry.file)) return modelDownloads.get(entry.file);
   const job = (async () => {
   fs.mkdirSync(MODELS_DIR, { recursive: true });
   const modelPath = path.join(MODELS_DIR, entry.file);
+  if (options.force) removeLocalModel(entry.file);
   if (!fs.existsSync(modelPath)) await downloadFile(entry.url, modelPath, onProgress);
   for (const extra of entry.extraFiles || []) {
     const extraPath = path.join(MODELS_DIR, extra.file);
     if (!fs.existsSync(extraPath)) await downloadFile(extra.url, extraPath, onProgress);
+  }
+  const health = modelFileHealth(entry.file);
+  if (!health.ok) {
+    removeLocalModel(entry.file);
+    throw new Error(`downloaded model failed validation: ${health.reason}`);
   }
   return entry.file;
   })();
@@ -342,8 +410,16 @@ async function healthy(port) {
 /**
  * Make sure llama-server is running with the configured model.
  * Returns { base, model } for the OpenAI-compatible client.
+ * Serialized: a boot-time warm start and a first chat must not both spawn.
  */
+let ensuring = null;
 export async function ensureRunning(config, onStatus = () => {}) {
+  while (ensuring) { try { await ensuring; } catch { /* previous caller reports its own error */ } }
+  ensuring = ensureRunningNow(config, onStatus);
+  try { return await ensuring; } finally { ensuring = null; }
+}
+
+async function ensureRunningNow(config, onStatus = () => {}) {
   const { port, ctx } = config.local;
   let model = config.local.model;
 
@@ -358,6 +434,17 @@ export async function ensureRunning(config, onStatus = () => {}) {
   const modelPath = path.join(MODELS_DIR, model);
   if (!fs.existsSync(modelPath)) {
     throw new Error(`model file missing: ${modelPath}`);
+  }
+
+  const catalogEntry = CATALOG.find((m) => m.file === model);
+  if (catalogEntry) {
+    const health = modelFileHealth(model);
+    if (!health.ok) {
+      onStatus(`${health.reason}; downloading a clean copy of ${model}...`);
+      await downloadModel(catalogEntry.id, (pct, mb) => {
+        onStatus(`repairing ${model}: ${pct}% (${mb} MB)`);
+      }, { force: true });
+    }
   }
 
   const mmproj = resolveMmproj(config, model);
@@ -378,8 +465,6 @@ export async function ensureRunning(config, onStatus = () => {}) {
     child.kill();
     child = null;
   }
-
-  const catalogEntry = CATALOG.find((m) => m.file === model);
 
   const start = (ctxSize, label = "") => {
     onStatus(`loading ${model} into memory${label} (first response takes a moment)...`);

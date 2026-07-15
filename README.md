@@ -61,7 +61,9 @@ Run **`dist\Boolean-setup.exe`** on any Windows 10/11 PC. It:
 Official Windows installers are published on the GitHub Releases page. Boolean
 0.9.1 and later check that release feed in the background. When a newer
 manifest is available, Boolean downloads the installer, verifies its SHA-256
-hash, and applies it after the app closes. Chats, settings, models, notepad
+hash, and applies it after the app closes. A successful update reopens Boolean;
+a failed update remains pending and is retried on the next close, with an install
+log saved under `%LOCALAPPDATA%\saz3\updates`. Chats, settings, models, notepad
 data, browser data, and learned preferences remain in the user's profile and
 are not stored inside the installation folder.
 
@@ -155,7 +157,7 @@ same internal version in `package.json`, `package-lock.json`, `src/config.js`,
 `build/installer.iss`, then push a matching tag:
 
 ```powershell
-$version = "0.9.5"
+$version = "0.9.6"
 git tag "v$version"
 git push origin "v$version"
 ```

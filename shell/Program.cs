@@ -39,7 +39,7 @@ sealed class TabItem
 
 sealed class MainForm : Form
 {
-    const string AppVersion = "0.9.5";
+    const string AppVersion = "0.9.6";
     const string UpdateManifestUrl = "https://github.com/syfy10/Boolean/releases/latest/download/update.json";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -320,6 +320,28 @@ sealed class MainForm : Form
         try
         {
             Directory.CreateDirectory(_updateDir);
+            var pendingFile = Path.Combine(_updateDir, "pending-update.json");
+            if (File.Exists(pendingFile))
+            {
+                try
+                {
+                    var pending = JsonSerializer.Deserialize<UpdateManifest>(await File.ReadAllTextAsync(pendingFile),
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (pending is not null && IsNewerVersion(pending.Version))
+                    {
+                        var pendingVersion = string.Concat(pending.Version.Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
+                        var pendingPath = Path.Combine(_updateDir, $"Boolean-setup-{pendingVersion}.exe");
+                        var pendingHash = pending.Sha256.Trim().ToUpperInvariant();
+                        if (File.Exists(pendingPath) && pendingHash.Length == 64 && await HasExpectedHashAsync(pendingPath, pendingHash))
+                        {
+                            SetPendingUpdate(pendingPath, pending.Version);
+                            return;
+                        }
+                    }
+                    File.Delete(pendingFile);
+                }
+                catch { }
+            }
             var checkedFile = Path.Combine(_updateDir, "last-check.txt");
             if (File.Exists(checkedFile) && DateTime.UtcNow - File.GetLastWriteTimeUtc(checkedFile) < TimeSpan.FromHours(6)) return;
 
@@ -357,19 +379,25 @@ sealed class MainForm : Form
                 File.Move(partialPath, readyPath, true);
             }
 
-            _updateReadyPath = readyPath;
-            if (!IsDisposed)
-            {
-                BeginInvoke(new Action(() => PostToChat(new
-                {
-                    type = "updateReady",
-                    version = manifest.Version
-                })));
-            }
+            await File.WriteAllTextAsync(pendingFile, JsonSerializer.Serialize(manifest), Encoding.UTF8);
+            SetPendingUpdate(readyPath, manifest.Version);
         }
         catch
         {
             // Updates are best-effort and must never delay or block app startup.
+        }
+    }
+
+    void SetPendingUpdate(string path, string version)
+    {
+        _updateReadyPath = path;
+        if (!IsDisposed)
+        {
+            BeginInvoke(new Action(() => PostToChat(new
+            {
+                type = "updateReady",
+                version
+            })));
         }
     }
 
@@ -408,10 +436,43 @@ sealed class MainForm : Form
         try
         {
             BackupUserDataForUpdate();
-            var script =
-                "Start-Sleep -Milliseconds 1500; " +
-                "Start-Process -FilePath $args[0] -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CLOSEAPPLICATIONS','/SP-') -Wait; " +
-                "Remove-Item -LiteralPath $args[0] -Force -ErrorAction SilentlyContinue";
+            Directory.CreateDirectory(_updateDir);
+            var helperPath = Path.Combine(_updateDir, "apply-update.ps1");
+            var logPath = Path.Combine(_updateDir, "update-install.log");
+            var pendingFile = Path.Combine(_updateDir, "pending-update.json");
+            var appExe = Path.Combine(AppContext.BaseDirectory, "saz.exe");
+            var script = """
+param(
+  [Parameter(Mandatory=$true)][string]$Installer,
+  [Parameter(Mandatory=$true)][string]$AppExe,
+  [Parameter(Mandatory=$true)][int]$ParentPid,
+  [Parameter(Mandatory=$true)][string]$LogPath,
+  [Parameter(Mandatory=$true)][string]$PendingFile
+)
+$ErrorActionPreference = 'Stop'
+try {
+  for ($i = 0; $i -lt 120; $i++) {
+    if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 250
+  }
+  Start-Sleep -Milliseconds 1200
+  $quotedLog = '"' + $LogPath.Replace('"','""') + '"'
+  $installArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /SP- /LOG=$quotedLog"
+  $result = Start-Process -FilePath $Installer -ArgumentList $installArgs -Wait -PassThru
+  if ($result.ExitCode -ne 0) {
+    Add-Content -LiteralPath $LogPath -Value ("Updater: installer exited with code " + $result.ExitCode)
+    exit $result.ExitCode
+  }
+  Remove-Item -LiteralPath $PendingFile -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $Installer -Force -ErrorAction SilentlyContinue
+  Start-Sleep -Milliseconds 700
+  if (Test-Path -LiteralPath $AppExe) { Start-Process -FilePath $AppExe }
+} catch {
+  Add-Content -LiteralPath $LogPath -Value ("Updater failed: " + $_.Exception.Message)
+  exit 1
+}
+""";
+            File.WriteAllText(helperPath, script, new UTF8Encoding(false));
             var psi = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
@@ -424,9 +485,18 @@ sealed class MainForm : Form
             psi.ArgumentList.Add("Bypass");
             psi.ArgumentList.Add("-WindowStyle");
             psi.ArgumentList.Add("Hidden");
-            psi.ArgumentList.Add("-Command");
-            psi.ArgumentList.Add(script);
+            psi.ArgumentList.Add("-File");
+            psi.ArgumentList.Add(helperPath);
+            psi.ArgumentList.Add("-Installer");
             psi.ArgumentList.Add(_updateReadyPath);
+            psi.ArgumentList.Add("-AppExe");
+            psi.ArgumentList.Add(appExe);
+            psi.ArgumentList.Add("-ParentPid");
+            psi.ArgumentList.Add(Environment.ProcessId.ToString());
+            psi.ArgumentList.Add("-LogPath");
+            psi.ArgumentList.Add(logPath);
+            psi.ArgumentList.Add("-PendingFile");
+            psi.ArgumentList.Add(pendingFile);
             Process.Start(psi);
         }
         catch { }

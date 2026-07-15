@@ -540,9 +540,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (!name || name.length > 80 || /[<>:"/\\|?*\x00-\x1f]/.test(name) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(name)) {
           return json({ error: "Use a valid Windows folder name (1-80 characters)." }, 400);
         }
-        if (!fs.existsSync(parentDir) || !fs.statSync(parentDir).isDirectory()) {
-          return json({ error: "Choose an existing folder location." }, 400);
-        }
+        if (!fs.existsSync(parentDir) && parentDir === path.resolve(config.projectsDir)) fs.mkdirSync(parentDir, { recursive: true });
+        if (!fs.existsSync(parentDir) || !fs.statSync(parentDir).isDirectory()) return json({ error: "Choose an existing folder location." }, 400);
         const projectDir = path.resolve(parentDir, name);
         const relativeProject = path.relative(parentDir, projectDir);
         if (!relativeProject || relativeProject.startsWith("..") || path.isAbsolute(relativeProject)) {
@@ -643,15 +642,35 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
         const send = (o) => res.write(JSON.stringify(o) + "\n");
         try {
+          if (body.force) engine.stopEngine();
           let last = 0;
           const file = await engine.downloadModel(body.id, (pct, mb) => {
             const now = Date.now();
             if (now - last > 400 || pct === 100) { last = now; send({ type: "progress", pct, mb }); }
-          });
+          }, { force: body.force === true });
           if (config.provider === "local" && !config.local.model) { config.local.model = file; saveConfig(config); }
           send({ type: "done", file });
         } catch (err) { send({ type: "error", text: err.message }); }
         res.end();
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/models/remove") {
+        const body = await readBody(req);
+        try {
+          const result = engine.removeLocalModel(body.file || body.id);
+          if (config.local.model === result.file) config.local.model = engine.listLocalModels()[0] || "";
+          if (config.local.mmprojMap) delete config.local.mmprojMap[result.file];
+          if (config.local.visionTestMap) {
+            for (const key of Object.keys(config.local.visionTestMap)) {
+              if (key.startsWith(result.file + "|")) delete config.local.visionTestMap[key];
+            }
+          }
+          saveConfig(config);
+          json({ ok: true, file: result.file, removed: result.removed, nextModel: config.local.model });
+        } catch (err) {
+          json({ error: err.message || "could not remove model" }, 400);
+        }
         return;
       }
 
@@ -782,8 +801,12 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (req.method === "POST" && p === "/api/pick-folder") {
         const psScript = "Add-Type -AssemblyName System.Windows.Forms; " +
           "$d = New-Object System.Windows.Forms.FolderBrowserDialog; " +
+          "$initial = $env:BOOLEAN_PICK_FOLDER; if ($initial -and (Test-Path -LiteralPath $initial)) { $d.SelectedPath = $initial }; " +
           "if ($d.ShowDialog() -eq 'OK') { [Console]::Out.Write($d.SelectedPath) }";
-        const ps = spawn("powershell", ["-NoProfile", "-STA", "-Command", psScript], { windowsHide: true });
+        const ps = spawn("powershell", ["-NoProfile", "-STA", "-Command", psScript], {
+          windowsHide: true,
+          env: { ...process.env, BOOLEAN_PICK_FOLDER: config.projectsDir }
+        });
         let out = "";
         ps.stdout.on("data", (d) => (out += d.toString()));
         ps.on("close", () => {
@@ -844,7 +867,12 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (req.method === "POST" && p === "/api/stop") {
         const body = await readBody(req);
         const t = threads.get(body.threadId);
-        if (t?.abort) t.abort.abort();
+        if (t?.abort) {
+          // interrupt-for-edit: the question returns to the composer, so the
+          // stored turn is removed once the aborted run finishes unwinding
+          if (body.rollback) t.rollbackToUser = true;
+          t.abort.abort();
+        }
         json({ ok: true });
         return;
       }
@@ -982,6 +1010,19 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       res.end(JSON.stringify({ error: err.message }));
     }
 
+    // drop the interrupted user turn (and everything after it) so an
+    // interrupt-for-edit does not leave a duplicate question in the thread
+    function rollbackLastUserTurn(t) {
+      for (let i = t.messages.length - 1; i >= 0; i--) {
+        if (t.messages[i].role === "user") { t.messages.length = i; break; }
+      }
+      for (let i = t.log.length - 1; i >= 0; i--) {
+        if (t.log[i].t === "user") { t.log.length = i; break; }
+      }
+      t.updatedAt = Date.now();
+      persist();
+    }
+
     // ── shared streaming runner for chat / retry / continue ──
     async function streamRun(t, res) {
         res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
@@ -1115,11 +1156,17 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           const msg = /image input is not supported|mmproj/i.test(err.message || "")
             ? engine.TEXT_ONLY_MSG + " (Settings → Models → Vision projector)"
             : err.message;
-          t.log.push({ t: "error", text: msg });
-          send({ type: "error", text: msg });
+          const selectedModel = config.provider === "local" ? config.local.model : "";
+          const recovery = selectedModel && /engine exited while loading|model file (?:is |failed|missing)|downloaded model failed validation/i.test(msg || "")
+            ? { model: selectedModel, redownload: engine.CATALOG.some((m) => m.file === selectedModel), remove: true }
+            : null;
+          const errorEntry = { t: "error", text: msg, ...(recovery ? { modelRecovery: recovery } : {}) };
+          t.log.push(errorEntry);
+          send({ type: "error", text: msg, ...(recovery ? { modelRecovery: recovery } : {}) });
         } finally {
           activeChats--;
           t.abort = null;
+          if (t.rollbackToUser) { t.rollbackToUser = false; if (abort.signal.aborted) rollbackLastUserTurn(t); }
           t.updatedAt = Date.now();
           lastPing = Date.now();
         }
@@ -1206,6 +1253,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       } finally {
         activeChats = Math.max(0, activeChats - 1);
         t.abort = null;
+        if (t.rollbackToUser) { t.rollbackToUser = false; if (abort.signal.aborted) rollbackLastUserTurn(t); }
         res.end();
       }
     }

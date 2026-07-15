@@ -2,6 +2,7 @@
   "main": "dist/bundle.cjs",
   "output": "dist/sea-prep.blob",
   "disableExperimentalSEAWarning": true,
+  "useCodeCache": true,
   "assets": {
     "ui.html": "src/ui.html",
     "icon-32.png": "assets/saz-32.png",

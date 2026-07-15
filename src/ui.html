@@ -11,7 +11,7 @@
 <style>
   :root{
     --bg:#ffffff; --sidebar:#ffffff; --text:#1a1a1a; --dim:#8a8a8a; --border:#f1f1ef;
-    --hover:#f3f3f1; --bubble:#f6f6f3; --accent:#171717; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
+    --hover:#f3f3f1; --bubble:#f6f6f3; --user-bubble:#171717; --user-bubble-text:#ffffff; --ai-bubble:#f7f7f4; --accent:#171717; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
     --green:#3fb950; --label:#666; --shadow:0 1px 2px rgba(0,0,0,.04);
     --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
     --mono:"Segoe UI",system-ui,sans-serif;
@@ -21,11 +21,11 @@
   /* dark palette, shared by system-dark and explicit dark */
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
       --bg:#1c1c1c; --sidebar:#1c1c1c; --text:#ececec; --dim:#8f8f8f; --border:#252525;
-      --hover:#262626; --bubble:#2a2a2a; --accent:#ececec; --accent-text:#171717; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#222; --label:#aaa;
+      --hover:#262626; --bubble:#2a2a2a; --user-bubble:#ececec; --user-bubble-text:#171717; --ai-bubble:#272726; --accent:#ececec; --accent-text:#171717; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#222; --label:#aaa;
       --shadow:0 1px 2px rgba(0,0,0,.25); } }
   :root[data-theme="dark"]{
     --bg:#1c1c1c; --sidebar:#1c1c1c; --text:#ececec; --dim:#8f8f8f; --border:#252525;
-    --hover:#262626; --bubble:#2a2a2a; --accent:#ececec; --accent-text:#171717; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#222; --label:#aaa;
+    --hover:#262626; --bubble:#2a2a2a; --user-bubble:#ececec; --user-bubble-text:#171717; --ai-bubble:#272726; --accent:#ececec; --accent-text:#171717; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#222; --label:#aaa;
     --shadow:0 1px 2px rgba(0,0,0,.25);
   }
   body.win-xs{ --app-fs:13px; --chat-fs:13px; --fs-xxs:9.5px; --fs-xs:10.5px; --fs-sm:11.5px; --fs-md:12.5px; --fs-lg:13px; --fs-xl:22px; }
@@ -368,6 +368,8 @@
   body.browser-on main{ min-width:270px; flex-shrink:0; }
   body.browser-on.notes-on main{ min-width:260px; }
   .topbar{ height:44px; flex-shrink:0; display:flex; align-items:center; gap:5px; padding:0 10px; background:var(--bg); }
+  #appBack{ display:none; }
+  #appBack.available{ display:grid; }
   body.collapsed main .topbar{ padding-left:54px; }
   .topbar .spacer{ flex:1; }
   .topbar .netseg{ height:22px; padding:2px; align-items:center; border-radius:999px; }
@@ -401,11 +403,16 @@
   .empty{ margin-top:20vh; text-align:center; color:var(--dim); }
   .empty h1{ font-size:26px; font-weight:600; color:var(--text); margin-bottom:8px; }
 
-  .msg-user,.msg-ai{ max-width:min(84%,620px); word-break:break-word; position:relative; line-height:1.38; }
-  .msg-user{ align-self:flex-end; }
-  .msg-ai{ align-self:flex-start; }
-  .msg-user .body,.msg-ai .body{ position:relative; padding:var(--msg-pad); border-radius:16px; background:var(--bubble); }
-  .msg-ai.cloud .body{ background:var(--cloud-bubble); }
+  .msg-user,.msg-ai{ width:fit-content; word-break:break-word; position:relative; line-height:1.38; }
+  .msg-user{ align-self:flex-end; max-width:min(72%,520px); }
+  .msg-ai{ align-self:flex-start; max-width:min(78%,580px); }
+  .msg-user .body,.msg-ai .body{ --msg-fill:var(--ai-bubble); position:relative; padding:var(--msg-pad); background:var(--msg-fill); box-shadow:0 1px 2px rgba(0,0,0,.035); }
+  .msg-user .body{ --msg-fill:var(--user-bubble); color:var(--user-bubble-text); border-radius:16px 16px 4px 16px; }
+  .msg-ai .body{ border-radius:16px 16px 16px 4px; }
+  .msg-ai.cloud .body{ --msg-fill:var(--cloud-bubble); }
+  .msg-user .body:after,.msg-ai .body:after{ content:""; position:absolute; bottom:0; width:9px; height:11px; background:var(--msg-fill); }
+  .msg-user .body:after{ right:-5px; clip-path:polygon(0 0,100% 100%,0 78%); }
+  .msg-ai .body:after{ left:-5px; clip-path:polygon(100% 0,0 100%,100% 78%); }
   .msg-user .body{ white-space:pre-wrap; }
   .msg-user img{ max-width:220px; border-radius:8px; margin-top:5px; display:block; }
   .msg-ai p{ margin:0 0 5px; }
@@ -426,7 +433,8 @@
   .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); }
   .note-save{ width:18px; height:18px; padding:0; border:0; border-radius:50%; display:grid; place-items:center;
     background:transparent; color:var(--dim); cursor:pointer; opacity:.55; transition:opacity .12s, background .12s, color .12s; box-shadow:none; font:11px/1 var(--ui); flex:0 0 auto; }
-  .msg-user .body>.note-save{ position:absolute; right:2px; top:2px; opacity:0; }
+  .msg-user .body>.note-save{ position:absolute; right:2px; top:2px; opacity:0; color:var(--user-bubble-text); }
+  .msg-user .body>.note-save:hover{ background:color-mix(in srgb, var(--user-bubble-text) 18%, transparent); color:var(--user-bubble-text); }
   .msg-ai .body>.note-save{ position:absolute; right:2px; top:2px; opacity:0; z-index:1; }
   .msg-ai.cloud .body>.note-save{ right:3px; top:3px; }
   .msg-user:hover .note-save,.msg-ai:hover .note-save,.note-save:focus{ opacity:1; }
@@ -472,31 +480,54 @@
   .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:12px; font-size:13.5px; }
 
   .composer-wrap{ padding:6px 20px 20px; min-width:0; }
-  .composer{ width:min(760px,100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:24px;
-    background:var(--bg); box-shadow:var(--shadow); padding:8px 10px; overflow:visible; }
+  .composer{ width:min(760px,100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:28px;
+    background:var(--bg); box-shadow:0 2px 10px rgba(0,0,0,.05); padding:8px 10px; overflow:visible; }
   .attachments{ display:flex; flex-wrap:wrap; gap:8px; padding:2px 4px 8px; }
   .attachments:empty{ display:none; }
   .queued{ display:flex; flex-direction:column; gap:5px; padding:2px 4px 8px; }
   .queued:empty{ display:none; }
   .qchip{ display:flex; align-items:center; gap:8px; background:var(--bubble); border-radius:10px; padding:6px 10px; font-size:12.5px; color:var(--text); }
   .qchip .qlabel{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* inline queued-question editor — replaces the label right inside the chip */
+  .qchip .qedit-input{ flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--text);
+    font:inherit; padding:0; }
+  .qchip.editing{ background:var(--hover); box-shadow:inset 0 0 0 1px var(--border); }
+  .qchip.editing .qactions{ display:none; }
   .qchip .qtag{ color:var(--dim); font-size:11px; flex-shrink:0; }
-  .qchip .x{ cursor:pointer; color:var(--dim); font-size:14px; padding:0 2px; flex-shrink:0; }
-  .qchip .x:hover{ color:var(--text); }
+  .qactions{ display:flex; align-items:center; gap:1px; flex-shrink:0; }
+  .qaction{ width:22px; height:22px; border:0; border-radius:6px; background:transparent; color:var(--dim); cursor:pointer;
+    display:grid; place-items:center; font:13px/1 inherit; padding:0; }
+  .qaction:hover{ color:var(--text); background:var(--hover); }
+  .qaction:disabled{ opacity:.25; cursor:default; background:transparent; }
+  .queue-state{ display:flex; align-items:center; gap:8px; padding:1px 4px 2px; color:var(--dim); font-size:11px; }
+  .queue-state button{ border:0; background:transparent; color:var(--accent); padding:2px 4px; font:inherit; cursor:pointer; }
   .chip{ display:flex; align-items:center; gap:6px; background:var(--bubble); border-radius:9px; padding:4px 6px; font-size:12px; }
   .chip img{ width:34px; height:34px; object-fit:cover; border-radius:6px; }
   .chip .x{ cursor:pointer; color:var(--dim); font-size:14px; padding:0 2px; }
   .promptline{ position:relative; display:flex; align-items:flex-start; min-width:0; }
+  /* muted chat mark at the left of the input, like a quiet "ask AI" hint */
+  .promptline::before{ content:""; flex:0 0 auto; width:20px; height:20px; margin:9px 3px 0 7px;
+    background:var(--dim); opacity:.6;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 14a2.5 2.5 0 0 1-2.5 2.5H8L3 21V5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5z'/%3E%3Cpath d='M12 5.6l1.35 3.05L16.4 10l-3.05 1.35L12 14.4l-1.35-3.05L7.6 10l3.05-1.35z' fill='black' stroke='none'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 14a2.5 2.5 0 0 1-2.5 2.5H8L3 21V5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5z'/%3E%3Cpath d='M12 5.6l1.35 3.05L16.4 10l-3.05 1.35L12 14.4l-1.35-3.05L7.6 10l3.05-1.35z' fill='black' stroke='none'/%3E%3C/svg%3E") center/contain no-repeat; }
   .cmdprompt{ display:none; }
   .composer textarea{ width:100%; min-width:0; border:0; outline:0; resize:none; background:transparent; color:var(--text);
-    font:inherit; padding:8px 8px 4px 7px; max-height:180px; }
-  .composer .row{ display:flex; align-items:center; gap:5px; padding:0 2px 2px; min-width:0; flex-wrap:nowrap; }
-  .composer .row .anchor{ min-width:0; }
-  .composer .row .anchor:has(#modebtn), .composer .row .anchor:has(#modelbtn){ flex:0 1 auto; min-width:0; }
+    font:inherit; font-size:var(--fs-lg); padding:8px 8px 4px 7px; max-height:180px; }
+  .composer textarea::placeholder{ color:var(--dim); opacity:.6; }
+  /* quiet tool strip below the pill — attach, snip, approval mode, compare, model */
+  .composer-tools{ display:flex; align-items:center; gap:5px; width:min(760px,100%); min-width:0;
+    margin:5px auto 0; padding:0 12px; flex-wrap:nowrap; }
+  .composer-tools .anchor{ min-width:0; }
+  .composer-tools .anchor:has(#modebtn), .composer-tools .anchor:has(#modelbtn){ flex:0 1 auto; min-width:0; }
+  /* pencil + send live inside the pill, hugging the input's last line */
+  .promptline #interruptEdit, .promptline #send{ align-self:flex-end; margin-bottom:2px; }
+  .promptline #interruptEdit{ margin-right:3px; }
   .iconbtn{ width:25px; height:25px; flex:0 0 auto; border-radius:7px; border:0; background:transparent;
     color:var(--text); font-size:15px; font-weight:500; cursor:pointer; display:grid; place-items:center; position:relative; line-height:1; }
   .iconbtn:hover{ background:var(--hover); }
-  .composer .iconbtn .snip-icon{ width:12px; height:12px; color:#0f9b8e; }
+  #interruptEdit{ display:none; color:var(--dim); }
+  #interruptEdit.visible{ display:grid; }
+  .composer-tools .iconbtn .snip-icon{ width:12px; height:12px; color:#0f9b8e; }
   .iconbtn:hover .snip-icon{ color:#087f73; }
   .spacer{ flex:1; }
   .modelbtn{ display:flex; align-items:center; justify-content:center; gap:4px; border:0; background:transparent;
@@ -548,12 +579,13 @@
   .temp-toast.on{ opacity:1; transform:translateX(-50%) translateY(0); }
   .stx{ }
   .status .meta{ color:var(--dim); }
-  #send{ width:32px; height:32px; flex:0 0 auto; margin-left:0; border:0; border-radius:50%; background:var(--accent); color:var(--accent-text);
-    font-size:18px; font-weight:700; cursor:pointer; display:grid; place-items:center; line-height:1; padding-bottom:2px; }
-  #send:hover{ filter:brightness(.94); }
+  #send{ width:32px; height:32px; flex:0 0 auto; margin-left:0; border:1px solid var(--border); border-radius:50%; background:var(--bubble); color:var(--dim);
+    font-size:14px; font-weight:600; cursor:pointer; display:grid; place-items:center; line-height:1; padding:0; }
+  #send svg{ width:16px; height:16px; display:block; }
+  #send:hover{ background:var(--hover); color:var(--text); }
   #send:disabled{ opacity:.35; cursor:default; }
-  #send.stop{ background:#f85149; color:#fff; padding-bottom:0; font-size:14px; }
-  #send.stop:hover{ color:#fff; }
+  #send.stop{ background:#f85149; border-color:transparent; color:#fff; padding-bottom:0; font-size:14px; }
+  #send.stop:hover{ background:#f85149; color:#fff; }
   .anchor{ position:relative; }
   .menu{ position:absolute; background:var(--bg); border:1px solid var(--border); border-radius:14px;
     box-shadow:var(--shadow); padding:6px; display:none; z-index:20; }
@@ -622,13 +654,24 @@
   .model-card.installed .model-dl{ color:var(--dim); }
   .model-card.selected{ background:rgba(34,197,94,.10); box-shadow:inset 2px 0 0 var(--green); }
   .model-card.selected .model-dl{ background:rgba(34,197,94,.16); color:var(--green); font-weight:600; }
+  .model-actions{ display:flex; align-items:center; gap:2px; flex:0 0 auto; }
+  .model-actions .model-dl{ min-width:0; }
+  .model-mini{ width:24px; height:24px; border:0; border-radius:50%; padding:0; display:grid; place-items:center; background:transparent; color:var(--dim); cursor:pointer; font:13px/1 var(--ui); }
+  .model-mini:hover{ background:var(--bg); color:var(--text); }
+  .model-mini.remove:hover{ color:#d33; }
+  .needs-repair{ color:#a54a3d; }
+  .model-bad{ display:block; color:#a54a3d; font-size:10px; margin-top:2px; }
+  .model-error{ align-self:flex-start; max-width:min(90%,680px); color:#b3483e; font-size:12.5px; line-height:1.4; padding:5px 7px; }
+  .model-error-actions{ display:flex; gap:6px; margin-top:6px; }
+  .model-error-actions button{ border:1px solid color-mix(in srgb,currentColor 24%,transparent); border-radius:999px; background:transparent; color:inherit; padding:4px 9px; font:11px var(--ui); cursor:pointer; }
+  .model-error-actions button:hover{ background:color-mix(in srgb,currentColor 8%,transparent); }
 
   /* narrow composer: stay on ONE row, collapse labels to icons instead of stacking */
   body.win-xs .composer-wrap, body.chat-xs .composer-wrap{ padding:6px 8px 12px; }
   body.win-xs .composer, body.chat-xs .composer{ border-radius:20px; padding:7px 8px; }
   body.win-xs .composer textarea, body.chat-xs .composer textarea{ padding:7px 7px 3px 1px; }
   body.win-xs .cmdprompt, body.chat-xs .cmdprompt{ padding-top:7px; }
-  body.win-xs .composer .row, body.chat-xs .composer .row{ gap:4px; }
+  body.win-xs .composer-tools, body.chat-xs .composer-tools{ gap:4px; padding:0 8px; }
   body.win-xs .iconbtn, body.chat-xs .iconbtn{ width:24px; height:24px; font-size:14px; }
   body.win-xs #send, body.chat-xs #send{ width:30px; height:30px; font-size:16px; }
   /* mode → icon only (keep the ⚡/🛡 dot, drop the label + chevron) */
@@ -640,6 +683,8 @@
   body.win-xs .modelbtn, body.chat-xs .modelbtn{ max-width:96px; min-width:0; padding-inline:5px; }
   body.win-xs .menu#modelmenu, body.chat-xs .menu#modelmenu,
   body.win-xs .menu#comparemenu, body.chat-xs .menu#comparemenu{ right:0; left:auto; width:min(280px,calc(100vw - 24px)); }
+  body.win-xs .msg-user, body.chat-xs .msg-user{ max-width:86%; }
+  body.win-xs .msg-ai, body.chat-xs .msg-ai{ max-width:90%; }
   /* ultra-narrow: shrink the model chip further */
   body.chat-xxs .modelbtn{ max-width:66px; }
   body.chat-xxs .menu#modemenu{ left:0; width:150px; }
@@ -741,7 +786,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.5</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.6</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -931,6 +976,9 @@
 
 <main>
   <div class="topbar">
+    <button class="icon-btn" id="appBack" title="Go back" aria-label="Go back">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/><path d="M9 12h10"/></svg>
+    </button>
     <div class="netseg" id="netmode">
       <button data-net="local" title="Use the built-in local model — nothing leaves your PC">Local</button>
       <button data-net="online" title="Use Boolean Cloud or a saved cloud API (OpenAI / GLM / Claude)">Cloud</button>
@@ -963,50 +1011,49 @@
       <div class="queued" id="queued"></div>
       <div class="ctxbar" id="ctxbar"></div>
       <div class="attachments" id="attachments"></div>
-      <div class="promptline"><textarea id="input" rows="1" placeholder="Ask anything..."></textarea></div>
-      <div class="row">
-        <div class="anchor">
-          <button class="iconbtn" id="plusbtn" title="Add" aria-label="Add">+</button>
-          <div class="menu" id="plusmenu">
-            <div class="item" id="attImage"><span>Attach image</span></div>
-            <div class="item" id="attFile"><span>Attach file</span></div>
-            <div class="item" id="attSnip"><span>Snip screen</span></div>
-            <div class="item" id="attFolder"><span>Open models folder</span></div>
-          </div>
+      <div class="promptline"><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
+    </div>
+    <div class="composer-tools">
+      <div class="anchor">
+        <button class="iconbtn" id="plusbtn" title="Add" aria-label="Add">+</button>
+        <div class="menu" id="plusmenu">
+          <div class="item" id="attImage"><span>Attach image</span></div>
+          <div class="item" id="attFile"><span>Attach file</span></div>
+          <div class="item" id="attSnip"><span>Snip screen</span></div>
+          <div class="item" id="attFolder"><span>Open models folder</span></div>
         </div>
-        <button class="iconbtn" id="snipbtn" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
-        <div class="anchor">
-          <button class="modebtn" id="modebtn" title="Approval mode">
-            <span class="mdot" id="mdot"></span><span id="modetxt">Ask each time</span> <span class="chev">▼</span>
-          </button>
-          <div class="menu" id="modemenu">
-            <div class="item" data-mode="ask"><span>Ask each time</span></div>
-            <div class="item" data-mode="full"><span>Full access</span></div>
-          </div>
+      </div>
+      <button class="iconbtn" id="snipbtn" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
+      <div class="anchor">
+        <button class="modebtn" id="modebtn" title="Approval mode">
+          <span class="mdot" id="mdot"></span><span id="modetxt">Ask me first</span> <span class="chev">▼</span>
+        </button>
+        <div class="menu" id="modemenu">
+          <div class="item" data-mode="ask"><span>Ask me first</span></div>
+          <div class="item" data-mode="full"><span>Auto-approve</span></div>
         </div>
-        <div class="spacer"></div>
-        <div class="anchor" id="compareAnchor">
-          <button class="comparebtn" id="comparebtn" title="Compare two cloud models">Compare</button>
-          <div class="menu" id="comparemenu">
-            <div class="compare-title"><span>Compare models</span><span class="beta-tag">Beta</span></div>
-            <label class="compare-menu-label" for="compareA">First answer</label>
-            <select class="compare-select" id="compareA"></select>
-            <label class="compare-menu-label" for="compareB">Second answer</label>
-            <select class="compare-select" id="compareB"></select>
-            <div class="compare-note" id="compareNote">Answer-only mode. Uses both models and about 2x tokens.</div>
-            <button class="compare-apply" id="compareApply">Use Compare</button>
-            <button class="compare-off" id="compareOff">Turn off Compare</button>
-          </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="anchor" id="compareAnchor">
+        <button class="comparebtn" id="comparebtn" title="Compare two cloud models">Compare</button>
+        <div class="menu" id="comparemenu">
+          <div class="compare-title"><span>Compare models</span><span class="beta-tag">Beta</span></div>
+          <label class="compare-menu-label" for="compareA">First answer</label>
+          <select class="compare-select" id="compareA"></select>
+          <label class="compare-menu-label" for="compareB">Second answer</label>
+          <select class="compare-select" id="compareB"></select>
+          <div class="compare-note" id="compareNote">Answer-only mode. Uses both models and about 2x tokens.</div>
+          <button class="compare-apply" id="compareApply">Use Compare</button>
+          <button class="compare-off" id="compareOff">Turn off Compare</button>
         </div>
-        <div class="anchor">
-          <button class="modelbtn" id="modelbtn"><span id="modelname">Select a model</span> <span class="chev">▼</span></button>
-          <div class="menu" id="modelmenu">
-            <input id="modelsearch" placeholder="Find model...">
-            <div class="model-help">Pick a model for the job: Fast for quick answers, Default for everyday use, Code for building, Vision for screenshots.</div>
-            <div id="modellist"></div>
-          </div>
+      </div>
+      <div class="anchor">
+        <button class="modelbtn" id="modelbtn"><span id="modelname">Select a model</span> <span class="chev">▼</span></button>
+        <div class="menu" id="modelmenu">
+          <input id="modelsearch" placeholder="Find model...">
+          <div class="model-help">Pick a model for the job: Fast for quick answers, Default for everyday use, Code for building, Vision for screenshots.</div>
+          <div id="modellist"></div>
         </div>
-        <button id="send" title="Send">↑</button>
       </div>
     </div>
   </div>
@@ -1162,12 +1209,12 @@
   }
   const appConfirm=(title,body,okText="OK",danger=false)=>appModal({title,body,okText,cancelText:"Cancel",danger});
   const appAlert=(title,body="",okText="OK")=>appModal({title,body,okText});
-  function appPrompt(title,body,placeholder=""){
+  function appPrompt(title,body,placeholder="",initialValue="",maxLength=80){
     const modal=$("appModal"), ok=$("appModalOk"), cancel=$("appModalCancel"), bodyEl=$("appModalBody");
     $("appModalTitle").textContent=title;
     bodyEl.textContent=body;
     const field=document.createElement("input");
-    field.className="app-modal-input"; field.placeholder=placeholder; field.maxLength=80;
+    field.className="app-modal-input"; field.placeholder=placeholder; field.maxLength=maxLength; field.value=initialValue;
     bodyEl.appendChild(field);
     ok.textContent="Continue"; ok.className="primary";
     cancel.textContent="Cancel"; cancel.style.display="";
@@ -1179,7 +1226,7 @@
       const submit=()=>{ const value=field.value.trim(); if(value) close(value); else field.focus(); };
       const onKey=(e)=>{ if(e.key==="Escape"){e.preventDefault();close(null);} if(e.key==="Enter"){e.preventDefault();submit();} };
       ok.onclick=submit; cancel.onclick=()=>close(null); modal.onclick=(e)=>{if(e.target===modal)close(null);};
-      document.addEventListener("keydown",onKey,true); setTimeout(()=>field.focus(),0);
+      document.addEventListener("keydown",onKey,true); setTimeout(()=>{ field.focus(); if(initialValue) field.select(); },0);
     });
   }
   function tempToast(text,ms=2600){
@@ -1226,14 +1273,72 @@
   scheduleResponsiveClasses();
   setTimeout(scheduleResponsiveClasses,250);
   let currentAbort=null, threadId=null;
+  let navRestoring=false;
+  let navHistory=[];
+  try{ navHistory=JSON.parse(sessionStorage.getItem("booleanNavHistory")||"[]"); if(!Array.isArray(navHistory))navHistory=[]; }catch{ navHistory=[]; }
   // an in-flight run belongs to a specific thread; its live view is rebuilt
   // whenever that thread is on screen, so switching chats never loses progress
-  let run=null; // { threadId, status, raw, liveAI, statusEl }
-  const queues={}; // threadId -> [{display,msg,images}] follow-ups sent when the run ends
+  let run=null; // { threadId, status, raw, liveAI, statusEl, request, holdQueue }
+  const queues={}; // threadId -> [{display,text,msg,images}] follow-ups sent when the run ends
+  const queuePaused={}; // threadId -> true when Stop/Interrupt should hold waiting work
   const THREAD_GROUP_LIMIT=5;
   const threadMore=JSON.parse(localStorage.getItem("sazThreadMore")||'{"Projects":false,"Chats":false}');
   const busy=()=>!!run;
   const viewingRun=()=>run && threadId===run.threadId;
+  function currentAppView(){
+    const settingsOpen=$("settingsPanel").classList.contains("open");
+    const section=settingsOpen?document.querySelector("#settingsPanel .sec.open")?.dataset.sec||"":"";
+    return {
+      kind:settingsOpen?"settings":"chat",
+      threadId:threadId||state.activeThreadId||null,
+      section,
+      sidebarOpen:!document.body.classList.contains("collapsed"),
+      notesOpen:document.body.classList.contains("notes-on"),
+      browserOpen:document.body.classList.contains("browser-on")
+    };
+  }
+  const appViewKey=(view)=>[
+    view?.kind||"chat",view?.threadId||"",view?.section||"",
+    view?.sidebarOpen?1:0,view?.notesOpen?1:0,view?.browserOpen?1:0
+  ].join("|");
+  function updateAppBack(){
+    const btn=$("appBack"); if(!btn)return;
+    navHistory=navHistory.slice(-24);
+    btn.classList.toggle("available",navHistory.length>0);
+    btn.disabled=!navHistory.length;
+    sessionStorage.setItem("booleanNavHistory",JSON.stringify(navHistory));
+  }
+  function discardCurrentHistory(){
+    while(navHistory.length&&appViewKey(navHistory[navHistory.length-1])===appViewKey(currentAppView())) navHistory.pop();
+    updateAppBack();
+  }
+  function rememberCurrentView(){
+    if(navRestoring)return;
+    const view=currentAppView();
+    if(!view.threadId&&view.kind==="chat")return;
+    if(appViewKey(navHistory[navHistory.length-1])!==appViewKey(view)) navHistory.push(view);
+    updateAppBack();
+  }
+  async function goBackInApp(){
+    if(navRestoring)return;
+    let view=null;
+    while(navHistory.length&&!view){
+      const candidate=navHistory.pop();
+      if(!candidate.threadId||(state.threads||[]).some(t=>t.id===candidate.threadId)) view=candidate;
+    }
+    if(!view){ updateAppBack(); return; }
+    navRestoring=true;
+    try{
+      if(view.threadId) await openThread(view.threadId,{remember:false});
+      else closeConversationPanels();
+      if(view.kind==="settings") openSettings(view.section||null,{remember:false});
+      document.body.classList.toggle("collapsed",view.sidebarOpen===false);
+      openNotes(!!view.notesOpen,{remember:false,focus:false});
+      if(SHELL) hostPost({type:"browser",cmd:view.browserOpen?"show":"hide"});
+      else openBrowser(!!view.browserOpen,{remember:false});
+      syncPanelButtons();
+    }finally{ navRestoring=false; updateAppBack(); }
+  }
   let attachments=[]; // {kind:'image'|'file', name, dataURL?, text?}
   const PROVIDER_LABELS={ local:"Local", boolean:"Boolean Cloud", openai:"OpenAI", glm:"GLM", claude:"Claude" };
   const CTX_STEPS=[4096,8192,16384,32768,65536,131072,262144];
@@ -1266,7 +1371,9 @@
 
   function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function md(s){
-    const parts=(s||"").split(/```(\w*)\n?([\s\S]*?)```/g);
+    // models (cloud ones especially) may pad answers with blank lines — they
+    // would render as <br>s and leave empty gaps at the bubble edges
+    const parts=String(s||"").trim().split(/```(\w*)\n?([\s\S]*?)```/g);
     let html="";
     for(let i=0;i<parts.length;i+=3){
       let text=esc(parts[i]).replace(/`([^`\n]+)`/g,"<code>$1</code>").replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>").replace(/\n/g,"<br>");
@@ -1302,7 +1409,43 @@
     if(isWeb) d.querySelector(".caret").onclick=(e)=>{ e.stopPropagation(); toggle(); };
     return d;
   }
-  function makeErr(text){ const d=document.createElement("div"); d.className="status"; d.style.color="#f85149"; d.textContent="⚠ "+text; return d; }
+  async function removeInstalledModel(file, sourceNode){
+    const ok=await appConfirm("Remove model?",displayName(file)+" will be deleted from this PC. You can download it again later.","Remove",true);
+    if(!ok) return false;
+    if(sourceNode) sourceNode.classList.add("disabled");
+    try{
+      const res=await fetch("/api/models/remove",{method:"POST",body:JSON.stringify({file})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data.error||"Could not remove this model.");
+      tempToast("Removed "+displayName(file));
+      await refresh();
+      if($("modelmenu").classList.contains("open")) renderModelList();
+      return true;
+    }catch(err){ await appAlert("Remove failed",err.message); return false; }
+    finally{ if(sourceNode) sourceNode.classList.remove("disabled"); }
+  }
+  async function redownloadInstalledModel(file, sourceNode){
+    const rec=RECOMMENDED_MODELS.find(r=>r.file===file);
+    if(!rec){ await appAlert("Cannot redownload","This imported model has no download source. Remove it, then import a clean copy."); return false; }
+    return pullModel(catalogModel(rec),sourceNode,true);
+  }
+  function makeErr(value){
+    const entry=typeof value==="string"?{text:value}:value||{};
+    const d=document.createElement("div"); d.className="status model-error";
+    const msg=document.createElement("span"); msg.textContent="⚠ "+(entry.text||"Unknown error"); d.appendChild(msg);
+    let recovery=entry.modelRecovery;
+    if(!recovery&&entry.text){
+      const match=String(entry.text).match(/loading\s+([^\s]+\.gguf)/i);
+      if(match) recovery={model:match[1],redownload:RECOMMENDED_MODELS.some(r=>r.file===match[1]),remove:true};
+    }
+    if(recovery?.model){
+      const actions=document.createElement("span"); actions.className="model-error-actions";
+      if(recovery.redownload){ const repair=document.createElement("button"); repair.type="button"; repair.textContent="Redownload"; repair.onclick=()=>redownloadInstalledModel(recovery.model,d); actions.appendChild(repair); }
+      if(recovery.remove){ const remove=document.createElement("button"); remove.type="button"; remove.textContent="Remove"; remove.className="danger"; remove.onclick=()=>removeInstalledModel(recovery.model,d); actions.appendChild(remove); }
+      d.appendChild(actions);
+    }
+    return d;
+  }
   function addNode(cls,html){ const d=document.createElement("div"); d.className=cls; if(html!==undefined)d.innerHTML=html; col.appendChild(d); scrollDown(); return d; }
   function shortPath(p){ const a=(p||"").split(/[\\/]/).filter(Boolean); return a.slice(-2).join("\\")||p||""; }
   function updateProjLine(){
@@ -1333,7 +1476,7 @@
     const full=!!state.autoApprove;
     $("modebtn").classList.toggle("full",full);
     $("mdot").textContent=full?"⚡":"🛡";
-    $("modetxt").textContent=full?"Full access":"Ask each time";
+    $("modetxt").textContent=full?"Auto-approve":"Ask me first";
     $("modebtn").title="Approval mode";
     document.querySelectorAll("#modemenu .item").forEach(i=>i.classList.toggle("disabled",(i.dataset.mode==="full")===full));
   }
@@ -1421,7 +1564,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.5"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.6"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -1688,7 +1831,8 @@
       }
     }
   }
-  async function openThread(id){
+  async function openThread(id,{remember=true}={}){
+    if(remember&&(id!==threadId||$("settingsPanel").classList.contains("open"))) rememberCurrentView();
     closeConversationPanels();
     threadId=id;
     const t=await (await fetch("/api/thread?id="+id)).json();
@@ -1700,7 +1844,7 @@
       else if(e.t==="ai" && String(e.text||"").trim()) col.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
       else if(e.t==="tool") col.appendChild(makeTool(e));
       else if(e.t==="usage"){ const u=makeUsage(e); if(u) col.appendChild(u); }
-      else if(e.t==="error") col.appendChild(makeErr(e.text));
+      else if(e.t==="error") col.appendChild(makeErr(e));
     });
     // if this thread has a run in flight, rebuild its live status + partial answer
     if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); }
@@ -1709,18 +1853,33 @@
     renderThreads(); scrollDown();
   }
   async function newChat(){
+    rememberCurrentView();
+    closeConversationPanels();
     const r=await (await fetch("/api/thread/new",{method:"POST"})).json();
     threadId=r.id; col.innerHTML=""; showEmpty(); updateSendButton(); await refresh();
   }
   async function createProject(){
-    closeConversationPanels();
     const name=await appPrompt("New project","Name your project. Boolean will create a folder and a dedicated project chat.","Project name");
     if(!name) return;
-    const picked=await (await fetch("/api/pick-folder?save=0",{method:"POST"})).json();
-    if(!picked.path) return;
-    const response=await fetch("/api/project/new",{method:"POST",body:JSON.stringify({name,parentDir:picked.path})});
+    let parentDir=state.projectsDir;
+    while(true){
+      const projectPath=String(parentDir||"").replace(/[\\/]+$/g,"")+"\\"+name;
+      const createHere=await appModal({
+        title:"Create project?",
+        body:name+"\n"+projectPath+"\n\nBoolean will create this folder and open a dedicated project chat.",
+        okText:"Create",
+        cancelText:"Change location"
+      });
+      if(createHere) break;
+      const picked=await (await fetch("/api/pick-folder?save=0",{method:"POST"})).json();
+      if(!picked.path) return;
+      parentDir=picked.path;
+    }
+    const response=await fetch("/api/project/new",{method:"POST",body:JSON.stringify({name,parentDir})});
     const result=await response.json();
     if(!response.ok){ await appAlert("Could not create project",result.error||"The project could not be created."); return; }
+    rememberCurrentView();
+    closeConversationPanels();
     threadId=result.id;
     threadGroups.Projects=true;
     localStorage.setItem("sazThreadGroups",JSON.stringify(threadGroups));
@@ -1732,7 +1891,8 @@
 
   // ── model menu ──
   // -- model menu --
-  const installedModel=(file)=>!!(state.models||[]).find(m=>m.installed!==false&&m.name===file);
+  const localModelInfo=(file)=>(state.models||[]).find(m=>m.installed!==false&&m.name===file);
+  const installedModel=(file)=>!!localModelInfo(file);
   const catalogModel=(rec)=>({ id:rec.id, name:rec.file, file:rec.file, size:rec.size, note:rec.note, installed:false });
   async function selectLocalModel(file){
     state.model=file;
@@ -1753,34 +1913,43 @@
     tempToast("Boolean Cloud selected.");
     await refresh();
   }
-  async function pullModel(m,item){
+  async function pullModel(m,item,force=false){
     const file=m.name||m.file;
     const downloadId=m.id||file;
-    if(activeModelDownloads.has(downloadId)){ tempToast("That model is already downloading."); return; }
-    if(installedModel(file)){ await selectLocalModel(file); return; }
+    if(activeModelDownloads.has(downloadId)){ tempToast("That model is already downloading."); return false; }
+    if(installedModel(file)&&!force){ await selectLocalModel(file); return true; }
     activeModelDownloads.add(downloadId);
-    item.onclick=null; item.innerHTML="<span>"+esc(displayName(file))+'</span><span class="dl">starting...</span>';
-    const banner=addNode("status",'<span class="spinner"></span><span>downloading '+esc(downloadId)+"...</span>");
+    if(item){ item.classList.add("disabled"); }
+    const verb=force?"redownloading ":"downloading ";
+    const banner=addNode("status",'<span class="spinner"></span><span>'+verb+esc(downloadId)+"...</span>");
     try{
-      const res=await fetch("/api/pull",{method:"POST",body:JSON.stringify({id:downloadId})});
+      const res=await fetch("/api/pull",{method:"POST",body:JSON.stringify({id:downloadId,force})});
+      if(!res.ok) throw new Error("download request failed ("+res.status+")");
       const rd=res.body.getReader(), dec=new TextDecoder(); let buf="";
       for(;;){ const{done,value}=await rd.read(); if(done)break; buf+=dec.decode(value,{stream:true}); let nl;
         while((nl=buf.indexOf("\n"))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(!line)continue;
           const ev=JSON.parse(line);
-          if(ev.type==="progress") banner.innerHTML='<span class="spinner"></span><span>downloading '+esc(downloadId)+": "+ev.pct+"% ("+ev.mb+" MB)</span>";
-          else if(ev.type==="error"){ banner.innerHTML="download failed: "+esc(ev.text); return; } } }
-      banner.innerHTML="downloaded "+esc(displayName(file)); await refresh();
-    }catch(err){ banner.innerHTML="download failed: "+esc(err.message); }
-    finally{ activeModelDownloads.delete(downloadId); }
+          if(ev.type==="progress") banner.innerHTML='<span class="spinner"></span><span>'+verb+esc(downloadId)+": "+ev.pct+"% ("+ev.mb+" MB)</span>";
+          else if(ev.type==="error") throw new Error(ev.text); } }
+      banner.innerHTML=(force?"Repaired ":"Downloaded ")+esc(displayName(file));
+      await refresh();
+      if($("modelmenu").classList.contains("open")) renderModelList();
+      return true;
+    }catch(err){ banner.innerHTML="download failed: "+esc(err.message); return false; }
+    finally{ activeModelDownloads.delete(downloadId); if(item)item.classList.remove("disabled"); }
   }
   function makeRecRow(rec, compact=false){
     const installed=installedModel(rec.file);
+    const info=localModelInfo(rec.file);
+    const needsRepair=installed&&info?.healthy===false;
     const selected=rec.file===state.model;
-    const item=document.createElement("div"); item.className=(compact?"model-card":"item model-rec")+(installed?" installed":"")+(selected?" selected":"");
-    item.title=installed?"Use "+rec.name:rec.note;
-    const action=installed?(selected?"Selected":"Use"):"Download";
-    item.innerHTML='<span class="model-line"><b>'+esc(rec.name)+'</b><small>'+esc(rec.label)+" - "+esc(rec.note)+" - "+esc(rec.size)+'</small></span><span class="model-dl">'+action+"</span>";
-    item.onclick=()=>installed?selectLocalModel(rec.file):pullModel(catalogModel(rec),item);
+    const item=document.createElement("div"); item.className=(compact?"model-card":"item model-rec")+(installed?" installed":"")+(selected?" selected":"")+(needsRepair?" needs-repair":"");
+    item.title=needsRepair?(info.healthReason||"Model file needs repair"):(installed?"Use "+rec.name:rec.note);
+    const action=needsRepair?"Repair":(installed?(selected?"Selected":"Use"):"Download");
+    item.innerHTML='<span class="model-line"><b>'+esc(rec.name)+'</b><small>'+esc(rec.label)+" - "+esc(rec.note)+" - "+esc(rec.size)+'</small></span><span class="model-actions"><span class="model-dl">'+action+'</span>'+(installed?'<button class="model-mini repair" type="button" title="Redownload model" aria-label="Redownload model">&#8635;</button><button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button>':'')+'</span>';
+    item.onclick=()=>needsRepair?redownloadInstalledModel(rec.file,item):(installed?selectLocalModel(rec.file):pullModel(catalogModel(rec),item));
+    item.querySelector(".repair")?.addEventListener("click",e=>{ e.stopPropagation(); redownloadInstalledModel(rec.file,item); });
+    item.querySelector(".remove")?.addEventListener("click",e=>{ e.stopPropagation(); removeInstalledModel(rec.file,item); });
     return item;
   }
   function renderModelLibrary(){
@@ -1949,7 +2118,7 @@
     others.forEach(m=>{
       const item=document.createElement("div"); item.className="item";
       if(m.installed===false){ item.innerHTML="<span>"+esc(displayName(m.name))+'</span><span class="dl">Download '+esc(m.size||"")+"</span>"; item.title=m.note||""; item.onclick=()=>pullModel(m,item); }
-      else { item.innerHTML="<span>"+esc(displayName(m.name))+(m.vision?" Vision":"")+"</span>"+(m.name===state.model?'<span class="check">Selected</span>':""); item.title=m.vision?"Vision-capable (matching .mmproj found)":""; item.onclick=()=>selectLocalModel(m.name); }
+      else { const bad=m.healthy===false; item.classList.toggle("needs-repair",bad); item.innerHTML='<span>'+esc(displayName(m.name))+(m.vision?" Vision":"")+(bad?'<small class="model-bad">Needs a clean copy</small>':'')+'</span><span class="model-actions">'+(!bad&&m.name===state.model?'<span class="check">Selected</span>':'')+'<button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button></span>'; item.title=bad?(m.healthReason||"Model file needs repair"):(m.vision?"Vision-capable (matching .mmproj found)":""); item.onclick=bad?()=>removeInstalledModel(m.name,item):()=>selectLocalModel(m.name); item.querySelector(".remove").onclick=e=>{ e.stopPropagation(); removeInstalledModel(m.name,item); }; }
       list.appendChild(item);
     });
     if(!list.children.length) list.innerHTML='<div class="item">no models available</div>';
@@ -2208,12 +2377,13 @@
     renderNoteDays(new Date());
     renderNoteTabs(); localStorage.setItem("sazNoteActive",noteId);
   }
-  function openNotes(on=true){
+  function openNotes(on=true,{remember=false,focus=true}={}){
+    if(remember && !!on!==document.body.classList.contains("notes-on")) rememberCurrentView();
     document.body.classList.toggle("notes-on",!!on);
     $("notesToggle").classList.toggle("active",!!on);
     if(document.body.classList.contains("browser-on")) requestAnimationFrame(fitBrowserSplit);
     if(on){
-      loadNote(); setTimeout(()=>$("noteEditor").focus(),80);
+      loadNote(); if(focus) setTimeout(()=>$("noteEditor").focus(),80);
     }
   }
   function insertHtmlAtCursor(html){
@@ -2243,8 +2413,8 @@
       insertHtmlAtCursor(html);
     } else insertHtmlAtCursor(html);
   }
-  $("notesToggle").onclick=()=>openNotes(!document.body.classList.contains("notes-on"));
-  $("noteClose").onclick=()=>openNotes(false);
+  $("notesToggle").onclick=()=>openNotes(!document.body.classList.contains("notes-on"),{remember:true});
+  $("noteClose").onclick=()=>openNotes(false,{remember:true});
   $("noteNew").onclick=()=>{ saveNotes(); const n={id:crypto.randomUUID(),title:"Note "+(notes.length+1),html:"",createdAt:Date.now(),updatedAt:Date.now()}; notes.push(n); noteId=n.id; loadNote(); saveNotes(); };
   $("noteDelete").onclick=async()=>{ if(notes.length<=1){ $("noteEditor").innerHTML=""; saveNotes(); return; } if(!await appConfirm("Delete note?","\""+(activeNote().title||"This note")+"\" will be permanently deleted. This can't be undone.","Delete",true)) return; notes=notes.filter(n=>n.id!==noteId); noteId=notes[0].id; loadNote(); saveNotes(); };
   $("noteRename").onclick=()=>{ const n=activeNote(); const btn=[...$("noteTabs").querySelectorAll(".note-tab")].find(b=>b.classList.contains("on")); editNoteTitle(btn,n); };
@@ -2428,16 +2598,22 @@
   });
 
   // ── send / stop (thread-aware live run) ──
+  const SEND_GLYPH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg>';
   function updateSendButton(){
+    const edit=$("interruptEdit");
     if(viewingRun()){
+      const canEdit=run?.request&&["chat","compare"].includes(run.request.mode||"chat")&&run.request.display;
       const hasContent=input.value.trim()||attachments.length;
-      if(hasContent){ send.classList.remove("stop"); send.innerHTML="↑"; send.title="Queue follow-up (sent when this finishes)"; }
-      else { send.classList.add("stop"); send.innerHTML="■"; send.title="Stop"; }
+      if(hasContent){ send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Queue follow-up (sent when this finishes)"; }
+      else { send.classList.add("stop"); send.innerHTML="■"; send.title="Stop and pause queue"; }
       send.disabled=false;
+      edit.classList.toggle("visible",!!canEdit);
       input.placeholder="Queue a follow-up…"; }
-    else if(busy()){ send.classList.remove("stop"); send.innerHTML="↑"; send.title="Another chat is working…"; send.disabled=true;
+    else if(busy()){ send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Another chat is working…"; send.disabled=true;
+      edit.classList.remove("visible");
       input.placeholder="Ask anything..."; }
-    else { send.classList.remove("stop"); send.innerHTML="↑"; send.title="Send"; send.disabled=false;
+    else { send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Send"; send.disabled=false;
+      edit.classList.remove("visible");
       input.placeholder="Ask anything..."; }
   }
   function insertAbove(node){
@@ -2506,13 +2682,62 @@
   }
 
   // pending follow-up messages per thread, sent automatically when the run ends
+  function replaceRequestText(item,nextText){
+    const previous=String(item.text||"");
+    const original=String(item.msg||"");
+    item.text=nextText;
+    item.display=nextText||item.display||"(image)";
+    if(previous&&original.startsWith(previous)) item.msg=nextText+original.slice(previous.length);
+    else if(!previous&&nextText) item.msg=nextText+(original?"\n\n"+original:"");
+    else item.msg=nextText;
+    return item;
+  }
+  function editQueuedItem(chip,item){
+    if(chip.querySelector(".qedit-input")) return;
+    chip.classList.add("editing");
+    const label=chip.querySelector(".qlabel");
+    const field=document.createElement("input");
+    field.className="qedit-input"; field.maxLength=2000;
+    field.value=item.text||item.display||"";
+    label.replaceWith(field);
+    let done=false;
+    const finish=(save)=>{
+      if(done) return; done=true;
+      if(save){ const v=field.value.trim(); if(v) replaceRequestText(item,v); }
+      renderQueue();
+    };
+    field.onkeydown=(e)=>{ if(e.key==="Enter"){ e.preventDefault(); finish(true); } else if(e.key==="Escape"){ e.preventDefault(); finish(false); } };
+    field.onblur=()=>finish(true);
+    field.focus(); field.select();
+  }
+  function resumeQueue(tid=threadId){
+    if(busy()) return;
+    const q=queues[tid]||[];
+    if(!q.length) return;
+    queuePaused[tid]=false;
+    const next=q.shift();
+    if(threadId===tid) renderQueue();
+    startRun(tid,next);
+  }
   function renderQueue(){
     const el=$("queued"); el.innerHTML="";
     const q=queues[threadId]||[];
+    if(queuePaused[threadId]&&q.length){
+      const stateRow=document.createElement("div"); stateRow.className="queue-state";
+      stateRow.innerHTML='<span>Queue paused</span><button type="button">Resume</button>';
+      stateRow.querySelector("button").onclick=()=>resumeQueue(threadId);
+      el.appendChild(stateRow);
+    }
     q.forEach((item,i)=>{
       const c=document.createElement("div"); c.className="qchip";
-      c.innerHTML='<span class="qtag">queued</span><span class="qlabel">'+esc(item.display)+'</span><span class="x">✕</span>';
-      c.querySelector(".x").onclick=()=>{ q.splice(i,1); renderQueue(); };
+      c.innerHTML='<span class="qtag">queued</span><span class="qlabel">'+esc(item.display)+'</span><span class="qactions">'
+        +'<button class="qaction qtop" type="button" title="Move to top" aria-label="Move queued question to top">&#8593;</button>'
+        +'<button class="qaction qedit" type="button" title="Edit" aria-label="Edit queued question">&#9998;</button>'
+        +'<button class="qaction qremove" type="button" title="Remove" aria-label="Remove queued question">&#215;</button></span>';
+      const top=c.querySelector(".qtop"); top.disabled=i===0;
+      top.onclick=()=>{ if(i<1)return; q.splice(i,1); q.unshift(item); renderQueue(); };
+      c.querySelector(".qedit").onclick=()=>editQueuedItem(c,item);
+      c.querySelector(".qremove").onclick=()=>{ q.splice(i,1); if(!q.length) queuePaused[threadId]=false; renderQueue(); };
       el.appendChild(c);
     });
   }
@@ -2530,17 +2755,19 @@
       msg=(msg?msg+"\n\n":"")+contextBlock(appContext);
     }
     input.value=""; autosize(); attachments=[]; renderChips();
+    if(busy()) updateSendButton(); // composer just emptied — show Stop again while running
 
     if(busy()){
       // a run is in flight — queue it (only possible while viewing the running thread)
       if(!viewingRun()) return;
       const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
-      (queues[threadId]=queues[threadId]||[]).push({display,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined});
+      (queues[threadId]=queues[threadId]||[]).push({display,text,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined});
       renderQueue();
       return;
     }
     const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
-    startRun(threadId, {mode:comparing?"compare":"chat", display, msg, images, targets:comparing?compareState.targets:undefined});
+    queuePaused[threadId]=false;
+    startRun(threadId, {mode:comparing?"compare":"chat", display, text, msg, images, targets:comparing?compareState.targets:undefined});
   }
 
   function removeEndActions(){ col.querySelector(".end-actions")?.remove(); }
@@ -2568,7 +2795,8 @@
       if(mode==="chat"||mode==="compare"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now()); }
       else if(mode==="retry"||mode==="compare-retry"){ removeLastTurnDom(); }
     }
-    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local" };
+    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local",
+      request:{...opts,images:[...(opts.images||[])]}, holdQueue:false };
     const isCompare=mode==="compare"||mode==="compare-retry";
     if(isCompare) Object.assign(run,{status:"comparing...",compare:true,targets:opts.targets||compareState.targets,slots:[{},{}]});
     if(viewingRun()) ensureStatusEl();
@@ -2586,13 +2814,14 @@
         while((nl=buf.indexOf("\n"))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(line) handleEvent(JSON.parse(line)); } }
     }catch(err){ if(err.name!=="AbortError" && viewingRun()) insertAbove(makeErr("connection error: "+err.message)); }
     if(run&&run.statusEl&&run.statusEl.isConnected) run.statusEl.remove();
+    const holdQueue=!!run?.holdQueue;
     const wasBoolean=state.provider==="boolean";
     lastRunWasCompare=!!run?.compare;
     run=null; currentAbort=null; updateSendButton(); renderThreads();
     if(wasBoolean) await refresh();
     // auto-send the next queued message for this thread
     const q=queues[tid];
-    if(q&&q.length){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
+    if(q&&q.length&&!holdQueue&&!queuePaused[tid]){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
     else { if(threadId===tid){ renderEndActions(); estimateContext(); } input.focus(); }
   }
   let lastRunWasCompare=false;
@@ -2649,24 +2878,45 @@
     }
     else if(ev.type==="notepadControl"){ executeNotepadControl(ev.id,ev.command); }
     else if(ev.type==="usage"){ if(showing){ const u=makeUsage(ev); if(u) insertAbove(u); } }
-    else if(ev.type==="error"){ if(showing) insertAbove(makeErr(ev.text)); }
+    else if(ev.type==="error"){ if(showing) insertAbove(makeErr(ev)); }
     if(showing) scrollDown();
   }
-  async function stopRun(){ if(run) run.status="stopping…"; if(viewingRun()) ensureStatusEl(); delete queues[threadId]; renderQueue(); if(currentAbort) currentAbort.abort(); await fetch("/api/stop",{method:"POST",body:JSON.stringify({threadId})}); }
+  async function stopRun(edit=false){
+    if(!run||!viewingRun()) return;
+    const tid=run.threadId;
+    const request=run.request?{...run.request,images:[...(run.request.images||[])]}:null;
+    run.status=edit?"interrupting for edit…":"stopping…";
+    run.holdQueue=true;
+    queuePaused[tid]=true;
+    ensureStatusEl();
+    const rollback=edit&&!!request?.display;
+    if(rollback){
+      removeLastTurnDom();
+      const users=[...col.querySelectorAll(".msg-user")]; users[users.length-1]?.remove(); // the question moves back to the composer
+      input.value=request.text||request.display||"";
+      autosize();
+    }
+    renderQueue();
+    if(currentAbort) currentAbort.abort();
+    await fetch("/api/stop",{method:"POST",body:JSON.stringify({threadId:tid,rollback})});
+    if(edit&&request?.display){ input.focus(); input.setSelectionRange(input.value.length,input.value.length); }
+  }
+  $("interruptEdit").onclick=()=>stopRun(true);
   send.onclick=()=>{ if(viewingRun()){ (input.value.trim()||attachments.length)?sendMessage():stopRun(); } else sendMessage(); };
   input.addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } });
   function autosize(){ input.style.height="auto"; input.style.height=Math.min(input.scrollHeight,180)+"px"; }
   input.addEventListener("input",()=>{ autosize(); scheduleEstimate(); if(busy()) updateSendButton(); });
 
   // ── nav / panels / sidebar ──
-  $("newchat").onclick=async()=>{ closeConversationPanels(); await newChat(); };
+  $("appBack").onclick=goBackInApp;
+  $("newchat").onclick=newChat;
   function syncPanelButtons(){
     $("panelToggle").classList.toggle("active",!document.body.classList.contains("collapsed"));
     $("topSettings").classList.toggle("active",$("settingsPanel").classList.contains("open"));
     $("notesToggle").classList.toggle("active",document.body.classList.contains("notes-on"));
     $("browserToggle").classList.toggle("active",document.body.classList.contains("browser-on"));
   }
-  $("panelToggle").onclick=()=>{ document.body.classList.toggle("collapsed"); syncPanelButtons(); };
+  $("panelToggle").onclick=()=>{ rememberCurrentView(); document.body.classList.toggle("collapsed"); syncPanelButtons(); };
   function syncSidePanelWidth(){
     document.body.classList.toggle("settings-open", $("settingsPanel").classList.contains("open"));
     document.body.classList.remove("about-open");
@@ -2676,6 +2926,7 @@
     $("settingsPanel").classList.remove("open");
     syncSidePanelWidth();
     syncPanelButtons();
+    discardCurrentHistory();
   }
   function closeConversationPanels(){
     $("apikey").value="";
@@ -2686,13 +2937,15 @@
   function toggleSettingsPanel(){
     $("apikey").value="";
     const opening=!$("settingsPanel").classList.contains("open");
+    if(opening) rememberCurrentView();
     $("settingsPanel").classList.toggle("open");
     syncSidePanelWidth(); syncPanelButtons(); applyKeyRow();
     if(opening){ applySections(); loadUsage(); loadMemory(); estimateContext(); }
+    else discardCurrentHistory();
   }
   $("topSettings").onclick=toggleSettingsPanel;
   $("cloudSignIn").onclick=cloudAccountClick;
-  $("settingsBack").onclick=closeSettingsPanel;
+  $("settingsBack").onclick=goBackInApp;
   $("settingsClose").onclick=closeSettingsPanel;
   $("resetusage").onclick=async()=>{ if(await appConfirm("Reset token counters?","This clears the saved token usage totals for the app.","Reset",true)){ await fetch("/api/usage/reset",{method:"POST"}); loadUsage(); } };
   $("clearMemory").onclick=async()=>{ if(await appConfirm("Clear learned behavior?","Boolean will forget saved preferences and formats.","Clear",true)){ await fetch("/api/preferences/clear",{method:"POST"}); loadMemory(); } };
@@ -2822,8 +3075,9 @@ Optional bundled starter model:
       $("legalRequirementsText").textContent=REQUIREMENTS_TEXT;
     }
   }
-  function openSettings(sec){
+  function openSettings(sec,{remember=true}={}){
     if(!$("settingsPanel").classList.contains("open")){
+      if(remember) rememberCurrentView();
       $("settingsPanel").classList.add("open"); syncSidePanelWidth(); syncPanelButtons(); applySections();
     } else { syncSidePanelWidth(); syncPanelButtons(); }
     if(sec){ document.querySelectorAll(".sec").forEach(s=>s.classList.toggle("open",s.dataset.sec===sec)); }
@@ -3066,7 +3320,7 @@ Optional bundled starter model:
     const w=Math.max(minBrowser,Math.min(Math.round(available/2),maxBrowser));
     document.body.style.setProperty("--bw",w+"px");
   }
-  function openBrowser(on){ if(on){ browserManualSize=false; fitBrowserSplit(); } document.body.classList.toggle("browser-on",on); syncPanelButtons(); if(on&&!btabs.length) newTab();
+  function openBrowser(on,{remember=false}={}){ if(remember && !!on!==document.body.classList.contains("browser-on")) rememberCurrentView(); if(on){ browserManualSize=false; fitBrowserSplit(); } document.body.classList.toggle("browser-on",on); syncPanelButtons(); if(on&&!btabs.length) newTab();
     if(!on) document.body.classList.remove("chat-hidden");
     const t=curTab(); reportUrl(on&&t?t.url:""); saveBrowser(); }
 
@@ -3195,8 +3449,8 @@ Optional bundled starter model:
   $("bReload").onclick=()=>{ const t=curTab(); if(t&&t.url) showFrame(t); };
   $("bStop").onclick=()=>{ try{ bframe.contentWindow.stop(); }catch{ bframe.src="about:blank"; } };
   $("bHome").onclick=()=>{ const t=curTab(); if(t){ t.url=""; t.hist=[]; t.hi=-1; t.title="New tab"; } showFrame(curTab()); saveBrowser(); };
-  $("bClose").onclick=()=> SHELL ? hostPost({type:"browser",cmd:"hide"}) : openBrowser(false);
-  $("browserToggle").onclick=()=>{ SHELL ? hostPost({type:"browser",cmd:"toggle"}) : openBrowser(!document.body.classList.contains("browser-on")); };
+  $("bClose").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"hide"}) : openBrowser(false); };
+  $("browserToggle").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"toggle"}) : openBrowser(!document.body.classList.contains("browser-on")); };
   bAddr.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); navigate(bAddr.value); } });
   bAddr.addEventListener("focus",()=>bAddr.select());
   $("bStartSearch").addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&e.target.value.trim()){ e.preventDefault(); navigate(e.target.value); e.target.value=""; } });
@@ -3360,15 +3614,17 @@ Optional bundled starter model:
     }
     document.body.classList.remove("notes-on","browser-on","settings-open","about-open");
     $("settingsPanel").classList.remove("open");
-    showEmpty();
+    if(threadId) await openThread(threadId,{remember:false}); else showEmpty();
     estimateContext();
     if(!SHELL) applyBrowser(state.ui);
     syncPanelButtons();
+    updateAppBack();
     if(!state.eulaAccepted) $("eula").showModal();
   })();
   setInterval(()=>{ if(!busy()) refresh(); },15000);
   setInterval(updateStatusMeta,1000); // live elapsed timer while a run is active
   window.addEventListener("pagehide",()=>navigator.sendBeacon("/api/bye"));
+  window.addEventListener("keydown",e=>{ if(e.altKey&&e.key==="ArrowLeft"){ e.preventDefault(); goBackInApp(); } });
   input.focus();
 })();
 </script>

@@ -269,6 +269,11 @@ async function uiMain() {
   const { port: actualPort } = await startServer(config, { port, autoExit });
   const url = `http://127.0.0.1:${actualPort}`;
   console.log(`  serving at ${C.green}${url}${C.reset}`);
+  // warm-start: preload the local model in the background so the first answer
+  // does not wait for a cold model load (set local.warmStart=false to skip)
+  if (config.provider === "local" && config.local?.model && config.local.warmStart !== false) {
+    engine.ensureRunning(config, () => {}).catch(() => { /* first chat reports load errors */ });
+  }
   if (!noOpen) {
     openAppWindow(url);
     console.log("  app window opened - keep this console open while using Boolean.");
