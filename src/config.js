@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.6";
+export const APP_VERSION = "0.9.7";
 export const APP_DISPLAY_VERSION = "v0.09.6";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";

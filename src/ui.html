@@ -1364,7 +1364,16 @@
     if(/mistral|mixtral/.test(value)) return "Mistral";
     if(/phi/.test(value)) return "Phi";
     if(/smollm/.test(value)) return "SmolLM";
+    if(provider==="compare") return "Compare";
     return provider==="local"?"Local AI":"AI";
+  }
+  function aiMetaFromText(text,provider,model,aiLabel){
+    if(provider||aiLabel) return {provider,model,aiLabel};
+    const labels=[...String(text||"").matchAll(/^\[(GPT|GLM|Claude|Qwen|Gemma|Llama|Mistral|Phi|SmolLM)\]\s*$/gmi)]
+      .map((match)=>match[1]);
+    const unique=[...new Set(labels)];
+    if(unique.length>1) return {provider:"compare",model:"",aiLabel:unique.join(" + ")};
+    return {provider,model,aiLabel};
   }
   const activeModelDownloads=new Set();
   document.querySelector("main").appendChild($("settingsPanel"));
@@ -1394,7 +1403,7 @@
     d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'</div>';
     col.appendChild(d); updateCopyButton(); scrollDown(); return d;
   }
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+'<span class="usage-inline"></span></div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+'<span class="usage-inline"></span></div>'; return d; }
   function makeTool(entry){
     const d=document.createElement("div"); d.className="toolcard"+((state.ui&&state.ui.collapseLogs===false)?" open":"");
     const open=d.classList.contains("open");
@@ -1564,7 +1573,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.6"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.7"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -2870,7 +2879,7 @@
       if(showing) ensureCompareAI(ev.slot);
     }
     else if(ev.type==="tokens"){ run.tokens={input:ev.input,output:ev.output,estimated:ev.estimated}; if(showing) updateStatusMeta(); }
-    else if(ev.type==="optimized"){ run.opt=ev; if(showing && state.ui?.showTokens!==false && ev.saved>1200){ const d=document.createElement("div"); d.className="opt-line"; const pct=ev.full?Math.round(ev.saved/ev.full*100):0; d.textContent="Context trimmed: ~"+ev.sent.toLocaleString()+" tokens sent"+(pct?(" ("+pct+"% smaller)"):""); insertAbove(d); } }
+    else if(ev.type==="optimized"){ run.opt=ev; }
     else if(ev.type==="browser"){ if(ev.action==="read") showReading(); else if(ev.action==="open"&&ev.url) aiNavigate(ev.url); }
     else if(ev.type==="browserControl"){
       if(SHELL) hostPost({type:"browser",cmd:"control",id:ev.id,command:ev.command});
@@ -3085,6 +3094,12 @@ Optional bundled starter model:
   }
   document.querySelectorAll("[data-open-legal]").forEach(b=>b.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); openSettings("legal"); });
   async function selectNet(net){
+    if(busy()){
+      const current=run?.compare?"cloud comparison":"response";
+      tempToast("Stop the current "+current+" before switching modes.");
+      applyNetMode();
+      return;
+    }
     if(net==="local"){ await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local"})}); await refresh(); return; }
     const cloud=state.cloud||{}, keys=state.keys||{};
     let prov=state.cloudBackend?.signedIn?"boolean":((state.provider!=="local"&&keys[state.provider])?state.provider:Object.keys(cloud).find(p=>keys[p]));
