@@ -1,6 +1,6 @@
-﻿// Boolean native shell: a WinForms window we own (so the taskbar shows OUR icon),
+// Boolean native shell: a WinForms window we own (so the taskbar shows OUR icon),
 // hosting the existing web UI in a WebView2 on the left and a REAL Chromium
-// browser (native WebView2, full internet â€” Outlook/Gmail included) on the
+// browser (native WebView2, full internet — Outlook/Gmail included) on the
 // right. The Node backend runs as a child ("core") process; the window just
 // points a WebView2 at http://127.0.0.1:<port>.
 using System.Diagnostics;
@@ -39,7 +39,7 @@ sealed class TabItem
 
 sealed class MainForm : Form
 {
-    const string AppVersion = "0.9.1";
+    const string AppVersion = "0.9.2";
     const string UpdateManifestUrl = "https://github.com/syfy10/Boolean/releases/latest/download/update.json";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -96,7 +96,7 @@ sealed class MainForm : Form
     {
         try
         {
-            int none = unchecked((int)0xFFFFFFFE); // DWMWA_COLOR_NONE â€” drop the gray border hairline
+            int none = unchecked((int)0xFFFFFFFE); // DWMWA_COLOR_NONE — drop the gray border hairline
             DwmSetWindowAttribute(Handle, 34 /*DWMWA_BORDER_COLOR*/, ref none, 4);
             int round = 2; // DWMWCP_ROUND
             DwmSetWindowAttribute(Handle, 33 /*DWMWA_WINDOW_CORNER_PREFERENCE*/, ref round, 4);
@@ -194,7 +194,7 @@ sealed class MainForm : Form
     public MainForm()
     {
         Text = "Boolean";                          // taskbar label only
-        FormBorderStyle = FormBorderStyle.None;     // no native caption â€” the web top bar is the title bar
+        FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
         Width = Math.Min(920, (int)(wa.Width * 0.65));    // roomy by default, still fits the screen
         Height = Math.Min(620, (int)(wa.Height * 0.69));
@@ -455,7 +455,7 @@ sealed class MainForm : Form
         catch { }
     }
 
-    // â”€â”€ async init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── async init ───────────────────────────────────────────────────
     async void OnLoad(object? s, EventArgs e)
     {
         ApplyBorderlessDwm();
@@ -515,7 +515,7 @@ sealed class MainForm : Form
         catch { }
     }
 
-    // â”€â”€ start the Node backend and wait until it answers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── start the Node backend and wait until it answers ─────────────
     async Task<int> StartCoreAsync()
     {
         int port = FreePort();
@@ -634,7 +634,7 @@ sealed class MainForm : Form
         return p;
     }
 
-    // â”€â”€ browser pane UI (native) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── browser pane UI (native) ─────────────────────────────────────
     void BuildBrowserPane()
     {
         _browserPane.BackColor = Color.FromArgb(28, 28, 28);
@@ -658,14 +658,14 @@ sealed class MainForm : Form
             return b;
         }
 
-        // â”€â”€ nav row (below the tabs): â† â†’ â†»  [ Enter a URL ]  â‹® â”€â”€
+        // ── nav row (below the tabs): ← → ↻  [ Enter a URL ]  ⋮ ──
         int x = 6;
         void Place(Button b) { b.Left = x; b.Top = 1; _toolbar.Controls.Add(b); x += b.Width + 1; }
         Place(Icon("\u2190", "Back", 26, (_, __) => Active()?.View.CoreWebView2?.GoBack()));
         Place(Icon("\u2192", "Forward", 26, (_, __) => Active()?.View.CoreWebView2?.GoForward()));
         Place(Icon("\u21BB", "Reload", 26, (_, __) => Active()?.View.CoreWebView2?.Reload()));
 
-        // address â€” flat, borderless, centered placeholder (no box)
+        // address — flat, borderless, centered placeholder (no box)
         _addr.Top = 5; _addr.Height = 18; _addr.Left = x;
         _addr.BorderStyle = BorderStyle.None;
         _addr.TextAlign = HorizontalAlignment.Center;
@@ -674,7 +674,7 @@ sealed class MainForm : Form
         _addr.KeyDown += (_, ke) => { if (ke.KeyCode == Keys.Enter) { ke.SuppressKeyPress = true; Navigate(_addr.Text); } };
         _toolbar.Controls.Add(_addr);
 
-        // â‹® overflow menu â€” styled to match the flat in-app browser menu.
+        // ⋮ overflow menu — styled to match the flat in-app browser menu.
         _menu = new ContextMenuStrip { ShowImageMargin = false, Font = new Font("Segoe UI", 9f), Padding = new Padding(7) };
         _menu.Renderer = new BrowserMenuRenderer(() => _pal);
         void Sep() { var s = new ToolStripSeparator { Margin = new Padding(0, 4, 0, 4) }; _menu.Items.Add(s); }
@@ -719,7 +719,7 @@ sealed class MainForm : Form
         LayoutBar();
         _toolbar.Resize += (_, __) => LayoutBar();
 
-        // â”€â”€ tab row (on top): [tabs] [+] ......... [â¤¢ full width] [â§‰ close] â”€â”€
+        // ── tab row (on top): [tabs] [+] ......... [⤢ full width] [⧉ close] ──
         _addTabBtn = new Button { Text = "+", Width = 30, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f), Margin = new Padding(3, 7, 0, 0) };
         _addTabBtn.FlatAppearance.BorderSize = 0;
         _addTabBtn.Click += (_, __) => AddTab(_homeUrl, true, true);
@@ -746,7 +746,7 @@ sealed class MainForm : Form
         _tabBar.Controls.Add(_tabStrip);
         _tabBar.Controls.Add(tabRight);
 
-        // assemble â€” add toolbar first, tab bar last so the tabs sit on TOP
+        // assemble — add toolbar first, tab bar last so the tabs sit on TOP
         _browserPane.Controls.Add(_content);
         _browserPane.Controls.Add(_toolbar);
         _browserPane.Controls.Add(_tabBar);
@@ -766,7 +766,7 @@ sealed class MainForm : Form
         ApplyTheme(ResolveTheme()); // initial colors (UI resends the exact theme on load)
     }
 
-    // â”€â”€ theme-aware chrome â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── theme-aware chrome ───────────────────────────────────────────
     static bool SystemDark()
     {
         try
@@ -979,7 +979,7 @@ sealed class MainForm : Form
 
     void SyncTabs() { /* placeholder for future per-tab state push to chat UI */ }
 
-    // â”€â”€ zoom + full-width viewing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── zoom + full-width viewing ────────────────────────────────────
     void Zoom(double delta)
     {
         var t = Active();
@@ -1055,7 +1055,7 @@ sealed class MainForm : Form
     {
         if (!_browserOpen) ToggleBrowser(true);
         _full = !_full;
-        _split.Panel1Collapsed = _full; // hide the chat pane â†’ browser full width
+        _split.Panel1Collapsed = _full; // hide the chat pane → browser full width
     }
 
     void Navigate(string input)
@@ -1082,7 +1082,7 @@ sealed class MainForm : Form
 
     static string Trunc(string s, int n) => s.Length <= n ? s : s.Substring(0, n) + "...";
 
-    // â”€â”€ show / hide the browser pane (driven by the chat UI toggle) â”€â”€
+    // ── show / hide the browser pane (driven by the chat UI toggle) ──
     bool _browserOpen = false;
     void FitBrowserSplit()
     {
@@ -1138,7 +1138,7 @@ sealed class MainForm : Form
         PostToChat(new { type = "shellBrowser", open = _browserOpen });
     }
 
-    // â”€â”€ bridge: messages from the chat UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── bridge: messages from the chat UI ────────────────────────────
     void OnChatMessage(object? s, CoreWebView2WebMessageReceivedEventArgs e)
     {
         try
@@ -1266,7 +1266,7 @@ sealed class MainForm : Form
         }
     }
 
-    // â”€â”€ send current page (text or screenshot) to the chat as an attachment â”€â”€
+    // ── send current page (text or screenshot) to the chat as an attachment ──
     async Task<string> ReadActivePageAsync(TabItem t)
     {
         var json = await t.View.CoreWebView2.ExecuteScriptAsync(
