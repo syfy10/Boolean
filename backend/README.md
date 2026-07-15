@@ -15,7 +15,7 @@ Implemented:
 - 10k/day free-tier daily usage cap
 - 30-day expiration for signup tokens
 - word-based cloud metering for now: one word counts as one token
-- free-tier default model metadata set to GLM-4.7-Flash on Workers AI
+- free-tier default model metadata set to Qwen3-30B-A3B on Workers AI
 - `/me` endpoint for the signed-in user
 - server-side admin roles and explicit unlimited-token accounts
 
@@ -115,7 +115,7 @@ Authorization: Bearer SESSION_TOKEN
 | `ADMIN_EMAILS` | var | comma-separated Google account emails promoted to admin with unlimited tokens |
 | `PUBLIC_APP_URL` | var | public Boolean/app URL for future billing redirects |
 | `FREE_TIER_PROVIDER` | var | default provider for free cloud token usage, currently `workers-ai` |
-| `FREE_TIER_MODEL` | var | default free cloud model, currently `@cf/zai-org/glm-4.7-flash` |
+| `FREE_TIER_MODEL` | var | default free cloud model, currently `@cf/qwen/qwen3-30b-a3b-fp8` |
 
 ## Routes
 
@@ -138,7 +138,7 @@ When a new user completes Google Sign-In for the first time:
 - free tokens expire after `30` days
 - free-tier usage is capped at `10,000` tokens per UTC day
 - cloud usage is currently metered as words: one word counts as one token
-- the free tier currently points to GLM-4.7-Flash through Cloudflare Workers AI
+- the free tier currently points to Qwen3-30B-A3B through Cloudflare Workers AI
 - usage debits are written to `token_ledger`
 
 These limits are enforced by `/tokens/debit` now and should also be used by the

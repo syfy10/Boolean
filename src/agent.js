@@ -2,6 +2,7 @@ import os from "node:os";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
 import { resolveTarget, chatCompletion } from "./providers.js";
 import { summarizeLearnedPreferences } from "./preferences.js";
+import { detectWindowsSettingsRequest } from "./system-actions.js";
 
 function connectorSummary(config) {
   const c = config?.connectors || {};
@@ -146,6 +147,74 @@ function approxTokens(messages) {
   return Math.ceil(chars / 3.3);
 }
 
+function plainMessageText(message) {
+  const content = message?.content;
+  if (typeof content === "string") return content.split(/\n\nCURRENT APP CONTEXT\b/)[0].trim();
+  if (Array.isArray(content)) {
+    return content.filter((part) => part?.type === "text").map((part) => part.text || "").join("\n").split(/\n\nCURRENT APP CONTEXT\b/)[0].trim();
+  }
+  return "";
+}
+
+function conversationDomain(text) {
+  const s = String(text || "").toLowerCase();
+  if (/\b(stock|stocks|market|nasdaq|dow|s&p|share price|earnings)\b/.test(s)) return "finance";
+  if (/\b(fifa|soccer|football|nba|nfl|nhl|mlb|score|match|game|tournament)\b/.test(s)) return "sports";
+  if (/\b(weather|forecast|temperature|rain|snow)\b/.test(s)) return "weather";
+  if (/\b(news|headline|breaking)\b/.test(s)) return "news";
+  if (/\b(display|desplay|screen|resolution|brightness|windows settings|bluetooth|wifi|network settings)\b/.test(s)) return "windows";
+  if (/\b(email|gmail|outlook|reply|inbox)\b/.test(s)) return "email";
+  if (/\b(code|coding|api|website|project|function|bug|program)\b/.test(s)) return "code";
+  if (/\b(notepad|note|notes)\b/.test(s)) return "notes";
+  return "";
+}
+
+// Keep enough recent context for normal follow-ups without dragging an entire
+// old search session into every answer. This is especially important for small
+// local models, which otherwise latch onto old tool results and ignore the user.
+function focusConversation(messages) {
+  if (!Array.isArray(messages) || messages.length < 3) return messages;
+  const system = messages[0];
+  let latestIndex = -1;
+  for (let i = messages.length - 1; i > 0; i--) {
+    if (messages[i]?.role === "user" && !/^SYSTEM PREFLIGHT:/i.test(plainMessageText(messages[i]))) {
+      latestIndex = i;
+      break;
+    }
+  }
+  if (latestIndex < 0) return messages;
+  const latest = messages[latestIndex];
+  const latestText = plainMessageText(latest).toLowerCase();
+  if (!latestText) return messages;
+
+  if (/^(hi|hello|hey|good (morning|afternoon|evening)|start over|new topic)[.!? ]*$/.test(latestText)) {
+    return [system, ...messages.slice(latestIndex)];
+  }
+
+  const userIndexes = [];
+  for (let i = 1; i <= latestIndex; i++) {
+    if (messages[i]?.role === "user" && !/^SYSTEM PREFLIGHT:/i.test(plainMessageText(messages[i]))) userIndexes.push(i);
+  }
+  const previousUserIndex = userIndexes.length > 1 ? userIndexes[userIndexes.length - 2] : -1;
+  if (/^(ready|ok|okay|yes|no|thanks|thank you)[.!? ]*$/.test(latestText) ||
+      /\b(what are (you|u) saying|that'?s not|thats not|you misunderstood|not what i asked)\b/.test(latestText)) {
+    return previousUserIndex > 0 ? [system, ...messages.slice(previousUserIndex)] : [system, ...messages.slice(latestIndex)];
+  }
+
+  const currentDomain = conversationDomain(latestText);
+  if (currentDomain && previousUserIndex > 0) {
+    const previousDomain = conversationDomain(plainMessageText(messages[previousUserIndex]));
+    if (previousDomain && previousDomain !== currentDomain) return [system, ...messages.slice(latestIndex)];
+  }
+
+  let start = Math.max(1, latestIndex - 11);
+  while (start < latestIndex && messages[start]?.role !== "user") start++;
+  const recent = messages.slice(start).filter((message) =>
+    !(message?.role === "user" && /^SYSTEM PREFLIGHT:/i.test(plainMessageText(message)))
+  );
+  return [system, ...recent];
+}
+
 // clip a tool result inside the SENT copy (minimal mode) without touching history
 function clipMsg(m, maxChars) {
   if (m.role === "tool" && typeof m.content === "string" && m.content.length > maxChars) {
@@ -174,6 +243,7 @@ function fitToContext(messages, budgetTokens, mode = "balanced") {
 
   let work = source;
   if (mode === "minimal") work = source.map((m, i) => (i === 0 ? m : clipMsg(m, 800)));
+  else if (mode === "balanced") work = source.map((m, i) => (i === 0 ? m : clipMsg(m, 6000)));
 
   const done = (msgs) => ({ msgs, sentTokens: approxTokens(msgs), fullTokens, budget });
   if (approxTokens(work) <= budget) return done(work);
@@ -195,8 +265,9 @@ function fitToContext(messages, budgetTokens, mode = "balanced") {
 
 // exported so the /api/estimate endpoint can preview token cost before sending
 export function estimateContext(messages, budgetTokens, mode) {
-  const r = fitToContext(messages, budgetTokens, mode);
-  return { full: r.fullTokens, sent: r.sentTokens, saved: Math.max(0, r.fullTokens - r.sentTokens), budget: r.budget };
+  const originalFull = approxTokens(messages);
+  const r = fitToContext(focusConversation(messages), budgetTokens, mode);
+  return { full: originalFull, sent: r.sentTokens, saved: Math.max(0, originalFull - r.sentTokens), budget: r.budget };
 }
 
 /**
@@ -210,6 +281,19 @@ export function estimateContext(messages, budgetTokens, mode) {
 export async function runTurn(ctx, messages) {
   const { config, onStatus, onToken, onStep, onUsage, signal } = ctx;
   const emitStep = (entry) => { if (onStep) onStep(entry); };
+  const latestUser = [...messages].reverse().find((message) => message?.role === "user");
+  const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
+  if (directAction) {
+    onStatus(`running ${directAction.name}...`);
+    const result = await executeTool(directAction.name, directAction.args, ctx);
+    emitStep({ name: directAction.name, args: directAction.args, result });
+    const answer = /^Opened Windows Settings:/i.test(result)
+      ? `${result} Tell me the exact change you want, such as resolution, scale, brightness, or multiple displays.`
+      : result;
+    messages.push({ role: "assistant", content: answer });
+    return answer;
+  }
+
   const target = await resolveTarget(config, onStatus);
   let useNativeTools = true;
   const emitUsage = (msg) => {
@@ -233,11 +317,12 @@ export async function runTurn(ctx, messages) {
     if (signal?.aborted) return stopped();
     let msg;
     try {
-      const fit = fitToContext(messages, ctxBudget, contextMode);
+      const originalFull = approxTokens(messages);
+      const fit = fitToContext(focusConversation(messages), ctxBudget, contextMode);
       if (!optimizeSent && onOptimize) {
         optimizeSent = true;
-        onOptimize({ mode: contextMode, sent: fit.sentTokens, full: fit.fullTokens,
-          saved: Math.max(0, fit.fullTokens - fit.sentTokens), budget: fit.budget });
+        onOptimize({ mode: contextMode, sent: fit.sentTokens, full: originalFull,
+          saved: Math.max(0, originalFull - fit.sentTokens), budget: fit.budget });
       }
       msg = await chatCompletion(target, fit.msgs, useNativeTools ? TOOL_DEFINITIONS : undefined, signal, onToken);
       emitUsage(msg);

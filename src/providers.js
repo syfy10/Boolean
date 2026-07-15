@@ -22,7 +22,7 @@ export async function resolveTarget(config, onStatus = () => {}) {
     return {
       base,
       apiKey: c.sessionToken,
-      model: config.boolean?.model || c.tokens?.default_model || "@cf/zai-org/glm-4.7-flash",
+      model: config.boolean?.model || c.tokens?.default_model || "@cf/qwen/qwen3-30b-a3b-fp8",
       noStream: true,
       onCloudTokens: (tokens) => {
         config.cloudBackend = { ...(config.cloudBackend || {}), tokens };
@@ -155,11 +155,26 @@ export async function chatCompletion(target, messages, tools, signal, onToken) {
 
 // static fallbacks when a provider has no usable /models endpoint
 const STATIC_MODELS = {
-  boolean: ["@cf/zai-org/glm-4.7-flash"],
+  boolean: ["@cf/qwen/qwen3-30b-a3b-fp8"],
   openai: ["gpt-5.1", "gpt-5.1-codex", "gpt-5-mini", "gpt-4.1"],
   glm: ["glm-4.6", "glm-4.5", "glm-4.5-air"],
   claude: ["claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5-20251001"]
 };
+
+function usableProviderModels(provider, ids, selected = "") {
+  let models = [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
+  if (provider === "openai") {
+    const incompatible = /(?:audio|realtime|transcrib|tts|whisper|image|dall-e|embedding|moderation|sora|search-preview|search-api|deep-research)/i;
+    models = models.filter((id) => /^(?:gpt-|o[1345](?:-|$)|chat-latest$)/i.test(id) && !incompatible.test(id));
+    models = models.filter((id) => !/-20\d{2}-\d{2}-\d{2}$/.test(id) && !/(?:^|-)\d{4}$/.test(id));
+  }
+  models.sort((a, b) => {
+    if (a === selected) return -1;
+    if (b === selected) return 1;
+    return b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" });
+  });
+  return models;
+}
 
 /** List models for the ACTIVE provider. Local also returns downloadable catalog. */
 export async function listProviderModels(config) {
@@ -175,7 +190,7 @@ export async function listProviderModels(config) {
     ];
   }
   if (config.provider === "boolean") {
-    const model = config.boolean?.model || config.cloudBackend?.tokens?.default_model || "@cf/zai-org/glm-4.7-flash";
+    const model = config.boolean?.model || config.cloudBackend?.tokens?.default_model || "@cf/qwen/qwen3-30b-a3b-fp8";
     return [{ name: model, installed: true }];
   }
   if (CLOUD[config.provider]) {
@@ -187,7 +202,7 @@ export async function listProviderModels(config) {
       });
       if (res.ok) {
         const data = await res.json();
-        const ids = (data.data || []).map((m) => m.id).sort();
+        const ids = usableProviderModels(config.provider, (data.data || []).map((m) => m.id), p.model);
         if (ids.length) return ids.map((id) => ({ name: id, installed: true }));
       }
     } catch { /* fall back to static list */ }

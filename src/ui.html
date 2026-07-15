@@ -13,9 +13,9 @@
     --bg:#ffffff; --sidebar:#ffffff; --text:#1a1a1a; --dim:#8a8a8a; --border:#f1f1ef;
     --hover:#f3f3f1; --bubble:#f6f6f3; --accent:#171717; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
     --green:#3fb950; --label:#666; --shadow:0 1px 2px rgba(0,0,0,.04);
-    --ui:"Segoe UI",system-ui,sans-serif;
+    --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
     --mono:"Segoe UI",system-ui,sans-serif;
-    --app-fs:15px; --chat-fs:14px; --msg-pad:6px 10px; --col-gap:7px;
+    --app-fs:15px; --chat-fs:13.5px; --msg-pad:7px 10px; --col-gap:5px;
     --fs-xxs:10.5px; --fs-xs:11.5px; --fs-sm:12.5px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:26px;
   }
   /* dark palette, shared by system-dark and explicit dark */
@@ -41,7 +41,7 @@
   ::-webkit-scrollbar-thumb{ background:var(--dim); border-radius:8px; border:2px solid transparent; background-clip:content-box; opacity:.5; }
   ::-webkit-scrollbar-thumb:hover{ background:var(--text); }
   ::-webkit-scrollbar-corner{ background:transparent; }
-  html,body{ height:100%; }
+  html,body{ height:100%; overflow:hidden; overscroll-behavior:none; }
   body{ display:flex; background:var(--bg); color:var(--text);
     font:var(--app-fs)/1.45 var(--ui); }
 
@@ -109,6 +109,10 @@
   .grouphead.foldable:hover{ background:var(--hover); }
   .grouphead .gcaret{ width:9px; color:var(--label); font-size:9px; line-height:1; }
   .grouphead .gcount{ margin-left:auto; color:var(--dim); font-weight:500; letter-spacing:0; font-size:var(--fs-xxs); }
+  .group-create{ display:flex; align-items:center; gap:6px; min-height:24px; width:100%; padding:4px 8px;
+    border:0; border-radius:8px; background:transparent; color:var(--dim); font:var(--fs-xs) var(--ui); cursor:pointer; text-align:left; }
+  .group-create:hover{ background:var(--hover); color:var(--text); }
+  .group-create .plus{ width:11px; color:var(--green); font-size:14px; line-height:1; text-align:center; }
   .showmore{ border:0; background:transparent; color:var(--dim); border-radius:8px; padding:4px 8px; margin:0;
     font:var(--fs-xs) var(--ui); cursor:pointer; text-align:left; }
   .showmore:hover{ background:var(--hover); color:var(--text); }
@@ -383,8 +387,8 @@
   .win-btn:hover{ background:var(--hover); }
   .win-close:hover{ background:#e81123; color:#fff; }
 
-  #chat{ flex:1; overflow-y:auto; padding:4px 18px 8px; }
-  .col{ max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:var(--col-gap); font-size:var(--chat-fs); }
+  #chat{ flex:1; overflow-y:auto; padding:6px 16px 8px; }
+  .col{ max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:var(--col-gap); font-size:var(--chat-fs); letter-spacing:0; }
   .msg-time{ font-size:11px; color:var(--dim); display:none; }
   body.show-time .msg-time{ display:block; }
   body.hide-tokens .usage-line, body.hide-tokens .usage-inline{ display:none; }
@@ -397,24 +401,32 @@
   .empty{ margin-top:20vh; text-align:center; color:var(--dim); }
   .empty h1{ font-size:26px; font-weight:600; color:var(--text); margin-bottom:8px; }
 
-  .msg-user{ align-self:flex-end; max-width:86%; background:var(--bubble); padding:var(--msg-pad);
-    border-radius:14px; white-space:pre-wrap; word-break:break-word; position:relative; line-height:1.34; }
+  .msg-user,.msg-ai{ max-width:min(84%,620px); word-break:break-word; position:relative; line-height:1.38; }
+  .msg-user{ align-self:flex-end; }
+  .msg-ai{ align-self:flex-start; }
+  .msg-user .body,.msg-ai .body{ position:relative; padding:var(--msg-pad); border-radius:16px; background:var(--bubble); }
+  .msg-ai.cloud .body{ background:var(--cloud-bubble); }
+  .msg-user .body{ white-space:pre-wrap; }
   .msg-user img{ max-width:220px; border-radius:8px; margin-top:5px; display:block; }
-  .msg-ai{ max-width:100%; word-break:break-word; position:relative; line-height:1.36; }
-  .msg-ai .body{ position:relative; }
-  .msg-ai.cloud{ align-self:flex-start; max-width:86%; }
-  .msg-ai.cloud .body{ padding:var(--msg-pad); border-radius:14px; background:var(--cloud-bubble); }
-  .msg-ai p{ margin:0 0 4px; }
+  .msg-ai p{ margin:0 0 5px; }
   .msg-ai p:last-child{ margin-bottom:0; }
-  .msg-foot{ display:flex; align-items:center; gap:3px; min-height:17px; margin-top:2px; padding:0 3px; color:var(--dim); opacity:.62; font:10px var(--mono); min-width:0; flex-wrap:nowrap; overflow:hidden; transition:opacity .12s; }
+  .msg-ai ul,.msg-ai ol{ margin:4px 0 5px; padding-left:19px; }
+  .msg-ai li{ margin:1px 0; }
+  .msg-ai h1,.msg-ai h2,.msg-ai h3,.msg-ai h4{ margin:7px 0 4px; font-size:1em; line-height:1.3; }
+  .msg-ai .body>:first-child{ margin-top:0; }
+  .msg-ai .body>:last-child{ margin-bottom:0; }
+  .msg-foot{ display:flex; align-items:center; gap:4px; min-height:15px; margin-top:1px; padding:0 4px; color:var(--dim); opacity:.58; font:9.5px/1.2 var(--ui); min-width:0; flex-wrap:nowrap; overflow:hidden; transition:opacity .12s; }
   .msg-foot:hover{ opacity:.9; }
+  .msg-user .msg-foot{ justify-content:flex-end; }
+  .msg-sender{ max-width:86px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+  .msg-sender:after{ content:"·"; margin-left:4px; font-weight:400; }
   .usage-inline{ color:var(--dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
   .msg-foot .actions{ margin:0; display:flex; gap:0; flex:0 0 auto; flex-wrap:nowrap; }
   .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); }
   .note-save{ width:18px; height:18px; padding:0; border:0; border-radius:50%; display:grid; place-items:center;
     background:transparent; color:var(--dim); cursor:pointer; opacity:.55; transition:opacity .12s, background .12s, color .12s; box-shadow:none; font:11px/1 var(--ui); flex:0 0 auto; }
-  .msg-user>.note-save{ position:absolute; right:2px; top:2px; opacity:0; }
+  .msg-user .body>.note-save{ position:absolute; right:2px; top:2px; opacity:0; }
   .msg-ai .body>.note-save{ position:absolute; right:2px; top:2px; opacity:0; z-index:1; }
   .msg-ai.cloud .body>.note-save{ right:3px; top:3px; }
   .msg-user:hover .note-save,.msg-ai:hover .note-save,.note-save:focus{ opacity:1; }
@@ -494,6 +506,25 @@
   .modelbtn .chev{ font-size:10px; color:var(--dim); }
   body.online-mode .modelbtn{ color:var(--online); background:color-mix(in srgb,var(--online) 10%,transparent); border-radius:999px; }
   body.online-mode .modelbtn .chev{ color:var(--online); opacity:.72; }
+  #compareAnchor{ display:none; }
+  body.online-mode #compareAnchor{ display:block; }
+  .comparebtn{ border:0; background:transparent; color:var(--dim); border-radius:999px; padding:4px 7px;
+    font:var(--fs-xs) inherit; cursor:pointer; white-space:nowrap; }
+  .comparebtn:hover{ background:var(--hover); }
+  .comparebtn.active{ color:var(--online); background:color-mix(in srgb,var(--online) 11%,transparent); }
+  .menu#comparemenu{ bottom:44px; right:0; width:280px; padding:12px; }
+  .compare-title{ display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:9px; }
+  .beta-tag{ color:var(--online); font-size:9px; font-weight:600; text-transform:uppercase; }
+  .compare-menu-label{ display:block; color:var(--dim); font-size:10px; margin:7px 0 4px; }
+  .compare-select{ width:100%; min-width:0; border:1px solid var(--border); border-radius:8px; background:var(--bg);
+    color:var(--text); font:12px var(--ui); padding:7px 8px; outline:0; }
+  .compare-note{ color:var(--dim); font-size:10px; line-height:1.35; margin:9px 0; }
+  .compare-apply{ width:100%; border:0; border-radius:8px; padding:7px; background:var(--online); color:#fff; font:12px var(--ui); cursor:pointer; }
+  .compare-apply:disabled{ opacity:.4; cursor:default; }
+  .compare-off{ width:100%; border:0; background:transparent; color:var(--dim); font:10px var(--ui); padding:7px 0 0; cursor:pointer; }
+  .compare-off:hover{ color:var(--text); }
+  .compare-badge{ align-self:flex-start; margin:2px 0 2px 9px; color:var(--dim); font-size:9px; text-transform:uppercase; letter-spacing:.02em; }
+  .msg-ai.compare-pending .body{ color:var(--dim); font-style:italic; }
   .modebtn{ display:flex; align-items:center; justify-content:center; gap:4px; border:0; background:transparent;
     color:var(--dim); border-radius:8px; padding:4px 6px; font:var(--fs-xs) inherit; cursor:pointer; white-space:nowrap; max-width:108px; min-width:0; flex:0 1 auto; }
   .modebtn:hover{ background:var(--hover); }
@@ -550,12 +581,35 @@
   .model-line small{ color:var(--dim); font-size:10.5px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .model-dl{ flex-shrink:0; color:var(--green); font-size:11px; line-height:1; padding-top:2px; }
   .api-provider.missing .model-dl{ color:var(--online); }
-  .api-key-form{ display:flex; align-items:center; gap:6px; padding:2px 10px 9px; }
+  .api-provider-detail{ margin:-2px 6px 7px; padding:5px 4px 3px; border-left:1px solid var(--border); }
+  .api-model-list{ max-height:170px; overflow:auto; }
+  .menu .api-model-search{ width:calc(100% - 14px); margin:2px 7px 4px; padding:6px 7px; border:0; border-bottom:1px solid var(--border);
+    border-radius:0; background:transparent; color:var(--text); font:11px var(--ui); outline:none; box-sizing:border-box; }
+  .api-model-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:28px;
+    padding:5px 7px; cursor:pointer; font-size:11.5px; color:var(--text); }
+  .api-model-row:hover{ background:var(--hover); }
+  .api-model-row.selected{ color:var(--green); font-weight:600; }
+  .api-model-row span:first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .api-model-row small{ flex:0 0 auto; color:var(--muted); font-size:9.5px; }
+  .api-model-loading{ padding:6px 7px; color:var(--muted); font-size:10.5px; }
+  .api-key-form{ display:flex; align-items:center; gap:4px; padding:6px 7px 3px; border-top:1px solid var(--border); }
   .menu .api-key-form input{ min-width:0; flex:1; margin:0; padding:7px 8px; border:1px solid var(--border);
     border-radius:7px; background:var(--bubble); font-size:12px; }
   .api-key-save{ flex:0 0 auto; border:0; border-radius:7px; padding:7px 10px; background:var(--text);
     color:var(--bg); font:600 11px var(--ui); cursor:pointer; }
   .api-key-save:hover{ opacity:.86; }
+  .api-key-icon{ flex:0 0 27px; width:27px; height:27px; border:0; background:transparent; color:var(--muted);
+    display:grid; place-items:center; padding:0; font-size:15px; cursor:pointer; }
+  .api-key-icon:hover{ color:var(--text); background:var(--hover); }
+  .api-key-icon.delete:hover{ color:#d14343; }
+  .paste-ico,.trash-ico{ position:relative; display:block; width:13px; height:13px; color:currentColor; }
+  .paste-ico{ border:1.4px solid currentColor; border-radius:2px; box-sizing:border-box; margin-top:2px; }
+  .paste-ico:before{ content:""; position:absolute; left:3px; top:-4px; width:5px; height:4px; border:1.4px solid currentColor;
+    border-bottom:0; border-radius:2px 2px 0 0; background:var(--bg); box-sizing:border-box; }
+  .trash-ico{ width:11px; height:11px; border:1.4px solid currentColor; border-top:0; border-radius:0 0 2px 2px; box-sizing:border-box; margin-top:3px; }
+  .trash-ico:before{ content:""; position:absolute; left:-2px; top:-4px; width:13px; border-top:1.4px solid currentColor; }
+  .trash-ico:after{ content:""; position:absolute; left:3px; top:-7px; width:4px; height:3px; border:1.4px solid currentColor;
+    border-bottom:0; border-radius:2px 2px 0 0; box-sizing:border-box; }
   .api-key-error{ padding:0 10px 7px; color:#d14343; font-size:10.5px; }
   .download-ico{ width:16px; height:16px; display:inline-block; position:relative; }
   .download-ico:before{ content:""; position:absolute; left:7px; top:2px; width:2px; height:8px; background:currentColor; border-radius:2px; }
@@ -584,7 +638,8 @@
   body.win-xs .modebtn .mdot, body.chat-xs .modebtn .mdot{ display:inline-flex; }
   /* model name truncates but stays inline */
   body.win-xs .modelbtn, body.chat-xs .modelbtn{ max-width:96px; min-width:0; padding-inline:5px; }
-  body.win-xs .menu#modelmenu, body.chat-xs .menu#modelmenu{ right:0; left:auto; width:min(280px,calc(100vw - 24px)); }
+  body.win-xs .menu#modelmenu, body.chat-xs .menu#modelmenu,
+  body.win-xs .menu#comparemenu, body.chat-xs .menu#comparemenu{ right:0; left:auto; width:min(280px,calc(100vw - 24px)); }
   /* ultra-narrow: shrink the model chip further */
   body.chat-xxs .modelbtn{ max-width:66px; }
   body.chat-xxs .menu#modemenu{ left:0; width:150px; }
@@ -661,6 +716,9 @@
     background:var(--bg); color:var(--text); box-shadow:0 20px 54px rgba(0,0,0,.24); padding:20px 22px 18px; }
   .app-modal-card h2{ margin:0 0 6px; font-size:20px; line-height:1.2; letter-spacing:0; }
   .app-modal-body{ color:var(--dim); font-size:13.5px; line-height:1.45; white-space:pre-wrap; }
+  .app-modal-input{ display:block; width:100%; height:36px; margin-top:12px; padding:0 10px; border:1px solid var(--border);
+    border-radius:8px; outline:0; background:var(--bg); color:var(--text); font:13.5px var(--ui); }
+  .app-modal-input:focus{ border-color:var(--green); }
   .app-modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
   .app-modal-actions button{ min-width:68px; height:32px; padding:0 13px; border-radius:8px; border:1px solid var(--border);
     background:var(--bg); color:var(--text); font:inherit; cursor:pointer; }
@@ -683,7 +741,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.4</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.5</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -927,6 +985,19 @@
           </div>
         </div>
         <div class="spacer"></div>
+        <div class="anchor" id="compareAnchor">
+          <button class="comparebtn" id="comparebtn" title="Compare two cloud models">Compare</button>
+          <div class="menu" id="comparemenu">
+            <div class="compare-title"><span>Compare models</span><span class="beta-tag">Beta</span></div>
+            <label class="compare-menu-label" for="compareA">First answer</label>
+            <select class="compare-select" id="compareA"></select>
+            <label class="compare-menu-label" for="compareB">Second answer</label>
+            <select class="compare-select" id="compareB"></select>
+            <div class="compare-note" id="compareNote">Answer-only mode. Uses both models and about 2x tokens.</div>
+            <button class="compare-apply" id="compareApply">Use Compare</button>
+            <button class="compare-off" id="compareOff">Turn off Compare</button>
+          </div>
+        </div>
         <div class="anchor">
           <button class="modelbtn" id="modelbtn"><span id="modelname">Select a model</span> <span class="chev">▼</span></button>
           <div class="menu" id="modelmenu">
@@ -1091,6 +1162,26 @@
   }
   const appConfirm=(title,body,okText="OK",danger=false)=>appModal({title,body,okText,cancelText:"Cancel",danger});
   const appAlert=(title,body="",okText="OK")=>appModal({title,body,okText});
+  function appPrompt(title,body,placeholder=""){
+    const modal=$("appModal"), ok=$("appModalOk"), cancel=$("appModalCancel"), bodyEl=$("appModalBody");
+    $("appModalTitle").textContent=title;
+    bodyEl.textContent=body;
+    const field=document.createElement("input");
+    field.className="app-modal-input"; field.placeholder=placeholder; field.maxLength=80;
+    bodyEl.appendChild(field);
+    ok.textContent="Continue"; ok.className="primary";
+    cancel.textContent="Cancel"; cancel.style.display="";
+    modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
+    let done=false;
+    return new Promise(resolve=>{
+      const close=(value)=>{ if(done)return; done=true; modal.classList.remove("open"); modal.setAttribute("aria-hidden","true");
+        ok.onclick=null; cancel.onclick=null; modal.onclick=null; document.removeEventListener("keydown",onKey,true); resolve(value); };
+      const submit=()=>{ const value=field.value.trim(); if(value) close(value); else field.focus(); };
+      const onKey=(e)=>{ if(e.key==="Escape"){e.preventDefault();close(null);} if(e.key==="Enter"){e.preventDefault();submit();} };
+      ok.onclick=submit; cancel.onclick=()=>close(null); modal.onclick=(e)=>{if(e.target===modal)close(null);};
+      document.addEventListener("keydown",onKey,true); setTimeout(()=>field.focus(),0);
+    });
+  }
   function tempToast(text,ms=2600){
     const t=$("tempToast");
     if(!t) return;
@@ -1104,6 +1195,9 @@
   const hostPost = (o) => { try { window.chrome.webview.postMessage(o); } catch {} };
   const chat=$("chat"), col=$("col"), input=$("input"), send=$("send");
   let state={ provider:"local", models:[], providerModels:{}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null };
+  let compareState={ active:false, targets:[] };
+  try{ compareState={...compareState,...JSON.parse(localStorage.getItem("booleanCompare")||"{}")}; }catch{}
+  let compareCatalog=[];
   const RECOMMENDED_MODELS=[
     { id:"qwen2.5-3b", file:"Qwen2.5-3B-Instruct-Q4_K_M.gguf", name:"Qwen2.5-3B", label:"Fast", size:"2.1 GB", note:"fast for most home PCs" },
     { id:"qwen2.5-7b", file:"Qwen2.5-7B-Instruct-Q4_K_M.gguf", name:"Qwen2.5-7B", label:"Default", size:"4.7 GB", note:"best balance for daily chat" },
@@ -1144,10 +1238,29 @@
   const PROVIDER_LABELS={ local:"Local", boolean:"Boolean Cloud", openai:"OpenAI", glm:"GLM", claude:"Claude" };
   const CTX_STEPS=[4096,8192,16384,32768,65536,131072,262144];
   const fmtCtx=(n)=>n>=1048576?Math.round(n/1048576)+"m":Math.round(n/1024)+"k";
-  const displayName=(m)=>(m||"").replace("@cf/zai-org/","").replace(/\.gguf$/i,"").replace(/-Instruct-Q\d.*$/i,"").replace(/^google_/,"");
-  const booleanCloudModel=()=>state.cloudBackend?.tokens?.default_model||(state.provider==="boolean"?state.model:"")||"@cf/zai-org/glm-4.7-flash";
+  const displayName=(m)=>(m||"").replace(/^@cf\/[^/]+\//,"").replace(/\.gguf$/i,"").replace(/-Instruct-Q\d.*$/i,"").replace(/^google_/,"");
+  const friendlyModelName=(m)=>{
+    const name=displayName(m);
+    if(/^qwen3-30b-a3b-fp8$/i.test(name)) return "Qwen3-30B";
+    if(/^glm-4\.7-flash$/i.test(name)) return "GLM-4.7 Flash";
+    return name;
+  };
+  const booleanCloudModel=()=>state.cloudBackend?.tokens?.default_model||(state.provider==="boolean"?state.model:"")||"@cf/qwen/qwen3-30b-a3b-fp8";
   const tokenLabel=(tokens)=>tokens?.unlimited_tokens?"Unlimited tokens":Number.isFinite(Number(tokens?.balance_tokens))?Number(tokens.balance_tokens).toLocaleString()+" tokens":"Sign in to use tokens";
   const providerModelName=(prov)=>displayName((state.providerModels&&state.providerModels[prov])||(state.provider===prov?state.model:""));
+  function shortAiName(provider,model){
+    const value=String(model||"").toLowerCase();
+    if(/\b(gpt|o[1345](?:\b|-))/.test(value)||provider==="openai") return "GPT";
+    if(/claude/.test(value)||provider==="claude") return "Claude";
+    if(/glm|zai|z\.ai/.test(value)||provider==="glm"||provider==="boolean") return "GLM";
+    if(/qwen/.test(value)) return "Qwen";
+    if(/gemma/.test(value)) return "Gemma";
+    if(/llama/.test(value)) return "Llama";
+    if(/mistral|mixtral/.test(value)) return "Mistral";
+    if(/phi/.test(value)) return "Phi";
+    if(/smollm/.test(value)) return "SmolLM";
+    return provider==="local"?"Local AI":"AI";
+  }
   const activeModelDownloads=new Set();
   document.querySelector("main").appendChild($("settingsPanel"));
 
@@ -1171,10 +1284,10 @@
   function addUser(text, images, at){
     const d=document.createElement("div"); d.className="msg-user";
     d._raw=text||"";
-    d.innerHTML='<button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+timeHtml(at);
+    d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'</div>';
     col.appendChild(d); updateCopyButton(); scrollDown(); return d;
   }
-  function makeAI(text, at, provider){ const d=document.createElement("div"); const cloud=provider&&provider!=="local"; d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'<span class="usage-inline"></span></div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+'<span class="usage-inline"></span></div>'; return d; }
   function makeTool(entry){
     const d=document.createElement("div"); d.className="toolcard"+((state.ui&&state.ui.collapseLogs===false)?" open":"");
     const open=d.classList.contains("open");
@@ -1308,8 +1421,9 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.4"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.5"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
+    updateCompareButton();
     $("providersel").value=state.provider;
     applyKeyRow(); applyMode(); applyContextLength();
     const label=(state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider;
@@ -1489,6 +1603,7 @@
     inp.onclick=(e)=>e.stopPropagation();
   }
   const PIN_SVG='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 3v6l3 3v2h-4v6l-1 1-1-1v-6H7v-2l3-3V3h4Z"/></svg>';
+  const FOLDER_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 6h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
   function runLabel(){
     if(!run) return "";
     if(run.steps) return "step "+run.steps;
@@ -1498,15 +1613,18 @@
     const isRun=!!(run&&run.threadId===t.id);
     const d=document.createElement("div"); d.className="thread"+(t.id===threadId?" active":"")+(t.pinned?" pinned":"")+(isRun?" working":"");
     d.dataset.id=t.id;
-    d.title=(isRun?"Working on this chat: "+(run.status||"thinking...")+"\n":"")+(t.title||"");
+    d.title=(isRun?"Working on this chat: "+(run.status||"thinking...")+"\n":"")+(t.title||"")+(t.projectDir?"\n"+t.projectDir:"");
     d.innerHTML=(t.pinned?'<span class="pin" title="Pinned">'+PIN_SVG+'</span>':'')+
       '<span class="ttl">'+esc(t.title)+'</span>'+
       (isRun?'<span class="runmark" aria-label="'+esc(runLabel())+'"><span class="run-dot"></span></span>':"")+
-      '<span class="acts"><span class="pinbtn" title="'+(t.pinned?"Unpin":"Pin")+'">'+PIN_SVG+'</span>'+
+      '<span class="acts">'+(t.kind==="project"&&t.projectDir?'<span class="folderbtn" title="Open project folder">'+FOLDER_SVG+'</span>':'')+
+      '<span class="pinbtn" title="'+(t.pinned?"Unpin":"Pin")+'">'+PIN_SVG+'</span>'+
       '<span class="renbtn" title="Rename">✎</span><span class="del" title="Delete">✕</span></span>';
     d.querySelector(".ttl").onclick=()=>openThread(t.id);
     d.querySelector(".ttl").ondblclick=(e)=>{ e.stopPropagation(); startRename(d,t); };
     d.querySelector(".renbtn").onclick=(e)=>{ e.stopPropagation(); startRename(d,t); };
+    const folderBtn=d.querySelector(".folderbtn");
+    if(folderBtn) folderBtn.onclick=async(e)=>{ e.stopPropagation(); await fetch("/api/project/open",{method:"POST",body:JSON.stringify({id:t.id})}); };
     d.querySelector(".pinbtn").onclick=async(e)=>{ e.stopPropagation();
       const r=await (await fetch("/api/thread/pin",{method:"POST",body:JSON.stringify({id:t.id,pinned:!t.pinned})})).json();
       state.threads=r.threads; renderThreads(); };
@@ -1525,7 +1643,6 @@
       ["Chats", ts.filter(t=>!t.pinned && t.kind!=="project")]
     ];
     for(const [label,items] of groups){
-      if(label==="Chats" && !items.length) continue;
       const foldable=label!=="Pinned";
       const hasRun=!!(run&&items.some(t=>t.id===run.threadId));
       const open=!foldable || threadGroups[label]!==false || hasRun;
@@ -1540,6 +1657,13 @@
       };
       list.appendChild(h);
       if(open){
+        if(label==="Projects" || label==="Chats"){
+          const create=document.createElement("button");
+          create.className="group-create";
+          create.innerHTML='<span class="plus">+</span><span>New '+(label==="Projects"?"project":"chat")+'</span>';
+          create.onclick=(e)=>{ e.stopPropagation(); label==="Projects"?createProject():newChat(); };
+          list.appendChild(create);
+        }
         let shown=items;
         if(foldable && !threadMore[label] && items.length>THREAD_GROUP_LIMIT){
           shown=items.slice(0,THREAD_GROUP_LIMIT);
@@ -1573,7 +1697,7 @@
     if(!log.length && !(run&&run.threadId===id)) showEmpty();
     log.forEach(e=>{
       if(e.t==="user") addUser(e.text,e.images,e.at);
-      else if(e.t==="ai" && String(e.text||"").trim()) col.appendChild(makeAI(e.text,e.at,e.provider));
+      else if(e.t==="ai" && String(e.text||"").trim()) col.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
       else if(e.t==="tool") col.appendChild(makeTool(e));
       else if(e.t==="usage"){ const u=makeUsage(e); if(u) col.appendChild(u); }
       else if(e.t==="error") col.appendChild(makeErr(e.text));
@@ -1587,6 +1711,23 @@
   async function newChat(){
     const r=await (await fetch("/api/thread/new",{method:"POST"})).json();
     threadId=r.id; col.innerHTML=""; showEmpty(); updateSendButton(); await refresh();
+  }
+  async function createProject(){
+    closeConversationPanels();
+    const name=await appPrompt("New project","Name your project. Boolean will create a folder and a dedicated project chat.","Project name");
+    if(!name) return;
+    const picked=await (await fetch("/api/pick-folder?save=0",{method:"POST"})).json();
+    if(!picked.path) return;
+    const response=await fetch("/api/project/new",{method:"POST",body:JSON.stringify({name,parentDir:picked.path})});
+    const result=await response.json();
+    if(!response.ok){ await appAlert("Could not create project",result.error||"The project could not be created."); return; }
+    threadId=result.id;
+    threadGroups.Projects=true;
+    localStorage.setItem("sazThreadGroups",JSON.stringify(threadGroups));
+    await refresh();
+    await openThread(threadId);
+    tempToast("Created "+result.name+" in "+result.projectDir,4200);
+    input.focus();
   }
 
   // ── model menu ──
@@ -1647,17 +1788,16 @@
     el.innerHTML="";
     RECOMMENDED_MODELS.forEach(rec=>el.appendChild(makeRecRow(rec,true)));
   }
-  function openApiKeyForm(prov,label,item){
-    const old=item.nextElementSibling;
-    if(old&&old.classList.contains("api-key-form")){ old.remove(); return; }
-    document.querySelectorAll("#modellist .api-key-form,#modellist .api-key-error").forEach(el=>el.remove());
+  let openApiProvider="";
+  const apiModelCache={};
+  function makeApiKeyForm(prov,label,hasKey){
     const form=document.createElement("div"); form.className="api-key-form";
-    form.innerHTML='<input type="password" autocomplete="off" spellcheck="false" placeholder="Enter '+esc(label)+' API key"><button class="api-key-save" type="button">Save</button>';
-    item.after(form);
-    const input=form.querySelector("input"), save=form.querySelector("button");
+    const placeholder=hasKey?"API key saved - paste to replace":"Enter "+label+" API key";
+    form.innerHTML='<input type="password" autocomplete="off" spellcheck="false" placeholder="'+esc(placeholder)+'"><button class="api-key-icon paste" type="button" title="Paste API key" aria-label="Paste API key"><span class="paste-ico" aria-hidden="true"></span></button><button class="api-key-save" type="button">Save</button>'+(hasKey?'<button class="api-key-icon delete" type="button" title="Delete saved API key" aria-label="Delete saved API key"><span class="trash-ico" aria-hidden="true"></span></button>':'');
+    const input=form.querySelector("input"), save=form.querySelector(".api-key-save"), paste=form.querySelector(".paste"), del=form.querySelector(".delete");
     const submit=async()=>{
       const key=input.value.trim();
-      form.parentElement?.querySelector(".api-key-error")?.remove();
+      form.closest(".api-provider-detail")?.querySelector(".api-key-error")?.remove();
       if(!key){
         const err=document.createElement("div"); err.className="api-key-error"; err.textContent="Enter an API key to continue."; form.after(err); input.focus(); return;
       }
@@ -1675,8 +1815,85 @@
     };
     form.onclick=(e)=>e.stopPropagation();
     save.onclick=(e)=>{ e.stopPropagation(); submit(); };
+    paste.onclick=async(e)=>{
+      e.stopPropagation();
+      try{ input.value=(await navigator.clipboard.readText()).trim(); input.focus(); }
+      catch{ tempToast("Clipboard access was blocked."); }
+    };
+    if(del) del.onclick=async(e)=>{
+      e.stopPropagation();
+      del.disabled=true;
+      const res=await fetch("/api/config",{method:"POST",body:JSON.stringify({clearKey:prov})});
+      if(!res.ok){ del.disabled=false; tempToast("Could not delete this key."); return; }
+      delete apiModelCache[prov];
+      $("modelmenu").classList.remove("open");
+      tempToast(label+" API key deleted.");
+      await refresh();
+    };
     input.onkeydown=(e)=>{ if(e.key==="Enter"){ e.preventDefault(); submit(); } };
-    input.focus();
+    return form;
+  }
+  async function toggleApiProvider(prov,label,item,hasKey){
+    const existing=item.nextElementSibling;
+    if(openApiProvider===prov&&existing?.classList.contains("api-provider-detail")){
+      existing.remove(); openApiProvider=""; return;
+    }
+    document.querySelectorAll("#modellist .api-provider-detail").forEach(el=>el.remove());
+    openApiProvider=prov;
+    const detail=document.createElement("div"); detail.className="api-provider-detail";
+    item.after(detail);
+    if(!hasKey){
+      detail.appendChild(makeApiKeyForm(prov,label,false));
+      detail.querySelector("input")?.focus();
+      return;
+    }
+    const modelFilter=document.createElement("input"); modelFilter.className="api-model-search"; modelFilter.placeholder="Find "+label+" model...";
+    modelFilter.setAttribute("aria-label","Find "+label+" model");
+    const modelsWrap=document.createElement("div"); modelsWrap.className="api-model-list";
+    modelsWrap.innerHTML='<div class="api-model-loading">Loading '+esc(label)+' models...</div>';
+    detail.appendChild(modelFilter);
+    detail.appendChild(modelsWrap);
+    detail.appendChild(makeApiKeyForm(prov,label,true));
+    let models=apiModelCache[prov];
+    if(!models){
+      try{
+        const res=await fetch("/api/provider-models?provider="+encodeURIComponent(prov));
+        const data=await res.json();
+        if(!res.ok) throw new Error(data.error||"model lookup failed");
+        models=apiModelCache[prov]=data.models||[];
+      }catch{
+        modelsWrap.innerHTML='<div class="api-key-error">Could not load models. Check the saved API key.</div>';
+        return;
+      }
+    }
+    const drawModels=(query="")=>{
+      const wanted=query.trim().toLowerCase();
+      const visible=models.filter(entry=>{
+        const model=entry.name||entry.id||String(entry);
+        return !wanted||model.toLowerCase().includes(wanted);
+      });
+      modelsWrap.innerHTML="";
+      visible.forEach(entry=>{
+        const model=entry.name||entry.id||String(entry);
+        const row=document.createElement("div");
+        const selected=state.provider===prov&&String(state.providerModels?.[prov]||"")===model;
+        row.className="api-model-row"+(selected?" selected":"");
+        row.innerHTML='<span>'+esc(displayName(model))+'</span><small>'+(selected?'Selected':'Use')+'</small>';
+        row.title="Use "+model;
+        row.onclick=async(e)=>{
+          e.stopPropagation();
+          await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov,model})});
+          $("modelmenu").classList.remove("open");
+          tempToast(displayName(model)+" selected.");
+          await refresh();
+        };
+        modelsWrap.appendChild(row);
+      });
+      if(!visible.length) modelsWrap.innerHTML='<div class="api-model-loading">No matching models.</div>';
+    };
+    drawModels();
+    modelFilter.oninput=()=>drawModels(modelFilter.value);
+    modelFilter.onclick=(e)=>e.stopPropagation();
   }
   function renderModelList(filter){
     const list=$("modellist"); list.innerHTML="";
@@ -1684,7 +1901,8 @@
     const matches=(text)=>!q || String(text||"").toLowerCase().includes(q);
     if(state.provider!=="local"){
       const cloud=state.cloudBackend||{};
-      if(matches("boolean cloud glm 4.7 flash tokens online")){
+      const cloudModel=friendlyModelName(booleanCloudModel());
+      if(matches("boolean cloud "+cloudModel+" tokens online")){
         const head=document.createElement("div"); head.className="model-head"; head.textContent="Boolean Cloud";
         list.appendChild(head);
         const item=document.createElement("div");
@@ -1692,7 +1910,7 @@
         const action=cloud.signedIn?(state.provider==="boolean"?"Selected":"Use"):"Sign in";
         const balance=tokenLabel(cloud.tokens);
         const daily=!cloud.tokens?.unlimited_tokens&&Number.isFinite(Number(cloud.tokens?.daily_remaining_tokens))?" · "+Number(cloud.tokens.daily_remaining_tokens).toLocaleString()+" today":"";
-        item.innerHTML='<span class="model-line"><b>GLM-4.7 Flash</b><small>Boolean Cloud - '+esc(balance+daily)+'</small></span><span class="model-dl">'+action+'</span>';
+        item.innerHTML='<span class="model-line"><b>'+esc(cloudModel)+'</b><small>Boolean Cloud - '+esc(balance+daily)+'</small></span><span class="model-dl">'+action+'</span>';
         item.onclick=selectBooleanCloud;
         list.appendChild(item);
       }
@@ -1707,14 +1925,9 @@
           item.className="item model-rec api-provider"+(hasKey&&state.provider===prov?" selected":"")+(hasKey?"":" missing");
           const model=providerModelName(prov)||"Default model";
           const detail=hasKey?model+" - API key saved":"API key required - enter one below.";
-          const action=hasKey?(state.provider===prov?"Selected":"Use"):"Add key";
+          const action=hasKey?"Models":"Add key";
           item.innerHTML='<span class="model-line"><b>'+esc(label)+'</b><small>'+esc(detail)+'</small></span><span class="model-dl">'+action+'</span>';
-          item.onclick=async()=>{
-            if(!hasKey){ openApiKeyForm(prov,label,item); return; }
-            $("modelmenu").classList.remove("open");
-            await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov})});
-            await refresh();
-          };
+          item.onclick=()=>toggleApiProvider(prov,label,item,hasKey);
           list.appendChild(item);
         });
       }
@@ -1741,6 +1954,77 @@
     });
     if(!list.children.length) list.innerHTML='<div class="item">no models available</div>';
   }
+
+  const compareId=(x)=>x?`${x.provider}:${x.model}`:"";
+  function compareTargetFromValue(value){ return compareCatalog.find((x)=>compareId(x)===value)||null; }
+  function saveCompareState(){ localStorage.setItem("booleanCompare",JSON.stringify(compareState)); updateCompareButton(); }
+  function updateCompareButton(){
+    const btn=$("comparebtn"); if(!btn) return;
+    btn.classList.toggle("active",!!compareState.active);
+    if(compareState.active&&compareState.targets.length===2){
+      const names=compareState.targets.map((x)=>shortAiName(x.provider,x.model));
+      btn.textContent=names.join(" + ");
+      btn.title=`Compare ${names.join(" and ")}`;
+    }else{ btn.textContent="Compare"; btn.title="Compare two cloud models"; }
+  }
+  async function loadCompareCatalog(){
+    const catalog=[];
+    if(state.cloudBackend?.signedIn){
+      const model=booleanCloudModel();
+      catalog.push({provider:"boolean",model,label:`Boolean Cloud - ${friendlyModelName(model)}`});
+    }
+    const providers=Object.keys(state.cloud||{}).filter((provider)=>state.keys?.[provider]);
+    const groups=await Promise.all(providers.map(async(provider)=>{
+      try{
+        const response=await fetch("/api/provider-models?provider="+encodeURIComponent(provider));
+        const data=await response.json();
+        return (data.models||[]).slice(0,150).map((entry)=>{
+          const model=entry.name||entry.id||String(entry);
+          return {provider,model,label:`${state.cloud[provider]} - ${displayName(model)}`};
+        });
+      }catch{ return []; }
+    }));
+    compareCatalog=catalog.concat(...groups);
+    return compareCatalog;
+  }
+  function fillCompareSelect(select,selected){
+    select.innerHTML="";
+    compareCatalog.forEach((item)=>{
+      const option=document.createElement("option");
+      option.value=compareId(item); option.textContent=item.label;
+      option.selected=option.value===selected;
+      select.appendChild(option);
+    });
+  }
+  async function openCompareMenu(){
+    const menu=$("comparemenu"), apply=$("compareApply"), note=$("compareNote");
+    menu.classList.add("open"); note.textContent="Loading cloud models..."; apply.disabled=true;
+    await loadCompareCatalog();
+    const saved=compareState.targets.map(compareId);
+    fillCompareSelect($("compareA"),saved[0]||compareId(compareCatalog[0]));
+    fillCompareSelect($("compareB"),saved[1]||compareId(compareCatalog[1]));
+    note.textContent=compareCatalog.length<2
+      ? "Add another API key or sign in to Boolean Cloud to compare two models."
+      : "Answer-only mode. Uses both models and about 2x tokens.";
+    apply.disabled=compareCatalog.length<2;
+  }
+  $("comparebtn").onclick=(event)=>{
+    event.stopPropagation();
+    $("plusmenu").classList.remove("open"); $("modemenu").classList.remove("open"); $("modelmenu").classList.remove("open");
+    if($("comparemenu").classList.contains("open")) $("comparemenu").classList.remove("open"); else openCompareMenu();
+  };
+  $("compareApply").onclick=(event)=>{
+    event.stopPropagation();
+    const a=compareTargetFromValue($("compareA").value), b=compareTargetFromValue($("compareB").value);
+    if(!a||!b||compareId(a)===compareId(b)){ $("compareNote").textContent="Choose two different models."; return; }
+    compareState={active:true,targets:[a,b]}; saveCompareState(); $("comparemenu").classList.remove("open");
+    tempToast(`${shortAiName(a.provider,a.model)} + ${shortAiName(b.provider,b.model)} Compare is on.`);
+  };
+  $("compareOff").onclick=(event)=>{
+    event.stopPropagation(); compareState.active=false; saveCompareState(); $("comparemenu").classList.remove("open"); tempToast("Compare is off.");
+  };
+  $("compareA").onchange=()=>{ if($("compareA").value===$("compareB").value) $("compareNote").textContent="Choose two different models."; };
+  $("compareB").onchange=()=>{ if($("compareA").value===$("compareB").value) $("compareNote").textContent="Choose two different models."; };
   $("modelbtn").onclick=(e)=>{ e.stopPropagation(); $("plusmenu").classList.remove("open"); $("modemenu").classList.remove("open"); $("modelmenu").classList.toggle("open"); $("modelsearch").value=""; renderModelList(""); $("modelsearch").focus(); };
   $("modelsearch").oninput=(e)=>renderModelList(e.target.value);
 
@@ -2138,6 +2422,7 @@
 
   document.addEventListener("click",(e)=>{
     if(!$("modelmenu").contains(e.target)&&e.target!==$("modelbtn")) $("modelmenu").classList.remove("open");
+    if(!$("comparemenu").contains(e.target)&&e.target!==$("comparebtn")) $("comparemenu").classList.remove("open");
     if(!$("plusmenu").contains(e.target)&&e.target!==$("plusbtn")) $("plusmenu").classList.remove("open");
     if(!$("modemenu").contains(e.target)&&!$("modebtn").contains(e.target)) $("modemenu").classList.remove("open");
   });
@@ -2199,8 +2484,25 @@
   function ensureLiveAI(){
     if(!run) return;
     if(!String(run.raw||"").trim()) return;
-    if(!run.liveAI||!run.liveAI.isConnected){ run.liveAI=makeAI(run.raw||"",null,run.provider); insertAbove(run.liveAI); }
-    run.liveAI._raw=run.raw; run.liveAI.querySelector(".body").innerHTML=md(run.raw);
+    if(!run.liveAI||!run.liveAI.isConnected){ run.liveAI=makeAI(run.raw||"",null,run.provider,run.model,run.aiLabel); insertAbove(run.liveAI); }
+    run.liveAI._raw=run.raw;
+    run.liveAI.querySelector(".body").innerHTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(run.raw);
+  }
+  function ensureCompareAI(slot){
+    if(!run?.compare) return;
+    const item=run.slots[slot];
+    if(!item||!String(item.raw||"").trim()) return;
+    if(!item.liveAI||!item.liveAI.isConnected){
+      item.liveAI=makeAI(item.raw,null,item.provider,item.model,item.aiLabel);
+      item.liveAI.classList.add("cloud");
+      insertAbove(item.liveAI);
+    }
+    item.liveAI._raw=item.raw;
+    item.liveAI.classList.remove("compare-pending");
+    item.liveAI.dataset.provider=item.provider||"";
+    item.liveAI.dataset.model=item.model||"";
+    item.liveAI.dataset.aiLabel=item.aiLabel||shortAiName(item.provider,item.model);
+    item.liveAI.querySelector(".body").innerHTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(item.raw);
   }
 
   // pending follow-up messages per thread, sent automatically when the run ends
@@ -2232,11 +2534,13 @@
     if(busy()){
       // a run is in flight — queue it (only possible while viewing the running thread)
       if(!viewingRun()) return;
-      (queues[threadId]=queues[threadId]||[]).push({display,msg,images});
+      const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
+      (queues[threadId]=queues[threadId]||[]).push({display,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined});
       renderQueue();
       return;
     }
-    startRun(threadId, {mode:"chat", display, msg, images});
+    const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
+    startRun(threadId, {mode:comparing?"compare":"chat", display, msg, images, targets:comparing?compareState.targets:undefined});
   }
 
   function removeEndActions(){ col.querySelector(".end-actions")?.remove(); }
@@ -2261,16 +2565,20 @@
     const mode=opts.mode||"chat";
     removeEndActions();
     if(threadId===tid){
-      if(mode==="chat"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now()); }
-      else if(mode==="retry"){ removeLastTurnDom(); }
+      if(mode==="chat"||mode==="compare"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now()); }
+      else if(mode==="retry"||mode==="compare-retry"){ removeLastTurnDom(); }
     }
     run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local" };
+    const isCompare=mode==="compare"||mode==="compare-retry";
+    if(isCompare) Object.assign(run,{status:"comparing...",compare:true,targets:opts.targets||compareState.targets,slots:[{},{}]});
     if(viewingRun()) ensureStatusEl();
     renderThreads();
     updateSendButton();
     currentAbort=new AbortController();
-    const url=mode==="retry"?"/api/retry":mode==="continue"?"/api/continue":"/api/chat";
-    const body=mode==="chat"?{threadId:tid,message:opts.msg,images:opts.images}:{threadId:tid};
+    const url=mode==="retry"?"/api/retry":mode==="compare-retry"?"/api/compare/retry":mode==="continue"?"/api/continue":mode==="compare"?"/api/compare":"/api/chat";
+    const body=mode==="chat"||mode==="compare"
+      ?{threadId:tid,message:opts.msg,images:opts.images,targets:opts.targets}
+      :{threadId:tid,targets:opts.targets};
     try{
       const res=await fetch(url,{method:"POST",signal:currentAbort.signal,body:JSON.stringify(body)});
       const rd=res.body.getReader(), dec=new TextDecoder(); let buf="";
@@ -2279,14 +2587,16 @@
     }catch(err){ if(err.name!=="AbortError" && viewingRun()) insertAbove(makeErr("connection error: "+err.message)); }
     if(run&&run.statusEl&&run.statusEl.isConnected) run.statusEl.remove();
     const wasBoolean=state.provider==="boolean";
+    lastRunWasCompare=!!run?.compare;
     run=null; currentAbort=null; updateSendButton(); renderThreads();
     if(wasBoolean) await refresh();
     // auto-send the next queued message for this thread
     const q=queues[tid];
-    if(q&&q.length){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, {mode:"chat", ...next}), 60); }
+    if(q&&q.length){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
     else { if(threadId===tid){ renderEndActions(); estimateContext(); } input.focus(); }
   }
-  function retry(){ if(!busy()) startRun(threadId,{mode:"retry"}); }
+  let lastRunWasCompare=false;
+  function retry(){ if(!busy()) startRun(threadId,lastRunWasCompare&&compareState.targets.length===2?{mode:"compare-retry",targets:compareState.targets}:{mode:"retry"}); }
   function continueRun(){ if(!busy()) startRun(threadId,{mode:"continue"}); }
   function handleEvent(ev){
     if(!run) return;
@@ -2304,7 +2614,32 @@
         card.querySelector(".allow").onclick=()=>decide(true); card.querySelector(".deny").onclick=()=>decide(false);
       }
     }
-    else if(ev.type==="answer"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.answered=true; if(showing && run.raw.trim()){ ensureLiveAI(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; } }
+    else if(ev.type==="answer"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(showing && run.raw.trim()){ ensureLiveAI(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
+    else if(ev.type==="compareStart"){
+      const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
+      Object.assign(item,{raw:"",provider:ev.provider,model:ev.model,aiLabel:ev.aiLabel});
+      if(showing){ item.liveAI=makeAI("Waiting...",null,item.provider,item.model,item.aiLabel); item.liveAI.classList.add("cloud","compare-pending"); insertAbove(item.liveAI); }
+    }
+    else if(ev.type==="compareToken"){
+      const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
+      item.raw=(item.raw||"")+ev.text;
+      if(showing) ensureCompareAI(ev.slot);
+    }
+    else if(ev.type==="compareAnswer"){
+      const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
+      Object.assign(item,{raw:ev.text||item.raw||"",provider:ev.provider,model:ev.model,aiLabel:ev.aiLabel,answered:true});
+      if(showing) ensureCompareAI(ev.slot);
+    }
+    else if(ev.type==="compareUsage"){
+      const item=run.slots[ev.slot];
+      const foot=item?.liveAI?.querySelector(".usage-inline");
+      if(foot){ const total=(ev.input||0)+(ev.output||0); foot.textContent="tokens: "+shortNum(total)+" / "+shortNum(ev.output||0)+" out"+(ev.estimated?" est":""); }
+    }
+    else if(ev.type==="compareError"){
+      const item=run.slots[ev.slot]||{};
+      item.raw="Could not answer: "+ev.text;
+      if(showing) ensureCompareAI(ev.slot);
+    }
     else if(ev.type==="tokens"){ run.tokens={input:ev.input,output:ev.output,estimated:ev.estimated}; if(showing) updateStatusMeta(); }
     else if(ev.type==="optimized"){ run.opt=ev; if(showing && state.ui?.showTokens!==false && ev.saved>1200){ const d=document.createElement("div"); d.className="opt-line"; const pct=ev.full?Math.round(ev.saved/ev.full*100):0; d.textContent="Context trimmed: ~"+ev.sent.toLocaleString()+" tokens sent"+(pct?(" ("+pct+"% smaller)"):""); insertAbove(d); } }
     else if(ev.type==="browser"){ if(ev.action==="read") showReading(); else if(ev.action==="open"&&ev.url) aiNavigate(ev.url); }
@@ -2381,7 +2716,7 @@ AI output may be inaccurate or wrong. You are responsible for reviewing commands
 3. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
 Boolean can be used locally without a Boolean account. Optional cloud features may require Google Sign-In and may use a cloud token balance.
 
-The first 1,000 new cloud signups may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
+The first 1,000 new cloud signups may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another cloud model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
 
 Cloud tokens are usage credits for optional cloud AI features. They are not cash, have no cash value, are not transferable, and may expire. For now, Boolean Cloud meters usage by words: one word counts as one token. Provider usage may differ from this customer-facing meter.
 
@@ -2422,7 +2757,7 @@ Data leaves only when you choose features that require it:
 5. Installation helpers: tools such as winget contact their own servers.
 
 FREE TOKENS AND USAGE LIMITS
-The first 1,000 new Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. For now, Boolean Cloud counts one word as one token. Provider usage may differ from this customer-facing meter. Free token amounts, daily caps, expiration, model access, and availability may change.
+The first 1,000 new Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another cloud model selected by Boolean. For now, Boolean Cloud counts one word as one token. Provider usage may differ from this customer-facing meter. Free token amounts, daily caps, expiration, model access, and availability may change.
 
 PAYMENTS
 If paid plans or token packs are enabled, payments are processed by Stripe. Boolean may store Stripe customer IDs, subscription/payment status, and billing metadata, but should not store full card numbers.
@@ -2543,8 +2878,8 @@ Optional bundled starter model:
     if(!col.querySelector(".msg-user,.msg-ai")) return;
     let out=[];
     col.querySelectorAll(".msg-user,.msg-ai").forEach(n=>{
-      if(n.classList.contains("msg-user")) out.push("You: "+n.textContent.trim());
-      else out.push("Boolean: "+(n.querySelector(".body")?.textContent||n.textContent).trim());
+      if(n.classList.contains("msg-user")) out.push("You: "+String(n._raw||"").trim());
+      else out.push((n.dataset.aiLabel||shortAiName(n.dataset.provider,n.dataset.model))+": "+String(n._raw||"").trim());
     });
     navigator.clipboard.writeText(out.join("\n\n"));
     const b=$("copyall"); const old=b.innerHTML; b.innerHTML="✓"; setTimeout(()=>b.innerHTML=old,1200);
@@ -2992,7 +3327,7 @@ Optional bundled starter model:
     $("winMax").onclick=()=>winCmd("maxtoggle");
     $("winClose").onclick=()=>winCmd("close");
     const _dragOk=(t)=>!t.closest("button, .netseg, input, textarea, select, a, .menu, .winctl, .thread, .acts, .showmore, .foldable, .panel, .sidefoot");
-    const _dragZone=(e)=>e.target.closest(".topbar") || (e.clientY<=44 && e.target.closest("#sidebar"));
+    const _dragZone=(e)=>e.target.matches(".topbar,.topbar > .spacer,.sidehead");
     document.addEventListener("pointerdown",(e)=>{ if(e.button===0 && _dragZone(e) && _dragOk(e.target)) winCmd("drag"); });
     document.addEventListener("dblclick",(e)=>{ if(_dragZone(e) && _dragOk(e.target)) winCmd("maxtoggle"); });
     window.chrome.webview.addEventListener("message",(e)=>{
@@ -3008,6 +3343,12 @@ Optional bundled starter model:
       else if(d.type==="browserControlResult"){ postBrowserControlResult(d.id,d); }
     });
   }
+  // Keep the app canvas fixed. Text remains selectable/copyable, but selected
+  // text, links, and message images cannot be dragged around the main screen.
+  document.addEventListener("dragstart",(e)=>{
+    if(e.target.closest("#noteEditor img")) return;
+    e.preventDefault();
+  });
 
   (async()=>{
     await refresh();

@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS token_accounts (
   balance_tokens INTEGER NOT NULL DEFAULT 0,
   plan TEXT NOT NULL DEFAULT 'free',
   default_provider TEXT NOT NULL DEFAULT 'workers-ai',
-  default_model TEXT NOT NULL DEFAULT '@cf/zai-org/glm-4.7-flash',
+  default_model TEXT NOT NULL DEFAULT '@cf/qwen/qwen3-30b-a3b-fp8',
   free_grant_tokens INTEGER NOT NULL DEFAULT 0,
   free_grant_expires_at INTEGER,
   daily_limit_tokens INTEGER NOT NULL DEFAULT 0,

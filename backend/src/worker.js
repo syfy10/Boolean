@@ -9,7 +9,7 @@ const FREE_SIGNUP_LIMIT = 1000;
 const FREE_DAILY_LIMIT_TOKENS = 10000;
 const FREE_SIGNUP_DAYS = 30;
 const DEFAULT_FREE_TIER_PROVIDER = "workers-ai";
-const DEFAULT_FREE_TIER_MODEL = "@cf/zai-org/glm-4.7-flash";
+const DEFAULT_FREE_TIER_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8";
 
 export default {
   async fetch(request, env) {

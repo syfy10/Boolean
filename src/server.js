@@ -12,7 +12,7 @@ import {
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
 } from "./config.js";
 import { systemPrompt, runTurn, estimateContext } from "./agent.js";
-import { listProviderModels, backendUp } from "./providers.js";
+import { resolveTarget, chatCompletion, listProviderModels, backendUp } from "./providers.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads } from "./store.js";
@@ -231,6 +231,20 @@ function stepSummary(name, args) {
   return name;
 }
 
+function shortAiName(provider, model = "") {
+  const value = String(model || "").toLowerCase();
+  if (/\b(gpt|o[1345](?:\b|-))/.test(value) || provider === "openai") return "GPT";
+  if (/claude/.test(value) || provider === "claude") return "Claude";
+  if (/glm|zai|z\.ai/.test(value) || provider === "glm" || provider === "boolean") return "GLM";
+  if (/qwen/.test(value)) return "Qwen";
+  if (/gemma/.test(value)) return "Gemma";
+  if (/llama/.test(value)) return "Llama";
+  if (/mistral|mixtral/.test(value)) return "Mistral";
+  if (/phi/.test(value)) return "Phi";
+  if (/smollm/.test(value)) return "SmolLM";
+  return provider === "local" ? "Local AI" : "AI";
+}
+
 // 1x1 red PNG used by the vision self-test
 const TEST_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
@@ -249,11 +263,12 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
 
   // ── thread store ───────────────────────────────────────────────
   const threads = new Map(); // id -> { id, title, messages, createdAt, updatedAt, abort }
-  function newThread() {
+  function newThread({ kind = "chat", title = "New chat", projectDir = "" } = {}) {
     const id = crypto.randomUUID();
+    const workDir = kind === "project" && projectDir ? projectDir : config.projectsDir;
     const t = {
-      id, title: "New chat",
-      messages: [{ role: "system", content: systemPrompt(config.projectsDir, config.autoApprove, config) }],
+      id, title, kind, projectDir,
+      messages: [{ role: "system", content: systemPrompt(workDir, config.autoApprove, config) }],
       log: [], // display entries: {t:'user'|'ai'|'tool', ...}
       createdAt: Date.now(), updatedAt: Date.now(), abort: null
     };
@@ -262,7 +277,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     return t;
   }
   function isBlankNewThread(t) {
-    if (!t || t.title !== "New chat" || t.pinned) return false;
+    if (!t || t.kind === "project" || t.title !== "New chat" || t.pinned) return false;
     if (Array.isArray(t.log) && t.log.length) return false;
     const messages = Array.isArray(t.messages) ? t.messages : [];
     return messages.every((m) => m?.role === "system");
@@ -278,7 +293,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     }
     return newThread();
   }
-  const isProjectThread = (t) =>
+  const isProjectThread = (t) => t?.kind === "project" ||
     Array.isArray(t.log) && t.log.some((e) => e.t === "tool" && (e.name === "create_project" || e.name === "run_project")) ||
     /^Build\b/i.test(t?.title || "") ||
     /\b(build|create|make)\b.*\b(app|project|website|api|desktop|window|windows)\b/i.test(userTextOnly(firstUserContent(t)));
@@ -286,7 +301,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     return [...threads.values()]
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
       .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, pinned: !!t.pinned,
-        kind: isProjectThread(t) ? "project" : "chat" }));
+        kind: isProjectThread(t) ? "project" : "chat", projectDir: t.projectDir || "" }));
   }
   const renderThread = (t) => t.log; // display log = full history incl. tool steps
   let activeThreadId = null;
@@ -303,6 +318,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     let repairedTitles = false;
     for (const t of restored) {
       if (repairAutoNotepadTitle(t)) repairedTitles = true;
+      if (!t.kind && isProjectThread(t)) { t.kind = "project"; repairedTitles = true; }
+      if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; }
       threads.set(t.id, { ...t, abort: null });
     }
     activeThreadId = restored.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
@@ -433,6 +450,16 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return;
       }
 
+      if (req.method === "GET" && p === "/api/provider-models") {
+        const provider = String(url.searchParams.get("provider") || "").trim();
+        if (!CLOUD[provider]) return json({ error: "invalid_provider" }, 400);
+        if (!config[provider]?.apiKey) return json({ error: "api_key_required" }, 401);
+        const providerConfig = { ...config, provider };
+        const models = await listProviderModels(providerConfig);
+        json({ ok: true, provider, models });
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/cloud/url") {
         const body = await readBody(req);
         const c = config.cloudBackend || {};
@@ -494,7 +521,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const t = threads.get(url.searchParams.get("id"));
         if (!t) return json({ error: "no such thread" }, 404);
         activeThreadId = t.id;
-        json({ id: t.id, title: t.title, log: renderThread(t) });
+        json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat",
+          projectDir: t.projectDir || "", log: renderThread(t) });
         return;
       }
 
@@ -502,6 +530,39 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const t = reuseOrNewThread();
         persist();
         json({ id: t.id });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/project/new") {
+        const body = await readBody(req);
+        const name = String(body.name || "").trim().replace(/[. ]+$/g, "");
+        const parentDir = path.resolve(String(body.parentDir || config.projectsDir || ""));
+        if (!name || name.length > 80 || /[<>:"/\\|?*\x00-\x1f]/.test(name) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(name)) {
+          return json({ error: "Use a valid Windows folder name (1-80 characters)." }, 400);
+        }
+        if (!fs.existsSync(parentDir) || !fs.statSync(parentDir).isDirectory()) {
+          return json({ error: "Choose an existing folder location." }, 400);
+        }
+        const projectDir = path.resolve(parentDir, name);
+        const relativeProject = path.relative(parentDir, projectDir);
+        if (!relativeProject || relativeProject.startsWith("..") || path.isAbsolute(relativeProject)) {
+          return json({ error: "Invalid project location." }, 400);
+        }
+        if (fs.existsSync(projectDir)) return json({ error: "A folder with that project name already exists." }, 409);
+        fs.mkdirSync(projectDir);
+        const t = newThread({ kind: "project", title: name, projectDir });
+        persist();
+        json({ id: t.id, name, projectDir });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/project/open") {
+        const body = await readBody(req);
+        const t = threads.get(body.id);
+        if (!t || t.kind !== "project" || !t.projectDir) return json({ error: "This project has no saved folder." }, 404);
+        fs.mkdirSync(t.projectDir, { recursive: true });
+        spawn("explorer.exe", [t.projectDir], { detached: true, stdio: "ignore" }).unref();
+        json({ ok: true, projectDir: t.projectDir });
         return;
       }
 
@@ -565,6 +626,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         // remove a saved API key: { clearKey: "openai" }
         if (typeof body.clearKey === "string" && CLOUD[body.clearKey]) {
           config[body.clearKey].apiKey = "";
+          if (config.provider === body.clearKey) config.provider = "local";
         }
         if (typeof body.projectsDir === "string" && body.projectsDir.trim()) config.projectsDir = body.projectsDir.trim();
         if (typeof body.referenceModel === "string" && body.referenceModel) config.referenceModel = body.referenceModel;
@@ -726,7 +788,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         ps.stdout.on("data", (d) => (out += d.toString()));
         ps.on("close", () => {
           const picked = out.trim();
-          if (picked) { config.projectsDir = picked; saveConfig(config); }
+          if (picked && url.searchParams.get("save") !== "0") { config.projectsDir = picked; saveConfig(config); }
           json({ path: picked || null });
         });
         ps.on("error", () => json({ path: null }));
@@ -801,6 +863,20 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return streamRun(t, res);
       }
 
+      if (req.method === "POST" && p === "/api/compare/retry") {
+        const body = await readBody(req);
+        const t = threads.get(body.threadId) || threads.get(activeThreadId);
+        const targets = Array.isArray(body.targets) ? body.targets.slice(0, 2) : [];
+        for (let i = t.messages.length - 1; i >= 0; i--) {
+          if (t.messages[i].role === "user") { t.messages.length = i + 1; break; }
+        }
+        for (let i = t.log.length - 1; i >= 0; i--) {
+          if (t.log[i].t === "user") { t.log.length = i + 1; break; }
+        }
+        persist();
+        return streamCompare(t, targets, res);
+      }
+
       // ask the model to continue where it left off (context limit / stop / error)
       if (req.method === "POST" && p === "/api/continue") {
         const body = await readBody(req);
@@ -821,7 +897,10 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const lines = [];
         for (const e of t.log) {
           if (e.t === "user") lines.push((md ? "**You:** " : "You: ") + e.text);
-          else if (e.t === "ai") lines.push((md ? "**Boolean:** " : "Boolean: ") + e.text);
+          else if (e.t === "ai") {
+            const label = e.aiLabel || shortAiName(e.provider, e.model);
+            lines.push((md ? `**${label}:** ` : `${label}: `) + e.text);
+          }
           else if (e.t === "tool") lines.push((md ? "> `" : "  [tool] ") + e.summary + (md ? "`" : ""));
         }
         const out = `# ${t.title}\n\n` + lines.join("\n\n");
@@ -831,6 +910,37 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         });
         res.end(out);
         return;
+      }
+
+      if (req.method === "POST" && p === "/api/compare") {
+        const body = await readBody(req);
+        const t = threads.get(body.threadId) || threads.get(activeThreadId);
+        const targets = Array.isArray(body.targets) ? body.targets.slice(0, 2) : [];
+        const identities = new Set(targets.map((x) => `${x?.provider || ""}:${x?.model || ""}`));
+        if (!t || targets.length !== 2 || identities.size !== 2) {
+          res.writeHead(400, { "content-type": "application/x-ndjson; charset=utf-8" });
+          res.end(JSON.stringify({ type: "error", text: "Choose two different cloud models to compare." }) + "\n");
+          return;
+        }
+        const allowed = new Set(["boolean", ...Object.keys(CLOUD)]);
+        if (targets.some((x) => !allowed.has(x?.provider) || !String(x?.model || "").trim())) {
+          res.writeHead(400, { "content-type": "application/x-ndjson; charset=utf-8" });
+          res.end(JSON.stringify({ type: "error", text: "Compare is available for cloud models only." }) + "\n");
+          return;
+        }
+
+        const text = String(body.message || "").trim();
+        const images = Array.isArray(body.images) ? body.images : [];
+        const content = images.length
+          ? [{ type: "text", text }, ...images.map((image) => ({ type: "image_url", image_url: { url: typeof image === "string" ? image : (image.dataURL || image.url) } }))]
+          : text;
+        t.messages.push({ role: "user", content });
+        t.log.push({ t: "user", text: userTextOnly(content), images: imagesOf(content), at: Date.now(), compareTargets: targets });
+        if (config.ui?.learnedMemory !== false) learnFromUserText(userTextOnly(content));
+        if (t.title === "New chat") t.title = shortThreadTitle(content).slice(0, 42);
+        t.updatedAt = Date.now();
+        persist();
+        return streamCompare(t, targets, res);
       }
 
       if (req.method === "POST" && p === "/api/chat") {
@@ -877,24 +987,27 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
         const send = (o) => res.write(JSON.stringify(o) + "\n");
         const replyProvider = config.provider || "local";
+        const runConfig = t.projectDir ? { ...config, projectsDir: t.projectDir } : config;
+        let replyModel = currentModel(runConfig);
 
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
         if (t.messages[0]?.role === "system") {
-          t.messages[0] = { role: "system", content: systemPrompt(config.projectsDir, config.autoApprove, config) };
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) };
         }
 
         const abort = new AbortController();
         t.abort = abort;
         let runIn = 0, runOut = 0, runEst = false;
         const ctx = {
-          config,
+          config: runConfig,
           browserUrl,
           signal: abort.signal,
           onStatus: (text) => send({ type: "status", text }),
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {
             runIn += u.input || 0; runOut += u.output || 0; runEst = runEst || !!u.estimated;
+            if (u.model) replyModel = u.model;
             recordUsage(u.provider, u.model, u.input || 0, u.output || 0);
             send({ type: "tokens", input: runIn, output: runOut, estimated: runEst });
           },
@@ -988,8 +1101,9 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         try {
           const answer = await runTurn(ctx, t.messages);
           if (String(answer || "").trim()) {
-            t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider });
-            send({ type: "answer", text: answer, provider: replyProvider });
+            const aiLabel = shortAiName(replyProvider, replyModel);
+            t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
+            send({ type: "answer", text: answer, provider: replyProvider, model: replyModel, aiLabel });
           }
           if (runIn || runOut) {
             const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst };
@@ -1012,6 +1126,88 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         persist();
         send({ type: "done" });
         res.end();
+    }
+
+    async function streamCompare(t, targets, res) {
+      res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
+      const send = (o) => res.write(JSON.stringify(o) + "\n");
+      const abort = new AbortController();
+      t.abort = abort;
+      activeChats++;
+      lastPing = Date.now();
+
+      // Compare is deliberately answer-only: two models must never duplicate
+      // browser, file, email, or Windows actions from one prompt.
+      const recent = t.messages
+        .filter((m) => (m.role === "user" || m.role === "assistant") && m.content && !m.tool_calls?.length)
+        .slice(-18)
+        .map((m) => ({ role: m.role, content: m.content }));
+      const prompt = [
+        { role: "system", content: "Answer the user's request directly and concisely. Use the recent conversation for context. Do not claim to run tools or take actions." },
+        ...recent
+      ];
+      const results = new Array(2);
+
+      const runOne = async (choice, slot) => {
+        const provider = choice.provider;
+        const model = String(choice.model).trim();
+        const runConfig = {
+          ...config,
+          provider,
+          [provider]: { ...(config[provider] || {}), model },
+          cloudBackend: { ...(config.cloudBackend || {}) }
+        };
+        send({ type: "compareStart", slot, provider, model, aiLabel: shortAiName(provider, model) });
+        try {
+          const target = await resolveTarget(runConfig);
+          target.model = model;
+          if (provider === "boolean") {
+            target.onCloudTokens = (tokens) => {
+              config.cloudBackend = { ...(config.cloudBackend || {}), tokens };
+              saveConfig(config);
+            };
+          }
+          const answerMessage = await chatCompletion(target, prompt, undefined, abort.signal,
+            (text) => send({ type: "compareToken", slot, text }));
+          const answer = String(answerMessage?.content || "").trim();
+          const usage = answerMessage?.usage || {};
+          if (usage.input || usage.output) {
+            recordUsage(provider, model, usage.input || 0, usage.output || 0);
+            send({ type: "compareUsage", slot, input: usage.input || 0, output: usage.output || 0, estimated: !!usage.estimated });
+          }
+          const aiLabel = shortAiName(provider, model);
+          results[slot] = { ok: true, answer, provider, model, aiLabel };
+          t.log.push({ t: "ai", text: answer, at: Date.now(), provider, model, aiLabel, compare: true, compareSlot: slot });
+          if (usage.input || usage.output) t.log.push({ t: "usage", input: usage.input || 0, output: usage.output || 0, estimated: !!usage.estimated, compareSlot: slot });
+          send({ type: "compareAnswer", slot, text: answer, provider, model, aiLabel });
+        } catch (err) {
+          if (err?.name === "AbortError" || abort.signal.aborted) {
+            results[slot] = { ok: false, error: "stopped" };
+            send({ type: "compareError", slot, text: "stopped" });
+          } else {
+            const message = String(err?.message || err);
+            results[slot] = { ok: false, error: message };
+            t.log.push({ t: "error", text: `${shortAiName(provider, model)}: ${message}`, compareSlot: slot });
+            send({ type: "compareError", slot, text: message });
+          }
+        }
+      };
+
+      try {
+        await Promise.allSettled(targets.map(runOne));
+        const combined = results.map((result, slot) => result?.ok
+          ? `[${result.aiLabel}]\n${result.answer}`
+          : `[${shortAiName(targets[slot].provider, targets[slot].model)} unavailable]\n${result?.error || "No response"}`
+        ).join("\n\n");
+        t.messages.push({ role: "assistant", content: combined });
+        t.updatedAt = Date.now();
+        persist();
+        send({ type: "done" });
+      } finally {
+        activeChats = Math.max(0, activeChats - 1);
+        t.abort = null;
+        res.end();
+      }
     }
   });
 

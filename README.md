@@ -16,6 +16,11 @@ Four interchangeable providers (Settings or `/provider`):
 | **openai** | OpenAI cloud API | API key (`/key openai sk-...`) |
 | **glm** | Z.ai / Zhipu GLM cloud API | API key (`/key glm ...`) |
 
+Cloud mode also includes **Compare (Beta)** in the message composer. Pick two
+Boolean Cloud or saved API models and send one prompt to both. Replies stream
+into separate labeled bubbles; one provider can fail without cancelling the
+other. Compare is answer-only and never duplicates tools or computer actions.
+
 It can control **PowerShell, cmd, winget, git, npm, dotnet** — anything you can
 run in a terminal — plus read and write files, with an approval prompt before
 every command so you stay in control.
@@ -118,7 +123,7 @@ separate Cloudflare Worker backend under `backend/`:
 - 100k free signup cloud tokens for the first 1,000 new cloud signups
 - 10k/day free-tier usage cap
 - word-based cloud metering for now: one word counts as one token
-- free-tier default model metadata for GLM-4.7-Flash on Workers AI
+- free-tier default model metadata for Qwen3-30B-A3B on Workers AI
 - future Stripe checkout/webhooks
 - future cloud AI proxy
 
@@ -128,7 +133,7 @@ belong only in the backend, never inside the Windows installer.
 Optional cloud accounts change the privacy model only for cloud features. Local
 mode remains offline. If a user signs in with Google or uses cloud tokens,
 Boolean Cloud may store account identity, token balance, usage counters,
-free-grant expiration, default cloud model access such as GLM-4.7-Flash,
+free-grant expiration, default cloud model access such as Qwen3-30B-A3B,
 Stripe billing status if enabled, and cloud request metadata needed to
 provide and protect the service.
 
@@ -150,7 +155,7 @@ same internal version in `package.json`, `package-lock.json`, `src/config.js`,
 `build/installer.iss`, then push a matching tag:
 
 ```powershell
-$version = "0.9.4"
+$version = "0.9.5"
 git tag "v$version"
 git push origin "v$version"
 ```

@@ -42,8 +42,8 @@ The first 1,000 new cloud signups may receive a limited free cloud token grant,
 currently 100,000 tokens for the first 30 days with a 10,000 token daily cap.
 After the first 1,000 new signups, new accounts may start with no free tokens.
 Free grants, limits, models, prices, and availability may change or be
-discontinued. The free cloud tier may default to GLM-4.7-Flash through
-Cloudflare Workers AI or another low-cost cloud model selected by Boolean.
+discontinued. The free cloud tier currently defaults to Qwen3-30B-A3B through
+Cloudflare Workers AI or another cloud model selected by Boolean.
 
 Cloud tokens are usage credits for optional cloud AI features. They are not
 cash, have no cash value, are not transferable, and may expire. For now,

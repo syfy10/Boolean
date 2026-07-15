@@ -39,7 +39,7 @@ sealed class TabItem
 
 sealed class MainForm : Form
 {
-    const string AppVersion = "0.9.4";
+    const string AppVersion = "0.9.5";
     const string UpdateManifestUrl = "https://github.com/syfy10/Boolean/releases/latest/download/update.json";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]

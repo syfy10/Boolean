@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.4";
-export const APP_DISPLAY_VERSION = "v0.09.4";
+export const APP_VERSION = "0.9.5";
+export const APP_DISPLAY_VERSION = "v0.09.5";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -33,7 +33,7 @@ const DEFAULTS = {
     visionTestMap: {}     // "model|mmproj" -> { ok, message, at }
   },
   boolean: {
-    model: "@cf/zai-org/glm-4.7-flash"
+    model: "@cf/qwen/qwen3-30b-a3b-fp8"
   },
   openai: {
     baseUrl: "https://api.openai.com/v1",

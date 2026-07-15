@@ -26,6 +26,43 @@ const SETTINGS = Object.freeze({
   accounts: "ms-settings:yourinfo"
 });
 
+// Small/local models are not reliable enough to discover obvious Windows
+// Settings actions through tool calling every time. Route only clear,
+// allowlisted requests here; everything else still goes through the model.
+export function detectWindowsSettingsRequest(input) {
+  const text = String(input || "")
+    .toLowerCase()
+    .replace(/\bdesplay\b/g, "display")
+    .replace(/\bbluetooths?\b/g, "bluetooth")
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!text || !/\b(open|show|view|change|adjust|manage|configure|setup|set up|take me to|go to)\b/.test(text)) return null;
+
+  const pages = [
+    ["advanced_display", /\badvanced display\b/],
+    ["graphics", /\b(graphics|gpu) settings?\b/],
+    ["display", /\b(display|screen|resolution|scaling|brightness)\b/],
+    ["sound", /\b(sound|audio|speaker|microphone|volume)\b/],
+    ["wifi", /\bwi ?fi\b/],
+    ["ethernet", /\bethernet\b/],
+    ["network", /\b(network|internet)\b/],
+    ["bluetooth", /\bbluetooth\b/],
+    ["printers", /\b(printer|scanner)s?\b/],
+    ["startup_apps", /\bstartup apps?\b/],
+    ["apps", /\b(apps?|installed apps?|programs?) settings?\b/],
+    ["windows_update", /\b(windows )?updates?\b/],
+    ["storage", /\b(storage|disk space)\b/],
+    ["power", /\b(power|sleep|battery)\b/],
+    ["privacy", /\bprivacy\b/],
+    ["accounts", /\b(account|profile)s?\b/]
+  ];
+  for (const [page, pattern] of pages) {
+    if (pattern.test(text)) return { name: "windows_settings_open", args: { page } };
+  }
+  return null;
+}
+
 export const SYSTEM_ACTION_DEFINITIONS = [
   {
     type: "function",

@@ -56,8 +56,8 @@ After the first 1,000 new signups, new accounts may start with no free tokens.
 Token use is metered and stored in the Boolean Cloud backend. For now, Boolean
 Cloud counts one word as one token. Provider usage may differ from this
 customer-facing meter. Free token amounts, daily caps, expiration, model
-access, and availability may change. The free cloud tier may use GLM-4.7-Flash
-through Cloudflare Workers AI or another low-cost cloud model selected by
+access, and availability may change. The free cloud tier currently uses
+Qwen3-30B-A3B through Cloudflare Workers AI or another cloud model selected by
 Boolean.
 
 PAYMENTS

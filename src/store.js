@@ -12,7 +12,9 @@ export function saveThreads(threads) {
     // strip transient fields (abort controllers, live run state)
     const data = threads.map((t) => ({
       id: t.id, title: t.title, messages: t.messages, log: t.log,
-      createdAt: t.createdAt, updatedAt: t.updatedAt, pinned: !!t.pinned
+      createdAt: t.createdAt, updatedAt: t.updatedAt, pinned: !!t.pinned,
+      kind: t.kind === "project" ? "project" : "chat",
+      projectDir: t.kind === "project" && typeof t.projectDir === "string" ? t.projectDir : ""
     }));
     const tmp = THREADS_FILE + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify({ version: 1, threads: data }));
