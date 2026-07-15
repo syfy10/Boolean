@@ -30,14 +30,18 @@ const SETTINGS = Object.freeze({
 // Settings actions through tool calling every time. Route only clear,
 // allowlisted requests here; everything else still goes through the model.
 export function detectWindowsSettingsRequest(input) {
-  const text = String(input || "")
+  const normalize = (value) => String(value || "")
     .toLowerCase()
     .replace(/\bdesplay\b/g, "display")
     .replace(/\bbluetooths?\b/g, "bluetooth")
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (!text || !/\b(open|show|view|change|adjust|manage|configure|setup|set up|take me to|go to)\b/.test(text)) return null;
+  const action = /\b(open|show|view|change|adjust|manage|configure|setup|set up|take me to|go to)\b/;
+  // Keep actions scoped to the sentence/line that contains the setting. A long
+  // project handoff may mention "open the app" on one line and "scanner" on
+  // another; treating the whole message as one phrase used to open Printers.
+  const clauses = String(input || "").split(/[\r\n]+|(?<=[.!?;])\s+/).map(normalize).filter(Boolean);
 
   const pages = [
     ["advanced_display", /\badvanced display\b/],
@@ -57,8 +61,11 @@ export function detectWindowsSettingsRequest(input) {
     ["privacy", /\bprivacy\b/],
     ["accounts", /\b(account|profile)s?\b/]
   ];
-  for (const [page, pattern] of pages) {
-    if (pattern.test(text)) return { name: "windows_settings_open", args: { page } };
+  for (const clause of clauses) {
+    if (!action.test(clause)) continue;
+    for (const [page, pattern] of pages) {
+      if (pattern.test(clause)) return { name: "windows_settings_open", args: { page } };
+    }
   }
   return null;
 }

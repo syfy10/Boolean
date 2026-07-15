@@ -288,8 +288,9 @@ export async function runTurn(ctx, messages) {
     onStatus(`running ${directAction.name}...`);
     const result = await executeTool(directAction.name, directAction.args, ctx);
     emitStep({ name: directAction.name, args: directAction.args, result });
+    const pageLabel = String(directAction.args.page || "Windows").replace(/_/g, " ");
     const answer = /^Opened Windows Settings:/i.test(result)
-      ? `${result} Tell me the exact change you want, such as resolution, scale, brightness, or multiple displays.`
+      ? `${result} Tell me the exact ${pageLabel} setting you want changed.`
       : result;
     messages.push({ role: "assistant", content: answer });
     return answer;

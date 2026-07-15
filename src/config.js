@@ -1,9 +1,9 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.8";
-export const APP_DISPLAY_VERSION = "v0.09.6";
+export const APP_VERSION = "0.9.9";
+export const APP_DISPLAY_VERSION = "v0.09.9";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -46,7 +46,7 @@ const DEFAULTS = {
     apiKey: ""
   },
   claude: {
-    // Anthropic's OpenAI-compatible endpoint — same chat/completions shape
+    // Anthropic's OpenAI-compatible endpoint â€” same chat/completions shape
     baseUrl: "https://api.anthropic.com/v1",
     model: "claude-sonnet-5",
     apiKey: ""
@@ -87,13 +87,13 @@ const DEFAULTS = {
     referenceChatMemory: true, // compact memory of the open chat for follow-ups
     learnedMemory: true,      // saved safe user preferences/behaviors
     notifications: false,
-    contextMode: "balanced",  // minimal | balanced | full — Context Optimizer
+    contextMode: "balanced",  // minimal | balanced | full â€” Context Optimizer
     browserOpen: false,       // in-app browser panel visible
     browserW: 460,            // browser panel width (px)
     browserTabs: [],          // [{url,title}] restored on launch
     aiBrowser: true,          // allow the AI to browse the web (search/open/click/forms)
     systemActions: true,      // typed Windows inspection/settings/package actions
-    searchEngine: "google",   // google | bing | duckduckgo — address-bar searches
+    searchEngine: "google",   // google | bing | duckduckgo â€” address-bar searches
     browserPerms: { downloads: true, camera: false, mic: false, geo: false },
     browserHistory: [],       // [{url,title,at}] capped at 100
     expandedSections: ["model"] // which Settings sections are open
@@ -113,9 +113,9 @@ export function loadConfig() {
     try {
       const raw = JSON.parse(fs.readFileSync(file, "utf8"));
       const cfg = deepMerge(DEFAULTS, raw);
-      // Ollama support was removed — fall back to the built-in local engine
+      // Ollama support was removed â€” fall back to the built-in local engine
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
-      // migrate configs saved before the context-window increase (8192 → 32768)
+      // migrate configs saved before the context-window increase (8192 â†’ 32768)
       if (!cfg.local.ctx) cfg.local.ctx = 32768;
       const oldProjects = path.join(os.homedir(), "Documents", "SAZ3 Projects");
       const loxaProjects = path.join(os.homedir(), "Documents", "Loxa Projects");

@@ -1233,6 +1233,22 @@ try {
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var tp) ? tp.GetString() : null;
             if (type == "window") { HandleWindowCommand(root); return; }
+            if (type == "clipboard")
+            {
+                var id = root.TryGetProperty("id", out var idp) ? idp.GetString() : null;
+                try
+                {
+                    var text = Clipboard.ContainsText(TextDataFormat.UnicodeText)
+                        ? Clipboard.GetText(TextDataFormat.UnicodeText)
+                        : "";
+                    PostToChat(new { type = "clipboard", id, ok = true, text });
+                }
+                catch (Exception ex)
+                {
+                    PostToChat(new { type = "clipboard", id, ok = false, error = ex.Message });
+                }
+                return;
+            }
             if (type != "browser") return;
             var cmd = root.TryGetProperty("cmd", out var cp) ? cp.GetString() : null;
             switch (cmd)

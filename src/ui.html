@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -17,6 +17,7 @@
     --mono:"Segoe UI",system-ui,sans-serif;
     --app-fs:15px; --chat-fs:13.5px; --msg-pad:7px 10px; --col-gap:5px;
     --fs-xxs:10.5px; --fs-xs:11.5px; --fs-sm:12.5px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:26px;
+    --content-max:760px; --content-x:20px;
   }
   /* dark palette, shared by system-dark and explicit dark */
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
@@ -220,7 +221,7 @@
   body.chat-hidden main{ display:none; }
   body.chat-hidden #bdrag{ display:none; }
   body.chat-hidden #browser{ width:auto; flex:1; }
-  /* native shell provides the browser pane — hide the HTML one */
+  /* native shell provides the browser pane â€” hide the HTML one */
   body.shell #browser, body.shell #bdrag{ display:none !important; }
   .bfind{ display:none; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid var(--border); background:var(--bg); }
   .bfind.on{ display:flex; }
@@ -379,7 +380,7 @@
   body.browser-on .topbar .spacer{ order:20; min-width:2px; }
   body.browser-on #copyall, body.browser-on #notesToggle{ order:21; flex-shrink:0; }
   body.browser-on #browserToggle{ order:22; flex-shrink:0; }
-  /* window controls — only in the native shell, and only when the browser pane isn't covering the corner */
+  /* window controls â€” only in the native shell, and only when the browser pane isn't covering the corner */
   .winctl{ display:none; align-items:center; gap:1px; margin-left:4px; }
   body.shell .winctl{ display:flex; }
   body.shell.browser-on .winctl{ display:none; }
@@ -389,8 +390,9 @@
   .win-btn:hover{ background:var(--hover); }
   .win-close:hover{ background:#e81123; color:#fff; }
 
-  #chat{ flex:1; overflow-y:auto; padding:6px 16px calc(var(--composer-h,106px) + 12px); }
-  .col{ max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:var(--col-gap); font-size:var(--chat-fs); letter-spacing:0; }
+  #chat{ flex:1; overflow-y:auto; padding:6px var(--content-x) 0; scroll-padding-bottom:calc(var(--composer-h,106px) + 12px); }
+  .col{ width:min(var(--content-max),100%); margin:0 auto; display:flex; flex-direction:column; gap:var(--col-gap); font-size:var(--chat-fs); letter-spacing:0; }
+  .col::after{ content:""; display:block; height:calc(var(--composer-h,106px) + 12px); flex:0 0 calc(var(--composer-h,106px) + 12px); }
   .msg-time{ font-size:11px; color:var(--dim); display:none; }
   body.show-time .msg-time{ display:block; }
   body.hide-tokens .usage-line, body.hide-tokens .usage-inline{ display:none; }
@@ -430,7 +432,7 @@
   .msg-foot:hover{ opacity:.9; }
   .msg-user .msg-foot{ justify-content:flex-end; }
   .msg-sender{ max-width:86px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
-  .msg-sender:after{ content:"·"; margin-left:4px; font-weight:400; }
+  .msg-sender:after{ content:"Â·"; margin-left:4px; font-weight:400; }
   .usage-inline{ color:var(--dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
   .msg-foot .actions{ margin:0; display:flex; gap:0; flex:0 0 auto; flex-wrap:nowrap; }
@@ -489,10 +491,10 @@
   .approval .verdict{ font-size:13px; color:var(--dim); }
   .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:12px; font-size:13.5px; }
 
-  .composer-wrap{ --composer-x:20px; --composer-bottom:20px; position:absolute; z-index:12; left:0; right:0; bottom:0;
+  .composer-wrap{ --composer-x:var(--content-x); --composer-bottom:20px; position:absolute; z-index:12; left:0; right:0; bottom:0;
     padding:6px var(--composer-x) var(--composer-bottom); min-width:0; background:transparent; pointer-events:none; }
   .composer,.composer-tools{ pointer-events:auto; }
-  .composer{ width:min(760px,100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:28px;
+  .composer{ width:min(var(--content-max),100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:28px;
     background:var(--bg); box-shadow:0 2px 10px rgba(0,0,0,.05); padding:8px 10px; overflow:visible; }
   .attachments{ display:flex; flex-wrap:wrap; gap:8px; padding:2px 4px 8px; }
   .attachments:empty{ display:none; }
@@ -500,7 +502,7 @@
   .queued:empty{ display:none; }
   .qchip{ display:flex; align-items:center; gap:8px; background:var(--bubble); border-radius:10px; padding:6px 10px; font-size:12.5px; color:var(--text); }
   .qchip .qlabel{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  /* inline queued-question editor — replaces the label right inside the chip */
+  /* inline queued-question editor â€” replaces the label right inside the chip */
   .qchip .qedit-input{ flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--text);
     font:inherit; padding:0; }
   .qchip.editing{ background:var(--hover); box-shadow:inset 0 0 0 1px var(--border); }
@@ -526,10 +528,10 @@
   .composer textarea{ width:100%; min-width:0; border:0; outline:0; resize:none; background:transparent; color:var(--text);
     font:inherit; font-size:var(--fs-lg); padding:8px 8px 4px 7px; max-height:180px; }
   .composer textarea::placeholder{ color:var(--dim); opacity:.6; }
-  /* quiet tool strip below the pill — attach, snip, approval mode, compare, model */
+  /* quiet tool strip below the pill â€” attach, snip, approval mode, compare, model */
   .composer-base{ margin:0 calc(-1 * var(--composer-x)) calc(-1 * var(--composer-bottom));
     padding:5px var(--composer-x) var(--composer-bottom); background:var(--bg); pointer-events:auto; }
-  .composer-tools{ display:flex; align-items:center; gap:5px; width:min(760px,100%); min-width:0;
+  .composer-tools{ display:flex; align-items:center; gap:5px; width:min(var(--content-max),100%); min-width:0;
     margin:0 auto; padding:0 12px; flex-wrap:nowrap; }
   .composer-tools .anchor{ min-width:0; }
   .composer-tools .anchor:has(#modebtn), .composer-tools .anchor:has(#modelbtn){ flex:0 1 auto; min-width:0; }
@@ -578,7 +580,7 @@
   .modebtn.full .mdot{ color:#ff7a00; }
   .modebtn .chev{ font-size:9px; color:var(--dim); }
   .micbtn{ width:32px; height:32px; font-size:15px; }
-  /* keep the composer clean — no pre-send token estimate line */
+  /* keep the composer clean â€” no pre-send token estimate line */
   .ctxbar{ display:none !important; }
   /* provider toggle (Local / Cloud) in the sidebar header */
   .netseg{ display:flex; background:var(--bubble); border-radius:20px; padding:2px; gap:2px; }
@@ -656,7 +658,8 @@
   .trash-ico:before{ content:""; position:absolute; left:-2px; top:-4px; width:13px; border-top:1.4px solid currentColor; }
   .trash-ico:after{ content:""; position:absolute; left:3px; top:-7px; width:4px; height:3px; border:1.4px solid currentColor;
     border-bottom:0; border-radius:2px 2px 0 0; box-sizing:border-box; }
-  .api-key-error{ padding:0 10px 7px; color:#d14343; font-size:10.5px; }
+  .api-key-error{ max-width:100%; min-width:0; padding:0 10px 7px; color:#d14343; font-size:10.5px;
+    white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
   .download-ico{ width:16px; height:16px; display:inline-block; position:relative; }
   .download-ico:before{ content:""; position:absolute; left:7px; top:2px; width:2px; height:8px; background:currentColor; border-radius:2px; }
   .download-ico:after{ content:""; position:absolute; left:4px; top:7px; width:8px; height:8px; border-left:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); }
@@ -674,21 +677,25 @@
   .model-mini:hover{ background:var(--bg); color:var(--text); }
   .model-mini.remove:hover{ color:#d33; }
   .needs-repair{ color:#a54a3d; }
-  .model-bad{ display:block; color:#a54a3d; font-size:10px; margin-top:2px; }
-  .model-error{ align-self:flex-start; max-width:min(90%,680px); color:#b3483e; font-size:12.5px; line-height:1.4; padding:5px 7px; }
+  .model-bad{ display:block; max-width:100%; min-width:0; color:#a54a3d; font-size:10px; margin-top:2px;
+    white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+  .model-error{ align-self:flex-start; width:fit-content; max-width:min(78%,580px); min-width:0; color:#b3483e;
+    font-size:12.5px; line-height:1.4; padding:5px 7px; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
+  .model-error>span:first-child{ display:block; max-width:100%; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
   .model-error-actions{ display:flex; gap:6px; margin-top:6px; }
   .model-error-actions button{ border:1px solid color-mix(in srgb,currentColor 24%,transparent); border-radius:999px; background:transparent; color:inherit; padding:4px 9px; font:11px var(--ui); cursor:pointer; }
   .model-error-actions button:hover{ background:color-mix(in srgb,currentColor 8%,transparent); }
 
   /* narrow composer: stay on ONE row, collapse labels to icons instead of stacking */
-  body.win-xs .composer-wrap, body.chat-xs .composer-wrap{ --composer-x:8px; --composer-bottom:12px; }
+  body.win-xs, body.chat-xs{ --content-x:8px; }
+  body.win-xs .composer-wrap, body.chat-xs .composer-wrap{ --composer-bottom:12px; }
   body.win-xs .composer, body.chat-xs .composer{ border-radius:20px; padding:7px 8px; }
   body.win-xs .composer textarea, body.chat-xs .composer textarea{ padding:7px 7px 3px 1px; }
   body.win-xs .cmdprompt, body.chat-xs .cmdprompt{ padding-top:7px; }
   body.win-xs .composer-tools, body.chat-xs .composer-tools{ gap:4px; padding:0 8px; }
   body.win-xs .iconbtn, body.chat-xs .iconbtn{ width:24px; height:24px; font-size:14px; }
   body.win-xs #send, body.chat-xs #send{ width:30px; height:30px; font-size:16px; }
-  /* mode → icon only (keep the ⚡/🛡 dot, drop the label + chevron) */
+  /* mode â†’ icon only (keep the âš¡/ðŸ›¡ dot, drop the label + chevron) */
   body.win-xs #modetxt, body.chat-xs #modetxt,
   body.win-xs .modebtn .chev, body.chat-xs .modebtn .chev{ display:none; }
   body.win-xs .modebtn, body.chat-xs .modebtn{ min-width:0; padding:4px 6px; }
@@ -699,6 +706,7 @@
   body.win-xs .menu#comparemenu, body.chat-xs .menu#comparemenu{ right:0; left:auto; width:min(280px,calc(100vw - 24px)); }
   body.win-xs .msg-user, body.chat-xs .msg-user{ max-width:86%; }
   body.win-xs .msg-ai, body.chat-xs .msg-ai{ max-width:90%; }
+  body.win-xs .model-error, body.chat-xs .model-error{ max-width:90%; }
   /* ultra-narrow: shrink the model chip further */
   body.chat-xxs .modelbtn{ max-width:66px; }
   body.chat-xxs .menu#modemenu{ left:0; width:150px; }
@@ -774,7 +782,8 @@
   .app-modal-card{ width:min(380px,calc(100vw - 38px)); border:1px solid var(--border); border-radius:12px;
     background:var(--bg); color:var(--text); box-shadow:0 20px 54px rgba(0,0,0,.24); padding:20px 22px 18px; }
   .app-modal-card h2{ margin:0 0 6px; font-size:20px; line-height:1.2; letter-spacing:0; }
-  .app-modal-body{ color:var(--dim); font-size:13.5px; line-height:1.45; white-space:pre-wrap; }
+  .app-modal-body{ max-width:100%; max-height:min(52vh,360px); overflow:auto; color:var(--dim); font-size:13.5px; line-height:1.45;
+    white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
   .app-modal-input{ display:block; width:100%; height:36px; margin-top:12px; padding:0 10px; border:1px solid var(--border);
     border-radius:8px; outline:0; background:var(--bg); color:var(--text); font:13.5px var(--ui); }
   .app-modal-input:focus{ border-color:var(--green); }
@@ -800,7 +809,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.6</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.6</span> Â· Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -809,13 +818,13 @@
   <div class="sidefoot">
     <div class="panel" id="settingsPanel">
       <div class="settings-head">
-        <button id="settingsBack" title="Close settings" aria-label="Close settings">‹</button>
+        <button id="settingsBack" title="Close settings" aria-label="Close settings">â€¹</button>
         <span class="spacer"></span>
-        <button id="settingsClose" title="Close settings" aria-label="Close settings">×</button>
+        <button id="settingsClose" title="Close settings" aria-label="Close settings">Ã—</button>
       </div>
 
       <div class="sec" data-sec="model">
-        <div class="sechead">Model <span class="caret">▶</span></div>
+        <div class="sechead">Model <span class="caret">â–¶</span></div>
         <div class="secbody">
           <div class="setrow">
             <div>Provider<div class="hint">where the model runs</div></div>
@@ -829,7 +838,7 @@
           </div>
           <div class="setrow" id="keyrow" style="display:none">
             <div><span id="keylabel">API key</span><div class="hint" id="keyhint">not set</div></div>
-            <input type="password" id="apikey" placeholder="paste key…">
+            <input type="password" id="apikey" placeholder="paste keyâ€¦">
           </div>
           <button class="minibtn dangerbtn" id="clearKey" style="width:100%;display:none;margin-bottom:4px">Remove saved key</button>
           <div class="setrow" id="modelfolderrow">
@@ -853,7 +862,7 @@
       </div>
 
       <div class="sec" data-sec="appearance">
-        <div class="sechead">Appearance &amp; chat <span class="caret">▶</span></div>
+        <div class="sechead">Appearance &amp; chat <span class="caret">â–¶</span></div>
         <div class="secbody">
           <div class="seg" id="themeSeg"><button data-val="system">System</button><button data-val="light">Light</button><button data-val="dark">Dark</button></div>
           <div class="seg settings-hidden" id="fontSeg" style="margin-top:6px"><button data-val="small">Small</button><button data-val="medium">Medium</button><button data-val="large">Large</button></div>
@@ -871,7 +880,7 @@
       </div>
 
       <div class="sec" data-sec="memory">
-        <div class="sechead">Memory <span class="caret">▶</span></div>
+        <div class="sechead">Memory <span class="caret">â–¶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Current chat memory<div class="hint">keeps up with this open chat</div></div><label class="switch"><input type="checkbox" id="referenceChatMemory"><span class="slider"></span></label></div>
           <div class="setrow"><div>Learn behavior<div class="hint">safe preferences and formats only</div></div><label class="switch"><input type="checkbox" id="learnedMemory"><span class="slider"></span></label></div>
@@ -884,7 +893,7 @@
       </div>
 
       <div class="sec" data-sec="browser">
-        <div class="sechead">Browser <span class="caret">▶</span></div>
+        <div class="sechead">Browser <span class="caret">â–¶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Windows system actions<div class="hint">PC info, Settings &amp; apps; admin changes always ask</div></div><label class="switch"><input type="checkbox" id="systemActions"><span class="slider"></span></label></div>
           <div class="setrow"><div>Let AI browse the web<div class="hint">forms &amp; downloads still ask first</div></div><label class="switch"><input type="checkbox" id="aiBrowser"><span class="slider"></span></label></div>
@@ -904,7 +913,7 @@
       </div>
 
       <div class="sec settings-hidden" data-sec="connectors">
-        <div class="sechead">Connectors <span class="caret">▶</span></div>
+        <div class="sechead">Connectors <span class="caret">â–¶</span></div>
         <div class="secbody">
           <div class="hint" style="margin-bottom:6px">Add remote MCP URLs or HTTP agents Boolean can use.</div>
           <div class="setrow" style="display:block">
@@ -921,7 +930,7 @@
       </div>
 
       <div class="sec" data-sec="legal">
-        <div class="sechead">Policy &amp; privacy <span class="caret">▶</span></div>
+        <div class="sechead">Policy &amp; privacy <span class="caret">â–¶</span></div>
         <div class="secbody">
           <div class="setrow" style="display:block">
             <div>Legal documents<div class="hint">bundled with this app and stored locally</div></div>
@@ -935,7 +944,7 @@
       </div>
 
       <div class="sec" data-sec="advanced">
-        <div class="sechead">Advanced <span class="caret">▶</span></div>
+        <div class="sechead">Advanced <span class="caret">â–¶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Context sent to model<div class="hint">less = fewer tokens</div></div></div>
           <div class="seg" id="contextSeg"><button data-val="minimal">Minimal</button><button data-val="balanced">Balanced</button><button data-val="full">Full</button></div>
@@ -948,20 +957,20 @@
               <div class="ctx-value" id="ctxLenLabel">32k tokens</div>
             </div>
           </div>
-          <div class="usagebody" id="ctxNow" style="margin-bottom:8px">—</div>
+          <div class="usagebody" id="ctxNow" style="margin-bottom:8px">â€”</div>
           <div class="setrow" style="display:block">
-            <div>Projects folder<div class="hint" id="projdir">…</div></div>
+            <div>Projects folder<div class="hint" id="projdir">â€¦</div></div>
             <div style="display:flex;gap:6px;margin-top:6px">
               <button class="minibtn" id="openproj">Open</button>
-              <button class="minibtn" id="changeproj">Change…</button>
+              <button class="minibtn" id="changeproj">Changeâ€¦</button>
             </div>
           </div>
           <div class="setrow"><div>Save chat history<div class="hint">restore chats after restart</div></div><label class="switch"><input type="checkbox" id="autoSave"><span class="slider"></span></label></div>
           <div class="setrow"><div>Keep local model warm<div class="hint">faster reopen, uses RAM after close</div></div><label class="switch"><input type="checkbox" id="keepLocalWarm"><span class="slider"></span></label></div>
           <div class="setrow" style="display:block;margin-top:2px">
-            <button class="minibtn usage-toggle" id="usageToggle"><span>Tokens used</span><span id="usageCaret">▶</span></button>
+            <button class="minibtn usage-toggle" id="usageToggle"><span>Tokens used</span><span id="usageCaret">â–¶</span></button>
             <div class="usage-fold" id="usageFold">
-              <div id="usageBody" class="usagebody" style="margin-top:4px">—</div>
+              <div id="usageBody" class="usagebody" style="margin-top:4px">â€”</div>
               <button class="minibtn dangerbtn" id="resetusage" style="width:100%;margin-top:4px">Reset token stats</button>
             </div>
           </div>
@@ -984,7 +993,7 @@
       <span id="cloudSignInText">Sign in</span>
     </button>
 
-    <div class="foot-status"><span class="dot" id="statusdot"></span><span id="statustext">checking…</span></div>
+    <div class="foot-status"><span class="dot" id="statusdot"></span><span id="statustext">checkingâ€¦</span></div>
   </div>
 </aside>
 
@@ -994,7 +1003,7 @@
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/><path d="M9 12h10"/></svg>
     </button>
     <div class="netseg" id="netmode">
-      <button data-net="local" title="Use the built-in local model — nothing leaves your PC">Local</button>
+      <button data-net="local" title="Use the built-in local model â€” nothing leaves your PC">Local</button>
       <button data-net="online" title="Use Boolean Cloud or a saved cloud API (OpenAI / GLM / Claude)">Cloud</button>
     </div>
     <button class="icon-btn" id="newchat" title="New chat" aria-label="New chat">
@@ -1041,7 +1050,7 @@
       <button class="iconbtn" id="snipbtn" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
       <div class="anchor">
         <button class="modebtn" id="modebtn" title="Approval mode">
-          <span class="mdot" id="mdot"></span><span id="modetxt">Ask me first</span> <span class="chev">▼</span>
+          <span class="mdot" id="mdot"></span><span id="modetxt">Ask me first</span> <span class="chev">â–¼</span>
         </button>
         <div class="menu" id="modemenu">
           <div class="item" data-mode="ask"><span>Ask me first</span></div>
@@ -1063,7 +1072,7 @@
         </div>
       </div>
       <div class="anchor">
-        <button class="modelbtn" id="modelbtn"><span id="modelname">Select a model</span> <span class="chev">▼</span></button>
+        <button class="modelbtn" id="modelbtn"><span id="modelname">Select a model</span> <span class="chev">â–¼</span></button>
         <div class="menu" id="modelmenu">
           <input id="modelsearch" placeholder="Find model...">
           <div class="model-help">Pick a model for the job: Fast for quick answers, Default for everyday use, Code for building, Vision for screenshots.</div>
@@ -1079,17 +1088,17 @@
   <div class="notes-top">
     <div class="notes-tabs" id="noteTabs"></div>
     <button class="note-btn" id="noteNew" title="New note">+</button>
-    <button class="note-btn" id="noteClose" title="Hide notepad">×</button>
+    <button class="note-btn" id="noteClose" title="Hide notepad">Ã—</button>
   </div>
   <div class="note-actions">
     <button class="note-btn" id="noteSnip" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
-    <button class="note-btn" id="noteCut" title="Cut selected text">✂</button>
-    <button class="note-btn" id="noteCopy" title="Copy selected text">⧉</button>
-    <button class="note-btn" id="noteSend" title="Send selection to message">↗</button>
+    <button class="note-btn" id="noteCut" title="Cut selected text">âœ‚</button>
+    <button class="note-btn" id="noteCopy" title="Copy selected text">â§‰</button>
+    <button class="note-btn" id="noteSend" title="Send selection to message">â†—</button>
     <button class="note-btn" id="noteNumbers" title="Toggle line numbers">#</button>
     <span class="note-spacer"></span>
     <button class="note-btn" id="noteRename" title="Rename note">T</button>
-    <button class="note-btn" id="noteDelete" title="Delete note">⌫</button>
+    <button class="note-btn" id="noteDelete" title="Delete note">âŒ«</button>
   </div>
   <div class="note-paper">
     <div class="note-meta"><span class="note-date" id="noteDate"></span><span class="note-days" id="noteDays"></span></div>
@@ -1116,22 +1125,22 @@
   <div class="browser-head">
     <div class="btabs" id="btabs"></div>
     <div class="btoolbar">
-    <button class="bbtn" id="bBack" title="Back">‹</button>
-    <button class="bbtn" id="bFwd" title="Forward">›</button>
-    <button class="bbtn" id="bReload" title="Refresh">⟳</button>
-    <button class="bbtn" id="bStop" title="Stop" style="display:none">✕</button>
-    <button class="bbtn" id="bHome" title="Home">⌂</button>
-    <input id="bAddr" placeholder="Search the web or type a URL…" spellcheck="false">
-    <button class="bbtn" id="bFindBtn" title="Find on page">⌕</button>
-    <button class="bbtn" id="bMenuBtn" title="Browser menu">⋮</button>
-    <button class="bbtn active" id="bClose" title="Hide browser">◎</button>
+    <button class="bbtn" id="bBack" title="Back">â€¹</button>
+    <button class="bbtn" id="bFwd" title="Forward">â€º</button>
+    <button class="bbtn" id="bReload" title="Refresh">âŸ³</button>
+    <button class="bbtn" id="bStop" title="Stop" style="display:none">âœ•</button>
+    <button class="bbtn" id="bHome" title="Home">âŒ‚</button>
+    <input id="bAddr" placeholder="Search the web or type a URLâ€¦" spellcheck="false">
+    <button class="bbtn" id="bFindBtn" title="Find on page">âŒ•</button>
+    <button class="bbtn" id="bMenuBtn" title="Browser menu">â‹®</button>
+    <button class="bbtn active" id="bClose" title="Hide browser">â—Ž</button>
     </div>
   </div>
   <div class="bfind" id="bfind">
-    <input id="bFindInput" placeholder="Find on page…" spellcheck="false">
-    <button class="bbtn" id="bFindPrev" title="Previous">↑</button>
-    <button class="bbtn" id="bFindNext" title="Next">↓</button>
-    <button class="bbtn" id="bFindClose" title="Close">✕</button>
+    <input id="bFindInput" placeholder="Find on pageâ€¦" spellcheck="false">
+    <button class="bbtn" id="bFindPrev" title="Previous">â†‘</button>
+    <button class="bbtn" id="bFindNext" title="Next">â†“</button>
+    <button class="bbtn" id="bFindClose" title="Close">âœ•</button>
   </div>
   <div class="menu bmenu" id="bmenu">
     <div class="item" id="bmNewTab"><span>New tab</span></div>
@@ -1145,11 +1154,11 @@
     <div class="item" id="bmScreenshotNote"><span>Send screenshot to notepad</span></div>
     <div class="sep"></div>
     <div class="zrow"><span style="flex:1">Zoom</span>
-      <button id="bmZoomOut">−</button><span id="bmZoomVal" style="min-width:44px;text-align:center">100%</span><button id="bmZoomIn">+</button>
+      <button id="bmZoomOut">âˆ’</button><span id="bmZoomVal" style="min-width:44px;text-align:center">100%</span><button id="bmZoomIn">+</button>
     </div>
     <div class="item" id="bmZoomFit"><span>Auto fit to window</span></div>
     <div class="sep"></div>
-    <div class="item" id="bmHistory"><span>History</span><span class="check">▾</span></div>
+    <div class="item" id="bmHistory"><span>History</span><span class="check">â–¾</span></div>
     <div class="histlist" id="bmHistList"></div>
     <div class="item" id="bmClearData"><span>Clear browsing data</span></div>
     <div class="sep"></div>
@@ -1157,13 +1166,13 @@
     <div class="item" id="bmFocus"><span id="bmFocusTxt">Hide chat (focus browser)</span></div>
   </div>
   <div class="bframewrap">
-    <div class="bread" id="bread"><span class="beye">👁</span> Boolean is browsing…</div>
+    <div class="bread" id="bread"><span class="beye">ðŸ‘</span> Boolean is browsingâ€¦</div>
     <iframe id="bframe" sandbox="allow-scripts allow-forms allow-modals allow-downloads" referrerpolicy="no-referrer"></iframe>
     <div class="bblank" id="bblank">
       <div>
         <p style="font-weight:500;margin-bottom:6px">Browse the web</p>
         <p>Search below, or type a URL / <b>localhost</b> address in the bar above.</p>
-        <input class="bsearch" id="bStartSearch" placeholder="Search the web…" spellcheck="false">
+        <input class="bsearch" id="bStartSearch" placeholder="Search the webâ€¦" spellcheck="false">
         <p style="margin-top:10px" id="bblankhint"></p>
       </div>
     </div>
@@ -1176,11 +1185,11 @@
 <dialog id="eula">
   <h2>Welcome to Boolean</h2>
   <div style="font-size:13.5px;line-height:1.6;color:var(--text)">
-    <p style="margin-bottom:10px">This is an AI agent that can <b>run commands and edit files</b> on this PC — always with your approval unless you enable auto-approve.</p>
+    <p style="margin-bottom:10px">This is an AI agent that can <b>run commands and edit files</b> on this PC â€” always with your approval unless you enable auto-approve.</p>
     <p style="margin-bottom:10px">AI makes mistakes. Review what it asks to do. The software is provided <b>as-is, without warranty</b>; you are responsible for what runs on your machine.</p>
     <p style="margin-bottom:10px">Local mode runs on your PC. Optional cloud sign-in/tokens send only what is needed for those services. Full terms: <b>LICENSE.txt</b> and <b>PRIVACY.txt</b> in the install folder.</p>
   </div>
-  <button class="closebtn" id="acceptEula" style="background:var(--accent);color:var(--accent-text);border-color:var(--accent)">I agree — continue</button>
+  <button class="closebtn" id="acceptEula" style="background:var(--accent);color:var(--accent-text);border-color:var(--accent)">I agree â€” continue</button>
   <button class="closebtn" id="declineEula">Decline</button>
 </dialog>
 
@@ -1267,6 +1276,16 @@
   // running inside the native WebView2 shell? then the browser pane is native
   const SHELL = !!(window.chrome && window.chrome.webview);
   const hostPost = (o) => { try { window.chrome.webview.postMessage(o); } catch {} };
+  const clipboardWaiters={};
+  function readClipboardText(){
+    if(!SHELL) return navigator.clipboard.readText();
+    const id=crypto.randomUUID();
+    return new Promise((resolve,reject)=>{
+      clipboardWaiters[id]={resolve,reject};
+      hostPost({type:"clipboard",cmd:"readText",id});
+      setTimeout(()=>{ const pending=clipboardWaiters[id]; if(!pending)return; delete clipboardWaiters[id]; pending.reject(new Error("clipboard timed out")); },2500);
+    });
+  }
   const chat=$("chat"), col=$("col"), input=$("input"), send=$("send");
   const composerWrap=document.querySelector(".composer-wrap");
   const syncComposerHeight=()=>document.documentElement.style.setProperty("--composer-h",`${Math.ceil(composerWrap?.getBoundingClientRect().height||106)}px`);
@@ -1411,7 +1430,7 @@
 
   function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   function md(s){
-    // models (cloud ones especially) may pad answers with blank lines — they
+    // models (cloud ones especially) may pad answers with blank lines â€” they
     // would render as <br>s and leave empty gaps at the bubble edges
     const parts=String(s||"").trim().split(/```(\w*)\n?([\s\S]*?)```/g);
     let html="";
@@ -1431,7 +1450,7 @@
   function addUser(text, images, at){
     const d=document.createElement("div"); d.className="msg-user";
     d._raw=text||"";
-    d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'</div>';
+    d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">â†˜</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'</div>';
     col.appendChild(d); updateCopyButton(); scrollDown(); return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
@@ -1473,7 +1492,7 @@
   function makeErr(value){
     const entry=typeof value==="string"?{text:value}:value||{};
     const d=document.createElement("div"); d.className="status model-error";
-    const msg=document.createElement("span"); msg.textContent="⚠ "+(entry.text||"Unknown error"); d.appendChild(msg);
+    const msg=document.createElement("span"); msg.textContent="âš  "+(entry.text||"Unknown error"); d.appendChild(msg);
     let recovery=entry.modelRecovery;
     if(!recovery&&entry.text){
       const match=String(entry.text).match(/loading\s+([^\s]+\.gguf)/i);
@@ -1491,7 +1510,7 @@
   function shortPath(p){ const a=(p||"").split(/[\\/]/).filter(Boolean); return a.slice(-2).join("\\")||p||""; }
   function updateProjLine(){
     const el=$("projline"); if(!el) return;
-    el.innerHTML='Projects saved to <b style="color:var(--text)">'+esc(shortPath(state.projectsDir))+'</b> · <a id="pl-open">Open</a> · <a id="pl-change">Change</a>';
+    el.innerHTML='Projects saved to <b style="color:var(--text)">'+esc(shortPath(state.projectsDir))+'</b> Â· <a id="pl-open">Open</a> Â· <a id="pl-change">Change</a>';
     el.querySelector("#pl-open").onclick=()=>fetch("/api/open-projects",{method:"POST"});
     el.querySelector("#pl-change").onclick=changeProjects;
   }
@@ -1499,7 +1518,7 @@
   function showEmpty(){ col.innerHTML=""; updateCopyButton(); } // clean, blank chat screen
   async function changeProjects(){ const r=await (await fetch("/api/pick-folder",{method:"POST"})).json(); if(r.path){ await refresh(); } }
 
-  // ── state / threads ──
+  // â”€â”€ state / threads â”€â”€
   function applyKeyRow(){
     const prov=$("providersel").value;
     const cloud=state.cloud||{};
@@ -1507,7 +1526,7 @@
     if(cloud[prov]){
       $("keyrow").style.display="";
       $("keylabel").textContent=cloud[prov]+" API key";
-      $("keyhint").textContent=hasKey?"key set ✓":"not set";
+      $("keyhint").textContent=hasKey?"key set âœ“":"not set";
       $("clearKey").style.display=hasKey?"":"none";
     } else { $("keyrow").style.display="none"; $("clearKey").style.display="none"; }
     $("modelfolderrow").style.display=(prov==="local")?"":"none";
@@ -1516,7 +1535,7 @@
   function applyMode(){
     const full=!!state.autoApprove;
     $("modebtn").classList.toggle("full",full);
-    $("mdot").textContent=full?"⚡":"🛡";
+    $("mdot").textContent=full?"âš¡":"ðŸ›¡";
     $("modetxt").textContent=full?"Auto-approve":"Ask me first";
     $("modebtn").title="Approval mode";
     document.querySelectorAll("#modemenu .item").forEach(i=>i.classList.toggle("disabled",(i.dataset.mode==="full")===full));
@@ -1541,8 +1560,8 @@
         const d=document.createElement("div"); d.className="conn-card";
         const detail=kind==="agent"?(x.url||""):(x.type==="remote"||x.url?x.url:[x.command||"",x.args||""].filter(Boolean).join(" "));
         d.innerHTML='<div class="top"><span class="kind">'+(kind==="agent"?"Agent":"MCP")+'</span><b>'+esc(x.name||"Untitled")+'</b>'+
-          '<div class="actions"><button class="tog" title="'+(x.enabled===false?"Enable":"Disable")+'">'+(x.enabled===false?"○":"●")+'</button><button class="edit" title="Edit">✎</button><button class="del" title="Delete">×</button></div></div>'+
-          '<div class="url">'+esc(detail)+(kind==="agent"&&x.hasKey?" · key saved":"")+'</div>';
+          '<div class="actions"><button class="tog" title="'+(x.enabled===false?"Enable":"Disable")+'">'+(x.enabled===false?"â—‹":"â—")+'</button><button class="edit" title="Edit">âœŽ</button><button class="del" title="Delete">Ã—</button></div></div>'+
+          '<div class="url">'+esc(detail)+(kind==="agent"&&x.hasKey?" Â· key saved":"")+'</div>';
         d.querySelector(".tog").onclick=()=>{ x.enabled=x.enabled===false; saveConnectors(); };
         d.querySelector(".del").onclick=async()=>{ if(await appConfirm("Delete connector?","\""+(x.name||"Untitled")+"\" will be removed from Boolean.","Delete",true)){ items.splice(i,1); saveConnectors(); } };
         d.querySelector(".edit").onclick=()=> kind==="agent"?editAgentConnector(x):editMcpConnector(x);
@@ -1605,7 +1624,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.8"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.9"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -1614,7 +1633,7 @@
     $("statusdot").className="dot"+(state.backendUp?"":" down");
     $("statustext").textContent=label+(state.backendUp?" ready":" not ready");
     $("banner").style.display=state.backendUp?"none":"";
-    $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready — open Settings to pick a provider, add a key, or download a model.";
+    $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready â€” open Settings to pick a provider, add a key, or download a model.";
     $("projdir").textContent=state.projectsDir||"";
     applyUi(state.ui);
     renderConnectors();
@@ -1635,10 +1654,10 @@
     btn.classList.toggle("account-on",!!cloud.signedIn);
     if(cloud.signedIn){
       const name=(user.name||user.email||"Account").split(/\s+/)[0];
-      label.textContent=name.length>13?name.slice(0,12)+"…":name;
+      label.textContent=name.length>13?name.slice(0,12)+"â€¦":name;
       const balance=tokenLabel(cloud.tokens);
-      const role=user.role==="admin"?"Admin · ":"";
-      btn.title=(user.email?user.email+" · ":"")+role+balance;
+      const role=user.role==="admin"?"Admin Â· ":"";
+      btn.title=(user.email?user.email+" Â· ":"")+role+balance;
     } else {
       label.textContent="Sign in";
       btn.title=cloud.url?"Sign in to Boolean Cloud":"Set backend URL and sign in";
@@ -1665,7 +1684,7 @@
     try{
       await ensureCloudBackendUrl();
       if(!state.cloudBackend?.url) return;
-      tempToast("Opening Google sign-in…");
+      tempToast("Opening Google sign-inâ€¦");
       const r=await fetch("/api/cloud/login/start",{method:"POST",body:JSON.stringify({})});
       const data=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(data.message||data.error||"Could not start sign-in.");
@@ -1706,7 +1725,7 @@
     await refresh();
   }
 
-  // ── vision (.mmproj) settings ──
+  // â”€â”€ vision (.mmproj) settings â”€â”€
   function applyVisionUI(){
     applyVisionGate();
     const box=$("visionBox");
@@ -1791,7 +1810,7 @@
   function runLabel(){
     if(!run) return "";
     if(run.steps) return "step "+run.steps;
-    return (run.status||"working").replace(/…/g,"").slice(0,18);
+    return (run.status||"working").replace(/â€¦/g,"").slice(0,18);
   }
   function makeThreadRow(t){
     const isRun=!!(run&&run.threadId===t.id);
@@ -1803,7 +1822,7 @@
       (isRun?'<span class="runmark" aria-label="'+esc(runLabel())+'"><span class="run-dot"></span></span>':"")+
       '<span class="acts">'+(t.kind==="project"&&t.projectDir?'<span class="folderbtn" title="Open project folder">'+FOLDER_SVG+'</span>':'')+
       '<span class="pinbtn" title="'+(t.pinned?"Unpin":"Pin")+'">'+PIN_SVG+'</span>'+
-      '<span class="renbtn" title="Rename">✎</span><span class="del" title="Delete">✕</span></span>';
+      '<span class="renbtn" title="Rename">âœŽ</span><span class="del" title="Delete">âœ•</span></span>';
     d.querySelector(".ttl").onclick=()=>openThread(t.id);
     d.querySelector(".ttl").ondblclick=(e)=>{ e.stopPropagation(); startRename(d,t); };
     d.querySelector(".renbtn").onclick=(e)=>{ e.stopPropagation(); startRename(d,t); };
@@ -1930,7 +1949,7 @@
     input.focus();
   }
 
-  // ── model menu ──
+  // â”€â”€ model menu â”€â”€
   // -- model menu --
   const localModelInfo=(file)=>(state.models||[]).find(m=>m.installed!==false&&m.name===file);
   const installedModel=(file)=>!!localModelInfo(file);
@@ -2027,7 +2046,7 @@
     save.onclick=(e)=>{ e.stopPropagation(); submit(); };
     paste.onclick=async(e)=>{
       e.stopPropagation();
-      try{ input.value=(await navigator.clipboard.readText()).trim(); input.focus(); }
+      try{ input.value=(await readClipboardText()).trim(); input.focus(); }
       catch{ tempToast("Clipboard access was blocked."); }
     };
     if(del) del.onclick=async(e)=>{
@@ -2119,7 +2138,7 @@
         item.className="item model-rec"+(state.provider==="boolean"?" selected":"");
         const action=cloud.signedIn?(state.provider==="boolean"?"Selected":"Use"):"Sign in";
         const balance=tokenLabel(cloud.tokens);
-        const daily=!cloud.tokens?.unlimited_tokens&&Number.isFinite(Number(cloud.tokens?.daily_remaining_tokens))?" · "+Number(cloud.tokens.daily_remaining_tokens).toLocaleString()+" today":"";
+        const daily=!cloud.tokens?.unlimited_tokens&&Number.isFinite(Number(cloud.tokens?.daily_remaining_tokens))?" Â· "+Number(cloud.tokens.daily_remaining_tokens).toLocaleString()+" today":"";
         item.innerHTML='<span class="model-line"><b>'+esc(cloudModel)+'</b><small>Boolean Cloud - '+esc(balance+daily)+'</small></span><span class="model-dl">'+action+'</span>';
         item.onclick=selectBooleanCloud;
         list.appendChild(item);
@@ -2238,12 +2257,12 @@
   $("modelbtn").onclick=(e)=>{ e.stopPropagation(); $("plusmenu").classList.remove("open"); $("modemenu").classList.remove("open"); $("modelmenu").classList.toggle("open"); $("modelsearch").value=""; renderModelList(""); $("modelsearch").focus(); };
   $("modelsearch").oninput=(e)=>renderModelList(e.target.value);
 
-  // ── attachments ──
+  // â”€â”€ attachments â”€â”€
   function renderChips(){
     const el=$("attachments"); el.innerHTML="";
     attachments.forEach((a,i)=>{
       const c=document.createElement("div"); c.className="chip";
-      c.innerHTML=(a.kind==="image"?'<img src="'+a.dataURL+'">':'<span>📄 '+esc(a.name)+'</span>')+'<span class="x">✕</span>';
+      c.innerHTML=(a.kind==="image"?'<img src="'+a.dataURL+'">':'<span>ðŸ“„ '+esc(a.name)+'</span>')+'<span class="x">âœ•</span>';
       c.querySelector(".x").onclick=()=>{ attachments.splice(i,1); renderChips(); };
       el.appendChild(c);
     });
@@ -2252,7 +2271,7 @@
   const TEXT_ONLY_MSG="This model is text-only. Select a vision-capable model and its matching .mmproj file.";
   const visionOk=()=>!state.vision || state.vision.supported!==false;
   function visionBlockNote(){
-    const d=addNode("status"); d.style.color="#e3a008"; d.textContent="⚠ "+TEXT_ONLY_MSG+" (Settings → Models)";
+    const d=addNode("status"); d.style.color="#e3a008"; d.textContent="âš  "+TEXT_ONLY_MSG+" (Settings â†’ Models)";
     setTimeout(()=>d.remove(),6000);
   }
   function addImageFile(file){
@@ -2275,7 +2294,7 @@
     $("attImage").title=ok?"":TEXT_ONLY_MSG;
   }
 
-  // ── notepad ──
+  // â”€â”€ notepad â”€â”€
   let notes=JSON.parse(localStorage.getItem("sazNotes")||"null")||[{id:crypto.randomUUID(),title:"Note 1",html:"",createdAt:Date.now(),updatedAt:Date.now()}];
   let noteId=localStorage.getItem("sazNoteActive")||notes[0].id;
   const activeNote=()=>notes.find(n=>n.id===noteId)||notes[0];
@@ -2586,7 +2605,7 @@
     const text=String(msg?._raw||"").trim();
     if(!text) return;
     navigator.clipboard.writeText(text).then(()=>{
-      copyBtn.classList.add("copied"); copyBtn.textContent="✓";
+      copyBtn.classList.add("copied"); copyBtn.textContent="âœ“";
       setTimeout(()=>{ copyBtn.classList.remove("copied"); copyBtn.innerHTML=responseCopyIcon; },1000);
     }).catch(()=>tempToast("Could not copy this response."));
   });
@@ -2673,7 +2692,7 @@
     if(!$("modemenu").contains(e.target)&&!$("modebtn").contains(e.target)) $("modemenu").classList.remove("open");
   });
 
-  // ── send / stop (thread-aware live run) ──
+  // â”€â”€ send / stop (thread-aware live run) â”€â”€
   const SEND_GLYPH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg>';
   function updateSendButton(){
     const edit=$("interruptEdit");
@@ -2681,11 +2700,11 @@
       const canEdit=run?.request&&["chat","compare"].includes(run.request.mode||"chat")&&run.request.display;
       const hasContent=input.value.trim()||attachments.length;
       if(hasContent){ send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Queue follow-up (sent when this finishes)"; }
-      else { send.classList.add("stop"); send.innerHTML="■"; send.title="Stop and pause queue"; }
+      else { send.classList.add("stop"); send.innerHTML="â– "; send.title="Stop and pause queue"; }
       send.disabled=false;
       edit.classList.toggle("visible",!!canEdit);
-      input.placeholder="Queue a follow-up…"; }
-    else if(busy()){ send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Another chat is working…"; send.disabled=true;
+      input.placeholder="Queue a follow-upâ€¦"; }
+    else if(busy()){ send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Another chat is workingâ€¦"; send.disabled=true;
       edit.classList.remove("visible");
       input.placeholder="Ask anything..."; }
     else { send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Send"; send.disabled=false;
@@ -2711,11 +2730,11 @@
     if(run.steps) parts.push("step "+run.steps);
     parts.push(fmtTime(Date.now()-run.startTime));
     if(!state.ui || state.ui.showTokens!==false){ const tk=liveTokenCount(); if(tk.n) parts.push(tk.n.toLocaleString()+" tokens"+(tk.est?" (est)":"")); }
-    m.textContent=" · "+parts.join(" · ");
+    m.textContent=" Â· "+parts.join(" Â· ");
   }
   function makeUsage(u){
     const total=(u.input||0)+(u.output||0);
-    const text="▸ "+shortNum(total)+" tokens · "+shortNum(u.output||0)+" out"+(u.estimated?" est":"");
+    const text="â–¸ "+shortNum(total)+" tokens Â· "+shortNum(u.output||0)+" out"+(u.estimated?" est":"");
     const foot=[...col.querySelectorAll(".msg-ai .msg-foot")].pop();
     if(foot){ const slot=foot.querySelector(".usage-inline"); if(slot){ slot.textContent=text; return null; } }
     const d=document.createElement("div"); d.className="usage-line";
@@ -2729,7 +2748,7 @@
       run.statusEl.innerHTML='<span class="spinner"></span><span class="stx"></span><span class="meta"></span>';
       col.appendChild(run.statusEl);
     }
-    run.statusEl.querySelector(".stx").textContent=run.status||"thinking…";
+    run.statusEl.querySelector(".stx").textContent=run.status||"thinkingâ€¦";
     updateStatusMeta();
     scrollDown();
   }
@@ -2831,10 +2850,10 @@
       msg=(msg?msg+"\n\n":"")+contextBlock(appContext);
     }
     input.value=""; autosize(); attachments=[]; renderChips();
-    if(busy()) updateSendButton(); // composer just emptied — show Stop again while running
+    if(busy()) updateSendButton(); // composer just emptied â€” show Stop again while running
 
     if(busy()){
-      // a run is in flight — queue it (only possible while viewing the running thread)
+      // a run is in flight â€” queue it (only possible while viewing the running thread)
       if(!viewingRun()) return;
       const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
       (queues[threadId]=queues[threadId]||[]).push({display,text,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined});
@@ -2871,7 +2890,7 @@
       if(mode==="chat"||mode==="compare"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now()); }
       else if(mode==="retry"||mode==="compare-retry"){ removeLastTurnDom(); }
     }
-    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local",
+    run={ threadId:tid, status:"thinkingâ€¦", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local",
       request:{...opts,images:[...(opts.images||[])]}, holdQueue:false };
     const isCompare=mode==="compare"||mode==="compare-retry";
     if(isCompare) Object.assign(run,{status:"comparing...",compare:true,targets:opts.targets||compareState.targets,slots:[{},{}]});
@@ -2909,13 +2928,13 @@
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){ run.status=ev.text; renderThreads(); if(showing) ensureStatusEl(); }
     else if(ev.type==="token"){ run.raw+=ev.text; if(showing) ensureLiveAI(); }
-    else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertAbove(makeTool(ev.entry)); run.status="working…"; ensureStatusEl(); } }
+    else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertAbove(makeTool(ev.entry)); run.status="workingâ€¦"; ensureStatusEl(); } }
     else if(ev.type==="approval"){
       if(showing){
         const card=document.createElement("div"); card.className="approval";
         card.innerHTML='<div class="q">Boolean wants to:</div><div class="cmd">'+esc(ev.summary)+'</div><div class="btns"><button class="allow">Allow</button><button class="deny">Deny</button></div>';
         insertAbove(card);
-        const decide=async(ok)=>{ card.querySelector(".btns").outerHTML='<div class="verdict">'+(ok?"✓ allowed":"✗ denied")+"</div>"; await fetch("/api/approve",{method:"POST",body:JSON.stringify({id:ev.id,approved:ok})}); };
+        const decide=async(ok)=>{ card.querySelector(".btns").outerHTML='<div class="verdict">'+(ok?"âœ“ allowed":"âœ— denied")+"</div>"; await fetch("/api/approve",{method:"POST",body:JSON.stringify({id:ev.id,approved:ok})}); };
         card.querySelector(".allow").onclick=()=>decide(true); card.querySelector(".deny").onclick=()=>decide(false);
       }
     }
@@ -2961,7 +2980,7 @@
     if(!run||!viewingRun()) return;
     const tid=run.threadId;
     const request=run.request?{...run.request,images:[...(run.request.images||[])]}:null;
-    run.status=edit?"interrupting for edit…":"stopping…";
+    run.status=edit?"interrupting for editâ€¦":"stoppingâ€¦";
     run.holdQueue=true;
     queuePaused[tid]=true;
     ensureStatusEl();
@@ -2983,7 +3002,7 @@
   function autosize(){ input.style.height="auto"; input.style.height=Math.min(input.scrollHeight,180)+"px"; }
   input.addEventListener("input",()=>{ autosize(); scheduleEstimate(); if(busy()) updateSendButton(); });
 
-  // ── nav / panels / sidebar ──
+  // â”€â”€ nav / panels / sidebar â”€â”€
   $("appBack").onclick=goBackInApp;
   $("newchat").onclick=newChat;
   function syncPanelButtons(){
@@ -3222,10 +3241,10 @@ Optional bundled starter model:
       else out.push((n.dataset.aiLabel||shortAiName(n.dataset.provider,n.dataset.model))+": "+String(n._raw||"").trim());
     });
     navigator.clipboard.writeText(out.join("\n\n"));
-    const b=$("copyall"); const old=b.innerHTML; b.innerHTML="✓"; setTimeout(()=>b.innerHTML=old,1200);
+    const b=$("copyall"); const old=b.innerHTML; b.innerHTML="âœ“"; setTimeout(()=>b.innerHTML=old,1200);
   };
 
-  // ── appearance / settings ──
+  // â”€â”€ appearance / settings â”€â”€
   function segState(id,val){ [...$(id).children].forEach(b=>b.classList.toggle("on", b.dataset.val===val)); }
   function applyUi(ui){
     ui=ui||{};
@@ -3245,7 +3264,7 @@ Optional bundled starter model:
     segState("densitySeg", "compact");
     segState("noteColorSeg", document.body.dataset.notePaper);
     segState("contextSeg", ui.contextMode||"balanced");
-    const help={minimal:"Sends only recent context — cheapest, may forget older details.",balanced:"Fits the window with headroom — good default.",full:"Uses the whole window — most context, most tokens."};
+    const help={minimal:"Sends only recent context â€” cheapest, may forget older details.",balanced:"Fits the window with headroom â€” good default.",full:"Uses the whole window â€” most context, most tokens."};
     $("ctxModeHelp").textContent=help[ui.contextMode||"balanced"];
     $("showTimestamps").checked=!!ui.showTimestamps;
     $("showTokens").checked=ui.showTokens!==false;
@@ -3275,7 +3294,7 @@ Optional bundled starter model:
   ["themeSeg","fontSeg","densitySeg"].forEach(id=>$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{ const key=id==="themeSeg"?"theme":id==="fontSeg"?"fontSize":"density"; setUi({[key]:b.dataset.val}); }));
   $("noteColorSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>setUi({notepadTheme:b.dataset.val}));
   $("contextSeg").querySelectorAll("button").forEach(b=>b.onclick=async()=>{ await setUi({contextMode:b.dataset.val}); estimateContext(); });
-  $("usageToggle").onclick=()=>{ const f=$("usageFold"); f.classList.toggle("open"); $("usageCaret").textContent=f.classList.contains("open")?"▾":"▸"; };
+  $("usageToggle").onclick=()=>{ const f=$("usageFold"); f.classList.toggle("open"); $("usageCaret").textContent=f.classList.contains("open")?"â–¾":"â–¸"; };
   $("ctxLen").oninput=(e)=>{ $("ctxLenLabel").textContent=fmtCtx(CTX_STEPS[Number(e.target.value)])+" tokens"; };
   $("ctxLen").onchange=async(e)=>{
     const ctx=CTX_STEPS[Number(e.target.value)]||32768;
@@ -3285,7 +3304,7 @@ Optional bundled starter model:
     estimateContext();
   };
 
-  // ── Context Optimizer: live pre-send token estimate ──
+  // â”€â”€ Context Optimizer: live pre-send token estimate â”€â”€
   const kfmt=(n)=>n>=1000?(n/1000).toFixed(n>=10000?0:1)+"k":String(n);
   let estTimer=null, lastEst=null;
   async function estimateContext(){
@@ -3295,8 +3314,8 @@ Optional bundled starter model:
       const bar=$("ctxbar");
       let h="~"+kfmt(r.sent)+" tokens will be sent";
       const pct=r.budget?Math.round(r.sent/r.budget*100):0;
-      if(pct>=85) h+=' · <span class="warn">'+pct+"% of window</span>";
-      if(r.saved>0) h+=' · <span class="save">saves ~'+kfmt(r.saved)+"</span>";
+      if(pct>=85) h+=' Â· <span class="warn">'+pct+"% of window</span>";
+      if(r.saved>0) h+=' Â· <span class="save">saves ~'+kfmt(r.saved)+"</span>";
       bar.innerHTML=h;
       if($("ctxNow")) $("ctxNow").innerHTML='<div class="u-row"><span class="u-dim">current context</span><span>'+r.sent.toLocaleString()+" / "+r.budget.toLocaleString()+" tok</span></div>"+(r.saved>0?'<div class="u-row"><span class="u-dim">optimized away</span><span class="save">~'+r.saved.toLocaleString()+"</span></div>":"");
     }catch{ $("ctxbar").innerHTML=""; }
@@ -3329,7 +3348,7 @@ Optional bundled starter model:
   $("clearHistory").onclick=async()=>{ if(await appConfirm("Delete all saved chats?","Every saved chat will be permanently deleted. This can't be undone.","Delete",true)){ const r=await (await fetch("/api/clear-history",{method:"POST"})).json(); threadId=r.activeThreadId; await refresh(); openThread(threadId); } };
   $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",expandedSections:["model"]}); applySections(); } };
 
-  // ── in-app browser (real internet via the /browse proxy) ──
+  // â”€â”€ in-app browser (real internet via the /browse proxy) â”€â”€
   const bframe=$("bframe"), bAddr=$("bAddr");
   let btabs=[], bactive=-1, bhist=[];
   const curTab=()=>btabs[bactive];
@@ -3341,7 +3360,7 @@ Optional bundled starter model:
   function normUrl(v){ v=(v||"").trim(); if(!v) return "";
     if(/^https?:\/\//i.test(v)) return v;
     if(/^(localhost|127\.|\d{1,3}\.\d{1,3}\.)/i.test(v)||/^[\w.-]+:\d{2,5}(\/|$)/.test(v)) return "http://"+v;
-    if(/\s/.test(v)||!v.includes(".")) return searchUrl(v);   // words → web search
+    if(/\s/.test(v)||!v.includes(".")) return searchUrl(v);   // words â†’ web search
     return "https://"+v; }
   function reportUrl(url){ fetch("/api/browser/url",{method:"POST",body:JSON.stringify({url:url||""})}).catch(()=>{}); }
   function showBlank(b){ $("bblank").style.display=b?"grid":"none"; }
@@ -3368,7 +3387,7 @@ Optional bundled starter model:
     const el=$("btabs"); el.innerHTML="";
     btabs.forEach((t,i)=>{ const d=document.createElement("div"); d.className="btab"+(i===bactive?" active":"");
       const label=((t.ai?"AI ":"")+(t.title||t.url||"New tab")).replace(/^https?:\/\//,"").slice(0,24)||"New tab";
-      d.innerHTML='<span class="fav">◎</span><span class="t">'+esc(label)+'</span><span class="x">×</span>';
+      d.innerHTML='<span class="fav">â—Ž</span><span class="t">'+esc(label)+'</span><span class="x">Ã—</span>';
       d.onclick=()=>switchTab(i);
       d.querySelector(".x").onclick=(e)=>{ e.stopPropagation(); closeTab(i); };
       el.appendChild(d); });
@@ -3502,7 +3521,7 @@ Optional bundled starter model:
     parts.push(n.text?("Notepad text:\n"+n.text):"Notepad text: (empty)");
     const b=ctx?.browser||{};
     parts.push("Visible browser pane: "+(b.open?"open":"closed")+" | URL: "+(b.url||"(none)")+" | title: "+(b.title||"(none)"));
-    if(b.text) parts.push("Visible browser text PREVIEW (first "+PANE_PREVIEW_CHARS+" chars — call visible_browser_read for the full page):\n"+b.text);
+    if(b.text) parts.push("Visible browser text PREVIEW (first "+PANE_PREVIEW_CHARS+" chars â€” call visible_browser_read for the full page):\n"+b.text);
     if(b.ocr) parts.push("Visible browser OCR PREVIEW (text read from pixels; call visible_browser_read for full OCR):\n"+b.ocr);
     return parts.join("\n");
   }
@@ -3557,7 +3576,7 @@ Optional bundled starter model:
   bAddr.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); navigate(bAddr.value); } });
   bAddr.addEventListener("focus",()=>bAddr.select());
   $("bStartSearch").addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&e.target.value.trim()){ e.preventDefault(); navigate(e.target.value); e.target.value=""; } });
-  $("bblankhint").innerHTML='Quick open: <a href="#" data-u="https://www.google.com">Google</a> · <a href="#" data-u="https://en.wikipedia.org">Wikipedia</a> · <a href="#" data-u="localhost:3210">localhost:3210</a>';
+  $("bblankhint").innerHTML='Quick open: <a href="#" data-u="https://www.google.com">Google</a> Â· <a href="#" data-u="https://en.wikipedia.org">Wikipedia</a> Â· <a href="#" data-u="localhost:3210">localhost:3210</a>';
   $("bblankhint").querySelectorAll("a").forEach(a=>a.onclick=(e)=>{ e.preventDefault(); navigate(a.dataset.u); });
   bframe.addEventListener("load",()=>{ const t=curTab(); if(t&&t.url) showBlank(false); });
 
@@ -3668,7 +3687,7 @@ Optional bundled starter model:
     renderTabs();
   }
   function showReading(){ const b=$("bread"); b.classList.add("on"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("on"),2600); }
-  // the AI opened a page — mirror it in a dedicated 🤖 tab
+  // the AI opened a page â€” mirror it in a dedicated ðŸ¤– tab
   function aiNavigate(url){
     if(SHELL){ hostPost({type:"browser",cmd:"navigate",url}); return; }
     if(!document.body.classList.contains("browser-on")) openBrowser(true);
@@ -3677,12 +3696,12 @@ Optional bundled starter model:
     bactive=i; loadUrl(url); showReading();
   }
 
-  // ── eula ──
+  // â”€â”€ eula â”€â”€
   $("acceptEula").onclick=async()=>{ await fetch("/api/config",{method:"POST",body:JSON.stringify({acceptEula:true})}); $("eula").close(); input.focus(); };
-  $("declineEula").onclick=()=>{ document.body.innerHTML='<div style="margin:auto;padding:40px;text-align:center;color:var(--dim)">Terms were not accepted — close this window.</div>'; };
+  $("declineEula").onclick=()=>{ document.body.innerHTML='<div style="margin:auto;padding:40px;text-align:center;color:var(--dim)">Terms were not accepted â€” close this window.</div>'; };
   $("eula").addEventListener("cancel",(e)=>e.preventDefault());
 
-  // ── native shell bridge ──
+  // â”€â”€ native shell bridge â”€â”€
   if(SHELL){
     document.body.classList.add("shell");
     // custom title bar: window controls + drag the borderless window from the top bar
@@ -3701,6 +3720,7 @@ Optional bundled starter model:
         else if(d.kind==="file"){ attachments.push({kind:"file",name:d.name||"page.txt",text:d.text||""}); }
         renderChips(); input.focus();
       } else if(d.type==="browserSelection"){ sendBrowserText(d.text,d.target); }
+      else if(d.type==="clipboard"&&d.id&&clipboardWaiters[d.id]){ const pending=clipboardWaiters[d.id]; delete clipboardWaiters[d.id]; d.ok?pending.resolve(d.text||""):pending.reject(new Error(d.error||"clipboard unavailable")); }
       else if(d.type==="shellBrowser"){ document.body.classList.toggle("browser-on",!!d.open); syncPanelButtons(); }
       else if(d.type==="updateReady"){ tempToast("Boolean "+(d.version||"update")+" is ready. Close Boolean to install it.",6000); }
       else if(d.type==="snip"){ addSnipImage(d.dataURL,d.target||"message"); }
