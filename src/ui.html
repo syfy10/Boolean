@@ -527,7 +527,7 @@
   .menu{ position:absolute; background:var(--bg); border:1px solid var(--border); border-radius:14px;
     box-shadow:var(--shadow); padding:6px; display:none; z-index:20; }
   .menu.open{ display:block; }
-  .menu#modelmenu{ bottom:54px; right:0; width:280px; max-height:340px; overflow-y:auto; }
+  .menu#modelmenu{ bottom:54px; right:0; width:292px; max-height:420px; overflow-y:auto; }
   .model-help{ padding:8px 10px 6px; color:var(--dim); font-size:10.5px; line-height:1.35; border-bottom:1px solid var(--border); }
   .menu#modemenu{ bottom:44px; left:0; width:178px; }
   .menu#plusmenu{ bottom:44px; left:0; width:190px; }
@@ -549,6 +549,14 @@
   .model-line b{ font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .model-line small{ color:var(--dim); font-size:10.5px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .model-dl{ flex-shrink:0; color:var(--green); font-size:11px; line-height:1; padding-top:2px; }
+  .api-provider.missing .model-dl{ color:var(--online); }
+  .api-key-form{ display:flex; align-items:center; gap:6px; padding:2px 10px 9px; }
+  .menu .api-key-form input{ min-width:0; flex:1; margin:0; padding:7px 8px; border:1px solid var(--border);
+    border-radius:7px; background:var(--bubble); font-size:12px; }
+  .api-key-save{ flex:0 0 auto; border:0; border-radius:7px; padding:7px 10px; background:var(--text);
+    color:var(--bg); font:600 11px var(--ui); cursor:pointer; }
+  .api-key-save:hover{ opacity:.86; }
+  .api-key-error{ padding:0 10px 7px; color:#d14343; font-size:10.5px; }
   .download-ico{ width:16px; height:16px; display:inline-block; position:relative; }
   .download-ico:before{ content:""; position:absolute; left:7px; top:2px; width:2px; height:8px; background:currentColor; border-radius:2px; }
   .download-ico:after{ content:""; position:absolute; left:4px; top:7px; width:8px; height:8px; border-left:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); }
@@ -1638,6 +1646,37 @@
     el.innerHTML="";
     RECOMMENDED_MODELS.forEach(rec=>el.appendChild(makeRecRow(rec,true)));
   }
+  function openApiKeyForm(prov,label,item){
+    const old=item.nextElementSibling;
+    if(old&&old.classList.contains("api-key-form")){ old.remove(); return; }
+    document.querySelectorAll("#modellist .api-key-form,#modellist .api-key-error").forEach(el=>el.remove());
+    const form=document.createElement("div"); form.className="api-key-form";
+    form.innerHTML='<input type="password" autocomplete="off" spellcheck="false" placeholder="Enter '+esc(label)+' API key"><button class="api-key-save" type="button">Save</button>';
+    item.after(form);
+    const input=form.querySelector("input"), save=form.querySelector("button");
+    const submit=async()=>{
+      const key=input.value.trim();
+      form.parentElement?.querySelector(".api-key-error")?.remove();
+      if(!key){
+        const err=document.createElement("div"); err.className="api-key-error"; err.textContent="Enter an API key to continue."; form.after(err); input.focus(); return;
+      }
+      save.disabled=true; save.textContent="Saving...";
+      let res;
+      try { res=await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov,setKey:{provider:prov,key}})}); }
+      catch { res=null; }
+      if(!res?.ok){
+        save.disabled=false; save.textContent="Save";
+        const err=document.createElement("div"); err.className="api-key-error"; err.textContent="Could not save this key."; form.after(err); return;
+      }
+      $("modelmenu").classList.remove("open");
+      tempToast(label+" connected.");
+      await refresh();
+    };
+    form.onclick=(e)=>e.stopPropagation();
+    save.onclick=(e)=>{ e.stopPropagation(); submit(); };
+    input.onkeydown=(e)=>{ if(e.key==="Enter"){ e.preventDefault(); submit(); } };
+    input.focus();
+  }
   function renderModelList(filter){
     const list=$("modellist"); list.innerHTML="";
     const q=(filter||"").toLowerCase();
@@ -1656,26 +1695,27 @@
         item.onclick=selectBooleanCloud;
         list.appendChild(item);
       }
-      const apiRows=Object.entries(state.cloud||{}).filter(([prov])=>state.keys&&state.keys[prov]);
+      const apiRows=Object.entries(state.cloud||{});
       const visibleApi=apiRows.filter(([prov,label])=>matches(label+" "+prov+" api "+providerModelName(prov)));
       if(visibleApi.length){
-        const head=document.createElement("div"); head.className="model-head"; head.textContent="API keys";
+        const head=document.createElement("div"); head.className="model-head"; head.textContent="Use your API key";
         list.appendChild(head);
         visibleApi.forEach(([prov,label])=>{
+          const hasKey=!!(state.keys&&state.keys[prov]);
           const item=document.createElement("div");
-          item.className="item model-rec"+(state.provider===prov?" selected":"");
-          const model=providerModelName(prov)||"saved key";
-          item.innerHTML='<span class="model-line"><b>'+esc(label)+'</b><small>'+esc(model)+'</small></span><span class="model-dl">'+(state.provider===prov?"Selected":"Use")+'</span>';
-          item.onclick=async()=>{ $("modelmenu").classList.remove("open"); await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov})}); await refresh(); };
+          item.className="item model-rec api-provider"+(hasKey&&state.provider===prov?" selected":"")+(hasKey?"":" missing");
+          const model=providerModelName(prov)||"Default model";
+          const detail=hasKey?model+" - API key saved":"API key required - enter one below.";
+          const action=hasKey?(state.provider===prov?"Selected":"Use"):"Add key";
+          item.innerHTML='<span class="model-line"><b>'+esc(label)+'</b><small>'+esc(detail)+'</small></span><span class="model-dl">'+action+'</span>';
+          item.onclick=async()=>{
+            if(!hasKey){ openApiKeyForm(prov,label,item); return; }
+            $("modelmenu").classList.remove("open");
+            await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov})});
+            await refresh();
+          };
           list.appendChild(item);
         });
-      }
-      if(!visibleApi.length && !cloud.signedIn && matches("api key settings add")){
-        const item=document.createElement("div");
-        item.className="item";
-        item.innerHTML='<span class="model-line"><b>Add an API key</b><small>Open Settings to connect OpenAI, GLM, or Claude.</small></span>';
-        item.onclick=()=>{ $("modelmenu").classList.remove("open"); openSettings("model"); };
-        list.appendChild(item);
       }
       if(!list.children.length) list.innerHTML='<div class="item">no cloud models found</div>';
       return;
@@ -2464,7 +2504,15 @@ Optional bundled starter model:
       await refresh();
       if(wasLocal) tempToast(prov==="boolean"?"Cloud mode: Boolean Cloud tokens will be used.":"Cloud mode: requests may use your saved cloud API.");
     }
-    else { await startCloudSignIn(); applyNetMode(); }
+    else {
+      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"openai"})});
+      await refresh();
+      $("modelmenu").classList.add("open");
+      $("modelsearch").value="";
+      renderModelList("");
+      $("modelsearch").focus();
+      tempToast("Choose Boolean Cloud or add an API key.");
+    }
   }
   document.querySelectorAll("#netmode button").forEach(b=>b.onclick=()=>selectNet(b.dataset.net));
   $("providersel").onchange=async(e)=>{ await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:e.target.value})}); $("apikey").value=""; await refresh(); };
