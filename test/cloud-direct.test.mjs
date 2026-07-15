@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { runTurn, systemPrompt } from "../src/agent.js";
 
-test("cloud providers receive current-event questions without local preflight answers", async (t) => {
+test("the model receives topic changes without deterministic routing", async (t) => {
   let requestBody = null;
   const server = http.createServer(async (req, res) => {
     let raw = "";
@@ -40,20 +40,24 @@ test("cloud providers receive current-event questions without local preflight an
   };
   const messages = [
     { role: "system", content: systemPrompt("", false, config) },
-    { role: "user", content: "When is the FIFA World Cup final?" }
+    { role: "user", content: "When is the FIFA World Cup final?" },
+    { role: "assistant", content: "The final is on Sunday." },
+    { role: "user", content: "stock news" }
   ];
+  const steps = [];
 
   const answer = await runTurn({
     config,
     approve: async () => false,
     onStatus() {},
-    onStep() {},
+    onStep(step) { steps.push(step); },
     onUsage() {}
   }, messages);
 
   assert.equal(answer, "The cloud model handled this question.");
   assert.equal(requestBody.model, "test-cloud-model");
-  assert.equal(requestBody.messages.at(-1).content, "When is the FIFA World Cup final?");
-  assert.ok(Array.isArray(requestBody.tools), "cloud model should retain access to app tools");
+  assert.equal(requestBody.messages.at(-1).content, "stock news");
+  assert.ok(Array.isArray(requestBody.tools), "the model should retain access to app tools");
+  assert.deepEqual(steps, [], "the app must not force a tool before the model requests one");
   assert.equal(messages.at(-1).content, answer);
 });
