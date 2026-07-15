@@ -39,7 +39,11 @@ sealed class TabItem
 
 sealed class MainForm : Form
 {
-    const string AppVersion = "0.9.8";
+    // derived from AssemblyVersion (SazShell.csproj) so it can never drift from
+    // the shipped version again — a stale hardcoded value here made 0.9.9
+    // think it was 0.9.8 and re-download itself forever
+    static readonly string AppVersion =
+        typeof(MainForm).Assembly.GetName().Version is { } av ? $"{av.Major}.{av.Minor}.{av.Build}" : "0.0.0";
     const string UpdateManifestUrl = "https://github.com/syfy10/Boolean/releases/latest/download/update.json";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -188,7 +192,7 @@ sealed class MainForm : Form
     readonly string _updateDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "saz3", "updates");
     string CoreLogPath => Path.Combine(_logDir, "boolean-core.log");
     string? _updateReadyPath;
-    bool _updateCheckStarted;
+    bool _updateCheckRunning;
 
     // browser permissions read from the app config (~/.saz/config.json)
     bool _permDownloads = true, _permCamera = false, _permMic = false, _permGeo = false;
@@ -290,15 +294,13 @@ sealed class MainForm : Form
         public string Sha256 { get; set; } = "";
     }
 
-    static bool IsNewerVersion(string candidate)
+    static Version ParseVersion(string value)
     {
-        static Version Parse(string value)
-        {
-            var clean = value.Trim().TrimStart('v', 'V').Split('-', '+')[0];
-            return Version.TryParse(clean, out var parsed) ? parsed : new Version(0, 0);
-        }
-        return Parse(candidate) > Parse(AppVersion);
+        var clean = (value ?? "").Trim().TrimStart('v', 'V').Split('-', '+')[0];
+        return Version.TryParse(clean, out var parsed) ? parsed : new Version(0, 0);
     }
+
+    static bool IsNewerVersion(string candidate) => ParseVersion(candidate) > ParseVersion(AppVersion);
 
     static bool IsTrustedUpdateUrl(string value, out Uri? uri)
     {
@@ -310,83 +312,131 @@ sealed class MainForm : Form
         return true;
     }
 
+    void LogUpdate(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(_updateDir);
+            var logPath = Path.Combine(_updateDir, "update-check.log");
+            if (File.Exists(logPath) && new FileInfo(logPath).Length > 64 * 1024) File.Delete(logPath);
+            File.AppendAllText(logPath, $"{DateTime.UtcNow:O} [{AppVersion}] {message}\r\n", Encoding.UTF8);
+        }
+        catch { }
+    }
+
+    string PendingInstallerPath(string version)
+    {
+        var safe = string.Concat((version ?? "").Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
+        return Path.Combine(_updateDir, $"Boolean-setup-{safe}.exe");
+    }
+
     async Task CheckForUpdatesAsync()
     {
-        if (_updateCheckStarted) return;
-        _updateCheckStarted = true;
+        if (_updateCheckRunning) return;
+        _updateCheckRunning = true;
 
         // Development builds do not update themselves. Packaged builds always
         // contain the core executable beside the shell.
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "saz-core.exe"))) return;
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "saz-core.exe"))) { _updateCheckRunning = false; return; }
 
         try
         {
             Directory.CreateDirectory(_updateDir);
             var pendingFile = Path.Combine(_updateDir, "pending-update.json");
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            // reload a fully downloaded pending update, but never let it skip the
+            // feed check — a stale pending version must not hide newer releases
+            UpdateManifest? pending = null;
             if (File.Exists(pendingFile))
             {
                 try
                 {
-                    var pending = JsonSerializer.Deserialize<UpdateManifest>(await File.ReadAllTextAsync(pendingFile),
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    if (pending is not null && IsNewerVersion(pending.Version))
-                    {
-                        var pendingVersion = string.Concat(pending.Version.Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
-                        var pendingPath = Path.Combine(_updateDir, $"Boolean-setup-{pendingVersion}.exe");
-                        var pendingHash = pending.Sha256.Trim().ToUpperInvariant();
-                        if (File.Exists(pendingPath) && pendingHash.Length == 64 && await HasExpectedHashAsync(pendingPath, pendingHash))
-                        {
-                            SetPendingUpdate(pendingPath, pending.Version);
-                            return;
-                        }
-                    }
-                    File.Delete(pendingFile);
+                    var parsed = JsonSerializer.Deserialize<UpdateManifest>(await File.ReadAllTextAsync(pendingFile), options);
+                    var hash = parsed?.Sha256?.Trim().ToUpperInvariant() ?? "";
+                    if (parsed is not null && IsNewerVersion(parsed.Version) && hash.Length == 64
+                        && File.Exists(PendingInstallerPath(parsed.Version))
+                        && await HasExpectedHashAsync(PendingInstallerPath(parsed.Version), hash))
+                        pending = parsed;
+                    else
+                        File.Delete(pendingFile);
                 }
-                catch { }
+                catch (Exception ex) { LogUpdate("pending reload failed: " + ex.Message); try { File.Delete(pendingFile); } catch { } }
             }
+
+            // the throttle stamp is only written after a COMPLETED check, so a
+            // failed download retries on the next launch instead of waiting 6h
             var checkedFile = Path.Combine(_updateDir, "last-check.txt");
-            if (File.Exists(checkedFile) && DateTime.UtcNow - File.GetLastWriteTimeUtc(checkedFile) < TimeSpan.FromHours(6)) return;
+            var throttled = File.Exists(checkedFile)
+                && DateTime.UtcNow - File.GetLastWriteTimeUtc(checkedFile) < TimeSpan.FromHours(6);
 
-            using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true })
+            if (!throttled)
             {
-                Timeout = TimeSpan.FromMinutes(15)
-            };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Boolean-Windows/" + AppVersion);
-
-            var json = await client.GetStringAsync(UpdateManifestUrl);
-            File.WriteAllText(checkedFile, DateTime.UtcNow.ToString("O"), Encoding.UTF8);
-            var manifest = JsonSerializer.Deserialize<UpdateManifest>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (manifest is null || !IsNewerVersion(manifest.Version)) return;
-            if (!IsTrustedUpdateUrl(manifest.Url, out var downloadUri) || downloadUri is null) return;
-
-            var expectedHash = manifest.Sha256.Trim().ToUpperInvariant();
-            if (expectedHash.Length != 64 || expectedHash.Any(c => !Uri.IsHexDigit(c))) return;
-
-            var safeVersion = string.Concat(manifest.Version.Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
-            var readyPath = Path.Combine(_updateDir, $"Boolean-setup-{safeVersion}.exe");
-            if (!File.Exists(readyPath) || !await HasExpectedHashAsync(readyPath, expectedHash))
-            {
-                var partialPath = readyPath + ".partial";
-                if (File.Exists(partialPath)) File.Delete(partialPath);
-                await using (var remote = await client.GetStreamAsync(downloadUri))
-                await using (var local = new FileStream(partialPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
-                    await remote.CopyToAsync(local);
-
-                if (!await HasExpectedHashAsync(partialPath, expectedHash))
+                using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true })
                 {
-                    File.Delete(partialPath);
-                    return;
+                    Timeout = TimeSpan.FromMinutes(15)
+                };
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Boolean-Windows/" + AppVersion);
+
+                var json = await client.GetStringAsync(UpdateManifestUrl);
+                var manifest = JsonSerializer.Deserialize<UpdateManifest>(json, options);
+
+                if (manifest is null || !IsNewerVersion(manifest.Version))
+                {
+                    LogUpdate($"feed checked: {(manifest?.Version ?? "unreadable")} — up to date");
                 }
-                File.Move(partialPath, readyPath, true);
+                else if (pending is not null && ParseVersion(manifest.Version) <= ParseVersion(pending.Version))
+                {
+                    LogUpdate($"feed checked: {manifest.Version} already downloaded");
+                }
+                else if (!IsTrustedUpdateUrl(manifest.Url, out var downloadUri) || downloadUri is null)
+                {
+                    LogUpdate($"feed rejected: untrusted url {manifest.Url}");
+                }
+                else
+                {
+                    var expectedHash = manifest.Sha256.Trim().ToUpperInvariant();
+                    if (expectedHash.Length != 64 || expectedHash.Any(c => !Uri.IsHexDigit(c)))
+                    {
+                        LogUpdate($"feed rejected: bad sha256 for {manifest.Version}");
+                    }
+                    else
+                    {
+                        var readyPath = PendingInstallerPath(manifest.Version);
+                        if (!File.Exists(readyPath) || !await HasExpectedHashAsync(readyPath, expectedHash))
+                        {
+                            var partialPath = readyPath + ".partial";
+                            if (File.Exists(partialPath)) File.Delete(partialPath);
+                            await using (var remote = await client.GetStreamAsync(downloadUri))
+                            await using (var local = new FileStream(partialPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
+                                await remote.CopyToAsync(local);
+
+                            if (!await HasExpectedHashAsync(partialPath, expectedHash))
+                            {
+                                File.Delete(partialPath);
+                                LogUpdate($"download hash mismatch for {manifest.Version}");
+                                throw new InvalidOperationException("update download failed verification");
+                            }
+                            File.Move(partialPath, readyPath, true);
+                        }
+                        await File.WriteAllTextAsync(pendingFile, JsonSerializer.Serialize(manifest), Encoding.UTF8);
+                        pending = manifest;
+                        LogUpdate($"downloaded and armed {manifest.Version}");
+                    }
+                }
+                File.WriteAllText(checkedFile, DateTime.UtcNow.ToString("O"), Encoding.UTF8);
             }
 
-            await File.WriteAllTextAsync(pendingFile, JsonSerializer.Serialize(manifest), Encoding.UTF8);
-            SetPendingUpdate(readyPath, manifest.Version);
+            if (pending is not null) SetPendingUpdate(PendingInstallerPath(pending.Version), pending.Version);
         }
-        catch
+        catch (Exception ex)
         {
             // Updates are best-effort and must never delay or block app startup.
+            LogUpdate("check failed: " + ex.Message);
+        }
+        finally
+        {
+            _updateCheckRunning = false;
         }
     }
 
@@ -559,6 +609,10 @@ try {
 
             AddTab(_homeUrl, activate: true, navigate: false); // ready but hidden
             _ = CheckForUpdatesAsync();
+            // long-lived windows re-check on the same cadence as the feed throttle
+            var updateTimer = new System.Windows.Forms.Timer { Interval = (int)TimeSpan.FromHours(6).TotalMilliseconds };
+            updateTimer.Tick += (_, __) => _ = CheckForUpdatesAsync();
+            updateTimer.Start();
         }
         catch (Exception ex)
         {
