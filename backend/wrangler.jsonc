@@ -5,12 +5,19 @@
   "compatibility_date": "2026-07-14",
   "workers_dev": true,
   "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "saz3.com/boolean/auth/*",
+      "zone_name": "saz3.com"
+    }
+  ],
   "observability": {
     "enabled": true
   },
   "vars": {
     "APP_NAME": "Boolean",
-    "PUBLIC_APP_URL": "https://boolean.local",
+    "PUBLIC_APP_URL": "https://saz3.com/boolean",
+    "PUBLIC_AUTH_BASE_URL": "https://saz3.com/boolean",
     "ALLOWED_ORIGINS": "http://localhost:8765",
     "ADMIN_EMAILS": "syfy10@gmail.com",
     "FREE_TIER_PROVIDER": "workers-ai",

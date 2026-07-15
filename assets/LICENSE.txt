@@ -101,14 +101,22 @@ Data leaves your computer only when you choose features that require it, such
 as cloud providers, Boolean Cloud sign-in/token features, model downloads, web
 browsing, or installation helpers.
 
-8. NO WARRANTY
+8. SOFTWARE UPDATES
+Boolean may periodically contact the saz3 Labs GitHub release service to check
+for a newer version. When an update is available, Boolean may download the
+installer in the background, verify its SHA-256 hash, and notify you when it is
+ready. Installation begins after you close Boolean, and the app may reopen when
+installation finishes. Boolean backs up key local settings and chat data before
+updating. Internet access and local disk space are required for this feature.
+
+9. NO WARRANTY
 THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
 KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR
 A PARTICULAR PURPOSE, ACCURACY, SECURITY, OR NON-INFRINGEMENT. Boolean does
 not warrant that the Software or cloud features will be error-free, secure,
 available, uninterrupted, or compatible with every model, website, or provider.
 
-9. LIMITATION OF LIABILITY
+10. LIMITATION OF LIABILITY
 TO THE MAXIMUM EXTENT PERMITTED BY LAW, BOOLEAN, SAZ3 LABS, AND ITS DEVELOPERS
 ARE NOT LIABLE FOR DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
 EXEMPLARY DAMAGES, INCLUDING LOSS OF DATA, LOSS OF PROFITS, BUSINESS
@@ -118,16 +126,16 @@ FOUND DESPITE THE ABOVE, TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE
 AMOUNT YOU PAID FOR THE SOFTWARE OR CLOUD SERVICE IN THE 30 DAYS BEFORE THE
 CLAIM.
 
-10. INDEMNIFICATION
+11. INDEMNIFICATION
 You agree to indemnify and hold harmless Boolean, saz3 Labs, and its developers
 from claims, damages, or expenses arising from your use or misuse of the
 Software.
 
-11. TERMINATION
+12. TERMINATION
 This license terminates automatically if you breach it. Upon termination you
 must uninstall the Software and stop using Boolean Cloud services.
 
-12. GENERAL
+13. GENERAL
 If any provision of this agreement is held unenforceable, the remainder remains
 in effect. This agreement is the entire agreement regarding the Software and
 supersedes any prior understanding.

@@ -26,7 +26,10 @@ async function route(request, env) {
   if (request.method === "OPTIONS") return corsPreflight(request, env);
 
   const url = new URL(request.url);
-  const path = url.pathname.replace(/\/+$/, "") || "/";
+  const rawPath = url.pathname.replace(/\/+$/, "") || "/";
+  const path = rawPath === "/boolean" || rawPath.startsWith("/boolean/")
+    ? rawPath.slice("/boolean".length) || "/"
+    : rawPath;
 
   if (path === "/health") {
     return json({ ok: true, app: env.APP_NAME || "Boolean" }, 200, request, env);
@@ -136,7 +139,7 @@ async function startDeviceLogin(request, env) {
   const deviceId = randomId("dev");
   const state = randomId("state");
   const expiresAt = createdAt + 10 * 60;
-  const redirectUri = callbackUrl(request);
+  const redirectUri = callbackUrl(request, env);
 
   await env.DB.prepare(
     "INSERT INTO login_devices (id, state, status, created_at, expires_at) VALUES (?, ?, 'pending', ?, ?)"
@@ -204,7 +207,7 @@ async function googleCallback(request, env) {
     return htmlPage("Already signed in", "This sign-in request was already completed. You can return to Boolean.");
   }
 
-  const tokenSet = await exchangeGoogleCode(code, callbackUrl(request), env);
+  const tokenSet = await exchangeGoogleCode(code, callbackUrl(request, env), env);
   const profile = await verifyGoogleIdToken(tokenSet.id_token, env);
   const user = await upsertUser(profile, env);
   const session = await createSession(user.id, env);
@@ -579,10 +582,13 @@ function nextDailyReset(ts) {
   return Math.floor(d.getTime() / 1000);
 }
 
-function callbackUrl(request) {
-  const url = new URL(request.url);
-  url.pathname = "/auth/google/callback";
+function callbackUrl(request, env) {
+  const configuredBase = String(env.PUBLIC_AUTH_BASE_URL || "").trim();
+  const url = new URL(configuredBase || request.url);
+  const basePath = configuredBase ? url.pathname.replace(/\/+$/, "") : "";
+  url.pathname = `${basePath}/auth/google/callback`;
   url.search = "";
+  url.hash = "";
   return url.toString();
 }
 

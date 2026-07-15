@@ -226,10 +226,14 @@ Stored at `~/.saz/config.json`:
   "host": "http://localhost:11434",
   "model": "qwen2.5-coder:7b",
   "autoApprove": false,
-  "maxToolTurns": 12,
+  "maxToolTurns": 0,
   "commandTimeoutMs": 120000
 }
 ```
+
+`maxToolTurns` is retained for compatibility with older config files. Boolean
+now keeps working until the model finishes or the user presses Stop. Tool
+progress is checkpointed, with a guard for repeated identical actions.
 
 ## How it works
 

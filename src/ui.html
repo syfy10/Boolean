@@ -389,7 +389,7 @@
   .win-btn:hover{ background:var(--hover); }
   .win-close:hover{ background:#e81123; color:#fff; }
 
-  #chat{ flex:1; overflow-y:auto; padding:6px 16px 8px; }
+  #chat{ flex:1; overflow-y:auto; padding:6px 16px calc(var(--composer-h,106px) + 12px); }
   .col{ max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:var(--col-gap); font-size:var(--chat-fs); letter-spacing:0; }
   .msg-time{ font-size:11px; color:var(--dim); display:none; }
   body.show-time .msg-time{ display:block; }
@@ -409,10 +409,14 @@
   .msg-user .body,.msg-ai .body{ --msg-fill:var(--ai-bubble); position:relative; padding:var(--msg-pad); background:var(--msg-fill); box-shadow:0 1px 2px rgba(0,0,0,.035); }
   .msg-user .body{ --msg-fill:var(--user-bubble); color:var(--user-bubble-text); border-radius:16px 16px 4px 16px; }
   .msg-ai .body{ border-radius:16px 16px 16px 4px; }
+  .msg-ai:not(.cloud) .body{ --msg-fill:transparent; border:1px solid color-mix(in srgb,var(--text) 13%,transparent); box-shadow:none; }
   .msg-ai.cloud .body{ --msg-fill:var(--cloud-bubble); }
   .msg-user .body:after,.msg-ai .body:after{ content:""; position:absolute; bottom:0; width:9px; height:11px; background:var(--msg-fill); }
   .msg-user .body:after{ right:-5px; clip-path:polygon(0 0,100% 100%,0 78%); }
   .msg-ai .body:after{ left:-5px; clip-path:polygon(100% 0,0 100%,100% 78%); }
+  .msg-ai:not(.cloud) .body:after{ left:-4px; bottom:2px; width:8px; height:8px; background:var(--bg);
+    border-left:1px solid color-mix(in srgb,var(--text) 13%,transparent);
+    border-bottom:1px solid color-mix(in srgb,var(--text) 13%,transparent); clip-path:none; transform:rotate(45deg); }
   .msg-user .body{ white-space:pre-wrap; }
   .msg-user img{ max-width:220px; border-radius:8px; margin-top:5px; display:block; }
   .msg-ai p{ margin:0 0 5px; }
@@ -431,6 +435,10 @@
   .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
   .msg-foot .actions{ margin:0; display:flex; gap:0; flex:0 0 auto; flex-wrap:nowrap; }
   .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); }
+  .msg-copy{ width:15px; height:15px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:transparent; color:inherit; opacity:.72; cursor:pointer; }
+  .msg-copy:hover,.msg-copy:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
+  .msg-copy svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .msg-copy.copied{ color:var(--green); font:9px/1 var(--ui); }
   .note-save{ width:18px; height:18px; padding:0; border:0; border-radius:50%; display:grid; place-items:center;
     background:transparent; color:var(--dim); cursor:pointer; opacity:.55; transition:opacity .12s, background .12s, color .12s; box-shadow:none; font:11px/1 var(--ui); flex:0 0 auto; }
   .msg-user .body>.note-save{ position:absolute; right:2px; top:2px; opacity:0; color:var(--user-bubble-text); }
@@ -444,6 +452,8 @@
   .chat-menu.open{ display:block; }
   .chat-menu button{ border:0; background:transparent; color:var(--text); text-align:left; border-radius:999px; padding:6px 10px; font:inherit; font-size:var(--fs-sm); cursor:pointer; white-space:nowrap; }
   .chat-menu button:hover{ background:var(--hover); }
+  .selection-menu{ min-width:176px; border-radius:8px; padding:5px; }
+  .selection-menu button{ display:block; width:100%; border-radius:5px; padding:7px 9px; }
   .msg-ai pre{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px;
     overflow-x:auto; font:13px/1.5 var(--mono); margin:8px 0; }
   .msg-ai code{ font:.9em var(--mono); background:var(--bubble); border-radius:5px; padding:1px 5px; }
@@ -479,7 +489,9 @@
   .approval .verdict{ font-size:13px; color:var(--dim); }
   .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:12px; font-size:13.5px; }
 
-  .composer-wrap{ padding:6px 20px 20px; min-width:0; }
+  .composer-wrap{ --composer-x:20px; --composer-bottom:20px; position:absolute; z-index:12; left:0; right:0; bottom:0;
+    padding:6px var(--composer-x) var(--composer-bottom); min-width:0; background:transparent; pointer-events:none; }
+  .composer,.composer-tools{ pointer-events:auto; }
   .composer{ width:min(760px,100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:28px;
     background:var(--bg); box-shadow:0 2px 10px rgba(0,0,0,.05); padding:8px 10px; overflow:visible; }
   .attachments{ display:flex; flex-wrap:wrap; gap:8px; padding:2px 4px 8px; }
@@ -515,8 +527,10 @@
     font:inherit; font-size:var(--fs-lg); padding:8px 8px 4px 7px; max-height:180px; }
   .composer textarea::placeholder{ color:var(--dim); opacity:.6; }
   /* quiet tool strip below the pill — attach, snip, approval mode, compare, model */
+  .composer-base{ margin:0 calc(-1 * var(--composer-x)) calc(-1 * var(--composer-bottom));
+    padding:5px var(--composer-x) var(--composer-bottom); background:var(--bg); pointer-events:auto; }
   .composer-tools{ display:flex; align-items:center; gap:5px; width:min(760px,100%); min-width:0;
-    margin:5px auto 0; padding:0 12px; flex-wrap:nowrap; }
+    margin:0 auto; padding:0 12px; flex-wrap:nowrap; }
   .composer-tools .anchor{ min-width:0; }
   .composer-tools .anchor:has(#modebtn), .composer-tools .anchor:has(#modelbtn){ flex:0 1 auto; min-width:0; }
   /* pencil + send live inside the pill, hugging the input's last line */
@@ -667,7 +681,7 @@
   .model-error-actions button:hover{ background:color-mix(in srgb,currentColor 8%,transparent); }
 
   /* narrow composer: stay on ONE row, collapse labels to icons instead of stacking */
-  body.win-xs .composer-wrap, body.chat-xs .composer-wrap{ padding:6px 8px 12px; }
+  body.win-xs .composer-wrap, body.chat-xs .composer-wrap{ --composer-x:8px; --composer-bottom:12px; }
   body.win-xs .composer, body.chat-xs .composer{ border-radius:20px; padding:7px 8px; }
   body.win-xs .composer textarea, body.chat-xs .composer textarea{ padding:7px 7px 3px 1px; }
   body.win-xs .cmdprompt, body.chat-xs .cmdprompt{ padding-top:7px; }
@@ -1013,7 +1027,8 @@
       <div class="attachments" id="attachments"></div>
       <div class="promptline"><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
     </div>
-    <div class="composer-tools">
+    <div class="composer-base">
+      <div class="composer-tools">
       <div class="anchor">
         <button class="iconbtn" id="plusbtn" title="Add" aria-label="Add">+</button>
         <div class="menu" id="plusmenu">
@@ -1055,6 +1070,7 @@
           <div id="modellist"></div>
         </div>
       </div>
+      </div>
     </div>
   </div>
 </main>
@@ -1083,6 +1099,16 @@
 
 <div class="chat-menu" id="chatMenu">
   <button id="chatSendNote">+ Send to notepad</button>
+</div>
+<div class="chat-menu selection-menu" id="noteContextMenu">
+  <button id="noteMenuCut">Cut</button>
+  <button id="noteMenuCopy">Copy</button>
+  <button id="noteMenuSend">Send to message</button>
+</div>
+<div class="chat-menu selection-menu" id="browserSelectionMenu">
+  <button id="browserMenuCopy">Copy</button>
+  <button id="browserMenuMessage">Send to message</button>
+  <button id="browserMenuNote">Send to notepad</button>
 </div>
 
 <div id="bdrag" title="Drag to resize"></div>
@@ -1113,7 +1139,8 @@
     <div class="item" id="bmCloseOthers"><span>Close other tabs</span></div>
     <div class="sep"></div>
     <div class="item" id="bmSendPage"><span>Send page to AI</span></div>
-    <div class="item" id="bmSendSel"><span>Send selected text to AI</span></div>
+    <div class="item" id="bmSendSel"><span>Send selected text to message</span></div>
+    <div class="item" id="bmSendSelNote"><span>Send selected text to notepad</span></div>
     <div class="item" id="bmScreenshot"><span>Send screenshot to AI</span></div>
     <div class="item" id="bmScreenshotNote"><span>Send screenshot to notepad</span></div>
     <div class="sep"></div>
@@ -1241,6 +1268,10 @@
   const SHELL = !!(window.chrome && window.chrome.webview);
   const hostPost = (o) => { try { window.chrome.webview.postMessage(o); } catch {} };
   const chat=$("chat"), col=$("col"), input=$("input"), send=$("send");
+  const composerWrap=document.querySelector(".composer-wrap");
+  const syncComposerHeight=()=>document.documentElement.style.setProperty("--composer-h",`${Math.ceil(composerWrap?.getBoundingClientRect().height||106)}px`);
+  if(composerWrap) new ResizeObserver(syncComposerHeight).observe(composerWrap);
+  syncComposerHeight();
   let state={ provider:"local", models:[], providerModels:{}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null };
   let compareState={ active:false, targets:[] };
   try{ compareState={...compareState,...JSON.parse(localStorage.getItem("booleanCompare")||"{}")}; }catch{}
@@ -1403,7 +1434,8 @@
     d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'</div>';
     col.appendChild(d); updateCopyButton(); scrollDown(); return d;
   }
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+'<span class="usage-inline"></span></div>'; return d; }
+  const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+'<span class="usage-inline"></span><button class="msg-copy" type="button" title="Copy response" aria-label="Copy response">'+responseCopyIcon+'</button></div>'; return d; }
   function makeTool(entry){
     const d=document.createElement("div"); d.className="toolcard"+((state.ui&&state.ui.collapseLogs===false)?" open":"");
     const open=d.classList.contains("open");
@@ -1573,7 +1605,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.7"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.8"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -2465,12 +2497,39 @@
     const imgs=[...div.querySelectorAll("img")].map(img=>img.src).filter(src=>src.startsWith("data:image/"));
     return { text, imgs };
   }
+  function appendToComposer(text){
+    text=String(text||"").trim();
+    if(!text) return false;
+    input.value=(input.value.trim()?input.value.trim()+"\n\n":"")+text;
+    autosize(); input.focus();
+    return true;
+  }
   $("noteSend").onclick=()=>{
     const p=selectedNotePayload();
-    if(p.text) input.value=(input.value.trim()?input.value.trim()+"\n\n":"")+p.text;
+    appendToComposer(p.text);
     p.imgs.forEach((src,i)=>attachments.push({kind:"image",name:"note image "+(i+1)+".png",dataURL:src}));
-    renderChips(); autosize(); input.focus();
+    renderChips();
   };
+  let noteContextSelection="";
+  function hideNoteContextMenu(){ $("noteContextMenu").classList.remove("open"); noteContextSelection=""; }
+  function positionSelectionMenu(menu,x,y){
+    menu.classList.add("open");
+    const width=menu.offsetWidth||176, height=menu.offsetHeight||110;
+    menu.style.left=Math.max(8,Math.min(x,window.innerWidth-width-8))+"px";
+    menu.style.top=Math.max(8,Math.min(y,window.innerHeight-height-8))+"px";
+  }
+  $("noteEditor").addEventListener("contextmenu",(e)=>{
+    const sel=getSelection();
+    const text=sel&&!sel.isCollapsed&&sel.rangeCount&&$("noteEditor").contains(sel.anchorNode)&&$("noteEditor").contains(sel.focusNode)?sel.toString().trim():"";
+    if(!text){ hideNoteContextMenu(); return; }
+    e.preventDefault();
+    noteContextSelection=text;
+    positionSelectionMenu($("noteContextMenu"),e.clientX,e.clientY);
+  });
+  ["noteMenuCut","noteMenuCopy","noteMenuSend"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
+  $("noteMenuCut").onclick=()=>{ document.execCommand("cut"); saveNotes(); hideNoteContextMenu(); };
+  $("noteMenuCopy").onclick=()=>{ document.execCommand("copy"); hideNoteContextMenu(); };
+  $("noteMenuSend").onclick=()=>{ const text=noteContextSelection; hideNoteContextMenu(); appendToComposer(text); };
   function selectedChatText(){
     const sel=getSelection();
     if(!sel||sel.isCollapsed||!sel.rangeCount) return "";
@@ -2518,10 +2577,18 @@
     menu.classList.add("open");
   }
   col.addEventListener("click",(e)=>{
-    const btn=e.target.closest(".note-save");
-    if(!btn) return;
+    const noteBtn=e.target.closest(".note-save");
+    if(noteBtn){ e.preventDefault(); saveChatMessageToNote(noteBtn); return; }
+    const copyBtn=e.target.closest(".msg-copy");
+    if(!copyBtn) return;
     e.preventDefault();
-    saveChatMessageToNote(btn);
+    const msg=copyBtn.closest(".msg-ai");
+    const text=String(msg?._raw||"").trim();
+    if(!text) return;
+    navigator.clipboard.writeText(text).then(()=>{
+      copyBtn.classList.add("copied"); copyBtn.textContent="✓";
+      setTimeout(()=>{ copyBtn.classList.remove("copied"); copyBtn.innerHTML=responseCopyIcon; },1000);
+    }).catch(()=>tempToast("Could not copy this response."));
   });
   col.addEventListener("contextmenu",(e)=>{
     hideChatMenu();
@@ -2985,10 +3052,13 @@ Cloud tokens are usage credits for optional cloud AI features. They are not cash
 4. PRIVACY
 Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as cloud providers, Boolean Cloud sign-in/token features, model downloads, web browsing, or installation helpers.
 
-5. NO WARRANTY
+5. SOFTWARE UPDATES
+Boolean may periodically check the saz3 Labs GitHub release service for a newer version. It may download an approved installer in the background, verify its SHA-256 hash, and notify you when it is ready. Installation begins after you close Boolean, and the app may reopen afterward. Key local settings and chat data are backed up before updating.
+
+6. NO WARRANTY
 The Software and cloud features are provided as is and as available, without warranty.
 
-6. LIMITATION OF LIABILITY
+7. LIMITATION OF LIABILITY
 To the maximum extent permitted by law, Boolean, saz3 Labs, and its developers are not liable for damages arising from use of the Software or cloud features.
 `;
   const FALLBACK_PRIVACY=`BOOLEAN PRIVACY POLICY
@@ -3017,6 +3087,7 @@ Data leaves only when you choose features that require it:
 3. Model downloads: downloading a model contacts the hosting service.
 4. Web browsing/search: requests go to the sites/search engines involved.
 5. Installation helpers: tools such as winget contact their own servers.
+6. Software updates: Boolean periodically checks the saz3 Labs GitHub release service and may download an approved installer in the background. Update requests may reveal standard connection information such as your IP address, app version, and user-agent to GitHub. Update checks do not upload chats, prompts, files, notepad content, API keys, or local model data. The installer is SHA-256 verified before installation, and key local settings and chat data are backed up first.
 
 FREE TOKENS AND USAGE LIMITS
 The first 1,000 new Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another cloud model selected by Boolean. For now, Boolean Cloud counts one word as one token. Provider usage may differ from this customer-facing meter. Free token amounts, daily caps, expiration, model access, and availability may change.
@@ -3342,6 +3413,14 @@ Optional bundled starter model:
   // messages from proxied pages (they run sandboxed; postMessage is the bridge)
   const textWaiters={}; // what -> resolve
   const controlWaiters={}; // id -> resolve
+  let browserContextSelection="";
+  function hideBrowserSelectionMenu(){ $("browserSelectionMenu").classList.remove("open"); browserContextSelection=""; }
+  function sendBrowserText(text,target){
+    text=String(text||"").trim();
+    if(!text) return;
+    if(target==="note"){ openNotes(true); insertPlainNoteText(text); }
+    else appendToComposer(text);
+  }
   window.addEventListener("message",(e)=>{
     if(e.source!==bframe.contentWindow) return;
     const d=e.data||{};
@@ -3355,7 +3434,16 @@ Optional bundled starter model:
     else if(d.saz3==="zoomFit"){ const t=curTab(); if(t&&d.z){ t.zoom=d.z; $("bmZoomVal").textContent=Math.round(t.zoom*100)+"%"; saveBrowser(); } }
     else if(d.saz3==="text"){ const r=textWaiters[d.what]; delete textWaiters[d.what]; if(r) r(d); }
     else if(d.saz3==="controlResult"){ const r=controlWaiters[d.id]; delete controlWaiters[d.id]; if(r) r(d); }
+    else if(d.saz3==="selectionMenu"&&d.text){
+      browserContextSelection=String(d.text).trim();
+      const rect=bframe.getBoundingClientRect();
+      positionSelectionMenu($("browserSelectionMenu"),rect.left+(Number(d.x)||0),rect.top+(Number(d.y)||0));
+    }
   });
+  ["browserMenuCopy","browserMenuMessage","browserMenuNote"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
+  $("browserMenuCopy").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); navigator.clipboard.writeText(text).catch(()=>tempToast("Could not copy selection.")); };
+  $("browserMenuMessage").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); sendBrowserText(text,"message"); };
+  $("browserMenuNote").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); sendBrowserText(text,"note"); };
   function postFrame(msg){ try{ bframe.contentWindow.postMessage(msg,"*"); }catch{} }
   function requestText(what){ return new Promise((resolve)=>{ textWaiters[what]=resolve; postFrame({cmd:"getText",what});
     setTimeout(()=>{ if(textWaiters[what]){ delete textWaiters[what]; resolve(null); } },3000); }); }
@@ -3510,7 +3598,7 @@ Optional bundled starter model:
   $("clearBrowseData").onclick=async()=>{ if(!await appConfirm("Clear browsing data?","This clears browser history and cookies saved by Boolean.","Clear",true)) return;
     bhist=[]; await fetch("/api/browse/clear",{method:"POST"}); setUi({browserHistory:[]}); };
 
-  // send page content / selection / screenshot to the AI (as attachments)
+  // Send page content as context, or route selected text directly to a destination.
   async function sendPageToAI(what){
     bmenu.classList.remove("open");
     const t=curTab();
@@ -3522,7 +3610,14 @@ Optional bundled starter model:
     renderChips(); input.focus();
   }
   $("bmSendPage").onclick=()=>sendPageToAI("page");
-  $("bmSendSel").onclick=()=>sendPageToAI("selection");
+  async function sendSelectedBrowserText(target){
+    bmenu.classList.remove("open");
+    const r=await requestText("selection");
+    if(!r?.text?.trim()){ appAlert("No text selected","Select text in the page first, then try again."); return; }
+    sendBrowserText(r.text,target);
+  }
+  $("bmSendSel").onclick=()=>sendSelectedBrowserText("message");
+  $("bmSendSelNote").onclick=()=>sendSelectedBrowserText("note");
   async function captureBrowserScreenshotDataURL(){
     const stream=await navigator.mediaDevices.getDisplayMedia({video:true,preferCurrentTab:true});
     const video=document.createElement("video"); video.srcObject=stream; await video.play();
@@ -3605,7 +3700,8 @@ Optional bundled starter model:
         if(d.kind==="image"&&d.dataURL){ if(!visionOk()){ visionBlockNote(); return; } attachments.push({kind:"image",name:d.name||"image.png",dataURL:d.dataURL}); }
         else if(d.kind==="file"){ attachments.push({kind:"file",name:d.name||"page.txt",text:d.text||""}); }
         renderChips(); input.focus();
-      } else if(d.type==="shellBrowser"){ document.body.classList.toggle("browser-on",!!d.open); syncPanelButtons(); }
+      } else if(d.type==="browserSelection"){ sendBrowserText(d.text,d.target); }
+      else if(d.type==="shellBrowser"){ document.body.classList.toggle("browser-on",!!d.open); syncPanelButtons(); }
       else if(d.type==="updateReady"){ tempToast("Boolean "+(d.version||"update")+" is ready. Close Boolean to install it.",6000); }
       else if(d.type==="snip"){ addSnipImage(d.dataURL,d.target||"message"); }
       else if(d.type==="context"&&d.id&&shellContextWaiters[d.id]){ const fn=shellContextWaiters[d.id]; delete shellContextWaiters[d.id]; fn(d); }
@@ -3617,6 +3713,10 @@ Optional bundled starter model:
   document.addEventListener("dragstart",(e)=>{
     if(e.target.closest("#noteEditor img")) return;
     e.preventDefault();
+  });
+  document.addEventListener("pointerdown",(e)=>{
+    if(!$("noteContextMenu").contains(e.target)) hideNoteContextMenu();
+    if(!$("browserSelectionMenu").contains(e.target)) hideBrowserSelectionMenu();
   });
 
   (async()=>{

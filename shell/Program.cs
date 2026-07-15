@@ -39,7 +39,7 @@ sealed class TabItem
 
 sealed class MainForm : Form
 {
-    const string AppVersion = "0.9.7";
+    const string AppVersion = "0.9.8";
     const string UpdateManifestUrl = "https://github.com/syfy10/Boolean/releases/latest/download/update.json";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -74,18 +74,20 @@ sealed class MainForm : Form
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
     static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
 
-    // Reclaim the top window frame into the client area so the web top bar paints to the very
-    // top edge (no gray caption/frame strip). Left/right/bottom frames stay for resize.
+    // Reclaim the top frame in a normal window. When maximized, MaximizedBounds already keeps
+    // the window inside the work area, so reclaim the entire resize frame to avoid edge gaps.
     protected override void WndProc(ref Message m)
     {
         const int WM_NCCALCSIZE = 0x0083;
-        if (m.Msg == WM_NCCALCSIZE && m.WParam != IntPtr.Zero && WindowState != FormWindowState.Maximized)
+        if (m.Msg == WM_NCCALCSIZE && m.WParam != IntPtr.Zero)
         {
             var before = System.Runtime.InteropServices.Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(m.LParam);
-            int origTop = before.r0.top;
             base.WndProc(ref m);
             var after = System.Runtime.InteropServices.Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(m.LParam);
-            after.r0.top = origTop; // client extends up to the window's real top edge
+            if (WindowState == FormWindowState.Maximized)
+                after.r0 = before.r0;
+            else
+                after.r0.top = before.r0.top;
             System.Runtime.InteropServices.Marshal.StructureToPtr(after, m.LParam, false);
             return;
         }
@@ -760,7 +762,8 @@ try {
         Item("Close other tabs", (_, __) => CloseOtherTabs());
         Sep();
         Item("Send page to AI", async (_, __) => await SendPageToAI(false));
-        Item("Send selected text to AI", async (_, __) => await SendSelectedTextToAI());
+        Item("Send selected text to message", async (_, __) => await SendSelectedText("message"));
+        Item("Send selected text to notepad", async (_, __) => await SendSelectedText("note"));
         Item("Send screenshot to AI", async (_, __) => await SendPageToAI(true));
         Item("Send screenshot to notepad", async (_, __) => await SendScreenshotToNotepad());
         Sep();
@@ -982,6 +985,19 @@ try {
         {
             ev.Handled = true;
             AddTab(ev.Uri, activate: true, navigate: true);
+        };
+        c.ContextMenuRequested += (_, ev) =>
+        {
+            var text = ev.ContextMenuTarget.SelectionText?.Trim();
+            if (string.IsNullOrWhiteSpace(text)) return;
+            var sendMessage = _env.CreateContextMenuItem("Send selection to message", null, CoreWebView2ContextMenuItemKind.Command);
+            var sendNote = _env.CreateContextMenuItem("Send selection to notepad", null, CoreWebView2ContextMenuItemKind.Command);
+            var separator = _env.CreateContextMenuItem("", null, CoreWebView2ContextMenuItemKind.Separator);
+            sendMessage.CustomItemSelected += (_, __) => SendBrowserSelection(t, text, "message");
+            sendNote.CustomItemSelected += (_, __) => SendBrowserSelection(t, text, "note");
+            ev.MenuItems.Insert(0, separator);
+            ev.MenuItems.Insert(0, sendNote);
+            ev.MenuItems.Insert(0, sendMessage);
         };
         t.View.ZoomFactorChanged += (_, __) => { if (t == Active()) UpdateZoomLabel(); }; // Ctrl+scroll etc.
         c.DownloadStarting += (_, ev) =>
@@ -1519,7 +1535,13 @@ try {
         catch { }
     }
 
-    async Task SendSelectedTextToAI()
+    void SendBrowserSelection(TabItem tab, string text, string target)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        PostToChat(new { type = "browserSelection", target, text, url = tab.Url, title = tab.Title });
+    }
+
+    async Task SendSelectedText(string target)
     {
         var t = Active();
         if (t?.View.CoreWebView2 == null) return;
@@ -1528,7 +1550,7 @@ try {
             var json = await t.View.CoreWebView2.ExecuteScriptAsync("String(window.getSelection ? window.getSelection() : '')");
             var text = JsonSerializer.Deserialize<string>(json) ?? "";
             if (string.IsNullOrWhiteSpace(text)) return;
-            PostToChat(new { type = "attach", kind = "file", name = "selected text.txt", text = "Selected text from " + t.Url + ":\n\n" + text });
+            SendBrowserSelection(t, text, target);
         }
         catch { }
     }

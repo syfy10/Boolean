@@ -14,7 +14,8 @@ export function saveThreads(threads) {
       id: t.id, title: t.title, messages: t.messages, log: t.log,
       createdAt: t.createdAt, updatedAt: t.updatedAt, pinned: !!t.pinned,
       kind: t.kind === "project" ? "project" : "chat",
-      projectDir: t.kind === "project" && typeof t.projectDir === "string" ? t.projectDir : ""
+      projectDir: t.kind === "project" && typeof t.projectDir === "string" ? t.projectDir : "",
+      pendingTask: t.pendingTask && typeof t.pendingTask === "object" ? t.pendingTask : null
     }));
     const tmp = THREADS_FILE + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify({ version: 1, threads: data }));

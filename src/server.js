@@ -270,11 +270,46 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       id, title, kind, projectDir,
       messages: [{ role: "system", content: systemPrompt(workDir, config.autoApprove, config) }],
       log: [], // display entries: {t:'user'|'ai'|'tool', ...}
-      createdAt: Date.now(), updatedAt: Date.now(), abort: null
+      createdAt: Date.now(), updatedAt: Date.now(), abort: null, pendingTask: null
     };
     threads.set(id, t);
     activeThreadId = id;
     return t;
+  }
+  function recentTaskContext(messages) {
+    const userMessages = (messages || [])
+      .filter((message) => message?.role === "user")
+      .map((message) => userTextOnly(message.content).trim())
+      .filter((text) => text && !text.startsWith("RESUME INTERRUPTED TASK:"))
+      .slice(-8);
+    return userMessages.join("\n\n--- next user message ---\n\n").slice(-24000);
+  }
+  function beginPendingTask(t, content) {
+    t.pendingTask = {
+      objective: userTextOnly(content).trim(),
+      context: recentTaskContext(t.messages),
+      state: "running",
+      startedAt: Date.now(),
+      updatedAt: Date.now()
+    };
+  }
+  function activeTaskPrompt(task) {
+    if (!task || !["running", "interrupted"].includes(task.state)) return "";
+    return [
+      "ACTIVE TASK (keep working until it is genuinely complete):",
+      task.context || task.objective,
+      "Do not lose the user's folder restrictions, safety constraints, or requested deliverable. Review existing tool results before repeating work."
+    ].join("\n");
+  }
+  function resumeTaskMessage(task) {
+    if (!task) return "Continue exactly where you left off. Do not repeat work already done.";
+    return [
+      "RESUME INTERRUPTED TASK:",
+      `Original objective: ${task.objective || "Finish the prior request."}`,
+      "Relevant user instructions and constraints:",
+      task.context || task.objective || "",
+      "Continue from the existing messages and tool results. Do not restart, switch projects, or claim the context is missing. Finish the task and report the files changed."
+    ].join("\n");
   }
   function isBlankNewThread(t) {
     if (!t || t.kind === "project" || t.title !== "New chat" || t.pinned) return false;
@@ -320,6 +355,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (repairAutoNotepadTitle(t)) repairedTitles = true;
       if (!t.kind && isProjectThread(t)) { t.kind = "project"; repairedTitles = true; }
       if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; }
+      if (t.pendingTask?.state === "running") {
+        t.pendingTask.state = "interrupted";
+        t.pendingTask.updatedAt = Date.now();
+        repairedTitles = true;
+      }
       threads.set(t.id, { ...t, abort: null });
     }
     activeThreadId = restored.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
@@ -871,6 +911,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           // interrupt-for-edit: the question returns to the composer, so the
           // stored turn is removed once the aborted run finishes unwinding
           if (body.rollback) t.rollbackToUser = true;
+          if (t.pendingTask) {
+            t.pendingTask.state = "interrupted";
+            t.pendingTask.updatedAt = Date.now();
+            persist();
+          }
           t.abort.abort();
         }
         json({ ok: true });
@@ -887,6 +932,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         for (let i = t.log.length - 1; i >= 0; i--) {
           if (t.log[i].t === "user") { t.log.length = i + 1; break; }
         }
+        const retryUser = [...t.messages].reverse().find((message) => message?.role === "user");
+        if (retryUser) beginPendingTask(t, retryUser.content);
         persist();
         return streamRun(t, res);
       }
@@ -905,13 +952,20 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return streamCompare(t, targets, res);
       }
 
-      // ask the model to continue where it left off (context limit / stop / error)
+      // Resume the saved task, including its original objective and constraints.
       if (req.method === "POST" && p === "/api/continue") {
         const body = await readBody(req);
         const t = threads.get(body.threadId) || threads.get(activeThreadId);
-        const content = "Continue exactly where you left off. Do not repeat work already done.";
+        const savedTask = t.pendingTask;
+        const content = resumeTaskMessage(savedTask);
         t.messages.push({ role: "user", content });
-        t.log.push({ t: "user", text: "▸ continue", images: [] });
+        t.log.push({ t: "user", text: "Continue", images: [], at: Date.now() });
+        if (savedTask) {
+          savedTask.state = "running";
+          savedTask.updatedAt = Date.now();
+        } else {
+          beginPendingTask(t, content);
+        }
         t.updatedAt = Date.now();
         persist();
         return streamRun(t, res);
@@ -997,6 +1051,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
         t.messages.push({ role: "user", content });
         t.log.push({ t: "user", text: userTextOnly(content), images: imagesOf(content), at: Date.now() });
+        beginPendingTask(t, content);
         if (config.ui?.learnedMemory !== false) learnFromUserText(userTextOnly(content));
         if (t.title === "New chat") t.title = shortThreadTitle(content).slice(0, 42);
         t.updatedAt = Date.now();
@@ -1019,6 +1074,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       for (let i = t.log.length - 1; i >= 0; i--) {
         if (t.log[i].t === "user") { t.log.length = i; break; }
       }
+      t.pendingTask = null;
       t.updatedAt = Date.now();
       persist();
     }
@@ -1034,7 +1090,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
         if (t.messages[0]?.role === "system") {
-          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) };
+          const taskPrompt = activeTaskPrompt(t.pendingTask);
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + (taskPrompt ? `\n\n${taskPrompt}` : "") };
         }
 
         const abort = new AbortController();
@@ -1059,6 +1116,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
           },
           onOptimize: (o) => send({ type: "optimized", ...o }),
+          onCheckpoint: () => {
+            if (t.pendingTask) t.pendingTask.updatedAt = Date.now();
+            t.updatedAt = Date.now();
+            persist();
+          },
           // the AI opened a page — mirror it in the UI browser panel
           onBrowse: (u) => send({ type: "browser", action: "open", url: u }),
           visibleBrowser: (command) => {
@@ -1146,12 +1208,30 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
             send({ type: "answer", text: answer, provider: replyProvider, model: replyModel, aiLabel });
           }
+          if (t.pendingTask) {
+            if (/^\(stopped by user\)/i.test(String(answer || "").trim())) {
+              t.pendingTask.state = "interrupted";
+              t.pendingTask.updatedAt = Date.now();
+            } else if (String(answer || "").trim()) {
+              // Keep the last objective available for the Continue button even
+              // when the model ended with a normal-looking, but partial, answer.
+              t.pendingTask.state = "completed";
+              t.pendingTask.updatedAt = Date.now();
+            } else {
+              t.pendingTask.state = "interrupted";
+              t.pendingTask.updatedAt = Date.now();
+            }
+          }
           if (runIn || runOut) {
             const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst };
             t.log.push(usage);
             send({ type: "usage", ...usage });
           }
         } catch (err) {
+          if (t.pendingTask) {
+            t.pendingTask.state = "interrupted";
+            t.pendingTask.updatedAt = Date.now();
+          }
           // translate the raw engine error into a clear vision hint
           const msg = /image input is not supported|mmproj/i.test(err.message || "")
             ? engine.TEXT_ONLY_MSG + " (Settings → Models → Vision projector)"

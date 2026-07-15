@@ -62,13 +62,17 @@ Create a Google OAuth Web application client in Google Cloud Console.
 Authorized redirect URI for deployed backend:
 
 ```text
-https://YOUR_WORKER_DOMAIN/auth/google/callback
+https://saz3.com/boolean/auth/google/callback
 ```
 
 Authorized redirect URI for local Wrangler dev:
 
 ```text
 http://localhost:8787/auth/google/callback
+
+The production Worker route is `saz3.com/boolean/auth/*`. Keep
+`PUBLIC_AUTH_BASE_URL` set to `https://saz3.com/boolean` so Google displays the
+public saz3.com domain during sign-in instead of the workers.dev hostname.
 ```
 
 Set Cloudflare secrets:

@@ -48,6 +48,17 @@ Only in these cases, and only because you set them up:
    requests are sent to the sites/search engines involved.
 5. Software installation helpers: if you ask Boolean to install software, tools
    such as winget contact their own servers.
+6. Software updates: Boolean periodically requests a small update manifest from
+   the saz3 Labs GitHub repository. If an update is available, Boolean may
+   download its installer from an approved GitHub release URL and verify its
+   SHA-256 hash before installation.
+
+SOFTWARE UPDATE DATA
+Update checks may reveal standard connection information, including your IP
+address, app version, and user-agent, to GitHub or its delivery infrastructure.
+Update checks do not upload your chats, prompts, files, notepad content, API
+keys, or local model data. Before installing an update after the app closes,
+Boolean backs up key local settings and chat data on your computer.
 
 FREE TOKENS AND USAGE LIMITS
 The first 1,000 new Google Sign-In users may receive a free cloud token grant,

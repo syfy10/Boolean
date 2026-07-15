@@ -281,6 +281,7 @@ export function estimateContext(messages, budgetTokens, mode) {
 export async function runTurn(ctx, messages) {
   const { config, onStatus, onToken, onStep, onUsage, signal } = ctx;
   const emitStep = (entry) => { if (onStep) onStep(entry); };
+  const checkpoint = () => { if (ctx.onCheckpoint) ctx.onCheckpoint(); };
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
   if (directAction) {
@@ -313,7 +314,23 @@ export async function runTurn(ctx, messages) {
     return bail;
   };
 
-  for (let turn = 0; turn < config.maxToolTurns; turn++) {
+  // Keep working until the model produces a final answer or the user stops it.
+  // The old fixed ceiling stranded longer coding tasks after only 12 tool calls.
+  // A repeated-action guard below still stops models that are genuinely stuck.
+  let turn = 0;
+  let lastToolFingerprint = "";
+  let repeatedToolCount = 0;
+  const recordToolExecution = (name, args, result) => {
+    const fingerprint = JSON.stringify({ name, args: args || {}, result: String(result || "").slice(0, 2000) });
+    repeatedToolCount = fingerprint === lastToolFingerprint ? repeatedToolCount + 1 : 1;
+    lastToolFingerprint = fingerprint;
+    if (repeatedToolCount >= 4) {
+      throw new Error(`The model repeated the same '${name}' action four times without making progress. The task was checkpointed; Continue can resume it.`);
+    }
+  };
+
+  for (;;) {
+    turn++;
     if (signal?.aborted) return stopped();
     let msg;
     try {
@@ -364,6 +381,7 @@ export async function runTurn(ctx, messages) {
         }
         onStatus(`running ${name}…`);
         const result = await executeTool(name, args, ctx);
+        recordToolExecution(name, args, result);
         const toolContent = result;
         emitStep({ name, args, result });
         messages.push({
@@ -371,6 +389,7 @@ export async function runTurn(ctx, messages) {
           tool_call_id: call.id || `call_${turn}`,
           content: toolContent
         });
+        checkpoint();
       }
       continue;
     }
@@ -384,23 +403,21 @@ export async function runTurn(ctx, messages) {
       messages.push({ role: "assistant", content: assistantContent });
       onStatus(`running ${call.name}…`);
       const result = await executeTool(call.name, call.arguments, ctx);
+      recordToolExecution(call.name, call.arguments, result);
       const toolResultContent = result;
       emitStep({ name: call.name, args: call.arguments, result });
       messages.push({
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
       });
+      checkpoint();
       continue;
     }
 
     // Final answer
     messages.push({ role: "assistant", content: assistantContent });
+    checkpoint();
     return assistantContent;
   }
 
-  const bail =
-    "(stopped: reached the maximum number of tool steps for one request — " +
-    "ask me to continue if you want more)";
-  messages.push({ role: "assistant", content: bail });
-  return bail;
 }

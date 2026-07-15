@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.7";
+export const APP_VERSION = "0.9.8";
 export const APP_DISPLAY_VERSION = "v0.09.6";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
@@ -69,7 +69,9 @@ const DEFAULTS = {
     user: null,
     tokens: null
   },
-  maxToolTurns: 12,
+  // Kept for compatibility with older config files. Agent work now continues
+  // until completion, user cancellation, or the repeated-action guard.
+  maxToolTurns: 0,
   commandTimeoutMs: 120000,
   // UI/behavior preferences (surfaced in the organized Settings page)
   ui: {
