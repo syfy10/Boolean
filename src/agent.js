@@ -1227,113 +1227,122 @@ export async function runTurn(ctx, messages) {
   const approvedPrevious = approvalIntent(userText);
   const previousDraft = latestAssistantDraft(messages);
   const emitStep = (entry) => { if (onStep) onStep(entry); };
-  const browserOpenTarget = visibleBrowserOpenTarget(userText);
-  const metaAck = metaTroubleAck(userText, previousAssistant);
-  if (metaAck) {
-    messages.push({ role: "assistant", content: metaAck });
-    return metaAck;
-  }
-  const tinyAck = tinyLocalAnswer(userText);
-  if (tinyAck) {
-    messages.push({ role: "assistant", content: tinyAck });
-    return tinyAck;
-  }
-  const ack = preferenceAck(userText);
-  if (ack) {
-    messages.push({ role: "assistant", content: ack });
-    return ack;
-  }
-  const finalSendRequested = wantsFinalEmailSend(userText, previousAssistant);
-  const requestedNoteDraft = composeRequestedNoteDraft(userText);
-  if (requestedNoteDraft) {
-    onStatus?.("saving to notepad...");
-    const result = await executeTool("notepad_write", { text: requestedNoteDraft, mode: "append" }, ctx);
-    emitStep({ name: "notepad_write", args: { text: requestedNoteDraft, mode: "append" }, result });
-    const answer = /^error|notepad control is not available/i.test(String(result || ""))
-      ? `I wrote the draft, but could not save it to notepad: ${result}`
-      : `Saved to notepad:\n\n${requestedNoteDraft}`;
-    messages.push({ role: "assistant", content: answer });
-    return answer;
-  }
-  const requestedEmailDraft = composeRequestedEmailDraft(userText);
-  if (requestedEmailDraft) {
-    if (wantsBrowserEmailDraft(userText) && config.ui?.aiBrowser !== false) {
+  const modelLedCloud = config.provider !== "local";
+
+  // Offline models benefit from deterministic shortcuts. Cloud models should
+  // interpret the conversation themselves and decide whether a tool is needed.
+  if (!modelLedCloud) {
+    const browserOpenTarget = visibleBrowserOpenTarget(userText);
+    const metaAck = metaTroubleAck(userText, previousAssistant);
+    if (metaAck) {
+      messages.push({ role: "assistant", content: metaAck });
+      return metaAck;
+    }
+    const tinyAck = tinyLocalAnswer(userText);
+    if (tinyAck) {
+      messages.push({ role: "assistant", content: tinyAck });
+      return tinyAck;
+    }
+    const ack = preferenceAck(userText);
+    if (ack) {
+      messages.push({ role: "assistant", content: ack });
+      return ack;
+    }
+    const finalSendRequested = wantsFinalEmailSend(userText, previousAssistant);
+    const requestedNoteDraft = composeRequestedNoteDraft(userText);
+    if (requestedNoteDraft) {
+      onStatus?.("saving to notepad...");
+      const result = await executeTool("notepad_write", { text: requestedNoteDraft, mode: "append" }, ctx);
+      emitStep({ name: "notepad_write", args: { text: requestedNoteDraft, mode: "append" }, result });
+      const answer = /^error|notepad control is not available/i.test(String(result || ""))
+        ? `I wrote the draft, but could not save it to notepad: ${result}`
+        : `Saved to notepad:\n\n${requestedNoteDraft}`;
+      messages.push({ role: "assistant", content: answer });
+      return answer;
+    }
+    const requestedEmailDraft = composeRequestedEmailDraft(userText);
+    if (requestedEmailDraft) {
+      if (wantsBrowserEmailDraft(userText) && config.ui?.aiBrowser !== false) {
+        onStatus?.("inserting email draft...");
+        const result = await executeTool("visible_browser_draft_email", { text: requestedEmailDraft }, ctx);
+        emitStep({ name: "visible_browser_draft_email", args: { text: requestedEmailDraft }, result });
+        const failed = /^error|visible browser.*not available|visible browser control is not available|browser pane is closed|visible browser error|user declined/i.test(String(result || ""));
+        const answer = failed
+          ? `I wrote the draft, but could not place it in the browser yet: ${result}\n\n${requestedEmailDraft}`
+          : `Draft inserted into the email editor. I did not send it. Please review it and press Send yourself.\n\n${requestedEmailDraft}`;
+        messages.push({ role: "assistant", content: answer });
+        return answer;
+      }
+      const answer = `Here is the draft:\n\n${requestedEmailDraft}`;
+      messages.push({ role: "assistant", content: answer });
+      return answer;
+    }
+    if (wantsEmailNote(userText, previousAssistant) && config.ui?.aiBrowser !== false) {
+      onStatus?.("reading notepad...");
+      const noteResult = await executeTool("notepad_read", {}, ctx);
+      emitStep({ name: "notepad_read", args: {}, result: noteResult });
+      const noteText = String(noteResult || "").replace(/^ACTIVE NOTE:[^\n]*\n*/i, "").trim();
+      if (!noteText || /\(empty\)/i.test(noteText)) {
+        const answer = "Your notepad looks empty, so I do not have a note to email yet.";
+        messages.push({ role: "assistant", content: answer });
+        return answer;
+      }
       onStatus?.("inserting email draft...");
-      const result = await executeTool("visible_browser_draft_email", { text: requestedEmailDraft }, ctx);
-      emitStep({ name: "visible_browser_draft_email", args: { text: requestedEmailDraft }, result });
+      const result = await executeTool("visible_browser_draft_email", { text: noteText }, ctx);
+      emitStep({ name: "visible_browser_draft_email", args: { text: noteText }, result });
       const failed = /^error|visible browser.*not available|visible browser control is not available|browser pane is closed|visible browser error|user declined/i.test(String(result || ""));
       const answer = failed
-        ? `I wrote the draft, but could not place it in the browser yet: ${result}\n\n${requestedEmailDraft}`
-        : `Draft inserted into the email editor. I did not send it. Please review it and press Send yourself.\n\n${requestedEmailDraft}`;
+        ? `I found the note, but could not place it into Outlook yet: ${result}`
+        : "I put the note into the email draft. I did not send it. Please review the recipient and subject, then press Send yourself.";
       messages.push({ role: "assistant", content: answer });
       return answer;
     }
-    const answer = `Here is the draft:\n\n${requestedEmailDraft}`;
-    messages.push({ role: "assistant", content: answer });
-    return answer;
-  }
-  if (wantsEmailNote(userText, previousAssistant) && config.ui?.aiBrowser !== false) {
-    onStatus?.("reading notepad...");
-    const noteResult = await executeTool("notepad_read", {}, ctx);
-    emitStep({ name: "notepad_read", args: {}, result: noteResult });
-    const noteText = String(noteResult || "").replace(/^ACTIVE NOTE:[^\n]*\n*/i, "").trim();
-    if (!noteText || /\(empty\)/i.test(noteText)) {
-      const answer = "Your notepad looks empty, so I do not have a note to email yet.";
+    if (previousDraft && !wantsNewDraftSavedToNotepad(userText) &&
+        (explicitPreviousDraftSave(userText) || (approvedPrevious && previousAssistantPromisedNotepad(previousAssistant)))) {
+      onStatus?.("saving to notepad...");
+      const result = await executeTool("notepad_write", { text: previousDraft, mode: "append" }, ctx);
+      emitStep({ name: "notepad_write", args: { text: previousDraft, mode: "append" }, result });
+      const answer = /^error|notepad control is not available/i.test(String(result || ""))
+        ? `I could not save it to notepad: ${result}`
+        : "Saved to notepad.";
       messages.push({ role: "assistant", content: answer });
       return answer;
     }
-    onStatus?.("inserting email draft...");
-    const result = await executeTool("visible_browser_draft_email", { text: noteText }, ctx);
-    emitStep({ name: "visible_browser_draft_email", args: { text: noteText }, result });
-    const failed = /^error|visible browser.*not available|visible browser control is not available|browser pane is closed|visible browser error|user declined/i.test(String(result || ""));
-    const answer = failed
-      ? `I found the note, but could not place it into Outlook yet: ${result}`
-      : "I put the note into the email draft. I did not send it. Please review the recipient and subject, then press Send yourself.";
-    messages.push({ role: "assistant", content: answer });
-    return answer;
+    if (previousDraft && (wantsEmailDraftAction(userText) || (approvedPrevious && previousAssistantPromisedEmail(previousAssistant)) || (finalSendRequested && !assistantAlreadyInsertedEmailDraft(previousAssistant)))) {
+      onStatus?.("inserting email draft...");
+      const result = await executeTool("visible_browser_draft_email", { text: previousDraft }, ctx);
+      emitStep({ name: "visible_browser_draft_email", args: { text: previousDraft }, result });
+      const answer = /^error|visible browser.*not available|visible browser control is not available|browser pane is closed|user declined/i.test(String(result || ""))
+        ? `I could not insert the email draft: ${result}`
+        : "Draft inserted into the email reply box. I did not send it. Please review it and press Send yourself.";
+      messages.push({ role: "assistant", content: answer });
+      return answer;
+    }
+    if (finalSendRequested) {
+      const answer = assistantAlreadyInsertedEmailDraft(previousAssistant)
+        ? "I can't press Send from Boolean yet. The draft step is done; please review it in the browser and press Send yourself."
+        : "I can draft the email in the browser, but I can't press Send yet. Please review the draft and press Send yourself.";
+      messages.push({ role: "assistant", content: answer });
+      return answer;
+    }
+    if (browserOpenTarget && config.ui?.aiBrowser !== false) {
+      onStatus?.("opening browser...");
+      const result = await executeTool("visible_browser_open", { url: browserOpenTarget }, ctx);
+      emitStep({ name: "visible_browser_open", args: { url: browserOpenTarget }, result });
+      const failed = /^AI browser access is disabled|visible browser.*not available|visible browser error|visible browser control timed out|visible browser control was cancelled/i.test(String(result || ""));
+      const answer = failed
+        ? `I tried to open the built-in browser, but it failed: ${result}`
+        : (/\boutlook|email|mail\b/i.test(stripAppContext(userText))
+            ? "Opened Outlook in the built-in browser."
+            : "Opened it in the built-in browser.");
+      messages.push({ role: "assistant", content: answer });
+      return answer;
+    }
   }
-  if (previousDraft && !wantsNewDraftSavedToNotepad(userText) &&
-      (explicitPreviousDraftSave(userText) || (approvedPrevious && previousAssistantPromisedNotepad(previousAssistant)))) {
-    onStatus?.("saving to notepad...");
-    const result = await executeTool("notepad_write", { text: previousDraft, mode: "append" }, ctx);
-    emitStep({ name: "notepad_write", args: { text: previousDraft, mode: "append" }, result });
-    const answer = /^error|notepad control is not available/i.test(String(result || ""))
-      ? `I could not save it to notepad: ${result}`
-      : "Saved to notepad.";
-    messages.push({ role: "assistant", content: answer });
-    return answer;
-  }
-  if (previousDraft && (wantsEmailDraftAction(userText) || (approvedPrevious && previousAssistantPromisedEmail(previousAssistant)) || (finalSendRequested && !assistantAlreadyInsertedEmailDraft(previousAssistant)))) {
-    onStatus?.("inserting email draft...");
-    const result = await executeTool("visible_browser_draft_email", { text: previousDraft }, ctx);
-    emitStep({ name: "visible_browser_draft_email", args: { text: previousDraft }, result });
-    const answer = /^error|visible browser.*not available|visible browser control is not available|browser pane is closed|user declined/i.test(String(result || ""))
-      ? `I could not insert the email draft: ${result}`
-      : "Draft inserted into the email reply box. I did not send it. Please review it and press Send yourself.";
-    messages.push({ role: "assistant", content: answer });
-    return answer;
-  }
-  if (finalSendRequested) {
-    const answer = assistantAlreadyInsertedEmailDraft(previousAssistant)
-      ? "I can't press Send from Boolean yet. The draft step is done; please review it in the browser and press Send yourself."
-      : "I can draft the email in the browser, but I can't press Send yet. Please review the draft and press Send yourself.";
-    messages.push({ role: "assistant", content: answer });
-    return answer;
-  }
-  if (browserOpenTarget && config.ui?.aiBrowser !== false) {
-    onStatus?.("opening browser...");
-    const result = await executeTool("visible_browser_open", { url: browserOpenTarget }, ctx);
-    emitStep({ name: "visible_browser_open", args: { url: browserOpenTarget }, result });
-    const failed = /^AI browser access is disabled|visible browser.*not available|visible browser error|visible browser control timed out|visible browser control was cancelled/i.test(String(result || ""));
-    const answer = failed
-      ? `I tried to open the built-in browser, but it failed: ${result}`
-      : (/\boutlook|email|mail\b/i.test(stripAppContext(userText))
-          ? "Opened Outlook in the built-in browser."
-          : "Opened it in the built-in browser.");
-    messages.push({ role: "assistant", content: answer });
-    return answer;
-  }
-  const aiRoute = decideAiRoute(userText, messages);
+
+  const aiRoute = modelLedCloud
+    ? { needsWeb: false, mode: "none", domain: "model-led", timeframe: "none", query: "" }
+    : decideAiRoute(userText, messages);
   const freshBrowseRequired = aiRoute.needsWeb;
   const searchMode = aiRoute.mode;
   const searchShortlistMode = searchMode === "shortlist";
@@ -1346,7 +1355,7 @@ export async function runTurn(ctx, messages) {
     }
   }
   const target = await resolveTarget(config, onStatus);
-  const tinyTurn = isCasualTinyTurn(userText);
+  const tinyTurn = !modelLedCloud && isCasualTinyTurn(userText);
   let useNativeTools = !tinyTurn;
   let freshBrowseDone = false;
   let freshBrowseGuardUsed = false;
@@ -1449,7 +1458,7 @@ export async function runTurn(ctx, messages) {
           });
           continue;
         }
-        if (!freshBrowseRequired && BACKGROUND_SEARCH_TOOLS.has(name)) {
+        if (!modelLedCloud && !freshBrowseRequired && BACKGROUND_SEARCH_TOOLS.has(name)) {
           messages.push({
             role: "tool",
             tool_call_id: call.id || `call_${turn}`,
@@ -1496,7 +1505,7 @@ export async function runTurn(ctx, messages) {
         });
         continue;
       }
-      if (!freshBrowseRequired && BACKGROUND_SEARCH_TOOLS.has(call.name)) {
+      if (!modelLedCloud && !freshBrowseRequired && BACKGROUND_SEARCH_TOOLS.has(call.name)) {
         messages.push({
           role: "user",
           content: "SYSTEM GUARD: Search was not requested and this is not a current-fact question. Answer from the conversation instead."
