@@ -28,6 +28,10 @@ export function selectFifaEvents(events, timeframe, now = new Date()) {
   if (timeframe === "next") {
     return sorted.filter((event) => eventState(event) === "pre" && new Date(event.date) >= now).slice(0, 1);
   }
+  if (timeframe === "final") {
+    const upcomingOrRecent = sorted.filter((event) => new Date(event.date) >= addDays(now, -21));
+    return upcomingOrRecent.length ? upcomingOrRecent.slice(-1) : sorted.slice(-1);
+  }
   if (timeframe === "yesterday") return sorted.filter((event) => localDateKey(new Date(event.date)) === yesterday);
   if (timeframe === "live") {
     const live = sorted.filter((event) => eventState(event) === "in");
@@ -65,6 +69,7 @@ function eventLine(event) {
 function fetchRange(timeframe, now) {
   if (timeframe === "latest-completed") return `${localDateKey(addDays(now, -14))}-${localDateKey(now)}`;
   if (timeframe === "next") return `${localDateKey(now)}-${localDateKey(addDays(now, 14))}`;
+  if (timeframe === "final") return `${localDateKey(addDays(now, -21))}-${localDateKey(addDays(now, 60))}`;
   if (timeframe === "yesterday") return localDateKey(addDays(now, -1));
   return localDateKey(now);
 }
@@ -86,6 +91,11 @@ export async function answerFifaQuestion(route, ctx, options = {}) {
     const selected = selectFifaEvents(events, route.timeframe, now);
     if (selected.length) {
       const completed = selected.filter((event) => eventState(event) === "post");
+      if (route.timeframe === "final") {
+        const finalLine = selected.map(eventLine).join(" ");
+        const alreadyPlayed = selected.every((event) => eventState(event) === "post");
+        return `${league} final: ${finalLine}${alreadyPlayed ? "" : " That is the last scheduled game in the tournament window."} Source: ${FIFA_SOURCE}`;
+      }
       if (route.timeframe === "today" && route.asksWinner && !completed.length) {
         return `No ${league} match has finished today. ${selected.map(eventLine).join(" ")} Source: ${FIFA_SOURCE}`;
       }
@@ -95,6 +105,7 @@ export async function answerFifaQuestion(route, ctx, options = {}) {
     if (route.timeframe === "latest-completed") return `I could not find a completed ${league} match in the last 14 days. Source: ${FIFA_SOURCE}`;
     if (route.timeframe === "yesterday") return `No ${league} match was listed yesterday. Source: ${FIFA_SOURCE}`;
     if (route.timeframe === "next") return `No upcoming ${league} match was listed in the next 14 days. Source: ${FIFA_SOURCE}`;
+    if (route.timeframe === "final") return `I could not find the ${league} final in the tournament schedule. Source: ${FIFA_SOURCE}`;
     return `No ${league} match is listed today. Source: ${FIFA_SOURCE}`;
   } catch {
     return "";

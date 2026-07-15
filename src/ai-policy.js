@@ -14,6 +14,7 @@ export function normalizeUserText(text) {
   return stripAppContext(text)
     .replace(/\bwho\s+own\b/gi, "who won")
     .replace(/\bwho\s+one\b/gi, "who won")
+    .replace(/\bworld cup came\b/gi, "world cup game")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -50,11 +51,16 @@ function previousSportsTimeframe(lines) {
 }
 
 function sportsTimeframe(lower, inherited = "latest-completed") {
+  if (/\b(final|championship)\b/.test(lower)) return "final";
+  if (/\blast\s+(?:game|match)\s+of\s+(?:the\s+)?(?:tournament|world cup|cup)\b/.test(lower)) return "final";
+  if (/\bis\s+.+\blast\s+(?:game|match)\b/.test(lower)) return "final";
   if (/\byesterday\b/.test(lower)) return "yesterday";
   if (/\b(next|upcoming)\b/.test(lower)) return "next";
+  if (/\bwhen\b.*\b(game|match|fixture)\b/.test(lower)) return "next";
   if (/\b(last|latest|most recent|previous)\b/.test(lower)) return "latest-completed";
   if (/\b(today|tonight)\b/.test(lower)) return "today";
   if (/\b(live|right now|currently)\b/.test(lower)) return "live";
+  if (/\b(what happened|what happend|what happand|what about|how did|did .+ win)\b/.test(lower)) return inherited;
   if (/\bwho won\b/.test(lower)) return inherited;
   return "today";
 }
@@ -64,6 +70,7 @@ function makeQuery(text, domain, timeframe) {
     if (timeframe === "yesterday") return "FIFA World Cup match result yesterday score";
     if (timeframe === "latest-completed") return "latest completed FIFA World Cup match result score";
     if (timeframe === "next") return "next FIFA World Cup match schedule date time";
+    if (timeframe === "final") return "FIFA World Cup final match date time teams";
     if (timeframe === "live") return "FIFA World Cup live score now";
     return "FIFA World Cup matches today scores schedule";
   }
@@ -89,8 +96,9 @@ export function decideAiRoute(text, messages = []) {
   const news = /\b(news|headline|headlines|breaking news|top news|latest news)\b/.test(lower);
   const namedSport = /\b(fifa|world cup|soccer|football|nba|nfl|nhl|mlb|wnba|basketball|baseball|hockey)\b/.test(lower);
   const sportsQuestion = /\b(who won|winner|score|scores|result|results|match|matches|game|games|fixture|fixtures|standings|schedule|kickoff)\b/.test(lower);
+  const sportsContextQuestion = Boolean(priorSport) && /\b(what happened|what happend|what happand|what happened with|what about|how did|did .+ win|is .+ last game|final|championship)\b/.test(lower);
   const shortSportsFollowup = /^(fifa|football|soccer|who won|who played|who plays|what(?:'s| is| was)? (?:the )?(?:score|result)|(?:the )?(?:score|result)|when(?:'s| is)? (?:the )?(?:next )?(?:game|match))\??$/.test(lower);
-  const sports = namedSport || (Boolean(priorSport) && (sportsQuestion || shortSportsFollowup));
+  const sports = namedSport || (Boolean(priorSport) && (sportsQuestion || sportsContextQuestion || shortSportsFollowup));
   const shopping = /\b(price|prices|sale|deal|deals|coupon|available|availability|in stock|shopping|shop|buy|purchase|retailer|cart|add to cart|where can i buy|under\s+\$?\d+|compare|reviews?)\b/.test(lower);
   const market = /\b(stock|stocks|market|ticker)\b/.test(lower) && /\b(today|now|current|latest|price|prices)\b/.test(lower);
   const datedEvent = /\b(next|upcoming|release|released|launch|premiere|coming out|airs|airing|starts|begins)\b/.test(lower) &&
