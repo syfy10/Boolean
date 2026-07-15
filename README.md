@@ -122,12 +122,14 @@ npm run build:installer  # -> dist\Boolean-setup.exe (~67 MB, needs Inno Setup)
 ### Publishing a release
 
 The public repository includes a free GitHub Actions release workflow. Set the
-same version in `package.json`, `src/config.js`, `shell/SazShell.csproj`,
-`build/set-icon.cjs`, and `build/installer.iss`, then push a matching tag:
+same internal version in `package.json`, `package-lock.json`, `src/config.js`,
+`shell/SazShell.csproj`, `shell/Program.cs`, `build/set-icon.cjs`, and
+`build/installer.iss`, then push a matching tag:
 
 ```powershell
-git tag v0.9.2
-git push origin v0.9.2
+$version = "0.9.3"
+git tag "v$version"
+git push origin "v$version"
 ```
 
 GitHub builds the Windows installer, verifies `update.json`, and publishes both
