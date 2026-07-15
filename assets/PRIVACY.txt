@@ -47,13 +47,15 @@ Only in these cases, and only because you set them up:
    such as winget contact their own servers.
 
 FREE TOKENS AND USAGE LIMITS
-New Google Sign-In users may receive a free cloud token grant, currently
-100,000 tokens for the first 30 days with a 10,000 token daily cap. Token use
-is metered and stored in the Boolean Cloud backend. Token counts are estimates
-based on model/provider accounting and can vary by model. Free token amounts,
-daily caps, expiration, model access, and availability may change. The free
-cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another
-low-cost cloud model selected by Boolean.
+The first 1,000 new Google Sign-In users may receive a free cloud token grant,
+currently 100,000 tokens for the first 30 days with a 10,000 token daily cap.
+After the first 1,000 new signups, new accounts may start with no free tokens.
+Token use is metered and stored in the Boolean Cloud backend. For now, Boolean
+Cloud counts one word as one token. Provider usage may differ from this
+customer-facing meter. Free token amounts, daily caps, expiration, model
+access, and availability may change. The free cloud tier may use GLM-4.7-Flash
+through Cloudflare Workers AI or another low-cost cloud model selected by
+Boolean.
 
 PAYMENTS
 If paid plans or token packs are enabled, payments are processed by Stripe.

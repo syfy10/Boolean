@@ -5,6 +5,7 @@ const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const DAY = 24 * 60 * 60;
 const FREE_SIGNUP_TOKENS = 100000;
+const FREE_SIGNUP_LIMIT = 1000;
 const FREE_DAILY_LIMIT_TOKENS = 10000;
 const FREE_SIGNUP_DAYS = 30;
 const DEFAULT_FREE_TIER_PROVIDER = "workers-ai";
@@ -270,8 +271,9 @@ async function upsertUser(profile, env) {
   }
 
   const id = randomId("usr");
-  const startingTokens = admin ? 0 : FREE_SIGNUP_TOKENS;
-  const expiresAt = admin ? null : ts + FREE_SIGNUP_DAYS * DAY;
+  const freeGrant = admin ? { tokens: 0, granted: false } : await reserveFreeSignupGrant(env);
+  const startingTokens = freeGrant.tokens;
+  const expiresAt = startingTokens ? ts + FREE_SIGNUP_DAYS * DAY : null;
   const resetAt = nextDailyReset(ts);
   await env.DB.prepare(
     "INSERT INTO users (id, google_sub, email, name, picture, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
@@ -288,7 +290,7 @@ async function upsertUser(profile, env) {
     freeTierModel(env),
     startingTokens,
     expiresAt,
-    admin ? 0 : FREE_DAILY_LIMIT_TOKENS,
+    startingTokens ? FREE_DAILY_LIMIT_TOKENS : 0,
     resetAt,
     admin ? 1 : 0,
     ts
@@ -300,6 +302,19 @@ async function upsertUser(profile, env) {
   }
 
   return { id, google_sub: profile.sub, email: profile.email, name: profile.name || "", picture: profile.picture || "", role };
+}
+
+async function reserveFreeSignupGrant(env) {
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO app_counters (key, value, updated_at) VALUES ('free_signup_grants_used', 0, ?)"
+  ).bind(now()).run();
+
+  const result = await env.DB.prepare(
+    "UPDATE app_counters SET value = value + 1, updated_at = ? WHERE key = 'free_signup_grants_used' AND value < ?"
+  ).bind(now(), FREE_SIGNUP_LIMIT).run();
+  const changed = Number(result?.meta?.changes || result?.changes || 0);
+  if (!changed) return { tokens: 0, granted: false };
+  return { tokens: FREE_SIGNUP_TOKENS, granted: true };
 }
 
 async function createSession(userId, env) {
@@ -437,8 +452,21 @@ function extractAiMessage(result) {
 }
 
 function estimateTokens(value) {
-  const text = typeof value === "string" ? value : JSON.stringify(value || "");
-  return Math.max(1, Math.ceil(text.length / 4));
+  const text = extractMeteredText(value);
+  const words = text.match(/[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu);
+  return Math.max(1, words ? words.length : 1);
+}
+
+function extractMeteredText(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(extractMeteredText).filter(Boolean).join(" ");
+  if (value && typeof value === "object") {
+    if (typeof value.content === "string") return value.content;
+    if (Array.isArray(value.content)) return value.content.map(extractMeteredText).join(" ");
+    if (typeof value.text === "string") return value.text;
+    return Object.values(value).map(extractMeteredText).filter(Boolean).join(" ");
+  }
+  return "";
 }
 
 async function requireSession(request, env) {

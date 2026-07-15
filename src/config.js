@@ -6,6 +6,7 @@ export const APP_VERSION = "0.9.1";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
+export const AI_BEHAVIOR_VERSION = 2;
 
 export const SAZ_DIR = path.join(os.homedir(), ".saz");
 const CONFIG_FILE = path.join(SAZ_DIR, "config.json");
@@ -21,6 +22,7 @@ export const CLOUD = {
 };
 
 const DEFAULTS = {
+  aiBehaviorVersion: AI_BEHAVIOR_VERSION,
   provider: "local",
   local: {
     model: "",            // gguf filename in ~/.saz/models
@@ -115,6 +117,15 @@ export function loadConfig() {
       const loxaProjects = path.join(os.homedir(), "Documents", "Loxa Projects");
       const newProjects = path.join(os.homedir(), "Documents", "Boolean Projects");
       if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects) cfg.projectsDir = newProjects;
+      if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
+        cfg.aiBehaviorVersion = AI_BEHAVIOR_VERSION;
+        cfg.ui.contextMode = "balanced";
+        cfg.ui.referenceChatMemory = true;
+        cfg.ui.learnedMemory = true;
+        fs.mkdirSync(SAZ_DIR, { recursive: true });
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+        fs.writeFileSync(path.join(SAZ_DIR, "preferences.json"), JSON.stringify({ rules: [] }, null, 2));
+      }
       return cfg;
     } catch {
       /* try next */

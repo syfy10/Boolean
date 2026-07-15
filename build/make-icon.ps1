@@ -1,8 +1,8 @@
 # Generates the Boolean app icon while keeping the existing asset filenames
 # used by the build pipeline: assets\saz.ico, assets\saz-256.png, assets\saz-32.png.
-# Mark: a bold binary tile designed to stay legible at Windows' 16px taskbar size.
-# The white bar is 1 and the green ring is 0. Both use simple geometry rather
-# than text so antialiasing cannot make the small icon disappear.
+# Mark: a bold terminal tile designed to stay legible at Windows' 16px taskbar size.
+# The >_ shape uses simple geometry rather than text so antialiasing cannot make
+# the small icon disappear.
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 $root = Split-Path $PSScriptRoot -Parent
@@ -11,10 +11,7 @@ $store = "$assets\store"
 New-Item -ItemType Directory -Force $assets | Out-Null
 New-Item -ItemType Directory -Force $store | Out-Null
 
-$tile = [System.Drawing.Color]::FromArgb(0xFA, 0xFB, 0xFA)
-$knob = [System.Drawing.Color]::FromArgb(0xFF, 0xFF, 0xFF)
 $ink = [System.Drawing.Color]::FromArgb(0x14, 0x19, 0x17)
-$inkSoft = [System.Drawing.Color]::FromArgb(0x1C, 0x22, 0x1F)
 $green = [System.Drawing.Color]::FromArgb(0x12, 0x96, 0x4E)
 
 function New-RoundedPath([float]$x, [float]$y, [float]$w, [float]$h, [float]$r) {
@@ -45,31 +42,37 @@ function Render-Square([int]$size) {
   $g.Clear([System.Drawing.Color]::Transparent)
 
   $s = [float]$size
-  $tileInset = [Math]::Max(1, $s * 0.035)
+  $tileInset = [Math]::Max(1, $s * 0.02)
   $tileSize = $s - ($tileInset * 2)
-  $tilePath = New-RoundedPath $tileInset $tileInset $tileSize $tileSize ($s * 0.22)
+  $tilePath = New-RoundedPath $tileInset $tileInset $tileSize $tileSize ($s * 0.20)
   $inkBrush = New-Object System.Drawing.SolidBrush($ink)
   $g.FillPath($inkBrush, $tilePath)
 
-  # The binary marks occupy most of the tile. Keep strokes on whole-ish pixels
-  # at tiny sizes so Explorer and the taskbar do not reduce them to gray specks.
-  $oneW = [Math]::Max(2, [Math]::Round($s * 0.10))
-  $oneH = $s * 0.47
-  $oneX = $s * 0.30
-  $oneY = ($s - $oneH) / 2
-  $onePath = New-RoundedPath $oneX $oneY $oneW $oneH ($oneW * 0.48)
-  $whiteBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
-  $g.FillPath($whiteBrush, $onePath)
+  $stroke = [Math]::Max(2, [Math]::Round($s * 0.085))
+  $greenPen = New-Object System.Drawing.Pen($green, $stroke)
+  $greenPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $greenPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $greenPen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
 
-  $zeroStroke = [Math]::Max(2, [Math]::Round($s * 0.09))
-  $zeroSize = $s * 0.39
-  $zeroX = $s * 0.57
-  $zeroY = ($s - $zeroSize) / 2
-  $greenPen = New-Object System.Drawing.Pen($green, $zeroStroke)
-  $g.DrawEllipse($greenPen, $zeroX, $zeroY, $zeroSize, $zeroSize)
+  $x1 = $s * 0.32
+  $x2 = $s * 0.52
+  $x3 = $s * 0.32
+  $y1 = $s * 0.34
+  $y2 = $s * 0.50
+  $y3 = $s * 0.66
+  $g.DrawLine($greenPen, $x1, $y1, $x2, $y2)
+  $g.DrawLine($greenPen, $x2, $y2, $x3, $y3)
+
+  $cursorH = [Math]::Max(2, [Math]::Round($s * 0.07))
+  $cursorW = $s * 0.20
+  $cursorX = $s * 0.58
+  $cursorY = $s * 0.64
+  $cursorPath = New-RoundedPath $cursorX $cursorY $cursorW $cursorH ($cursorH * 0.5)
+  $greenBrush = New-Object System.Drawing.SolidBrush($green)
+  $g.FillPath($greenBrush, $cursorPath)
 
   $g.Dispose()
-  $inkBrush.Dispose(); $whiteBrush.Dispose(); $greenPen.Dispose()
+  $inkBrush.Dispose(); $greenPen.Dispose(); $greenBrush.Dispose()
   return $bmp
 }
 
@@ -79,10 +82,6 @@ function Render-Wide([int]$w, [int]$h) {
   $g.SmoothingMode = "AntiAlias"
   $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
   $g.Clear([System.Drawing.Color]::Transparent)
-
-  $bgPath = New-RoundedPath 2 2 ($w - 4) ($h - 4) ([Math]::Min($w, $h) * 0.13)
-  $tileBrush = New-Object System.Drawing.SolidBrush($tile)
-  $g.FillPath($tileBrush, $bgPath)
 
   $mark = Render-Square ([int]($h * 0.72))
   $markSize = [int]($h * 0.62)
@@ -104,7 +103,7 @@ function Render-Wide([int]$w, [int]$h) {
   $g.DrawString("LOCAL AI", $subFont, $mutedBrush, [System.Drawing.PointF]::new($textX + ($h * 0.02), $h * 0.61))
 
   $g.Dispose()
-  $tileBrush.Dispose(); $fontFamily.Dispose(); $wordFont.Dispose(); $subFont.Dispose()
+  $fontFamily.Dispose(); $wordFont.Dispose(); $subFont.Dispose()
   $inkBrush.Dispose(); $mutedBrush.Dispose(); $greenBrush.Dispose()
   return $bmp
 }

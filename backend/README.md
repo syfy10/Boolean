@@ -11,9 +11,10 @@ Implemented:
 
 - Google Sign-In device flow for the desktop app
 - D1 tables for users, sessions, login devices, token balance, and ledger
-- 100k free cloud tokens for new Google sign-ins
+- 100k free cloud tokens for the first 1,000 new Google sign-ins
 - 10k/day free-tier daily usage cap
 - 30-day expiration for signup tokens
+- word-based cloud metering for now: one word counts as one token
 - free-tier default model metadata set to GLM-4.7-Flash on Workers AI
 - `/me` endpoint for the signed-in user
 - server-side admin roles and explicit unlimited-token accounts
@@ -132,9 +133,11 @@ Authorization: Bearer SESSION_TOKEN
 
 When a new user completes Google Sign-In for the first time:
 
-- `100,000` cloud tokens are added to their account
+- the first `1,000` new cloud signups may receive `100,000` cloud tokens
+- after the first `1,000` new signups, new accounts start with `0` free tokens
 - free tokens expire after `30` days
 - free-tier usage is capped at `10,000` tokens per UTC day
+- cloud usage is currently metered as words: one word counts as one token
 - the free tier currently points to GLM-4.7-Flash through Cloudflare Workers AI
 - usage debits are written to `token_ledger`
 

@@ -33,16 +33,18 @@ You are responsible for:
 Boolean can be used locally without a Boolean account. Optional cloud features
 may require Google Sign-In and may use a cloud token balance.
 
-New users may receive a limited free cloud token grant, currently 100,000
-tokens for the first 30 days with a 10,000 token daily cap. Free grants,
-limits, models, prices, and availability may change or be discontinued. The
-free cloud tier may default to GLM-4.7-Flash through Cloudflare Workers AI or
-another low-cost cloud model selected by Boolean.
+The first 1,000 new cloud signups may receive a limited free cloud token grant,
+currently 100,000 tokens for the first 30 days with a 10,000 token daily cap.
+After the first 1,000 new signups, new accounts may start with no free tokens.
+Free grants, limits, models, prices, and availability may change or be
+discontinued. The free cloud tier may default to GLM-4.7-Flash through
+Cloudflare Workers AI or another low-cost cloud model selected by Boolean.
 
 Cloud tokens are usage credits for optional cloud AI features. They are not
-cash, have no cash value, are not transferable, and may expire. Token counts
-are estimates based on model/provider accounting and may differ from provider
-reported usage. Boolean may refuse or limit cloud requests when an account has
+cash, have no cash value, are not transferable, and may expire. For now,
+Boolean Cloud meters usage by words: one word counts as one token. Provider
+usage may differ from this customer-facing meter. Boolean may refuse or limit
+cloud requests when an account has
 no remaining balance, reaches a daily cap, violates policy, or appears abusive.
 
 Paid plans, subscriptions, or token packs may be processed by Stripe or another

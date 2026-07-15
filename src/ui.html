@@ -401,8 +401,8 @@
     border-radius:18px; white-space:pre-wrap; word-break:break-word; position:relative; }
   .msg-user img{ max-width:220px; border-radius:10px; margin-top:8px; display:block; }
   .msg-ai{ max-width:100%; word-break:break-word; position:relative; line-height:1.42; }
-  .msg-ai.cloud{ align-self:flex-start; max-width:92%; padding:var(--msg-pad); border:1px solid var(--cloud-border);
-    border-radius:14px; background:var(--cloud-bubble); box-shadow:inset 2px 0 0 var(--online); }
+  .msg-ai.cloud{ align-self:flex-start; max-width:80%; padding:var(--msg-pad);
+    border-radius:18px; background:var(--cloud-bubble); }
   .msg-ai p{ margin:0 0 6px; }
   .msg-ai p:last-child{ margin-bottom:0; }
   .msg-foot{ display:flex; align-items:center; gap:6px; min-height:18px; margin-top:3px; color:var(--dim); font:10.5px var(--mono); min-width:0; flex-wrap:wrap; }
@@ -2334,9 +2334,9 @@ AI output may be inaccurate or wrong. You are responsible for reviewing commands
 3. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
 Boolean can be used locally without a Boolean account. Optional cloud features may require Google Sign-In and may use a cloud token balance.
 
-New users may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
+The first 1,000 new cloud signups may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
 
-Cloud tokens are usage credits for optional cloud AI features. They are not cash, have no cash value, are not transferable, and may expire. Token counts are estimates based on model/provider accounting and may differ from provider-reported usage.
+Cloud tokens are usage credits for optional cloud AI features. They are not cash, have no cash value, are not transferable, and may expire. For now, Boolean Cloud meters usage by words: one word counts as one token. Provider usage may differ from this customer-facing meter.
 
 4. PRIVACY
 Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as cloud providers, Boolean Cloud sign-in/token features, model downloads, web browsing, or installation helpers.
@@ -2375,7 +2375,7 @@ Data leaves only when you choose features that require it:
 5. Installation helpers: tools such as winget contact their own servers.
 
 FREE TOKENS AND USAGE LIMITS
-New Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. Token counts are estimates and can vary by model. Free token amounts, daily caps, expiration, model access, and availability may change.
+The first 1,000 new Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. For now, Boolean Cloud counts one word as one token. Provider usage may differ from this customer-facing meter. Free token amounts, daily caps, expiration, model access, and availability may change.
 
 PAYMENTS
 If paid plans or token packs are enabled, payments are processed by Stripe. Boolean may store Stripe customer IDs, subscription/payment status, and billing metadata, but should not store full card numbers.

@@ -92,8 +92,9 @@ separate Cloudflare Worker backend under `backend/`:
 - Google Sign-In
 - user sessions
 - token balance storage
-- 100k free signup cloud tokens for the first 30 days
+- 100k free signup cloud tokens for the first 1,000 new cloud signups
 - 10k/day free-tier usage cap
+- word-based cloud metering for now: one word counts as one token
 - free-tier default model metadata for GLM-4.7-Flash on Workers AI
 - future Stripe checkout/webhooks
 - future cloud AI proxy

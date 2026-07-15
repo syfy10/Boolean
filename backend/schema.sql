@@ -64,3 +64,9 @@ CREATE TABLE IF NOT EXISTS token_ledger (
 
 CREATE INDEX IF NOT EXISTS idx_token_ledger_user_id ON token_ledger(user_id);
 CREATE INDEX IF NOT EXISTS idx_token_ledger_stripe_event ON token_ledger(stripe_event_id);
+
+CREATE TABLE IF NOT EXISTS app_counters (
+  key TEXT PRIMARY KEY,
+  value INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
