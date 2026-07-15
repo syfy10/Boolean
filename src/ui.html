@@ -401,18 +401,22 @@
     border-radius:14px; white-space:pre-wrap; word-break:break-word; position:relative; line-height:1.34; }
   .msg-user img{ max-width:220px; border-radius:8px; margin-top:5px; display:block; }
   .msg-ai{ max-width:100%; word-break:break-word; position:relative; line-height:1.36; }
-  .msg-ai.cloud{ align-self:flex-start; max-width:86%; padding:var(--msg-pad);
-    border-radius:14px; background:var(--cloud-bubble); }
+  .msg-ai .body{ position:relative; }
+  .msg-ai.cloud{ align-self:flex-start; max-width:86%; }
+  .msg-ai.cloud .body{ padding:var(--msg-pad); border-radius:14px; background:var(--cloud-bubble); }
   .msg-ai p{ margin:0 0 4px; }
   .msg-ai p:last-child{ margin-bottom:0; }
-  .msg-foot{ display:flex; align-items:center; gap:4px; min-height:18px; margin-top:1px; color:var(--dim); font:10px var(--mono); min-width:0; flex-wrap:nowrap; overflow:hidden; }
+  .msg-foot{ display:flex; align-items:center; gap:3px; min-height:17px; margin-top:2px; padding:0 3px; color:var(--dim); opacity:.62; font:10px var(--mono); min-width:0; flex-wrap:nowrap; overflow:hidden; transition:opacity .12s; }
+  .msg-foot:hover{ opacity:.9; }
   .usage-inline{ color:var(--dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .foot-spacer{ flex:1 1 auto; min-width:2px; }
+  .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
   .msg-foot .actions{ margin:0; display:flex; gap:0; flex:0 0 auto; flex-wrap:nowrap; }
-  .msg-foot .actbtn{ width:18px; height:18px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:var(--text); font:11px/1 var(--ui); }
+  .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); }
   .note-save{ width:18px; height:18px; padding:0; border:0; border-radius:50%; display:grid; place-items:center;
     background:transparent; color:var(--dim); cursor:pointer; opacity:.55; transition:opacity .12s, background .12s, color .12s; box-shadow:none; font:11px/1 var(--ui); flex:0 0 auto; }
   .msg-user>.note-save{ position:absolute; right:2px; top:2px; opacity:0; }
+  .msg-ai .body>.note-save{ position:absolute; right:2px; top:2px; opacity:0; z-index:1; }
+  .msg-ai.cloud .body>.note-save{ right:3px; top:3px; }
   .msg-user:hover .note-save,.msg-ai:hover .note-save,.note-save:focus{ opacity:1; }
   .note-save:hover{ background:var(--hover); color:var(--green); }
   .chat-menu{ position:fixed; z-index:1000; display:none; min-width:0; padding:4px; border:1px solid var(--border);
@@ -1161,7 +1165,7 @@
     d.innerHTML='<button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+timeHtml(at);
     col.appendChild(d); updateCopyButton(); scrollDown(); return d;
   }
-  function makeAI(text, at, provider){ const d=document.createElement("div"); const cloud=provider&&provider!=="local"; d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d._raw=text||""; d.innerHTML='<div class="body">'+md(text||"")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'<span class="usage-inline"></span><span class="foot-spacer"></span><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button></div>'; return d; }
+  function makeAI(text, at, provider){ const d=document.createElement("div"); const cloud=provider&&provider!=="local"; d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'<span class="usage-inline"></span></div>'; return d; }
   function makeTool(entry){
     const d=document.createElement("div"); d.className="toolcard"+((state.ui&&state.ui.collapseLogs===false)?" open":"");
     const open=d.classList.contains("open");
