@@ -9,7 +9,7 @@ import { spawn } from "node:child_process";
 import * as sea from "node:sea";
 import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
-  APP_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
+  APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
 } from "./config.js";
 import { systemPrompt, runTurn, estimateContext } from "./agent.js";
 import { listProviderModels, backendUp } from "./providers.js";
@@ -405,7 +405,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         let models = [];
         try { models = await listProviderModels(config); } catch { /* backend down */ }
         json({
-          appName: APP_NAME, version: APP_VERSION, tagline: APP_TAGLINE,
+          appName: APP_NAME, version: APP_VERSION, displayVersion: APP_DISPLAY_VERSION, tagline: APP_TAGLINE,
           provider: config.provider, providers: PROVIDERS, models,
           providerModels: Object.fromEntries(PROVIDERS.map((p) => [p, config[p]?.model || ""])),
           model: currentModel(config), autoApprove: config.autoApprove,
