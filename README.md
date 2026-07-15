@@ -20,6 +20,29 @@ It can control **PowerShell, cmd, winget, git, npm, dotnet** — anything you ca
 run in a terminal — plus read and write files, with an approval prompt before
 every command so you stay in control.
 
+### Windows System Actions
+
+Boolean provides typed, allowlisted Windows tools for common PC work:
+
+- inspect Windows, display, network, and installed-app information
+- open exact Windows Settings pages
+- search Microsoft Store and WinGet packages by name and exact package ID
+- install an exact selected package after confirmation
+- prepare a trusted home PC for network discovery and file sharing
+
+Boolean does not run permanently as administrator. Read-only inspection and
+Settings navigation run as the signed-in user. App installs always require
+confirmation and may invoke the package installer's own elevation flow. Network
+changes always require confirmation and a Windows UAC prompt, even when Full
+access is enabled. Those actions are limited to Private network profiles and
+local-subnet firewall rules, and are recorded locally in
+`~/.saz/system-actions.jsonl`.
+
+Microsoft Store ratings are not exposed by WinGet, so Boolean must use current
+web sources when a user explicitly asks to compare ratings. Boolean does not
+automatically create broad folder shares, change passwords, disable security,
+or bypass Windows consent prompts.
+
 ## Install it (like a normal Windows app)
 
 Run **`dist\Boolean-setup.exe`** on any Windows 10/11 PC. It:
@@ -127,7 +150,7 @@ same internal version in `package.json`, `package-lock.json`, `src/config.js`,
 `build/installer.iss`, then push a matching tag:
 
 ```powershell
-$version = "0.9.3"
+$version = "0.9.4"
 git tag "v$version"
 git push origin "v$version"
 ```

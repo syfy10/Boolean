@@ -3,7 +3,7 @@
 ; Build:  ISCC.exe build\installer.iss
 
 #define AppName "Boolean"
-#define AppVersion "0.9.3"
+#define AppVersion "0.9.4"
 #define AppPublisher "saz3 Labs"
 #define AppExe "saz.exe"
 

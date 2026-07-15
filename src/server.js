@@ -223,6 +223,11 @@ function stepSummary(name, args) {
   if (name === "notepad_read") return `read notepad`;
   if (name === "notepad_write") return `write notepad`;
   if (name === "browser_download") return `download ▸ ${args.url || ""}`;
+  if (name === "windows_system_info") return `inspect Windows ▸ ${args.scope || "overview"}`;
+  if (name === "windows_settings_open") return `open Windows Settings ▸ ${args.page || ""}`;
+  if (name === "windows_app_search") return `search Windows apps ▸ ${args.query || ""}`;
+  if (name === "windows_app_install") return `install Windows app ▸ ${args.id || ""}`;
+  if (name === "windows_network_setup") return `Windows network ▸ ${args.action || ""}`;
   return name;
 }
 
@@ -951,6 +956,19 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           },
           approve: (summary) => {
             if (config.autoApprove) { send({ type: "status", text: `auto-approved: ${summary}` }); return Promise.resolve(true); }
+            const id = crypto.randomUUID();
+            send({ type: "approval", id, summary });
+            return new Promise((resolve) => {
+              pendingApprovals.set(id, resolve);
+              abort.signal.addEventListener("abort", () => {
+                if (pendingApprovals.has(id)) { pendingApprovals.delete(id); resolve(false); }
+              });
+              setTimeout(() => {
+                if (pendingApprovals.has(id)) { pendingApprovals.delete(id); resolve(false); }
+              }, 600000);
+            });
+          },
+          approveAlways: (summary) => {
             const id = crypto.randomUUID();
             send({ type: "approval", id, summary });
             return new Promise((resolve) => {

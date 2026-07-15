@@ -20,6 +20,11 @@ responsible for reviewing every command, file change, browser action, and
 message before approving it. Enabling auto-approve means commands or actions
 may run without individual review, and you accept all consequences.
 
+Some Windows System Actions are deliberately stricter than normal Full access.
+Software installation and administrator-level network changes always require a
+separate confirmation and may show a Windows UAC prompt. Boolean does not run
+permanently as administrator and does not bypass Windows consent prompts.
+
 3. YOUR RESPONSIBILITY
 You are responsible for:
   (a) anything the Software does on your computer with your approval;

@@ -39,6 +39,8 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- For email, read the visible page once when needed and use visible_browser_draft_email to insert a draft.",
     "- Email is draft-only. Never press Send, submit purchases, enter payment details, or submit sensitive forms.",
     "- Use download_local_model for a public model in Boolean's catalog; never invent model URLs or installation success.",
+    "- Use typed windows_* tools for Windows inspection, Settings pages, Store apps, and home-network setup. Never elevate run_command or invent a system change.",
+    "- Search Windows apps before installing, use the exact returned package ID, and state that WinGet does not provide Store ratings.",
     connectors ? `- ${connectors}` : "",
     "",
     "CONTEXT:",

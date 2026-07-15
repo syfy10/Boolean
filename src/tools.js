@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import * as browse from "./browse.js";
 import * as engine from "./engine.js";
 import { saveConfig } from "./config.js";
+import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 
 // where the bundled project templates live (installed next to the exe, or the
 // repo's templates/ folder in dev)
@@ -20,6 +21,7 @@ export function listTemplates() {
 
 // Tool schemas sent to the model (Ollama native tool-calling format).
 export const TOOL_DEFINITIONS = [
+  ...SYSTEM_ACTION_DEFINITIONS,
   {
     type: "function",
     function: {
@@ -589,6 +591,8 @@ async function runProject(args, ctx, base) {
  */
 export async function executeTool(name, args, ctx) {
   args = args || {};
+  const systemResult = await executeSystemAction(name, args, ctx);
+  if (systemResult !== null) return systemResult;
   // resolve relative paths and command cwd inside the user's projects folder
   const base = ctx.config?.projectsDir || process.cwd();
   fs.mkdirSync(base, { recursive: true });

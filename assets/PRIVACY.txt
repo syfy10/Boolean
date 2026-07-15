@@ -16,6 +16,9 @@ WHAT STAYS ON YOUR COMPUTER
 - Your Boolean Cloud session token after Google Sign-In, stored locally so the
   app can stay signed in; sign out to remove it
 - Everything the agent reads or writes at your direction
+- A local Windows System Actions audit log at .saz\system-actions.jsonl,
+  containing action names, time, result, and limited non-secret details such as
+  a package ID or Settings page
 
 WHAT BOOLEAN RECEIVES
 When you use only local models, Boolean receives nothing and works with the
