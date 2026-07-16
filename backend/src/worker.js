@@ -1,3 +1,5 @@
+import { ADMIN_PAGE_HTML } from "./admin-page.js";
+
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
@@ -79,7 +81,181 @@ async function route(request, env) {
     return json({ ok: true }, 200, request, env);
   }
 
+  if (path === "/admin" && request.method === "GET") {
+    return new Response(ADMIN_PAGE_HTML, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } });
+  }
+
+  if (path === "/admin/api/me" && request.method === "GET") {
+    const session = await requireSession(request, env);
+    const admin = (session.user.role || "user") === "admin" || isAdminEmail(session.user.email, env);
+    return json({ user: { ...publicUser(session.user), is_admin: admin } }, 200, request, env);
+  }
+
+  if (path === "/admin/api/stats" && request.method === "GET") {
+    await requireAdmin(request, env);
+    return adminStats(request, env);
+  }
+
+  if (path === "/admin/api/users" && request.method === "GET") {
+    await requireAdmin(request, env);
+    return adminListUsers(request, env, url);
+  }
+
+  if (path === "/admin/api/user/tokens" && request.method === "POST") {
+    const session = await requireAdmin(request, env);
+    return adminAdjustTokens(request, env, session);
+  }
+
+  if (path === "/admin/api/user/unlimited" && request.method === "POST") {
+    const session = await requireAdmin(request, env);
+    return adminSetUnlimited(request, env, session);
+  }
+
+  if (path === "/admin/api/user/ban" && request.method === "POST") {
+    const session = await requireAdmin(request, env);
+    return adminSetBan(request, env, session);
+  }
+
+  if (path === "/admin/api/user/role" && request.method === "POST") {
+    const session = await requireAdmin(request, env);
+    return adminSetRole(request, env, session);
+  }
+
+  if (path === "/admin/api/user/delete" && request.method === "POST") {
+    const session = await requireAdmin(request, env);
+    return adminDeleteUser(request, env, session);
+  }
+
   return json({ error: "not_found" }, 404, request, env);
+}
+
+// ── admin console ─────────────────────────────────────────────────
+
+async function adminStats(request, env) {
+  const [users, banned, admins, balances, grants, usage7d] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS n FROM users").first(),
+    env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE banned_at IS NOT NULL").first(),
+    env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").first(),
+    env.DB.prepare("SELECT COALESCE(SUM(balance_tokens),0) AS n FROM token_accounts WHERE unlimited_tokens = 0").first(),
+    env.DB.prepare("SELECT value FROM app_counters WHERE key = 'free_signup_grants_used'").first(),
+    env.DB.prepare("SELECT COALESCE(SUM(-delta_tokens),0) AS n FROM token_ledger WHERE delta_tokens < 0 AND created_at > ?")
+      .bind(now() - 7 * 86400).first()
+  ]);
+  return json({
+    users: Number(users?.n || 0),
+    banned: Number(banned?.n || 0),
+    admins: Number(admins?.n || 0),
+    outstanding_tokens: Number(balances?.n || 0),
+    free_signup_grants_used: Number(grants?.value || 0),
+    tokens_used_7d: Number(usage7d?.n || 0)
+  }, 200, request, env);
+}
+
+async function adminListUsers(request, env, url) {
+  const q = String(url.searchParams.get("q") || "").trim().toLowerCase();
+  const limit = Math.max(1, Math.min(100, Number(url.searchParams.get("limit") || 50)));
+  const offset = Math.max(0, Number(url.searchParams.get("offset") || 0));
+  const where = q ? "WHERE lower(u.email) LIKE ? OR lower(COALESCE(u.name,'')) LIKE ?" : "";
+  const args = q ? [`%${q}%`, `%${q}%`, limit, offset] : [limit, offset];
+  const rows = await env.DB.prepare(
+    `SELECT u.id, u.email, u.name, u.role, u.created_at, u.banned_at, u.banned_reason,
+            t.balance_tokens, t.plan, t.unlimited_tokens, t.daily_used_tokens, t.daily_reset_at
+     FROM users u LEFT JOIN token_accounts t ON t.user_id = u.id
+     ${where}
+     ORDER BY u.created_at DESC LIMIT ? OFFSET ?`
+  ).bind(...args).all();
+  const users = (rows.results || []).map((r) => ({
+    id: r.id,
+    email: r.email,
+    name: r.name || "",
+    role: r.role || "user",
+    created_at: r.created_at,
+    banned: !!r.banned_at,
+    banned_reason: r.banned_reason || "",
+    plan: r.plan || "free",
+    balance_tokens: Number(r.balance_tokens || 0),
+    unlimited: Number(r.unlimited_tokens || 0) === 1,
+    daily_used_tokens: Number(r.daily_reset_at || 0) > now() ? Number(r.daily_used_tokens || 0) : 0
+  }));
+  return json({ users, limit, offset }, 200, request, env);
+}
+
+async function adminTargetUser(body, env) {
+  const userId = String(body.user_id || "").trim();
+  if (!userId) throw httpError("missing_user_id", 400);
+  const user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(userId).first();
+  if (!user) throw httpError("user_not_found", 404);
+  return user;
+}
+
+async function adminAdjustTokens(request, env, session) {
+  const body = await request.json().catch(() => ({}));
+  const user = await adminTargetUser(body, env);
+  const delta = Math.trunc(Number(body.delta || 0));
+  if (!delta || Math.abs(delta) > 100000000) throw httpError("bad_delta", 400);
+  const ts = now();
+  const account = await env.DB.prepare("SELECT * FROM token_accounts WHERE user_id = ?").bind(user.id).first();
+  if (!account) throw httpError("token account not found", 404);
+  const balance = Math.max(0, Number(account.balance_tokens || 0) + delta);
+  await env.DB.prepare("UPDATE token_accounts SET balance_tokens = ?, updated_at = ? WHERE user_id = ?")
+    .bind(balance, ts, user.id).run();
+  await env.DB.prepare("INSERT INTO token_ledger (id, user_id, delta_tokens, reason, created_at) VALUES (?, ?, ?, ?, ?)")
+    .bind(randomId("led"), user.id, delta, `admin_adjust:${session.user.email}`, ts).run();
+  return json({ ok: true, user_id: user.id, balance_tokens: balance }, 200, request, env);
+}
+
+async function adminSetUnlimited(request, env, session) {
+  const body = await request.json().catch(() => ({}));
+  const user = await adminTargetUser(body, env);
+  const unlimited = body.unlimited ? 1 : 0;
+  await env.DB.prepare("UPDATE token_accounts SET unlimited_tokens = ?, updated_at = ? WHERE user_id = ?")
+    .bind(unlimited, now(), user.id).run();
+  await env.DB.prepare("INSERT INTO token_ledger (id, user_id, delta_tokens, reason, created_at) VALUES (?, ?, 0, ?, ?)")
+    .bind(randomId("led"), user.id, `admin_unlimited_${unlimited ? "on" : "off"}:${session.user.email}`, now()).run();
+  return json({ ok: true, user_id: user.id, unlimited: !!unlimited }, 200, request, env);
+}
+
+async function adminSetBan(request, env, session) {
+  const body = await request.json().catch(() => ({}));
+  const user = await adminTargetUser(body, env);
+  if (user.id === session.user.id) throw httpError("cannot_ban_yourself", 400);
+  const ts = now();
+  if (body.banned) {
+    const reason = String(body.reason || "").slice(0, 300);
+    await env.DB.prepare("UPDATE users SET banned_at = ?, banned_reason = ?, updated_at = ? WHERE id = ?")
+      .bind(ts, reason, ts, user.id).run();
+    // banned users lose all active sessions immediately
+    await env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL")
+      .bind(ts, user.id).run();
+  } else {
+    await env.DB.prepare("UPDATE users SET banned_at = NULL, banned_reason = NULL, updated_at = ? WHERE id = ?")
+      .bind(ts, user.id).run();
+  }
+  return json({ ok: true, user_id: user.id, banned: !!body.banned }, 200, request, env);
+}
+
+async function adminSetRole(request, env, session) {
+  const body = await request.json().catch(() => ({}));
+  const user = await adminTargetUser(body, env);
+  const role = body.role === "admin" ? "admin" : "user";
+  if (user.id === session.user.id && role !== "admin") throw httpError("cannot_demote_yourself", 400);
+  await env.DB.prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?")
+    .bind(role, now(), user.id).run();
+  return json({ ok: true, user_id: user.id, role }, 200, request, env);
+}
+
+async function adminDeleteUser(request, env, session) {
+  const body = await request.json().catch(() => ({}));
+  const user = await adminTargetUser(body, env);
+  if (user.id === session.user.id) throw httpError("cannot_delete_yourself", 400);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM login_devices WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?)").bind(user.id),
+    env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM token_ledger WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM token_accounts WHERE user_id = ?").bind(user.id),
+    env.DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id)
+  ]);
+  return json({ ok: true, deleted: user.id }, 200, request, env);
 }
 
 async function chatCompletions(request, env) {
@@ -480,7 +656,7 @@ async function requireSession(request, env) {
   const row = await env.DB.prepare(
     `SELECT
       s.id AS session_id, s.expires_at, s.revoked_at,
-      u.id AS user_id, u.email, u.name, u.picture, u.role,
+      u.id AS user_id, u.email, u.name, u.picture, u.role, u.banned_at,
       t.balance_tokens, t.plan, t.default_provider, t.default_model, t.free_grant_tokens, t.free_grant_expires_at,
       t.daily_limit_tokens, t.daily_used_tokens, t.daily_reset_at, t.unlimited_tokens
      FROM sessions s
@@ -490,11 +666,21 @@ async function requireSession(request, env) {
   ).bind(tokenHash).first();
 
   if (!row || row.revoked_at || row.expires_at < now()) throw httpError("unauthorized", 401);
+  if (row.banned_at) throw httpError("account_banned", 403);
   return {
     id: row.session_id,
     user: { id: row.user_id, email: row.email, name: row.name, picture: row.picture, role: row.role || "user" },
     tokens: tokenStatus(row)
   };
+}
+
+// Admin gate: a valid session whose user has the admin role or is on the
+// ADMIN_EMAILS allowlist. Everything under /admin/api/* goes through this.
+async function requireAdmin(request, env) {
+  const session = await requireSession(request, env);
+  const admin = (session.user.role || "user") === "admin" || isAdminEmail(session.user.email, env);
+  if (!admin) throw httpError("forbidden", 403);
+  return session;
 }
 
 async function sessionById(sessionId, env) {

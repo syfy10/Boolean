@@ -453,8 +453,8 @@
   .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:12px; font-size:13.5px; }
 
   .composer-wrap{ padding:6px 20px 20px; min-width:0; }
-  .composer{ width:min(760px,100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:24px;
-    background:var(--bg); box-shadow:var(--shadow); padding:8px 10px; overflow:visible; }
+  .composer{ width:min(760px,100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:28px;
+    background:var(--bg); box-shadow:0 2px 10px rgba(0,0,0,.05); padding:8px 10px; overflow:visible; }
   .attachments{ display:flex; flex-wrap:wrap; gap:8px; padding:2px 4px 8px; }
   .attachments:empty{ display:none; }
   .queued{ display:flex; flex-direction:column; gap:5px; padding:2px 4px 8px; }
@@ -468,16 +468,23 @@
   .chip img{ width:34px; height:34px; object-fit:cover; border-radius:6px; }
   .chip .x{ cursor:pointer; color:var(--dim); font-size:14px; padding:0 2px; }
   .promptline{ position:relative; display:flex; align-items:flex-start; min-width:0; }
+  .promptline::before{ content:""; flex:0 0 auto; width:20px; height:20px; margin:9px 3px 0 7px;
+    background:var(--dim); opacity:.6;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 14a2.5 2.5 0 0 1-2.5 2.5H8L3 21V5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5z'/%3E%3Cpath d='M12 5.6l1.35 3.05L16.4 10l-3.05 1.35L12 14.4l-1.35-3.05L7.6 10l3.05-1.35z' fill='black' stroke='none'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 14a2.5 2.5 0 0 1-2.5 2.5H8L3 21V5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5z'/%3E%3Cpath d='M12 5.6l1.35 3.05L16.4 10l-3.05 1.35L12 14.4l-1.35-3.05L7.6 10l3.05-1.35z' fill='black' stroke='none'/%3E%3C/svg%3E") center/contain no-repeat; }
   .cmdprompt{ display:none; }
   .composer textarea{ width:100%; min-width:0; border:0; outline:0; resize:none; background:transparent; color:var(--text);
-    font:inherit; padding:8px 8px 4px 7px; max-height:180px; }
-  .composer .row{ display:flex; align-items:center; gap:5px; padding:0 2px 2px; min-width:0; flex-wrap:nowrap; }
-  .composer .row .anchor{ min-width:0; }
-  .composer .row .anchor:has(#modebtn), .composer .row .anchor:has(#modelbtn){ flex:0 1 auto; min-width:0; }
+    font:inherit; font-size:var(--fs-lg); padding:8px 8px 4px 7px; max-height:180px; }
+  .composer textarea::placeholder{ color:var(--dim); opacity:.6; }
+  .composer-tools{ display:flex; align-items:center; gap:5px; width:min(760px,100%); min-width:0;
+    margin:5px auto 0; padding:0 12px; flex-wrap:nowrap; }
+  .composer-tools .anchor{ min-width:0; }
+  .composer-tools .anchor:has(#modebtn), .composer-tools .anchor:has(#modelbtn){ flex:0 1 auto; min-width:0; }
+  .promptline #send{ align-self:flex-end; margin-bottom:2px; }
   .iconbtn{ width:25px; height:25px; flex:0 0 auto; border-radius:7px; border:0; background:transparent;
     color:var(--text); font-size:15px; font-weight:500; cursor:pointer; display:grid; place-items:center; position:relative; line-height:1; }
   .iconbtn:hover{ background:var(--hover); }
-  .composer .iconbtn .snip-icon{ width:12px; height:12px; color:#0f9b8e; }
+  .composer-tools .iconbtn .snip-icon{ width:12px; height:12px; color:#0f9b8e; }
   .iconbtn:hover .snip-icon{ color:#087f73; }
   .spacer{ flex:1; }
   .modelbtn{ display:flex; align-items:center; justify-content:center; gap:4px; border:0; background:transparent;
@@ -510,9 +517,10 @@
   .temp-toast.on{ opacity:1; transform:translateX(-50%) translateY(0); }
   .stx{ }
   .status .meta{ color:var(--dim); }
-  #send{ width:32px; height:32px; flex:0 0 auto; margin-left:0; border:0; border-radius:50%; background:var(--accent); color:var(--accent-text);
-    font-size:18px; font-weight:700; cursor:pointer; display:grid; place-items:center; line-height:1; padding-bottom:2px; }
-  #send:hover{ filter:brightness(.94); }
+  #send{ width:32px; height:32px; flex:0 0 auto; margin-left:0; border:1px solid var(--border); border-radius:50%; background:var(--bubble); color:var(--dim);
+    font-size:14px; font-weight:600; cursor:pointer; display:grid; place-items:center; line-height:1; padding:0; }
+  #send svg{ width:16px; height:16px; display:block; }
+  #send:hover{ background:var(--hover); color:var(--text); }
   #send:disabled{ opacity:.35; cursor:default; }
   #send.stop{ background:#f85149; color:#fff; padding-bottom:0; font-size:14px; }
   #send.stop:hover{ color:#fff; }
@@ -557,7 +565,7 @@
   body.win-xs .composer, body.chat-xs .composer{ border-radius:20px; padding:7px 8px; }
   body.win-xs .composer textarea, body.chat-xs .composer textarea{ padding:7px 7px 3px 1px; }
   body.win-xs .cmdprompt, body.chat-xs .cmdprompt{ padding-top:7px; }
-  body.win-xs .composer .row, body.chat-xs .composer .row{ gap:4px; }
+  body.win-xs .composer-tools, body.chat-xs .composer-tools{ gap:4px; padding:0 8px; }
   body.win-xs .iconbtn, body.chat-xs .iconbtn{ width:24px; height:24px; font-size:14px; }
   body.win-xs #send, body.chat-xs #send{ width:30px; height:30px; font-size:16px; }
   /* mode → icon only (keep the ⚡/🛡 dot, drop the label + chevron) */
@@ -886,37 +894,36 @@
       <div class="queued" id="queued"></div>
       <div class="ctxbar" id="ctxbar"></div>
       <div class="attachments" id="attachments"></div>
-      <div class="promptline"><textarea id="input" rows="1" placeholder="Ask anything..."></textarea></div>
-      <div class="row">
-        <div class="anchor">
-          <button class="iconbtn" id="plusbtn" title="Add" aria-label="Add">+</button>
-          <div class="menu" id="plusmenu">
-            <div class="item" id="attImage"><span>Attach image</span></div>
-            <div class="item" id="attFile"><span>Attach file</span></div>
-            <div class="item" id="attSnip"><span>Snip screen</span></div>
-            <div class="item" id="attFolder"><span>Open models folder</span></div>
-          </div>
+      <div class="promptline"><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
+    </div>
+    <div class="composer-tools">
+      <div class="anchor">
+        <button class="iconbtn" id="plusbtn" title="Add" aria-label="Add">+</button>
+        <div class="menu" id="plusmenu">
+          <div class="item" id="attImage"><span>Attach image</span></div>
+          <div class="item" id="attFile"><span>Attach file</span></div>
+          <div class="item" id="attSnip"><span>Snip screen</span></div>
+          <div class="item" id="attFolder"><span>Open models folder</span></div>
         </div>
-        <button class="iconbtn" id="snipbtn" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
-        <div class="anchor">
-          <button class="modebtn" id="modebtn" title="Approval mode">
-            <span class="mdot" id="mdot"></span><span id="modetxt">Ask each time</span> <span class="chev">▼</span>
-          </button>
-          <div class="menu" id="modemenu">
-            <div class="item" data-mode="ask"><span>Ask each time</span></div>
-            <div class="item" data-mode="full"><span>Full access</span></div>
-          </div>
+      </div>
+      <button class="iconbtn" id="snipbtn" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
+      <div class="anchor">
+        <button class="modebtn" id="modebtn" title="Approval mode">
+          <span class="mdot" id="mdot"></span><span id="modetxt">Ask me first</span> <span class="chev">▼</span>
+        </button>
+        <div class="menu" id="modemenu">
+          <div class="item" data-mode="ask"><span>Ask me first</span></div>
+          <div class="item" data-mode="full"><span>Auto-approve</span></div>
         </div>
-        <div class="spacer"></div>
-        <div class="anchor">
-          <button class="modelbtn" id="modelbtn"><span id="modelname">Select a model</span> <span class="chev">▼</span></button>
-          <div class="menu" id="modelmenu">
-            <input id="modelsearch" placeholder="Find model...">
-            <div class="model-help">Pick a model for the job: Fast for quick answers, Default for everyday use, Code for building, Vision for screenshots.</div>
-            <div id="modellist"></div>
-          </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="anchor">
+        <button class="modelbtn" id="modelbtn"><span id="modelname">Select a model</span> <span class="chev">▼</span></button>
+        <div class="menu" id="modelmenu">
+          <input id="modelsearch" placeholder="Find model...">
+          <div class="model-help">Pick a model for the job: Fast for quick answers, Default for everyday use, Code for building, Vision for screenshots.</div>
+          <div id="modellist"></div>
         </div>
-        <button id="send" title="Send">↑</button>
       </div>
     </div>
   </div>
@@ -1197,7 +1204,7 @@
     const full=!!state.autoApprove;
     $("modebtn").classList.toggle("full",full);
     $("mdot").textContent=full?"⚡":"🛡";
-    $("modetxt").textContent=full?"Full access":"Ask each time";
+    $("modetxt").textContent=full?"Auto-approve":"Ask me first";
     $("modebtn").title="Approval mode";
     document.querySelectorAll("#modemenu .item").forEach(i=>i.classList.toggle("disabled",(i.dataset.mode==="full")===full));
   }

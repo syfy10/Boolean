@@ -11,7 +11,7 @@ import { CLOUD, CLOUD_BACKEND_URL, saveConfig } from "./config.js";
 export async function resolveTarget(config, onStatus = () => {}) {
   if (config.provider === "local") {
     const { base, model } = await engine.ensureRunning(config, onStatus);
-    return { base, apiKey: "local", model };
+    return { base, apiKey: "local", model, provider: "local" };
   }
   if (config.provider === "boolean") {
     const c = config.cloudBackend || {};
@@ -22,6 +22,7 @@ export async function resolveTarget(config, onStatus = () => {}) {
     return {
       base,
       apiKey: c.sessionToken,
+      provider: "boolean",
       model: config.boolean?.model || c.tokens?.default_model || "@cf/qwen/qwen3-30b-a3b-fp8",
       noStream: true,
       onCloudTokens: (tokens) => {
@@ -35,7 +36,7 @@ export async function resolveTarget(config, onStatus = () => {}) {
     if (!p.apiKey) {
       throw new Error(`no ${CLOUD[config.provider]} API key set — add it in Settings or run: /key ${config.provider} <key>`);
     }
-    return { base: p.baseUrl, apiKey: p.apiKey, model: p.model };
+    return { base: p.baseUrl, apiKey: p.apiKey, model: p.model, provider: config.provider };
   }
   throw new Error(`unknown provider: ${config.provider}`);
 }
@@ -89,6 +90,13 @@ export async function chatCompletion(target, messages, tools, signal, onToken) {
   }
   if (!res.ok) {
     const errText = await res.text();
+    if (res.status === 401 && target.provider === "boolean") {
+      const err = new Error("Your Boolean Cloud session expired. Sign in again to continue.");
+      err.status = res.status;
+      err.code = "cloud_auth_required";
+      err.body = errText;
+      throw err;
+    }
     const err = new Error(`${res.status}: ${errText.slice(0, 400)}`);
     err.status = res.status;
     err.body = errText;

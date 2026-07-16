@@ -3,6 +3,30 @@ import http from "node:http";
 import test from "node:test";
 
 import { runTurn, systemPrompt } from "../src/agent.js";
+import { chatCompletion } from "../src/providers.js";
+
+test("Boolean Cloud 401 responses become a sign-in-required error", async (t) => {
+  const server = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    res.writeHead(401, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "request_error", message: "unauthorized" }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  await assert.rejects(
+    chatCompletion({
+      base: `http://127.0.0.1:${server.address().port}`,
+      apiKey: "expired-session",
+      model: "test-cloud-model",
+      provider: "boolean",
+      noStream: true
+    }, [{ role: "user", content: "hello" }]),
+    (err) => err.code === "cloud_auth_required"
+      && err.status === 401
+      && err.message === "Your Boolean Cloud session expired. Sign in again to continue."
+  );
+});
 
 test("the model receives topic changes without deterministic routing", async (t) => {
   let requestBody = null;

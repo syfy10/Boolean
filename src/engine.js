@@ -252,6 +252,10 @@ export function resolveMmproj(config, model) {
 export const TEXT_ONLY_MSG = "This model is text-only. Select a vision-capable model and its matching .mmproj file.";
 export const visionTestKey = (model, mmproj) => `${model || ""}|${mmproj || ""}`;
 
+export function projectorCanAcceptImages(mmproj, compatible, tested) {
+  return !!mmproj && compatible !== false && tested?.ok !== false;
+}
+
 /** Full vision status for the current local model (drives the Settings UI). */
 export function visionState(config) {
   const model = config.local.model || listLocalModels()[0] || "";
@@ -266,14 +270,16 @@ export function visionState(config) {
     const meta = ggufMeta(path.join(MODELS_DIR, mmproj));
     compatible = meta["general.architecture"] ? meta["general.architecture"] === "clip" : null;
   }
-  const supported = !!mmproj && compatible !== false && tested?.ok === true;
+  // A matching projector is usable immediately. The self-test is a diagnostic,
+  // not an activation step; only a recorded failure should block attachments.
+  const supported = projectorCanAcceptImages(mmproj, compatible, tested);
   let reason;
   if (!model) reason = "no local model selected";
   else if (supported) reason = "Vision ready - projector: " + mmproj + (source === "auto" ? " (auto-detected)" : "");
   else if (tested && tested.ok === false) reason = tested.message || "Image input test failed for this model/projector pair";
   else if (compatible === false) reason = "'" + mmproj + "' is not a vision projector (wrong GGUF type)";
   else if (source === "off") reason = TEXT_ONLY_MSG;
-  else if (mmproj) reason = "Projector selected: " + mmproj + ". Run Test image input to enable image attachments.";
+  else if (mmproj) reason = "Projector selected: " + mmproj;
   else if (candidates.length) reason = "no matching projector auto-detected - pick one below, then Test";
   else reason = TEXT_ONLY_MSG;
   return { model, mmproj, source, candidates, supported, compatible, tested, reason };

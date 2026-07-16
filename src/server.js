@@ -11,7 +11,7 @@ import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
 } from "./config.js";
-import { systemPrompt, runTurn, estimateContext } from "./agent.js";
+import { systemPrompt, projectBrief, runTurn, estimateContext } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp } from "./providers.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage } from "./usage.js";
@@ -80,8 +80,25 @@ async function cloudRequest(config, endpoint, options = {}) {
   const text = await res.text();
   let data = {};
   try { data = text ? JSON.parse(text) : {}; } catch { data = { text }; }
-  if (!res.ok) throw new Error(data.message || data.error || `Cloud backend error ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 401 && options.auth !== false) {
+      config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
+      saveConfig(config);
+      const err = new Error("Your Boolean Cloud session expired. Sign in again to continue.");
+      err.status = 401;
+      err.code = "cloud_auth_required";
+      throw err;
+    }
+    throw new Error(data.message || data.error || `Cloud backend error ${res.status}`);
+  }
   return data;
+}
+
+function clearExpiredCloudSession(config, err) {
+  if (err?.code !== "cloud_auth_required") return false;
+  config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
+  saveConfig(config);
+  return true;
 }
 
 // pull the plain-text part out of a message content (string or content array)
@@ -605,6 +622,28 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return;
       }
 
+      // adopt an EXISTING folder as a project — creates (or reuses) a project
+      // chat bound to that folder so the AI works on the files already there
+      if (req.method === "POST" && p === "/api/project/adopt") {
+        const body = await readBody(req);
+        const dir = path.resolve(String(body.dir || "").trim());
+        if (!body.dir || !fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
+          return json({ error: "That folder could not be found." }, 400);
+        }
+        const root = path.parse(dir).root;
+        if (dir === root) return json({ error: "Choose a project folder, not a whole drive." }, 400);
+        const existing = [...threads.values()].find((x) =>
+          x.kind === "project" && x.projectDir && path.resolve(x.projectDir) === dir);
+        if (existing) {
+          activeThreadId = existing.id;
+          return json({ id: existing.id, name: existing.title, projectDir: dir, existing: true });
+        }
+        const t = newThread({ kind: "project", title: path.basename(dir), projectDir: dir });
+        persist();
+        json({ id: t.id, name: t.title, projectDir: dir });
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/thread/rename") {
         const body = await readBody(req);
         const t = threads.get(body.id);
@@ -1091,7 +1130,9 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         // tools/workflow (e.g. create_project), so refresh it every run
         if (t.messages[0]?.role === "system") {
           const taskPrompt = activeTaskPrompt(t.pendingTask);
-          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + (taskPrompt ? `\n\n${taskPrompt}` : "") };
+          // project chats also get a fresh file map so the model starts oriented
+          const brief = t.kind === "project" && t.projectDir ? projectBrief(t.projectDir) : "";
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + brief + (taskPrompt ? `\n\n${taskPrompt}` : "") };
         }
 
         const abort = new AbortController();
@@ -1233,6 +1274,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             t.pendingTask.updatedAt = Date.now();
           }
           // translate the raw engine error into a clear vision hint
+          clearExpiredCloudSession(config, err);
           const msg = /image input is not supported|mmproj/i.test(err.message || "")
             ? engine.TEXT_ONLY_MSG + " (Settings → Models → Vision projector)"
             : err.message;
@@ -1308,6 +1350,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           if (usage.input || usage.output) t.log.push({ t: "usage", input: usage.input || 0, output: usage.output || 0, estimated: !!usage.estimated, compareSlot: slot });
           send({ type: "compareAnswer", slot, text: answer, provider, model, aiLabel });
         } catch (err) {
+          clearExpiredCloudSession(config, err);
           if (err?.name === "AbortError" || abort.signal.aborted) {
             results[slot] = { ok: false, error: "stopped" };
             send({ type: "compareError", slot, text: "stopped" });

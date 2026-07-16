@@ -518,6 +518,9 @@ function matchCatalogModel(input) {
 }
 
 async function downloadLocalModel(args, ctx) {
+  if (!explicitModelInstallRequest(ctx?.latestUserText)) {
+    return "Download not started: the user asked for information or a recommendation, not an installation. Answer the question without downloading or switching models.";
+  }
   const wanted = String(args.model || "").trim();
   const entry = matchCatalogModel(wanted);
   if (!entry) {
@@ -538,6 +541,18 @@ async function downloadLocalModel(args, ctx) {
   return `Downloaded and selected ${entry.id}.\nModel file: ${file}\nFolder: ${engine.MODELS_DIR}` +
     (extras ? `\nExtra files: ${extras}` : "") +
     (last ? `\nProgress: ${last}` : "");
+}
+
+export function explicitModelInstallRequest(input) {
+  const text = String(input || "").trim().toLowerCase();
+  if (!text) return false;
+  if (/\b(?:download|install|reinstall|redownload)\b/.test(text)) return true;
+  if (/^(?:please\s+)?(?:get|add|use|select)\b/.test(text)) return true;
+  if (/^(?:please\s+)?switch\s+(?:me\s+)?to\b/.test(text)) return true;
+  if (/\b(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:get|add|use|select)\b/.test(text)) return true;
+  if (/\b(?:can|could|would|will)\s+you\s+(?:please\s+)?switch\s+(?:me\s+)?to\b/.test(text)) return true;
+  if (/\b(?:i\s+want\s+you\s+to|go\s+ahead\s+and|let'?s)\s+(?:get|add|use|select|switch)\b/.test(text)) return true;
+  return false;
 }
 
 const previews = {}; // dir -> child process, so re-running replaces the old one

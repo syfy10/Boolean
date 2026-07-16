@@ -9,6 +9,10 @@
     {
       "pattern": "saz3.com/boolean/auth/*",
       "zone_name": "saz3.com"
+    },
+    {
+      "pattern": "saz3.com/boolean/admin*",
+      "zone_name": "saz3.com"
     }
   ],
   "observability": {

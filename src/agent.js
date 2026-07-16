@@ -1,4 +1,6 @@
 import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
 import { resolveTarget, chatCompletion } from "./providers.js";
 import { summarizeLearnedPreferences } from "./preferences.js";
@@ -39,7 +41,7 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- Use notepad_read/notepad_write when the user asks to read or save notes. Save the exact requested content, not an older reply.",
     "- For email, read the visible page once when needed and use visible_browser_draft_email to insert a draft.",
     "- Email is draft-only. Never press Send, submit purchases, enter payment details, or submit sensitive forms.",
-    "- Use download_local_model for a public model in Boolean's catalog; never invent model URLs or installation success.",
+    "- Use download_local_model only when the latest user message explicitly asks to download, install, get, select, or switch to a local model. Recommendation and comparison questions are answer-only.",
     "- Use typed windows_* tools for Windows inspection, Settings pages, Store apps, and home-network setup. Never elevate run_command or invent a system change.",
     "- Search Windows apps before installing, use the exact returned package ID, and state that WinGet does not provide Store ratings.",
     connectors ? `- ${connectors}` : "",
@@ -56,6 +58,50 @@ export function systemPrompt(projectsDir = "", fullAccess = false, config = null
   const connectors = connectorSummary(config);
   const learned = config?.ui?.learnedMemory === false ? "" : summarizeLearnedPreferences();
   return cleanSystemPrompt(projectsDir, fullAccess, connectors, learned);
+}
+
+// Compact file map for project chats. Small local models rarely explore a
+// codebase on their own, so every project run starts with this orientation
+// instead of a blind folder path. Capped so it stays a few hundred tokens.
+export function projectBrief(projectDir) {
+  const SKIP = new Set(["node_modules", ".git", "dist", "build", "out", ".next", "__pycache__",
+    ".venv", "venv", "bin", "obj", "coverage", ".idea", ".vscode"]);
+  const MAX_ENTRIES = 80;
+  try {
+    if (!projectDir || !fs.existsSync(projectDir) || !fs.statSync(projectDir).isDirectory()) return "";
+    const lines = [];
+    let count = 0;
+    const walk = (dir, prefix, depth) => {
+      let entries;
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      entries = entries
+        .filter((e) => !e.name.startsWith("."))
+        .sort((a, b) => (b.isDirectory() - a.isDirectory()) || a.name.localeCompare(b.name));
+      for (const e of entries) {
+        if (count >= MAX_ENTRIES) { lines.push(prefix + "…more files not shown — use list_dir"); return; }
+        if (SKIP.has(e.name.toLowerCase())) { if (e.isDirectory()) lines.push(prefix + e.name + "/ (skipped)"); continue; }
+        count++;
+        if (e.isDirectory()) {
+          lines.push(prefix + e.name + "/");
+          if (depth < 2) walk(path.join(dir, e.name), prefix + "  ", depth + 1);
+        } else {
+          lines.push(prefix + e.name);
+        }
+      }
+    };
+    walk(projectDir, "", 0);
+    const header = [
+      "",
+      "",
+      `PROJECT: This chat is bound to the folder ${projectDir}.`,
+      "Work on the files in THIS folder. Read a file with read_file before changing it,",
+      "edit with write_file, and verify changes with run_command before claiming success."
+    ];
+    if (!lines.length) return [...header, "The folder is currently empty."].join("\n");
+    return [...header, "File map:", ...lines].join("\n");
+  } catch {
+    return "";
+  }
 }
 
 // Fallback protocol for models/servers without native tool support:
@@ -283,6 +329,7 @@ export async function runTurn(ctx, messages) {
   const emitStep = (entry) => { if (onStep) onStep(entry); };
   const checkpoint = () => { if (ctx.onCheckpoint) ctx.onCheckpoint(); };
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
+  ctx.latestUserText = plainMessageText(latestUser);
   const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
   if (directAction) {
     onStatus(`running ${directAction.name}...`);
