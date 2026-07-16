@@ -1514,6 +1514,27 @@ try {
                 PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url, result = await ReadActivePageAsync(t) });
                 return;
             }
+            if (action == "capture")
+            {
+                // optional navigate first (e.g. to a freshly started localhost dev server)
+                var capUrl = command.TryGetProperty("url", out var cup) ? cup.GetString() ?? "" : "";
+                if (!string.IsNullOrWhiteSpace(capUrl))
+                {
+                    Navigate(capUrl);
+                    await WaitForNavOrDelayAsync(t, 3000);
+                }
+                var png = await CaptureBrowserPngAsync(t);
+                if (png == null || png.Length == 0)
+                {
+                    PostToChat(new { type = "browserControlResult", id, ok = false, error = "could not capture the page" });
+                    return;
+                }
+                string pageInfo;
+                try { pageInfo = await ReadActivePageAsync(t); }
+                catch (Exception ex) { pageInfo = "URL: " + t.Url + "\n(page text unavailable: " + ex.Message + ")"; }
+                PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url, image = Convert.ToBase64String(png), result = pageInfo });
+                return;
+            }
 
             var text = command.TryGetProperty("text", out var xp) ? xp.GetString() ?? "" : "";
             var target = command.TryGetProperty("target", out var tp) ? tp.GetString() ?? "" : "";

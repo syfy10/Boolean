@@ -1,0 +1,26 @@
+#!/bin/sh
+
+zero_oid=0000000000000000000000000000000000000000
+blocked_pattern='(claude|anthropic|codex|openai|copilot|gemini|noreply@.*ai)'
+
+while read local_ref local_oid remote_ref remote_oid; do
+  [ "$local_oid" = "$zero_oid" ] && continue
+
+  if [ "$remote_oid" = "$zero_oid" ]; then
+    range="$local_oid"
+  else
+    range="$remote_oid..$local_oid"
+  fi
+
+  for commit in $(git rev-list "$range"); do
+    author=$(git show -s --format='%an <%ae>' "$commit")
+    trailers=$(git show -s --format='%B' "$commit" | grep -Ei '^(Co-authored-by|Signed-off-by):' || true)
+    if printf '%s\n%s\n' "$author" "$trailers" | grep -Eiq "$blocked_pattern"; then
+      echo "Push blocked: commit $commit contains AI contributor attribution." >&2
+      echo "Rewrite its author or remove AI attribution before pushing." >&2
+      exit 1
+    fi
+  done
+done
+
+exit 0

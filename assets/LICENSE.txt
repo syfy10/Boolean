@@ -1,5 +1,5 @@
 BOOLEAN END USER LICENSE AGREEMENT
-Boolean - Version 1.0, July 2026
+Boolean - Version 1.1, July 2026
 
 IMPORTANT: READ CAREFULLY BEFORE INSTALLING OR USING BOOLEAN.
 By installing or using Boolean ("the Software"), you agree to be bound by this
@@ -33,6 +33,8 @@ You are responsible for:
   (d) the terms and licenses of any AI model you download, import, or use;
   (e) the terms of any third-party API, model provider, website, payment
       provider, or cloud service you connect or use through Boolean.
+  (f) reviewing what project files, screenshots, browser content, notes, or
+      tool arguments are sent to any online provider or remote MCP server.
 
 4. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
 Boolean can be used locally without a Boolean account. Optional cloud features
@@ -68,6 +70,12 @@ You are responsible for reviewing and complying with the license for any
 bundled, downloaded, imported, or cloud-hosted model before using it for your
 own purposes.
 
+Remote MCP servers and API providers are independent third parties. Connecting
+one authorizes Boolean to send protocol requests and relevant tool arguments to
+that service. API keys and connector tokens do not grant rights beyond the
+provider's own plan and terms. In particular, Z.AI Coding Plan access may be
+used only if Z.AI has approved Boolean or otherwise supports that use.
+
 6. SYSTEM REQUIREMENTS AND INCLUDED RUNTIMES
 Boolean is intended for Windows 10 or Windows 11 on x64 PCs. The installer
 includes the Boolean app, embedded Node.js backend, local llama.cpp CPU
@@ -87,6 +95,8 @@ Minimum system requirements depend on how Boolean is used:
       a CPU with AVX2 preferred.
   (c) Starter model mode: very small bundled models such as SmolLM2-135M may
       run on lower-end PCs, but answer quality and tool reliability are limited.
+  (d) Recommended local agent use: 16 GB RAM and 20 GB free disk space for
+      models, project files, downloads, and update staging.
 
 Optional features may require additional software or services only if you
 choose them. Examples include internet access for web browsing or model
@@ -99,7 +109,8 @@ depend on those tools.
 See the accompanying PRIVACY.txt. In short: local mode runs on your computer.
 Data leaves your computer only when you choose features that require it, such
 as cloud providers, Boolean Cloud sign-in/token features, model downloads, web
-browsing, or installation helpers.
+browsing, remote MCP connections, software updates, installation helpers, or
+online inspection of screenshots, pages, notes, and project files.
 
 8. SOFTWARE UPDATES
 Boolean may periodically contact the saz3 Labs GitHub release service to check

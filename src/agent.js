@@ -35,13 +35,19 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     learned,
     learned ? "" : "",
     "TOOLS:",
+    "- Boolean includes local GGUF models, cloud AI, project/file editing, an embedded browser, notepad, Windows actions, and optional MCP/agent connectors.",
     "- Use tools yourself when an action is needed; never tell the user to call an internal tool.",
+    "- Work silently while using tools. Do not narrate searches, clicks, retries, commands, or planned steps; give one concise result when finished.",
     "- For app work: create or edit the project, run it, fix errors, and claim completion only after verification.",
+    "- To find code use search_files (contents) or find_files (names); read big files with read_file offset/limit; change existing files with edit_file (exact string replace), not a full rewrite.",
+    "- When building or restyling a website/UI, after run_project use screenshot_page on its URL to SEE the result, then refine the layout, spacing, and colors until it looks polished.",
     "- Use visible browser tools only for an explicitly requested visible-browser action or the page the user asks about.",
     "- Use notepad_read/notepad_write when the user asks to read or save notes. Save the exact requested content, not an older reply.",
     "- For email, read the visible page once when needed and use visible_browser_draft_email to insert a draft.",
     "- Email is draft-only. Never press Send, submit purchases, enter payment details, or submit sensitive forms.",
     "- Use download_local_model only when the latest user message explicitly asks to download, install, get, select, or switch to a local model. Recommendation and comparison questions are answer-only.",
+    "- Boolean includes its own llama.cpp engine and local model library. Curated models use download_local_model. Other public GGUF models use install_public_local_model with a direct Hugging Face GGUF URL, or a local_path if already downloaded.",
+    "- Local GGUF files belong in Boolean's managed models folder. Never use browser_download, curl, Downloads, Ollama, LM Studio, Jan, or another runner for a Boolean model request unless the user explicitly asks for that other app.",
     "- Use typed windows_* tools for Windows inspection, Settings pages, Store apps, and home-network setup. Never elevate run_command or invent a system change.",
     "- Search Windows apps before installing, use the exact returned package ID, and state that WinGet does not provide Store ratings.",
     connectors ? `- ${connectors}` : "",
@@ -106,8 +112,13 @@ export function projectBrief(projectDir) {
 
 // Fallback protocol for models/servers without native tool support:
 // the model is asked to emit a fenced ```tool block containing JSON.
-function fallbackToolPrompt() {
-  const tools = TOOL_DEFINITIONS.map((t) => ({
+const ARTIFACT_TOOL_NAMES = new Set([
+  "create_project", "list_dir", "read_file", "write_file", "run_project", "run_command", "read_page"
+]);
+const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
+
+function fallbackToolPrompt(definitions = TOOL_DEFINITIONS) {
+  const tools = definitions.map((t) => ({
     name: t.function.name,
     description: t.function.description,
     parameters: t.function.parameters
@@ -122,6 +133,15 @@ function fallbackToolPrompt() {
     "Available tools (JSON schema):",
     JSON.stringify(tools, null, 2)
   ].join("\n");
+}
+
+function withFallbackToolProtocol(messages, definitions = TOOL_DEFINITIONS) {
+  const copy = messages.map((message) => ({ ...message }));
+  const systemIndex = copy.findIndex((message) => message?.role === "system");
+  if (systemIndex >= 0 && !String(copy[systemIndex].content || "").includes("TOOL PROTOCOL")) {
+    copy[systemIndex].content = `${copy[systemIndex].content}\n${fallbackToolPrompt(definitions)}`;
+  }
+  return copy;
 }
 
 const KNOWN_TOOLS = new Set(TOOL_DEFINITIONS.map((t) => t.function.name));
@@ -200,6 +220,60 @@ function plainMessageText(message) {
     return content.filter((part) => part?.type === "text").map((part) => part.text || "").join("\n").split(/\n\nCURRENT APP CONTEXT\b/)[0].trim();
   }
   return "";
+}
+
+const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setup|finish|fix|edit|update|write)\b/i;
+const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|project|program|script|code|file|folder|desktop tool|server)\b/i;
+const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:it|that|all that)(?:\s+for me)?\b/i;
+const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
+
+// Keep the model in charge of implementation details, but recognize the narrow
+// case where a user clearly asked Boolean to produce a software/file artifact.
+// This is used only to retry a model that answered with a tutorial and made no
+// tool call; it does not route or execute an action itself.
+export function requiresArtifactAction(messages) {
+  const users = (Array.isArray(messages) ? messages : [])
+    .filter((message) => message?.role === "user")
+    .map(plainMessageText)
+    .filter(Boolean);
+  const latest = users.at(-1) || "";
+  if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return true;
+  if (!ACTION_ONLY_FOLLOWUP.test(latest)) return false;
+  return users.slice(-4, -1).some((text) => ARTIFACT_TARGET.test(text));
+}
+
+function inferArtifactBootstrap(messages) {
+  const users = (Array.isArray(messages) ? messages : [])
+    .filter((message) => message?.role === "user")
+    .map(plainMessageText)
+    .filter(Boolean);
+  const text = users.slice(-4).reverse().find((entry) => ARTIFACT_ACTION.test(entry) && ARTIFACT_TARGET.test(entry)) || "";
+  if (!/\b(build|create|make|develop|set up|setup)\b/i.test(text)) return null;
+  let template = "";
+  if (/\b(game|website|web ?site|web page)\b/i.test(text)) template = "website";
+  else if (/\b(api|server)\b/i.test(text)) template = "api";
+  else if (/\bdesktop(?: app| tool)?\b/i.test(text)) template = "desktop";
+  if (!template) return null;
+  const named = text.match(/\b(?:called|named)\s+["']?([a-z0-9][a-z0-9 _.-]{0,30}?)(?=\s+(?:and|with|that)\b|[,.!?]|$)/i)?.[1]?.trim();
+  const name = named || (/\bgame\b/i.test(text) ? "RandomGame" : template === "api" ? "NewAPI" : template === "desktop" ? "DesktopApp" : "NewWebsite");
+  return { template, name };
+}
+
+function withActionNudge(messages, bootstrapContext = "", projectBound = false) {
+  const instruction = [
+    "ACTION REQUIRED: The user asked Boolean to make the requested artifact, not explain how they can make it.",
+    projectBound
+      ? "This chat is already bound to the project folder. Read and edit that folder directly; do not create a nested project."
+      : "For a new game, app, API, or website, continue from the scaffold below, edit its generated files, then run_project and verify it.",
+    "Call the available tools now.",
+    bootstrapContext ? `Boolean already performed this setup action:\n${bootstrapContext}` : "",
+    "Do not return instructions for the user to perform the work. Ask a question only if a truly required detail cannot be inferred safely."
+  ].filter(Boolean).join("\n");
+  const copy = messages.map((message) => ({ ...message }));
+  const systemIndex = copy.findIndex((message) => message?.role === "system");
+  if (systemIndex >= 0) copy[systemIndex].content = `${copy[systemIndex].content}\n\n${instruction}`;
+  else copy.unshift({ role: "system", content: instruction });
+  return copy;
 }
 
 function conversationDomain(text) {
@@ -330,6 +404,7 @@ export async function runTurn(ctx, messages) {
   const checkpoint = () => { if (ctx.onCheckpoint) ctx.onCheckpoint(); };
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   ctx.latestUserText = plainMessageText(latestUser);
+  const artifactActionRequired = requiresArtifactAction(messages);
   const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
   if (directAction) {
     onStatus(`running ${directAction.name}...`);
@@ -343,7 +418,23 @@ export async function runTurn(ctx, messages) {
     return answer;
   }
 
-  const target = await resolveTarget(config, onStatus);
+  let bootstrapContext = "";
+  if (artifactActionRequired) {
+    const projectBound = !!ctx.projectDir;
+    const bootstrap = projectBound ? { name: "list_dir", args: { path: "." } } : null;
+    const inferred = projectBound ? null : inferArtifactBootstrap(messages);
+    const action = bootstrap || (inferred ? { name: "create_project", args: inferred } : null);
+    if (action) {
+      onStatus(projectBound ? "checking the current project..." : "creating the project workspace...");
+      const result = await executeTool(action.name, action.args, ctx);
+      emitStep({ name: action.name, args: action.args, result });
+      checkpoint();
+      bootstrapContext = `${action.name}: ${result}`;
+    }
+  }
+
+  let target = await resolveTarget(config, onStatus);
+  let localRecoveryAttempted = false;
   let useNativeTools = true;
   const emitUsage = (msg) => {
     if (onUsage && msg?.usage) onUsage({ provider: config.provider, model: target.model, ...msg.usage });
@@ -362,10 +453,24 @@ export async function runTurn(ctx, messages) {
     return bail;
   };
 
+  // a screenshot tool stashes captured images on ctx; surface them to the model
+  // as a follow-up user message so vision models can actually see the page
+  const flushPendingImages = () => {
+    if (!ctx.pendingImages || !ctx.pendingImages.length) return;
+    const imgs = ctx.pendingImages.splice(0, ctx.pendingImages.length);
+    messages.push({ role: "user", content: [
+      { type: "text", text: "Here is the screenshot you captured. Review the visual design, then continue." },
+      ...imgs.map((url) => ({ type: "image_url", image_url: { url } }))
+    ] });
+  };
+
   // Keep working until the model produces a final answer or the user stops it.
   // The old fixed ceiling stranded longer coding tasks after only 12 tool calls.
   // A repeated-action guard below still stops models that are genuinely stuck.
   let turn = 0;
+  let actionNudgeActive = artifactActionRequired;
+  let actionRetryAttempted = false;
+  let completedToolWork = false;
   let lastToolFingerprint = "";
   let repeatedToolCount = 0;
   const recordToolExecution = (name, args, result) => {
@@ -389,7 +494,14 @@ export async function runTurn(ctx, messages) {
         onOptimize({ mode: contextMode, sent: fit.sentTokens, full: originalFull,
           saved: Math.max(0, originalFull - fit.sentTokens), budget: fit.budget });
       }
-      msg = await chatCompletion(target, fit.msgs, useNativeTools ? TOOL_DEFINITIONS : undefined, signal, onToken);
+      let modelMessages = actionNudgeActive ? withActionNudge(fit.msgs, bootstrapContext, !!ctx.projectDir) : fit.msgs;
+      const availableTools = artifactActionRequired && !completedToolWork ? ARTIFACT_TOOL_DEFINITIONS : TOOL_DEFINITIONS;
+      if (!useNativeTools) modelMessages = withFallbackToolProtocol(modelMessages, availableTools);
+      const requestTarget = actionNudgeActive && !completedToolWork && useNativeTools
+        ? { ...target, toolChoice: "required" }
+        : target;
+      msg = await chatCompletion(requestTarget, modelMessages, useNativeTools ? availableTools : undefined, signal, onToken);
+      localRecoveryAttempted = false;
       emitUsage(msg);
     } catch (err) {
       if (err?.name === "AbortError" || signal?.aborted) return stopped();
@@ -397,6 +509,12 @@ export async function runTurn(ctx, messages) {
       if (looksLikeContextOverflow(err) && ctxBudget > 4096) {
         ctxBudget = Math.floor(ctxBudget * 0.7);
         onStatus(`conversation too long for the model — trimming older history and retrying…`);
+        continue;
+      }
+      if (config.provider === "local" && err?.code === "local_transport_error" && !err.partial && !localRecoveryAttempted) {
+        localRecoveryAttempted = true;
+        onStatus("local model disconnected - restarting the engine and retrying...");
+        target = await resolveTarget(config, onStatus);
         continue;
       }
       if (useNativeTools && looksLikeNoToolSupport(err)) {
@@ -432,6 +550,7 @@ export async function runTurn(ctx, messages) {
         recordToolExecution(name, args, result);
         const toolContent = result;
         emitStep({ name, args, result });
+        completedToolWork = true;
         messages.push({
           role: "tool",
           tool_call_id: call.id || `call_${turn}`,
@@ -439,6 +558,7 @@ export async function runTurn(ctx, messages) {
         });
         checkpoint();
       }
+      flushPendingImages();
       continue;
     }
 
@@ -454,11 +574,24 @@ export async function runTurn(ctx, messages) {
       recordToolExecution(call.name, call.arguments, result);
       const toolResultContent = result;
       emitStep({ name: call.name, args: call.arguments, result });
+      completedToolWork = true;
       messages.push({
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
       });
+      flushPendingImages();
       checkpoint();
+      continue;
+    }
+
+    // A small model may understand a build request yet answer with a tutorial
+    // instead of using its tools. Give it one explicit corrective retry, while
+    // leaving normal questions and brainstorming untouched.
+    if (artifactActionRequired && !completedToolWork && !actionRetryAttempted) {
+      actionRetryAttempted = true;
+      actionNudgeActive = true;
+      useNativeTools = false;
+      onStatus("starting the requested work...");
       continue;
     }
 

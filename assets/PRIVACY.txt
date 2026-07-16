@@ -1,11 +1,13 @@
 BOOLEAN PRIVACY POLICY
-Boolean - Version 1.0, July 2026
+Boolean - Version 1.1, July 2026
 
 THE SHORT VERSION
 Boolean's local mode runs entirely on your computer. No telemetry, no
 analytics, no tracking, no crash reports. Your code, prompts, and files stay
 on your machine unless YOU choose a feature that needs the internet, such as
 cloud AI, Google Sign-In, model downloads, web browsing, or installation tools.
+Connecting a remote MCP server or sending a screenshot, page, note, or project
+file to an online provider also uses the network.
 
 WHAT STAYS ON YOUR COMPUTER
 - Your conversations with the AI
@@ -13,6 +15,8 @@ WHAT STAYS ON YOUR COMPUTER
 - Any bundled starter model included with the installer
 - Your settings, including any API keys you enter, stored at
   .saz\config.json in your user profile; protect this file like a password
+- Remote MCP server addresses and any Bearer tokens you save; connector
+  secrets are stored locally and are not returned by Boolean's state API
 - Your Boolean Cloud session token after Google Sign-In, stored locally so the
   app can stay signed in; sign out to remove it
 - Everything the agent reads or writes at your direction
@@ -52,6 +56,20 @@ Only in these cases, and only because you set them up:
    the saz3 Labs GitHub repository. If an update is available, Boolean may
    download its installer from an approved GitHub release URL and verify its
    SHA-256 hash before installation.
+7. Remote MCP servers: when you enable an MCP connection, Boolean sends protocol
+   requests, relevant tool arguments, and the configured Bearer token to that
+   server. The server operator's privacy policy and terms apply.
+8. Screenshots, browser pages, notes, and project files: these remain local when
+   used with a local model. If you ask an online model or remote connector to
+   inspect them, the selected content is sent to that provider or connector.
+
+THIRD-PARTY PROVIDERS AND CONNECTIONS
+OpenAI, Anthropic, Z.AI, Hugging Face, MCP server operators, websites, search
+engines, package repositories, GitHub, Google, Cloudflare, and Stripe are
+independent services. Their own terms, retention rules, charges, and privacy
+policies apply. Z.AI's Coding Plan uses its separate coding endpoint and may be
+used only when Z.AI has approved Boolean or otherwise supports the user's use.
+Boolean does not represent that every subscription permits third-party use.
 
 SOFTWARE UPDATE DATA
 Update checks may reveal standard connection information, including your IP
@@ -91,6 +109,8 @@ MINIMUM SYSTEM REQUIREMENTS
   API key or Boolean Cloud account.
 - Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, and a
   CPU with AVX2 preferred.
+- Recommended local agent use: 16 GB RAM and 20 GB free disk space for models,
+  project files, downloads, and update staging.
 - Starter model mode: very small bundled models such as SmolLM2-135M can run
   on lower-end PCs, but answer quality and tool reliability are limited.
 

@@ -48,11 +48,13 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "read_file",
-      description: "Read a text file and return its contents.",
+      description: "Read a text file and return its contents. For large files, pass offset (1-based start line) and limit (line count) to read only a slice.",
       parameters: {
         type: "object",
         properties: {
-          path: { type: "string", description: "Absolute or relative file path" }
+          path: { type: "string", description: "Absolute or relative file path" },
+          offset: { type: "integer", description: "Optional 1-based line number to start reading from" },
+          limit: { type: "integer", description: "Optional number of lines to read from offset" }
         },
         required: ["path"]
       }
@@ -63,7 +65,8 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "write_file",
       description:
-        "Write content to a file (creates parent directories, overwrites if it exists).",
+        "Write content to a file (creates parent directories, overwrites if it exists). " +
+        "For changing part of an EXISTING file, prefer edit_file — it is safer and cheaper than rewriting the whole file.",
       parameters: {
         type: "object",
         properties: {
@@ -77,14 +80,97 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "edit_file",
+      description:
+        "Make a targeted edit to an existing file by replacing an exact string. " +
+        "Prefer this over write_file for changes to existing files. " +
+        "old_string must match the file EXACTLY (including whitespace/indentation) and be unique, unless replace_all is true.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Absolute or relative file path" },
+          old_string: { type: "string", description: "Exact text to find and replace" },
+          new_string: { type: "string", description: "Text to replace it with" },
+          replace_all: { type: "boolean", description: "Replace every occurrence instead of requiring a unique match. Default false." }
+        },
+        required: ["path", "old_string", "new_string"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "list_dir",
-      description: "List files and folders in a directory.",
+      description: "List files and folders in a directory (single level).",
       parameters: {
         type: "object",
         properties: {
           path: { type: "string", description: "Directory path. Default: current directory" }
         },
         required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_files",
+      description:
+        "Find files by name recursively using a glob pattern (e.g. **/*.js, src/**, *.css). " +
+        "Use to discover files across the project. Skips node_modules, .git, build output, etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string", description: "Glob pattern, e.g. **/*.ts or src/**/*.json" },
+          path: { type: "string", description: "Root directory to search from. Default: project folder" }
+        },
+        required: ["pattern"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_files",
+      description:
+        "Search file CONTENTS across the project for a regular-expression pattern. " +
+        "Returns matching files with line numbers and the matching line. Use to find where a symbol, string, or code lives.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string", description: "Regular expression to search for" },
+          path: { type: "string", description: "Directory to search in. Default: project folder" },
+          glob: { type: "string", description: "Optional file filter, e.g. *.js or **/*.ts" },
+          case_insensitive: { type: "boolean", description: "Case-insensitive match. Default false." }
+        },
+        required: ["pattern"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_plan",
+      description:
+        "Record or update a short step-by-step plan for a multi-step task so the user can follow progress. " +
+        "Send the FULL list of steps each time with an updated status for each. Use for non-trivial builds; skip it for simple one-step tasks.",
+      parameters: {
+        type: "object",
+        properties: {
+          steps: {
+            type: "array",
+            description: "The full ordered list of steps",
+            items: {
+              type: "object",
+              properties: {
+                step: { type: "string", description: "Short description of the step" },
+                status: { type: "string", enum: ["pending", "in_progress", "done"], description: "Current status" }
+              },
+              required: ["step", "status"]
+            }
+          }
+        },
+        required: ["steps"]
       }
     }
   },
@@ -107,6 +193,21 @@ export const TOOL_DEFINITIONS = [
           name: { type: "string", description: "Project folder name, created inside the projects folder" }
         },
         required: ["template", "name"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "screenshot_page",
+      description:
+        "Capture a visual screenshot of a rendered web page (a URL, or the page already open in the browser) and review it visually. " +
+        "Use this after building or changing a website/app UI to SEE how it actually looks, then refine the design. " +
+        "For a local dev server, pass its URL (e.g. http://localhost:3210). Needs the Boolean desktop app and a vision-capable model.",
+      parameters: {
+        type: "object",
+        properties: { url: { type: "string", description: "Optional URL to open and capture; defaults to the page already open in the browser" } },
+        required: []
       }
     }
   },
@@ -319,6 +420,25 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "install_public_local_model",
+      description:
+        "Install and select a public GGUF that is not in Boolean's curated library. " +
+        "Use source_url for a direct huggingface.co .gguf link, or local_path when the GGUF already exists on this PC. " +
+        "Boolean validates the file and places it in its own models folder; do not use browser_download, curl, Ollama, or another model app.",
+      parameters: {
+        type: "object",
+        properties: {
+          source_url: { type: "string", description: "Direct HTTPS huggingface.co URL ending in .gguf" },
+          local_path: { type: "string", description: "Absolute path to an existing .gguf file on this PC" },
+          move_source: { type: "boolean", description: "After a successful local import, remove the original file to avoid keeping a duplicate" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "list_connectors",
       description: "List configured MCP servers and agent connectors. Use this before calling an agent connector or when the user asks what connectors are available.",
       parameters: { type: "object", properties: {}, required: [] }
@@ -408,6 +528,49 @@ function listFilesRec(dir, out = []) {
   return out;
 }
 
+// Heavy/generated directories to skip during project-wide find/search.
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next",
+  "__pycache__", ".venv", "venv", "bin", "obj", "coverage", ".idea", ".vscode", ".cache"]);
+const MAX_WALK_FILES = 5000;
+
+// Collect files under root (relative paths), skipping heavy dirs and capping work.
+function walkProject(root, onFile, budget = { n: 0 }) {
+  let entries;
+  try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { return; }
+  entries.sort((a, b) => (b.isDirectory() - a.isDirectory()) || a.name.localeCompare(b.name));
+  for (const e of entries) {
+    if (budget.n >= MAX_WALK_FILES) return;
+    if (e.isDirectory()) {
+      if (SKIP_DIRS.has(e.name.toLowerCase())) continue;
+      walkProject(path.join(root, e.name), onFile, budget);
+    } else {
+      budget.n++;
+      onFile(path.join(root, e.name));
+    }
+  }
+}
+
+// Translate a glob (supports **, *, ?) to a RegExp matched against a forward-slash relative path.
+function globToRegExp(glob) {
+  const g = String(glob || "").replace(/\\/g, "/");
+  let re = "";
+  for (let i = 0; i < g.length; i++) {
+    const c = g[i];
+    if (c === "*") {
+      if (g[i + 1] === "*") { re += ".*"; i++; if (g[i + 1] === "/") i++; }
+      else re += "[^/]*";
+    } else if (c === "?") re += "[^/]";
+    else if ("+.^${}()|[]".includes(c)) re += "\\" + c;
+    else re += c;
+  }
+  // a bare pattern with no slash matches by basename anywhere
+  const anchored = g.includes("/") ? `^${re}$` : `(^|/)${re}$`;
+  return new RegExp(anchored, "i");
+}
+
+const BINARY_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip",
+  ".gz", ".exe", ".dll", ".gguf", ".bin", ".woff", ".woff2", ".ttf", ".mp4", ".mp3", ".wasm"]);
+
 async function createProject(args, ctx, base) {
   const template = String(args.template || "").toLowerCase();
   const tdir = path.join(templatesDir(), template);
@@ -434,6 +597,31 @@ async function createProject(args, ctx, base) {
 
 const browserDisabled = (ctx) => ctx.config?.ui && ctx.config.ui.aiBrowser === false;
 const BROWSER_OFF_MSG = "AI browser access is disabled in Settings.";
+
+async function screenshotPage(args, ctx) {
+  if (browserDisabled(ctx)) return BROWSER_OFF_MSG;
+  if (typeof ctx.captureScreenshot !== "function") {
+    return "Screenshots need the Boolean desktop app (the embedded browser). Not available in this session — use read_page for the page text instead.";
+  }
+  const body = await ctx.captureScreenshot(args.url ? { url: String(args.url) } : {});
+  if (!body || body.ok === false || !body.image) {
+    return "Could not capture the page: " + (body?.error || "no page is open — pass a url, or open one first.");
+  }
+  const dataUrl = String(body.image).startsWith("data:") ? String(body.image) : ("data:image/png;base64," + body.image);
+  const info = body.result ? truncate(String(body.result)) : "";
+  // always show the screenshot to the user in the transcript
+  ctx.onImage?.(dataUrl, body.url ? String(body.url) : "screenshot");
+  // only hand the image to models that can actually see it
+  let vision = ctx.config?.provider !== "local";
+  if (!vision) { try { vision = !!engine.visionState(ctx.config).supported; } catch { vision = false; } }
+  if (vision) {
+    (ctx.pendingImages = ctx.pendingImages || []).push(dataUrl);
+    return `Screenshot captured${body.url ? ` of ${body.url}` : ""}. Review the attached image and refine the design as needed.` +
+      (info ? `\n\nPage text/OCR:\n${info}` : "");
+  }
+  return "Screenshot captured, but the current local model can't view images. Install a vision projector (Settings > Models) or switch to a cloud vision model to review it. " +
+    (info ? `Page text/OCR:\n${info}` : "");
+}
 
 async function readPage(args, ctx) {
   if (browserDisabled(ctx)) return BROWSER_OFF_MSG;
@@ -543,10 +731,54 @@ async function downloadLocalModel(args, ctx) {
     (last ? `\nProgress: ${last}` : "");
 }
 
+async function installPublicLocalModel(args, ctx) {
+  if (!explicitModelInstallRequest(ctx?.latestUserText)) {
+    return "Install not started: the user did not explicitly ask to install or switch models.";
+  }
+  const sourceUrl = String(args.source_url || "").trim();
+  const localPath = String(args.local_path || "").trim();
+  if (!!sourceUrl === !!localPath) return "error: provide exactly one source_url or local_path";
+
+  let file;
+  let last = "";
+  let lastReported = -10;
+  const progress = (name, pct) => {
+    last = `${pct}%`;
+    if (pct >= lastReported + 10 || pct === 100) {
+      lastReported = pct;
+      ctx.onStatus?.(`Installing ${name} in Boolean: ${pct}%`);
+    }
+  };
+  if (localPath) {
+    if (!path.isAbsolute(localPath)) return "error: local_path must be an absolute .gguf path";
+    const name = path.basename(localPath);
+    const ok = await ctx.approve(`Install ${name} in Boolean`);
+    if (!ok) return "user declined installing the model";
+    file = await engine.importModel(localPath, (pct) => progress(name, pct));
+    if (args.move_source && path.resolve(localPath).toLowerCase() !== path.resolve(engine.MODELS_DIR, file).toLowerCase()) {
+      fs.rmSync(localPath, { force: true });
+    }
+  } else {
+    let name = "public GGUF model";
+    try { name = decodeURIComponent(new URL(sourceUrl).pathname.split("/").pop() || name); } catch { /* engine gives exact error */ }
+    const ok = await ctx.approve(`Install ${name} in Boolean`);
+    if (!ok) return "user declined installing the model";
+    file = await engine.downloadPublicModel(sourceUrl, (pct) => progress(name, pct));
+  }
+
+  ctx.config.provider = "local";
+  ctx.config.local = ctx.config.local || {};
+  ctx.config.local.model = file;
+  saveConfig(ctx.config);
+  try { engine.stopEngine(); } catch { /* reload next request */ }
+  return `Installed and selected ${file} in Boolean.` + (last ? ` (${last})` : "");
+}
+
 export function explicitModelInstallRequest(input) {
   const text = String(input || "").trim().toLowerCase();
   if (!text) return false;
-  if (/\b(?:download|install|reinstall|redownload)\b/.test(text)) return true;
+  if (/\b(?:download|install|reinstall|redownload|import)\b/.test(text)) return true;
+  if (/\bmove\b.*\b(?:boolean|models? folder|local models?)\b/.test(text)) return true;
   if (/^(?:please\s+)?(?:get|add|use|select)\b/.test(text)) return true;
   if (/^(?:please\s+)?switch\s+(?:me\s+)?to\b/.test(text)) return true;
   if (/\b(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:get|add|use|select)\b/.test(text)) return true;
@@ -597,6 +829,84 @@ async function runProject(args, ctx, base) {
   return `✓ ${meta.type} launched (${meta.run}) — the app window should be open.`;
 }
 
+async function editFile(args, ctx, resolve) {
+  if (!args.path) return "error: missing 'path' argument";
+  if (typeof args.old_string !== "string" || !args.old_string) return "error: missing 'old_string' argument";
+  if (typeof args.new_string !== "string") return "error: missing 'new_string' argument";
+  if (args.old_string === args.new_string) return "error: old_string and new_string are identical";
+  const target = resolve(args.path);
+  let content;
+  try { content = fs.readFileSync(target, "utf8"); } catch { return `error: cannot read ${target} — use write_file to create a new file`; }
+  const parts = content.split(args.old_string);
+  const count = parts.length - 1;
+  if (count === 0) return "error: old_string not found in the file. It must match exactly, including whitespace and indentation.";
+  if (count > 1 && !args.replace_all) return `error: old_string appears ${count} times — add more surrounding context to make it unique, or set replace_all=true.`;
+  const updated = args.replace_all ? parts.join(args.new_string) : content.replace(args.old_string, args.new_string);
+  const ok = await ctx.approve(`edit ${target} (${args.replace_all ? count + " replacements" : "1 replacement"})`);
+  if (!ok) return "user declined this file edit";
+  fs.writeFileSync(target, updated);
+  return `edited ${target} — ${args.replace_all ? count + " replacements" : "1 replacement"} made`;
+}
+
+function findFiles(args, resolve) {
+  if (!args.pattern) return "error: missing 'pattern' argument";
+  const root = resolve(args.path || ".");
+  if (!fs.existsSync(root)) return `error: no such directory: ${root}`;
+  let rx;
+  try { rx = globToRegExp(args.pattern); } catch { return "error: invalid glob pattern"; }
+  const hits = [];
+  walkProject(root, (file) => {
+    const rel = path.relative(root, file).replace(/\\/g, "/");
+    if (rx.test(rel)) hits.push(rel);
+  });
+  if (!hits.length) return `no files match '${args.pattern}' under ${root}`;
+  const shown = hits.slice(0, 300);
+  return truncate(shown.join("\n") + (hits.length > shown.length ? `\n... and ${hits.length - shown.length} more` : ""));
+}
+
+function searchFiles(args, resolve) {
+  if (!args.pattern) return "error: missing 'pattern' argument";
+  const root = resolve(args.path || ".");
+  if (!fs.existsSync(root)) return `error: no such directory: ${root}`;
+  let rx;
+  try { rx = new RegExp(args.pattern, args.case_insensitive ? "i" : ""); } catch (err) { return `error: invalid regular expression — ${err.message}`; }
+  const globRx = args.glob ? globToRegExp(args.glob) : null;
+  const MAX_MATCHES = 200;
+  const out = [];
+  let filesMatched = 0;
+  let truncatedEarly = false;
+  walkProject(root, (file) => {
+    if (out.length >= MAX_MATCHES) { truncatedEarly = true; return; }
+    if (BINARY_EXT.has(path.extname(file).toLowerCase())) return;
+    const rel = path.relative(root, file).replace(/\\/g, "/");
+    if (globRx && !globRx.test(rel)) return;
+    let text;
+    try {
+      if (fs.statSync(file).size > 2_000_000) return; // skip very large files
+      text = fs.readFileSync(file, "utf8");
+    } catch { return; }
+    if (text.includes("\0")) return; // binary guard
+    const lines = text.split(/\r?\n/);
+    let fileHit = false;
+    for (let i = 0; i < lines.length && out.length < MAX_MATCHES; i++) {
+      if (rx.test(lines[i])) { out.push(`${rel}:${i + 1}: ${lines[i].trim().slice(0, 200)}`); fileHit = true; }
+    }
+    if (fileHit) filesMatched++;
+  });
+  if (!out.length) return `no matches for /${args.pattern}/ under ${root}`;
+  const header = `${out.length} match${out.length === 1 ? "" : "es"} in ${filesMatched} file${filesMatched === 1 ? "" : "s"}${truncatedEarly ? " (stopped at " + MAX_MATCHES + ")" : ""}:\n`;
+  return truncate(header + out.join("\n"));
+}
+
+function formatPlan(args) {
+  const steps = Array.isArray(args.steps) ? args.steps : [];
+  if (!steps.length) return "error: 'steps' must be a non-empty array";
+  const mark = { done: "[x]", in_progress: "[»]", pending: "[ ]" };
+  const lines = steps.slice(0, 40).map((s) => `${mark[s.status] || "[ ]"} ${String(s.step || "").slice(0, 200)}`);
+  const done = steps.filter((s) => s.status === "done").length;
+  return `Plan (${done}/${steps.length} done):\n${lines.join("\n")}`;
+}
+
 /**
  * Execute one tool call.
  * @param {string} name tool name
@@ -624,8 +934,24 @@ export async function executeTool(name, args, ctx) {
       case "read_file": {
         if (!args.path) return "error: missing 'path' argument";
         const content = fs.readFileSync(resolve(args.path), "utf8");
+        const off = Number(args.offset), lim = Number(args.limit);
+        if (Number.isFinite(off) || Number.isFinite(lim)) {
+          const lines = content.split(/\r?\n/);
+          const start = Math.max(0, (Number.isFinite(off) ? off : 1) - 1);
+          const end = Number.isFinite(lim) ? start + Math.max(0, lim) : lines.length;
+          const slice = lines.slice(start, end);
+          return truncate(`[lines ${start + 1}-${start + slice.length} of ${lines.length}]\n` + slice.join("\n"));
+        }
         return truncate(content);
       }
+      case "edit_file":
+        return await editFile(args, ctx, resolve);
+      case "find_files":
+        return findFiles(args, resolve);
+      case "search_files":
+        return searchFiles(args, resolve);
+      case "update_plan":
+        return formatPlan(args);
       case "write_file": {
         if (!args.path) return "error: missing 'path' argument";
         const target = resolve(args.path);
@@ -646,6 +972,8 @@ export async function executeTool(name, args, ctx) {
         return await createProject(args, ctx, base);
       case "run_project":
         return await runProject(args, ctx, base);
+      case "screenshot_page":
+        return await screenshotPage(args, ctx);
       case "read_page":
         return await readPage(args, ctx);
       case "visible_browser_read":
@@ -709,6 +1037,8 @@ export async function executeTool(name, args, ctx) {
       case "download_local_model":
         if (!args.model) return "error: missing 'model' argument";
         return await downloadLocalModel(args, ctx);
+      case "install_public_local_model":
+        return await installPublicLocalModel(args, ctx);
       default:
         return `error: unknown tool '${name}'`;
     }

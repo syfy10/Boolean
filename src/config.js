@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.11";
-export const APP_DISPLAY_VERSION = "v0.09.11";
+export const APP_VERSION = "0.9.12";
+export const APP_DISPLAY_VERSION = "v0.09.12";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -14,11 +14,12 @@ const CONFIG_FILE = path.join(SAZ_DIR, "config.json");
 // pre-rename location (app used to be called sazcode)
 const LEGACY_CONFIG_FILE = path.join(os.homedir(), ".sazcode", "config.json");
 
-export const PROVIDERS = ["local", "boolean", "openai", "glm", "claude"];
+export const PROVIDERS = ["local", "boolean", "openai", "glm", "zaiCoding", "claude"];
 // providers that need an API key, and the friendly label for each
 export const CLOUD = {
   openai: "OpenAI",
   glm: "GLM (Z.ai)",
+  zaiCoding: "Z.AI Coding Plan",
   claude: "Claude (Anthropic)"
 };
 
@@ -44,6 +45,12 @@ const DEFAULTS = {
     baseUrl: "https://api.z.ai/api/paas/v4",
     model: "glm-4.6",
     apiKey: ""
+  },
+  zaiCoding: {
+    baseUrl: "https://api.z.ai/api/coding/paas/v4",
+    model: "GLM-4.7",
+    apiKey: "",
+    approvedUse: false
   },
   claude: {
     // Anthropic's OpenAI-compatible endpoint â€” same chat/completions shape
@@ -113,6 +120,9 @@ export function loadConfig() {
     try {
       const raw = JSON.parse(fs.readFileSync(file, "utf8"));
       const cfg = deepMerge(DEFAULTS, raw);
+      // Coding Plan traffic must always use Z.AI's dedicated endpoint.
+      cfg.zaiCoding.baseUrl = DEFAULTS.zaiCoding.baseUrl;
+      if (!["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"].includes(cfg.zaiCoding.model)) cfg.zaiCoding.model = "GLM-4.7";
       // Ollama support was removed â€” fall back to the built-in local engine
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
       // migrate configs saved before the context-window increase (8192 â†’ 32768)

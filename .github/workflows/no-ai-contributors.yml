@@ -1,0 +1,25 @@
+name: No AI contributor attribution
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify-attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check commit authors and trailers
+        shell: bash
+        run: |
+          pattern='(claude|anthropic|codex|openai|copilot|gemini|noreply@.*ai)'
+          while read -r commit; do
+            author=$(git show -s --format='%an <%ae>' "$commit")
+            trailers=$(git show -s --format='%B' "$commit" | grep -Ei '^(Co-authored-by|Signed-off-by):' || true)
+            if printf '%s\n%s\n' "$author" "$trailers" | grep -Eiq "$pattern"; then
+              echo "AI contributor attribution found in $commit" >&2
+              exit 1
+            fi
+          done < <(git rev-list --all)

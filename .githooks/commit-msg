@@ -1,0 +1,11 @@
+#!/bin/sh
+
+message_file="$1"
+
+if grep -Eiq '^(Co-authored-by|Signed-off-by):.*(claude|anthropic|codex|openai|copilot|gemini|[[:space:]]ai[[:space:]<])' "$message_file"; then
+  echo "Commit blocked: AI tools must not be credited as contributors." >&2
+  echo "Remove the AI Co-authored-by or Signed-off-by trailer and commit again." >&2
+  exit 1
+fi
+
+exit 0

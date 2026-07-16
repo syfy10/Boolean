@@ -233,8 +233,6 @@ export function autoMatchMmproj(model, candidates = listMmprojFiles()) {
     if (score > bestScore) { best = c; bestScore = score; }
   }
   if (bestScore >= 2) return best;
-  // a single projector in the folder is almost always meant for the one VL model
-  if (candidates.length === 1) return candidates[0];
   return null;
 }
 
@@ -289,12 +287,26 @@ export function visionState(config) {
  * Import a .gguf model from anywhere (USB drive, downloads folder) by copying
  * it into the models dir. Returns the model filename.
  */
-export async function importModel(sourcePath, onProgress) {
+export async function importModel(sourcePath, onProgress, options = {}) {
   if (!/\.gguf$/i.test(sourcePath)) throw new Error("model files must end in .gguf");
   if (!fs.existsSync(sourcePath)) throw new Error(`file not found: ${sourcePath}`);
   const name = path.basename(sourcePath);
   const dest = path.join(MODELS_DIR, name);
   fs.mkdirSync(MODELS_DIR, { recursive: true });
+
+  if (path.resolve(sourcePath).toLowerCase() === path.resolve(dest).toLowerCase()) {
+    const health = modelFileHealth(name);
+    if (!health.ok) throw new Error(`model failed validation: ${health.reason}`);
+    return name;
+  }
+  if (options.force) {
+    try { fs.rmSync(dest, { force: true }); } catch { /* replaced after validation */ }
+    try { fs.rmSync(dest + ".part", { force: true }); } catch { /* best effort */ }
+  } else if (fs.existsSync(dest)) {
+    const health = modelFileHealth(name);
+    if (!health.ok) throw new Error(`a model with this name already exists but is invalid: ${health.reason}`);
+    return name;
+  }
 
   const total = fs.statSync(sourcePath).size;
   await new Promise((resolve, reject) => {
@@ -315,7 +327,55 @@ export async function importModel(sourcePath, onProgress) {
     rs.pipe(ws);
   });
   fs.renameSync(dest + ".part", dest);
+  const health = modelFileHealth(name);
+  if (!health.ok) {
+    fs.rmSync(dest, { force: true });
+    throw new Error(`imported model failed validation: ${health.reason}`);
+  }
   return name;
+}
+
+function publicModelSource(url) {
+  let parsed;
+  try { parsed = new URL(url); } catch { throw new Error("model URL is invalid"); }
+  if (parsed.protocol !== "https:" || parsed.hostname.toLowerCase() !== "huggingface.co") {
+    throw new Error("public model downloads currently require a huggingface.co HTTPS URL");
+  }
+  let name;
+  try { name = decodeURIComponent(path.posix.basename(parsed.pathname)); } catch { name = ""; }
+  if (!name || path.basename(name) !== name || !name.toLowerCase().endsWith(".gguf")) {
+    throw new Error("model URL must point directly to one .gguf file");
+  }
+  parsed.pathname = parsed.pathname.replace("/blob/", "/resolve/");
+  return { name, url: parsed.toString() };
+}
+
+/** Download a public Hugging Face GGUF directly into Boolean's model folder. */
+export async function downloadPublicModel(url, onProgress, options = {}) {
+  const source = publicModelSource(url);
+  const { name } = source;
+  const dest = path.join(MODELS_DIR, name);
+  if (modelDownloads.has(name)) return modelDownloads.get(name);
+  const job = (async () => {
+    fs.mkdirSync(MODELS_DIR, { recursive: true });
+    if (options.force) {
+      try { fs.rmSync(dest, { force: true }); } catch { /* best effort */ }
+      try { fs.rmSync(dest + ".part", { force: true }); } catch { /* best effort */ }
+    }
+    if (!fs.existsSync(dest)) await downloadFile(source.url, dest, onProgress);
+    const health = modelFileHealth(name);
+    if (!health.ok) {
+      fs.rmSync(dest, { force: true });
+      throw new Error(`downloaded model failed validation: ${health.reason}`);
+    }
+    return name;
+  })();
+  modelDownloads.set(name, job);
+  try {
+    return await job;
+  } finally {
+    modelDownloads.delete(name);
+  }
 }
 
 function catalogEntry(idOrFile) {

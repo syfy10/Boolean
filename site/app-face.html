@@ -2259,7 +2259,7 @@
   // Local only / Online provider toggle
   let legalLoaded=false;
   const FALLBACK_POLICY=`BOOLEAN END USER LICENSE AGREEMENT
-Boolean - Version 1.0, July 2026
+Boolean - Version 1.1, July 2026
 
 IMPORTANT: READ CAREFULLY BEFORE INSTALLING OR USING BOOLEAN.
 By installing or using Boolean, you agree to this agreement.
@@ -2273,12 +2273,12 @@ AI output may be inaccurate or wrong. You are responsible for reviewing commands
 3. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
 Boolean can be used locally without a Boolean account. Optional cloud features may require Google Sign-In and may use a cloud token balance.
 
-New users may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
+The first 1,000 new cloud signups may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
 
-Cloud tokens are usage credits for optional cloud AI features. They are not cash, have no cash value, are not transferable, and may expire. Token counts are estimates based on model/provider accounting and may differ from provider-reported usage.
+Cloud tokens are usage credits for optional cloud AI features. They are not cash, have no cash value, are not transferable, and may expire. Boolean Cloud currently meters one word as one token; provider accounting may differ.
 
 4. PRIVACY
-Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as cloud providers, Boolean Cloud sign-in/token features, model downloads, web browsing, or installation helpers.
+Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as cloud providers, Boolean Cloud sign-in/token features, model downloads, web browsing, remote MCP servers, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Third-party terms apply, and Z.AI Coding Plan access may be used only when Z.AI approves or otherwise supports that use.
 
 5. NO WARRANTY
 The Software and cloud features are provided as is and as available, without warranty.
@@ -2287,16 +2287,17 @@ The Software and cloud features are provided as is and as available, without war
 To the maximum extent permitted by law, Boolean, saz3 Labs, and its developers are not liable for damages arising from use of the Software or cloud features.
 `;
   const FALLBACK_PRIVACY=`BOOLEAN PRIVACY POLICY
-Boolean - Version 1.0, July 2026
+Boolean - Version 1.1, July 2026
 
 THE SHORT VERSION
-Boolean's local mode runs entirely on your computer. No telemetry, analytics, tracking, or crash reports. Your code, prompts, and files stay on your machine unless you choose a feature that needs the internet, such as cloud AI, Google Sign-In, model downloads, web browsing, or installation tools.
+Boolean's local mode runs entirely on your computer. No telemetry, analytics, tracking, or crash reports. Your code, prompts, files, screenshots, and notes stay on your machine unless you choose a feature that needs the internet, such as cloud AI, Google Sign-In, model downloads, web browsing, remote MCP servers, software updates, or installation tools.
 
 WHAT STAYS ON YOUR COMPUTER
 - Conversations and chat history saved locally
 - AI model files in your user profile under .saz/models
 - Any bundled starter model included with the installer
 - Settings and API keys in .saz/config.json
+- Remote MCP server addresses and any Bearer tokens you save
 - Boolean Cloud session token after Google Sign-In
 - Files the agent reads or writes at your direction
 
@@ -2312,9 +2313,15 @@ Data leaves only when you choose features that require it:
 3. Model downloads: downloading a model contacts the hosting service.
 4. Web browsing/search: requests go to the sites/search engines involved.
 5. Installation helpers: tools such as winget contact their own servers.
+6. Software updates: Boolean checks saz3 Labs GitHub releases and may download a SHA-256-verified installer. Update checks reveal normal connection information but do not upload chats, files, notes, keys, or models.
+7. Remote MCP servers: protocol requests, relevant tool arguments, and a configured Bearer token are sent to the server you enable.
+8. Screenshots, pages, notes, and project files: these remain local with a local model. Content you ask an online model or remote connector to inspect is sent to that service.
+
+THIRD-PARTY SERVICES
+Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, and Stripe terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boolean or otherwise supports the user's use.
 
 FREE TOKENS AND USAGE LIMITS
-New Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier may use GLM-4.7-Flash through Cloudflare Workers AI or another low-cost cloud model selected by Boolean. Token counts are estimates and can vary by model. Free token amounts, daily caps, expiration, model access, and availability may change.
+The first 1,000 new Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another model selected by Boolean. Boolean Cloud currently counts one word as one token; provider accounting may differ. Free token amounts, daily caps, expiration, model access, and availability may change.
 
 PAYMENTS
 If paid plans or token packs are enabled, payments are processed by Stripe. Boolean may store Stripe customer IDs, subscription/payment status, and billing metadata, but should not store full card numbers.
@@ -2332,6 +2339,7 @@ Required:
 Minimum system requirements:
 - Cloud/online mode: 4 GB RAM, internet connection, WebView2, and a provider API key or Boolean Cloud account
 - Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, CPU with AVX2 preferred
+- Recommended local agent use: 16 GB RAM and 20 GB free disk space for models, project files, downloads, and update staging
 - Starter model mode: SmolLM2-135M can run on lower-end PCs, but quality is limited
 
 Bundled with Boolean:

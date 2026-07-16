@@ -1,29 +1,42 @@
 # Boolean
 
-**The offline coding agent — developed by saz3 Labs.**
+**A local-first Windows AI workspace developed by saz3 Labs.**
 
-A local, offline coding agent for Windows — like Codex or Claude Code, but with
-its own **built-in inference engine** (llama.cpp) running GGUF models directly.
-No Ollama required, no API keys, no internet needed once models are downloaded,
-and your code never leaves your PC.
+Boolean combines chat, coding and project tools, a notepad, an embedded browser,
+Windows actions, local GGUF models, and optional cloud providers. Its built-in
+llama.cpp engine runs supported GGUF models directly. No separate model runner,
+API key, or internet connection is required after a local model is installed.
 
-Four interchangeable providers (Settings or `/provider`):
+Available providers (Settings or `/provider`):
 
 | provider | what it is | needs |
 |---|---|---|
 | **local** (default) | built-in llama.cpp engine, GGUF models in `~/.saz/models` | nothing — self-contained |
-| **ollama** | your existing Ollama install & models | Ollama running |
+| **Boolean Cloud** | Boolean-managed cloud model access | Google Sign-In and available cloud tokens |
 | **openai** | OpenAI cloud API | API key (`/key openai sk-...`) |
-| **glm** | Z.ai / Zhipu GLM cloud API | API key (`/key glm ...`) |
+| **glm** | Z.AI standard GLM API | API key (`/key glm ...`) |
+| **Z.AI Coding Plan** | separate Z.AI coding-plan endpoint | API key and provider-approved/supported use |
+| **claude** | Anthropic Claude API | API key |
+
+Settings > Third-party connections can also test and store remote Streamable
+HTTP MCP servers. Boolean exposes tools from enabled servers to the selected AI.
+MCP servers are independent third parties; their terms, data handling, and
+charges apply.
 
 Cloud mode also includes **Compare (Beta)** in the message composer. Pick two
 Boolean Cloud or saved API models and send one prompt to both. Replies stream
 into separate labeled bubbles; one provider can fail without cancelling the
 other. Compare is answer-only and never duplicates tools or computer actions.
 
-It can control **PowerShell, cmd, winget, git, npm, dotnet** — anything you can
-run in a terminal — plus read and write files, with an approval prompt before
-every command so you stay in control.
+It can control **PowerShell, cmd, winget, git, npm, and dotnet**, inspect and
+edit project files, search a project, maintain a task plan, capture a running
+project preview, and use the embedded browser and notepad. Ask me first is the
+safe default; Auto-approve allows supported actions to proceed without each
+individual confirmation.
+
+Boolean can install curated models or a public GGUF from a direct Hugging Face
+URL into its managed model folder. It validates the GGUF before use. Vision
+models require a compatible matching `.mmproj` projector.
 
 ### Windows System Actions
 
@@ -84,6 +97,8 @@ Minimum system requirements:
   API key or Boolean Cloud account
 - Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, and a
   CPU with AVX2 preferred
+- Recommended local agent use: 16 GB RAM and 20 GB free disk space for models,
+  project files, downloads, and update staging
 - Starter model mode: very small bundled models such as SmolLM2-135M can run on
   lower-end PCs, but answer quality and tool reliability are limited
 
@@ -126,8 +141,9 @@ separate Cloudflare Worker backend under `backend/`:
 - 10k/day free-tier usage cap
 - word-based cloud metering for now: one word counts as one token
 - free-tier default model metadata for Qwen3-30B-A3B on Workers AI
-- future Stripe checkout/webhooks
-- future cloud AI proxy
+- Stripe checkout/webhooks when billing is enabled
+- authenticated cloud AI proxy with balance and daily-limit enforcement
+- admin console for account, token, unlimited-access, and ban management
 
 Secrets such as Google client secrets, Stripe secrets, and paid LLM provider keys
 belong only in the backend, never inside the Windows installer.
@@ -153,11 +169,12 @@ npm run build:installer  # -> dist\Boolean-setup.exe (~67 MB, needs Inno Setup)
 
 The public repository includes a free GitHub Actions release workflow. Set the
 same internal version in `package.json`, `package-lock.json`, `src/config.js`,
-`shell/SazShell.csproj`, `shell/Program.cs`, `build/set-icon.cjs`, and
-`build/installer.iss`, then push a matching tag:
+`shell/SazShell.csproj`, `build/set-icon.cjs`, and `build/installer.iss`, then
+push a matching tag. The shell reads its displayed version from assembly
+metadata; do not maintain a separate hard-coded version in `shell/Program.cs`.
 
 ```powershell
-$version = "0.9.6"
+$version = "0.9.12"
 git tag "v$version"
 git push origin "v$version"
 ```
@@ -199,7 +216,7 @@ wants to do and asks `[y]es / [n]o / [a]lways this session`.
 
 | command | what it does |
 |---|---|
-| `/provider [name]` | switch provider: local, ollama, openai, glm |
+| `/provider [name]` | switch provider: local, Boolean Cloud, OpenAI, GLM, Z.AI Coding Plan, or Claude |
 | `/model <name>` | switch model for the current provider |
 | `/models` | list models for the current provider |
 | `/pull <id>` | download a local model (e.g. `/pull gemma4-e4b`) |
@@ -214,8 +231,9 @@ wants to do and asks `[y]es / [n]o / [a]lways this session`.
 The installer shows and requires acceptance of `LICENSE.txt` (as-is, no
 warranty, user responsible for approved commands). First launch asks for
 in-app acceptance too. `PRIVACY.txt`: local mode has no telemetry/tracking, and
-data leaves the machine only when the user chooses cloud providers, Boolean
-Cloud sign-in/tokens, model downloads, web browsing, or installation helpers.
+data leaves the machine only when the user chooses a network feature such as a
+cloud provider, Boolean Cloud, a remote MCP server, model download, web browse,
+software install, update, or screenshot/page content sent to an online model.
 
 ## Config
 
@@ -245,9 +263,9 @@ progress is checkpointed, with a guard for repeated identical actions.
   returned tool calls, feeds results back until the model gives a final answer.
   Handles native tool calls, fenced-JSON and bare-JSON tool calls (small models
   are inconsistent); models without tool support fall back to a text protocol.
-- `src/tools.js` — the four tools: `run_command` (PowerShell/cmd), `read_file`,
-  `write_file`, `list_dir`
-- `src/setup.js` — first-run wizard (installs Ollama, downloads a model)
+- `src/tools.js` — project, command, browser, screenshot, notepad, model,
+  Windows, planning, and connector tools
+- `src/setup.js` — first-run local-engine and model setup
 - `src/config.js` — config load/save
 
 Zero runtime npm dependencies — Node built-ins only.

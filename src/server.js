@@ -174,7 +174,7 @@ function publicConnectors(config) {
   return {
     mcp: Array.isArray(c.mcp) ? c.mcp.map((x) => ({
       id: x.id, name: x.name, type: x.type || (x.url ? "remote" : "local"),
-      url: x.url, command: x.command, args: x.args, enabled: x.enabled !== false
+      url: x.url, command: x.command, args: x.args, enabled: x.enabled !== false, hasKey: !!x.token
     })) : [],
     agents: Array.isArray(c.agents) ? c.agents.map((x) => ({
       id: x.id, name: x.name, url: x.url, enabled: x.enabled !== false, hasKey: !!x.apiKey
@@ -186,21 +186,83 @@ function cleanConnectorName(s) {
   return String(s || "").replace(/[^\w .:-]/g, "").trim().slice(0, 80);
 }
 
+// One JSON-RPC round-trip against a Streamable-HTTP MCP server. Handles both a
+// plain JSON reply and an SSE (text/event-stream) reply, and threads the
+// Mcp-Session-Id header the spec assigns during initialize.
+async function mcpStreamableRpc(url, token, sessionId, payload) {
+  const headers = { "content-type": "application/json", "accept": "application/json, text/event-stream" };
+  if (token) headers["authorization"] = `Bearer ${token}`;
+  if (sessionId) headers["mcp-session-id"] = sessionId;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  let res;
+  try {
+    res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload), signal: ctrl.signal, redirect: "follow" });
+  } catch (err) {
+    if (err?.name === "AbortError") throw new Error("connection timed out");
+    const raw = err?.message || "";
+    throw new Error(/fetch failed|network|ENOTFOUND|ECONN/i.test(raw) ? "could not reach the server (check the URL)" : (raw || "could not reach the server"));
+  } finally { clearTimeout(timer); }
+
+  const newSession = res.headers.get("mcp-session-id") || sessionId || "";
+  const ctype = (res.headers.get("content-type") || "").toLowerCase();
+  const text = await res.text();
+  let data = null;
+  if (ctype.includes("text/event-stream")) {
+    for (const line of text.split(/\r?\n/)) {
+      const m = line.match(/^data:\s*(.*)$/);
+      if (!m) continue;
+      try { const obj = JSON.parse(m[1]); if (obj && (obj.result !== undefined || obj.error !== undefined || obj.id !== undefined)) data = obj; } catch { /* skip non-JSON data lines */ }
+    }
+  } else if (text.trim()) {
+    try { data = JSON.parse(text); } catch { if (!res.ok) throw new Error(`server returned HTTP ${res.status}`); }
+  }
+  if (res.status === 401 || res.status === 403) throw new Error("authorization failed — check the access token");
+  if (!res.ok && !data) throw new Error(`server returned HTTP ${res.status}`);
+  return { data, sessionId: newSession };
+}
+
+async function mcpTestConnection(url, token) {
+  if (!/^https?:\/\//i.test(String(url || ""))) throw new Error("Enter a valid http(s) MCP URL");
+  const init = await mcpStreamableRpc(url, token, "", {
+    jsonrpc: "2.0", id: 1, method: "initialize",
+    params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "Boolean", version: "1.0" } }
+  });
+  if (init.data?.error) throw new Error(init.data.error.message || "the server rejected initialize");
+  if (!init.data?.result) throw new Error("not an MCP server (no initialize result)");
+  const info = init.data.result.serverInfo || {};
+  const protocol = init.data.result.protocolVersion || "";
+  const sid = init.sessionId;
+  try { await mcpStreamableRpc(url, token, sid, { jsonrpc: "2.0", method: "notifications/initialized" }); } catch { /* notification is best-effort */ }
+  let tools = [];
+  try {
+    const list = await mcpStreamableRpc(url, token, sid, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
+    tools = Array.isArray(list.data?.result?.tools) ? list.data.result.tools.map((t) => t.name).filter(Boolean) : [];
+  } catch { /* server may not expose tools; connection still verified */ }
+  return { serverName: info.name || "", serverVersion: info.version || "", protocol, tools, toolCount: tools.length };
+}
+
 function mergeConnectors(current, incoming) {
   const prevAgents = new Map((current?.agents || []).map((a) => [a.id, a]));
+  const prevMcp = new Map((current?.mcp || []).map((m) => [m.id, m]));
   const next = { mcp: [], agents: [] };
   if (Array.isArray(incoming?.mcp)) {
     next.mcp = incoming.mcp.slice(0, 30).map((x) => {
+      const id = String(x.id || crypto.randomUUID());
+      const old = prevMcp.get(id);
       const url = String(x.url || "").trim().slice(0, 1000);
       const command = String(x.command || "").trim().slice(0, 500);
       const type = /^https?:\/\//i.test(url) || x.type === "remote" ? "remote" : "local";
+      // bearer token for remote servers; "__keep__" preserves the saved one
+      const token = typeof x.token === "string" && x.token !== "__keep__" ? x.token.trim().slice(0, 4000) : (old?.token || "");
       return {
-        id: String(x.id || crypto.randomUUID()),
+        id,
         name: cleanConnectorName(x.name) || "MCP server",
         type,
         url: type === "remote" ? url : "",
         command: type === "local" ? command : "",
         args: type === "local" ? String(x.args || "").trim().slice(0, 1000) : "",
+        token: type === "remote" ? token : "",
         enabled: x.enabled !== false
       };
     }).filter((x) => x.type === "remote" ? /^https?:\/\//i.test(x.url) : x.command);
@@ -252,7 +314,7 @@ function shortAiName(provider, model = "") {
   const value = String(model || "").toLowerCase();
   if (/\b(gpt|o[1345](?:\b|-))/.test(value) || provider === "openai") return "GPT";
   if (/claude/.test(value) || provider === "claude") return "Claude";
-  if (/glm|zai|z\.ai/.test(value) || provider === "glm" || provider === "boolean") return "GLM";
+  if (/glm|zai|z\.ai/.test(value) || provider === "glm" || provider === "zaiCoding" || provider === "boolean") return "GLM";
   if (/qwen/.test(value)) return "Qwen";
   if (/gemma/.test(value)) return "Gemma";
   if (/llama/.test(value)) return "Llama";
@@ -492,6 +554,13 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           backendUp: await backendUp(config),
           cloud: CLOUD,
           keys: Object.fromEntries(Object.keys(CLOUD).map((k) => [k, !!config[k].apiKey])),
+          thirdParty: {
+            zaiCoding: {
+              endpoint: "https://api.z.ai/api/coding/paas/v4",
+              model: config.zaiCoding?.model || "GLM-4.7",
+              approvedUse: !!config.zaiCoding?.approvedUse
+            }
+          },
           projectsDir: config.projectsDir,
           referenceModel: config.referenceModel,
           connectors: publicConnectors(config),
@@ -514,6 +583,26 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const providerConfig = { ...config, provider };
         const models = await listProviderModels(providerConfig);
         json({ ok: true, provider, models });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/provider-test") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim();
+        if (!CLOUD[provider]) return json({ error: "invalid_provider" }, 400);
+        if (!config[provider]?.apiKey) return json({ error: "api_key_required" }, 401);
+        if (provider === "zaiCoding" && !config.zaiCoding?.approvedUse) {
+          return json({ error: "approval_required", message: "Confirm approved or supported use first." }, 400);
+        }
+        try {
+          const target = await resolveTarget({ ...config, provider });
+          const reply = await chatCompletion(target, [
+            { role: "user", content: "Reply with exactly: Connected" }
+          ], null, AbortSignal.timeout(20000));
+          json({ ok: true, message: String(reply?.content || "Connected").trim() || "Connected" });
+        } catch (err) {
+          json({ error: "connection_failed", message: String(err?.message || err) }, 502);
+        }
         return;
       }
 
@@ -701,6 +790,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (body.setKey && CLOUD[body.setKey.provider] && typeof body.setKey.key === "string") {
           config[body.setKey.provider].apiKey = body.setKey.key.trim();
         }
+        if (typeof body.zaiCodingApproved === "boolean") config.zaiCoding.approvedUse = body.zaiCodingApproved;
         // remove a saved API key: { clearKey: "openai" }
         if (typeof body.clearKey === "string" && CLOUD[body.clearKey]) {
           config[body.clearKey].apiKey = "";
@@ -713,6 +803,44 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (body.acceptEula === true) config.eulaAccepted = "1.0";
         saveConfig(config);
         json({ ok: true });
+        return;
+      }
+
+      // read a file for the "open in notepad" chat-link action; scoped to the
+      // projects folder and any project chat's own folder for safety
+      if (req.method === "GET" && p === "/api/file-content") {
+        const raw = url.searchParams.get("path") || "";
+        if (!raw) return json({ error: "missing path" }, 400);
+        const target = path.isAbsolute(raw) ? path.resolve(raw) : path.resolve(config.projectsDir, raw);
+        const roots = [path.resolve(config.projectsDir)];
+        for (const t of threads.values()) if (t.projectDir) roots.push(path.resolve(t.projectDir));
+        const allowed = roots.some((r) => target === r || target.startsWith(r + path.sep));
+        if (!allowed) return json({ error: "That file is outside your project folders." }, 403);
+        try {
+          const st = fs.statSync(target);
+          if (!st.isFile()) return json({ error: "Not a file." }, 400);
+          if (st.size > 2_000_000) return json({ error: "File is too large to open in the notepad." }, 413);
+          return json({ name: path.basename(target), path: target, content: fs.readFileSync(target, "utf8") });
+        } catch {
+          return json({ error: "File not found." }, 404);
+        }
+      }
+
+      if (req.method === "POST" && p === "/api/mcp/test") {
+        const body = await readBody(req);
+        let url = String(body.url || "").trim();
+        let token = typeof body.token === "string" ? body.token.trim() : "";
+        // testing a saved server by id: fall back to its stored url/token
+        if (body.id) {
+          const saved = (config.connectors?.mcp || []).find((x) => x.id === body.id);
+          if (saved) { if (!url) url = saved.url || ""; if (!token || token === "__keep__") token = saved.token || ""; }
+        }
+        try {
+          const result = await mcpTestConnection(url, token);
+          json({ ok: true, ...result });
+        } catch (err) {
+          json({ ok: false, error: err.message || "connection failed" });
+        }
         return;
       }
 
@@ -1140,6 +1268,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         let runIn = 0, runOut = 0, runEst = false;
         const ctx = {
           config: runConfig,
+          projectDir: t.kind === "project" ? t.projectDir || "" : "",
           browserUrl,
           signal: abort.signal,
           onStatus: (text) => send({ type: "status", text }),
@@ -1157,6 +1286,14 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
           },
           onOptimize: (o) => send({ type: "optimized", ...o }),
+          // an image the AI produced (e.g. a screenshot) — show it in the
+          // transcript and persist it in the thread log
+          onImage: (src, caption) => {
+            if (!src) return;
+            const entry = { t: "image", src, caption: caption || "", at: Date.now() };
+            t.log.push(entry);
+            send({ type: "image", src, caption: entry.caption });
+          },
           onCheckpoint: () => {
             if (t.pendingTask) t.pendingTask.updatedAt = Date.now();
             t.updatedAt = Date.now();
@@ -1185,6 +1322,24 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
                   pendingBrowserControls.delete(id);
                   resolve("visible browser control timed out");
                 }
+              }, 30000);
+            });
+          },
+          // capture the rendered page as a PNG for visual review; resolves the
+          // full result body ({ ok, image, result, url }) rather than a string
+          captureScreenshot: (opts = {}) => {
+            const id = crypto.randomUUID();
+            send({ type: "browserControl", id, command: { action: "capture", ...(opts.url ? { url: String(opts.url) } : {}) } });
+            return new Promise((resolve) => {
+              pendingBrowserControls.set(id, (body) => {
+                if (body && body.url) browserUrl = String(body.url);
+                resolve(body || { ok: false, error: "no response" });
+              });
+              abort.signal.addEventListener("abort", () => {
+                if (pendingBrowserControls.has(id)) { pendingBrowserControls.delete(id); resolve({ ok: false, error: "cancelled" }); }
+              });
+              setTimeout(() => {
+                if (pendingBrowserControls.has(id)) { pendingBrowserControls.delete(id); resolve({ ok: false, error: "timed out" }); }
               }, 30000);
             });
           },
