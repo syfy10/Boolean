@@ -84,7 +84,7 @@ async function cloudRequest(config, endpoint, options = {}) {
     if (res.status === 401 && options.auth !== false) {
       config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
       saveConfig(config);
-      const err = new Error("Your Boolean Cloud session expired. Sign in again to continue.");
+      const err = new Error("Your Boolean account session expired. Sign in again to continue.");
       err.status = 401;
       err.code = "cloud_auth_required";
       throw err;
@@ -314,7 +314,7 @@ function shortAiName(provider, model = "") {
   const value = String(model || "").toLowerCase();
   if (/\b(gpt|o[1345](?:\b|-))/.test(value) || provider === "openai") return "GPT";
   if (/claude/.test(value) || provider === "claude") return "Claude";
-  if (/glm|zai|z\.ai/.test(value) || provider === "glm" || provider === "zaiCoding" || provider === "boolean") return "GLM";
+  if (/glm|zai|z\.ai/.test(value) || provider === "glm" || provider === "zaiCoding") return "GLM";
   if (/qwen/.test(value)) return "Qwen";
   if (/gemma/.test(value)) return "Gemma";
   if (/llama/.test(value)) return "Llama";
@@ -1195,7 +1195,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           res.end(JSON.stringify({ type: "error", text: "Choose two different cloud models to compare." }) + "\n");
           return;
         }
-        const allowed = new Set(["boolean", ...Object.keys(CLOUD)]);
+        const allowed = new Set(Object.keys(CLOUD));
         if (targets.some((x) => !allowed.has(x?.provider) || !String(x?.model || "").trim())) {
           res.writeHead(400, { "content-type": "application/x-ndjson; charset=utf-8" });
           res.end(JSON.stringify({ type: "error", text: "Compare is available for cloud models only." }) + "\n");
@@ -1511,12 +1511,6 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         try {
           const target = await resolveTarget(runConfig);
           target.model = model;
-          if (provider === "boolean") {
-            target.onCloudTokens = (tokens) => {
-              config.cloudBackend = { ...(config.cloudBackend || {}), tokens };
-              saveConfig(config);
-            };
-          }
           const answerMessage = await chatCompletion(target, prompt, undefined, abort.signal,
             (text) => send({ type: "compareToken", slot, text }));
           const answer = String(answerMessage?.content || "").trim();

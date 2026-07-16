@@ -6,9 +6,9 @@ const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8" };
 const DAY = 24 * 60 * 60;
-const FREE_SIGNUP_TOKENS = 100000;
-const FREE_SIGNUP_LIMIT = 1000;
-const FREE_DAILY_LIMIT_TOKENS = 10000;
+const FREE_SIGNUP_TOKENS = 0;
+const FREE_SIGNUP_LIMIT = 0;
+const FREE_DAILY_LIMIT_TOKENS = 0;
 const FREE_SIGNUP_DAYS = 30;
 const DEFAULT_FREE_TIER_PROVIDER = "workers-ai";
 const DEFAULT_FREE_TIER_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8";

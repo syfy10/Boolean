@@ -851,7 +851,7 @@
       Settings
     </button>
 
-    <button class="navbtn" id="cloudSignIn" title="Sign in to Boolean Cloud">
+    <button class="navbtn" id="cloudSignIn" title="Sign in to your Boolean account">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
       <span id="cloudSignInText">Sign in</span>
     </button>
@@ -1325,7 +1325,7 @@
       btn.title=(user.email?user.email+" · ":"")+"Signed in · "+balance;
     } else {
       label.textContent="Sign in";
-      btn.title=cloud.url?"Sign in to Boolean Cloud":"Set backend URL and sign in";
+      btn.title=cloud.url?"Sign in to your Boolean account":"Set account service URL and sign in";
     }
   }
 
@@ -1334,7 +1334,7 @@
   async function ensureCloudBackendUrl(){
     let url=(state.cloudBackend&&state.cloudBackend.url)||"";
     if(url) return url;
-    url=prompt("Boolean Cloud backend URL","http://localhost:8787");
+    url=prompt("Boolean account service URL","http://localhost:8787");
     if(url===null) return "";
     url=url.trim();
     if(!url) return "";
@@ -1365,7 +1365,7 @@
         const sr=await fetch("/api/cloud/login/status?device_id="+encodeURIComponent(data.device_id));
         const status=await sr.json().catch(()=>({}));
         if(status.status==="complete"){
-          tempToast("Signed in to Boolean Cloud.");
+          tempToast("Signed in to your Boolean account.");
           try{ win.close(); }catch{}
           await refresh();
           return;
@@ -1383,7 +1383,7 @@
     if(!cloud.signedIn) return startCloudSignIn();
     const user=cloud.user||{};
     const tokens=cloud.tokens&&Number.isFinite(cloud.tokens.balance_tokens)?cloud.tokens.balance_tokens.toLocaleString()+" tokens":"No token balance yet";
-    const ok=await appConfirm("Boolean Cloud",`${user.email||"Signed in"}\n${tokens}`,"Sign out");
+    const ok=await appConfirm("Boolean account",user.email||"Signed in","Sign out");
     if(!ok) return;
     await fetch("/api/cloud/logout",{method:"POST",body:JSON.stringify({})});
     tempToast("Signed out.");
@@ -2270,15 +2270,11 @@ Boolean, developed by saz3 Labs, grants you a personal, non-exclusive license to
 2. AI OUTPUT CAN MAKE MISTAKES
 AI output may be inaccurate or wrong. You are responsible for reviewing commands, file changes, browser actions, and messages before approving them. Auto-approve runs actions with less review.
 
-3. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
-Boolean can be used locally without a Boolean account. Optional cloud features may require Google Sign-In and may use a cloud token balance.
-
-The first 1,000 new cloud signups may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
-
-Cloud tokens are usage credits for optional cloud AI features. They are not cash, have no cash value, are not transferable, and may expire. Boolean Cloud currently meters one word as one token; provider accounting may differ.
+3. OPTIONAL ACCOUNTS AND THIRD-PARTY CLOUD PROVIDERS
+Boolean can be used locally or with a supported third-party AI provider without a Boolean account. Cloud AI uses an API key supplied by the user. Boolean account sign-in is separate from AI access.
 
 4. PRIVACY
-Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as cloud providers, Boolean Cloud sign-in/token features, model downloads, web browsing, remote MCP servers, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Third-party terms apply, and Z.AI Coding Plan access may be used only when Z.AI approves or otherwise supports that use.
+Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, Boolean account sign-in, model downloads, web browsing, remote MCP servers, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Third-party terms apply, and Z.AI Coding Plan access may be used only when Z.AI approves or otherwise supports that use.
 
 5. NO WARRANTY
 The Software and cloud features are provided as is and as available, without warranty.
@@ -2298,18 +2294,18 @@ WHAT STAYS ON YOUR COMPUTER
 - Any bundled starter model included with the installer
 - Settings and API keys in .saz/config.json
 - Remote MCP server addresses and any Bearer tokens you save
-- Boolean Cloud session token after Google Sign-In
+- Boolean account session token after Google Sign-In
 - Files the agent reads or writes at your direction
 
 WHAT BOOLEAN RECEIVES
 When you use only local models, Boolean receives nothing.
 
-If you choose optional Boolean Cloud features, Boolean's backend may receive and store the minimum account and billing data needed to provide the service: Google account identifier, email, display name, profile image, session records, token balance, token ledger, daily usage counters, free-grant expiration, Stripe billing status if enabled, and cloud AI usage metadata.
+If you choose optional Boolean account sign-in, Boolean's account service may receive and store the minimum identity and session data needed to provide the account: Google account identifier, email, display name, profile image, and session records. Account sign-in does not provide or route AI model access.
 
 WHEN DATA LEAVES YOUR MACHINE
 Data leaves only when you choose features that require it:
 1. Cloud providers: prompts and relevant context are sent to the selected provider.
-2. Boolean Cloud: Google Sign-In, token metering, cloud prompts, and usage counts may be sent to Boolean's backend and then to the selected cloud model provider.
+2. Boolean account: Google Sign-In and session requests are sent to Boolean's account service. AI prompts are not routed through account sign-in.
 3. Model downloads: downloading a model contacts the hosting service.
 4. Web browsing/search: requests go to the sites/search engines involved.
 5. Installation helpers: tools such as winget contact their own servers.
@@ -2320,11 +2316,8 @@ Data leaves only when you choose features that require it:
 THIRD-PARTY SERVICES
 Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, and Stripe terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boolean or otherwise supports the user's use.
 
-FREE TOKENS AND USAGE LIMITS
-The first 1,000 new Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another model selected by Boolean. Boolean Cloud currently counts one word as one token; provider accounting may differ. Free token amounts, daily caps, expiration, model access, and availability may change.
-
-PAYMENTS
-If paid plans or token packs are enabled, payments are processed by Stripe. Boolean may store Stripe customer IDs, subscription/payment status, and billing metadata, but should not store full card numbers.
+THIRD-PARTY PROVIDER USAGE
+Cloud AI requests use the provider API key selected by the user. The provider's billing, subscription, quotas, terms, and privacy policy apply.
 
 CONTACT
 Boolean is developed by saz3 Labs.
@@ -2337,7 +2330,7 @@ Required:
 - Microsoft Edge WebView2 Runtime if it is not already installed
 
 Minimum system requirements:
-- Cloud/online mode: 4 GB RAM, internet connection, WebView2, and a provider API key or Boolean Cloud account
+- Cloud mode: 4 GB RAM, internet connection, WebView2, and a supported third-party provider API key
 - Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, CPU with AVX2 preferred
 - Recommended local agent use: 16 GB RAM and 20 GB free disk space for models, project files, downloads, and update staging
 - Starter model mode: SmolLM2-135M can run on lower-end PCs, but quality is limited

@@ -36,28 +36,12 @@ You are responsible for:
   (f) reviewing what project files, screenshots, browser content, notes, or
       tool arguments are sent to any online provider or remote MCP server.
 
-4. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
-Boolean can be used locally without a Boolean account. Optional cloud features
-may require Google Sign-In and may use a cloud token balance.
-
-The first 1,000 new cloud signups may receive a limited free cloud token grant,
-currently 100,000 tokens for the first 30 days with a 10,000 token daily cap.
-After the first 1,000 new signups, new accounts may start with no free tokens.
-Free grants, limits, models, prices, and availability may change or be
-discontinued. The free cloud tier currently defaults to Qwen3-30B-A3B through
-Cloudflare Workers AI or another cloud model selected by Boolean.
-
-Cloud tokens are usage credits for optional cloud AI features. They are not
-cash, have no cash value, are not transferable, and may expire. For now,
-Boolean Cloud meters usage by words: one word counts as one token. Provider
-usage may differ from this customer-facing meter. Boolean may refuse or limit
-cloud requests when an account has
-no remaining balance, reaches a daily cap, violates policy, or appears abusive.
-
-Paid plans, subscriptions, or token packs may be processed by Stripe or another
-payment provider. You are responsible for reviewing purchase terms before
-buying. Unless a separate refund policy says otherwise, consumed tokens are not
-refundable.
+4. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
+Boolean can be used locally without an account. Cloud AI uses an API key you
+supply for a supported third-party provider and does not require Boolean
+sign-in. The provider controls its billing, quotas, retention, and acceptable-
+use terms. Boolean does not grant free AI tokens or sell token packs in this
+version. Optional Boolean account sign-in is separate from AI-provider access.
 
 5. THIRD-PARTY COMPONENTS AND MODELS
 The Software includes open-source components, including Node.js and llama.cpp.
@@ -89,8 +73,8 @@ or the installer/store may need to install the WebView2 Runtime before Boolean
 can display its interface.
 
 Minimum system requirements depend on how Boolean is used:
-  (a) Cloud/online mode: 4 GB RAM, internet connection, WebView2, and a
-      provider API key or Boolean Cloud account.
+  (a) Cloud mode: 4 GB RAM, internet connection, WebView2, and a supported
+      third-party provider API key.
   (b) Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, and
       a CPU with AVX2 preferred.
   (c) Starter model mode: very small bundled models such as SmolLM2-135M may
@@ -100,15 +84,15 @@ Minimum system requirements depend on how Boolean is used:
 
 Optional features may require additional software or services only if you
 choose them. Examples include internet access for web browsing or model
-downloads, optional Google Sign-In for Boolean Cloud, paid/free cloud token
-usage, cloud provider API keys, Stripe payments, and system tools such as
+downloads, optional Google Sign-In for a Boolean account, cloud provider API
+keys, and system tools such as
 winget, git, npm, or dotnet only when you ask Boolean to run workflows that
 depend on those tools.
 
 7. PRIVACY
 See the accompanying PRIVACY.txt. In short: local mode runs on your computer.
 Data leaves your computer only when you choose features that require it, such
-as cloud providers, Boolean Cloud sign-in/token features, model downloads, web
+as cloud providers, Boolean account sign-in, model downloads, web
 browsing, remote MCP connections, software updates, installation helpers, or
 online inspection of screenshots, pages, notes, and project files.
 
@@ -144,7 +128,7 @@ Software.
 
 12. TERMINATION
 This license terminates automatically if you breach it. Upon termination you
-must uninstall the Software and stop using Boolean Cloud services.
+must uninstall the Software and stop using related Boolean account services.
 
 13. GENERAL
 If any provision of this agreement is held unenforceable, the remainder remains

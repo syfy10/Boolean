@@ -17,7 +17,7 @@ WHAT STAYS ON YOUR COMPUTER
   .saz\config.json in your user profile; protect this file like a password
 - Remote MCP server addresses and any Bearer tokens you save; connector
   secrets are stored locally and are not returned by Boolean's state API
-- Your Boolean Cloud session token after Google Sign-In, stored locally so the
+- Your Boolean account session token after Google Sign-In, stored locally so the
   app can stay signed in; sign out to remove it
 - Everything the agent reads or writes at your direction
 - A local Windows System Actions audit log at .saz\system-actions.jsonl,
@@ -28,23 +28,18 @@ WHAT BOOLEAN RECEIVES
 When you use only local models, Boolean receives nothing and works with the
 network cable unplugged.
 
-If you choose optional Boolean Cloud features, Boolean's backend may receive
-and store the minimum account and billing data needed to provide the service:
+If you choose optional Boolean account sign-in, Boolean's account service may
+receive and store the minimum identity and session data needed for the account:
 - Google account identifier, email, display name, and profile image
 - session records used to keep you signed in
-- token balance, token ledger, daily usage counters, and free-grant expiration
-- Stripe customer/payment/subscription status if paid billing is enabled
-- cloud AI requests and usage metadata needed to answer, bill, prevent abuse,
-  and troubleshoot the service
 
 WHEN DATA DOES LEAVE YOUR MACHINE
 Only in these cases, and only because you set them up:
 1. Cloud providers: if you add a provider API key and select that provider,
    your prompts and relevant context are sent to that provider's servers,
    governed by that provider's privacy policy.
-2. Boolean Cloud: if you sign in with Google and use cloud tokens, your account
-   information, prompts, relevant context, and usage counts may be sent to
-   Boolean's backend and then to the selected cloud model provider.
+2. Boolean account: Google Sign-In and session requests are sent to Boolean's
+   account service. AI prompts are not routed through account sign-in.
 3. Model downloads: downloading a model contacts the hosting service, such as
    Hugging Face, to fetch the file. Importing a model from a local drive
    contacts nothing.
@@ -78,21 +73,10 @@ Update checks do not upload your chats, prompts, files, notepad content, API
 keys, or local model data. Before installing an update after the app closes,
 Boolean backs up key local settings and chat data on your computer.
 
-FREE TOKENS AND USAGE LIMITS
-The first 1,000 new Google Sign-In users may receive a free cloud token grant,
-currently 100,000 tokens for the first 30 days with a 10,000 token daily cap.
-After the first 1,000 new signups, new accounts may start with no free tokens.
-Token use is metered and stored in the Boolean Cloud backend. For now, Boolean
-Cloud counts one word as one token. Provider usage may differ from this
-customer-facing meter. Free token amounts, daily caps, expiration, model
-access, and availability may change. The free cloud tier currently uses
-Qwen3-30B-A3B through Cloudflare Workers AI or another cloud model selected by
-Boolean.
-
-PAYMENTS
-If paid plans or token packs are enabled, payments are processed by Stripe.
-Boolean may store Stripe customer IDs, subscription/payment status, and related
-billing metadata, but Boolean should not store full card numbers.
+THIRD-PARTY CLOUD USAGE
+Cloud AI requests use the provider API key selected by the user. Each provider
+controls its own billing, quotas, retention, and acceptable-use terms. Boolean
+does not grant free AI tokens or sell token packs in this version.
 
 SOFTWARE NEEDED TO RUN BOOLEAN
 The standard Windows install is designed to be self-contained. Boolean bundles
@@ -105,8 +89,8 @@ Most Windows 11 PCs already include it. If WebView2 is missing, Windows or the
 installer/store may need to install the WebView2 Runtime.
 
 MINIMUM SYSTEM REQUIREMENTS
-- Cloud/online mode: 4 GB RAM, internet connection, WebView2, and a provider
-  API key or Boolean Cloud account.
+- Cloud mode: 4 GB RAM, internet connection, WebView2, and a supported
+  third-party provider API key.
 - Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, and a
   CPU with AVX2 preferred.
 - Recommended local agent use: 16 GB RAM and 20 GB free disk space for models,
@@ -119,7 +103,7 @@ Boolean is a developer tool and is not directed at children under 13.
 
 CHANGES
 Future versions of this policy ship with the software itself and may also be
-published with the Boolean Cloud backend when cloud account features are used.
+published with the Boolean account service when account features are used.
 
 CONTACT
 Boolean is developed by saz3 Labs.

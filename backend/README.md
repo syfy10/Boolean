@@ -1,6 +1,7 @@
-# Boolean Cloud Backend
+# Boolean Account Backend
 
-Cloudflare Worker backend for Boolean accounts, cloud tokens, and billing.
+Cloudflare Worker backend for Boolean account sign-in and administration. The
+desktop app connects to AI providers directly with user-supplied API keys.
 
 This backend owns secrets. The Windows app should never contain Google client
 secrets, Stripe secrets, or paid LLM provider keys.
@@ -10,9 +11,8 @@ secrets, Stripe secrets, or paid LLM provider keys.
 Implemented:
 
 - Google Sign-In device flow for the desktop app
-- D1 tables for users, sessions, login devices, token balance, and ledger
-- 100k free cloud tokens for the first 1,000 new Google sign-ins
-- 10k/day free-tier daily usage cap
+- D1 tables for users, sessions, and login devices
+- legacy token and billing tables retained for migration compatibility
 - 30-day expiration for signup tokens
 - word-based cloud metering for now: one word counts as one token
 - free-tier default model metadata set to Qwen3-30B-A3B on Workers AI
@@ -121,8 +121,8 @@ Authorization: Bearer SESSION_TOKEN
 | `ALLOWED_ORIGINS` | var | comma-separated app origins allowed by CORS |
 | `ADMIN_EMAILS` | var | comma-separated Google account emails promoted to admin with unlimited tokens |
 | `PUBLIC_APP_URL` | var | public Boolean/app URL for future billing redirects |
-| `FREE_TIER_PROVIDER` | var | default provider for free cloud token usage, currently `workers-ai` |
-| `FREE_TIER_MODEL` | var | default free cloud model, currently `@cf/qwen/qwen3-30b-a3b-fp8` |
+| `FREE_TIER_PROVIDER` | var | legacy compatibility setting; desktop managed AI is disabled |
+| `FREE_TIER_MODEL` | var | legacy compatibility setting; desktop managed AI is disabled |
 
 ## Routes
 
@@ -136,19 +136,14 @@ Authorization: Bearer SESSION_TOKEN
 | `/tokens/debit` | POST | authenticated token debit with balance, expiry, and daily-cap enforcement |
 | `/chat/completions` | POST | authenticated OpenAI-compatible cloud chat stream |
 | `/auth/logout` | POST | revoke current session |
-| `/admin` | GET | Boolean Cloud admin console |
+| `/admin` | GET | Boolean account admin console |
 | `/admin/api/*` | GET/POST | admin-only stats and account controls |
 
 ## Free signup token rules
 
-When a new user completes Google Sign-In for the first time:
-
-- the first `1,000` new cloud signups may receive `100,000` cloud tokens
-- after the first `1,000` new signups, new accounts start with `0` free tokens
-- free tokens expire after `30` days
-- free-tier usage is capped at `10,000` tokens per UTC day
-- cloud usage is currently metered as words: one word counts as one token
-- the free tier currently points to Qwen3-30B-A3B through Cloudflare Workers AI
+New accounts receive no managed AI token grant. Legacy token fields and routes
+remain in the Worker for database and admin compatibility, but the desktop app
+does not expose Boolean-managed AI access or token purchases.
 - usage debits are written to `token_ledger`
 
 These limits are enforced by `/tokens/debit` and `/chat/completions` before

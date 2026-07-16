@@ -8,7 +8,7 @@ import test from "node:test";
 import { requiresArtifactAction, runTurn, systemPrompt } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
-test("Boolean Cloud 401 responses become a sign-in-required error", async (t) => {
+test("third-party provider 401 responses do not affect Boolean account sign-in", async (t) => {
   const server = http.createServer(async (req, res) => {
     for await (const _chunk of req) { /* consume request */ }
     res.writeHead(401, { "content-type": "application/json" });
@@ -22,12 +22,10 @@ test("Boolean Cloud 401 responses become a sign-in-required error", async (t) =>
       base: `http://127.0.0.1:${server.address().port}`,
       apiKey: "expired-session",
       model: "test-cloud-model",
-      provider: "boolean",
+      provider: "glm",
       noStream: true
     }, [{ role: "user", content: "hello" }]),
-    (err) => err.code === "cloud_auth_required"
-      && err.status === 401
-      && err.message === "Your Boolean Cloud session expired. Sign in again to continue."
+    (err) => err.status === 401 && err.code !== "cloud_auth_required"
   );
 });
 
@@ -54,7 +52,7 @@ test("transient cloud failures retry without becoming sign-in failures", async (
     base: `http://127.0.0.1:${server.address().port}`,
     apiKey: "active-session",
     model: "test-cloud-model",
-    provider: "boolean",
+    provider: "glm",
     noStream: true
   }, [{ role: "user", content: "hello" }]);
 
@@ -62,7 +60,7 @@ test("transient cloud failures retry without becoming sign-in failures", async (
   assert.equal(result.content, "Recovered cloud response.");
 });
 
-test("exhausted cloud retries preserve the selected cloud session", async (t) => {
+test("exhausted cloud retries preserve the selected provider and API key", async (t) => {
   let calls = 0;
   const server = http.createServer(async (req, res) => {
     for await (const _chunk of req) { /* consume request */ }
@@ -78,11 +76,11 @@ test("exhausted cloud retries preserve the selected cloud session", async (t) =>
       base: `http://127.0.0.1:${server.address().port}`,
       apiKey: "active-session",
       model: "test-cloud-model",
-      provider: "boolean",
+      provider: "glm",
       noStream: true
     }, [{ role: "user", content: "hello" }]),
     (err) => err.code === "cloud_connection_interrupted"
-      && /still active/i.test(err.message)
+      && /API key are unchanged/i.test(err.message)
       && err.code !== "cloud_auth_required"
   );
   assert.equal(calls, 3);

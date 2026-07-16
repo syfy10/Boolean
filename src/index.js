@@ -102,7 +102,7 @@ function help() {
     [
       "",
       `${C.bold}commands${C.reset}`,
-      "  /provider [name]  show or switch provider: local | boolean | openai | glm | claude",
+      "  /provider [name]  show or switch provider: local | openai | glm | zaiCoding | claude",
       "  /model <name>     switch model for the current provider",
       "  /models           list models for the current provider",
       "  /pull <id>        download a local model (e.g. /pull gemma4-e4b)",

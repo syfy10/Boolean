@@ -14,7 +14,7 @@ const CONFIG_FILE = path.join(SAZ_DIR, "config.json");
 // pre-rename location (app used to be called sazcode)
 const LEGACY_CONFIG_FILE = path.join(os.homedir(), ".sazcode", "config.json");
 
-export const PROVIDERS = ["local", "boolean", "openai", "glm", "zaiCoding", "claude"];
+export const PROVIDERS = ["local", "openai", "glm", "zaiCoding", "claude"];
 // providers that need an API key, and the friendly label for each
 export const CLOUD = {
   openai: "OpenAI",
@@ -32,9 +32,6 @@ const DEFAULTS = {
     ctx: 32768,           // context window; auto-trimmed so prompts never overflow it
     mmprojMap: {},        // model file -> vision projector (.mmproj) file ("" = explicitly none)
     visionTestMap: {}     // "model|mmproj" -> { ok, message, at }
-  },
-  boolean: {
-    model: "@cf/qwen/qwen3-30b-a3b-fp8"
   },
   openai: {
     baseUrl: "https://api.openai.com/v1",

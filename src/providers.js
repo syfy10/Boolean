@@ -2,7 +2,7 @@
 // OpenAI chat-completions protocol, so one client covers everything. Claude uses
 // Anthropic's OpenAI-compatible endpoint.
 import * as engine from "./engine.js";
-import { CLOUD, CLOUD_BACKEND_URL, saveConfig } from "./config.js";
+import { CLOUD } from "./config.js";
 
 /**
  * Resolve the current provider to a chat target { base, apiKey, model, headers? }.
@@ -12,24 +12,6 @@ export async function resolveTarget(config, onStatus = () => {}) {
   if (config.provider === "local") {
     const { base, model } = await engine.ensureRunning(config, onStatus);
     return { base, apiKey: "local", model, provider: "local" };
-  }
-  if (config.provider === "boolean") {
-    const c = config.cloudBackend || {};
-    if (!c.sessionToken) {
-      throw new Error("Sign in to Boolean Cloud first. Use the Sign in button near Settings.");
-    }
-    const base = String(c.url || CLOUD_BACKEND_URL).replace(/\/+$/, "");
-    return {
-      base,
-      apiKey: c.sessionToken,
-      provider: "boolean",
-      model: config.boolean?.model || c.tokens?.default_model || "@cf/qwen/qwen3-30b-a3b-fp8",
-      noStream: true,
-      onCloudTokens: (tokens) => {
-        config.cloudBackend = { ...(config.cloudBackend || {}), tokens };
-        saveConfig(config);
-      }
-    };
   }
   if (CLOUD[config.provider]) {
     const p = config[config.provider];
@@ -91,8 +73,8 @@ function waitForRetry(ms, signal) {
 
 function cloudConnectionError(interrupted = false, cause) {
   const err = new Error(interrupted
-    ? "The Cloud connection was interrupted. Your Cloud selection and sign-in are still active. Retry this message."
-    : "Could not reach the Cloud model. Your Cloud selection and sign-in are still active. Check your connection and retry.");
+    ? "The Cloud connection was interrupted. Your selected provider and saved API key are unchanged. Retry this message."
+    : "Could not reach the Cloud model. Your selected provider and saved API key are unchanged. Check your connection and retry.");
   err.code = "cloud_connection_interrupted";
   err.cause = cause;
   return err;
@@ -144,13 +126,6 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
   }
   if (!res.ok) {
     const errText = await res.text();
-    if (res.status === 401 && target.provider === "boolean") {
-      const err = new Error("Your Boolean Cloud session expired. Sign in again to continue.");
-      err.status = res.status;
-      err.code = "cloud_auth_required";
-      err.body = errText;
-      throw err;
-    }
     const err = new Error(`${res.status}: ${errText.slice(0, 400)}`);
     err.status = res.status;
     err.body = errText;
@@ -242,7 +217,7 @@ export async function chatCompletion(target, messages, tools, signal, onToken) {
     try {
       return await chatCompletionOnce(target, messages, tools, signal, trackedToken);
     } catch (err) {
-      if (err?.name === "AbortError" || err?.code === "cloud_auth_required" || !cloud) throw err;
+      if (err?.name === "AbortError" || !cloud) throw err;
       const retryable = err?.code === "cloud_transport_error" || RETRYABLE_CLOUD_STATUSES.has(err?.status);
       if (!retryable) throw err;
       if (emitted) throw cloudConnectionError(true, err);
@@ -255,7 +230,6 @@ export async function chatCompletion(target, messages, tools, signal, onToken) {
 
 // static fallbacks when a provider has no usable /models endpoint
 const STATIC_MODELS = {
-  boolean: ["@cf/qwen/qwen3-30b-a3b-fp8"],
   openai: ["gpt-5.1", "gpt-5.1-codex", "gpt-5-mini", "gpt-4.1"],
   glm: ["glm-4.6", "glm-4.5", "glm-4.5-air"],
   zaiCoding: ["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"],
@@ -302,10 +276,6 @@ export async function listProviderModels(config) {
       ...catalog
     ];
   }
-  if (config.provider === "boolean") {
-    const model = config.boolean?.model || config.cloudBackend?.tokens?.default_model || "@cf/qwen/qwen3-30b-a3b-fp8";
-    return [{ name: model, installed: true }];
-  }
   if (CLOUD[config.provider]) {
     const p = config[config.provider];
     try {
@@ -330,7 +300,6 @@ export async function backendUp(config) {
     if (config.provider === "local") {
       return engine.listLocalModels().length > 0 && !!engine.findEngineBinary();
     }
-    if (config.provider === "boolean") return !!config.cloudBackend?.sessionToken;
     if (CLOUD[config.provider]) {
       if (config.provider === "zaiCoding" && !config.zaiCoding?.approvedUse) return false;
       return !!config[config.provider].apiKey;

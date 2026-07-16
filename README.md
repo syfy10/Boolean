@@ -12,7 +12,6 @@ Available providers (Settings or `/provider`):
 | provider | what it is | needs |
 |---|---|---|
 | **local** (default) | built-in llama.cpp engine, GGUF models in `~/.saz/models` | nothing — self-contained |
-| **Boolean Cloud** | Boolean-managed cloud model access | Google Sign-In and available cloud tokens |
 | **openai** | OpenAI cloud API | API key (`/key openai sk-...`) |
 | **glm** | Z.AI standard GLM API | API key (`/key glm ...`) |
 | **Z.AI Coding Plan** | separate Z.AI coding-plan endpoint | API key and provider-approved/supported use |
@@ -24,7 +23,7 @@ MCP servers are independent third parties; their terms, data handling, and
 charges apply.
 
 Cloud mode also includes **Compare (Beta)** in the message composer. Pick two
-Boolean Cloud or saved API models and send one prompt to both. Replies stream
+saved API models and send one prompt to both. Replies stream
 into separate labeled bubbles; one provider can fail without cancelling the
 other. Compare is answer-only and never duplicates tools or computer actions.
 
@@ -93,8 +92,8 @@ Required:
 
 Minimum system requirements:
 
-- Cloud/online mode: 4 GB RAM, internet connection, WebView2, and a provider
-  API key or Boolean Cloud account
+- Cloud mode: 4 GB RAM, internet connection, WebView2, and a supported
+  third-party provider API key
 - Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, and a
   CPU with AVX2 preferred
 - Recommended local agent use: 16 GB RAM and 20 GB free disk space for models,
@@ -129,31 +128,22 @@ about 94 MB raw and land around 155-170 MB compressed, with installed size aroun
 350 MB. That starter should be treated as a basic prompt model; Qwen2.5-3B or
 larger is still recommended for serious chat, coding, browser control, and tools.
 
-## Cloud backend
+## Account backend
 
-Boolean's local app stays usable offline. Paid cloud features live in the
+Boolean's local app stays usable offline. Optional account features live in the
 separate Cloudflare Worker backend under `backend/`:
 
 - Google Sign-In
 - user sessions
-- token balance storage
-- 100k free signup cloud tokens for the first 1,000 new cloud signups
-- 10k/day free-tier usage cap
-- word-based cloud metering for now: one word counts as one token
-- free-tier default model metadata for Qwen3-30B-A3B on Workers AI
-- Stripe checkout/webhooks when billing is enabled
-- authenticated cloud AI proxy with balance and daily-limit enforcement
-- admin console for account, token, unlimited-access, and ban management
+- account administration and ban management
+- legacy token/billing schema retained for migration compatibility
 
-Secrets such as Google client secrets, Stripe secrets, and paid LLM provider keys
-belong only in the backend, never inside the Windows installer.
+Secrets such as Google client secrets belong only in the backend. User-supplied
+AI provider keys are saved locally by the desktop app.
 
-Optional cloud accounts change the privacy model only for cloud features. Local
-mode remains offline. If a user signs in with Google or uses cloud tokens,
-Boolean Cloud may store account identity, token balance, usage counters,
-free-grant expiration, default cloud model access such as Qwen3-30B-A3B,
-Stripe billing status if enabled, and cloud request metadata needed to
-provide and protect the service.
+Optional Boolean account sign-in is separate from AI access. Local mode remains
+offline. Cloud AI uses the third-party provider API key selected by the user;
+provider terms, billing, quotas, and privacy policies apply independently.
 
 ### Building the installer from source
 
@@ -216,7 +206,7 @@ wants to do and asks `[y]es / [n]o / [a]lways this session`.
 
 | command | what it does |
 |---|---|
-| `/provider [name]` | switch provider: local, Boolean Cloud, OpenAI, GLM, Z.AI Coding Plan, or Claude |
+| `/provider [name]` | switch provider: local, OpenAI, GLM, Z.AI Coding Plan, or Claude |
 | `/model <name>` | switch model for the current provider |
 | `/models` | list models for the current provider |
 | `/pull <id>` | download a local model (e.g. `/pull gemma4-e4b`) |
@@ -232,7 +222,7 @@ The installer shows and requires acceptance of `LICENSE.txt` (as-is, no
 warranty, user responsible for approved commands). First launch asks for
 in-app acceptance too. `PRIVACY.txt`: local mode has no telemetry/tracking, and
 data leaves the machine only when the user chooses a network feature such as a
-cloud provider, Boolean Cloud, a remote MCP server, model download, web browse,
+cloud provider, Boolean account sign-in, a remote MCP server, model download, web browse,
 software install, update, or screenshot/page content sent to an online model.
 
 ## Config

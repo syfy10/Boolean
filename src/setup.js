@@ -69,7 +69,6 @@ async function ensureApiKey(config, ask, C, provider) {
  */
 export async function ensureReady(config, ask, C) {
   if (config.provider === "local") return ensureLocal(config, ask, C);
-  if (config.provider === "boolean") return !!config.cloudBackend?.sessionToken;
   if (CLOUD[config.provider]) return ensureApiKey(config, ask, C, config.provider);
   return false;
 }

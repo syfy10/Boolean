@@ -696,6 +696,7 @@
   .download-ico:before{ content:""; position:absolute; left:7px; top:2px; width:2px; height:8px; background:currentColor; border-radius:2px; }
   .download-ico:after{ content:""; position:absolute; left:4px; top:7px; width:8px; height:8px; border-left:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); }
   .model-library{ display:flex; flex-direction:column; gap:6px; margin:4px 0 10px; }
+  .model-library-head{ margin:5px 3px 0; color:var(--label); font-size:10px; font-weight:700; letter-spacing:.35px; text-transform:uppercase; }
   .model-card{ border:0; border-radius:9px; background:var(--bubble); padding:8px 9px; cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--text); }
   .model-card:hover{ background:var(--hover); }
   .model-card .model-line{ flex:1; min-width:0; padding-right:6px; }
@@ -769,6 +770,11 @@
   #settingsPanel .thirdparty-tabs button{ flex:0 0 auto; min-width:70px; border-radius:0; padding:6px 9px; border-bottom:2px solid transparent; }
   #settingsPanel .thirdparty-tabs button.on{ background:transparent; color:var(--text); border-bottom-color:var(--green); }
   #settingsPanel .thirdparty-provider[hidden]{ display:none; }
+  .zai-key-control{ position:relative; width:min(100%,380px); margin-top:6px; }
+  #settingsPanel .setrow .zai-key-control input[type=password]{ width:100%; min-width:0; padding-right:36px; box-sizing:border-box; }
+  .zai-key-paste{ position:absolute; top:50%; right:3px; width:30px; height:28px; transform:translateY(-50%);
+    border:0; border-radius:6px; background:transparent; color:var(--muted); display:grid; place-items:center; padding:0; cursor:pointer; }
+  .zai-key-paste:hover{ color:var(--text); background:var(--hover); }
   #settingsPanel .usagebody,#settingsPanel .usage-grid{ font-size:var(--fs-xs); }
   #settingsPanel #projdir{ display:block; max-width:132px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .memory-list{ display:flex; flex-direction:column; gap:5px; margin-top:6px; }
@@ -845,7 +851,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.13</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.13</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -866,7 +872,6 @@
             <div>Provider<div class="hint">where the model runs</div></div>
             <select id="providersel">
               <option value="local">Local (built-in)</option>
-              <option value="boolean">Boolean Cloud</option>
               <option value="openai">OpenAI</option>
               <option value="glm">GLM (Z.ai)</option>
               <option value="zaiCoding">Z.AI Coding Plan</option>
@@ -924,9 +929,9 @@
             </div>
             <div class="setrow" style="display:block">
               <div>API key<div class="hint" id="zaiCodingKeyHint">not set</div></div>
-              <div style="display:flex;gap:5px;margin-top:6px">
-                <input type="password" id="zaiCodingKey" autocomplete="off" spellcheck="false" placeholder="Paste Z.AI key" style="width:100%;min-width:0">
-                <button class="minibtn" id="zaiCodingPaste" type="button" title="Paste API key">Paste</button>
+              <div class="zai-key-control">
+                <input type="password" id="zaiCodingKey" autocomplete="off" spellcheck="false" placeholder="Paste Z.AI key">
+                <button class="zai-key-paste" id="zaiCodingPaste" type="button" title="Paste API key" aria-label="Paste API key"><span class="paste-ico" aria-hidden="true"></span></button>
               </div>
             </div>
             <label class="setrow" style="align-items:flex-start;cursor:pointer">
@@ -1099,7 +1104,7 @@
       Settings
     </button>
 
-    <button class="navbtn" id="cloudSignIn" title="Sign in to Boolean Cloud">
+    <button class="navbtn" id="cloudSignIn" title="Sign in to your Boolean account">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
       <span id="cloudSignInText">Sign in</span>
     </button>
@@ -1115,7 +1120,7 @@
     </button>
     <div class="netseg" id="netmode">
       <button data-net="local" title="Use the built-in local model — nothing leaves your PC">Local</button>
-      <button data-net="online" title="Use Boolean Cloud or a saved cloud API (OpenAI / GLM / Claude)">Cloud</button>
+      <button data-net="online" title="Use a saved provider API key (OpenAI / GLM / Z.AI / Claude)">Cloud</button>
     </div>
     <button class="icon-btn" id="newchat" title="New chat" aria-label="New chat">
       <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -1295,7 +1300,7 @@
   <div style="font-size:13.5px;line-height:1.6;color:var(--text)">
     <p style="margin-bottom:10px">This is an AI agent that can <b>run commands and edit files</b> on this PC — always with your approval unless you enable auto-approve.</p>
     <p style="margin-bottom:10px">AI makes mistakes. Review what it asks to do. The software is provided <b>as-is, without warranty</b>; you are responsible for what runs on your machine.</p>
-    <p style="margin-bottom:10px">Local mode runs on your PC. Optional cloud sign-in/tokens send only what is needed for those services. Full terms: <b>LICENSE.txt</b> and <b>PRIVACY.txt</b> in the install folder.</p>
+    <p style="margin-bottom:10px">Local mode runs on your PC. Cloud mode sends relevant content to the third-party provider whose API key you choose. Account sign-in is separate from AI access. Full terms: <b>LICENSE.txt</b> and <b>PRIVACY.txt</b> in the install folder.</p>
   </div>
   <button class="closebtn" id="acceptEula" style="background:var(--accent);color:var(--accent-text);border-color:var(--accent)">I agree — continue</button>
   <button class="closebtn" id="declineEula">Decline</button>
@@ -1509,7 +1514,7 @@
     }finally{ navRestoring=false; updateAppBack(); }
   }
   let attachments=[]; // {kind:'image'|'file', name, dataURL?, text?}
-  const PROVIDER_LABELS={ local:"Local", boolean:"Boolean Cloud", openai:"OpenAI", glm:"GLM", zaiCoding:"Z.AI Coding Plan", claude:"Claude" };
+  const PROVIDER_LABELS={ local:"Local", openai:"OpenAI", glm:"GLM", zaiCoding:"Z.AI Coding Plan", claude:"Claude" };
   const CTX_STEPS=[4096,8192,16384,32768,65536,131072,262144];
   const fmtCtx=(n)=>n>=1048576?Math.round(n/1048576)+"m":Math.round(n/1024)+"k";
   const displayName=(m)=>(m||"").replace(/^@cf\/[^/]+\//,"").replace(/\.gguf$/i,"").replace(/-Instruct-Q\d.*$/i,"").replace(/^google_/,"");
@@ -1519,14 +1524,12 @@
     if(/^glm-4\.7-flash$/i.test(name)) return "GLM-4.7 Flash";
     return name;
   };
-  const booleanCloudModel=()=>state.cloudBackend?.tokens?.default_model||(state.provider==="boolean"?state.model:"")||"@cf/qwen/qwen3-30b-a3b-fp8";
-  const tokenLabel=(tokens)=>tokens?.unlimited_tokens?"Unlimited tokens":Number.isFinite(Number(tokens?.balance_tokens))?Number(tokens.balance_tokens).toLocaleString()+" tokens":"Sign in to use tokens";
   const providerModelName=(prov)=>displayName((state.providerModels&&state.providerModels[prov])||(state.provider===prov?state.model:""));
   function shortAiName(provider,model){
     const value=String(model||"").toLowerCase();
     if(/\b(gpt|o[1345](?:\b|-))/.test(value)||provider==="openai") return "GPT";
     if(/claude/.test(value)||provider==="claude") return "Claude";
-    if(/glm|zai|z\.ai/.test(value)||provider==="glm"||provider==="zaiCoding"||provider==="boolean") return "GLM";
+    if(/glm|zai|z\.ai/.test(value)||provider==="glm"||provider==="zaiCoding") return "GLM";
     if(/qwen/.test(value)) return "Qwen";
     if(/gemma/.test(value)) return "Gemma";
     if(/llama/.test(value)) return "Llama";
@@ -1701,7 +1704,7 @@
     const d=document.createElement("div"); d.className="status model-error";
     const raw=String(entry.text||"Unknown error");
     const cloudAuth=/cloud session expired|(?:401[^\n]*unauthorized)|(?:request_error[^\n]*unauthorized)/i.test(raw);
-    const clean=cloudAuth?"Your Boolean Cloud session expired. Sign in again to continue.":raw;
+    const clean=cloudAuth?"Your Boolean account session expired. Sign in again to continue.":raw;
     const msg=document.createElement("span"); msg.textContent="⚠ "+clean; d.appendChild(msg);
     if(cloudAuth){
       d.classList.add("cloud-auth-error");
@@ -1934,12 +1937,11 @@
     if(cloud.signedIn){
       const name=(user.name||user.email||"Account").split(/\s+/)[0];
       label.textContent=name.length>13?name.slice(0,12)+"…":name;
-      const balance=tokenLabel(cloud.tokens);
-      const role=user.role==="admin"?"Admin · ":"";
-      btn.title=(user.email?user.email+" · ":"")+role+balance;
+      const role=user.role==="admin"?" · Admin":"";
+      btn.title=(user.email||"Boolean account")+role;
     } else {
       label.textContent="Sign in";
-      btn.title=cloud.url?"Sign in to Boolean Cloud":"Set backend URL and sign in";
+      btn.title=cloud.url?"Sign in to your Boolean account":"Set account service URL and sign in";
     }
   }
 
@@ -1948,7 +1950,7 @@
   async function ensureCloudBackendUrl(){
     let url=(state.cloudBackend&&state.cloudBackend.url)||"";
     if(url) return url;
-    url=prompt("Boolean Cloud backend URL","http://localhost:8787");
+    url=prompt("Boolean account service URL","http://localhost:8787");
     if(url===null) return "";
     url=url.trim();
     if(!url) return "";
@@ -1979,7 +1981,7 @@
         const sr=await fetch("/api/cloud/login/status?device_id="+encodeURIComponent(data.device_id));
         const status=await sr.json().catch(()=>({}));
         if(status.status==="complete"){
-          tempToast("Signed in to Boolean Cloud.");
+          tempToast("Signed in to your Boolean account.");
           try{ win.close(); }catch{}
           await refresh();
           return;
@@ -1996,8 +1998,8 @@
     const cloud=state.cloudBackend||{};
     if(!cloud.signedIn) return startCloudSignIn();
     const user=cloud.user||{};
-    const role=user.role==="admin"?"Admin\n":"";
-    const ok=await appConfirm("Boolean Cloud",`${user.email||"Signed in"}\n${role}${tokenLabel(cloud.tokens)}`,"Sign out");
+    const role=user.role==="admin"?"\nAdmin account":"";
+    const ok=await appConfirm("Boolean account",`${user.email||"Signed in"}${role}`,"Sign out");
     if(!ok) return;
     await fetch("/api/cloud/logout",{method:"POST",body:JSON.stringify({})});
     tempToast("Signed out.");
@@ -2265,18 +2267,6 @@
     await fetch("/api/config",{method:"POST",body:JSON.stringify({model:file})});
     await refresh();
   }
-  async function selectBooleanCloud(){
-    if(!state.cloudBackend?.signedIn){
-      $("modelmenu").classList.remove("open");
-      await startCloudSignIn();
-      if(!state.cloudBackend?.signedIn) return;
-    }
-    const model=booleanCloudModel();
-    $("modelmenu").classList.remove("open");
-    await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"boolean",model})});
-    tempToast("Boolean Cloud selected.");
-    await refresh();
-  }
   async function pullModel(m,item,force=false){
     const file=m.name||m.file;
     const downloadId=m.id||file;
@@ -2316,10 +2306,40 @@
     item.querySelector(".remove")?.addEventListener("click",e=>{ e.stopPropagation(); removeInstalledModel(rec.file,item); });
     return item;
   }
+  function makeInstalledRow(model,compact=false){
+    const rec=RECOMMENDED_MODELS.find(r=>r.file===model.name);
+    if(rec) return makeRecRow(rec,compact);
+    const bad=model.healthy===false;
+    const selected=!bad&&model.name===state.model;
+    const item=document.createElement("div");
+    item.className=(compact?"model-card":"item model-rec")+(selected?" selected":"")+(bad?" needs-repair":"");
+    item.title=bad?(model.healthReason||"Model file needs repair"):(model.vision?"Vision-capable (matching .mmproj found)":"Use "+displayName(model.name));
+    item.innerHTML='<span class="model-line"><b>'+esc(displayName(model.name))+'</b><small>'+(model.vision?"Vision - screenshots and images":"Local GGUF model")+(bad?' - needs a clean copy':'')+'</small></span><span class="model-actions"><span class="model-dl">'+(bad?"Repair":(selected?"Selected":"Use"))+'</span>'+(bad?'<button class="model-mini repair" type="button" title="Repair model" aria-label="Repair model">&#8635;</button>':'')+'<button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button></span>';
+    item.onclick=bad?()=>redownloadInstalledModel(model.name,item):()=>selectLocalModel(model.name);
+    item.querySelector(".repair")?.addEventListener("click",e=>{ e.stopPropagation(); redownloadInstalledModel(model.name,item); });
+    item.querySelector(".remove")?.addEventListener("click",e=>{ e.stopPropagation(); removeInstalledModel(model.name,item); });
+    return item;
+  }
+  function appendLibraryHead(parent,text,compact=false){
+    const head=document.createElement("div");
+    head.className=compact?"model-library-head":"model-head";
+    head.textContent=text;
+    parent.appendChild(head);
+  }
   function renderModelLibrary(){
     const el=$("modelLibrary"); if(!el) return;
     el.innerHTML="";
-    RECOMMENDED_MODELS.forEach(rec=>el.appendChild(makeRecRow(rec,true)));
+    const recommended=RECOMMENDED_MODELS.filter(rec=>!installedModel(rec.file));
+    const installed=(state.models||[]).filter(model=>model.installed!==false);
+    if(recommended.length){
+      appendLibraryHead(el,"Recommended for local",true);
+      recommended.forEach(rec=>el.appendChild(makeRecRow(rec,true)));
+    }
+    if(installed.length){
+      appendLibraryHead(el,"Installed",true);
+      installed.forEach(model=>el.appendChild(makeInstalledRow(model,true)));
+    }
+    if(!el.children.length) el.innerHTML='<div class="hint">No local models available.</div>';
   }
   let openApiProvider="";
   const apiModelCache={};
@@ -2433,20 +2453,6 @@
     const q=(filter||"").toLowerCase();
     const matches=(text)=>!q || String(text||"").toLowerCase().includes(q);
     if(state.provider!=="local"){
-      const cloud=state.cloudBackend||{};
-      const cloudModel=friendlyModelName(booleanCloudModel());
-      if(matches("boolean cloud "+cloudModel+" tokens online")){
-        const head=document.createElement("div"); head.className="model-head"; head.textContent="Boolean Cloud";
-        list.appendChild(head);
-        const item=document.createElement("div");
-        item.className="item model-rec"+(state.provider==="boolean"?" selected":"");
-        const action=cloud.signedIn?(state.provider==="boolean"?"Selected":"Use"):"Sign in";
-        const balance=tokenLabel(cloud.tokens);
-        const daily=!cloud.tokens?.unlimited_tokens&&Number.isFinite(Number(cloud.tokens?.daily_remaining_tokens))?" · "+Number(cloud.tokens.daily_remaining_tokens).toLocaleString()+" today":"";
-        item.innerHTML='<span class="model-line"><b>'+esc(cloudModel)+'</b><small>Boolean Cloud - '+esc(balance+daily)+'</small></span><span class="model-dl">'+action+'</span>';
-        item.onclick=selectBooleanCloud;
-        list.appendChild(item);
-      }
       const apiRows=Object.entries(state.cloud||{});
       const visibleApi=apiRows.filter(([prov,label])=>matches(label+" "+prov+" api "+providerModelName(prov)));
       if(visibleApi.length){
@@ -2464,27 +2470,19 @@
           list.appendChild(item);
         });
       }
-      if(!list.children.length) list.innerHTML='<div class="item">no cloud models found</div>';
+      if(!list.children.length) list.innerHTML='<div class="item">Add an API key to use Cloud mode.</div>';
       return;
     }
-    const recs=RECOMMENDED_MODELS.filter(r=>(r.name+" "+r.file+" "+r.label+" "+r.note).toLowerCase().includes(q));
+    const recs=RECOMMENDED_MODELS.filter(r=>!installedModel(r.file)&&(r.name+" "+r.file+" "+r.label+" "+r.note).toLowerCase().includes(q));
     if(recs.length){
-      const head=document.createElement("div"); head.className="model-head"; head.textContent="Recommended for local";
-      list.appendChild(head);
+      appendLibraryHead(list,"Recommended for local");
       recs.forEach(r=>list.appendChild(makeRecRow(r,false)));
     }
-    const seen=new Set(RECOMMENDED_MODELS.map(r=>r.file));
-    const others=(state.models||[]).filter(m=>!seen.has(m.name)&&m.name.toLowerCase().includes(q));
-    if(others.length){
-      const head=document.createElement("div"); head.className="model-head"; head.textContent="Installed";
-      list.appendChild(head);
+    const installed=(state.models||[]).filter(m=>m.installed!==false&&matches((RECOMMENDED_MODELS.find(r=>r.file===m.name)?.name||"")+" "+m.name));
+    if(installed.length){
+      appendLibraryHead(list,"Installed");
     }
-    others.forEach(m=>{
-      const item=document.createElement("div"); item.className="item";
-      if(m.installed===false){ item.innerHTML="<span>"+esc(displayName(m.name))+'</span><span class="dl">Download '+esc(m.size||"")+"</span>"; item.title=m.note||""; item.onclick=()=>pullModel(m,item); }
-      else { const bad=m.healthy===false; item.classList.toggle("needs-repair",bad); item.innerHTML='<span>'+esc(displayName(m.name))+(m.vision?" Vision":"")+(bad?'<small class="model-bad">Needs a clean copy</small>':'')+'</span><span class="model-actions">'+(!bad&&m.name===state.model?'<span class="check">Selected</span>':'')+'<button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button></span>'; item.title=bad?(m.healthReason||"Model file needs repair"):(m.vision?"Vision-capable (matching .mmproj found)":""); item.onclick=bad?()=>removeInstalledModel(m.name,item):()=>selectLocalModel(m.name); item.querySelector(".remove").onclick=e=>{ e.stopPropagation(); removeInstalledModel(m.name,item); }; }
-      list.appendChild(item);
-    });
+    installed.forEach(model=>list.appendChild(makeInstalledRow(model,false)));
     if(!list.children.length) list.innerHTML='<div class="item">no models available</div>';
   }
 
@@ -2502,10 +2500,6 @@
   }
   async function loadCompareCatalog(){
     const catalog=[];
-    if(state.cloudBackend?.signedIn){
-      const model=booleanCloudModel();
-      catalog.push({provider:"boolean",model,label:`Boolean Cloud - ${friendlyModelName(model)}`});
-    }
     const providers=Object.keys(state.cloud||{}).filter((provider)=>state.keys?.[provider]);
     const groups=await Promise.all(providers.map(async(provider)=>{
       try{
@@ -2537,7 +2531,7 @@
     fillCompareSelect($("compareA"),saved[0]||compareId(compareCatalog[0]));
     fillCompareSelect($("compareB"),saved[1]||compareId(compareCatalog[1]));
     note.textContent=compareCatalog.length<2
-      ? "Add another API key or sign in to Boolean Cloud to compare two models."
+      ? "Add API keys for two provider models to use Compare."
       : "Answer-only mode. Uses both models and about 2x tokens.";
     apply.disabled=compareCatalog.length<2;
   }
@@ -3240,10 +3234,8 @@
     }catch(err){ if(err.name!=="AbortError" && viewingRun()) insertAbove(makeErr("connection error: "+err.message)); }
     if(run&&run.statusEl&&run.statusEl.isConnected) run.statusEl.remove();
     const holdQueue=!!run?.holdQueue;
-    const wasBoolean=state.provider==="boolean";
     lastRunWasCompare=!!run?.compare;
     run=null; currentAbort=null; updateSendButton(); renderThreads();
-    if(wasBoolean) await refresh();
     // auto-send the next queued message for this thread
     const q=queues[tid];
     if(q&&q.length&&!holdQueue&&!queuePaused[tid]){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
@@ -3392,15 +3384,11 @@ Boolean, developed by saz3 Labs, grants you a personal, non-exclusive license to
 2. AI OUTPUT CAN MAKE MISTAKES
 AI output may be inaccurate or wrong. You are responsible for reviewing commands, file changes, browser actions, and messages before approving them. Auto-approve runs actions with less review.
 
-3. OPTIONAL BOOLEAN CLOUD, ACCOUNTS, AND TOKENS
-Boolean can be used locally without a Boolean account. Optional cloud features may require Google Sign-In and may use a cloud token balance.
-
-The first 1,000 new cloud signups may receive a limited free cloud token grant, currently 100,000 tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another cloud model selected by Boolean. Free grants, limits, models, prices, and availability may change or be discontinued.
-
-Cloud tokens are usage credits for optional cloud AI features. They are not cash, have no cash value, are not transferable, and may expire. For now, Boolean Cloud meters usage by words: one word counts as one token. Provider usage may differ from this customer-facing meter.
+3. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
+Boolean can be used locally without an account. Cloud AI uses an API key you supply for a supported third-party provider and does not require Boolean sign-in. Provider terms, usage limits, and charges apply. Boolean account sign-in is separate from AI-provider access.
 
 4. PRIVACY
-Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as cloud providers, Boolean Cloud sign-in/token features, model downloads, web browsing, remote MCP servers, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boolean or otherwise supports that use.
+Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web browsing, remote MCP servers, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boolean or otherwise supports that use.
 
 5. SOFTWARE UPDATES
 Boolean may periodically check the saz3 Labs GitHub release service for a newer version. It may download an approved installer in the background, verify its SHA-256 hash, and notify you when it is ready. Installation begins after you close Boolean, and the app may reopen afterward. Key local settings and chat data are backed up before updating.
@@ -3423,18 +3411,18 @@ WHAT STAYS ON YOUR COMPUTER
 - Any bundled starter model included with the installer
 - Settings and API keys in .saz/config.json
 - Remote MCP server addresses and any Bearer tokens you save
-- Boolean Cloud session token after Google Sign-In
+- Boolean account session token after Google Sign-In
 - Files the agent reads or writes at your direction
 
 WHAT BOOLEAN RECEIVES
 When you use only local models, Boolean receives nothing.
 
-If you choose optional Boolean Cloud features, Boolean's backend may receive and store the minimum account and billing data needed to provide the service: Google account identifier, email, display name, profile image, session records, token balance, token ledger, daily usage counters, free-grant expiration, Stripe billing status if enabled, and cloud AI usage metadata.
+If you choose optional Boolean account sign-in, Boolean's account service may receive and store the minimum identity and session data needed to provide the account: Google account identifier, email, display name, profile image, and session records. Account sign-in does not provide or route AI model access.
 
 WHEN DATA LEAVES YOUR MACHINE
 Data leaves only when you choose features that require it:
 1. Cloud providers: prompts and relevant context are sent to the selected provider.
-2. Boolean Cloud: Google Sign-In, token metering, cloud prompts, and usage counts may be sent to Boolean's backend and then to the selected cloud model provider.
+2. Boolean account: Google Sign-In and session requests are sent to Boolean's account service. AI prompts are not routed through account sign-in.
 3. Model downloads: downloading a model contacts the hosting service.
 4. Web browsing/search: requests go to the sites/search engines involved.
 5. Installation helpers: tools such as winget contact their own servers.
@@ -3445,11 +3433,8 @@ Data leaves only when you choose features that require it:
 THIRD-PARTY SERVICES
 Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, and Stripe terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boolean or otherwise supports the user's use.
 
-FREE TOKENS AND USAGE LIMITS
-The first 1,000 new Google Sign-In users may receive 100,000 free cloud tokens for the first 30 days with a 10,000 token daily cap. After the first 1,000 new signups, new accounts may start with no free tokens. The free cloud tier currently uses Qwen3-30B-A3B through Cloudflare Workers AI or another cloud model selected by Boolean. For now, Boolean Cloud counts one word as one token. Provider usage may differ from this customer-facing meter. Free token amounts, daily caps, expiration, model access, and availability may change.
-
-PAYMENTS
-If paid plans or token packs are enabled, payments are processed by Stripe. Boolean may store Stripe customer IDs, subscription/payment status, and billing metadata, but should not store full card numbers.
+THIRD-PARTY CLOUD USAGE
+Cloud AI requests use the provider API key selected by the user. Each provider controls its own billing, quotas, retention, and acceptable-use terms. Boolean does not grant free AI tokens or sell token packs in this version.
 
 CONTACT
 Boolean is developed by saz3 Labs.
@@ -3462,7 +3447,7 @@ Required:
 - Microsoft Edge WebView2 Runtime if it is not already installed
 
 Minimum system requirements:
-- Cloud/online mode: 4 GB RAM, internet connection, WebView2, and a provider API key or Boolean Cloud account
+- Cloud mode: 4 GB RAM, internet connection, WebView2, and a supported third-party provider API key
 - Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, CPU with AVX2 preferred
 - Recommended local agent use: 16 GB RAM and 20 GB free disk space for models, project files, downloads, and update staging
 - Starter model mode: SmolLM2-135M can run on lower-end PCs, but quality is limited
@@ -3530,12 +3515,12 @@ Optional bundled starter model:
     }
     if(net==="local"){ await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local"})}); await refresh(); return; }
     const cloud=state.cloud||{}, keys=state.keys||{};
-    let prov=state.cloudBackend?.signedIn?"boolean":((state.provider!=="local"&&keys[state.provider])?state.provider:Object.keys(cloud).find(p=>keys[p]));
+    let prov=(state.provider!=="local"&&keys[state.provider])?state.provider:Object.keys(cloud).find(p=>keys[p]);
     if(prov){
       const wasLocal=state.provider==="local";
       await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov})});
       await refresh();
-      if(wasLocal) tempToast(prov==="boolean"?"Cloud mode: Boolean Cloud tokens will be used.":"Cloud mode: requests may use your saved cloud API.");
+      if(wasLocal) tempToast("Cloud mode: requests use your saved provider API key.");
     }
     else {
       await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"openai"})});
@@ -3544,7 +3529,7 @@ Optional bundled starter model:
       $("modelsearch").value="";
       renderModelList("");
       $("modelsearch").focus();
-      tempToast("Choose Boolean Cloud or add an API key.");
+      tempToast("Add an API key to use Cloud mode.");
     }
   }
   document.querySelectorAll("#netmode button").forEach(b=>b.onclick=()=>selectNet(b.dataset.net));
