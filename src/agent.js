@@ -221,6 +221,38 @@ function looksLikeMalformedNativeToolCall(err) {
     .test(text);
 }
 
+function looksLikeUnsupportedImageContent(err) {
+  const text = errorChainText(err);
+  return /"?code"?\s*:\s*"?1210"?|messages?\.content\.type.{0,80}(?:invalid|allowed values?.{0,20}text)|image_url.{0,50}(?:unsupported|invalid|not allowed)/i
+    .test(text);
+}
+
+function withTextOnlyContent(messages) {
+  return messages.map((message) => {
+    if (!Array.isArray(message?.content)) return message;
+    const text = message.content
+      .filter((part) => part?.type === "text")
+      .map((part) => String(part.text || ""))
+      .filter(Boolean)
+      .join("\n\n");
+    return { ...message, content: text || "An image was captured, but this model accepts text only. Continue using the tool result and page text." };
+  });
+}
+
+function persistScreenshotTextFallback(messages) {
+  for (const message of messages) {
+    if (!Array.isArray(message?.content)) continue;
+    const text = message.content
+      .filter((part) => part?.type === "text")
+      .map((part) => String(part.text || ""))
+      .filter(Boolean)
+      .join("\n\n");
+    if (/^Here is the screenshot you captured\b/i.test(text)) {
+      message.content = `${text}\n\nThe selected model accepts text only, so continue from the screenshot tool result and page text.`;
+    }
+  }
+}
+
 // rough token estimate for context-budget trimming. ~3.3 chars/token is
 // deliberately conservative (code and shell output are token-dense) so the
 // estimate errs on the side of trimming more, never overflowing the window.
@@ -494,8 +526,10 @@ export async function runTurn(ctx, messages) {
   let actionRetryAttempted = false;
   let completedToolWork = false;
   let emptyResponseRetries = 0;
+  let textOnlyContentFallback = false;
   let autoContinues = 0;
   const MAX_AUTO_CONTINUE = 8; // finish multi-step builds without looping forever
+  const MAX_EMPTY_RESPONSE_RETRIES = 8;
   let lastToolFingerprint = "";
   let repeatedToolCount = 0;
   const recordToolExecution = (name, args, result) => {
@@ -534,7 +568,14 @@ export async function runTurn(ctx, messages) {
               content: `${message.content}\n\nCONTINUE REQUIRED: Your previous response was empty. Review the completed tool results, perform every remaining step, run and verify the deliverable when this is a build task, then return one concise final result. Do not stop with an empty response.`
             }
           : message);
+        if (emptyResponseRetries >= 2) {
+          modelMessages.push({
+            role: "user",
+            content: "Continue automatically from the completed tool results. Do not wait for me to press Continue. Finish and verify the task, then give the final result."
+          });
+        }
       }
+      if (textOnlyContentFallback) modelMessages = withTextOnlyContent(modelMessages);
       const availableTools = artifactActionRequired && !completedToolWork ? ARTIFACT_TOOL_DEFINITIONS : TOOL_DEFINITIONS;
       if (!useNativeTools) modelMessages = withFallbackToolProtocol(modelMessages, availableTools);
       const requestTarget = actionNudgeActive && !completedToolWork && useNativeTools
@@ -555,6 +596,12 @@ export async function runTurn(ctx, messages) {
         localRecoveryAttempted = true;
         onStatus("local model disconnected - restarting the engine and retrying...");
         target = await resolveTarget(config, onStatus);
+        continue;
+      }
+      if (!textOnlyContentFallback && looksLikeUnsupportedImageContent(err)) {
+        textOnlyContentFallback = true;
+        persistScreenshotTextFallback(messages);
+        onStatus("this model accepts text only - continuing with the screenshot's page text...");
         continue;
       }
       const malformedNativeCall = useNativeTools && looksLikeMalformedNativeToolCall(err);
@@ -657,14 +704,14 @@ export async function runTurn(ctx, messages) {
 
     if (!assistantContent.trim()) {
       emptyResponseRetries++;
-      if (emptyResponseRetries <= 2) {
+      if (emptyResponseRetries <= MAX_EMPTY_RESPONSE_RETRIES) {
         actionNudgeActive = artifactActionRequired;
         onStatus(completedToolWork
-          ? "the model paused before finishing - continuing the task..."
+          ? `the model paused before finishing - continuing automatically (${emptyResponseRetries}/${MAX_EMPTY_RESPONSE_RETRIES})...`
           : "the model returned no answer - retrying...");
         continue;
       }
-      throw new Error("The model returned an empty response repeatedly. The task was checkpointed; Continue can resume it.");
+      throw new Error("The model returned an empty response repeatedly after Boolean retried automatically. The task remains checkpointed.");
     }
 
     // Build tasks: if the model stops with text that describes MORE work to do

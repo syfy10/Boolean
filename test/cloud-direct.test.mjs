@@ -386,7 +386,7 @@ test("an empty response after tool work continues instead of silently stopping",
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     calls++;
-    if (calls === 3) continuationRequest = body;
+    if (calls === 7) continuationRequest = body;
     const message = calls === 1
       ? {
           role: "assistant",
@@ -397,7 +397,7 @@ test("an empty response after tool work continues instead of silently stopping",
             function: { name: "list_dir", arguments: '{"path":"."}' }
           }]
         }
-      : calls === 2
+      : calls < 7
         ? { role: "assistant", content: "" }
         : { role: "assistant", content: "Finished and verified the project." };
     res.writeHead(200, { "content-type": "application/json" });
@@ -429,10 +429,67 @@ test("an empty response after tool work continues instead of silently stopping",
   }, messages);
 
   assert.equal(answer, "Finished and verified the project.");
-  assert.equal(calls, 3);
+  assert.equal(calls, 7);
   assert.deepEqual(steps, ["list_dir"]);
   assert.match(statuses.join("\n"), /paused before finishing.*continuing/i);
   assert.match(continuationRequest.messages[0].content, /CONTINUE REQUIRED/);
+  assert.match(continuationRequest.messages.at(-1).content, /Do not wait for me to press Continue/i);
+});
+
+test("unsupported screenshot image content retries automatically as text", async (t) => {
+  let calls = 0;
+  let retriedBody = null;
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    calls++;
+    if (calls === 1) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "1210", message: "messages.content.type is invalid, allowed values: ['text']" } }));
+      return;
+    }
+    retriedBody = body;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Finished from the page text." } }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "text-only-test", apiKey: "test" },
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false },
+    connectors: { mcp: [], agents: [] }
+  };
+  const screenshotMessage = {
+    role: "user",
+    content: [
+      { type: "text", text: "Here is the screenshot you captured. Review the visual design, then continue." },
+      { type: "image_url", image_url: { url: "data:image/png;base64,AAAA" } }
+    ]
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(os.tmpdir(), true, config) },
+    { role: "user", content: "Review the app." },
+    screenshotMessage
+  ];
+  const statuses = [];
+  const answer = await runTurn({
+    config,
+    approve: async () => true,
+    onStatus(status) { statuses.push(status); },
+    onUsage() {},
+    onCheckpoint() {}
+  }, messages);
+
+  assert.equal(answer, "Finished from the page text.");
+  assert.equal(calls, 2);
+  assert.match(statuses.join("\n"), /accepts text only.*continuing/i);
+  assert.equal(typeof retriedBody.messages.at(-1).content, "string");
+  assert.doesNotMatch(JSON.stringify(retriedBody.messages), /image_url/);
+  assert.equal(typeof screenshotMessage.content, "string", "synthetic screenshot history should stay compatible on later turns");
 });
 
 test("artifact action detection excludes advice and follows explicit do-it followups", () => {
