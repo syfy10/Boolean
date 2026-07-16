@@ -5,7 +5,7 @@ import * as sea from "node:sea";
 import { fileURLToPath } from "node:url";
 import * as browse from "./browse.js";
 import * as engine from "./engine.js";
-import { saveConfig } from "./config.js";
+import { saveConfig, SAZ_DIR } from "./config.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 
 // where the bundled project templates live (installed next to the exe, or the
@@ -172,6 +172,142 @@ export const TOOL_DEFINITIONS = [
         },
         required: ["steps"]
       }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "git_status",
+      description: "Show the git status of the project (current branch + changed files). Use to see what has changed before committing.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "git_diff",
+      description: "Show the git diff of changes. By default shows unstaged working changes; pass staged:true for staged changes, or path for one file.",
+      parameters: { type: "object", properties: {
+        path: { type: "string", description: "Optional single file to diff" },
+        staged: { type: "boolean", description: "Show staged changes instead of working-tree changes" }
+      }, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "git_commit",
+      description: "Stage all changes and create a git commit. Write a clear, concise commit message describing the change.",
+      parameters: { type: "object", properties: {
+        message: { type: "string", description: "Commit message" },
+        all: { type: "boolean", description: "Stage all changes first (default true)" }
+      }, required: ["message"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "git_log",
+      description: "Show recent git commits (one line each).",
+      parameters: { type: "object", properties: { count: { type: "integer", description: "How many commits (default 15)" } }, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "git_branch",
+      description: "List branches, or create/switch a branch. Pass name to create-and-switch (or switch with create:false).",
+      parameters: { type: "object", properties: {
+        name: { type: "string", description: "Branch to create or switch to; omit to list branches" },
+        create: { type: "boolean", description: "Create a new branch (default true when name is given)" }
+      }, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "git_restore",
+      description: "Discard local changes to a file (path), or undo the last commit keeping its changes (undo_last_commit:true). Destructive — use carefully.",
+      parameters: { type: "object", properties: {
+        path: { type: "string", description: "File whose working changes to discard" },
+        undo_last_commit: { type: "boolean", description: "Undo the most recent commit but keep the changes staged" }
+      }, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "git_init",
+      description: "Initialize a new git repository in the project folder so changes can be tracked and committed.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "run_background",
+      description:
+        "Start a long-running command (e.g. a dev server) in the BACKGROUND and keep it running while you continue working. " +
+        "Returns immediately with early output. Use read_process to check its logs and stop_process to end it.",
+      parameters: { type: "object", properties: {
+        command: { type: "string", description: "Command to run (PowerShell)" },
+        name: { type: "string", description: "Optional short name to reference this process later" }
+      }, required: ["command"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_process",
+      description: "Read the recent output and running status of a background process started with run_background.",
+      parameters: { type: "object", properties: { name: { type: "string", description: "The process name" } }, required: ["name"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "stop_process",
+      description: "Stop a background process started with run_background.",
+      parameters: { type: "object", properties: { name: { type: "string", description: "The process name" } }, required: ["name"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "undo_last_edit",
+      description:
+        "Undo the most recent file change you made (write_file or edit_file), restoring the file's previous content. " +
+        "A safety net for a bad edit. Can be called repeatedly to step back through recent edits.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_symbol",
+      description:
+        "Find where a symbol (function, class, variable, type) is DEFINED and used across the project. " +
+        "Smarter than search_files for code navigation: it separates definitions from references. " +
+        "Use to answer 'where is X defined' and 'what uses X' before changing it.",
+      parameters: { type: "object", properties: {
+        symbol: { type: "string", description: "The identifier to look up, e.g. runTurn" },
+        path: { type: "string", description: "Directory to search. Default: project folder" },
+        refs: { type: "boolean", description: "Also list reference sites, not just definitions (default true)" }
+      }, required: ["symbol"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "run_subagent",
+      description:
+        "Delegate a focused sub-task to a sub-agent that has its own tools and works independently, then returns a concise result. " +
+        "Use to decompose a big job (e.g. 'research the API in these files', 'build the CSS while I do the JS'). " +
+        "Pass one task, or several tasks to run together. Sub-agents cannot spawn more sub-agents.",
+      parameters: { type: "object", properties: {
+        task: { type: "string", description: "A single self-contained sub-task with enough context to act alone" },
+        tasks: { type: "array", items: { type: "string" }, description: "Several independent sub-tasks to run together (max 3)" }
+      }, required: [] }
     }
   },
   {
@@ -844,6 +980,7 @@ async function editFile(args, ctx, resolve) {
   const updated = args.replace_all ? parts.join(args.new_string) : content.replace(args.old_string, args.new_string);
   const ok = await ctx.approve(`edit ${target} (${args.replace_all ? count + " replacements" : "1 replacement"})`);
   if (!ok) return "user declined this file edit";
+  snapshotBeforeWrite(target);
   fs.writeFileSync(target, updated);
   return `edited ${target} — ${args.replace_all ? count + " replacements" : "1 replacement"} made`;
 }
@@ -907,6 +1044,214 @@ function formatPlan(args) {
   return `Plan (${done}/${steps.length} done):\n${lines.join("\n")}`;
 }
 
+// ── symbol-aware code search ──
+function findSymbol(args, resolve) {
+  const sym = String(args.symbol || "").trim();
+  if (!sym || !/^[A-Za-z_$][\w$]*$/.test(sym)) return "error: provide a valid symbol name (an identifier).";
+  const root = resolve(args.path || ".");
+  if (!fs.existsSync(root)) return `error: no such directory: ${root}`;
+  const e = sym.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const word = new RegExp("\\b" + e + "\\b");
+  // definition-ish lines across common languages
+  const isDef = new RegExp(
+    "(?:^|[^\\w$])(?:export\\s+)?(?:default\\s+)?(?:public\\s+|private\\s+|static\\s+|async\\s+)*" +
+    "(?:function\\*?|class|interface|type|enum|struct|def|func|fn|module)\\s+" + e + "\\b" +
+    "|(?:^|[^\\w$])(?:export\\s+)?(?:const|let|var)\\s+" + e + "\\b" +
+    "|\\b" + e + "\\s*[:=]\\s*(?:async\\s*)?(?:function|\\([^)]*\\)\\s*=>|\\{)" +
+    "|^\\s*" + e + "\\s*\\([^)]*\\)\\s*\\{"
+  );
+  const defs = [], refs = [];
+  const wantRefs = args.refs !== false;
+  walkProject(root, (file) => {
+    if (defs.length >= 40 && refs.length >= 80) return;
+    if (BINARY_EXT.has(path.extname(file).toLowerCase())) return;
+    let text;
+    try { if (fs.statSync(file).size > 2_000_000) return; text = fs.readFileSync(file, "utf8"); } catch { return; }
+    if (text.includes("\0")) return;
+    const rel = path.relative(root, file).replace(/\\/g, "/");
+    const lines = text.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      if (!word.test(lines[i])) continue;
+      const rec = `${rel}:${i + 1}: ${lines[i].trim().slice(0, 200)}`;
+      if (isDef.test(lines[i])) { if (defs.length < 40) defs.push(rec); }
+      else if (wantRefs && refs.length < 80) refs.push(rec);
+    }
+  });
+  if (!defs.length && !refs.length) return `No definitions or references found for '${sym}' under ${root}.`;
+  const out = [];
+  out.push(defs.length ? `Definitions of ${sym} (${defs.length}):\n${defs.join("\n")}` : `No definitions found for ${sym}.`);
+  if (wantRefs && refs.length) out.push(`\nReferences (${refs.length}):\n${refs.join("\n")}`);
+  return truncate(out.join("\n"));
+}
+
+// ── git ──────────────────────────────────────────────────────────
+function execFile(cmd, args, cwd, timeoutMs = 30000) {
+  return new Promise((resolve) => {
+    let child;
+    try { child = spawn(cmd, args, { cwd, windowsHide: true }); }
+    catch (e) { return resolve({ code: -1, out: String(e.message) }); }
+    let out = "";
+    child.stdout.on("data", (d) => (out += d.toString()));
+    child.stderr.on("data", (d) => (out += d.toString()));
+    const timer = setTimeout(() => { try { child.kill(); } catch { /* ignore */ } out += "\n[timed out]"; }, timeoutMs);
+    child.on("close", (code) => { clearTimeout(timer); resolve({ code, out: out.trim() }); });
+    child.on("error", (err) => { clearTimeout(timer); resolve({ code: -1, out: `git is not available or failed: ${err.message}` }); });
+  });
+}
+const git = (cwd, ...args) => execFile("git", args, cwd);
+
+async function gitTool(name, args, ctx, base) {
+  if (name !== "git_init") {
+    const chk = await git(base, "rev-parse", "--is-inside-work-tree");
+    if (chk.code !== 0) return "This folder isn't a git repository yet. Use git_init to start version control here.";
+  }
+  switch (name) {
+    case "git_init": {
+      const ok = await ctx.approve(`initialize a git repository in ${base}`);
+      if (!ok) return "user declined git init";
+      const r = await git(base, "init");
+      return r.out || "initialized empty git repository";
+    }
+    case "git_status": {
+      const r = await git(base, "status", "--short", "--branch");
+      return truncate(r.out || "(clean working tree)");
+    }
+    case "git_diff": {
+      const g = ["diff"];
+      if (args.staged) g.push("--staged");
+      if (args.path) g.push("--", String(args.path));
+      const r = await git(base, ...g);
+      return truncate(r.out || "(no changes)");
+    }
+    case "git_log": {
+      const n = Math.max(1, Math.min(50, Number(args.count) || 15));
+      const r = await git(base, "log", "--oneline", "-n", String(n));
+      return truncate(r.out || "(no commits yet)");
+    }
+    case "git_branch": {
+      if (args.name) {
+        const create = args.create !== false;
+        const ok = await ctx.approve(`${create ? "create and switch to" : "switch to"} git branch '${args.name}'`);
+        if (!ok) return "user declined the branch change";
+        const r = await git(base, "checkout", ...(create ? ["-b"] : []), String(args.name));
+        return truncate(r.out || `${create ? "created" : "switched to"} ${args.name}`);
+      }
+      const r = await git(base, "branch", "--all");
+      return truncate(r.out || "(no branches)");
+    }
+    case "git_commit": {
+      const msg = String(args.message || "").trim();
+      if (!msg) return "error: missing commit 'message'";
+      const ok = await ctx.approve(`git commit: ${msg}`);
+      if (!ok) return "user declined the commit";
+      if (args.all !== false) await git(base, "add", "-A");
+      const r = await git(base, "commit", "-m", msg);
+      return truncate(r.out || "committed");
+    }
+    case "git_restore": {
+      if (args.undo_last_commit) {
+        const ok = await ctx.approve("undo the last git commit (keep the changes)");
+        if (!ok) return "user declined";
+        const r = await git(base, "reset", "--soft", "HEAD~1");
+        return truncate(r.out || "undid the last commit; its changes are kept and staged");
+      }
+      if (!args.path) return "error: pass 'path' to discard its changes, or undo_last_commit:true";
+      const ok = await ctx.approve(`discard local changes to ${args.path}`);
+      if (!ok) return "user declined";
+      const r = await git(base, "checkout", "--", String(args.path));
+      return truncate(r.out || `discarded changes to ${args.path}`);
+    }
+  }
+  return "unknown git action";
+}
+
+// ── background processes (keep dev servers alive while working) ──
+const bgProcs = new Map(); // name -> { child, log, startedAt, exit }
+async function runBackground(args, ctx, base) {
+  const command = String(args.command || "").trim();
+  if (!command) return "error: missing 'command'";
+  const ok = await ctx.approve(`start background process: ${command}`);
+  if (!ok) return "user declined starting the process";
+  const id = (String(args.name || "").trim() || `proc${bgProcs.size + 1}`).toLowerCase().replace(/[^\w.-]/g, "");
+  const existing = bgProcs.get(id);
+  if (existing && existing.exit === null) { try { existing.child.kill(); } catch { /* ignore */ } }
+  const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { cwd: base, windowsHide: true });
+  const rec = { child, log: "", startedAt: Date.now(), exit: null };
+  const append = (d) => { rec.log = (rec.log + d.toString()).slice(-8000); };
+  child.stdout.on("data", append);
+  child.stderr.on("data", append);
+  child.on("exit", (code) => { rec.exit = code; });
+  child.on("error", (err) => { rec.log += `\n[failed to start: ${err.message}]`; rec.exit = -1; });
+  bgProcs.set(id, rec);
+  await new Promise((r) => setTimeout(r, 1400)); // let early output arrive
+  const status = rec.exit === null ? `running (pid ${child.pid})` : `exited immediately (code ${rec.exit})`;
+  return `Started background process '${id}' — ${status}. It keeps running while you work; use read_process/stop_process with name '${id}'.\n\nEarly output:\n${truncate(rec.log || "(none yet)")}`;
+}
+function readProcess(args) {
+  const id = String(args.name || "").trim().toLowerCase();
+  const rec = bgProcs.get(id);
+  if (!rec) return `no background process named '${args.name}'. Running: ${[...bgProcs.keys()].join(", ") || "none"}`;
+  const status = rec.exit === null ? "running" : `exited (code ${rec.exit})`;
+  return `Process '${id}' — ${status}\n\nRecent output:\n${truncate(rec.log || "(no output)")}`;
+}
+function stopProcess(args) {
+  const id = String(args.name || "").trim().toLowerCase();
+  const rec = bgProcs.get(id);
+  if (!rec) return `no background process named '${args.name}'`;
+  try { rec.child.kill(); } catch { /* ignore */ }
+  bgProcs.delete(id);
+  return `stopped '${id}'`;
+}
+
+// ── edit checkpoints / undo ──
+const editHistory = []; // { path, backup, existed, at }
+function snapshotBeforeWrite(target) {
+  try {
+    const dir = path.join(SAZ_DIR, "edit-history");
+    fs.mkdirSync(dir, { recursive: true });
+    const existed = fs.existsSync(target);
+    let backup = null;
+    if (existed) {
+      backup = path.join(dir, `${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${path.basename(target)}`);
+      fs.copyFileSync(target, backup);
+    }
+    editHistory.push({ path: target, backup, existed, at: Date.now() });
+    if (editHistory.length > 200) editHistory.shift();
+  } catch { /* snapshots are best-effort */ }
+}
+// ── sub-agents (delegated task decomposition) ──
+async function runSubagentTool(args, ctx) {
+  if (typeof ctx.runSubagent !== "function") return "sub-agents aren't available in this session.";
+  if (ctx.subagentDepth) return "a sub-agent cannot spawn more sub-agents — do the work directly.";
+  let tasks = Array.isArray(args.tasks) && args.tasks.length ? args.tasks : (args.task ? [args.task] : []);
+  tasks = tasks.map((t) => String(t || "").trim()).filter(Boolean).slice(0, 3);
+  if (!tasks.length) return "error: provide 'task' or 'tasks'.";
+  const results = await Promise.all(tasks.map(async (task, i) => {
+    try {
+      const answer = await ctx.runSubagent(task);
+      return `--- Sub-agent ${i + 1} result ---\n${String(answer || "(no result)").trim()}`;
+    } catch (err) {
+      return `--- Sub-agent ${i + 1} failed ---\n${err?.message || err}`;
+    }
+  }));
+  return truncate(results.join("\n\n"));
+}
+
+function undoLastEdit() {
+  const last = editHistory.pop();
+  if (!last) return "Nothing to undo — no recent file edits in this session.";
+  try {
+    if (!last.existed) {
+      if (fs.existsSync(last.path)) fs.rmSync(last.path, { force: true });
+      return `Undid the creation of ${last.path} (file removed).`;
+    }
+    fs.copyFileSync(last.backup, last.path);
+    return `Restored ${last.path} to its previous content.`;
+  } catch (e) {
+    return `Could not undo: ${e.message}`;
+  }
+}
+
 /**
  * Execute one tool call.
  * @param {string} name tool name
@@ -952,12 +1297,33 @@ export async function executeTool(name, args, ctx) {
         return searchFiles(args, resolve);
       case "update_plan":
         return formatPlan(args);
+      case "git_status":
+      case "git_diff":
+      case "git_commit":
+      case "git_log":
+      case "git_branch":
+      case "git_restore":
+      case "git_init":
+        return await gitTool(name, args, ctx, base);
+      case "run_background":
+        return await runBackground(args, ctx, base);
+      case "read_process":
+        return readProcess(args);
+      case "stop_process":
+        return stopProcess(args);
+      case "undo_last_edit":
+        return undoLastEdit();
+      case "find_symbol":
+        return findSymbol(args, resolve);
+      case "run_subagent":
+        return await runSubagentTool(args, ctx);
       case "write_file": {
         if (!args.path) return "error: missing 'path' argument";
         const target = resolve(args.path);
         const bytes = Buffer.byteLength(args.content ?? "", "utf8");
         const ok = await ctx.approve(`write ${bytes} bytes to: ${target}`);
         if (!ok) return "user declined this file write";
+        snapshotBeforeWrite(target);
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, args.content ?? "");
         return `wrote ${bytes} bytes to ${target}`;

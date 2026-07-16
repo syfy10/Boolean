@@ -280,6 +280,163 @@ test("clear artifact requests retry tutorial-only answers with an action nudge",
   assert.doesNotMatch(messages.map((message) => message.content || "").join("\n"), /steps you can follow/);
 });
 
+test("malformed native tool-call server errors retry without surfacing a 500", async (t) => {
+  let calls = 0;
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    requests.push(body);
+    calls++;
+    if (calls <= 3) {
+      res.writeHead(500, { "content-type": "application/json" });
+      res.end(JSON.stringify({
+        error: "Failed to parse tool call arguments as JSON: json.exception.parse_error.101"
+      }));
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "Recovered in compatibility mode." } }]
+    }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const statuses = [];
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "tool-test", apiKey: "test" },
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(os.tmpdir(), true, config) },
+    { role: "user", content: "What can you help me do?" }
+  ];
+  const answer = await runTurn({
+    config,
+    approve: async () => true,
+    onStatus(status) { statuses.push(status); },
+    onStep() {},
+    onUsage() {},
+    onCheckpoint() {}
+  }, messages);
+
+  assert.equal(answer, "Recovered in compatibility mode.");
+  assert.equal(calls, 4);
+  assert.equal(requests[0].tools.length > 0, true);
+  assert.equal(requests[3].tools, undefined);
+  assert.match(statuses.join("\n"), /malformed.*compatibility mode/i);
+});
+
+test("malformed native tool arguments are never executed as empty arguments", async (t) => {
+  let calls = 0;
+  const server = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    calls++;
+    const message = calls === 1
+      ? {
+          role: "assistant",
+          content: "",
+          tool_calls: [{
+            id: "bad-call",
+            type: "function",
+            function: { name: "write_file", arguments: '{"path":"demo.js","content":"const broken = "quote";"}' }
+          }]
+        }
+      : { role: "assistant", content: "Retried safely." };
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "tool-test", apiKey: "test" },
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(os.tmpdir(), true, config) },
+    { role: "user", content: "Tell me what you can do." }
+  ];
+  const steps = [];
+  const answer = await runTurn({
+    config,
+    approve: async () => true,
+    onStatus() {},
+    onStep(step) { steps.push(step); },
+    onUsage() {},
+    onCheckpoint() {}
+  }, messages);
+
+  assert.equal(answer, "Retried safely.");
+  assert.equal(calls, 2);
+  assert.deepEqual(steps, []);
+});
+
+test("an empty response after tool work continues instead of silently stopping", async (t) => {
+  let calls = 0;
+  let continuationRequest = null;
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    calls++;
+    if (calls === 3) continuationRequest = body;
+    const message = calls === 1
+      ? {
+          role: "assistant",
+          content: "",
+          tool_calls: [{
+            id: "list-call",
+            type: "function",
+            function: { name: "list_dir", arguments: '{"path":"."}' }
+          }]
+        }
+      : calls === 2
+        ? { role: "assistant", content: "" }
+        : { role: "assistant", content: "Finished and verified the project." };
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "tool-test", apiKey: "test" },
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(os.tmpdir(), true, config) },
+    { role: "user", content: "Inspect the current workspace." }
+  ];
+  const statuses = [];
+  const steps = [];
+  const answer = await runTurn({
+    config,
+    approve: async () => true,
+    onStatus(status) { statuses.push(status); },
+    onStep(step) { steps.push(step.name); },
+    onUsage() {},
+    onCheckpoint() {}
+  }, messages);
+
+  assert.equal(answer, "Finished and verified the project.");
+  assert.equal(calls, 3);
+  assert.deepEqual(steps, ["list_dir"]);
+  assert.match(statuses.join("\n"), /paused before finishing.*continuing/i);
+  assert.match(continuationRequest.messages[0].content, /CONTINUE REQUIRED/);
+});
+
 test("artifact action detection excludes advice and follows explicit do-it followups", () => {
   assert.equal(requiresArtifactAction([{ role: "user", content: "Give me ideas for a random game." }]), false);
   assert.equal(requiresArtifactAction([{ role: "user", content: "Build me a random game." }]), true);

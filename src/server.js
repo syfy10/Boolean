@@ -11,7 +11,7 @@ import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
 } from "./config.js";
-import { systemPrompt, projectBrief, runTurn, estimateContext } from "./agent.js";
+import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp } from "./providers.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage } from "./usage.js";
@@ -1105,6 +1105,30 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return streamRun(t, res);
       }
 
+      // rewind: truncate the thread to just before the Nth user message and
+      // return its text so the composer can be repopulated for editing/resending
+      if (req.method === "POST" && p === "/api/thread/rewind") {
+        const body = await readBody(req);
+        const t = threads.get(body.threadId) || threads.get(activeThreadId);
+        if (!t) return json({ error: "no such thread" }, 404);
+        if (t.abort) t.abort.abort();
+        const idx = Math.max(0, Number(body.index) || 0);
+        let seen = -1, cutMsg = -1, text = "";
+        for (let i = 0; i < t.messages.length; i++) {
+          if (t.messages[i].role === "user") { seen++; if (seen === idx) { cutMsg = i; text = userTextOnly(t.messages[i].content); break; } }
+        }
+        seen = -1; let cutLog = -1;
+        for (let i = 0; i < t.log.length; i++) {
+          if (t.log[i].t === "user") { seen++; if (seen === idx) { cutLog = i; if (!text) text = t.log[i].text || ""; break; } }
+        }
+        if (cutMsg >= 0) t.messages.length = cutMsg;
+        if (cutLog >= 0) t.log.length = cutLog;
+        t.pendingTask = null;
+        t.updatedAt = Date.now();
+        persist();
+        return json({ ok: true, text });
+      }
+
       if (req.method === "POST" && p === "/api/compare/retry") {
         const body = await readBody(req);
         const t = threads.get(body.threadId) || threads.get(activeThreadId);
@@ -1394,6 +1418,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             });
           }
         };
+        // let the agent delegate focused work to bounded sub-agents
+        ctx.runSubagent = (task) => runSubagent(ctx, task);
 
         activeChats++;
         lastPing = Date.now();

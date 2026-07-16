@@ -39,8 +39,11 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- Use tools yourself when an action is needed; never tell the user to call an internal tool.",
     "- Work silently while using tools. Do not narrate searches, clicks, retries, commands, or planned steps; give one concise result when finished.",
     "- For app work: create or edit the project, run it, fix errors, and claim completion only after verification.",
-    "- To find code use search_files (contents) or find_files (names); read big files with read_file offset/limit; change existing files with edit_file (exact string replace), not a full rewrite.",
+    "- To find code use find_symbol (where a function/class/variable is defined and used), search_files (any text), or find_files (names); read big files with read_file offset/limit; change existing files with edit_file (exact string replace), not a full rewrite.",
+    "- For a big job you can delegate focused parts to run_subagent (one task, or several to run together) and use their results; sub-agents cannot spawn more sub-agents.",
     "- When building or restyling a website/UI, after run_project use screenshot_page on its URL to SEE the result, then refine the layout, spacing, and colors until it looks polished.",
+    "- Version control: use git_status/git_diff to review changes and git_commit to save meaningful progress (clear message, no attribution lines). git_init if the folder isn't a repo. git_branch for separate work; git_restore or undo_last_edit to roll back a bad change.",
+    "- Run long-lived commands (dev servers, watchers) with run_background so you can keep working; check them with read_process and end them with stop_process. Run tests/builds with run_command and fix failures before claiming done.",
     "- Use visible browser tools only for an explicitly requested visible-browser action or the page the user asks about.",
     "- Use notepad_read/notepad_write when the user asks to read or save notes. Save the exact requested content, not an older reply.",
     "- For email, read the visible page once when needed and use visible_browser_draft_email to insert a draft.",
@@ -196,9 +199,25 @@ function convertNativeToolHistoryToText(messages) {
   messages.splice(0, messages.length, ...converted);
 }
 
+function errorChainText(err) {
+  const parts = [];
+  let current = err;
+  for (let depth = 0; current && depth < 5; depth++, current = current.cause) {
+    if (current.body) parts.push(current.body);
+    if (current.message) parts.push(current.message);
+  }
+  return parts.join(" ");
+}
+
 function looksLikeNoToolSupport(err) {
-  const text = (err.body || "") + " " + (err.message || "");
+  const text = errorChainText(err);
   return /does not support tools|tools? (is|are) not supported|no tool|unknown field.{0,20}tools|messages parameter is illegal|"?code"?\s*:?\s*"?1214"?/i
+    .test(text);
+}
+
+function looksLikeMalformedNativeToolCall(err) {
+  const text = errorChainText(err);
+  return /failed to parse tool call arguments|tool call arguments.{0,40}(?:invalid|json|parse)|json\.exception\.parse_error/i
     .test(text);
 }
 
@@ -226,6 +245,9 @@ const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setu
 const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|project|program|script|code|file|folder|desktop tool|server)\b/i;
 const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:it|that|all that)(?:\s+for me)?\b/i;
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
+// text that signals the model is describing MORE work instead of finishing it —
+// small models often narrate the next step rather than doing it and then stop
+const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|have to)\s+(?:now\s+|then\s+|also\s+)?(?:add|create|build|write|implement|update|make|set ?up|style|wire|continue|proceed|finish|start|handle|generate|scaffold|develop|do)|next step|next[,:]|let'?s\s+(?:now\s+)?(?:add|create|build|write|implement|continue|proceed|finish|do)|let us\s+(?:now\s+)?(?:add|create|build|continue|proceed|finish|do)|still (?:need|have) to|remaining\b|to-?do\b|step \d+\b|going to\s+(?:add|create|build|write|implement|make|finish|do)|shall i\b|would you like me to\b|after (?:that|this)\b|proceed to\b)/i;
 
 // Keep the model in charge of implementation details, but recognize the narrow
 // case where a user clearly asked Boolean to produce a software/file artifact.
@@ -471,6 +493,9 @@ export async function runTurn(ctx, messages) {
   let actionNudgeActive = artifactActionRequired;
   let actionRetryAttempted = false;
   let completedToolWork = false;
+  let emptyResponseRetries = 0;
+  let autoContinues = 0;
+  const MAX_AUTO_CONTINUE = 8; // finish multi-step builds without looping forever
   let lastToolFingerprint = "";
   let repeatedToolCount = 0;
   const recordToolExecution = (name, args, result) => {
@@ -485,6 +510,13 @@ export async function runTurn(ctx, messages) {
   for (;;) {
     turn++;
     if (signal?.aborted) return stopped();
+    // bounded runs (used by sub-agents) stop after their turn budget
+    if (ctx.maxTurns && turn > ctx.maxTurns) {
+      const partial = String(messages.filter((m) => m.role === "assistant").map((m) => m.content).filter((c) => typeof c === "string").pop() || "").trim();
+      const bail = partial || "(sub-agent reached its step limit without a final answer)";
+      messages.push({ role: "assistant", content: bail });
+      return bail;
+    }
     let msg;
     try {
       const originalFull = approxTokens(messages);
@@ -495,6 +527,14 @@ export async function runTurn(ctx, messages) {
           saved: Math.max(0, originalFull - fit.sentTokens), budget: fit.budget });
       }
       let modelMessages = actionNudgeActive ? withActionNudge(fit.msgs, bootstrapContext, !!ctx.projectDir) : fit.msgs;
+      if (emptyResponseRetries > 0) {
+        modelMessages = modelMessages.map((message, index) => index === 0 && message?.role === "system"
+          ? {
+              ...message,
+              content: `${message.content}\n\nCONTINUE REQUIRED: Your previous response was empty. Review the completed tool results, perform every remaining step, run and verify the deliverable when this is a build task, then return one concise final result. Do not stop with an empty response.`
+            }
+          : message);
+      }
       const availableTools = artifactActionRequired && !completedToolWork ? ARTIFACT_TOOL_DEFINITIONS : TOOL_DEFINITIONS;
       if (!useNativeTools) modelMessages = withFallbackToolProtocol(modelMessages, availableTools);
       const requestTarget = actionNudgeActive && !completedToolWork && useNativeTools
@@ -517,9 +557,12 @@ export async function runTurn(ctx, messages) {
         target = await resolveTarget(config, onStatus);
         continue;
       }
-      if (useNativeTools && looksLikeNoToolSupport(err)) {
+      const malformedNativeCall = useNativeTools && looksLikeMalformedNativeToolCall(err);
+      if (useNativeTools && (looksLikeNoToolSupport(err) || malformedNativeCall)) {
         useNativeTools = false;
-        onStatus(`model '${target.model}' lacks native tool support — using text protocol`);
+        onStatus(malformedNativeCall
+          ? "the model's tool call was malformed - retrying in compatibility mode..."
+          : `model '${target.model}' lacks native tool support — using text protocol`);
         convertNativeToolHistoryToText(messages);
         if (messages[0]?.role === "system" && !messages[0].content.includes("TOOL PROTOCOL")) {
           messages[0] = {
@@ -534,7 +577,8 @@ export async function runTurn(ctx, messages) {
 
     // Native tool calls (OpenAI format: arguments is a JSON string)
     if (useNativeTools && msg.tool_calls?.length) {
-      messages.push(msg);
+      const parsedCalls = [];
+      let malformedCall = false;
       for (const call of msg.tool_calls) {
         const name = call.function?.name;
         let args = call.function?.arguments;
@@ -542,15 +586,30 @@ export async function runTurn(ctx, messages) {
           try {
             args = JSON.parse(args);
           } catch {
-            args = {};
+            malformedCall = true;
+            break;
           }
         }
+        if (!args || typeof args !== "object" || Array.isArray(args)) {
+          malformedCall = true;
+          break;
+        }
+        parsedCalls.push({ call, name, args });
+      }
+      if (malformedCall) {
+        useNativeTools = false;
+        onStatus("the model's tool call was malformed - retrying in compatibility mode...");
+        continue;
+      }
+      messages.push(msg);
+      for (const { call, name, args } of parsedCalls) {
         onStatus(`running ${name}…`);
         const result = await executeTool(name, args, ctx);
         recordToolExecution(name, args, result);
         const toolContent = result;
         emitStep({ name, args, result });
         completedToolWork = true;
+        emptyResponseRetries = 0;
         messages.push({
           role: "tool",
           tool_call_id: call.id || `call_${turn}`,
@@ -575,6 +634,7 @@ export async function runTurn(ctx, messages) {
       const toolResultContent = result;
       emitStep({ name: call.name, args: call.arguments, result });
       completedToolWork = true;
+      emptyResponseRetries = 0;
       messages.push({
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
@@ -595,10 +655,66 @@ export async function runTurn(ctx, messages) {
       continue;
     }
 
+    if (!assistantContent.trim()) {
+      emptyResponseRetries++;
+      if (emptyResponseRetries <= 2) {
+        actionNudgeActive = artifactActionRequired;
+        onStatus(completedToolWork
+          ? "the model paused before finishing - continuing the task..."
+          : "the model returned no answer - retrying...");
+        continue;
+      }
+      throw new Error("The model returned an empty response repeatedly. The task was checkpointed; Continue can resume it.");
+    }
+
+    // Build tasks: if the model stops with text that describes MORE work to do
+    // (instead of doing it), nudge it to keep going rather than ending half-done.
+    // Bounded, and only for artifact/build tasks that have already started.
+    if (artifactActionRequired && completedToolWork && autoContinues < MAX_AUTO_CONTINUE
+        && MORE_WORK_INTENT.test(assistantContent) && !signal?.aborted) {
+      autoContinues++;
+      messages.push({ role: "assistant", content: assistantContent });
+      messages.push({ role: "user", content:
+        "Do not stop yet — the task is not finished. Continue now: use your tools to make the next change you described, "
+        + "then run the project (run_project) to verify it works. Keep going until the whole thing is complete and working, "
+        + "then give one short final summary." });
+      onStatus("continuing until the project is finished...");
+      continue;
+    }
+
     // Final answer
     messages.push({ role: "assistant", content: assistantContent });
     checkpoint();
     return assistantContent;
   }
 
+}
+
+/**
+ * Run a bounded sub-agent for one delegated task. Shares the parent's model,
+ * config, and tool bridges, but gets its own message history, cannot spawn
+ * further sub-agents, and is capped so it can't run away.
+ */
+export async function runSubagent(parentCtx, task) {
+  const cfg = parentCtx.config || {};
+  const sys = systemPrompt(cfg.projectsDir, cfg.autoApprove, cfg) +
+    "\n\nYou are a focused SUB-AGENT handling ONE task for the main assistant. " +
+    "Use your tools to complete it, then reply with a concise result the main assistant can use. " +
+    "Do not ask questions; make reasonable assumptions and finish.";
+  const messages = [
+    { role: "system", content: sys },
+    { role: "user", content: String(task || "").trim() }
+  ];
+  const childCtx = {
+    ...parentCtx,
+    onToken: null,                 // don't stream sub-agent tokens into the main answer
+    onOptimize: null,
+    onImage: null,
+    pendingImages: [],
+    runSubagent: null,             // no nesting
+    subagentDepth: (parentCtx.subagentDepth || 0) + 1,
+    maxTurns: 16,                  // bound the delegated run
+    onStatus: (t) => parentCtx.onStatus?.(`sub-agent: ${t}`)
+  };
+  return await runTurn(childCtx, messages);
 }

@@ -436,6 +436,13 @@
   .msg-foot:hover{ opacity:.9; }
   .msg-user .msg-foot{ justify-content:flex-end; }
   .msg-sender{ max-width:86px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+  /* sent-message actions: search / rewind / copy + relative time */
+  .msg-when{ white-space:nowrap; }
+  .uact{ width:16px; height:16px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:transparent; color:inherit; opacity:0; cursor:pointer; transition:opacity .12s, background .12s, color .12s; }
+  .msg-user:hover .uact, .uact:focus-visible{ opacity:.75; }
+  .uact:hover{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
+  .uact svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .uact.copied{ color:var(--green); opacity:1; }
   .msg-sender:after{ content:"·"; margin-left:4px; font-weight:400; }
   .usage-inline{ color:var(--dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
@@ -838,7 +845,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.12</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.13</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud sign-in/tokens are optional.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -1595,10 +1602,29 @@
   const timeHtml=(at)=>at?'<div class="msg-time">'+timeStr(at)+'</div>':'<div class="msg-time">'+timeStr(Date.now())+'</div>';
   const inlineTimeHtml=(at)=>'<span class="msg-time">'+timeStr(at||Date.now())+'</span>';
   const shortNum=(n)=>n>=1000000?(Math.round(n/100000)/10)+"m":n>=1000?(Math.round(n/100)/10)+"k":String(n);
+  function relTime(at){
+    if(!at) return "";
+    const s=Math.floor((Date.now()-at)/1000);
+    if(s<45) return "just now";
+    const m=Math.floor(s/60); if(m<60) return m+" min ago";
+    const h=Math.floor(m/60); if(h<24) return h+" hour"+(h>1?"s":"")+" ago";
+    const d=Math.floor(h/24); if(d<7) return d+" day"+(d>1?"s":"")+" ago";
+    return new Date(at).toLocaleDateString();
+  }
+  const uCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
+  const uRewindIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8a4 4 0 1 1 1.2 2.85"/><path d="M4 5.2V8h2.8"/></svg>';
+  const uSearchIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4"/><path d="M10 10l3.5 3.5"/></svg>';
   function addUser(text, images, at){
     const d=document.createElement("div"); d.className="msg-user";
     d._raw=text||"";
-    d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div><div class="msg-foot">'+inlineTimeHtml(at)+'</div>';
+    d.dataset.uindex=String(col.querySelectorAll(".msg-user").length);
+    const foot='<div class="msg-foot">'
+      +'<button class="uact usearch" type="button" title="Search this in the browser" aria-label="Search this in the browser">'+uSearchIcon+'</button>'
+      +'<button class="uact urewind" type="button" title="Rewind to here and edit" aria-label="Rewind to here and edit">'+uRewindIcon+'</button>'
+      +'<button class="uact ucopy" type="button" title="Copy" aria-label="Copy message">'+uCopyIcon+'</button>'
+      +'<span class="msg-when" title="'+esc(at?new Date(at).toLocaleString():"")+'">'+esc(relTime(at||Date.now()))+'</span>'
+      +'</div>';
+    d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div>'+foot;
     col.appendChild(d); updateCopyButton(); scrollDown(); return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
@@ -1877,7 +1903,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.12"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.13"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -2876,6 +2902,26 @@
   col.addEventListener("click",(e)=>{
     const noteBtn=e.target.closest(".note-save");
     if(noteBtn){ e.preventDefault(); saveChatMessageToNote(noteBtn); return; }
+    // sent-message actions
+    const uBtn=e.target.closest(".uact");
+    if(uBtn){
+      e.preventDefault();
+      const bubble=uBtn.closest(".msg-user");
+      const utext=String(bubble?._raw||"").trim();
+      if(uBtn.classList.contains("ucopy")){
+        if(!utext) return;
+        navigator.clipboard.writeText(utext).then(()=>{
+          uBtn.classList.add("copied"); uBtn.innerHTML="✓";
+          setTimeout(()=>{ uBtn.classList.remove("copied"); uBtn.innerHTML=uCopyIcon; },1000);
+        }).catch(()=>tempToast("Could not copy."));
+      } else if(uBtn.classList.contains("usearch")){
+        if(!utext) return;
+        aiNavigate(searchUrl(utext));
+      } else if(uBtn.classList.contains("urewind")){
+        rewindToBubble(bubble);
+      }
+      return;
+    }
     const copyBtn=e.target.closest(".msg-copy");
     if(!copyBtn) return;
     e.preventDefault();
@@ -2887,6 +2933,20 @@
       setTimeout(()=>{ copyBtn.classList.remove("copied"); copyBtn.innerHTML=responseCopyIcon; },1000);
     }).catch(()=>tempToast("Could not copy this response."));
   });
+  async function rewindToBubble(bubble){
+    if(!bubble) return;
+    if(busy()&&!viewingRun()){ tempToast("That chat is still working."); return; }
+    if(!await appConfirm("Rewind to here?","This removes this message and everything after it, and puts the text back in the composer to edit and resend.","Rewind")) return;
+    const idx=Number(bubble.dataset.uindex||0);
+    if(viewingRun()&&currentAbort) currentAbort.abort();
+    const r=await (await fetch("/api/thread/rewind",{method:"POST",body:JSON.stringify({threadId,index:idx})})).json();
+    // remove this bubble and everything after it
+    let n=bubble; const rm=[]; while(n){ rm.push(n); n=n.nextSibling; } rm.forEach(el=>el.remove());
+    if(!col.querySelector(".msg-user,.msg-ai")) showEmpty();
+    if(r&&r.text!=null){ input.value=r.text; autosize(); }
+    run=null; currentAbort=null;
+    updateSendButton(); updateCopyButton(); estimateContext(); input.focus();
+  }
   let noteDragImg=null;
   function clearNoteDrop(){ $("noteEditor").querySelectorAll(".note-drop").forEach(el=>el.classList.remove("note-drop")); }
   function selectNoteImage(img){
