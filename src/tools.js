@@ -1050,6 +1050,9 @@ async function callMcp(args, ctx) {
   const result = await mcpCallTool(connector, String(args.tool), args.arguments || {}, {
     onRefresh: () => persistRefreshedMcp(ctx)
   });
+  if (result?._booleanStatus === "tools_available_but_no_data") {
+    return `MCP status: Tools available but no data. Tool '${args.tool}' ran on '${connector.name || connector.id}' but returned an empty result.`;
+  }
   return truncate(JSON.stringify(result, null, 2));
 }
 

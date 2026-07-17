@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { contextBudgetForTarget, contextLimitFromError, estimateContext, requiresArtifactAction, runTurn, systemPrompt } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, estimateContext, requiresArtifactAction, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -212,9 +212,57 @@ test("the model receives topic changes without deterministic routing", async (t)
   assert.equal(answer, "The cloud model handled this question.");
   assert.equal(requestBody.model, "test-cloud-model");
   assert.equal(requestBody.messages.at(-1).content, "stock news");
-  assert.ok(Array.isArray(requestBody.tools), "the model should retain access to app tools");
+  assert.deepEqual(requestBody.tools.map((tool) => tool.function.name).sort(), ["research_web", "web_search"], "research turns should send only background search tools");
+  assert.doesNotMatch(requestBody.messages[0].content, /TOOL DEFINITIONS|Boolean includes local GGUF models|mcp_list_tools/i, "research turns should not carry the full agent controller prompt");
   assert.deepEqual(steps, [], "the app must not force a tool before the model requests one");
   assert.equal(messages.at(-1).content, answer);
+});
+
+test("ordinary chat turns send no tools and use a compact prompt", async (t) => {
+  let requestBody = null;
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    requestBody = JSON.parse(raw);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Hi. How can I help?" } }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "chat-test", apiKey: "test" },
+    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
+    autoApprove: true,
+    ui: { contextMode: "balanced", learnedMemory: false },
+    connectors: { mcp: [{ name: "Robinhood", enabled: true }], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(config.projectsDir, true, config) },
+    { role: "user", content: "hi" }
+  ];
+
+  const answer = await runTurn({
+    config,
+    approve: async () => false,
+    onStatus() {},
+    onStep() {},
+    onUsage() {}
+  }, messages);
+
+  assert.equal(answer, "Hi. How can I help?");
+  assert.equal(requestBody.tools, undefined, "plain chat should not send tool schemas");
+  assert.match(requestBody.messages[0].content, /concise AI workspace/);
+  assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
+});
+
+test("turn classifier chooses the smallest useful mode", () => {
+  assert.equal(classifyTurnMode([{ role: "user", content: "hi" }]), "chat");
+  assert.equal(classifyTurnMode([{ role: "user", content: "stock news today" }]), "research");
+  assert.equal(classifyTurnMode([{ role: "user", content: "build me a tic tac toe game" }], { artifactActionRequired: true }), "agent");
+  assert.equal(toolDefinitionsForTurnMode("chat").length, 0);
+  assert.deepEqual(toolDefinitionsForTurnMode("research").map((tool) => tool.function.name).sort(), ["research_web", "web_search"]);
 });
 
 test("agent tasks continue past the legacy tool-turn limit", async (t) => {
@@ -368,7 +416,7 @@ test("malformed native tool-call server errors retry without surfacing a 500", a
   };
   const messages = [
     { role: "system", content: systemPrompt(os.tmpdir(), true, config) },
-    { role: "user", content: "What can you help me do?" }
+    { role: "user", content: "Check notepad if needed." }
   ];
   const answer = await runTurn({
     config,

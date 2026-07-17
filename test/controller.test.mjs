@@ -173,9 +173,20 @@ test("task contract blocks browser, deploy, and paths outside an allowed project
     projectDir: "C:\\demo\\sandbox"
   });
   assert.equal(controller.allowTool("visible_browser_open", { url: "http://localhost:3000" }).allowed, false);
+  assert.equal(controller.allowTool("research_web", { query: "Cloudflare Workers docs" }).allowed, true);
   assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, false);
   assert.equal(controller.allowTool("read_file", { path: "C:\\demo\\production\\app.js" }).allowed, false);
   assert.equal(controller.allowTool("read_file", { path: "C:\\demo\\sandbox\\app.js" }).allowed, true);
+});
+
+test("visible browser is blocked by default while background research remains available", () => {
+  const controller = new AgentController({ objective: "Find current API documentation for this package" });
+  assert.equal(controller.allowTool("research_web", { query: "package API docs" }).allowed, true);
+  assert.equal(controller.allowTool("visible_browser_open", { url: "https://example.com" }).allowed, false);
+  assert.match(controller.allowTool("visible_browser_open", { url: "https://example.com" }).reason, /background research/i);
+
+  const builder = new AgentController({ objective: "Build a small website", artifactRequired: true });
+  assert.equal(builder.allowTool("screenshot_page", { url: "http://localhost:3210" }).allowed, true);
 });
 
 test("task contract discovers an explicit sandbox root from continued chat context", () => {
@@ -204,6 +215,42 @@ test("an explicit deploy task permits deploy commands", () => {
   const controller = new AgentController({ objective: "Deploy the current project" });
   assert.equal(controller.snapshot().contract.mode, "deploy");
   assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
+});
+
+test("deploy completion requires deploy proof and live verification", () => {
+  const controller = new AgentController({
+    objective: "Deploy",
+    taskContext: [
+      "Edit folder: C:\\demo\\app",
+      "Build command: npm run build",
+      "Deploy command: wrangler deploy",
+      "Live URL: https://example.com",
+      "Verification URL: https://example.com/health"
+    ].join("\n")
+  });
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
+  controller.noteTool("run_command", { command: "wrangler deploy" }, "Deployed version 12345678-1234-1234-1234-123456789abc");
+  assert.match(controller.evaluateCompletion("Done").reason, /not been checked/i);
+  controller.noteTool("run_command", { command: "curl https://example.com/health" }, "HTTP 200 OK");
+  assert.equal(controller.evaluateCompletion("Deployed and verified.").complete, true);
+});
+
+test("source of truth blocks a different deploy command", () => {
+  const controller = new AgentController({
+    objective: "Deploy",
+    taskContext: "Deploy command: wrangler deploy --env production"
+  });
+  assert.equal(controller.allowTool("run_command", { command: "npm run deploy" }).allowed, false);
+  assert.match(controller.allowTool("run_command", { command: "npm run deploy" }).reason, /source-of-truth/i);
+});
+
+test("blocked means stop after repeated blocked actions", () => {
+  const controller = new AgentController({ objective: "Fix code", taskContext: "Read-only." });
+  const gate = controller.allowTool("write_file", { path: "app.js" });
+  assert.equal(gate.allowed, false);
+  assert.equal(controller.noteBlockedTool("write_file", { path: "app.js" }, gate.reason).stop, false);
+  assert.equal(controller.noteBlockedTool("write_file", { path: "app.js" }, gate.reason).stop, true);
+  assert.match(controller.handoffReport(), /Last failure: write_file blocked/);
 });
 
 test("loop guard blocks a third identical inspection and resets after a change", () => {

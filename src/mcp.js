@@ -13,6 +13,52 @@ export class McpHttpError extends Error {
   }
 }
 
+export const MCP_STATUS = Object.freeze({
+  CONNECTED: "connected",
+  CONNECTED_UNAUTHORIZED: "connected_but_unauthorized",
+  TOKEN_MISSING: "token_missing",
+  TOKEN_EXPIRED: "token_expired",
+  TOOLS_AVAILABLE: "tools_available",
+  TOOLS_NO_DATA: "tools_available_but_no_data",
+  NO_TOOLS: "connected_but_no_tools",
+  UNREACHABLE: "unreachable"
+});
+
+function statusMessage(status) {
+  switch (status) {
+    case MCP_STATUS.CONNECTED: return "Connected";
+    case MCP_STATUS.CONNECTED_UNAUTHORIZED: return "Connected but unauthorized";
+    case MCP_STATUS.TOKEN_MISSING: return "Token missing";
+    case MCP_STATUS.TOKEN_EXPIRED: return "Token expired";
+    case MCP_STATUS.TOOLS_AVAILABLE: return "Tools available";
+    case MCP_STATUS.TOOLS_NO_DATA: return "Tools available but no data";
+    case MCP_STATUS.NO_TOOLS: return "Connected but no tools";
+    default: return "Could not reach server";
+  }
+}
+
+export function classifyMcpError(err, connector = {}) {
+  if (err instanceof McpHttpError) {
+    if (err.status === 401) {
+      if (connector?.oauth?.accessToken || connector?.token) return MCP_STATUS.TOKEN_EXPIRED;
+      return MCP_STATUS.TOKEN_MISSING;
+    }
+    if (err.status === 403) return MCP_STATUS.CONNECTED_UNAUTHORIZED;
+  }
+  const text = String(err?.message || "");
+  if (/sign-?in|required|unauthori[sz]ed|login/i.test(text)) {
+    if (connector?.oauth?.accessToken || connector?.token) return MCP_STATUS.TOKEN_EXPIRED;
+    return MCP_STATUS.TOKEN_MISSING;
+  }
+  if (/access denied|forbidden|permission/i.test(text)) return MCP_STATUS.CONNECTED_UNAUTHORIZED;
+  if (/exposes no tools|no tools/i.test(text)) return MCP_STATUS.NO_TOOLS;
+  return MCP_STATUS.UNREACHABLE;
+}
+
+export function mcpStatusPayload(status, extra = {}) {
+  return { status, statusLabel: statusMessage(status), ...extra };
+}
+
 function safeHttpsUrl(value, label) {
   let parsed;
   try { parsed = new URL(String(value || "")); } catch { throw new Error(`${label} is not a valid URL`); }
@@ -139,8 +185,11 @@ export async function mcpTestConnection(connector, { onRefresh } = {}) {
     });
     if (list.data?.error) throw new Error(list.data.error.message || "the server rejected tools/list");
     const tools = Array.isArray(list.data?.result?.tools) ? list.data.result.tools : [];
-    if (!tools.length) throw new Error("connected, but this MCP server exposes no tools Boolean can use");
+    if (!tools.length) throw Object.assign(new Error("connected, but this MCP server exposes no tools Boolean can use"), {
+      mcpStatus: MCP_STATUS.NO_TOOLS
+    });
     return {
+      ...mcpStatusPayload(MCP_STATUS.TOOLS_AVAILABLE),
       serverName: info.name || "",
       serverVersion: info.version || "",
       protocol,
@@ -164,7 +213,9 @@ export async function mcpCallTool(connector, toolName, args = {}, { onRefresh } 
       jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: toolName, arguments: args || {} }
     }, { timeoutMs: 60000 });
     if (called.data?.error) throw new Error(called.data.error.message || "MCP tool call failed");
-    return called.data?.result || {};
+    const result = called.data?.result || {};
+    const hasData = Array.isArray(result.content) ? result.content.length > 0 : Object.keys(result || {}).length > 0;
+    return { ...result, _booleanStatus: hasData ? MCP_STATUS.TOOLS_AVAILABLE : MCP_STATUS.TOOLS_NO_DATA };
   }, onRefresh);
 }
 

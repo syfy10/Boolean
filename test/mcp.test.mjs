@@ -3,8 +3,11 @@ import http from "node:http";
 import test from "node:test";
 import {
   buildMcpAuthorizationUrl,
+  classifyMcpError,
   createPkce,
+  MCP_STATUS,
   McpHttpError,
+  mcpCallTool,
   mcpTestConnection,
   protectedResourceMetadataUrl
 } from "../src/mcp.js";
@@ -74,6 +77,38 @@ test("does not mark an MCP server connected when tools/list needs sign-in", asyn
       () => mcpTestConnection({ url: `http://127.0.0.1:${port}/mcp` }),
       (error) => error instanceof McpHttpError && error.status === 401
     );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("classifies MCP token and authorization states", () => {
+  assert.equal(classifyMcpError(new McpHttpError("sign-in required", { status: 401 }), {}), MCP_STATUS.TOKEN_MISSING);
+  assert.equal(classifyMcpError(new McpHttpError("sign-in required", { status: 401 }), { token: "saved" }), MCP_STATUS.TOKEN_EXPIRED);
+  assert.equal(classifyMcpError(new McpHttpError("access denied", { status: 403 }), { token: "saved" }), MCP_STATUS.CONNECTED_UNAUTHORIZED);
+});
+
+test("MCP tool call marks empty tool results as no data", async () => {
+  const server = http.createServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+    res.writeHead(200, { "content-type": "application/json", "mcp-session-id": "session-2" });
+    if (body.method === "initialize") {
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result: { protocolVersion: "2025-06-18" } }));
+      return;
+    }
+    if (body.method === "notifications/initialized") {
+      res.end(JSON.stringify({ jsonrpc: "2.0", result: {} }));
+      return;
+    }
+    res.end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result: {} }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  try {
+    const result = await mcpCallTool({ url: `http://127.0.0.1:${port}/mcp` }, "empty", {});
+    assert.equal(result._booleanStatus, MCP_STATUS.TOOLS_NO_DATA);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

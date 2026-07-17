@@ -18,14 +18,18 @@ const INSPECTION_TOOLS = new Set([
   "git_status", "git_diff", "read_page", "visible_browser_read"
 ]);
 
-const BROWSER_TOOLS = new Set([
+const BACKGROUND_RESEARCH_TOOLS = new Set(["web_search", "research_web"]);
+const VISIBLE_BROWSER_TOOLS = new Set([
   "screenshot_page", "read_page", "inspect_page_layout", "visible_browser_read",
   "visible_browser_open", "visible_browser_click", "visible_browser_type",
-  "visible_browser_draft_email", "web_search", "research_web", "browser_open",
+  "visible_browser_draft_email", "browser_open",
   "browser_click", "browser_form", "browser_download"
 ]);
 
+const BROWSER_TOOLS = VISIBLE_BROWSER_TOOLS;
 const DEPLOY_COMMAND = /\b(?:wrangler(?:\.cmd)?\s+deploy|npm\s+run\s+deploy|git\s+push|gh\s+release|publish(?:\s|$)|deploy(?:\s|$))/i;
+const DEPLOY_VERSION = /\b(?:version|deployment|deployed|worker|pages|release|tag)\b.{0,80}\b([0-9a-f]{8,}(?:-[0-9a-f]{4,}){2,}|v?\d+\.\d+\.\d+|https?:\/\/\S+)/i;
+const LIVE_VERIFIED = /\b(?:HTTP\/\d(?:\.\d)?\s+)?(?:200|2\d\d)\b|\b(?:ok|healthy|success|verified|live|deployed)\b/i;
 const SECRET_PATTERN = /\b(?:sk-[A-Za-z0-9_-]{8,}|cfut_[A-Za-z0-9_-]+|gh[opusr]_[A-Za-z0-9_-]+|GOCSPX-[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9._-]+)\b/gi;
 const CONSTRAINT_LINE = /\b(?:do not|don't|never|only|must|without|unless|keep|use this|no deploy|no browser|sandbox)\b/i;
 const MAX_MEMORY_CHARS = 3200;
@@ -34,7 +38,7 @@ const ACTION_REQUEST = /(?:^|\b(?:please|can you|could you|would you|i want you 
 const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing|ure)?|fix|repair|regression|not working|doesn['’]?t work|stuck|cut(?:s|ting)? off|overlap(?:s|ping)?|wrong|issue)\b/i;
 
 const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b/i;
-const FAILURE_RESULT = /^(?:error\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
+const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
 
 function cleanText(value, max = 240) {
   return String(value || "").replace(SECRET_PATTERN, "[redacted]").replace(/\s+/g, " ").trim().slice(0, max);
@@ -74,6 +78,35 @@ function extractExplicitRoots(text) {
     }
   }
   return [...new Set(roots)].slice(0, 6);
+}
+
+function extractSourceOfTruth(text) {
+  const source = String(text || "");
+  const lines = source.split(/\r?\n/);
+  const truth = {};
+  const direct = [
+    ["editFolder", /\b(?:edit|project|working)\s+folder\s*:\s*(.+)$/i],
+    ["buildCommand", /\bbuild\s*(?:command)?\s*:\s*(.+)$/i],
+    ["deployCommand", /\bdeploy\s*(?:command)?\s*:\s*(.+)$/i],
+    ["liveUrl", /\blive\s*(?:site|url)?\s*:\s*(https?:\/\/\S+)/i],
+    ["verificationUrl", /\bverification\s*(?:url|site)?\s*:\s*(https?:\/\/\S+)/i]
+  ];
+  for (const line of lines) {
+    for (const [key, pattern] of direct) {
+      const match = line.match(pattern);
+      if (match && !truth[key]) truth[key] = cleanText(match[1].replace(/[.,;]+$/, ""), 600);
+    }
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const label = lines[i].trim();
+    const next = cleanText(lines[i + 1] || "", 600);
+    if (!next) continue;
+    if (/^build\s*:?\s*$/i.test(label) && !truth.buildCommand) truth.buildCommand = next;
+    if (/^deploy\s*:?\s*$/i.test(label) && !truth.deployCommand) truth.deployCommand = next;
+    if (/^live\s+(?:site|url)\s*:?\s*$/i.test(label) && !truth.liveUrl && /^https?:\/\//i.test(next)) truth.liveUrl = next;
+    if (/^verification\s+(?:site|url)\s*:?\s*$/i.test(label) && !truth.verificationUrl && /^https?:\/\//i.test(next)) truth.verificationUrl = next;
+  }
+  return truth;
 }
 
 function extractWindowsPaths(command) {
@@ -162,6 +195,21 @@ function isVerification(name, args) {
   return name === "run_command" && CHECK_COMMAND.test(String(args?.command || ""));
 }
 
+function isDeployCommand(name, args) {
+  return name === "run_command" && DEPLOY_COMMAND.test(String(args?.command || ""));
+}
+
+function isDeployVerification(name, args, result, sourceOfTruth = {}) {
+  if (isFailure(result)) return false;
+  const targetUrl = sourceOfTruth.verificationUrl || sourceOfTruth.liveUrl || "";
+  const argText = `${args?.url || ""} ${args?.command || ""} ${args?.query || ""}`;
+  const resultText = String(result || "");
+  if (targetUrl && (argText.includes(targetUrl) || resultText.includes(targetUrl))) return true;
+  if ((name === "read_page" || name === "visible_browser_read" || name === "research_web" || name === "web_search") && /^https?:\/\//i.test(argText)) return true;
+  if (name === "run_command" && /\b(?:curl|Invoke-WebRequest|iwr|wget)\b/i.test(String(args?.command || "")) && LIVE_VERIFIED.test(resultText)) return true;
+  return false;
+}
+
 export class AgentController {
   constructor(options = {}) {
     const saved = options.persisted && typeof options.persisted === "object" ? options.persisted : {};
@@ -172,6 +220,10 @@ export class AgentController {
     this.projectBound = !!(options.projectDir || saved.projectBound);
     this.taskContext = cleanText(options.taskContext || saved.taskContext, 12000);
     this.contract = inferContract(options, saved.contract || saved);
+    this.sourceOfTruth = {
+      ...(saved.sourceOfTruth && typeof saved.sourceOfTruth === "object" ? saved.sourceOfTruth : {}),
+      ...extractSourceOfTruth(`${options.taskContext || ""}\n${options.objective || ""}`)
+    };
     this.constraints = [...new Set([
       ...(Array.isArray(saved.constraints) ? saved.constraints.map((item) => cleanText(item, 260)) : []),
       ...extractConstraints(options.taskContext || "")
@@ -200,6 +252,10 @@ export class AgentController {
     this.recentActions = Array.isArray(saved.recentActions) ? saved.recentActions.map((item) => cleanText(item, 260)).filter(Boolean).slice(-10) : [];
     this.actionCounts = saved.actionCounts && typeof saved.actionCounts === "object" ? { ...saved.actionCounts } : {};
     this.nonProgressCount = Number(saved.nonProgressCount) || 0;
+    this.deployEvidence = cleanText(saved.deployEvidence, 700);
+    this.deployVerificationEvidence = cleanText(saved.deployVerificationEvidence, 700);
+    this.blockedToolCount = Number(saved.blockedToolCount) || 0;
+    this.blockedActionCounts = saved.blockedActionCounts && typeof saved.blockedActionCounts === "object" ? { ...saved.blockedActionCounts } : {};
     this.openProcesses = Array.isArray(saved.openProcesses)
       ? saved.openProcesses.map((item) => cleanText(item, 80)).filter(Boolean).slice(-8)
       : [];
@@ -212,6 +268,7 @@ export class AgentController {
       objective: this.objective,
       taskContext: this.taskContext,
       contract: { ...this.contract, allowedRoots: [...this.contract.allowedRoots] },
+      sourceOfTruth: { ...this.sourceOfTruth },
       constraints: [...this.constraints],
       artifactRequired: this.artifactRequired,
       debugRequired: this.debugRequired,
@@ -239,6 +296,10 @@ export class AgentController {
       recentActions: [...this.recentActions],
       actionCounts: { ...this.actionCounts },
       nonProgressCount: this.nonProgressCount,
+      deployEvidence: this.deployEvidence,
+      deployVerificationEvidence: this.deployVerificationEvidence,
+      blockedToolCount: this.blockedToolCount,
+      blockedActionCounts: { ...this.blockedActionCounts },
       openProcesses: [...this.openProcesses],
       updatedAt: this.updatedAt
     };
@@ -252,6 +313,7 @@ export class AgentController {
       `Objective: ${cleanText(this.objective || "Complete the latest request.", 700)}`,
       `Mode: ${this.contract.mode}; browser: ${this.contract.browserPolicy}; deploy: ${this.contract.deployAllowed ? "allowed" : "blocked unless explicitly requested"}.`,
       this.contract.allowedRoots.length ? `Allowed workspace roots: ${this.contract.allowedRoots.join(" | ")}` : "",
+      Object.keys(this.sourceOfTruth).length ? `Project source of truth: ${Object.entries(this.sourceOfTruth).map(([key, value]) => `${key}=${value}`).join(" | ")}` : "",
       this.constraints.length ? `User constraints: ${cleanText(this.constraints.join(" | "), 700)}` : "",
       this.taskContext ? `Recent user intent: ${cleanText(this.taskContext.slice(-1000), 1000)}` : "",
       this.inspectedFiles.length ? `Inspected: ${this.inspectedFiles.slice(-6).join(" | ")}` : "",
@@ -271,8 +333,11 @@ export class AgentController {
     return [
       `Goal: ${cleanText(this.objective || "Complete the latest request.", 700)}`,
       `Mode: ${this.contract.mode}`,
+      Object.keys(this.sourceOfTruth).length ? `Source of truth: ${Object.entries(this.sourceOfTruth).map(([key, value]) => `${key}=${value}`).join(" | ")}` : "Source of truth: none recorded",
       `Files changed: ${this.changedFiles.length ? this.changedFiles.join(" | ") : "none recorded"}`,
       `Checks: ${this.checks.length ? this.checks.join(" | ") : "none recorded"}`,
+      `Deploy proof: ${this.deployEvidence || "none recorded"}`,
+      `Live verification: ${this.deployVerificationEvidence || "none recorded"}`,
       `Open processes: ${this.openProcesses.length ? this.openProcesses.join(" | ") : "none"}`,
       `Last failure: ${this.lastFailure || "none"}`,
       `Next step: ${next}`
@@ -293,6 +358,14 @@ export class AgentController {
       lines.push(`Last failure: ${this.lastFailure}`);
       lines.push("Diagnose the evidence and change strategy. Do not repeat the same failing action unchanged.");
     }
+    if (Object.keys(this.sourceOfTruth).length) {
+      lines.push("SOURCE OF TRUTH: use the recorded edit folder, build command, deploy command, live URL, and verification URL when present. Do not substitute older folders or commands from chat history.");
+    }
+    if (this.contract.deployAllowed) {
+      lines.push("DEPLOY PROOF RULE: after deploying, capture the deploy version/id or release output, then verify the live or verification URL. Do not say deployed until both pieces of evidence are recorded.");
+    }
+    lines.push("WEB/BROWSER RULE: use background research_web/web_search for facts, docs, APIs, and quick checks. Open the visible built-in browser only for visual preview, OAuth/sign-in, user-facing browsing, screenshots, or page testing.");
+    lines.push("BLOCKED MEANS STOP: if Boolean blocks the same tool/action twice, stop and explain the blocker plainly instead of trying equivalent actions.");
     if (this.debugRequired) {
       lines.push("DEBUG WORKFLOW (required): inspect -> reproduce -> identify root cause -> edit -> repeat the same check -> regressions.");
       lines.push("Before editing, use a real command, project preview, page inspection, or screenshot to observe the failure, then call record_debug_evidence(stage='reproduced').");
@@ -315,7 +388,11 @@ export class AgentController {
 
   allowTool(name, args = {}) {
     if (this.contract.browserPolicy === "blocked" && BROWSER_TOOLS.has(name)) {
-      return { allowed: false, reason: "The task contract blocks browser use. Continue with files and local checks only." };
+      return { allowed: false, reason: "The task contract blocks the visible browser. Use files, local checks, or background research only." };
+    }
+    const visualVerification = this.artifactRequired && (VERIFICATION_TOOLS.has(name) || name === "read_page");
+    if (this.contract.browserPolicy === "on_demand" && BROWSER_TOOLS.has(name) && !visualVerification) {
+      return { allowed: false, reason: "Visible browser use was not requested for this task. Use background research_web/web_search for facts or ask before opening the browser." };
     }
     if (this.contract.mode === "read_only" && (MUTATION_TOOLS.has(name) || PREPARATION_TOOLS.has(name))) {
       return { allowed: false, reason: "The task is read-only; file and project changes are blocked." };
@@ -331,6 +408,13 @@ export class AgentController {
     }
     if (name === "run_command" && DEPLOY_COMMAND.test(String(args.command || "")) && !this.contract.deployAllowed) {
       return { allowed: false, reason: "Deploy, publish, and push commands require an explicit deploy request for this task." };
+    }
+    if (name === "run_command" && this.sourceOfTruth.deployCommand && DEPLOY_COMMAND.test(String(args.command || ""))) {
+      const wanted = cleanText(this.sourceOfTruth.deployCommand, 500).toLowerCase();
+      const actual = cleanText(args.command, 500).toLowerCase();
+      if (!actual.includes(wanted)) {
+        return { allowed: false, reason: `Use the project source-of-truth deploy command: ${this.sourceOfTruth.deployCommand}` };
+      }
     }
     const requestedPath = fileArgument(args);
     if (requestedPath && path.isAbsolute(String(requestedPath)) && this.contract.allowedRoots.length &&
@@ -354,6 +438,22 @@ export class AgentController {
       return { allowed: false, reason: "Debug workflow requires recording the inspected root cause before editing." };
     }
     return { allowed: true, reason: "" };
+  }
+
+  noteBlockedTool(name, args = {}, reason = "") {
+    this.blockedToolCount++;
+    this.updatedAt = Date.now();
+    const fingerprint = actionFingerprint(name, args);
+    this.blockedActionCounts[fingerprint] = (this.blockedActionCounts[fingerprint] || 0) + 1;
+    this.consecutiveFailures++;
+    this.lastFailure = `${name} blocked: ${cleanText(reason, 420)}`;
+    this.phase = "blocked";
+    return {
+      count: this.blockedToolCount,
+      repeated: this.blockedActionCounts[fingerprint],
+      stop: this.blockedToolCount >= 2 || this.blockedActionCounts[fingerprint] >= 2,
+      snapshot: this.snapshot()
+    };
   }
 
   noteTool(name, args = {}, result = "") {
@@ -428,6 +528,18 @@ export class AgentController {
 
     const failed = isFailure(result);
     const verification = isVerification(name, args) || SELF_VERIFYING_TOOLS.has(name);
+    const deployCommand = isDeployCommand(name, args);
+    if (deployCommand && !failed) {
+      const version = String(result || "").match(DEPLOY_VERSION)?.[1] || "";
+      this.deployEvidence = cleanText(version ? `${version} — ${result}` : result, 700);
+      this.phase = "verifying";
+      setPlanProgress(this.plan, this.plan.length > 2 ? 1 : 0, "done");
+      if (this.plan[2]?.status === "pending") this.plan[2].status = "in_progress";
+    }
+    if (this.deployEvidence && isDeployVerification(name, args, result, this.sourceOfTruth)) {
+      this.deployVerificationEvidence = `${name}: ${cleanText(result, 650)}`;
+      this.phase = "verifying";
+    }
     if (this.debugRequired && this.mutationCount === 0 && verification) {
       this.baselineCheckCount++;
     }
@@ -498,6 +610,10 @@ export class AgentController {
 
   evaluateCompletion(answer) {
     if (!cleanText(answer)) return { complete: false, reason: "The model returned no final result." };
+    if (this.contract.mode === "deploy" || this.deployEvidence) {
+      if (!this.deployEvidence) return { complete: false, reason: "Deploy has not produced a version, release, or deployment result yet." };
+      if (!this.deployVerificationEvidence) return { complete: false, reason: "The live or verification URL has not been checked after deploy yet." };
+    }
     if (!this.artifactRequired) {
       if (this.actionRequired && this.successfulActionCount < 1) {
         return { complete: false, reason: "The requested action has not been performed by a successful tool yet." };

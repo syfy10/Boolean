@@ -25,7 +25,10 @@ import {
   createPkce,
   registerMcpOAuthClient,
   buildMcpAuthorizationUrl,
-  exchangeMcpAuthorizationCode
+  exchangeMcpAuthorizationCode,
+  classifyMcpError,
+  mcpStatusPayload,
+  MCP_STATUS
 } from "./mcp.js";
 import {
   createEmailOAuth,
@@ -1064,7 +1067,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             tools: result.tools.map((tool) => tool.name).filter(Boolean) });
         } catch (err) {
           if (!(err instanceof McpHttpError) || err.status !== 401 || token) {
-            return json({ ok: false, error: err.message || "connection failed" });
+            return json({ ok: false, error: err.message || "connection failed",
+              ...mcpStatusPayload(err?.mcpStatus || classifyMcpError(err, connector)) });
           }
           try {
             const metadata = await discoverMcpOAuth(mcpUrl, err.authHeader);
@@ -1085,11 +1089,13 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             return json({
               ok: true,
               authorizationRequired: true,
+              ...mcpStatusPayload(MCP_STATUS.TOKEN_MISSING),
               state,
               authorizationUrl: buildMcpAuthorizationUrl(metadata, client, redirectUri, state, pkce.challenge)
             });
           } catch (oauthError) {
-            return json({ ok: false, error: oauthError.message || "could not start authorization" });
+            return json({ ok: false, error: oauthError.message || "could not start authorization",
+              ...mcpStatusPayload(classifyMcpError(oauthError, connector)) });
           }
         }
       }
@@ -1271,7 +1277,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           const result = await testMcpConnector(connector, { onRefresh: () => saveConfig(config) });
           json({ ok: true, ...result, tools: result.tools.map((tool) => tool.name).filter(Boolean) });
         } catch (err) {
-          json({ ok: false, error: err.message || "connection failed" });
+          json({ ok: false, error: err.message || "connection failed",
+            ...mcpStatusPayload(err?.mcpStatus || classifyMcpError(err, connector)) });
         }
         return;
       }

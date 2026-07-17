@@ -137,6 +137,41 @@ const ARTIFACT_TOOL_NAMES = new Set([
   "create_artifact", "generate_image", "run_guarded", "record_debug_evidence"
 ]);
 const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
+const RESEARCH_TOOL_NAMES = new Set(["web_search", "research_web"]);
+const RESEARCH_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => RESEARCH_TOOL_NAMES.has(tool.function.name));
+
+function compactChatPrompt(config = null) {
+  const learned = config?.ui?.learnedMemory === false ? "" : summarizeLearnedPreferences();
+  return [
+    "You are Boolean, a concise AI workspace.",
+    "Answer the latest message directly. Use the current chat for follow-ups, but do not repeat old topics after the user changes subject.",
+    "Keep normal replies short: 1-3 sentences unless the user asks for detail.",
+    "If the user asks for current, live, or recent facts and no research tool is available, say you need web research instead of guessing.",
+    learned
+  ].filter(Boolean).join("\n");
+}
+
+function compactResearchPrompt(config = null) {
+  const learned = config?.ui?.learnedMemory === false ? "" : summarizeLearnedPreferences();
+  return [
+    "You are Boolean, a concise research assistant.",
+    "Use research_web or web_search for current, live, recent, price, schedule, score, news, and availability questions.",
+    "Synthesize the answer from evidence. Do not paste raw search results. Do not open the visible browser unless the user explicitly asks.",
+    "Cite researched factual claims with evidence numbers and include a short Sources list with direct URLs.",
+    "Use the current chat for follow-ups, but ignore stale topics after the user changes subject.",
+    learned
+  ].filter(Boolean).join("\n");
+}
+
+function withTurnModeSystem(messages, mode, config) {
+  if (mode === "agent") return messages;
+  const prompt = mode === "research" ? compactResearchPrompt(config) : compactChatPrompt(config);
+  const copy = messages.map((message) => ({ ...message }));
+  const systemIndex = copy.findIndex((message) => message?.role === "system");
+  if (systemIndex >= 0) copy[systemIndex].content = prompt;
+  else copy.unshift({ role: "system", content: prompt });
+  return copy;
+}
 
 function fallbackToolPrompt(definitions = TOOL_DEFINITIONS, options = {}) {
   const compact = !!options.compact;
@@ -347,9 +382,34 @@ const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setu
 const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|project|program|script|code|file|folder|desktop tool|server)\b/i;
 const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:it|that|all that)(?:\s+for me)?\b/i;
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
+const RESEARCH_REQUEST = /\b(?:current|latest|today|tonight|tomorrow|yesterday|right now|live|news|headline|weather|forecast|score|won|winner|match|game|fixture|schedule|stock|stocks|market|price|earnings|dividend|available|availability|search|look up|lookup|web|internet|source|sources|cite)\b/i;
+const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
 // text that signals the model is describing MORE work instead of finishing it —
 // small models often narrate the next step rather than doing it and then stop
 const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|have to)\s+(?:now\s+|then\s+|also\s+)?(?:add|create|build|write|implement|update|make|set ?up|style|wire|continue|proceed|finish|start|handle|generate|scaffold|develop|do)|next step|next[,:]|let'?s\s+(?:now\s+)?(?:add|create|build|write|implement|continue|proceed|finish|do)|let us\s+(?:now\s+)?(?:add|create|build|continue|proceed|finish|do)|still (?:need|have) to|remaining\b|to-?do\b|step \d+\b|going to\s+(?:add|create|build|write|implement|make|finish|do)|shall i\b|would you like me to\b|after (?:that|this)\b|proceed to\b)/i;
+
+export function classifyTurnMode(messages, options = {}) {
+  const latest = options.latestText ?? plainMessageText([...(messages || [])].reverse().find((message) => message?.role === "user"));
+  if (options.directAction || options.artifactActionRequired || options.projectDir) return "agent";
+  if (RESEARCH_REQUEST.test(latest)) return "research";
+  if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "agent";
+  return "chat";
+}
+
+export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false) {
+  if (mode === "chat") return [];
+  if (mode === "research") return RESEARCH_TOOL_DEFINITIONS;
+  if (artifactActionRequired && !completedToolWork) return ARTIFACT_TOOL_DEFINITIONS;
+  return TOOL_DEFINITIONS;
+}
+
+function focusedMessagesForTurn(messages, mode) {
+  const focused = focusConversation(messages);
+  if (mode === "agent") return focused;
+  const system = focused[0];
+  const recent = focused.slice(1).slice(-(mode === "research" ? 10 : 6));
+  return [system, ...recent];
+}
 
 // Keep the model in charge of implementation details, but recognize the narrow
 // case where a user clearly asked Boolean to produce a software/file artifact.
@@ -510,7 +570,11 @@ function fitToContext(messages, budgetTokens, mode = "balanced") {
 // exported so the /api/estimate endpoint can preview token cost before sending
 export function estimateContext(messages, budgetTokens, mode) {
   const originalFull = approxTokens(messages);
-  const r = fitToContext(focusConversation(messages), budgetTokens, mode);
+  const artifactActionRequired = requiresArtifactAction(messages);
+  const latestUser = [...(messages || [])].reverse().find((message) => message?.role === "user");
+  const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
+  const turnMode = classifyTurnMode(messages, { artifactActionRequired, directAction });
+  const r = fitToContext(focusedMessagesForTurn(messages, turnMode), budgetTokens, mode);
   return { full: originalFull, sent: r.sentTokens, saved: Math.max(0, originalFull - r.sentTokens), budget: r.budget };
 }
 
@@ -529,6 +593,13 @@ export async function runTurn(ctx, messages) {
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   ctx.latestUserText = plainMessageText(latestUser);
   const artifactActionRequired = requiresArtifactAction(messages);
+  const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
+  const turnMode = classifyTurnMode(messages, {
+    latestText: ctx.latestUserText,
+    artifactActionRequired,
+    projectDir: ctx.projectDir,
+    directAction
+  });
   const controller = createAgentController({
     objective: ctx.objective || ctx.latestUserText,
     taskContext: ctx.taskContext || "",
@@ -547,14 +618,20 @@ export async function runTurn(ctx, messages) {
   };
   const executeControllerTool = async (name, args) => {
     const gate = controller.allowTool(name, args);
-    if (!gate.allowed) return `error: ${gate.reason}`;
+    if (!gate.allowed) {
+      const blocked = controller.noteBlockedTool(name, args, gate.reason);
+      publishController();
+      if (blocked.stop) {
+        return `blocked: ${gate.reason}\nBoolean has blocked repeated attempts. Stop now and explain this blocker plainly instead of trying another equivalent action.`;
+      }
+      return `error: ${gate.reason}`;
+    }
     return await executeTool(name, args, ctx);
   };
   const withController = (source) => source.map((message, index) => index === 0 && message?.role === "system"
-    ? { ...message, content: `${message.content}\n\n${controller.prompt()}` }
+    ? { ...message, content: turnMode === "agent" ? `${message.content}\n\n${controller.prompt()}` : message.content }
     : message);
   publishController();
-  const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
   if (directAction) {
     onStatus(`running ${directAction.name}...`);
     const result = await executeControllerTool(directAction.name, directAction.args);
@@ -630,6 +707,7 @@ export async function runTurn(ctx, messages) {
   let emptyResponseRetries = 0;
   let textOnlyContentFallback = false;
   let autoContinues = 0;
+  let activeToolDefinitions = [];
   const MAX_AUTO_CONTINUE = 8; // finish multi-step builds without looping forever
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
   for (;;) {
@@ -645,13 +723,14 @@ export async function runTurn(ctx, messages) {
     let msg;
     try {
       const originalFull = approxTokens(messages);
-      const fit = fitToContext(focusConversation(messages), ctxBudget, contextMode);
+      const fit = fitToContext(focusedMessagesForTurn(messages, turnMode), ctxBudget, contextMode);
       if (!optimizeSent && onOptimize) {
         optimizeSent = true;
         onOptimize({ mode: contextMode, sent: fit.sentTokens, full: originalFull,
           saved: Math.max(0, originalFull - fit.sentTokens), budget: fit.budget });
       }
       let modelMessages = actionNudgeActive ? withActionNudge(fit.msgs, bootstrapContext, !!ctx.projectDir) : fit.msgs;
+      modelMessages = withTurnModeSystem(modelMessages, turnMode, config);
       modelMessages = withController(modelMessages);
       if (emptyResponseRetries > 0) {
         modelMessages = modelMessages.map((message, index) => index === 0 && message?.role === "system"
@@ -668,12 +747,13 @@ export async function runTurn(ctx, messages) {
         }
       }
       if (textOnlyContentFallback) modelMessages = withTextOnlyContent(modelMessages);
-      const availableTools = artifactActionRequired && !completedToolWork ? ARTIFACT_TOOL_DEFINITIONS : TOOL_DEFINITIONS;
-      if (!useNativeTools) modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: localCompactTools });
-      const requestTarget = actionNudgeActive && !completedToolWork && useNativeTools
+      const availableTools = toolDefinitionsForTurnMode(turnMode, artifactActionRequired, completedToolWork);
+      activeToolDefinitions = availableTools;
+      if (!useNativeTools && availableTools.length) modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: localCompactTools });
+      const requestTarget = actionNudgeActive && !completedToolWork && useNativeTools && availableTools.length
         ? { ...target, toolChoice: "required" }
         : target;
-      msg = await chatCompletion(requestTarget, modelMessages, useNativeTools ? availableTools : undefined, signal, onToken);
+      msg = await chatCompletion(requestTarget, modelMessages, useNativeTools && availableTools.length ? availableTools : undefined, signal, onToken);
       localRecoveryAttempted = false;
       emitUsage(msg);
     } catch (err) {
@@ -719,7 +799,7 @@ export async function runTurn(ctx, messages) {
         if (messages[0]?.role === "system" && !messages[0].content.includes("TOOL PROTOCOL")) {
           messages[0] = {
             role: "system",
-            content: messages[0].content + "\n" + fallbackToolPrompt(TOOL_DEFINITIONS, { compact: localCompactTools })
+            content: messages[0].content + "\n" + fallbackToolPrompt(activeToolDefinitions.length ? activeToolDefinitions : TOOL_DEFINITIONS, { compact: localCompactTools })
           };
         }
         continue;
@@ -777,7 +857,7 @@ export async function runTurn(ctx, messages) {
 
     // Text-protocol tool calls (checked in both modes — small models often
     // write a JSON block instead of using native tool calls)
-    const call = parseFallbackToolCall(assistantContent);
+    const call = activeToolDefinitions.length ? parseFallbackToolCall(assistantContent) : null;
     if (call) {
       messages.push({ role: "assistant", content: assistantContent });
       onStatus(`running ${call.name}…`);
