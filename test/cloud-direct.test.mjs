@@ -79,9 +79,38 @@ test("exhausted cloud retries preserve the selected provider and API key", async
       provider: "glm",
       noStream: true
     }, [{ role: "user", content: "hello" }]),
-    (err) => err.code === "cloud_connection_interrupted"
+    (err) => err.code === "cloud_provider_error"
+      && err.status === 503
+      && /temporarily unavailable/i.test(err.message)
       && /API key are unchanged/i.test(err.message)
       && err.code !== "cloud_auth_required"
+  );
+  assert.equal(calls, 3);
+});
+
+test("rate-limit responses keep the useful provider explanation after retries", async (t) => {
+  let calls = 0;
+  const server = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    calls++;
+    res.writeHead(429, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: { message: "Plan quota exhausted for today" } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  await assert.rejects(
+    chatCompletion({
+      base: `http://127.0.0.1:${server.address().port}`,
+      apiKey: "active-session",
+      model: "test-cloud-model",
+      provider: "zaiCoding",
+      noStream: true
+    }, [{ role: "user", content: "hello" }]),
+    (err) => err.code === "cloud_provider_error"
+      && err.status === 429
+      && /Z\.AI rate or usage limit/i.test(err.message)
+      && /Plan quota exhausted/i.test(err.message)
   );
   assert.equal(calls, 3);
 });

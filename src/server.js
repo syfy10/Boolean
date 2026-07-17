@@ -18,6 +18,15 @@ import { recordUsage, resetUsage, summarizeUsage } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads } from "./store.js";
 import { handleBrowse, clearCookies } from "./browse.js";
 import { learnFromUserText, publicPreferences, deletePreference, clearPreferences } from "./preferences.js";
+import {
+  McpHttpError,
+  mcpTestConnection as testMcpConnector,
+  discoverMcpOAuth,
+  createPkce,
+  registerMcpOAuthClient,
+  buildMcpAuthorizationUrl,
+  exchangeMcpAuthorizationCode
+} from "./mcp.js";
 
 function loadAsset(name, devPath) {
   if (sea.isSea && sea.isSea()) {
@@ -172,9 +181,15 @@ function firstTopic(s, max = 3) {
 function publicConnectors(config) {
   const c = config.connectors || {};
   return {
+    apis: Array.isArray(c.apis) ? c.apis.map((x) => ({
+      id: x.id, name: x.name, baseUrl: x.baseUrl, model: x.model,
+      enabled: x.enabled !== false, hasKey: !!x.apiKey, approvedUse: !!x.approvedUse,
+      selected: config.provider === "customApi" && config.customApi?.connectionId === x.id
+    })) : [],
     mcp: Array.isArray(c.mcp) ? c.mcp.map((x) => ({
       id: x.id, name: x.name, type: x.type || (x.url ? "remote" : "local"),
-      url: x.url, command: x.command, args: x.args, enabled: x.enabled !== false, hasKey: !!x.token
+      url: x.url, command: x.command, args: x.args, enabled: x.enabled !== false,
+      hasKey: !!(x.token || x.oauth?.accessToken), auth: x.oauth ? "oauth" : (x.token ? "bearer" : "none")
     })) : [],
     agents: Array.isArray(c.agents) ? c.agents.map((x) => ({
       id: x.id, name: x.name, url: x.url, enabled: x.enabled !== false, hasKey: !!x.apiKey
@@ -186,66 +201,27 @@ function cleanConnectorName(s) {
   return String(s || "").replace(/[^\w .:-]/g, "").trim().slice(0, 80);
 }
 
-// One JSON-RPC round-trip against a Streamable-HTTP MCP server. Handles both a
-// plain JSON reply and an SSE (text/event-stream) reply, and threads the
-// Mcp-Session-Id header the spec assigns during initialize.
-async function mcpStreamableRpc(url, token, sessionId, payload) {
-  const headers = { "content-type": "application/json", "accept": "application/json, text/event-stream" };
-  if (token) headers["authorization"] = `Bearer ${token}`;
-  if (sessionId) headers["mcp-session-id"] = sessionId;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 12000);
-  let res;
-  try {
-    res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload), signal: ctrl.signal, redirect: "follow" });
-  } catch (err) {
-    if (err?.name === "AbortError") throw new Error("connection timed out");
-    const raw = err?.message || "";
-    throw new Error(/fetch failed|network|ENOTFOUND|ECONN/i.test(raw) ? "could not reach the server (check the URL)" : (raw || "could not reach the server"));
-  } finally { clearTimeout(timer); }
-
-  const newSession = res.headers.get("mcp-session-id") || sessionId || "";
-  const ctype = (res.headers.get("content-type") || "").toLowerCase();
-  const text = await res.text();
-  let data = null;
-  if (ctype.includes("text/event-stream")) {
-    for (const line of text.split(/\r?\n/)) {
-      const m = line.match(/^data:\s*(.*)$/);
-      if (!m) continue;
-      try { const obj = JSON.parse(m[1]); if (obj && (obj.result !== undefined || obj.error !== undefined || obj.id !== undefined)) data = obj; } catch { /* skip non-JSON data lines */ }
-    }
-  } else if (text.trim()) {
-    try { data = JSON.parse(text); } catch { if (!res.ok) throw new Error(`server returned HTTP ${res.status}`); }
-  }
-  if (res.status === 401 || res.status === 403) throw new Error("authorization failed — check the access token");
-  if (!res.ok && !data) throw new Error(`server returned HTTP ${res.status}`);
-  return { data, sessionId: newSession };
-}
-
-async function mcpTestConnection(url, token) {
-  if (!/^https?:\/\//i.test(String(url || ""))) throw new Error("Enter a valid http(s) MCP URL");
-  const init = await mcpStreamableRpc(url, token, "", {
-    jsonrpc: "2.0", id: 1, method: "initialize",
-    params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "Boolean", version: "1.0" } }
-  });
-  if (init.data?.error) throw new Error(init.data.error.message || "the server rejected initialize");
-  if (!init.data?.result) throw new Error("not an MCP server (no initialize result)");
-  const info = init.data.result.serverInfo || {};
-  const protocol = init.data.result.protocolVersion || "";
-  const sid = init.sessionId;
-  try { await mcpStreamableRpc(url, token, sid, { jsonrpc: "2.0", method: "notifications/initialized" }); } catch { /* notification is best-effort */ }
-  let tools = [];
-  try {
-    const list = await mcpStreamableRpc(url, token, sid, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });
-    tools = Array.isArray(list.data?.result?.tools) ? list.data.result.tools.map((t) => t.name).filter(Boolean) : [];
-  } catch { /* server may not expose tools; connection still verified */ }
-  return { serverName: info.name || "", serverVersion: info.version || "", protocol, tools, toolCount: tools.length };
-}
-
 function mergeConnectors(current, incoming) {
+  const prevApis = new Map((current?.apis || []).map((a) => [a.id, a]));
   const prevAgents = new Map((current?.agents || []).map((a) => [a.id, a]));
   const prevMcp = new Map((current?.mcp || []).map((m) => [m.id, m]));
-  const next = { mcp: [], agents: [] };
+  const next = { apis: Array.isArray(current?.apis) ? current.apis : [], mcp: [], agents: [] };
+  if (Array.isArray(incoming?.apis)) {
+    next.apis = incoming.apis.slice(0, 30).map((x) => {
+      const id = String(x.id || crypto.randomUUID());
+      const old = prevApis.get(id);
+      const key = typeof x.apiKey === "string" && x.apiKey !== "__keep__" ? x.apiKey.trim() : (old?.apiKey || "");
+      return {
+        id,
+        name: cleanConnectorName(x.name) || "API connection",
+        baseUrl: String(x.baseUrl || "").trim().replace(/\/+$/, "").slice(0, 1000),
+        model: String(x.model || "").trim().slice(0, 200),
+        apiKey: key,
+        approvedUse: !!x.approvedUse,
+        enabled: x.enabled !== false
+      };
+    }).filter((x) => /^https?:\/\//i.test(x.baseUrl) && x.model);
+  }
   if (Array.isArray(incoming?.mcp)) {
     next.mcp = incoming.mcp.slice(0, 30).map((x) => {
       const id = String(x.id || crypto.randomUUID());
@@ -263,6 +239,7 @@ function mergeConnectors(current, incoming) {
         command: type === "local" ? command : "",
         args: type === "local" ? String(x.args || "").trim().slice(0, 1000) : "",
         token: type === "remote" ? token : "",
+        oauth: type === "remote" ? (old?.oauth || null) : null,
         enabled: x.enabled !== false
       };
     }).filter((x) => x.type === "remote" ? /^https?:\/\//i.test(x.url) : x.command);
@@ -335,6 +312,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   try { favicon = loadAsset("saz.ico", "../assets/saz.ico"); } catch { favicon = icon32; }
 
   const pendingApprovals = new Map(); // id -> resolve(boolean)
+  const pendingMcpOAuth = new Map(); // state -> short-lived OAuth transaction
   const pendingBrowserControls = new Map(); // id -> resolve(result)
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
@@ -453,6 +431,18 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   let byeTimer = null;
   const syncWarmEnv = () => { process.env.BOOLEAN_KEEP_ENGINE_WARM = config.ui?.keepLocalWarm !== false ? "1" : ""; };
   syncWarmEnv();
+  const saveMcpConnector = (connector) => {
+    config.connectors = config.connectors || { mcp: [], agents: [] };
+    config.connectors.mcp = Array.isArray(config.connectors.mcp) ? config.connectors.mcp : [];
+    const index = config.connectors.mcp.findIndex((item) => item.id === connector.id || item.url === connector.url);
+    if (index >= 0) config.connectors.mcp[index] = { ...config.connectors.mcp[index], ...connector };
+    else config.connectors.mcp.push(connector);
+    saveConfig(config);
+  };
+  const oauthResultPage = (title, message, ok) => `<!doctype html><meta charset="utf-8"><title>${title}</title>
+    <style>body{font:15px Segoe UI,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f7f7f6;color:#171918}.box{width:min(380px,calc(100vw - 48px));padding:28px;border:1px solid #ddd;border-radius:8px;background:#fff}h1{font-size:22px;margin:0 0 10px}.ok{color:#13a84a}.bad{color:#cf3e3e}</style>
+    <div class="box"><h1 class="${ok ? "ok" : "bad"}">${title}</h1><div>${message}</div></div>
+    <script>try{if(window.opener)window.opener.postMessage({type:"boolean-mcp-oauth",ok:${ok}},location.origin);setTimeout(()=>window.close(),900)}catch{}</script>`;
   function shutdown() {
     if (activeChats > 0) return;
     if (config.ui?.keepLocalWarm !== false) {
@@ -552,8 +542,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           model: currentModel(config), autoApprove: config.autoApprove,
           local: { ctx: config.local.ctx },
           backendUp: await backendUp(config),
-          cloud: CLOUD,
-          keys: Object.fromEntries(Object.keys(CLOUD).map((k) => [k, !!config[k].apiKey])),
+          cloud: { ...CLOUD, customApi: config.customApi?.name || CLOUD.customApi },
+          keys: Object.fromEntries(Object.keys(CLOUD).map((k) => [k, !!config[k]?.apiKey])),
           thirdParty: {
             zaiCoding: {
               endpoint: "https://api.z.ai/api/coding/paas/v4",
@@ -791,6 +781,26 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           config[body.setKey.provider].apiKey = body.setKey.key.trim();
         }
         if (typeof body.zaiCodingApproved === "boolean") config.zaiCoding.approvedUse = body.zaiCodingApproved;
+        if (body.customApi && typeof body.customApi === "object") {
+          const old = config.customApi || {};
+          const baseUrl = String(body.customApi.baseUrl || old.baseUrl || "").trim().replace(/\/+$/, "");
+          const model = String(body.customApi.model || old.model || "").trim();
+          if (!/^https?:\/\//i.test(baseUrl)) return json({ error: "invalid_api_endpoint" }, 400);
+          if (!model) return json({ error: "model_required" }, 400);
+          const apiKey = body.customApi.apiKey === "__keep__" ? (old.apiKey || "") : String(body.customApi.apiKey || "").trim();
+          config.customApi = {
+            connectionId: String(body.customApi.id || old.connectionId || crypto.randomUUID()),
+            name: cleanConnectorName(body.customApi.name) || "Custom API",
+            baseUrl, model, apiKey, approvedUse: !!body.customApi.approvedUse
+          };
+          if (body.customApi.use !== false) config.provider = "customApi";
+        }
+        if (typeof body.selectApiConnector === "string") {
+          const item = (config.connectors?.apis || []).find((x) => x.id === body.selectApiConnector && x.enabled !== false);
+          if (!item) return json({ error: "api_connection_not_found" }, 404);
+          config.customApi = { connectionId: item.id, name: item.name, baseUrl: item.baseUrl, model: item.model, apiKey: item.apiKey || "", approvedUse: !!item.approvedUse };
+          config.provider = "customApi";
+        }
         // remove a saved API key: { clearKey: "openai" }
         if (typeof body.clearKey === "string" && CLOUD[body.clearKey]) {
           config[body.clearKey].apiKey = "";
@@ -799,6 +809,13 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (typeof body.projectsDir === "string" && body.projectsDir.trim()) config.projectsDir = body.projectsDir.trim();
         if (typeof body.referenceModel === "string" && body.referenceModel) config.referenceModel = body.referenceModel;
         if (body.connectors && typeof body.connectors === "object") config.connectors = mergeConnectors(config.connectors, body.connectors);
+        if (typeof body.removeApiConnector === "string") {
+          config.connectors.apis = (config.connectors?.apis || []).filter((x) => x.id !== body.removeApiConnector);
+          if (config.customApi?.connectionId === body.removeApiConnector) {
+            config.customApi = { connectionId: "", name: "Custom API", baseUrl: "", model: "", apiKey: "", approvedUse: false };
+            if (config.provider === "customApi") config.provider = "local";
+          }
+        }
         if (body.ui && typeof body.ui === "object") { config.ui = { ...config.ui, ...body.ui }; syncWarmEnv(); }
         if (body.acceptEula === true) config.eulaAccepted = "1.0";
         saveConfig(config);
@@ -826,18 +843,129 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
       }
 
+      if (req.method === "POST" && p === "/api/mcp/connect") {
+        const body = await readBody(req);
+        const mcpUrl = String(body.url || "").trim();
+        const name = cleanConnectorName(body.name) || (mcpUrl.includes("robinhood.com") ? "Robinhood Trading" : "MCP server");
+        const token = typeof body.token === "string" ? body.token.trim() : "";
+        if (!/^https?:\/\//i.test(mcpUrl)) return json({ ok: false, error: "Enter a valid http(s) MCP URL" }, 400);
+        const connector = { id: crypto.randomUUID(), name, type: "remote", url: mcpUrl, token, oauth: null, enabled: true };
+        try {
+          const result = await testMcpConnector(connector);
+          saveMcpConnector(connector);
+          return json({ ok: true, connected: true, connectorId: connector.id, ...result,
+            tools: result.tools.map((tool) => tool.name).filter(Boolean) });
+        } catch (err) {
+          if (!(err instanceof McpHttpError) || err.status !== 401 || token) {
+            return json({ ok: false, error: err.message || "connection failed" });
+          }
+          try {
+            const metadata = await discoverMcpOAuth(mcpUrl, err.authHeader);
+            const requestOrigin = `http://${req.headers.host}`;
+            const redirectUri = `${requestOrigin}/mcp/oauth/callback`;
+            const client = await registerMcpOAuthClient(metadata.registrationEndpoint, redirectUri);
+            const state = crypto.randomBytes(24).toString("base64url");
+            const pkce = createPkce();
+            pendingMcpOAuth.set(state, {
+              state, status: "pending", createdAt: Date.now(), connector, redirectUri,
+              verifier: pkce.verifier, clientId: client.client_id, clientSecret: client.client_secret || "",
+              authorizationEndpoint: metadata.authorizationEndpoint,
+              tokenEndpoint: metadata.tokenEndpoint, resource: metadata.resource || mcpUrl, scope: metadata.scope || ""
+            });
+            for (const [key, value] of pendingMcpOAuth) {
+              if (Date.now() - value.createdAt > 10 * 60 * 1000) pendingMcpOAuth.delete(key);
+            }
+            return json({
+              ok: true,
+              authorizationRequired: true,
+              state,
+              authorizationUrl: buildMcpAuthorizationUrl(metadata, client, redirectUri, state, pkce.challenge)
+            });
+          } catch (oauthError) {
+            return json({ ok: false, error: oauthError.message || "could not start authorization" });
+          }
+        }
+      }
+
+      if (req.method === "GET" && p === "/api/mcp/oauth/status") {
+        const state = url.searchParams.get("state") || "";
+        const transaction = pendingMcpOAuth.get(state);
+        if (!transaction) return json({ status: "expired" }, 404);
+        return json({
+          status: transaction.status,
+          error: transaction.error || "",
+          connectorId: transaction.connectorId || "",
+          serverName: transaction.serverName || "",
+          toolCount: transaction.toolCount || 0,
+          tools: transaction.tools || []
+        });
+      }
+
+      if (req.method === "GET" && p === "/mcp/oauth/callback") {
+        const state = url.searchParams.get("state") || "";
+        const code = url.searchParams.get("code") || "";
+        const oauthError = url.searchParams.get("error") || "";
+        const transaction = pendingMcpOAuth.get(state);
+        if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Authorization expired", "Return to Boolean and try connecting again.", false));
+          return;
+        }
+        if (oauthError || !code) {
+          transaction.status = "error";
+          transaction.error = oauthError || "Robinhood did not return an authorization code.";
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boolean.", false));
+          return;
+        }
+        try {
+          const tokens = await exchangeMcpAuthorizationCode(transaction, code);
+          const connector = {
+            ...transaction.connector,
+            token: "",
+            oauth: {
+              clientId: transaction.clientId,
+              clientSecret: transaction.clientSecret,
+              authorizationEndpoint: transaction.authorizationEndpoint,
+              tokenEndpoint: transaction.tokenEndpoint,
+              resource: transaction.resource,
+              scope: tokens.scope || transaction.scope,
+              accessToken: tokens.access_token,
+              refreshToken: tokens.refresh_token || "",
+              expiresAt: tokens.expires_in ? Date.now() + Number(tokens.expires_in) * 1000 : 0
+            }
+          };
+          const result = await testMcpConnector(connector);
+          saveMcpConnector(connector);
+          transaction.status = "complete";
+          transaction.connectorId = connector.id;
+          transaction.serverName = result.serverName || connector.name;
+          transaction.toolCount = result.toolCount;
+          transaction.tools = result.tools.map((tool) => tool.name).filter(Boolean);
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boolean. This window will close.`, true));
+        } catch (err) {
+          transaction.status = "error";
+          transaction.error = err.message || "authorization failed";
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Could not connect", "Return to Boolean and try again.", false));
+        }
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/mcp/test") {
         const body = await readBody(req);
         let url = String(body.url || "").trim();
         let token = typeof body.token === "string" ? body.token.trim() : "";
+        let connector = { url, token };
         // testing a saved server by id: fall back to its stored url/token
         if (body.id) {
           const saved = (config.connectors?.mcp || []).find((x) => x.id === body.id);
-          if (saved) { if (!url) url = saved.url || ""; if (!token || token === "__keep__") token = saved.token || ""; }
+          if (saved) connector = saved;
         }
         try {
-          const result = await mcpTestConnection(url, token);
-          json({ ok: true, ...result });
+          const result = await testMcpConnector(connector, { onRefresh: () => saveConfig(config) });
+          json({ ok: true, ...result, tools: result.tools.map((tool) => tool.name).filter(Boolean) });
         } catch (err) {
           json({ ok: false, error: err.message || "connection failed" });
         }
@@ -1109,7 +1237,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       // return its text so the composer can be repopulated for editing/resending
       if (req.method === "POST" && p === "/api/thread/rewind") {
         const body = await readBody(req);
-        const t = threads.get(body.threadId) || threads.get(activeThreadId);
+        // destructive op — never fall back to the active thread on a bad id
+        const t = body.threadId ? threads.get(body.threadId) : threads.get(activeThreadId);
         if (!t) return json({ error: "no such thread" }, 404);
         if (t.abort) t.abort.abort();
         const idx = Math.max(0, Number(body.index) || 0);

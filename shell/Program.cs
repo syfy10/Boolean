@@ -152,7 +152,7 @@ sealed class MainForm : Form
     readonly Label _startupText = new() { AutoSize = false, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(96, 100, 96) };
     readonly Button _startupClose = new() { Text = "Close", Width = 92, Height = 34, FlatStyle = FlatStyle.Flat, Visible = false };
     readonly Panel _browserTitleBar = new() { Dock = DockStyle.Top, Height = 0 };
-    readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 26 };
+    readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 38 };
     readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 44, WrapContents = false, AutoScroll = false };
     readonly Panel _content = new() { Dock = DockStyle.Fill };
     readonly TextBox _addr = new();
@@ -176,10 +176,10 @@ sealed class MainForm : Form
     {
         public static Palette Light => new(
             Color.White, Color.White, Color.White, Color.FromArgb(224, 224, 221),
-            Color.FromArgb(26, 26, 26), Color.White, Color.FromArgb(230, 230, 227), Color.FromArgb(245, 245, 245), Color.FromArgb(242, 242, 242));
+            Color.FromArgb(26, 26, 26), Color.FromArgb(238, 238, 236), Color.FromArgb(230, 230, 227), Color.FromArgb(245, 245, 245), Color.FromArgb(242, 242, 242));
         public static Palette Dark => new(
             Color.FromArgb(28, 28, 28), Color.FromArgb(24, 24, 24), Color.FromArgb(34, 34, 34), Color.FromArgb(58, 58, 58),
-            Color.Gainsboro, Color.FromArgb(38, 38, 38), Color.FromArgb(40, 40, 40), Color.FromArgb(46, 46, 46), Color.FromArgb(48, 48, 48));
+            Color.Gainsboro, Color.FromArgb(44, 44, 44), Color.FromArgb(40, 40, 40), Color.FromArgb(46, 46, 46), Color.FromArgb(48, 48, 48));
     }
 
     CoreWebView2Environment _env = null!;
@@ -773,8 +773,8 @@ try {
         {
             var b = new Button
             {
-                Text = glyph, Width = w, Height = 24, FlatStyle = FlatStyle.Flat, TabStop = false,
-                ForeColor = Color.Gainsboro, BackColor = Color.Transparent, Font = new Font("Segoe UI", 9.5f),
+                Text = glyph, Width = w, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false,
+                ForeColor = Color.Gainsboro, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f),
                 Padding = new Padding(0), Margin = new Padding(0)
             };
             b.FlatAppearance.BorderSize = 0;
@@ -786,17 +786,18 @@ try {
 
         // ── nav row (below the tabs): ← → ↻  [ Enter a URL ]  ⋮ ──
         int x = 6;
-        void Place(Button b) { b.Left = x; b.Top = 1; _toolbar.Controls.Add(b); x += b.Width + 1; }
-        Place(Icon("\u2190", "Back", 26, (_, __) => Active()?.View.CoreWebView2?.GoBack()));
-        Place(Icon("\u2192", "Forward", 26, (_, __) => Active()?.View.CoreWebView2?.GoForward()));
-        Place(Icon("\u21BB", "Reload", 26, (_, __) => Active()?.View.CoreWebView2?.Reload()));
+        void Place(Button b) { b.Left = x; b.Top = 4; _toolbar.Controls.Add(b); x += b.Width + 2; }
+        Place(Icon("\u2190", "Back", 32, (_, __) => Active()?.View.CoreWebView2?.GoBack()));
+        Place(Icon("\u2192", "Forward", 32, (_, __) => Active()?.View.CoreWebView2?.GoForward()));
+        Place(Icon("\u21BB", "Reload", 32, (_, __) => Active()?.View.CoreWebView2?.Reload()));
+        x += 6;
 
-        // address — flat, borderless, centered placeholder (no box)
-        _addr.Top = 5; _addr.Height = 18; _addr.Left = x;
+        // address — a clearly visible field (own background, left-aligned)
+        _addr.Top = 7; _addr.Height = 24; _addr.Left = x + 10;
         _addr.BorderStyle = BorderStyle.None;
-        _addr.TextAlign = HorizontalAlignment.Center;
-        _addr.PlaceholderText = "Enter a URL";
-        _addr.Font = new Font("Segoe UI", 9f);
+        _addr.TextAlign = HorizontalAlignment.Left;
+        _addr.PlaceholderText = "Search or enter a URL";
+        _addr.Font = new Font("Segoe UI", 10.5f);
         _addr.KeyDown += (_, ke) => { if (ke.KeyCode == Keys.Enter) { ke.SuppressKeyPress = true; Navigate(_addr.Text); } };
         _toolbar.Controls.Add(_addr);
 
@@ -830,18 +831,18 @@ try {
         Item("Open in system browser", (_, __) => OpenActiveInSystemBrowser());
         Item("Hide chat (focus browser)", (_, __) => ToggleFull());
 
-        _menuBtn = Icon("\u22EE", "Menu", 26, (_, __) =>
+        _menuBtn = Icon("\u22EE", "Menu", 32, (_, __) =>
         {
             if (_menu.Visible) _menu.Close();
             else _menu.Show(_menuBtn, new Point(_menuBtn.Width - _menu.Width, _menuBtn.Height));
         });
-        _menuBtn.Top = 1; _menuBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        _menuBtn.Top = 4; _menuBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         _toolbar.Controls.Add(_menuBtn);
 
         void LayoutBar()
         {
-            _menuBtn.Left = _toolbar.Width - _menuBtn.Width - 3;
-            _addr.Width = Math.Max(96, _menuBtn.Left - _addr.Left - 6);
+            _menuBtn.Left = _toolbar.Width - _menuBtn.Width - 4;
+            _addr.Width = Math.Max(96, _menuBtn.Left - _addr.Left - 12);
         }
         LayoutBar();
         _toolbar.Resize += (_, __) => LayoutBar();
@@ -856,7 +857,7 @@ try {
         _rightPanel = tabRight;
         Button TabIcon(string g, string tip, EventHandler on)
         {
-            var b = new Button { Text = g, Width = 30, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 10.5f), Margin = new Padding(1, 0, 1, 0) };
+            var b = new Button { Text = g, Width = 32, Height = 32, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 11.5f), Margin = new Padding(1, 0, 1, 0) };
             b.FlatAppearance.BorderSize = 0; b.Click += on;
             var tt = new ToolTip(); tt.SetToolTip(b, tip);
             tabRight.Controls.Add(b); _barBtns.Add(b); return b;
@@ -938,7 +939,7 @@ try {
         _tabStrip.BackColor = p.BarBg;
         _tabBar.BackColor = p.BarBg;
         if (_rightPanel != null) _rightPanel.BackColor = p.BarBg;
-        _addr.BackColor = p.BarBg; _addr.ForeColor = p.Text;
+        _addr.BackColor = p.AddrBg; _addr.ForeColor = p.Text;
         if (_menu != null) { _menu.BackColor = p.BarBg; _menu.ForeColor = p.Text; }
         foreach (var b in _barBtns)
         {
@@ -949,8 +950,9 @@ try {
         }
         if (_browserCloseBtn != null)
         {
-            _browserCloseBtn.BackColor = p.Hover;
-            _browserCloseBtn.ForeColor = Color.FromArgb(34, 197, 94);
+            // match the other toolbar icons instead of a standout green pill
+            _browserCloseBtn.BackColor = Color.Transparent;
+            _browserCloseBtn.ForeColor = p.Text;
             _browserCloseBtn.FlatAppearance.MouseOverBackColor = p.Hover;
             _browserCloseBtn.FlatAppearance.MouseDownBackColor = p.Hover;
         }

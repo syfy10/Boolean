@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.14";
-export const APP_DISPLAY_VERSION = "v0.09.14";
+export const APP_VERSION = "0.9.15";
+export const APP_DISPLAY_VERSION = "v0.09.15";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -14,13 +14,14 @@ const CONFIG_FILE = path.join(SAZ_DIR, "config.json");
 // pre-rename location (app used to be called sazcode)
 const LEGACY_CONFIG_FILE = path.join(os.homedir(), ".sazcode", "config.json");
 
-export const PROVIDERS = ["local", "openai", "glm", "zaiCoding", "claude"];
+export const PROVIDERS = ["local", "openai", "glm", "zaiCoding", "claude", "customApi"];
 // providers that need an API key, and the friendly label for each
 export const CLOUD = {
   openai: "OpenAI",
   glm: "GLM (Z.ai)",
   zaiCoding: "Z.AI Coding Plan",
-  claude: "Claude (Anthropic)"
+  claude: "Claude (Anthropic)",
+  customApi: "Custom API"
 };
 
 const DEFAULTS = {
@@ -55,6 +56,14 @@ const DEFAULTS = {
     model: "claude-sonnet-5",
     apiKey: ""
   },
+  customApi: {
+    connectionId: "",
+    name: "Custom API",
+    baseUrl: "",
+    model: "",
+    apiKey: "",
+    approvedUse: false
+  },
   // when true, run_command / write_file execute without asking first
   autoApprove: false,
   // EULA version the user accepted ("" = not yet accepted)
@@ -64,7 +73,8 @@ const DEFAULTS = {
   // reference model for the "estimated savings" figure
   referenceModel: "gpt-5.1",
   connectors: {
-    mcp: [],              // [{id,name,command,args,enabled}]
+    apis: [],             // [{id,name,baseUrl,model,apiKey,approvedUse,enabled}] OpenAI-compatible APIs
+    mcp: [],              // [{id,name,url,token,oauth,enabled}] remote Streamable-HTTP MCP servers
     agents: []            // [{id,name,url,apiKey,enabled}]
   },
   cloudBackend: {

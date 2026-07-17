@@ -7,6 +7,7 @@ import * as browse from "./browse.js";
 import * as engine from "./engine.js";
 import { saveConfig, SAZ_DIR } from "./config.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
+import { mcpTestConnection, mcpCallTool } from "./mcp.js";
 
 // where the bundled project templates live (installed next to the exe, or the
 // repo's templates/ folder in dev)
@@ -583,6 +584,34 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "mcp_list_tools",
+      description: "List the tools exposed by an enabled MCP server. Use this before calling an MCP tool so you have its exact name and input schema.",
+      parameters: {
+        type: "object",
+        properties: { connector: { type: "string", description: "MCP connector id or name. Optional when only one MCP server is enabled." } },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "mcp_call_tool",
+      description: "Call a tool on an enabled MCP server. Boolean always asks the user to confirm MCP actions, including trading actions.",
+      parameters: {
+        type: "object",
+        properties: {
+          connector: { type: "string", description: "MCP connector id or name. Optional when only one MCP server is enabled." },
+          tool: { type: "string", description: "Exact MCP tool name returned by mcp_list_tools" },
+          arguments: { type: "object", description: "Tool arguments matching the MCP tool input schema" }
+        },
+        required: ["tool"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "agent_connector_call",
       description:
         "Send a message to a configured HTTP agent connector by name or id. " +
@@ -792,6 +821,46 @@ function connectorList(ctx) {
   });
   const agents = (c.agents || []).map((x) => `${x.enabled === false ? "off" : "on"} Agent ${x.name || x.id}: ${x.url || ""}${x.apiKey ? " (key saved)" : ""}`);
   return [...mcp, ...agents].join("\n") || "no connectors configured";
+}
+
+function findMcpConnector(args, ctx) {
+  const enabled = (ctx.config?.connectors?.mcp || []).filter((item) => item.enabled !== false && item.url);
+  const requested = String(args.connector || "").trim().toLowerCase();
+  if (!requested && enabled.length === 1) return enabled[0];
+  if (!requested) throw new Error("More than one MCP server is enabled. Specify the connector name.");
+  const connector = enabled.find((item) =>
+    String(item.id || "").toLowerCase() === requested || String(item.name || "").toLowerCase() === requested);
+  if (!connector) throw new Error(`No enabled MCP server named '${args.connector}'.`);
+  return connector;
+}
+
+const persistRefreshedMcp = (ctx) => saveConfig(ctx.config);
+
+async function listMcpTools(args, ctx) {
+  const connector = findMcpConnector(args, ctx);
+  const result = await mcpTestConnection(connector, { onRefresh: () => persistRefreshedMcp(ctx) });
+  if (!result.tools.length) return `${connector.name || connector.id} is connected but exposes no tools.`;
+  return truncate(JSON.stringify({
+    connector: connector.name || connector.id,
+    tools: result.tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description || "",
+      inputSchema: tool.inputSchema || { type: "object" }
+    }))
+  }, null, 2));
+}
+
+async function callMcp(args, ctx) {
+  if (!args.tool) return "error: missing 'tool' argument";
+  const connector = findMcpConnector(args, ctx);
+  const description = `Use MCP tool '${args.tool}' on '${connector.name || connector.id}' with ${JSON.stringify(args.arguments || {}).slice(0, 500)}`;
+  const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
+  const ok = await approve(description);
+  if (!ok) return "user declined the MCP action";
+  const result = await mcpCallTool(connector, String(args.tool), args.arguments || {}, {
+    onRefresh: () => persistRefreshedMcp(ctx)
+  });
+  return truncate(JSON.stringify(result, null, 2));
 }
 
 async function callAgentConnector(args, ctx) {
@@ -1367,6 +1436,10 @@ export async function executeTool(name, args, ctx) {
         return await notepad("write", { text: args.text, mode: args.mode || "append" }, ctx);
       case "list_connectors":
         return connectorList(ctx);
+      case "mcp_list_tools":
+        return await listMcpTools(args, ctx);
+      case "mcp_call_tool":
+        return await callMcp(args, ctx);
       case "agent_connector_call":
         return await callAgentConnector(args, ctx);
       case "web_search": {

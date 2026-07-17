@@ -166,14 +166,20 @@
   .about-line{ font-size:10.5px; color:var(--dim); padding:2px 0; line-height:1.45; }
   .about-line b{ color:var(--text); font-weight:500; }
 
-  /* collapsible settings sections */
+  /* settings index and focused section pages */
   .sec{ border-bottom:1px solid var(--border); }
   .sechead{ display:flex; align-items:center; gap:8px; padding:10px 16px; cursor:pointer; font-size:13px; font-weight:500; color:var(--text); user-select:none; }
   .sechead:hover{ background:var(--hover); }
   .sechead .caret{ margin-left:auto; color:var(--dim); font-size:11px; transition:transform .12s; }
-  .sec.open .sechead .caret{ transform:rotate(90deg); }
   .secbody{ display:none; padding:4px 16px 12px; }
-  .sec.open .secbody{ display:block; }
+  #settingsPanel.settings-home .secbody{ display:none !important; }
+  #settingsPanel.settings-home .sec{ border-bottom:1px solid var(--border); }
+  #settingsPanel.settings-home .sechead{ min-height:44px; padding:11px 14px; border-radius:8px; }
+  #settingsPanel.settings-detail .sec:not(.settings-page-active){ display:none; }
+  #settingsPanel.settings-detail .sec.settings-page-active{ border:0; }
+  #settingsPanel.settings-detail .sec.settings-page-active .sechead{ display:none; }
+  #settingsPanel.settings-detail .sec.settings-page-active .secbody{ display:block; max-width:760px; margin:0 auto; padding:6px 4px 18px; }
+  #settingsPanel.settings-detail #savesettings{ max-width:760px; display:block; margin:10px auto 4px !important; width:100% !important; }
   .seg{ display:flex; gap:2px; background:var(--bubble); border-radius:20px; padding:3px; }
   .seg button{ flex:1; border:0; background:transparent; color:var(--dim); border-radius:16px; font:inherit; font-size:12px; font-weight:500; padding:6px 4px; cursor:pointer; }
   .seg button.on{ background:var(--bg); color:var(--text); box-shadow:var(--shadow); }
@@ -328,8 +334,16 @@
     display:grid; place-items:center; cursor:pointer; font:14px/1 var(--ui); flex-shrink:0; }
   .note-btn:hover{ background:var(--note-tab); color:var(--note-text); }
   .note-btn.on{ background:var(--note-tab); color:var(--note-text); font-weight:700; }
-  .note-actions{ display:flex; align-items:center; gap:4px; padding:6px 9px; border-bottom:1px solid var(--note-bar); }
+  .note-actions{ display:flex; align-items:center; gap:4px; padding:6px 9px; border-bottom:1px solid var(--note-bar); flex-wrap:wrap; }
   .note-actions .note-btn{ font-size:13px; }
+  /* PDF / print: isolate the note content on the page */
+  #printArea{ display:none; }
+  @media print{
+    body.printing > *:not(#printArea){ display:none !important; }
+    #printArea{ display:block !important; padding:24px 28px; color:#000; background:#fff; font:14px/1.55 "Segoe UI",system-ui,sans-serif; }
+    #printArea h1{ font-size:20px; margin:0 0 14px; }
+    #printArea img{ max-width:100%; height:auto; }
+  }
   .snip-icon{ width:15px; height:15px; position:relative; display:block; color:#0f9b8e; }
   .snip-icon:before,.snip-icon:after{ content:""; position:absolute; inset:0; background:
     linear-gradient(currentColor,currentColor) left top/5px 2px no-repeat,
@@ -382,7 +396,7 @@
   .topbar #newchat{ margin-left:0; }
   body.browser-on .topbar{ gap:4px; }
   body.browser-on .topbar .spacer{ order:20; min-width:2px; }
-  body.browser-on #copyall, body.browser-on #notesToggle{ order:21; flex-shrink:0; }
+  body.browser-on #notesToggle{ order:21; flex-shrink:0; }
   body.browser-on #browserToggle{ order:22; flex-shrink:0; }
   /* window controls — only in the native shell, and only when the browser pane isn't covering the corner */
   .winctl{ display:none; align-items:center; gap:1px; margin-left:4px; }
@@ -448,7 +462,7 @@
   .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
   .msg-foot .actions{ margin:0; display:flex; gap:0; flex:0 0 auto; flex-wrap:nowrap; }
   .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); }
-  .msg-copy{ width:15px; height:15px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:transparent; color:inherit; opacity:.72; cursor:pointer; }
+  .msg-copy{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; cursor:pointer; }
   .msg-copy:hover,.msg-copy:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
   .msg-copy svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .msg-copy.copied{ color:var(--green); font:9px/1 var(--ui); }
@@ -712,7 +726,7 @@
   .needs-repair{ color:#a54a3d; }
   .model-bad{ display:block; max-width:100%; min-width:0; color:#a54a3d; font-size:10px; margin-top:2px;
     white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
-  .model-error{ align-self:flex-start; width:fit-content; max-width:min(78%,580px); min-width:0; color:#b3483e;
+  .model-error{ position:relative; align-self:flex-start; width:fit-content; max-width:min(78%,580px); min-width:0; color:#b3483e;
     font-size:12.5px; line-height:1.4; padding:5px 7px; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
   .model-error>span:first-child{ display:block; max-width:100%; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
   .model-error-actions{ display:flex; gap:6px; margin-top:6px; }
@@ -766,15 +780,64 @@
   #settingsPanel .seg{ background:transparent; padding:0; gap:2px; }
   #settingsPanel .seg button{ font-size:10.5px; padding:6px 4px; border-radius:999px; background:transparent; }
   #settingsPanel .seg button.on{ background:var(--bubble); box-shadow:none; }
-  #settingsPanel .thirdparty-tabs{ justify-content:flex-start; gap:4px; margin:6px 0 9px; border-bottom:1px solid var(--border); border-radius:0; }
-  #settingsPanel .thirdparty-tabs button{ flex:0 0 auto; min-width:70px; border-radius:0; padding:6px 9px; border-bottom:2px solid transparent; }
-  #settingsPanel .thirdparty-tabs button.on{ background:transparent; color:var(--text); border-bottom-color:var(--green); }
+  .connector-toolbar{ display:flex; align-items:center; gap:7px; margin:2px 0 10px; }
+  .connector-search{ position:relative; flex:1; min-width:0; }
+  .connector-search:before{ content:""; position:absolute; left:10px; top:50%; width:9px; height:9px;
+    border:1.4px solid var(--muted); border-radius:50%; transform:translateY(-58%); pointer-events:none; }
+  .connector-search:after{ content:""; position:absolute; left:19px; top:55%; width:5px; border-top:1.4px solid var(--muted);
+    transform:rotate(45deg); transform-origin:left center; pointer-events:none; }
+  #settingsPanel .connector-search input{ width:100%; min-width:0; box-sizing:border-box; padding-left:30px; }
+  .connector-add{ border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:6px;
+    min-height:29px; padding:5px 10px; font:inherit; font-size:var(--fs-xs); cursor:pointer; white-space:nowrap; }
+  .connector-add:hover{ background:var(--hover); }
+  .connector-add-menu{ position:absolute; right:0; top:34px; z-index:8; width:170px; padding:5px; border:1px solid var(--border);
+    border-radius:7px; background:var(--bg); box-shadow:0 8px 24px rgba(0,0,0,.12); }
+  .connector-add-menu[hidden]{ display:none; }
+  .connector-add-menu button{ display:block; width:100%; border:0; background:transparent; color:var(--text); text-align:left;
+    border-radius:5px; padding:7px 8px; font:inherit; font-size:var(--fs-xs); cursor:pointer; }
+  .connector-add-menu button:hover{ background:var(--hover); }
+  .connector-filters{ display:flex; align-items:center; gap:15px; border-bottom:1px solid var(--border); margin-bottom:0; }
+  .connector-filters button{ border:0; border-bottom:2px solid transparent; background:transparent; color:var(--dim);
+    padding:6px 1px 7px; font:inherit; font-size:var(--fs-xs); cursor:pointer; }
+  .connector-filters button.on{ color:var(--text); border-bottom-color:var(--green); }
+  .connector-table-head,.connector-row{ display:grid; grid-template-columns:minmax(0,1.7fr) minmax(70px,.55fr) minmax(110px,.65fr);
+    align-items:center; column-gap:12px; }
+  .connector-table-head{ color:var(--dim); font-size:var(--fs-xxs); padding:8px 7px 6px; border-bottom:1px solid var(--border); }
+  .connector-row{ min-height:45px; padding:5px 7px; border-bottom:1px solid var(--border); font-size:var(--fs-xs); }
+  .connector-row:hover{ background:var(--hover); }
+  .connector-name{ display:flex; align-items:center; gap:9px; min-width:0; }
+  .connector-mark{ width:25px; height:25px; flex:0 0 25px; display:grid; place-items:center; border:1px solid var(--border);
+    border-radius:6px; background:var(--bg); color:var(--text); font-size:10px; font-weight:650; }
+  .connector-mark.zai{ color:#fff; background:#101814; border-color:#101814; }
+  .connector-mark.mcp{ color:var(--green); }
+  .connector-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .connector-type{ color:var(--dim); white-space:nowrap; }
+  .connector-status{ display:flex; align-items:center; justify-content:space-between; gap:6px; min-width:0; }
+  .connector-state{ color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .connector-state.ready{ color:var(--green); }
+  .connector-state.warn{ color:#a76514; }
+  .connector-action{ border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:6px;
+    padding:4px 8px; font:inherit; font-size:var(--fs-xxs); cursor:pointer; white-space:nowrap; }
+  .connector-action:hover{ background:var(--hover); }
+  .connector-remove{ width:22px; height:22px; border:0; border-radius:50%; background:transparent; color:var(--dim); cursor:pointer; }
+  .connector-remove:hover{ color:#d14343; background:var(--hover); }
+  .connector-empty{ color:var(--dim); font-size:var(--fs-xs); padding:18px 7px; text-align:center; }
+  .connector-detail-head{ display:flex; align-items:center; gap:7px; padding-bottom:7px; margin-bottom:4px; border-bottom:1px solid var(--border); }
+  .connector-detail-back{ width:25px; height:25px; display:grid; place-items:center; border:0; border-radius:50%;
+    background:transparent; color:var(--text); font-size:18px; cursor:pointer; }
+  .connector-detail-back:hover{ background:var(--hover); }
+  .connector-detail-head b{ font-size:var(--fs-sm); font-weight:600; }
+  #connectorOverview[hidden],#connectorDetail[hidden]{ display:none; }
   #settingsPanel .thirdparty-provider[hidden]{ display:none; }
+  @media(max-width:620px){
+    .connector-table-head,.connector-row{ grid-template-columns:minmax(0,1fr) minmax(108px,.55fr); }
+    .connector-table-head .connector-type,.connector-row .connector-type{ display:none; }
+  }
   .zai-key-control{ position:relative; width:min(100%,380px); margin-top:6px; }
   #settingsPanel .setrow .zai-key-control input[type=password]{ width:100%; min-width:0; padding-right:36px; box-sizing:border-box; }
   .zai-key-paste{ position:absolute; top:50%; right:3px; width:30px; height:28px; transform:translateY(-50%);
     border:0; border-radius:6px; background:transparent; color:var(--muted); display:grid; place-items:center; padding:0; cursor:pointer; }
-  .zai-key-paste:hover{ color:var(--text); background:var(--hover); }
+  .zai-key-paste:hover,.zai-key-paste:focus-visible{ color:var(--text); background:transparent; }
   #settingsPanel .usagebody,#settingsPanel .usage-grid{ font-size:var(--fs-xs); }
   #settingsPanel #projdir{ display:block; max-width:132px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .memory-list{ display:flex; flex-direction:column; gap:5px; margin-top:6px; }
@@ -851,7 +914,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.14</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.15</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -861,6 +924,7 @@
     <div class="panel" id="settingsPanel">
       <div class="settings-head">
         <button id="settingsBack" title="Close settings" aria-label="Close settings">‹</button>
+        <b id="settingsTitle">Settings</b>
         <span class="spacer"></span>
         <button id="settingsClose" title="Close settings" aria-label="Close settings">×</button>
       </div>
@@ -906,12 +970,76 @@
       <div class="sec" data-sec="thirdparty">
         <div class="sechead">Third-party connections <span class="caret">▶</span></div>
         <div class="secbody">
-          <div class="hint" style="margin-bottom:7px">Connect subscriptions and APIs supplied by other companies. Provider terms and charges apply.</div>
-          <div class="seg thirdparty-tabs" id="thirdPartyTabs" role="tablist" aria-label="Third-party providers">
-            <button type="button" class="on" data-provider-tab="zai" role="tab" aria-selected="true">Z.AI</button>
-            <button type="button" data-provider-tab="mcp" role="tab" aria-selected="false">MCP</button>
+          <div id="connectorOverview">
+            <div class="connector-toolbar">
+              <div class="connector-search"><input type="search" id="connectorSearch" autocomplete="off" spellcheck="false" placeholder="Search connections"></div>
+              <div style="position:relative">
+                <button class="connector-add" id="connectorAdd" type="button">Add&nbsp;⌄</button>
+                <div class="connector-add-menu" id="connectorAddMenu" hidden>
+                  <button type="button" data-add-connector="api">API connection</button>
+                  <button type="button" data-add-connector="mcp">MCP server</button>
+                  <button type="button" data-add-connector="agent">HTTP agent</button>
+                </div>
+              </div>
+            </div>
+            <div class="connector-filters" id="connectorFilters" role="tablist" aria-label="Filter connections">
+              <button type="button" class="on" data-connector-filter="all" role="tab" aria-selected="true">All</button>
+              <button type="button" data-connector-filter="connected" role="tab" aria-selected="false">Connected</button>
+              <button type="button" data-connector-filter="available" role="tab" aria-selected="false">Not connected</button>
+            </div>
+            <div class="connector-table-head"><span>Connection</span><span class="connector-type">Type</span><span>Status</span></div>
+            <div id="connectorRows"></div>
+            <div class="hint" style="margin-top:9px">Connections are optional. Provider terms, limits, and charges apply.</div>
           </div>
-          <div class="thirdparty-provider" data-provider-panel="zai" role="tabpanel">
+          <div id="connectorDetail" hidden>
+            <div class="connector-detail-head">
+              <button class="connector-detail-back" id="connectorDetailBack" type="button" title="All connections" aria-label="Back to all connections">‹</button>
+              <b id="connectorDetailTitle">Connection</b>
+            </div>
+          <div class="thirdparty-provider" data-provider-panel="api" role="tabpanel" hidden>
+            <div class="setrow" style="display:block">
+              <div><b>API connection</b><div class="hint">Connect any OpenAI-compatible chat API. Start blank or choose an optional preset.</div></div>
+            </div>
+            <div class="setrow">
+              <div>Preset<div class="hint">optional shortcut</div></div>
+              <select id="apiPreset">
+                <option value="">None</option>
+                <option value="zai">Z.AI Coding Plan</option>
+                <option value="glm">Z.AI API</option>
+                <option value="openai">OpenAI</option>
+                <option value="claude">Anthropic</option>
+              </select>
+            </div>
+            <div class="setrow" style="display:block">
+              <div>Name<div class="hint">shown in the model picker</div></div>
+              <input type="text" id="apiConnectionName" autocomplete="off" spellcheck="false" placeholder="My API" style="width:100%;min-width:0;margin-top:6px">
+            </div>
+            <div class="setrow" style="display:block">
+              <div>Base URL<div class="hint">the address before /chat/completions</div></div>
+              <input type="text" id="apiConnectionUrl" autocomplete="off" spellcheck="false" placeholder="https://example.com/v1" style="width:100%;min-width:0;margin-top:6px">
+            </div>
+            <div class="setrow" style="display:block">
+              <div>Model<div class="hint">exact model id supplied by the provider</div></div>
+              <input type="text" id="apiConnectionModel" autocomplete="off" spellcheck="false" placeholder="model-name" style="width:100%;min-width:0;margin-top:6px">
+            </div>
+            <div class="setrow" style="display:block">
+              <div>API key<div class="hint" id="apiConnectionKeyHint">not set</div></div>
+              <div class="zai-key-control">
+                <input type="password" id="apiConnectionKey" autocomplete="off" spellcheck="false" placeholder="Paste API key">
+                <button class="zai-key-paste" id="apiConnectionPaste" type="button" title="Paste API key" aria-label="Paste API key"><span class="paste-ico" aria-hidden="true"></span></button>
+              </div>
+            </div>
+            <label class="setrow" id="apiApprovedRow" style="align-items:flex-start;cursor:pointer;display:none">
+              <span>I have approved or supported use<div class="hint">Required for Z.AI Coding Plan connections.</div></span>
+              <span class="switch"><input type="checkbox" id="apiConnectionApproved"><span class="slider"></span></span>
+            </label>
+            <div style="display:flex;gap:6px;margin-top:5px">
+              <button class="minibtn" id="apiConnectionSave" style="flex:1">Save &amp; use</button>
+              <button class="minibtn dangerbtn" id="apiConnectionRemove" style="display:none">Remove</button>
+            </div>
+            <div class="hint" id="apiConnectionStatus" style="margin-top:7px"></div>
+          </div>
+          <div class="thirdparty-provider" data-provider-panel="zai" role="tabpanel" hidden>
             <div class="setrow" style="display:block">
               <div><b>Z.AI Coding Plan</b><div class="hint">Separate from the standard pay-as-you-go GLM API</div></div>
             </div>
@@ -947,7 +1075,7 @@
           </div>
           <div class="thirdparty-provider" data-provider-panel="mcp" role="tabpanel" hidden>
             <div class="setrow" style="display:block">
-              <div><b>MCP servers</b><div class="hint">Connect a remote Model Context Protocol server (Streamable HTTP). Boolean can use its tools once the connection is verified.</div></div>
+              <div><b>MCP servers</b><div class="hint">Connect a remote Model Context Protocol server. Services such as Robinhood open their own secure sign-in page; no token copy is needed.</div></div>
             </div>
             <div class="setrow" style="display:block">
               <div>Name<div class="hint">a label for this server</div></div>
@@ -958,10 +1086,10 @@
               <input type="text" id="mcpUrl" autocomplete="off" spellcheck="false" placeholder="https://example.com/mcp" style="width:100%;min-width:0;margin-top:6px">
             </div>
             <div class="setrow" style="display:block">
-              <div>Access token<div class="hint">optional — sent as a Bearer token</div></div>
-              <div style="display:flex;gap:5px;margin-top:6px">
-                <input type="password" id="mcpToken" autocomplete="off" spellcheck="false" placeholder="Optional Bearer token" style="width:100%;min-width:0">
-                <button class="minibtn" id="mcpPaste" type="button" title="Paste token">Paste</button>
+              <div>Access token<div class="hint">optional — only for servers that give you a Bearer token directly</div></div>
+              <div class="zai-key-control">
+                <input type="password" id="mcpToken" autocomplete="off" spellcheck="false" placeholder="Optional Bearer token">
+                <button class="zai-key-paste" id="mcpPaste" type="button" title="Paste token" aria-label="Paste token"><span class="paste-ico" aria-hidden="true"></span></button>
               </div>
             </div>
             <div style="display:flex;gap:6px;margin-top:5px">
@@ -969,10 +1097,33 @@
               <button class="minibtn" id="mcpSave" style="flex:1">Authorize &amp; add</button>
             </div>
             <div class="hint" id="mcpStatus" style="margin-top:7px"></div>
-            <div class="setrow" style="display:block;margin-top:10px">
-              <div>Connected servers</div>
-              <div class="conn-list" id="mcpServerList" style="margin-top:6px"></div>
+            <div class="conn-list" id="mcpServerList" style="display:none"></div>
+          </div>
+          <div class="thirdparty-provider" data-provider-panel="agent" role="tabpanel" hidden>
+            <div class="setrow" style="display:block">
+              <div><b>HTTP agent</b><div class="hint">Send approved tasks to another agent or service through its POST endpoint.</div></div>
             </div>
+            <div class="setrow" style="display:block">
+              <div>Name<div class="hint">a label for this agent</div></div>
+              <input type="text" id="agentName" autocomplete="off" spellcheck="false" placeholder="My agent" style="width:100%;min-width:0;margin-top:6px">
+            </div>
+            <div class="setrow" style="display:block">
+              <div>POST URL<div class="hint">https://example.com/agent</div></div>
+              <input type="text" id="agentUrl" autocomplete="off" spellcheck="false" placeholder="https://example.com/agent" style="width:100%;min-width:0;margin-top:6px">
+            </div>
+            <div class="setrow" style="display:block">
+              <div>Bearer token<div class="hint" id="agentKeyHint">optional</div></div>
+              <div class="zai-key-control">
+                <input type="password" id="agentKey" autocomplete="off" spellcheck="false" placeholder="Optional API key">
+                <button class="zai-key-paste" id="agentPaste" type="button" title="Paste token" aria-label="Paste token"><span class="paste-ico" aria-hidden="true"></span></button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:5px">
+              <button class="minibtn" id="agentSave" style="flex:1">Save agent</button>
+              <button class="minibtn dangerbtn" id="agentRemove" style="display:none">Remove</button>
+            </div>
+            <div class="hint" id="agentStatus" style="margin-top:7px"></div>
+          </div>
           </div>
         </div>
       </div>
@@ -1125,10 +1276,10 @@
     <button class="icon-btn" id="newchat" title="New chat" aria-label="New chat">
       <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
     </button>
-    <div class="spacer"></div>
     <button class="icon-btn" id="copyall" title="Copy whole conversation" aria-label="Copy conversation">
       <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
     </button>
+    <div class="spacer"></div>
     <button class="icon-btn" id="notesToggle" title="Toggle notepad" aria-label="Toggle notepad">
       <svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
     </button>
@@ -1207,12 +1358,17 @@
     <button class="note-btn" id="noteClose" title="Hide notepad">×</button>
   </div>
   <div class="note-actions">
+    <button class="note-btn" id="noteUndo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+    <button class="note-btn" id="noteRedo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
     <button class="note-btn" id="noteSnip" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
     <button class="note-btn" id="noteCut" title="Cut selected text">✂</button>
     <button class="note-btn" id="noteCopy" title="Copy selected text">⧉</button>
     <button class="note-btn" id="noteSend" title="Send selection to message">↗</button>
     <button class="note-btn" id="noteNumbers" title="Toggle line numbers">#</button>
     <span class="note-spacer"></span>
+    <button class="note-btn" id="noteSaveFile" title="Save note to a file" aria-label="Save note to file">⤓</button>
+    <button class="note-btn" id="noteLoadFile" title="Load a note from a file" aria-label="Load note from file">⤒</button>
+    <button class="note-btn" id="notePdf" title="Share as PDF" aria-label="Share as PDF">⎙</button>
     <button class="note-btn" id="noteRename" title="Rename note">T</button>
     <button class="note-btn" id="noteDelete" title="Delete note">⌫</button>
   </div>
@@ -1398,6 +1554,24 @@
       hostPost({type:"clipboard",cmd:"readText",id});
       setTimeout(()=>{ const pending=clipboardWaiters[id]; if(!pending)return; delete clipboardWaiters[id]; pending.reject(new Error("clipboard timed out")); },2500);
     });
+  }
+  async function writeClipboardText(text){
+    const value=String(text??"");
+    try{
+      if(navigator.clipboard?.writeText){ await navigator.clipboard.writeText(value); return true; }
+    }catch{}
+    const field=document.createElement("textarea");
+    field.value=value;
+    field.setAttribute("readonly","");
+    field.style.cssText="position:fixed;left:-9999px;top:0;opacity:0";
+    document.body.appendChild(field);
+    field.select();
+    field.setSelectionRange(0,field.value.length);
+    let copied=false;
+    try{ copied=document.execCommand("copy"); }catch{}
+    field.remove();
+    if(!copied) throw new Error("clipboard unavailable");
+    return true;
   }
   const chat=$("chat"), col=$("col"), input=$("input"), send=$("send");
   const composerWrap=document.querySelector(".composer-wrap");
@@ -1624,7 +1798,6 @@
     const foot='<div class="msg-foot">'
       +'<button class="uact usearch" type="button" title="Search this in the browser" aria-label="Search this in the browser">'+uSearchIcon+'</button>'
       +'<button class="uact urewind" type="button" title="Rewind to here and edit" aria-label="Rewind to here and edit">'+uRewindIcon+'</button>'
-      +'<button class="uact ucopy" type="button" title="Copy" aria-label="Copy message">'+uCopyIcon+'</button>'
       +'<span class="msg-when" title="'+esc(at?new Date(at).toLocaleString():"")+'">'+esc(relTime(at||Date.now()))+'</span>'
       +'</div>';
     d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div>'+foot;
@@ -1705,6 +1878,7 @@
     const raw=String(entry.text||"Unknown error");
     const cloudAuth=/cloud session expired|(?:401[^\n]*unauthorized)|(?:request_error[^\n]*unauthorized)/i.test(raw);
     const clean=cloudAuth?"Your Boolean account session expired. Sign in again to continue.":raw;
+    d._raw=clean;
     const msg=document.createElement("span"); msg.textContent="⚠ "+clean; d.appendChild(msg);
     if(cloudAuth){
       d.classList.add("cloud-auth-error");
@@ -1734,7 +1908,7 @@
     el.querySelector("#pl-open").onclick=()=>fetch("/api/open-projects",{method:"POST"});
     el.querySelector("#pl-change").onclick=changeProjects;
   }
-  function updateCopyButton(){ $("copyall").style.display=col.querySelector(".msg-user,.msg-ai")?"":"none"; }
+  function updateCopyButton(){ $("copyall").style.display=col.querySelector(".msg-user,.msg-ai,.model-error")?"":"none"; }
   function showEmpty(){ col.innerHTML=""; updateCopyButton(); } // clean, blank chat screen
   async function changeProjects(){ const r=await (await fetch("/api/pick-folder",{method:"POST"})).json(); if(r.path){ await refresh(); } }
 
@@ -1752,6 +1926,106 @@
     $("modelfolderrow").style.display=(prov==="local")?"":"none";
     $("modellibraryrow").style.display=(prov==="local")?"block":"none";
   }
+  let connectorFilter="all", editingApiId="", editingAgentId="";
+  const API_PRESETS={
+    zai:{name:"Z.AI Coding Plan",baseUrl:"https://api.z.ai/api/coding/paas/v4",model:"GLM-4.7"},
+    glm:{name:"Z.AI API",baseUrl:"https://api.z.ai/api/paas/v4",model:"glm-4.6"},
+    openai:{name:"OpenAI",baseUrl:"https://api.openai.com/v1",model:"gpt-5.1"},
+    claude:{name:"Anthropic",baseUrl:"https://api.anthropic.com/v1",model:"claude-sonnet-5"}
+  };
+  const isZaiCodingUrl=url=>/api\.z\.ai\/api\/coding\/paas(?:\/v\d+)?\/?$/i.test(String(url||"").replace(/\/+$/, ""));
+  function openConnectorDetail(provider,existing=null){
+    const overview=$("connectorOverview"), detail=$("connectorDetail");
+    if(!overview||!detail) return;
+    overview.hidden=true; detail.hidden=false;
+    document.querySelectorAll("[data-provider-panel]").forEach(panel=>panel.hidden=panel.dataset.providerPanel!==provider);
+    const titles={api:existing?"API connection":"Add API connection",mcp:"Add MCP server",agent:existing?"HTTP agent":"Add HTTP agent",zai:"Z.AI Coding Plan"};
+    $("connectorDetailTitle").textContent=titles[provider]||"Connection";
+    $("connectorAddMenu").hidden=true;
+    if(provider==="api"){
+      editingApiId=existing?.id||"";
+      $("apiPreset").value="";
+      $("apiConnectionName").value=existing?.name||"";
+      $("apiConnectionUrl").value=existing?.baseUrl||"";
+      $("apiConnectionModel").value=existing?.model||"";
+      $("apiConnectionKey").value="";
+      $("apiConnectionKeyHint").textContent=existing?.hasKey?"key saved":"not set";
+      $("apiConnectionKey").placeholder=existing?.hasKey?"Key saved - paste to replace":"Paste API key";
+      $("apiConnectionRemove").style.display=existing?"":"none";
+      $("apiConnectionApproved").checked=!!existing?.approvedUse;
+      $("apiApprovedRow").style.display=isZaiCodingUrl(existing?.baseUrl)?"":"none";
+      $("apiConnectionStatus").textContent="";
+      setTimeout(()=>$("apiConnectionName").focus(),0);
+    }
+    if(provider==="agent"){
+      editingAgentId=existing?.id||"";
+      $("agentName").value=existing?.name||"";
+      $("agentUrl").value=existing?.url||"";
+      $("agentKey").value="";
+      $("agentKeyHint").textContent=existing?.hasKey?"token saved":"optional";
+      $("agentKey").placeholder=existing?.hasKey?"Token saved - paste to replace":"Optional API key";
+      $("agentRemove").style.display=existing?"":"none";
+      $("agentStatus").textContent="";
+      setTimeout(()=>$("agentName").focus(),0);
+    }
+    if(provider==="mcp") setTimeout(()=>$("mcpName").focus(),0);
+  }
+  function showConnectorOverview(){
+    const overview=$("connectorOverview"), detail=$("connectorDetail");
+    if(!overview||!detail) return;
+    detail.hidden=true; overview.hidden=false; $("connectorAddMenu").hidden=true;
+    renderConnectorOverview();
+  }
+  function renderConnectorOverview(){
+    const host=$("connectorRows"); if(!host) return;
+    const query=String($("connectorSearch")?.value||"").trim().toLowerCase();
+    const apiConnections=connectorsState().apis;
+    const mcpServers=remoteMcpServers();
+    const agents=connectorsState().agents;
+    const rows=[...apiConnections.map(api=>({
+      id:api.id,name:api.name||"API connection",type:"API",connected:!!api.hasKey,paused:api.enabled===false,
+      selected:!!api.selected,kind:"api",url:api.baseUrl||"",api
+    })),...mcpServers.map(server=>({
+      id:server.id,name:server.name||"MCP server",type:"MCP",connected:true,paused:server.enabled===false,
+      kind:"mcp",url:server.url||"",server
+    })),...agents.map(agent=>({
+      id:agent.id,name:agent.name||"HTTP agent",type:"Agent",connected:true,paused:agent.enabled===false,
+      kind:"agent",url:agent.url||"",agent
+    }))];
+    const filtered=rows.filter(row=>{
+      if(connectorFilter==="connected"&&!row.connected) return false;
+      if(connectorFilter==="available"&&row.connected) return false;
+      return !query||(row.name+" "+row.type+" "+(row.url||"")).toLowerCase().includes(query);
+    });
+    host.innerHTML="";
+    if(!filtered.length){ host.innerHTML='<div class="connector-empty">No connections match this view.</div>'; return; }
+    filtered.forEach(row=>{
+      const item=document.createElement("div"); item.className="connector-row";
+      const status=row.paused?"Paused":row.selected?"Selected":row.connected?"Connected":"Key needed";
+      const statusClass=row.paused?"warn":row.connected?"ready":"";
+      const mark=row.kind==="api"?"A":row.kind==="mcp"?"M":"↗";
+      const action=row.kind==="api"?(row.selected?"Manage":"Use"):row.kind==="mcp"?"Test":"Manage";
+      item.innerHTML='<div class="connector-name"><span class="connector-mark '+row.kind+'">'+mark+'</span><span class="connector-label">'+esc(row.name)+'</span></div>'+
+        '<div class="connector-type">'+esc(row.type)+(row.kind==="mcp"?' · Web':'')+'</div>'+
+        '<div class="connector-status"><span class="connector-state '+statusClass+'">'+status+'</span><span style="display:flex;align-items:center;gap:2px"><button class="connector-action" type="button">'+action+'</button>'+
+        '<button class="connector-remove" type="button" title="Remove" aria-label="Remove '+esc(row.name)+'">×</button></span></div>';
+      item.querySelector(".connector-label").onclick=()=>openConnectorDetail(row.kind,row.api||row.agent||null);
+      item.querySelector(".connector-action").onclick=async()=>{
+        if(row.kind==="api"&&!row.selected){ await fetch("/api/config",{method:"POST",body:JSON.stringify({selectApiConnector:row.id})}); await refresh(); tempToast(row.name+" selected."); return; }
+        if(row.kind==="api") return openConnectorDetail("api",row.api);
+        if(row.kind==="mcp") return testMcp({id:row.id});
+        openConnectorDetail("agent",row.agent);
+      };
+      const remove=item.querySelector(".connector-remove");
+      if(remove) remove.onclick=async()=>{
+        if(!await appConfirm("Delete connection?",'"'+row.name+'" will be removed from Boolean.',"Delete",true)) return;
+        if(row.kind==="api") await fetch("/api/config",{method:"POST",body:JSON.stringify({removeApiConnector:row.id})});
+        else { const items=row.kind==="mcp"?connectorsState().mcp:connectorsState().agents; const index=items.findIndex(entry=>entry.id===row.id); if(index>=0) items.splice(index,1); await saveConnectors(); }
+        await refresh(); renderConnectorOverview();
+      };
+      host.appendChild(item);
+    });
+  }
   function applyThirdParty(){
     const details=state.thirdParty?.zaiCoding||{};
     const hasKey=!!state.keys?.zaiCoding;
@@ -1764,6 +2038,7 @@
     const ready=hasKey&&details.approvedUse;
     $("zaiCodingStatus").textContent=ready?"Ready to use from the Cloud model picker.":hasKey?"Confirm approved or supported use to enable this connection.":"Add the Coding Plan API key after Z.AI approves this use.";
     $("zaiCodingStatus").style.color=ready?"var(--green)":"var(--dim)";
+    renderConnectorOverview();
   }
   function applyMode(){
     const full=!!state.autoApprove;
@@ -1779,7 +2054,8 @@
     document.querySelectorAll("#netmode button").forEach(b=>b.classList.toggle("on",(b.dataset.net==="online")===online));
   }
   function connectorsState(){
-    state.connectors=state.connectors||{mcp:[],agents:[]};
+    state.connectors=state.connectors||{apis:[],mcp:[],agents:[]};
+    state.connectors.apis=Array.isArray(state.connectors.apis)?state.connectors.apis:[];
     state.connectors.mcp=Array.isArray(state.connectors.mcp)?state.connectors.mcp:[];
     state.connectors.agents=Array.isArray(state.connectors.agents)?state.connectors.agents:[];
     return state.connectors;
@@ -1808,10 +2084,73 @@
   async function saveConnectors(){
     const c=connectorsState();
     await fetch("/api/config",{method:"POST",body:JSON.stringify({connectors:{
+      apis:c.apis.map(a=>({...a,apiKey:a.apiKey||"__keep__"})),
       mcp:c.mcp,
       agents:c.agents.map(a=>({...a,apiKey:a.apiKey||"__keep__"}))
     }})});
     await refresh();
+  }
+  function apiConnectionStatus(message,color){
+    const el=$("apiConnectionStatus"); if(!el) return;
+    el.textContent=message||""; el.style.color=color||"var(--dim)";
+  }
+  async function saveApiConnection(){
+    const name=$("apiConnectionName").value.trim();
+    const baseUrl=$("apiConnectionUrl").value.trim().replace(/\/+$/,"");
+    const model=$("apiConnectionModel").value.trim();
+    const key=$("apiConnectionKey").value.trim();
+    const needsApproval=isZaiCodingUrl(baseUrl);
+    if(!name){ apiConnectionStatus("Enter a connection name.","var(--danger,#d14343)"); return; }
+    if(!/^https?:\/\//i.test(baseUrl)){ apiConnectionStatus("Enter a valid http(s) base URL.","var(--danger,#d14343)"); return; }
+    if(!model){ apiConnectionStatus("Enter the provider's exact model id.","var(--danger,#d14343)"); return; }
+    if(needsApproval&&!$("apiConnectionApproved").checked){ apiConnectionStatus("Confirm approved or supported Z.AI Coding Plan use.","var(--danger,#d14343)"); return; }
+    const c=connectorsState();
+    const id=editingApiId||crypto.randomUUID();
+    const existing=c.apis.find(item=>item.id===id);
+    if(!key&&!existing?.hasKey){ apiConnectionStatus("Paste an API key.","var(--danger,#d14343)"); return; }
+    const item={id,name,baseUrl,model,apiKey:key||(existing?.hasKey?"__keep__":""),approvedUse:needsApproval&&$("apiConnectionApproved").checked,enabled:true};
+    const index=c.apis.findIndex(entry=>entry.id===id);
+    if(index>=0) c.apis[index]=item; else c.apis.push(item);
+    apiConnectionStatus("Saving…","var(--dim)");
+    await saveConnectors();
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({selectApiConnector:id})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ apiConnectionStatus(result.error||"Could not select this API.","var(--danger,#d14343)"); return; }
+    await refresh();
+    tempToast(name+" connected and selected.");
+    showConnectorOverview();
+  }
+  async function removeEditingApi(){
+    if(!editingApiId) return;
+    if(!await appConfirm("Delete API connection?","This removes the saved endpoint and key from Boolean.","Delete",true)) return;
+    await fetch("/api/config",{method:"POST",body:JSON.stringify({removeApiConnector:editingApiId})});
+    editingApiId=""; await refresh(); showConnectorOverview();
+  }
+  function agentStatus(message,color){
+    const el=$("agentStatus"); if(!el) return;
+    el.textContent=message||""; el.style.color=color||"var(--dim)";
+  }
+  async function saveAgentConnection(){
+    const name=$("agentName").value.trim();
+    const url=$("agentUrl").value.trim();
+    const key=$("agentKey").value.trim();
+    if(!name){ agentStatus("Enter an agent name.","var(--danger,#d14343)"); return; }
+    if(!/^https?:\/\//i.test(url)){ agentStatus("Enter a valid http(s) POST URL.","var(--danger,#d14343)"); return; }
+    const c=connectorsState();
+    const id=editingAgentId||crypto.randomUUID();
+    const existing=c.agents.find(item=>item.id===id);
+    const item={id,name,url,apiKey:key||(existing?.hasKey?"__keep__":""),enabled:true};
+    const index=c.agents.findIndex(entry=>entry.id===id);
+    if(index>=0) c.agents[index]=item; else c.agents.push(item);
+    await saveConnectors();
+    tempToast(name+" saved.");
+    showConnectorOverview();
+  }
+  async function removeEditingAgent(){
+    if(!editingAgentId) return;
+    if(!await appConfirm("Delete agent?","This removes the saved agent connection from Boolean.","Delete",true)) return;
+    const c=connectorsState(); c.agents=c.agents.filter(item=>item.id!==editingAgentId);
+    editingAgentId=""; await saveConnectors(); showConnectorOverview();
   }
   // ── MCP connection tab ──
   function mcpStatus(msg,color){ const el=$("mcpStatus"); if(!el) return; el.textContent=msg||""; el.style.color=color||"var(--dim)"; }
@@ -1832,25 +2171,56 @@
     const url=$("mcpUrl").value.trim();
     const token=$("mcpToken").value.trim();
     if(!/^https?:\/\//i.test(url)){ mcpStatus("Enter a valid http(s) URL.","var(--danger,#d14343)"); return; }
-    const ok=await testMcp({url,token});
-    if(!ok) return; // only add a server we could actually reach
-    const c=connectorsState();
-    c.mcp.push({ id:crypto.randomUUID(), name:name||"MCP server", type:"remote", url, token, enabled:true });
-    await saveConnectors();
-    $("mcpName").value=""; $("mcpUrl").value=""; $("mcpToken").value="";
-    renderMcpTab();
-    mcpStatus("Added and authorized.","var(--green)");
+    const button=$("mcpSave"); button.disabled=true;
+    mcpStatus("Checking the server…","var(--dim)");
+    try{
+      const response=await fetch("/api/mcp/connect",{method:"POST",body:JSON.stringify({name,url,token})});
+      const result=await response.json().catch(()=>({}));
+      if(!result.ok) throw new Error(result.error||"Could not connect.");
+      if(result.connected){
+        await refresh();
+        $("mcpName").value=""; $("mcpUrl").value=""; $("mcpToken").value="";
+        renderMcpTab();
+        mcpStatus("Connected · "+result.toolCount+" tool"+(result.toolCount===1?"":"s"),"var(--green)");
+        showConnectorOverview();
+        return;
+      }
+      if(!result.authorizationRequired||!result.authorizationUrl) throw new Error("The server did not provide an authorization method.");
+      mcpStatus("Finish signing in with "+(name||"the MCP service")+"…","var(--dim)");
+      let popup=null;
+      try{ popup=window.open(result.authorizationUrl,"booleanMcpSignIn","popup,width=520,height=680"); popup?.focus(); }catch{}
+      if(!popup) await fetch("/api/open-url",{method:"POST",body:JSON.stringify({url:result.authorizationUrl})});
+      const started=Date.now();
+      while(Date.now()-started<10*60*1000){
+        await sleep(1200);
+        const status=await (await fetch("/api/mcp/oauth/status?state="+encodeURIComponent(result.state))).json().catch(()=>({status:"pending"}));
+        if(status.status==="complete"){
+          try{ popup?.close(); }catch{}
+          await refresh();
+          $("mcpName").value=""; $("mcpUrl").value=""; $("mcpToken").value="";
+          renderMcpTab();
+          mcpStatus("Connected "+(status.serverName||name||"MCP server")+" · "+status.toolCount+" tool"+(status.toolCount===1?"":"s"),"var(--green)");
+          showConnectorOverview();
+          return;
+        }
+        if(status.status==="error"||status.status==="expired") throw new Error(status.error||"Authorization expired. Try again.");
+      }
+      throw new Error("Authorization timed out. Try again.");
+    }catch(error){
+      mcpStatus("Failed: "+(error.message||"could not connect"),"var(--danger,#d14343)");
+    }finally{ button.disabled=false; }
   }
   function renderMcpTab(){
     const el=$("mcpServerList"); if(!el) return;
     const items=remoteMcpServers(); el.innerHTML="";
+    renderConnectorOverview();
     if(!items.length){ el.innerHTML='<div class="hint">No MCP servers connected yet.</div>'; return; }
     items.forEach(x=>{
       const d=document.createElement("div"); d.className="conn-card";
       d.innerHTML='<div class="top"><span class="kind">MCP</span><b>'+esc(x.name||"MCP server")+'</b>'+
         '<div class="actions"><button class="tog" title="'+(x.enabled===false?"Enable":"Disable")+'">'+(x.enabled===false?"○":"●")+'</button>'+
         '<button class="test" title="Test connection">⟳</button><button class="del" title="Delete">×</button></div></div>'+
-        '<div class="url">'+esc(x.url||"")+(x.hasKey?" · token saved":"")+'</div>';
+        '<div class="url">'+esc(x.url||"")+(x.auth==="oauth"?" · signed in":(x.hasKey?" · token saved":""))+'</div>';
       d.querySelector(".tog").onclick=async()=>{ x.enabled=x.enabled===false; await saveConnectors(); renderMcpTab(); };
       d.querySelector(".test").onclick=()=>testMcp({id:x.id});
       d.querySelector(".del").onclick=async()=>{
@@ -1906,7 +2276,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.14"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.15"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -2807,6 +3177,48 @@
   $("noteNew").onclick=()=>{ saveNotes(); const n={id:crypto.randomUUID(),title:"Note "+(notes.length+1),html:"",createdAt:Date.now(),updatedAt:Date.now()}; notes.push(n); noteId=n.id; loadNote(); saveNotes(); };
   $("noteDelete").onclick=async()=>{ if(notes.length<=1){ $("noteEditor").innerHTML=""; saveNotes(); return; } if(!await appConfirm("Delete note?","\""+(activeNote().title||"This note")+"\" will be permanently deleted. This can't be undone.","Delete",true)) return; notes=notes.filter(n=>n.id!==noteId); noteId=notes[0].id; loadNote(); saveNotes(); };
   $("noteRename").onclick=()=>{ const n=activeNote(); const btn=[...$("noteTabs").querySelectorAll(".note-tab")].find(b=>b.classList.contains("on")); editNoteTitle(btn,n); };
+  // undo / redo on the note editor
+  $("noteUndo").onclick=()=>{ $("noteEditor").focus(); document.execCommand("undo"); saveNotes(); };
+  $("noteRedo").onclick=()=>{ $("noteEditor").focus(); document.execCommand("redo"); saveNotes(); };
+  // save the active note to a file (.html preserves formatting + images)
+  $("noteSaveFile").onclick=()=>{
+    const n=activeNote();
+    const html='<!doctype html><meta charset="utf-8"><title>'+esc(n.title||"Note")+'</title>\n<body style="font:15px/1.55 system-ui;padding:24px">'+$("noteEditor").innerHTML+'</body>';
+    const blob=new Blob([html],{type:"text/html"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=String(n.title||"note").replace(/[^\w.-]+/g,"_").slice(0,60)+".html";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    tempToast("Saved "+a.download);
+  };
+  // load a note from a file into a new note tab
+  $("noteLoadFile").onclick=()=>{
+    const inp=document.createElement("input"); inp.type="file"; inp.accept=".html,.htm,.txt,.md,.markdown";
+    inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return; const r=new FileReader();
+      r.onload=()=>{
+        let html=String(r.result||"");
+        if(/\.(txt|md|markdown)$/i.test(f.name)) html=html.split(/\r?\n/).map(l=>"<div>"+(esc(l)||"<br>")+"</div>").join("");
+        else { const m=html.match(/<body[^>]*>([\s\S]*?)<\/body>/i); if(m) html=m[1]; }
+        saveNotes();
+        const nn={id:crypto.randomUUID(),title:f.name.replace(/\.[^.]+$/,"").slice(0,40)||"Loaded note",html,createdAt:Date.now(),updatedAt:Date.now()};
+        notes.push(nn); noteId=nn.id; loadNote(); saveNotes(); openNotes(true);
+        tempToast("Loaded "+f.name);
+      };
+      r.readAsText(f);
+    };
+    inp.click();
+  };
+  // share the active note as a PDF via the print dialog (Save as PDF)
+  $("notePdf").onclick=()=>{
+    const n=activeNote();
+    document.getElementById("printArea")?.remove();
+    const area=document.createElement("div"); area.id="printArea";
+    area.innerHTML='<h1>'+esc(n.title||"Note")+'</h1><div>'+$("noteEditor").innerHTML+'</div>';
+    document.body.appendChild(area);
+    document.body.classList.add("printing");
+    const done=()=>{ document.body.classList.remove("printing"); area.remove(); window.removeEventListener("afterprint",done); };
+    window.addEventListener("afterprint",done);
+    setTimeout(()=>{ window.print(); setTimeout(done,1500); },40);
+  };
   function addSnipImage(dataURL,target){
     if(!dataURL) return;
     if(target==="note"){
@@ -2902,13 +3314,7 @@
       e.preventDefault();
       const bubble=uBtn.closest(".msg-user");
       const utext=String(bubble?._raw||"").trim();
-      if(uBtn.classList.contains("ucopy")){
-        if(!utext) return;
-        navigator.clipboard.writeText(utext).then(()=>{
-          uBtn.classList.add("copied"); uBtn.innerHTML="✓";
-          setTimeout(()=>{ uBtn.classList.remove("copied"); uBtn.innerHTML=uCopyIcon; },1000);
-        }).catch(()=>tempToast("Could not copy."));
-      } else if(uBtn.classList.contains("usearch")){
+      if(uBtn.classList.contains("usearch")){
         if(!utext) return;
         aiNavigate(searchUrl(utext));
       } else if(uBtn.classList.contains("urewind")){
@@ -2922,10 +3328,10 @@
     const msg=copyBtn.closest(".msg-ai");
     const text=String(msg?._raw||"").trim();
     if(!text) return;
-    navigator.clipboard.writeText(text).then(()=>{
+    writeClipboardText(text).then(()=>{
       copyBtn.classList.add("copied"); copyBtn.textContent="✓";
       setTimeout(()=>{ copyBtn.classList.remove("copied"); copyBtn.innerHTML=responseCopyIcon; },1000);
-    }).catch(()=>tempToast("Could not copy this response."));
+    }).catch(()=>tempToast("Could not copy this entry."));
   });
   async function rewindToBubble(bubble){
     if(!bubble) return;
@@ -3339,9 +3745,44 @@
     document.body.classList.toggle("settings-open", $("settingsPanel").classList.contains("open"));
     document.body.classList.remove("about-open");
   }
+  function settingSectionTitle(section){
+    const head=section?.querySelector(".sechead");
+    return head?.childNodes?.[0]?.textContent?.trim()||"Settings";
+  }
+  function showSettingsHome(){
+    const panel=$("settingsPanel");
+    panel.classList.add("settings-home");
+    panel.classList.remove("settings-detail");
+    panel.dataset.page="";
+    panel.querySelectorAll(".sec").forEach(section=>section.classList.remove("open","settings-page-active"));
+    $("settingsTitle").textContent="Settings";
+    $("settingsBack").title="Close settings";
+    $("settingsBack").setAttribute("aria-label","Close settings");
+    panel.scrollTop=0;
+  }
+  function showSettingsSection(id){
+    const panel=$("settingsPanel");
+    const section=panel.querySelector(`.sec[data-sec="${CSS.escape(String(id||""))}"]:not(.settings-hidden)`);
+    if(!section){ showSettingsHome(); return; }
+    panel.classList.remove("settings-home");
+    panel.classList.add("settings-detail");
+    panel.dataset.page=section.dataset.sec;
+    panel.querySelectorAll(".sec").forEach(item=>{
+      const active=item===section;
+      item.classList.toggle("settings-page-active",active);
+      item.classList.toggle("open",active);
+    });
+    $("settingsTitle").textContent=settingSectionTitle(section);
+    $("settingsBack").title="All settings";
+    $("settingsBack").setAttribute("aria-label","Back to all settings");
+    if(section.dataset.sec==="legal") loadLegalDocs();
+    if(section.dataset.sec==="thirdparty") showConnectorOverview();
+    panel.scrollTop=0;
+  }
   function closeSettingsPanel(){
     $("apikey").value="";
     $("settingsPanel").classList.remove("open");
+    showSettingsHome();
     syncSidePanelWidth();
     syncPanelButtons();
     discardCurrentHistory();
@@ -3358,12 +3799,12 @@
     if(opening) rememberCurrentView();
     $("settingsPanel").classList.toggle("open");
     syncSidePanelWidth(); syncPanelButtons(); applyKeyRow();
-    if(opening){ applySections(); loadUsage(); loadMemory(); estimateContext(); }
+    if(opening){ showSettingsHome(); loadUsage(); loadMemory(); estimateContext(); }
     else discardCurrentHistory();
   }
   $("topSettings").onclick=toggleSettingsPanel;
   $("cloudSignIn").onclick=cloudAccountClick;
-  $("settingsBack").onclick=goBackInApp;
+  $("settingsBack").onclick=()=>$("settingsPanel").classList.contains("settings-detail")?showSettingsHome():goBackInApp();
   $("settingsClose").onclick=closeSettingsPanel;
   $("resetusage").onclick=async()=>{ if(await appConfirm("Reset token counters?","This clears the saved token usage totals for the app.","Reset",true)){ await fetch("/api/usage/reset",{method:"POST"}); loadUsage(); } };
   $("clearMemory").onclick=async()=>{ if(await appConfirm("Clear learned behavior?","Boolean will forget saved preferences and formats.","Clear",true)){ await fetch("/api/preferences/clear",{method:"POST"}); loadMemory(); } };
@@ -3500,10 +3941,10 @@ Optional bundled starter model:
   function openSettings(sec,{remember=true}={}){
     if(!$("settingsPanel").classList.contains("open")){
       if(remember) rememberCurrentView();
-      $("settingsPanel").classList.add("open"); syncSidePanelWidth(); syncPanelButtons(); applySections();
+      $("settingsPanel").classList.add("open"); syncSidePanelWidth(); syncPanelButtons();
     } else { syncSidePanelWidth(); syncPanelButtons(); }
-    if(sec){ document.querySelectorAll(".sec").forEach(s=>s.classList.toggle("open",s.dataset.sec===sec)); }
-    if(sec==="legal") loadLegalDocs();
+    if(sec) showSettingsSection(sec); else showSettingsHome();
+    loadUsage(); loadMemory(); estimateContext();
   }
   document.querySelectorAll("[data-open-legal]").forEach(b=>b.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); openSettings("legal"); });
   async function selectNet(net){
@@ -3537,15 +3978,44 @@ Optional bundled starter model:
   $("clearKey").onclick=async()=>{ const prov=$("providersel").value;
     if(!await appConfirm("Remove API key?","Remove the saved "+((state.cloud&&state.cloud[prov])||prov)+" API key from this app?","Remove",true)) return;
     await fetch("/api/config",{method:"POST",body:JSON.stringify({clearKey:prov})}); $("apikey").value=""; await refresh(); };
-  document.querySelectorAll("#thirdPartyTabs [data-provider-tab]").forEach(button=>button.onclick=()=>{
-    const provider=button.dataset.providerTab;
-    document.querySelectorAll("#thirdPartyTabs [data-provider-tab]").forEach(tab=>{
-      const selected=tab===button;
-      tab.classList.toggle("on",selected);
-      tab.setAttribute("aria-selected",selected?"true":"false");
+  $("connectorDetailBack").onclick=showConnectorOverview;
+  $("connectorSearch").oninput=renderConnectorOverview;
+  $("connectorAdd").onclick=event=>{ event.stopPropagation(); $("connectorAddMenu").hidden=!$("connectorAddMenu").hidden; };
+  $("connectorAddMenu").onclick=event=>event.stopPropagation();
+  document.querySelectorAll("[data-add-connector]").forEach(button=>button.onclick=()=>openConnectorDetail(button.dataset.addConnector));
+  document.querySelectorAll("[data-connector-filter]").forEach(button=>button.onclick=()=>{
+    connectorFilter=button.dataset.connectorFilter;
+    document.querySelectorAll("[data-connector-filter]").forEach(tab=>{
+      const selected=tab===button; tab.classList.toggle("on",selected); tab.setAttribute("aria-selected",selected?"true":"false");
     });
-    document.querySelectorAll("[data-provider-panel]").forEach(panel=>panel.hidden=panel.dataset.providerPanel!==provider);
+    renderConnectorOverview();
   });
+  document.addEventListener("click",()=>{ if($("connectorAddMenu")) $("connectorAddMenu").hidden=true; });
+  $("apiPreset").onchange=()=>{
+    const preset=API_PRESETS[$("apiPreset").value];
+    $("apiApprovedRow").style.display=$("apiPreset").value==="zai"?"":"none";
+    if(!preset) return;
+    $("apiConnectionName").value=preset.name;
+    $("apiConnectionUrl").value=preset.baseUrl;
+    $("apiConnectionModel").value=preset.model;
+  };
+  $("apiConnectionUrl").oninput=()=>{
+    const needsApproval=isZaiCodingUrl($("apiConnectionUrl").value);
+    $("apiApprovedRow").style.display=needsApproval?"":"none";
+    if(!needsApproval) $("apiConnectionApproved").checked=false;
+  };
+  $("apiConnectionPaste").onclick=async()=>{
+    try{ $("apiConnectionKey").value=(await readClipboardText()).trim(); $("apiConnectionKey").focus(); }
+    catch{ tempToast("Could not read the clipboard."); }
+  };
+  $("apiConnectionSave").onclick=saveApiConnection;
+  $("apiConnectionRemove").onclick=removeEditingApi;
+  $("agentPaste").onclick=async()=>{
+    try{ $("agentKey").value=(await readClipboardText()).trim(); $("agentKey").focus(); }
+    catch{ tempToast("Could not read the clipboard."); }
+  };
+  $("agentSave").onclick=saveAgentConnection;
+  $("agentRemove").onclick=removeEditingAgent;
   $("zaiCodingPaste").onclick=async()=>{
     try{ $("zaiCodingKey").value=(await readClipboardText()).trim(); $("zaiCodingKey").focus(); }
     catch{ tempToast("Could not read the clipboard."); }
@@ -3604,14 +4074,16 @@ Optional bundled starter model:
     closeSettingsPanel(); await refresh();
   };
   $("copyall").onclick=()=>{
-    if(!col.querySelector(".msg-user,.msg-ai")) return;
+    if(!col.querySelector(".msg-user,.msg-ai,.model-error")) return;
     let out=[];
-    col.querySelectorAll(".msg-user,.msg-ai").forEach(n=>{
+    col.querySelectorAll(".msg-user,.msg-ai,.model-error").forEach(n=>{
       if(n.classList.contains("msg-user")) out.push("You: "+String(n._raw||"").trim());
-      else out.push((n.dataset.aiLabel||shortAiName(n.dataset.provider,n.dataset.model))+": "+String(n._raw||"").trim());
+      else if(n.classList.contains("msg-ai")) out.push((n.dataset.aiLabel||shortAiName(n.dataset.provider,n.dataset.model))+": "+String(n._raw||"").trim());
+      else out.push("Error: "+String(n._raw||n.textContent||"").trim());
     });
-    navigator.clipboard.writeText(out.join("\n\n"));
-    const b=$("copyall"); const old=b.innerHTML; b.innerHTML="✓"; setTimeout(()=>b.innerHTML=old,1200);
+    writeClipboardText(out.join("\n\n")).then(()=>{
+      const b=$("copyall"); const old=b.innerHTML; b.innerHTML="✓"; setTimeout(()=>b.innerHTML=old,1200);
+    }).catch(()=>tempToast("Could not copy this conversation."));
   };
 
   // ── appearance / settings ──
@@ -3655,12 +4127,19 @@ Optional bundled starter model:
     $("permGeo").checked=!!bp.geo;
   }
   function applySections(){
-    const open=(state.ui&&state.ui.expandedSections)||[];
-    document.querySelectorAll(".sec").forEach(s=>s.classList.toggle("open", open.includes(s.dataset.sec)));
+    const panel=$("settingsPanel");
+    if(panel.classList.contains("settings-detail")&&panel.dataset.page) showSettingsSection(panel.dataset.page);
+    else showSettingsHome();
   }
   async function setUi(patch){ state.ui={...(state.ui||{}),...patch}; applyUi(state.ui); await fetch("/api/config",{method:"POST",body:JSON.stringify({ui:patch})}); }
 
-  document.querySelectorAll(".sechead").forEach(h=>{ h.onclick=()=>{ h.parentElement.classList.toggle("open"); if(h.parentElement.dataset.sec==="legal") loadLegalDocs(); setUi({expandedSections:[...document.querySelectorAll(".sec.open:not(.settings-hidden)")].map(s=>s.dataset.sec)}); }; });
+  document.querySelectorAll("#settingsPanel .sechead").forEach(h=>{
+    h.setAttribute("role","button");
+    h.tabIndex=0;
+    const open=()=>showSettingsSection(h.parentElement.dataset.sec);
+    h.onclick=open;
+    h.onkeydown=(event)=>{ if(event.key==="Enter"||event.key===" "){ event.preventDefault(); open(); } };
+  });
   ["themeSeg","fontSeg","densitySeg"].forEach(id=>$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{ const key=id==="themeSeg"?"theme":id==="fontSeg"?"fontSize":"density"; setUi({[key]:b.dataset.val}); }));
   $("noteColorSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>setUi({notepadTheme:b.dataset.val}));
   $("contextSeg").querySelectorAll("button").forEach(b=>b.onclick=async()=>{ await setUi({contextMode:b.dataset.val}); estimateContext(); });
@@ -3830,7 +4309,7 @@ Optional bundled starter model:
     }
   });
   ["browserMenuCopy","browserMenuMessage","browserMenuNote"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
-  $("browserMenuCopy").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); navigator.clipboard.writeText(text).catch(()=>tempToast("Could not copy selection.")); };
+  $("browserMenuCopy").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); writeClipboardText(text).catch(()=>tempToast("Could not copy selection.")); };
   $("browserMenuMessage").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); sendBrowserText(text,"message"); };
   $("browserMenuNote").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); sendBrowserText(text,"note"); };
   function postFrame(msg){ try{ bframe.contentWindow.postMessage(msg,"*"); }catch{} }

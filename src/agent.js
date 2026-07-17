@@ -36,6 +36,7 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     learned ? "" : "",
     "TOOLS:",
     "- Boolean includes local GGUF models, cloud AI, project/file editing, an embedded browser, notepad, Windows actions, and optional MCP/agent connectors.",
+    "- For a configured MCP service, use mcp_list_tools to inspect its exact tools, then mcp_call_tool. Never claim an MCP action succeeded without its tool result.",
     "- Use tools yourself when an action is needed; never tell the user to call an internal tool.",
     "- Work silently while using tools. Do not narrate searches, clicks, retries, commands, or planned steps; give one concise result when finished.",
     "- For app work: create or edit the project, run it, fix errors, and claim completion only after verification.",

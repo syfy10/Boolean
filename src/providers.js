@@ -4,6 +4,10 @@
 import * as engine from "./engine.js";
 import { CLOUD } from "./config.js";
 
+function providerBaseUrl(value) {
+  return String(value || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
+}
+
 /**
  * Resolve the current provider to a chat target { base, apiKey, model, headers? }.
  * For "local" this also starts the embedded engine if needed.
@@ -18,10 +22,17 @@ export async function resolveTarget(config, onStatus = () => {}) {
     if (config.provider === "zaiCoding" && !p.approvedUse) {
       throw new Error("Confirm that Z.AI has approved Boolean or that your use is supported before using the Coding Plan.");
     }
+    if (config.provider === "customApi" && /api\.z\.ai\/api\/coding\/paas(?:\/v\d+)?\/?$/i.test(providerBaseUrl(p.baseUrl)) && !p.approvedUse) {
+      throw new Error("Confirm that Z.AI has approved Boolean or that your use is supported before using the Coding Plan.");
+    }
     if (!p.apiKey) {
       throw new Error(`no ${CLOUD[config.provider]} API key set — add it in Settings or run: /key ${config.provider} <key>`);
     }
-    return { base: p.baseUrl, apiKey: p.apiKey, model: p.model, provider: config.provider };
+    const base = providerBaseUrl(p.baseUrl);
+    if (!base || !p.model) {
+      throw new Error(`${CLOUD[config.provider]} needs an endpoint and model in Settings.`);
+    }
+    return { base, apiKey: p.apiKey, model: p.model, provider: config.provider };
   }
   throw new Error(`unknown provider: ${config.provider}`);
 }
@@ -80,6 +91,30 @@ function cloudConnectionError(interrupted = false, cause) {
   return err;
 }
 
+function cloudProviderError(target, status, body, retryAfter) {
+  let detail = "";
+  try {
+    const parsed = JSON.parse(body || "{}");
+    const candidate = parsed?.error?.message ?? parsed?.message ?? parsed?.error;
+    if (typeof candidate === "string") detail = candidate.replace(/\s+/g, " ").trim().slice(0, 220);
+  } catch { /* use the status-specific explanation */ }
+  const label = target.provider === "zaiCoding" || /api\.z\.ai/i.test(target.base || "") ? "Z.AI" : "The Cloud provider";
+  let message;
+  if (status === 401) message = `${label} rejected the API key. Re-enter it in Settings > Third-party connections.`;
+  else if (status === 402) message = `${label} reports insufficient balance or an inactive plan. Check the provider account.`;
+  else if (status === 403) message = `${label} does not allow this request on the current plan or endpoint.`;
+  else if (status === 429) message = `${label} rate or usage limit was reached. Wait for the limit to reset or check the provider plan.`;
+  else if (status >= 500) message = `${label} is temporarily unavailable. Your selected provider and saved API key are unchanged; retry shortly.`;
+  else message = `${label} rejected the request (${status}).`;
+  if (detail && !message.toLowerCase().includes(detail.toLowerCase())) message += ` ${detail}`;
+  const err = new Error(message);
+  err.code = "cloud_provider_error";
+  err.status = status;
+  err.body = body;
+  err.retryAfter = retryAfter;
+  return err;
+}
+
 function localConnectionError(interrupted = false, cause) {
   const err = new Error(interrupted
     ? "The Local model connection stopped during its response. Your task was checkpointed; Continue can resume it."
@@ -126,11 +161,13 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
   }
   if (!res.ok) {
     const errText = await res.text();
-    const err = new Error(`${res.status}: ${errText.slice(0, 400)}`);
-    err.status = res.status;
-    err.body = errText;
-    err.retryAfter = res.headers.get("retry-after");
-    throw err;
+    if (target.provider === "local") {
+      const err = new Error(`${res.status}: ${errText.slice(0, 400)}`);
+      err.status = res.status;
+      err.body = errText;
+      throw err;
+    }
+    throw cloudProviderError(target, res.status, errText, res.headers.get("retry-after"));
   }
 
   if (!stream) {
@@ -221,7 +258,10 @@ export async function chatCompletion(target, messages, tools, signal, onToken) {
       const retryable = err?.code === "cloud_transport_error" || RETRYABLE_CLOUD_STATUSES.has(err?.status);
       if (!retryable) throw err;
       if (emitted) throw cloudConnectionError(true, err);
-      if (attempt + 1 >= maxAttempts) throw cloudConnectionError(false, err);
+      if (attempt + 1 >= maxAttempts) {
+        if (err?.status) throw err;
+        throw cloudConnectionError(false, err);
+      }
       await waitForRetry(retryDelay(err, attempt), signal);
     }
   }
@@ -233,7 +273,8 @@ const STATIC_MODELS = {
   openai: ["gpt-5.1", "gpt-5.1-codex", "gpt-5-mini", "gpt-4.1"],
   glm: ["glm-4.6", "glm-4.5", "glm-4.5-air"],
   zaiCoding: ["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"],
-  claude: ["claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5-20251001"]
+  claude: ["claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5-20251001"],
+  customApi: []
 };
 
 function usableProviderModels(provider, ids, selected = "") {
@@ -279,7 +320,7 @@ export async function listProviderModels(config) {
   if (CLOUD[config.provider]) {
     const p = config[config.provider];
     try {
-      const res = await fetch(`${p.baseUrl}/models`, {
+      const res = await fetch(`${providerBaseUrl(p.baseUrl)}/models`, {
         headers: { authorization: `Bearer ${p.apiKey}` },
         signal: AbortSignal.timeout(8000)
       });
@@ -289,7 +330,9 @@ export async function listProviderModels(config) {
         if (ids.length) return ids.map((id) => ({ name: id, installed: true }));
       }
     } catch { /* fall back to static list */ }
-    return (STATIC_MODELS[config.provider] || []).map((id) => ({ name: id, installed: true }));
+    const fallback = STATIC_MODELS[config.provider] || [];
+    const ids = fallback.length ? fallback : (p.model ? [p.model] : []);
+    return ids.map((id) => ({ name: id, installed: true }));
   }
   return [];
 }
@@ -302,6 +345,7 @@ export async function backendUp(config) {
     }
     if (CLOUD[config.provider]) {
       if (config.provider === "zaiCoding" && !config.zaiCoding?.approvedUse) return false;
+      if (config.provider === "customApi" && /api\.z\.ai\/api\/coding\/paas(?:\/v\d+)?\/?$/i.test(providerBaseUrl(config.customApi?.baseUrl)) && !config.customApi?.approvedUse) return false;
       return !!config[config.provider].apiKey;
     }
     return false;
