@@ -11,8 +11,8 @@ rcedit(process.argv[2], {
     LegalCopyright: "Copyright 2026 Boolean",
     OriginalFilename: "saz.exe"
   },
-  "file-version": "0.9.18",
-  "product-version": "0.9.18"
+  "file-version": "0.9.19",
+  "product-version": "0.9.19"
 })
   .then(() => console.log("icon + version info set"))
   .catch((err) => {

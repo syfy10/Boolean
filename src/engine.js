@@ -463,6 +463,7 @@ export async function downloadModel(idOrFile, onProgress, options = {}) {
 let child = null;
 let runningModel = null;
 let runningMmproj = null;
+let runningCtx = null;
 
 async function healthy(port) {
   try {
@@ -515,12 +516,13 @@ async function ensureRunningNow(config, onStatus = () => {}) {
 
   const mmproj = resolveMmproj(config, model);
   if (child && !child.killed && runningModel === model && runningMmproj === mmproj && (await healthy(port))) {
-    return { base: `http://127.0.0.1:${port}/v1`, model };
+    return { base: `http://127.0.0.1:${port}/v1`, model, ctx: runningCtx || Number(ctx) || 8192 };
   }
   if (!child && await healthy(port)) {
     runningModel = model;
     runningMmproj = mmproj;
-    return { base: `http://127.0.0.1:${port}/v1`, model };
+    runningCtx = Number(ctx) || 8192;
+    return { base: `http://127.0.0.1:${port}/v1`, model, ctx: runningCtx };
   }
 
   const exe = findEngineBinary();
@@ -543,9 +545,10 @@ async function ensureRunningNow(config, onStatus = () => {}) {
       ...(mmproj ? ["--mmproj", path.join(MODELS_DIR, mmproj)] : []),
       ...(catalogEntry?.args || [])
     ], { stdio: "ignore", windowsHide: true, detached: true });
-    child.on("exit", () => { child = null; runningModel = null; runningMmproj = null; });
+    child.on("exit", () => { child = null; runningModel = null; runningMmproj = null; runningCtx = null; });
     runningModel = model;
     runningMmproj = mmproj;
+    runningCtx = Number(ctxSize) || 8192;
   };
 
   const waitReady = async () => {
@@ -559,7 +562,7 @@ async function ensureRunningNow(config, onStatus = () => {}) {
   };
 
   start(ctx);
-  if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model };
+  if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model, ctx: Number(ctx) || 8192 };
 
   const safeCtx = Math.min(Number(ctx) || 8192, 8192);
   if (safeCtx < Number(ctx || 0)) {
@@ -567,10 +570,11 @@ async function ensureRunningNow(config, onStatus = () => {}) {
     child = null;
     runningModel = null;
     runningMmproj = null;
+    runningCtx = null;
     config.local.ctx = safeCtx;
     try { saveConfig(config); } catch { /* keep going even if config cannot be persisted */ }
     start(safeCtx, " with safer 8k context");
-    if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model };
+    if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model, ctx: safeCtx };
   }
   throw new Error(`engine exited while loading ${model}. Try a smaller model, redownload the model if it is incomplete, or lower Context length in Settings > Advanced.`);
 }
@@ -580,6 +584,7 @@ export function stopEngine() {
   child = null;
   runningModel = null;
   runningMmproj = null;
+  runningCtx = null;
 }
 
 export function keepEngineAliveOnExit() {

@@ -5,8 +5,31 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { requiresArtifactAction, runTurn, systemPrompt } from "../src/agent.js";
+import { contextBudgetForTarget, contextLimitFromError, estimateContext, requiresArtifactAction, runTurn, systemPrompt } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
+
+test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
+  const err = new Error('400: {"error":{"message":"request exceeds the available context size (8192 tokens)","n_ctx":8192}}');
+  err.body = '{"error":{"code":400,"message":"request (10327 tokens) exceeds the available context size (8192 tokens), try increasing it","type":"exceed_context_size_error","n_prompt_tokens":10327,"n_ctx":8192}}';
+  assert.equal(contextLimitFromError(err), 8192);
+
+  const config = {
+    provider: "local",
+    local: { ctx: 32768 },
+    ui: { contextMode: "balanced" }
+  };
+  const budget = contextBudgetForTarget(config, { provider: "local", ctx: 8192 }, "balanced");
+  assert.ok(budget <= 5570, "8k local engines need a strict budget because tool instructions add prompt overhead");
+
+  const messages = [
+    { role: "system", content: "system ".repeat(600) },
+    { role: "user", content: "older ".repeat(6000) },
+    { role: "assistant", content: "old answer ".repeat(6000) },
+    { role: "user", content: "hi" }
+  ];
+  const estimate = estimateContext(messages, budget, "balanced");
+  assert.ok(estimate.sent <= 3800, "local chat history should fit below the 8k engine plus tool overhead");
+});
 
 test("third-party provider 401 responses do not affect Boolean account sign-in", async (t) => {
   const server = http.createServer(async (req, res) => {

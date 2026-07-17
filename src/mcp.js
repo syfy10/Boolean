@@ -134,13 +134,12 @@ export async function mcpTestConnection(connector, { onRefresh } = {}) {
         jsonrpc: "2.0", method: "notifications/initialized"
       });
     } catch { /* notification is best-effort */ }
-    let tools = [];
-    try {
-      const list = await mcpStreamableRpc(connector.url, connectorAccessToken(connector), sessionId, {
-        jsonrpc: "2.0", id: 2, method: "tools/list", params: {}
-      });
-      tools = Array.isArray(list.data?.result?.tools) ? list.data.result.tools : [];
-    } catch { /* a server can connect without exposing tools */ }
+    const list = await mcpStreamableRpc(connector.url, connectorAccessToken(connector), sessionId, {
+      jsonrpc: "2.0", id: 2, method: "tools/list", params: {}
+    });
+    if (list.data?.error) throw new Error(list.data.error.message || "the server rejected tools/list");
+    const tools = Array.isArray(list.data?.result?.tools) ? list.data.result.tools : [];
+    if (!tools.length) throw new Error("connected, but this MCP server exposes no tools Boolean can use");
     return {
       serverName: info.name || "",
       serverVersion: info.version || "",

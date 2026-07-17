@@ -32,8 +32,8 @@ export function providerImageSupport(config) {
  */
 export async function resolveTarget(config, onStatus = () => {}) {
   if (config.provider === "local") {
-    const { base, model } = await engine.ensureRunning(config, onStatus);
-    return { base, apiKey: "local", model, provider: "local" };
+    const { base, model, ctx } = await engine.ensureRunning(config, onStatus);
+    return { base, apiKey: "local", model, provider: "local", ctx };
   }
   if (CLOUD[config.provider]) {
     const p = config[config.provider];

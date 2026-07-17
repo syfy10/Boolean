@@ -138,12 +138,15 @@ const ARTIFACT_TOOL_NAMES = new Set([
 ]);
 const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
 
-function fallbackToolPrompt(definitions = TOOL_DEFINITIONS) {
-  const tools = definitions.map((t) => ({
-    name: t.function.name,
-    description: t.function.description,
-    parameters: t.function.parameters
-  }));
+function fallbackToolPrompt(definitions = TOOL_DEFINITIONS, options = {}) {
+  const compact = !!options.compact;
+  const tools = compact
+    ? definitions.map((t) => `${t.function.name}: ${t.function.description || ""}`.trim())
+    : definitions.map((t) => ({
+        name: t.function.name,
+        description: t.function.description,
+        parameters: t.function.parameters
+      }));
   return [
     "",
     "TOOL PROTOCOL: To use a tool, reply with ONLY a fenced block like this:",
@@ -151,16 +154,16 @@ function fallbackToolPrompt(definitions = TOOL_DEFINITIONS) {
     '{"name": "run_command", "arguments": {"command": "Get-Date"}}',
     "```",
     "Then wait for the result before continuing. When you no longer need tools, answer normally.",
-    "Available tools (JSON schema):",
-    JSON.stringify(tools, null, 2)
+    compact ? "Available tools (name: purpose). Use the obvious JSON arguments for the selected tool:" : "Available tools (JSON schema):",
+    compact ? tools.map((line) => `- ${line}`).join("\n") : JSON.stringify(tools, null, 2)
   ].join("\n");
 }
 
-function withFallbackToolProtocol(messages, definitions = TOOL_DEFINITIONS) {
+function withFallbackToolProtocol(messages, definitions = TOOL_DEFINITIONS, options = {}) {
   const copy = messages.map((message) => ({ ...message }));
   const systemIndex = copy.findIndex((message) => message?.role === "system");
   if (systemIndex >= 0 && !String(copy[systemIndex].content || "").includes("TOOL PROTOCOL")) {
-    copy[systemIndex].content = `${copy[systemIndex].content}\n${fallbackToolPrompt(definitions)}`;
+    copy[systemIndex].content = `${copy[systemIndex].content}\n${fallbackToolPrompt(definitions, options)}`;
   }
   return copy;
 }
@@ -280,6 +283,55 @@ function approxTokens(messages) {
     chars += typeof m.content === "string" ? m.content.length : JSON.stringify(m.content || "").length;
   }
   return Math.ceil(chars / 3.3);
+}
+
+function fitReserveForMode(mode = "balanced") {
+  return mode === "full" ? 1000 : 2000;
+}
+
+function localContextWindow(config, target) {
+  return Math.max(2048, Number(target?.ctx || config?.local?.ctx || 8192) || 8192);
+}
+
+function localBudgetFromContext(ctxWindow, mode = "balanced") {
+  const windowTokens = Math.max(2048, Number(ctxWindow) || 8192);
+  const fitReserve = fitReserveForMode(mode);
+  if (windowTokens <= 8192) {
+    // Local requests include tool schemas and controller text that are not part
+    // of chat history. Keep the sent message history well under the engine
+    // window so small 8k models do not reject ordinary follow-up turns.
+    return mode === "full" ? 3072 : 4096;
+  }
+  const toolHeadroom = Math.min(7000, Math.max(3500, Math.floor(windowTokens * 0.18)));
+  return Math.max(4096, windowTokens - toolHeadroom - 600 + fitReserve);
+}
+
+export function contextBudgetForTarget(config, target, mode = "balanced", projectDir = "") {
+  if (config?.provider === "local" || target?.provider === "local") {
+    return localBudgetFromContext(localContextWindow(config, target), mode);
+  }
+  return projectDir ? 48000 : 128000;
+}
+
+export function contextLimitFromError(err) {
+  const text = `${err?.body || ""}\n${err?.message || ""}`;
+  try {
+    const parsed = JSON.parse(String(err?.body || "{}"));
+    const nCtx = parsed?.error?.n_ctx ?? parsed?.n_ctx;
+    if (Number.isFinite(Number(nCtx))) return Number(nCtx);
+  } catch { /* fall through to regex parsing */ }
+  const patterns = [
+    /"n_ctx"\s*:\s*(\d+)/i,
+    /\bn_ctx\b[^\d]{0,16}(\d+)/i,
+    /available context size[^\d]{0,16}(\d+)/i,
+    /context size[^\d]{0,16}(\d+)/i,
+    /maximum context length[^\d]{0,16}(\d+)/i
+  ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) return Number(match[1]);
+  }
+  return 0;
 }
 
 function plainMessageText(message) {
@@ -429,7 +481,7 @@ function clipMsg(m, maxChars) {
 function fitToContext(messages, budgetTokens, mode = "balanced") {
   const source = [...messages];
   const fullTokens = approxTokens(source);
-  const reserve = mode === "full" ? 1000 : 2000;
+  const reserve = fitReserveForMode(mode);
   let budget = Math.max(2048, budgetTokens - reserve);
   if (mode === "minimal") budget = Math.min(budget, 3200);
 
@@ -536,17 +588,16 @@ export async function runTurn(ctx, messages) {
 
   let target = await resolveTarget(config, onStatus);
   let localRecoveryAttempted = false;
-  let useNativeTools = true;
+  let localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
+  let useNativeTools = !localCompactTools;
   const emitUsage = (msg) => {
     if (onUsage && msg?.usage) onUsage({ provider: config.provider, model: target.model, ...msg.usage });
   };
   // Project tool loops can accumulate huge page dumps and file reads in one
   // turn. A focused cloud cap keeps the model on the current bug while the
   // complete transcript and checkpoints remain saved for recovery.
-  let ctxBudget = config.provider === "local"
-    ? (config.local.ctx || 32768)
-    : (ctx.projectDir ? 48000 : 128000);
   const contextMode = config.ui?.contextMode || "balanced";
+  let ctxBudget = contextBudgetForTarget(config, target, contextMode, ctx.projectDir);
   const { onOptimize } = ctx;
   let optimizeSent = false; // report once per turn
   const looksLikeContextOverflow = (err) =>
@@ -618,7 +669,7 @@ export async function runTurn(ctx, messages) {
       }
       if (textOnlyContentFallback) modelMessages = withTextOnlyContent(modelMessages);
       const availableTools = artifactActionRequired && !completedToolWork ? ARTIFACT_TOOL_DEFINITIONS : TOOL_DEFINITIONS;
-      if (!useNativeTools) modelMessages = withFallbackToolProtocol(modelMessages, availableTools);
+      if (!useNativeTools) modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: localCompactTools });
       const requestTarget = actionNudgeActive && !completedToolWork && useNativeTools
         ? { ...target, toolChoice: "required" }
         : target;
@@ -629,8 +680,21 @@ export async function runTurn(ctx, messages) {
       if (err?.name === "AbortError" || signal?.aborted) return stopped();
       // prompt still too big for the engine — trim harder and retry automatically
       if (looksLikeContextOverflow(err) && ctxBudget > 4096) {
-        ctxBudget = Math.floor(ctxBudget * 0.7);
-        onStatus(`conversation too long for the model — trimming older history and retrying…`);
+        const reportedLimit = contextLimitFromError(err);
+        if (reportedLimit && target?.provider === "local") {
+          target = { ...target, ctx: reportedLimit };
+          if (reportedLimit <= 8192) {
+            localCompactTools = true;
+            useNativeTools = false;
+          }
+        }
+        const limitBudget = reportedLimit
+          ? contextBudgetForTarget(config, target?.provider === "local" ? { ...target, ctx: reportedLimit } : target, contextMode, ctx.projectDir)
+          : Math.floor(ctxBudget * 0.7);
+        const nextBudget = Math.min(Math.floor(ctxBudget * 0.7), limitBudget);
+        if (nextBudget >= ctxBudget) throw err;
+        ctxBudget = Math.max(3072, nextBudget);
+        onStatus("conversation too long for the model - trimming older history and retrying...");
         continue;
       }
       if (config.provider === "local" && err?.code === "local_transport_error" && !err.partial && !localRecoveryAttempted) {
@@ -655,7 +719,7 @@ export async function runTurn(ctx, messages) {
         if (messages[0]?.role === "system" && !messages[0].content.includes("TOOL PROTOCOL")) {
           messages[0] = {
             role: "system",
-            content: messages[0].content + "\n" + fallbackToolPrompt()
+            content: messages[0].content + "\n" + fallbackToolPrompt(TOOL_DEFINITIONS, { compact: localCompactTools })
           };
         }
         continue;

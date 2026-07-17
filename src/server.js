@@ -199,7 +199,9 @@ function publicConnectors(config) {
     mcp: Array.isArray(c.mcp) ? c.mcp.map((x) => ({
       id: x.id, name: x.name, type: x.type || (x.url ? "remote" : "local"),
       url: x.url, command: x.command, args: x.args, enabled: x.enabled !== false,
-      hasKey: !!(x.token || x.oauth?.accessToken), auth: x.oauth ? "oauth" : (x.token ? "bearer" : "none")
+      hasKey: !!(x.token || x.oauth?.accessToken), auth: x.oauth ? "oauth" : (x.token ? "bearer" : "none"),
+      toolCount: Number.isFinite(Number(x.toolCount)) ? Number(x.toolCount) : undefined,
+      tools: Array.isArray(x.tools) ? x.tools.slice(0, 20) : []
     })) : [],
     agents: Array.isArray(c.agents) ? c.agents.map((x) => ({
       id: x.id, name: x.name, url: x.url, enabled: x.enabled !== false, hasKey: !!x.apiKey
@@ -1052,7 +1054,12 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const connector = { id: crypto.randomUUID(), name, type: "remote", url: mcpUrl, token, oauth: null, enabled: true };
         try {
           const result = await testMcpConnector(connector);
-          saveMcpConnector(connector);
+          saveMcpConnector({
+            ...connector,
+            toolCount: result.toolCount,
+            tools: result.tools.map((tool) => tool.name).filter(Boolean).slice(0, 50),
+            lastTestedAt: Date.now()
+          });
           return json({ ok: true, connected: true, connectorId: connector.id, ...result,
             tools: result.tools.map((tool) => tool.name).filter(Boolean) });
         } catch (err) {
@@ -1136,7 +1143,12 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             }
           };
           const result = await testMcpConnector(connector);
-          saveMcpConnector(connector);
+          saveMcpConnector({
+            ...connector,
+            toolCount: result.toolCount,
+            tools: result.tools.map((tool) => tool.name).filter(Boolean).slice(0, 50),
+            lastTestedAt: Date.now()
+          });
           transaction.status = "complete";
           transaction.connectorId = connector.id;
           transaction.serverName = result.serverName || connector.name;

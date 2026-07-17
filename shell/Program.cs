@@ -161,6 +161,31 @@ sealed class MainForm : Form
         }
     }
 
+    string? PickFolderNative(string? initialPath, string? title)
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = string.IsNullOrWhiteSpace(title) ? "Choose folder" : title,
+            CheckFileExists = false,
+            CheckPathExists = true,
+            ValidateNames = false,
+            FileName = "Select this folder",
+            Filter = "Folders|*.folder",
+            DereferenceLinks = true,
+            Multiselect = false,
+            AutoUpgradeEnabled = true
+        };
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(initialPath) && Directory.Exists(initialPath))
+                dialog.InitialDirectory = initialPath;
+        }
+        catch { }
+        if (dialog.ShowDialog(this) != DialogResult.OK) return null;
+        var selected = Path.GetDirectoryName(dialog.FileName);
+        return string.IsNullOrWhiteSpace(selected) ? null : selected;
+    }
+
     void ToggleMaximize()
     {
         MaximizedBounds = Screen.FromHandle(Handle).WorkingArea; // don't cover the taskbar
@@ -1350,6 +1375,22 @@ try {
                 catch (Exception ex)
                 {
                     PostToChat(new { type = "clipboard", id, ok = false, error = ex.Message });
+                }
+                return;
+            }
+            if (type == "folder")
+            {
+                var id = root.TryGetProperty("id", out var idp) ? idp.GetString() : null;
+                var initial = root.TryGetProperty("initial", out var ip) ? ip.GetString() : null;
+                var title = root.TryGetProperty("title", out var titlep) ? titlep.GetString() : null;
+                try
+                {
+                    var picked = PickFolderNative(initial, title);
+                    PostToChat(new { type = "folder", id, ok = !string.IsNullOrWhiteSpace(picked), path = picked });
+                }
+                catch (Exception ex)
+                {
+                    PostToChat(new { type = "folder", id, ok = false, error = ex.Message });
                 }
                 return;
             }

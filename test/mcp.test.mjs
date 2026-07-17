@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import http from "node:http";
 import test from "node:test";
 import {
   buildMcpAuthorizationUrl,
   createPkce,
+  McpHttpError,
+  mcpTestConnection,
   protectedResourceMetadataUrl
 } from "../src/mcp.js";
 
@@ -34,4 +37,44 @@ test("builds a resource-bound MCP authorization URL", () => {
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
   assert.equal(url.searchParams.get("scope"), "internal");
   assert.equal(url.searchParams.get("resource"), "https://agent.robinhood.com/mcp/trading");
+});
+
+test("does not mark an MCP server connected when tools/list needs sign-in", async () => {
+  const server = http.createServer(async (req, res) => {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+    if (body.method === "initialize") {
+      res.writeHead(200, {
+        "content-type": "application/json",
+        "mcp-session-id": "session-1"
+      });
+      res.end(JSON.stringify({
+        jsonrpc: "2.0",
+        id: body.id,
+        result: { protocolVersion: "2025-06-18", serverInfo: { name: "Protected MCP" } }
+      }));
+      return;
+    }
+    if (body.method === "notifications/initialized") {
+      res.writeHead(202);
+      res.end("");
+      return;
+    }
+    res.writeHead(401, {
+      "content-type": "application/json",
+      "www-authenticate": 'Bearer realm="mcp", resource_metadata="https://example.com/.well-known/oauth-protected-resource/mcp"'
+    });
+    res.end(JSON.stringify({ error: "login_required" }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  try {
+    await assert.rejects(
+      () => mcpTestConnection({ url: `http://127.0.0.1:${port}/mcp` }),
+      (error) => error instanceof McpHttpError && error.status === 401
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
