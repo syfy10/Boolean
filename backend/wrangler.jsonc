@@ -24,12 +24,19 @@
     "PUBLIC_AUTH_BASE_URL": "https://saz3.com/boolean",
     "ALLOWED_ORIGINS": "http://localhost:8765",
     "ADMIN_EMAILS": "syfy10@gmail.com",
+    "EMAIL_FROM_ADDRESS": "notifications@saz3.com",
+    "EMAIL_FROM_NAME": "Boolean",
     "FREE_TIER_PROVIDER": "workers-ai",
     "FREE_TIER_MODEL": "@cf/qwen/qwen3-30b-a3b-fp8"
   },
   "ai": {
     "binding": "AI"
   },
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

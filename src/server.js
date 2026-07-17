@@ -27,6 +27,13 @@ import {
   buildMcpAuthorizationUrl,
   exchangeMcpAuthorizationCode
 } from "./mcp.js";
+import {
+  createEmailOAuth,
+  exchangeEmailCode,
+  getEmailAccount,
+  publicEmailConnections
+} from "./email.js";
+import { startAutomationScheduler } from "./platform.js";
 
 function loadAsset(name, devPath) {
   if (sea.isSea && sea.isSea()) {
@@ -193,7 +200,8 @@ function publicConnectors(config) {
     })) : [],
     agents: Array.isArray(c.agents) ? c.agents.map((x) => ({
       id: x.id, name: x.name, url: x.url, enabled: x.enabled !== false, hasKey: !!x.apiKey
-    })) : []
+    })) : [],
+    email: publicEmailConnections(config)
   };
 }
 
@@ -205,7 +213,7 @@ function mergeConnectors(current, incoming) {
   const prevApis = new Map((current?.apis || []).map((a) => [a.id, a]));
   const prevAgents = new Map((current?.agents || []).map((a) => [a.id, a]));
   const prevMcp = new Map((current?.mcp || []).map((m) => [m.id, m]));
-  const next = { apis: Array.isArray(current?.apis) ? current.apis : [], mcp: [], agents: [] };
+  const next = { apis: Array.isArray(current?.apis) ? current.apis : [], mcp: [], agents: [], email: current?.email || {} };
   if (Array.isArray(incoming?.apis)) {
     next.apis = incoming.apis.slice(0, 30).map((x) => {
       const id = String(x.id || crypto.randomUUID());
@@ -305,6 +313,7 @@ function shortAiName(provider, model = "") {
 const TEST_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 export function startServer(config, { port = 0, autoExit = false } = {}) {
+  startAutomationScheduler();
   const uiHtml = loadUiHtml();
   const icon32 = loadAsset("icon-32.png", "../assets/saz-32.png");
   const icon256 = loadAsset("icon-256.png", "../assets/saz-256.png");
@@ -313,6 +322,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
 
   const pendingApprovals = new Map(); // id -> resolve(boolean)
   const pendingMcpOAuth = new Map(); // state -> short-lived OAuth transaction
+  const pendingEmailOAuth = new Map(); // state -> short-lived mailbox OAuth transaction
   const pendingBrowserControls = new Map(); // id -> resolve(result)
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
@@ -953,6 +963,98 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return;
       }
 
+      if (req.method === "POST" && p === "/api/email/oauth/start") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim().toLowerCase();
+        if (!['gmail', 'outlook'].includes(provider)) return json({ error: "unsupported email provider" }, 400);
+        const clientId = String(body.clientId || config.connectors?.email?.[provider]?.clientId || "").trim();
+        if (!clientId) return json({ error: `Enter the ${provider === 'gmail' ? 'Google' : 'Microsoft'} OAuth client ID first.` }, 400);
+        const requestOrigin = `http://${req.headers.host}`;
+        const redirectUri = `${requestOrigin}/email/oauth/callback`;
+        const transaction = createEmailOAuth(provider, clientId, redirectUri);
+        pendingEmailOAuth.set(transaction.state, { ...transaction, clientId, status: "pending" });
+        for (const [key, value] of pendingEmailOAuth) {
+          if (Date.now() - value.createdAt > 10 * 60 * 1000) pendingEmailOAuth.delete(key);
+        }
+        config.connectors = config.connectors || {};
+        config.connectors.email = config.connectors.email || {};
+        config.connectors.email[provider] = {
+          ...(config.connectors.email[provider] || {}), clientId
+        };
+        saveConfig(config);
+        return json({ ok: true, state: transaction.state, authorizationUrl: transaction.authorizationUrl, redirectUri });
+      }
+
+      if (req.method === "GET" && p === "/api/email/oauth/status") {
+        const state = url.searchParams.get("state") || "";
+        const transaction = pendingEmailOAuth.get(state);
+        if (!transaction) return json({ status: "expired" }, 404);
+        return json({ status: transaction.status, provider: transaction.provider, account: transaction.account || "", error: transaction.error || "" });
+      }
+
+      if (req.method === "GET" && p === "/email/oauth/callback") {
+        const state = url.searchParams.get("state") || "";
+        const code = url.searchParams.get("code") || "";
+        const oauthError = url.searchParams.get("error") || "";
+        const transaction = pendingEmailOAuth.get(state);
+        if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect the email account again.", false));
+          return;
+        }
+        if (oauthError || !code) {
+          transaction.status = "error";
+          transaction.error = oauthError || "The provider did not return an authorization code.";
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Authorization canceled", "No email access was saved.", false));
+          return;
+        }
+        try {
+          const oauth = await exchangeEmailCode(transaction, code, transaction.clientId);
+          config.connectors = config.connectors || {};
+          config.connectors.email = config.connectors.email || {};
+          const connection = {
+            ...(config.connectors.email[transaction.provider] || {}),
+            clientId: transaction.clientId, connected: true, oauth
+          };
+          config.connectors.email[transaction.provider] = connection;
+          connection.account = await getEmailAccount(transaction.provider, connection, () => saveConfig(config));
+          saveConfig(config);
+          transaction.status = "complete";
+          transaction.account = connection.account;
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boolean. This window will close.`, true));
+        } catch (err) {
+          transaction.status = "error";
+          transaction.error = err.message || "authorization failed";
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Could not connect email", "Return to Boolean and check the OAuth client settings.", false));
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/email/disconnect") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim().toLowerCase();
+        if (!['gmail', 'outlook'].includes(provider)) return json({ error: "unsupported email provider" }, 400);
+        config.connectors = config.connectors || {};
+        config.connectors.email = config.connectors.email || {};
+        const clientId = config.connectors.email[provider]?.clientId || "";
+        config.connectors.email[provider] = { clientId, connected: false, account: "", oauth: null };
+        saveConfig(config);
+        return json({ ok: true, email: publicEmailConnections(config) });
+      }
+
+      if (req.method === "POST" && p === "/api/email/settings") {
+        const body = await readBody(req);
+        config.connectors = config.connectors || {};
+        config.connectors.email = config.connectors.email || {};
+        config.connectors.email.draftOnly = body.draftOnly !== false;
+        config.connectors.email.confirmBeforeSend = true;
+        saveConfig(config);
+        return json({ ok: true, email: publicEmailConnections(config) });
+      }
+
       if (req.method === "POST" && p === "/api/mcp/test") {
         const body = await readBody(req);
         let url = String(body.url || "").trim();
@@ -1548,7 +1650,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           }
         };
         // let the agent delegate focused work to bounded sub-agents
-        ctx.runSubagent = (task) => runSubagent(ctx, task);
+        ctx.runSubagent = (task, options) => runSubagent(ctx, task, options);
 
         activeChats++;
         lastPing = Date.now();

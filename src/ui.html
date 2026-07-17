@@ -336,6 +336,15 @@
   .note-btn.on{ background:var(--note-tab); color:var(--note-text); font-weight:700; }
   .note-actions{ display:flex; align-items:center; gap:4px; padding:6px 9px; border-bottom:1px solid var(--note-bar); flex-wrap:wrap; }
   .note-actions .note-btn{ font-size:13px; }
+  .note-more-wrap{ position:relative; margin-left:auto; }
+  .note-more-menu{ display:none; position:absolute; z-index:40; top:31px; right:0; width:174px; padding:5px;
+    border:1px solid var(--note-border); border-radius:7px; background:var(--note-panel); box-shadow:0 8px 24px rgba(0,0,0,.14); }
+  .note-more-menu.open{ display:block; }
+  .note-more-item{ width:100%; min-height:30px; display:flex; align-items:center; gap:9px; padding:5px 8px; border:0;
+    border-radius:5px; background:transparent; color:var(--note-text); cursor:pointer; font:12px var(--ui); text-align:left; }
+  .note-more-item:hover{ background:var(--note-tab); }
+  .note-more-item .mi{ width:17px; color:var(--note-btn); text-align:center; font-size:13px; }
+  .note-more-item.on{ background:var(--note-tab); font-weight:600; }
   /* PDF / print: isolate the note content on the page */
   #printArea{ display:none; }
   @media print{
@@ -1128,6 +1137,39 @@
         </div>
       </div>
 
+      <div class="sec" data-sec="email">
+        <div class="sechead">Email <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow" style="display:block">
+            <div><b>Your email accounts</b><div class="hint">Optional inbox access stays on this PC. Use an OAuth Desktop app client ID; never paste a client secret.</div></div>
+          </div>
+          <div class="conn-card email-connection" data-email-provider="gmail">
+            <div class="top"><span class="kind">Gmail</span><b id="gmailEmailAccount">Not connected</b><button class="minibtn" id="gmailEmailAction">Connect</button></div>
+            <div class="zai-key-control email-client-control" id="gmailClientControl">
+              <input type="text" id="gmailClientId" autocomplete="off" spellcheck="false" placeholder="Google OAuth desktop client ID">
+              <button class="zai-key-paste" id="gmailClientPaste" type="button" title="Paste client ID" aria-label="Paste client ID"><span class="paste-ico" aria-hidden="true"></span></button>
+            </div>
+          </div>
+          <div class="conn-card email-connection" data-email-provider="outlook">
+            <div class="top"><span class="kind">Outlook</span><b id="outlookEmailAccount">Not connected</b><button class="minibtn" id="outlookEmailAction">Connect</button></div>
+            <div class="zai-key-control email-client-control" id="outlookClientControl">
+              <input type="text" id="outlookClientId" autocomplete="off" spellcheck="false" placeholder="Microsoft Entra public client ID">
+              <button class="zai-key-paste" id="outlookClientPaste" type="button" title="Paste client ID" aria-label="Paste client ID"><span class="paste-ico" aria-hidden="true"></span></button>
+            </div>
+          </div>
+          <div class="hint" style="margin:7px 0;overflow-wrap:anywhere">OAuth returns to <span id="emailCallbackUri"></span>. Gmail needs Gmail API access; Outlook needs Mail.ReadWrite and Mail.Send delegated permissions.</div>
+          <label class="setrow" style="cursor:pointer">
+            <span>Draft-only<div class="hint">Create drafts but disable the send tool</div></span>
+            <span class="switch"><input type="checkbox" id="emailDraftOnly" checked><span class="slider"></span></span>
+          </label>
+          <div class="setrow"><div>Confirm before Send<div class="hint">Always required, including Auto-approve</div></div><span class="switch"><input type="checkbox" checked disabled><span class="slider"></span></span></div>
+          <div class="setrow" style="display:block;margin-top:8px;border-top:1px solid var(--line);padding-top:10px">
+            <div><b>Boolean transactional email</b><div class="hint">Cloudflare Email Service sends Boolean notices from saz3.com. It does not read your inbox.</div></div>
+          </div>
+          <div class="hint" id="emailConnectionStatus" style="margin-top:7px"></div>
+        </div>
+      </div>
+
       <div class="sec" data-sec="appearance">
         <div class="sechead">Appearance &amp; chat <span class="caret">▶</span></div>
         <div class="secbody">
@@ -1361,16 +1403,20 @@
     <button class="note-btn" id="noteUndo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button class="note-btn" id="noteRedo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
     <button class="note-btn" id="noteSnip" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
-    <button class="note-btn" id="noteCut" title="Cut selected text">✂</button>
-    <button class="note-btn" id="noteCopy" title="Copy selected text">⧉</button>
     <button class="note-btn" id="noteSend" title="Send selection to message">↗</button>
-    <button class="note-btn" id="noteNumbers" title="Toggle line numbers">#</button>
-    <span class="note-spacer"></span>
-    <button class="note-btn" id="noteSaveFile" title="Save note to a file" aria-label="Save note to file">⤓</button>
-    <button class="note-btn" id="noteLoadFile" title="Load a note from a file" aria-label="Load note from file">⤒</button>
-    <button class="note-btn" id="notePdf" title="Share as PDF" aria-label="Share as PDF">⎙</button>
-    <button class="note-btn" id="noteRename" title="Rename note">T</button>
-    <button class="note-btn" id="noteDelete" title="Delete note">⌫</button>
+    <div class="note-more-wrap">
+      <button class="note-btn" id="noteMore" title="More note actions" aria-label="More note actions">⋯</button>
+      <div class="note-more-menu" id="noteMoreMenu">
+        <button class="note-more-item" id="noteCut"><span class="mi">✂</span>Cut</button>
+        <button class="note-more-item" id="noteCopy"><span class="mi">⧉</span>Copy</button>
+        <button class="note-more-item" id="noteNumbers"><span class="mi">#</span>Line numbers</button>
+        <button class="note-more-item" id="noteSaveFile"><span class="mi">⤓</span>Save to file</button>
+        <button class="note-more-item" id="noteLoadFile"><span class="mi">⤒</span>Open file</button>
+        <button class="note-more-item" id="notePdf"><span class="mi">⎙</span>Share as PDF</button>
+        <button class="note-more-item" id="noteRename"><span class="mi">T</span>Rename note</button>
+        <button class="note-more-item" id="noteDelete"><span class="mi">⌫</span>Delete note</button>
+      </div>
+    </div>
   </div>
   <div class="note-paper">
     <div class="note-meta"><span class="note-date" id="noteDate"></span><span class="note-days" id="noteDays"></span></div>
@@ -2054,11 +2100,60 @@
     document.querySelectorAll("#netmode button").forEach(b=>b.classList.toggle("on",(b.dataset.net==="online")===online));
   }
   function connectorsState(){
-    state.connectors=state.connectors||{apis:[],mcp:[],agents:[]};
+    state.connectors=state.connectors||{apis:[],mcp:[],agents:[],email:{}};
     state.connectors.apis=Array.isArray(state.connectors.apis)?state.connectors.apis:[];
     state.connectors.mcp=Array.isArray(state.connectors.mcp)?state.connectors.mcp:[];
     state.connectors.agents=Array.isArray(state.connectors.agents)?state.connectors.agents:[];
+    state.connectors.email=state.connectors.email||{};
     return state.connectors;
+  }
+  function renderEmailSettings(){
+    const email=connectorsState().email||{};
+    ["gmail","outlook"].forEach(provider=>{
+      const connection=email[provider]||{};
+      const account=$(provider+"EmailAccount"), action=$(provider+"EmailAction"), control=$(provider+"ClientControl");
+      if(account) account.textContent=connection.connected?(connection.account||"Connected"):"Not connected";
+      if(action){ action.textContent=connection.connected?"Disconnect":"Connect"; action.classList.toggle("dangerbtn",!!connection.connected); }
+      if(control) control.style.display=connection.connected?"none":"flex";
+    });
+    if($("emailDraftOnly")) $("emailDraftOnly").checked=email.draftOnly!==false;
+    if($("emailCallbackUri")) $("emailCallbackUri").textContent=location.origin+"/email/oauth/callback";
+  }
+  function emailStatus(message,color){
+    const el=$("emailConnectionStatus"); if(!el) return;
+    el.textContent=message||""; el.style.color=color||"var(--dim)";
+  }
+  async function connectEmail(provider){
+    const email=connectorsState().email||{};
+    const connection=email[provider]||{};
+    if(connection.connected){
+      if(!await appConfirm("Disconnect email?",`Remove Boolean's local access to ${connection.account||provider}?`,"Disconnect",true)) return;
+      const response=await fetch("/api/email/disconnect",{method:"POST",body:JSON.stringify({provider})});
+      if(!response.ok){ emailStatus("Could not disconnect the account.","var(--danger,#d14343)"); return; }
+      await refresh(); emailStatus("Email account disconnected."); return;
+    }
+    const clientId=$(provider+"ClientId").value.trim();
+    if(!clientId&&!connection.hasClientId){ emailStatus("Enter the OAuth public client ID first.","var(--danger,#d14343)"); $(provider+"ClientId").focus(); return; }
+    emailStatus("Opening secure sign-in…");
+    try{
+      const response=await fetch("/api/email/oauth/start",{method:"POST",body:JSON.stringify({provider,clientId})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error||"Could not start email sign-in.");
+      let popup=null;
+      try{ popup=window.open(result.authorizationUrl,"booleanEmailSignIn","popup,width=520,height=680"); popup?.focus(); }catch{}
+      if(!popup) await fetch("/api/open-url",{method:"POST",body:JSON.stringify({url:result.authorizationUrl})});
+      const started=Date.now();
+      while(Date.now()-started<10*60*1000){
+        await sleep(1200);
+        const status=await (await fetch("/api/email/oauth/status?state="+encodeURIComponent(result.state))).json().catch(()=>({status:"pending"}));
+        if(status.status==="complete"){
+          try{ popup?.close(); }catch{}
+          await refresh(); emailStatus((status.account||"Email account")+" connected.","var(--green)"); return;
+        }
+        if(status.status==="error"||status.status==="expired") throw new Error(status.error||"Authorization expired. Try again.");
+      }
+      throw new Error("Authorization timed out. Try again.");
+    }catch(error){ emailStatus(error.message||"Could not connect email.","var(--danger,#d14343)"); }
   }
   function renderConnectors(){
     const c=connectorsState();
@@ -2276,7 +2371,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.15"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.16"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -2289,6 +2384,7 @@
     $("projdir").textContent=state.projectsDir||"";
     applyUi(state.ui);
     renderConnectors();
+    renderEmailSettings();
     updateProjLine();
     applyVisionUI();
     applyNetMode();
@@ -3142,7 +3238,15 @@
     $("notesToggle").classList.toggle("active",!!on);
     if(document.body.classList.contains("browser-on")) requestAnimationFrame(fitBrowserSplit);
     if(on){
-      loadNote(); if(focus) setTimeout(()=>$("noteEditor").focus(),80);
+      loadNote();
+      if(focus) requestAnimationFrame(()=>{
+        const editor=$("noteEditor");
+        if(document.activeElement===editor || editor.contains(document.activeElement)) return;
+        editor.focus({preventScroll:true});
+        const range=document.createRange(), sel=getSelection();
+        range.selectNodeContents(editor); range.collapse(false);
+        sel.removeAllRanges(); sel.addRange(range);
+      });
     }
   }
   function insertHtmlAtCursor(html){
@@ -3244,7 +3348,9 @@
   };
   $("noteCut").onclick=()=>{ document.execCommand("cut"); saveNotes(); };
   $("noteCopy").onclick=()=>document.execCommand("copy");
-  ["noteSnip","noteNumbers","noteSend","noteCut","noteCopy"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
+  $("noteMore").onclick=(e)=>{ e.stopPropagation(); $("noteMoreMenu").classList.toggle("open"); };
+  $("noteMoreMenu").onclick=(e)=>{ if(e.target.closest("button") && e.target.closest("button").id!=="noteNumbers") $("noteMoreMenu").classList.remove("open"); };
+  ["noteSnip","noteNumbers","noteSend","noteCut","noteCopy","noteMore"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
   function selectedNotePayload(){
     const sel=getSelection(); let html="", text="";
     const numbered=document.querySelector(".note-paper").classList.contains("numbered");
@@ -3416,6 +3522,7 @@
   loadNote();
 
   document.addEventListener("click",(e)=>{
+    if(!$("noteMoreMenu").contains(e.target)&&e.target!==$("noteMore")) $("noteMoreMenu").classList.remove("open");
     if(!$("modelmenu").contains(e.target)&&e.target!==$("modelbtn")) $("modelmenu").classList.remove("open");
     if(!$("comparemenu").contains(e.target)&&e.target!==$("comparebtn")) $("comparemenu").classList.remove("open");
     if(!$("plusmenu").contains(e.target)&&e.target!==$("plusbtn")) $("plusmenu").classList.remove("open");
@@ -3777,6 +3884,7 @@
     $("settingsBack").setAttribute("aria-label","Back to all settings");
     if(section.dataset.sec==="legal") loadLegalDocs();
     if(section.dataset.sec==="thirdparty") showConnectorOverview();
+    if(section.dataset.sec==="email") renderEmailSettings();
     panel.scrollTop=0;
   }
   function closeSettingsPanel(){
@@ -3831,6 +3939,8 @@ Boolean can be used locally without an account. Cloud AI uses an API key you sup
 4. PRIVACY
 Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web browsing, remote MCP servers, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boolean or otherwise supports that use.
 
+Optional Gmail and Outlook connectors use OAuth and send mail requests directly from this PC to Google or Microsoft. Draft-only disables sending; otherwise every send requires separate confirmation. Cloudflare Email Service may deliver Boolean account, security, support, or service notices.
+
 5. SOFTWARE UPDATES
 Boolean may periodically check the saz3 Labs GitHub release service for a newer version. It may download an approved installer in the background, verify its SHA-256 hash, and notify you when it is ready. Installation begins after you close Boolean, and the app may reopen afterward. Key local settings and chat data are backed up before updating.
 
@@ -3852,6 +3962,7 @@ WHAT STAYS ON YOUR COMPUTER
 - Any bundled starter model included with the installer
 - Settings and API keys in .saz/config.json
 - Remote MCP server addresses and any Bearer tokens you save
+- Optional Gmail/Outlook OAuth client IDs and tokens
 - Boolean account session token after Google Sign-In
 - Files the agent reads or writes at your direction
 
@@ -3870,6 +3981,8 @@ Data leaves only when you choose features that require it:
 6. Software updates: Boolean periodically checks the saz3 Labs GitHub release service and may download an approved installer in the background. Update requests may reveal standard connection information such as your IP address, app version, and user-agent to GitHub. Update checks do not upload chats, prompts, files, notepad content, API keys, or local model data. The installer is SHA-256 verified before installation, and key local settings and chat data are backed up first.
 7. Remote MCP servers: protocol requests, relevant tool arguments, and a configured Bearer token are sent to the server you enable.
 8. Screenshots, pages, notes, and project files: these remain local with a local model. Content you ask an online model or remote connector to inspect is sent to that service.
+9. Email connectors: requested Gmail or Outlook mail data travels directly between this PC and Google or Microsoft. Boolean may read requested messages and create drafts. Sending is disabled in Draft-only mode and otherwise always asks for confirmation.
+10. Transactional messages: Cloudflare Email Service may receive the recipient and message data needed to deliver Boolean account, security, support, or service notices.
 
 THIRD-PARTY SERVICES
 Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, and Stripe terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boolean or otherwise supports the user's use.
@@ -4023,6 +4136,21 @@ Optional bundled starter model:
   $("mcpPaste").onclick=async()=>{
     try{ $("mcpToken").value=(await readClipboardText()).trim(); $("mcpToken").focus(); }
     catch{ tempToast("Could not read the clipboard."); }
+  };
+  ["gmail","outlook"].forEach(provider=>{
+    $(provider+"EmailAction").onclick=()=>connectEmail(provider);
+    $(provider+"ClientPaste").onclick=async()=>{
+      try{ $(provider+"ClientId").value=(await readClipboardText()).trim(); $(provider+"ClientId").focus(); }
+      catch{ tempToast("Could not read the clipboard."); }
+    };
+  });
+  $("emailDraftOnly").onchange=async()=>{
+    const response=await fetch("/api/email/settings",{method:"POST",body:JSON.stringify({draftOnly:$("emailDraftOnly").checked})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ tempToast(result.error||"Could not save email safety settings."); return; }
+    state.connectors=state.connectors||{}; state.connectors.email=result.email||{};
+    renderEmailSettings();
+    tempToast($("emailDraftOnly").checked?"Email stays draft-only.":"Sending still requires confirmation every time.");
   };
   $("mcpTest").onclick=()=>{
     const url=$("mcpUrl").value.trim(), token=$("mcpToken").value.trim();

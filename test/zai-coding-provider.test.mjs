@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { backendUp, resolveTarget } from "../src/providers.js";
+import { backendUp, providerImageSupport, resolveTarget } from "../src/providers.js";
+import { executeTool } from "../src/tools.js";
 
 function codingConfig(overrides = {}) {
   return {
@@ -74,4 +75,36 @@ test("a pasted full chat-completions URL is normalized to the provider base", as
     baseUrl: "https://api.z.ai/api/coding/paas/v4/chat/completions/"
   });
   assert.equal((await resolveTarget(config)).base, "https://api.z.ai/api/coding/paas/v4");
+});
+
+test("Z.AI Coding Plan is treated as text-only before screenshot content is sent", () => {
+  assert.equal(providerImageSupport(codingConfig({ approvedUse: true, model: "GLM-5.1" })), false);
+  assert.equal(providerImageSupport({
+    provider: "customApi",
+    customApi: { baseUrl: "https://api.z.ai/api/coding/paas/v4", model: "GLM-5.1" }
+  }), false);
+  assert.equal(providerImageSupport({ provider: "glm", glm: { model: "GLM-5V-Turbo" } }), true);
+  assert.equal(providerImageSupport({ provider: "glm", glm: { model: "GLM-5.1" } }), false);
+});
+
+test("screenshots stay out of a text-only Z.AI request and layout inspection remains available", async () => {
+  const pendingImages = [];
+  const config = codingConfig({ approvedUse: true, model: "GLM-5.1" });
+  const screenshot = await executeTool("screenshot_page", {}, {
+    config,
+    pendingImages,
+    captureScreenshot: async () => ({ ok: true, image: "cG5n", url: "http://localhost:3210", result: "Demo page" }),
+    onImage: () => {}
+  });
+  assert.equal(pendingImages.length, 0);
+  assert.match(screenshot, /text-only/);
+  assert.match(screenshot, /inspect_page_layout/);
+
+  let command;
+  const result = await executeTool("inspect_page_layout", { selector: ".scan-panel", scroll: 400 }, {
+    config,
+    visibleBrowser: async (value) => { command = value; return "layout result"; }
+  });
+  assert.deepEqual(command, { action: "inspect_layout", selector: ".scan-panel", scroll: 400 });
+  assert.equal(result, "layout result");
 });

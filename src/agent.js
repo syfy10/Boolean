@@ -10,7 +10,10 @@ function connectorSummary(config) {
   const c = config?.connectors || {};
   const mcp = (c.mcp || []).filter((x) => x.enabled !== false).map((x) => x.name || x.id).filter(Boolean);
   const agents = (c.agents || []).filter((x) => x.enabled !== false).map((x) => x.name || x.id).filter(Boolean);
+  const email = ["gmail", "outlook"].filter((name) => c.email?.[name]?.connected)
+    .map((name) => `${name === "gmail" ? "Gmail" : "Outlook"} (${c.email[name].account || "connected"})`);
   const parts = [];
+  if (email.length) parts.push(`Email accounts connected: ${email.join(", ")}`);
   if (mcp.length) parts.push(`MCP servers configured: ${mcp.join(", ")}`);
   if (agents.length) parts.push(`Agent connectors configured: ${agents.join(", ")}`);
   return parts.join(" | ");
@@ -42,13 +45,22 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- For app work: create or edit the project, run it, fix errors, and claim completion only after verification.",
     "- To find code use find_symbol (where a function/class/variable is defined and used), search_files (any text), or find_files (names); read big files with read_file offset/limit; change existing files with edit_file (exact string replace), not a full rewrite.",
     "- For a big job you can delegate focused parts to run_subagent (one task, or several to run together) and use their results; sub-agents cannot spawn more sub-agents.",
-    "- When building or restyling a website/UI, after run_project use screenshot_page on its URL to SEE the result, then refine the layout, spacing, and colors until it looks polished.",
+    "- In a Git-backed project, use run_subagent with isolation='worktree' for independent edits. Review the returned summaries, then apply only the chosen result with apply_subagent_result. Never apply competing edits blindly.",
+    "- Use github_workflow for authenticated GitHub issues, pull requests, checks, workflow logs, comments, and PR creation. Mutating operations require approval.",
+    "- Use review_repository for file-and-line quality or security findings before claiming a repository review is complete.",
+    "- Use manage_skill for reusable local skills and approved hooks. Inspect permissions before installing or running a hook.",
+    "- Use manage_automation for durable one-time or recurring command/webhook work. Scheduled actions remain approval-gated when created and are logged locally.",
+    "- Use create_artifact for real DOCX, XLSX, PPTX, and PDF output; use generate_image for provider-backed image generation or edits.",
+    "- Use run_guarded for risky builds or tests in a disposable copied workspace. It limits time, output, and default network access, but is not a hardened VM.",
+    "- When building or restyling a website/UI, after run_project use screenshot_page on its URL to review it. If the selected model is text-only, use inspect_page_layout for sticky/fixed/overflow/spacing bugs and read_page for content instead of repeatedly taking screenshots.",
     "- Version control: use git_status/git_diff to review changes and git_commit to save meaningful progress (clear message, no attribution lines). git_init if the folder isn't a repo. git_branch for separate work; git_restore or undo_last_edit to roll back a bad change.",
     "- Run long-lived commands (dev servers, watchers) with run_background so you can keep working; check them with read_process and end them with stop_process. Run tests/builds with run_command and fix failures before claiming done.",
     "- Use visible browser tools only for an explicitly requested visible-browser action or the page the user asks about.",
     "- Use notepad_read/notepad_write when the user asks to read or save notes. Save the exact requested content, not an older reply.",
-    "- For email, read the visible page once when needed and use visible_browser_draft_email to insert a draft.",
-    "- Email is draft-only. Never press Send, submit purchases, enter payment details, or submit sensitive forms.",
+    "- For connected Gmail or Outlook, use email_list/email_read to inspect mail and email_create_draft/email_reply_draft to save a draft. Do not claim inbox access is unavailable when these connectors are configured.",
+    "- Sending a connected-account draft requires email_send_draft and an explicit confirmation. If Draft-only is on, create the draft and stop.",
+    "- For other visible webmail, read the visible page once when needed and use visible_browser_draft_email to insert a draft; never press its Send button.",
+    "- Never submit purchases, enter payment details, or submit sensitive forms.",
     "- Use download_local_model only when the latest user message explicitly asks to download, install, get, select, or switch to a local model. Recommendation and comparison questions are answer-only.",
     "- Boolean includes its own llama.cpp engine and local model library. Curated models use download_local_model. Other public GGUF models use install_public_local_model with a direct Hugging Face GGUF URL, or a local_path if already downloaded.",
     "- Local GGUF files belong in Boolean's managed models folder. Never use browser_download, curl, Downloads, Ollama, LM Studio, Jan, or another runner for a Boolean model request unless the user explicitly asks for that other app.",
@@ -117,7 +129,8 @@ export function projectBrief(projectDir) {
 // Fallback protocol for models/servers without native tool support:
 // the model is asked to emit a fenced ```tool block containing JSON.
 const ARTIFACT_TOOL_NAMES = new Set([
-  "create_project", "list_dir", "read_file", "write_file", "run_project", "run_command", "read_page"
+  "create_project", "list_dir", "read_file", "write_file", "run_project", "run_command", "read_page",
+  "create_artifact", "generate_image", "run_guarded"
 ]);
 const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
 
@@ -494,8 +507,12 @@ export async function runTurn(ctx, messages) {
   const emitUsage = (msg) => {
     if (onUsage && msg?.usage) onUsage({ provider: config.provider, model: target.model, ...msg.usage });
   };
-  // token budget for trimming: the local window, or a generous cap for cloud
-  let ctxBudget = config.provider === "local" ? (config.local.ctx || 32768) : 128000;
+  // Project tool loops can accumulate huge page dumps and file reads in one
+  // turn. A focused cloud cap keeps the model on the current bug while the
+  // complete transcript and checkpoints remain saved for recovery.
+  let ctxBudget = config.provider === "local"
+    ? (config.local.ctx || 32768)
+    : (ctx.projectDir ? 48000 : 128000);
   const contextMode = config.ui?.contextMode || "balanced";
   const { onOptimize } = ctx;
   let optimizeSent = false; // report once per turn
@@ -743,25 +760,29 @@ export async function runTurn(ctx, messages) {
  * config, and tool bridges, but gets its own message history, cannot spawn
  * further sub-agents, and is capped so it can't run away.
  */
-export async function runSubagent(parentCtx, task) {
+export async function runSubagent(parentCtx, task, options = {}) {
   const cfg = parentCtx.config || {};
-  const sys = systemPrompt(cfg.projectsDir, cfg.autoApprove, cfg) +
+  const workspaceDir = options.workspaceDir || cfg.projectsDir;
+  const childConfig = workspaceDir === cfg.projectsDir ? cfg : { ...cfg, projectsDir: workspaceDir };
+  const sys = systemPrompt(workspaceDir, childConfig.autoApprove, childConfig) +
     "\n\nYou are a focused SUB-AGENT handling ONE task for the main assistant. " +
     "Use your tools to complete it, then reply with a concise result the main assistant can use. " +
-    "Do not ask questions; make reasonable assumptions and finish.";
+    "Do not ask questions; make reasonable assumptions and finish." +
+    (options.runId ? ` You are working in isolated worktree ${workspaceDir}. Do not edit outside it. Run id: ${options.runId}.` : "");
   const messages = [
     { role: "system", content: sys },
     { role: "user", content: String(task || "").trim() }
   ];
   const childCtx = {
     ...parentCtx,
+    config: childConfig,
+    projectDir: workspaceDir,
     onToken: null,                 // don't stream sub-agent tokens into the main answer
     onOptimize: null,
     onImage: null,
     pendingImages: [],
     runSubagent: null,             // no nesting
     subagentDepth: (parentCtx.subagentDepth || 0) + 1,
-    maxTurns: 16,                  // bound the delegated run
     onStatus: (t) => parentCtx.onStatus?.(`sub-agent: ${t}`)
   };
   return await runTurn(childCtx, messages);

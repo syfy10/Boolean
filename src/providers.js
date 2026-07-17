@@ -8,6 +8,24 @@ function providerBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
 }
 
+// Return true/false only when Boolean knows the endpoint's image capability.
+// null keeps custom OpenAI-compatible endpoints permissive because their model
+// names and capabilities are not standardized.
+export function providerImageSupport(config) {
+  const provider = String(config?.provider || "");
+  if (provider === "local") return null;
+  if (provider === "openai" || provider === "claude") return true;
+  if (provider === "zaiCoding") return false;
+
+  const settings = config?.[provider] || {};
+  const model = String(settings.model || "").toLowerCase();
+  const base = providerBaseUrl(settings.baseUrl);
+  if (provider === "customApi" && /api\.z\.ai\/api\/coding\/paas(?:\/v\d+)?$/i.test(base)) return false;
+  if (provider === "glm") return /(?:^|[-_.])glm[-_.]?(?:4(?:\.\d+)?|5)[-_.]?v(?:[-_.]|$)|vision/.test(model);
+  if (provider === "customApi" && /(?:vision|[-_.]vl(?:[-_.]|$)|glm[-_.]?(?:4(?:\.\d+)?|5)[-_.]?v)/.test(model)) return true;
+  return null;
+}
+
 /**
  * Resolve the current provider to a chat target { base, apiKey, model, headers? }.
  * For "local" this also starts the embedded engine if needed.

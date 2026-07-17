@@ -8,9 +8,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>saz</AssemblyName>
     <RootNamespace>SazShell</RootNamespace>
-    <Version>0.9.15</Version>
-    <FileVersion>0.9.15.0</FileVersion>
-    <AssemblyVersion>0.9.15.0</AssemblyVersion>
+    <Version>0.9.16</Version>
+    <FileVersion>0.9.16.0</FileVersion>
+    <AssemblyVersion>0.9.16.0</AssemblyVersion>
     <ApplicationIcon>..\assets\saz.ico</ApplicationIcon>
     <!-- single self-contained file is produced by the publish step in build-shell.ps1 -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>

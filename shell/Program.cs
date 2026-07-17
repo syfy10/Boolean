@@ -78,6 +78,12 @@ sealed class MainForm : Form
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
     static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
 
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
+
+    FormWindowState _lastWindowState = FormWindowState.Normal;
+    bool _frameRefreshQueued;
+
     // Reclaim the top frame in a normal window. When maximized, MaximizedBounds already keeps
     // the window inside the work area, so reclaim the entire resize frame to avoid edge gaps.
     protected override void WndProc(ref Message m)
@@ -98,6 +104,24 @@ sealed class MainForm : Form
         base.WndProc(ref m);
     }
 
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        if (_lastWindowState == WindowState || !IsHandleCreated || _frameRefreshQueued) return;
+        _lastWindowState = WindowState;
+        _frameRefreshQueued = true;
+        BeginInvoke(new Action(() =>
+        {
+            _frameRefreshQueued = false;
+            if (IsDisposed || !IsHandleCreated) return;
+            const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004;
+            const uint SWP_NOACTIVATE = 0x0010, SWP_FRAMECHANGED = 0x0020;
+            SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0,
+                SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+            ApplyBorderlessDwm();
+        }));
+    }
+
     void ApplyBorderlessDwm()
     {
         try
@@ -116,8 +140,8 @@ sealed class MainForm : Form
         {
             int caption = ColorTranslator.ToWin32(color);
             DwmSetWindowAttribute(Handle, 35 /*DWMWA_CAPTION_COLOR*/, ref caption, 4);
-            int border = ColorTranslator.ToWin32(color);
-            DwmSetWindowAttribute(Handle, 34 /*DWMWA_BORDER_COLOR*/, ref border, 4);
+            int none = unchecked((int)0xFFFFFFFE);
+            DwmSetWindowAttribute(Handle, 34 /*DWMWA_BORDER_COLOR*/, ref none, 4);
         }
         catch { }
     }
@@ -152,8 +176,8 @@ sealed class MainForm : Form
     readonly Label _startupText = new() { AutoSize = false, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(96, 100, 96) };
     readonly Button _startupClose = new() { Text = "Close", Width = 92, Height = 34, FlatStyle = FlatStyle.Flat, Visible = false };
     readonly Panel _browserTitleBar = new() { Dock = DockStyle.Top, Height = 0 };
-    readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 38 };
-    readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 44, WrapContents = false, AutoScroll = false };
+    readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 36 };
+    readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 38, WrapContents = false, AutoScroll = false };
     readonly Panel _content = new() { Dock = DockStyle.Fill };
     readonly TextBox _addr = new();
     readonly List<TabItem> _tabs = new();
@@ -163,7 +187,7 @@ sealed class MainForm : Form
     Button _menuBtn = null!;
     Button _addTabBtn = new();
     Button _browserCloseBtn = null!;
-    Panel _tabBar = new() { Dock = DockStyle.Top, Height = 44 };
+    Panel _tabBar = new() { Dock = DockStyle.Top, Height = 38 };
 
     // themeable chrome (follows the app's light/dark theme)
     readonly List<Button> _barBtns = new();
@@ -793,7 +817,7 @@ try {
         x += 6;
 
         // address — a clearly visible field (own background, left-aligned)
-        _addr.Top = 7; _addr.Height = 24; _addr.Left = x + 10;
+        _addr.Top = 6; _addr.Height = 24; _addr.Left = x + 10;
         _addr.BorderStyle = BorderStyle.None;
         _addr.TextAlign = HorizontalAlignment.Left;
         _addr.PlaceholderText = "Search or enter a URL";
@@ -848,16 +872,16 @@ try {
         _toolbar.Resize += (_, __) => LayoutBar();
 
         // ── tab row (on top): [tabs] [+] ......... [⤢ full width] [⧉ close] ──
-        _addTabBtn = new Button { Text = "+", Width = 30, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f), Margin = new Padding(3, 7, 0, 0) };
+        _addTabBtn = new Button { Text = "+", Width = 30, Height = 28, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f), Margin = new Padding(3, 5, 0, 0) };
         _addTabBtn.FlatAppearance.BorderSize = 0;
         _addTabBtn.Click += (_, __) => AddTab(_homeUrl, true, true);
         _barBtns.Add(_addTabBtn);
 
-        var tabRight = new FlowLayoutPanel { Dock = DockStyle.Right, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 7, 6, 0), BackColor = Color.Transparent };
+        var tabRight = new FlowLayoutPanel { Dock = DockStyle.Right, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 4, 6, 0), BackColor = Color.Transparent };
         _rightPanel = tabRight;
         Button TabIcon(string g, string tip, EventHandler on)
         {
-            var b = new Button { Text = g, Width = 32, Height = 32, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 11.5f), Margin = new Padding(1, 0, 1, 0) };
+            var b = new Button { Text = g, Width = 32, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 11f), Margin = new Padding(1, 0, 1, 0) };
             b.FlatAppearance.BorderSize = 0; b.Click += on;
             var tt = new ToolTip(); tt.SetToolTip(b, tip);
             tabRight.Controls.Add(b); _barBtns.Add(b); return b;
@@ -979,8 +1003,8 @@ try {
         {
             t.Chip.AutoSize = false;
             t.Chip.Width = chipW;
-            t.Chip.Height = 30;
-            t.Chip.Margin = new Padding(3, 7, 0, 0);
+            t.Chip.Height = 28;
+            t.Chip.Margin = new Padding(3, 5, 0, 0);
             t.Chip.TextAlign = ContentAlignment.MiddleLeft;
         }
     }
@@ -1003,7 +1027,7 @@ try {
         t.Chip.ForeColor = _pal.Text; t.Chip.BackColor = Color.Transparent;
         t.Chip.FlatAppearance.BorderSize = 0;
         t.Chip.FlatAppearance.MouseOverBackColor = _pal.Hover;
-        t.Chip.Font = new Font("Segoe UI", 8.5f); t.Chip.Margin = new Padding(3, 7, 0, 0); t.Chip.Text = "\u25CE New tab";
+        t.Chip.Font = new Font("Segoe UI", 8.5f); t.Chip.Margin = new Padding(3, 5, 0, 0); t.Chip.Text = "\u25CE New tab";
         t.Chip.TextAlign = ContentAlignment.MiddleLeft;
         t.Chip.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
         t.Chip.Click += (_, __) => Activate(_tabs.IndexOf(t));
@@ -1546,7 +1570,23 @@ try {
             var q = JsonSerializer.Serialize(action == "type" && !string.IsNullOrWhiteSpace(target) ? target : text);
             var v = JsonSerializer.Serialize(value);
             string script;
-            if (action == "email_draft")
+            if (action == "inspect_layout")
+            {
+                var selector = JsonSerializer.Serialize(command.TryGetProperty("selector", out var sp) ? sp.GetString() ?? "" : "");
+                var scroll = command.TryGetProperty("scroll", out var scp) && scp.TryGetDouble(out var scrollValue)
+                    ? scrollValue.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : "null";
+                script = "(async function(){var selector=" + selector + ",requested=" + scroll + ";" +
+                    "var el;try{el=document.querySelector(selector)}catch(e){throw new Error('invalid CSS selector: '+selector)}" +
+                    "if(!el)throw new Error('no element matches: '+selector);" +
+                    "function css(e){var s=getComputedStyle(e);return{position:s.position,top:s.top,bottom:s.bottom,left:s.left,right:s.right,display:s.display,alignSelf:s.alignSelf,overflowX:s.overflowX,overflowY:s.overflowY}}" +
+                    "function rect(e){var r=e.getBoundingClientRect();return{x:+r.x.toFixed(1),y:+r.y.toFixed(1),top:+r.top.toFixed(1),bottom:+r.bottom.toFixed(1),width:+r.width.toFixed(1),height:+r.height.toFixed(1)}}" +
+                    "function name(e){if(e===document.documentElement)return'html';if(e===document.body)return'body';return e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(e.classList&&e.classList.length?'.'+[].slice.call(e.classList).slice(0,3).join('.'):'')}" +
+                    "var ancestors=[],p=el.parentElement,scroller=null;while(p){var s=css(p),scrollable=p.scrollHeight>p.clientHeight+1&&/(auto|scroll|overlay)/.test(s.overflowY);ancestors.push({element:name(p),overflowY:s.overflowY,clientHeight:p.clientHeight,scrollHeight:p.scrollHeight,scrollable:scrollable});if(!scroller&&scrollable)scroller=p;p=p.parentElement}" +
+                    "var root=document.scrollingElement||document.documentElement;if(!scroller)scroller=root;var before=rect(el),style=css(el),old=scroller.scrollTop,amount=Number.isFinite(requested)?requested:Math.max(240,Math.round(innerHeight*.6));scroller.scrollTop=old+amount;await new Promise(function(r){setTimeout(r,140)});var after=rect(el),actual=scroller.scrollTop-old;scroller.scrollTop=old;" +
+                    "return JSON.stringify({selector:selector,viewport:{width:innerWidth,height:innerHeight,pageScrollY:scrollY},element:{name:name(el),style:style,before:before,after:after,movementY:+(after.top-before.top).toFixed(1),stickyHeld:style.position==='sticky'&&Math.abs(after.top-before.top)<=2},scrollTest:{container:name(scroller),requested:amount,actual:actual},ancestors:ancestors.slice(0,8)});})()";
+            }
+            else if (action == "email_draft")
             {
                 var draft = JsonSerializer.Serialize(value);
                 script = "(async function(){var draft=" + draft + ";" +
@@ -1595,6 +1635,11 @@ try {
             }
             var resultJson = await t.View.CoreWebView2.ExecuteScriptAsync(script);
             var result = JsonSerializer.Deserialize<string>(resultJson) ?? action;
+            if (action == "inspect_layout")
+            {
+                PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url, result });
+                return;
+            }
             await WaitForNavOrDelayAsync(t, 900);
             PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url, result = result + "\n\nAfter " + action + ":\n" + await ReadActivePageAsync(t) });
         }

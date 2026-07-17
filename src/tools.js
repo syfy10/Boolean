@@ -6,8 +6,18 @@ import { fileURLToPath } from "node:url";
 import * as browse from "./browse.js";
 import * as engine from "./engine.js";
 import { saveConfig, SAZ_DIR } from "./config.js";
+import { providerImageSupport } from "./providers.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
+import { listEmail, readEmail, createEmailDraft, createReplyDraft, sendEmailDraft } from "./email.js";
+import { PLATFORM_TOOL_DEFINITIONS, PLATFORM_TOOL_NAMES, executePlatformTool } from "./platform.js";
+import {
+  applyAgentRun,
+  createIsolatedAgentRun,
+  discardAgentRun,
+  finalizeIsolatedAgentRun,
+  listAgentRuns
+} from "./orchestrator.js";
 
 // where the bundled project templates live (installed next to the exe, or the
 // repo's templates/ folder in dev)
@@ -23,6 +33,7 @@ export function listTemplates() {
 // Tool schemas sent to the model (Ollama native tool-calling format).
 export const TOOL_DEFINITIONS = [
   ...SYSTEM_ACTION_DEFINITIONS,
+  ...PLATFORM_TOOL_DEFINITIONS,
   {
     type: "function",
     function: {
@@ -43,6 +54,16 @@ export const TOOL_DEFINITIONS = [
         },
         required: ["command"]
       }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "discard_subagent_result",
+      description: "Remove an unwanted isolated sub-agent worktree, branch, and durable result record.",
+      parameters: { type: "object", properties: {
+        id: { type: "string", description: "Isolated sub-agent run id" }
+      }, required: ["id"] }
     }
   },
   {
@@ -307,8 +328,27 @@ export const TOOL_DEFINITIONS = [
         "Pass one task, or several tasks to run together. Sub-agents cannot spawn more sub-agents.",
       parameters: { type: "object", properties: {
         task: { type: "string", description: "A single self-contained sub-task with enough context to act alone" },
-        tasks: { type: "array", items: { type: "string" }, description: "Several independent sub-tasks to run together (max 3)" }
+        tasks: { type: "array", items: { type: "string" }, description: "Several independent sub-tasks to run together (max 3)" },
+        isolation: { type: "string", enum: ["shared", "worktree"], description: "worktree gives each sub-agent an isolated Git branch; shared uses the current project folder" }
       }, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_subagent_results",
+      description: "List durable isolated sub-agent results for the current project, including branches, commits, and change summaries.",
+      parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "apply_subagent_result",
+      description: "Apply one completed isolated sub-agent result to the clean current Git project. Requires the result id from run_subagent or list_subagent_results.",
+      parameters: { type: "object", properties: {
+        id: { type: "string", description: "Completed isolated sub-agent run id" }
+      }, required: ["id"] }
     }
   },
   {
@@ -359,6 +399,24 @@ export const TOOL_DEFINITIONS = [
         type: "object",
         properties: { url: { type: "string", description: "Optional URL; defaults to the page open in the browser" } },
         required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "inspect_page_layout",
+      description:
+        "Inspect measurable layout behavior in the visible browser without needing image vision. " +
+        "Returns the matching element's bounding box, computed position/top/overflow/alignment, scroll containers, " +
+        "and its movement after a temporary scroll. Use this for sticky/fixed positioning, clipping, overflow, spacing, and scroll bugs.",
+      parameters: {
+        type: "object",
+        properties: {
+          selector: { type: "string", description: "CSS selector for the element to inspect, for example .scan-panel" },
+          scroll: { type: "number", description: "Optional temporary scroll distance in pixels. Defaults to about 60% of the viewport." }
+        },
+        required: ["selector"]
       }
     }
   },
@@ -577,8 +635,64 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "list_connectors",
-      description: "List configured MCP servers and agent connectors. Use this before calling an agent connector or when the user asks what connectors are available.",
+      description: "List configured email accounts, MCP servers, and agent connectors. Use this before using a connector or when the user asks what connectors are available.",
       parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "email_list",
+      description: "List recent messages from a connected Gmail or Outlook account. This reads mail but does not send anything.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail", "outlook"] },
+        query: { type: "string", description: "Optional provider search query" },
+        limit: { type: "integer", description: "1-25 messages; default 10" }
+      }, required: ["provider"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "email_read",
+      description: "Read one message from a connected Gmail or Outlook account by the id returned from email_list.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail", "outlook"] },
+        id: { type: "string", description: "Message id returned by email_list" }
+      }, required: ["provider", "id"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "email_create_draft",
+      description: "Create, but do not send, an email draft in connected Gmail or Outlook.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail", "outlook"] },
+        to: { type: "string" }, subject: { type: "string" }, text: { type: "string" }
+      }, required: ["provider", "to", "subject", "text"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "email_reply_draft",
+      description: "Create, but do not send, a reply draft for a message in connected Gmail or Outlook.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail", "outlook"] },
+        message_id: { type: "string" }, text: { type: "string" }
+      }, required: ["provider", "message_id", "text"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "email_send_draft",
+      description: "Send an existing Gmail or Outlook draft. Boolean always shows a confirmation prompt first, even in Auto-approve mode. Unavailable while Draft-only is on.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail", "outlook"] },
+        draft_id: { type: "string" }
+      }, required: ["provider", "draft_id"] }
     }
   },
   {
@@ -777,15 +891,19 @@ async function screenshotPage(args, ctx) {
   // always show the screenshot to the user in the transcript
   ctx.onImage?.(dataUrl, body.url ? String(body.url) : "screenshot");
   // only hand the image to models that can actually see it
-  let vision = ctx.config?.provider !== "local";
-  if (!vision) { try { vision = !!engine.visionState(ctx.config).supported; } catch { vision = false; } }
-  if (vision) {
+  let vision = providerImageSupport(ctx.config);
+  if (ctx.config?.provider === "local") {
+    try { vision = !!engine.visionState(ctx.config).supported; } catch { vision = false; }
+  }
+  if (vision !== false) {
     (ctx.pendingImages = ctx.pendingImages || []).push(dataUrl);
     return `Screenshot captured${body.url ? ` of ${body.url}` : ""}. Review the attached image and refine the design as needed.` +
       (info ? `\n\nPage text/OCR:\n${info}` : "");
   }
-  return "Screenshot captured, but the current local model can't view images. Install a vision projector (Settings > Models) or switch to a cloud vision model to review it. " +
-    (info ? `Page text/OCR:\n${info}` : "");
+  const endpoint = ctx.config?.provider === "zaiCoding" ? "Z.AI Coding Plan model" : "selected model";
+  return `Screenshot captured and shown to the user, but the ${endpoint} is text-only, so Boolean did not send it unsupported image data. ` +
+    "Use inspect_page_layout for sticky, overflow, sizing, and scroll behavior; use read_page for page text; or switch to a vision-capable model. " +
+    (info ? `\n\nPage text/OCR:\n${info}` : "");
 }
 
 async function readPage(args, ctx) {
@@ -820,7 +938,42 @@ function connectorList(ctx) {
     return `${x.enabled === false ? "off" : "on"} MCP ${x.name || x.id}: ${target}`.trim();
   });
   const agents = (c.agents || []).map((x) => `${x.enabled === false ? "off" : "on"} Agent ${x.name || x.id}: ${x.url || ""}${x.apiKey ? " (key saved)" : ""}`);
-  return [...mcp, ...agents].join("\n") || "no connectors configured";
+  const email = ["gmail", "outlook"].filter((name) => c.email?.[name]?.connected)
+    .map((name) => `on Email ${name}: ${c.email[name].account || "connected"}`);
+  return [...email, ...mcp, ...agents].join("\n") || "no connectors configured";
+}
+
+function emailConnection(args, ctx) {
+  const provider = String(args.provider || "").trim().toLowerCase();
+  if (!["gmail", "outlook"].includes(provider)) throw new Error("Choose gmail or outlook.");
+  const connection = ctx.config?.connectors?.email?.[provider];
+  if (!connection?.connected) throw new Error(`${provider === "gmail" ? "Gmail" : "Outlook"} is not connected in Settings > Email.`);
+  return { provider, connection, save: () => saveConfig(ctx.config) };
+}
+
+async function executeEmailTool(name, args, ctx) {
+  const { provider, connection, save } = emailConnection(args, ctx);
+  if (name === "email_list") {
+    const rows = await listEmail(provider, connection, save, String(args.query || ""), args.limit || 10);
+    return truncate(JSON.stringify(rows, null, 2));
+  }
+  if (name === "email_read") return truncate(JSON.stringify(await readEmail(provider, connection, save, args.id), null, 2));
+  if (name === "email_create_draft") {
+    const draft = await createEmailDraft(provider, connection, save, args);
+    return `Draft created in ${provider === "gmail" ? "Gmail" : "Outlook"}. Draft id: ${draft.id}. It was not sent.`;
+  }
+  if (name === "email_reply_draft") {
+    const draft = await createReplyDraft(provider, connection, save, args.message_id, args.text);
+    return `Reply draft created in ${provider === "gmail" ? "Gmail" : "Outlook"}. Draft id: ${draft.id}. It was not sent.`;
+  }
+  if (ctx.config?.connectors?.email?.draftOnly !== false) {
+    return "Email was not sent because Draft-only is on in Settings > Email.";
+  }
+  const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
+  const ok = await approve(`Send the existing ${provider === "gmail" ? "Gmail" : "Outlook"} draft '${args.draft_id}' now`);
+  if (!ok) return "Email was not sent because the user declined confirmation.";
+  await sendEmailDraft(provider, connection, save, args.draft_id);
+  return `Sent the ${provider === "gmail" ? "Gmail" : "Outlook"} draft.`;
 }
 
 function findMcpConnector(args, ctx) {
@@ -1295,10 +1448,18 @@ async function runSubagentTool(args, ctx) {
   let tasks = Array.isArray(args.tasks) && args.tasks.length ? args.tasks : (args.task ? [args.task] : []);
   tasks = tasks.map((t) => String(t || "").trim()).filter(Boolean).slice(0, 3);
   if (!tasks.length) return "error: provide 'task' or 'tasks'.";
+  const isolation = args.isolation === "worktree" ? "worktree" : "shared";
   const results = await Promise.all(tasks.map(async (task, i) => {
+    let run = null;
     try {
-      const answer = await ctx.runSubagent(task);
-      return `--- Sub-agent ${i + 1} result ---\n${String(answer || "(no result)").trim()}`;
+      if (isolation === "worktree") {
+        if (!ctx.projectDir) throw new Error("worktree isolation is available only inside a project chat");
+        run = await createIsolatedAgentRun(ctx.projectDir, task, i);
+      }
+      const answer = await ctx.runSubagent(task, run ? { workspaceDir: run.workspaceDir, runId: run.id } : {});
+      if (run) run = await finalizeIsolatedAgentRun(run.id, answer);
+      return `--- Sub-agent ${i + 1} result${run ? ` (${run.id})` : ""} ---\n${String(answer || "(no result)").trim()}` +
+        (run ? `\n\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}` : "");
     } catch (err) {
       return `--- Sub-agent ${i + 1} failed ---\n${err?.message || err}`;
     }
@@ -1332,6 +1493,7 @@ export async function executeTool(name, args, ctx) {
   args = args || {};
   const systemResult = await executeSystemAction(name, args, ctx);
   if (systemResult !== null) return systemResult;
+  if (PLATFORM_TOOL_NAMES.has(name)) return await executePlatformTool(name, args, ctx);
   // resolve relative paths and command cwd inside the user's projects folder
   const base = ctx.config?.projectsDir || process.cwd();
   fs.mkdirSync(base, { recursive: true });
@@ -1386,6 +1548,32 @@ export async function executeTool(name, args, ctx) {
         return findSymbol(args, resolve);
       case "run_subagent":
         return await runSubagentTool(args, ctx);
+      case "list_subagent_results": {
+        const runs = listAgentRuns(ctx.projectDir || base).map((run) => ({
+          id: run.id,
+          state: run.state,
+          task: run.task,
+          branch: run.branch,
+          commit: run.commit || "",
+          changes: run.changeSummary || ""
+        }));
+        return runs.length ? JSON.stringify(runs, null, 2) : "no isolated sub-agent results for this project";
+      }
+      case "apply_subagent_result": {
+        if (!args.id) return "error: missing 'id'";
+        const target = ctx.projectDir || base;
+        const ok = await ctx.approve(`apply isolated sub-agent result '${args.id}' to ${target}`);
+        if (!ok) return "user declined applying the sub-agent result";
+        const run = await applyAgentRun(String(args.id), target);
+        return `Applied sub-agent result ${run.id} from ${run.branch}.`;
+      }
+      case "discard_subagent_result": {
+        if (!args.id) return "error: missing 'id'";
+        const ok = await ctx.approve(`discard isolated sub-agent result '${args.id}'`);
+        if (!ok) return "user declined discarding the sub-agent result";
+        const run = await discardAgentRun(String(args.id));
+        return `Discarded sub-agent result ${run.id} and removed its worktree.`;
+      }
       case "write_file": {
         if (!args.path) return "error: missing 'path' argument";
         const target = resolve(args.path);
@@ -1411,6 +1599,9 @@ export async function executeTool(name, args, ctx) {
         return await screenshotPage(args, ctx);
       case "read_page":
         return await readPage(args, ctx);
+      case "inspect_page_layout":
+        if (!args.selector) return "error: missing 'selector' argument";
+        return await visibleBrowser("inspect_layout", args, ctx);
       case "visible_browser_read":
         return await visibleBrowser("read", args, ctx);
       case "visible_browser_open":
@@ -1436,6 +1627,12 @@ export async function executeTool(name, args, ctx) {
         return await notepad("write", { text: args.text, mode: args.mode || "append" }, ctx);
       case "list_connectors":
         return connectorList(ctx);
+      case "email_list":
+      case "email_read":
+      case "email_create_draft":
+      case "email_reply_draft":
+      case "email_send_draft":
+        return await executeEmailTool(name, args, ctx);
       case "mcp_list_tools":
         return await listMcpTools(args, ctx);
       case "mcp_call_tool":

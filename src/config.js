@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.15";
-export const APP_DISPLAY_VERSION = "v0.09.15";
+export const APP_VERSION = "0.9.16";
+export const APP_DISPLAY_VERSION = "v0.09.16";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -75,7 +75,13 @@ const DEFAULTS = {
   connectors: {
     apis: [],             // [{id,name,baseUrl,model,apiKey,approvedUse,enabled}] OpenAI-compatible APIs
     mcp: [],              // [{id,name,url,token,oauth,enabled}] remote Streamable-HTTP MCP servers
-    agents: []            // [{id,name,url,apiKey,enabled}]
+    agents: [],           // [{id,name,url,apiKey,enabled}]
+    email: {
+      draftOnly: true,
+      confirmBeforeSend: true,
+      gmail: { clientId: "", connected: false, account: "", oauth: null },
+      outlook: { clientId: "", connected: false, account: "", oauth: null }
+    }
   },
   cloudBackend: {
     url: CLOUD_BACKEND_URL,

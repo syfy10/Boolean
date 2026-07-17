@@ -34,7 +34,7 @@ async function route(request, env) {
     : rawPath;
 
   if (path === "/health") {
-    return json({ ok: true, app: env.APP_NAME || "Boolean" }, 200, request, env);
+    return json({ ok: true, app: env.APP_NAME || "Boolean", transactional_email: !!env.EMAIL }, 200, request, env);
   }
 
   if (path === "/auth/device/start" && request.method === "POST") {
@@ -126,7 +126,34 @@ async function route(request, env) {
     return adminDeleteUser(request, env, session);
   }
 
+  if (path === "/admin/api/email/test" && request.method === "POST") {
+    const session = await requireAdmin(request, env);
+    const body = await request.json().catch(() => ({}));
+    const to = String(body.to || session.user.email || "").trim();
+    if (!/^\S+@\S+\.\S+$/.test(to)) return json({ error: "invalid_email" }, 400, request, env);
+    await sendTransactionalEmail(env, {
+      to,
+      subject: "Boolean email connection test",
+      text: "Boolean's Cloudflare transactional email connection is working.",
+      html: "<p>Boolean's Cloudflare transactional email connection is working.</p>"
+    });
+    return json({ ok: true, to }, 200, request, env);
+  }
+
   return json({ error: "not_found" }, 404, request, env);
+}
+
+async function sendTransactionalEmail(env, { to, subject, text, html }) {
+  if (!env.EMAIL) throw httpError("email_service_not_configured", 503);
+  const fromAddress = String(env.EMAIL_FROM_ADDRESS || "notifications@saz3.com").trim();
+  const fromName = String(env.EMAIL_FROM_NAME || env.APP_NAME || "Boolean").trim();
+  return env.EMAIL.send({
+    to,
+    from: { email: fromAddress, name: fromName },
+    subject: String(subject || "Boolean notification"),
+    text: String(text || ""),
+    html: String(html || "")
+  });
 }
 
 // ── admin console ─────────────────────────────────────────────────

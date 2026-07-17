@@ -17,6 +17,9 @@ WHAT STAYS ON YOUR COMPUTER
   .saz\config.json in your user profile; protect this file like a password
 - Remote MCP server addresses and any Bearer tokens you save; connector
   secrets are stored locally and are not returned by Boolean's state API
+- Optional Gmail and Outlook OAuth client IDs, access/refresh tokens, and the
+  connected account label. These stay in .saz\config.json on your PC and are
+  not sent to Boolean's account service.
 - Your Boolean account session token after Google Sign-In, stored locally so the
   app can stay signed in; sign out to remove it
 - Everything the agent reads or writes at your direction
@@ -57,6 +60,15 @@ Only in these cases, and only because you set them up:
 8. Screenshots, browser pages, notes, and project files: these remain local when
    used with a local model. If you ask an online model or remote connector to
    inspect them, the selected content is sent to that provider or connector.
+9. Optional Gmail or Outlook connectors: when you connect an account, OAuth and
+   mail requests go directly from Boolean on your PC to Google or Microsoft.
+   Boolean may read the messages you request and create drafts in that account.
+   Sending is disabled while Draft-only is on and otherwise always requires a
+   separate confirmation. Mail tokens and message contents are not routed
+   through Boolean's Cloudflare account service.
+10. Transactional messages: saz3 Labs may use Cloudflare Email Service to send
+   Boolean account, security, support, or service notices. Cloudflare receives
+   the recipient address and message data required to deliver those notices.
 
 THIRD-PARTY PROVIDERS AND CONNECTIONS
 OpenAI, Anthropic, Z.AI, Hugging Face, MCP server operators, websites, search

@@ -35,6 +35,7 @@ You are responsible for:
       provider, or cloud service you connect or use through Boolean.
   (f) reviewing what project files, screenshots, browser content, notes, or
       tool arguments are sent to any online provider or remote MCP server.
+  (g) reviewing email recipients and contents before approving any send action.
 
 4. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
 Boolean can be used locally without an account. Cloud AI uses an API key you
@@ -89,12 +90,22 @@ keys, and system tools such as
 winget, git, npm, or dotnet only when you ask Boolean to run workflows that
 depend on those tools.
 
+Optional Gmail and Outlook connectors use OAuth credentials configured by the
+user and provider-granted permissions. They are separate from Boolean account
+sign-in. Boolean may read requested mail and create drafts. Draft-only mode
+disables sending; if the user disables Draft-only, every send still requires a
+separate confirmation that Auto-approve cannot bypass. Provider terms apply.
+Boolean may use Cloudflare Email Service for transactional account, security,
+support, and service notices.
+
 7. PRIVACY
 See the accompanying PRIVACY.txt. In short: local mode runs on your computer.
 Data leaves your computer only when you choose features that require it, such
 as cloud providers, Boolean account sign-in, model downloads, web
 browsing, remote MCP connections, software updates, installation helpers, or
-online inspection of screenshots, pages, notes, and project files.
+online inspection of screenshots, pages, notes, and project files. Optional
+email connectors send OAuth and mail requests directly to Google or Microsoft;
+transactional Boolean notices may be delivered through Cloudflare Email Service.
 
 8. SOFTWARE UPDATES
 Boolean may periodically contact the saz3 Labs GitHub release service to check

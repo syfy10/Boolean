@@ -22,6 +22,8 @@ Implemented:
   expiration, daily-limit, and ban enforcement
 - web admin console for account search, token adjustments, unlimited access,
   bans, roles, usage statistics, and account deletion
+- Cloudflare Email Service binding for Boolean transactional messages; it is
+  separate from users' optional Gmail and Outlook inbox connectors
 
 Coming next:
 
@@ -85,6 +87,18 @@ npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
+Enable Email Sending for the `saz3.com` zone before deploying the email
+binding, then verify the sender DNS records in Cloudflare:
+
+```powershell
+npx wrangler email sending enable saz3.com
+```
+
+The Worker sends from `notifications@saz3.com` by default. Change
+`EMAIL_FROM_ADDRESS` only to a sender on an onboarded domain. The admin-only
+`POST /admin/api/email/test` route sends a connection test to the signed-in
+admin unless a different `to` address is supplied.
+
 Run locally:
 
 ```powershell
@@ -121,6 +135,8 @@ Authorization: Bearer SESSION_TOKEN
 | `ALLOWED_ORIGINS` | var | comma-separated app origins allowed by CORS |
 | `ADMIN_EMAILS` | var | comma-separated Google account emails promoted to admin with unlimited tokens |
 | `PUBLIC_APP_URL` | var | public Boolean/app URL for future billing redirects |
+| `EMAIL_FROM_ADDRESS` | var | verified Cloudflare Email Service sender |
+| `EMAIL_FROM_NAME` | var | display name for transactional email |
 | `FREE_TIER_PROVIDER` | var | legacy compatibility setting; desktop managed AI is disabled |
 | `FREE_TIER_MODEL` | var | legacy compatibility setting; desktop managed AI is disabled |
 
@@ -138,6 +154,7 @@ Authorization: Bearer SESSION_TOKEN
 | `/auth/logout` | POST | revoke current session |
 | `/admin` | GET | Boolean account admin console |
 | `/admin/api/*` | GET/POST | admin-only stats and account controls |
+| `/admin/api/email/test` | POST | send a transactional email connection test |
 
 ## Free signup token rules
 
