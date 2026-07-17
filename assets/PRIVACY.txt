@@ -1,13 +1,16 @@
 BOOLEAN PRIVACY POLICY
-Boolean - Version 1.1, July 2026
+Boolean - Version 1.2, July 17, 2026
 
 THE SHORT VERSION
 Boolean's local mode runs entirely on your computer. No telemetry, no
 analytics, no tracking, no crash reports. Your code, prompts, and files stay
 on your machine unless YOU choose a feature that needs the internet, such as
-cloud AI, Google Sign-In, model downloads, web browsing, or installation tools.
-Connecting a remote MCP server or sending a screenshot, page, note, or project
-file to an online provider also uses the network.
+cloud AI, Google Sign-In, model downloads, web research, image generation, or
+installation tools. Connecting a remote MCP server, HTTP agent, API connector,
+or sending a screenshot, page, note, or project file to an online provider also
+uses the network. Scheduled online actions use the network when they run. For
+signed-in Boolean administrators, notepad sync is enabled so notes can follow
+the same admin account across computers.
 
 WHAT STAYS ON YOUR COMPUTER
 - Your conversations with the AI
@@ -17,12 +20,21 @@ WHAT STAYS ON YOUR COMPUTER
   .saz\config.json in your user profile; protect this file like a password
 - Remote MCP server addresses and any Bearer tokens you save; connector
   secrets are stored locally and are not returned by Boolean's state API
+- HTTP-agent and API connector addresses and credentials you save; protect
+  these credentials like passwords
 - Optional Gmail and Outlook OAuth client IDs, access/refresh tokens, and the
   connected account label. These stay in .saz\config.json on your PC and are
   not sent to Boolean's account service.
 - Your Boolean account session token after Google Sign-In, stored locally so the
   app can stay signed in; sign out to remove it
+- Your notepad content, except when signed in as an administrator with admin
+  notepad sync enabled
 - Everything the agent reads or writes at your direction
+- Task objectives, plans, debugging evidence, tool results, checkpoints,
+  schedules, selected models, and approval settings used to continue or
+  automate work
+- Generated documents, spreadsheets, presentations, PDFs, images, and other
+  local artifacts unless you send them to an online service
 - A local Windows System Actions audit log at .saz\system-actions.jsonl,
   containing action names, time, result, and limited non-secret details such as
   a package ID or Settings page
@@ -35,6 +47,8 @@ If you choose optional Boolean account sign-in, Boolean's account service may
 receive and store the minimum identity and session data needed for the account:
 - Google account identifier, email, display name, and profile image
 - session records used to keep you signed in
+- for signed-in administrators, synchronized notepad titles, note content,
+  embedded note images, timestamps, and deletion records
 
 WHEN DATA DOES LEAVE YOUR MACHINE
 Only in these cases, and only because you set them up:
@@ -46,17 +60,18 @@ Only in these cases, and only because you set them up:
 3. Model downloads: downloading a model contacts the hosting service, such as
    Hugging Face, to fetch the file. Importing a model from a local drive
    contacts nothing.
-4. Web browsing/search: if you ask Boolean to browse or search the web,
-   requests are sent to the sites/search engines involved.
+4. Web browsing/research: if you ask Boolean to browse, search, or verify
+   current information, requests, queries, and selected page content are sent
+   to the sites, search engines, or research services involved.
 5. Software installation helpers: if you ask Boolean to install software, tools
    such as winget contact their own servers.
 6. Software updates: Boolean periodically requests a small update manifest from
    the saz3 Labs GitHub repository. If an update is available, Boolean may
    download its installer from an approved GitHub release URL and verify its
    SHA-256 hash before installation.
-7. Remote MCP servers: when you enable an MCP connection, Boolean sends protocol
-   requests, relevant tool arguments, and the configured Bearer token to that
-   server. The server operator's privacy policy and terms apply.
+7. Remote MCP, HTTP-agent, and API connectors: when you enable a connection,
+   Boolean sends protocol requests, relevant task content, tool arguments, and
+   configured credentials to that service. Its privacy policy and terms apply.
 8. Screenshots, browser pages, notes, and project files: these remain local when
    used with a local model. If you ask an online model or remote connector to
    inspect them, the selected content is sent to that provider or connector.
@@ -69,21 +84,36 @@ Only in these cases, and only because you set them up:
 10. Transactional messages: saz3 Labs may use Cloudflare Email Service to send
    Boolean account, security, support, or service notices. Cloudflare receives
    the recipient address and message data required to deliver those notices.
+11. Scheduled actions: online AI tasks and connector calls send their configured
+   task and relevant context when due. Webhooks receive the payload you
+   configured, and opening a URL contacts that site. Local commands remain on
+   this PC unless the command itself uses the network.
+12. Image generation: prompts, source images, masks, and related instructions
+   are sent to the online image provider you select. Generated or edited files
+   remain local unless you send them elsewhere.
+13. Admin notepad sync: when a Boolean administrator is signed in, Boolean
+   sends the administrator's notepad snapshot to the Boolean account service
+   over HTTPS and stores it in the account database. This allows the same notes
+   to merge across computers signed in to that admin account. Local saving
+   continues if sync is unavailable. Embedded images count toward the sync size
+   limit. Signing out stops synchronization but does not erase local notes.
 
 THIRD-PARTY PROVIDERS AND CONNECTIONS
-OpenAI, Anthropic, Z.AI, Hugging Face, MCP server operators, websites, search
-engines, package repositories, GitHub, Google, Cloudflare, and Stripe are
-independent services. Their own terms, retention rules, charges, and privacy
-policies apply. Z.AI's Coding Plan uses its separate coding endpoint and may be
-used only when Z.AI has approved Boolean or otherwise supports the user's use.
-Boolean does not represent that every subscription permits third-party use.
+OpenAI, Anthropic, Z.AI, Hugging Face, image providers, MCP/HTTP-agent/API
+connector operators, websites, search engines, package repositories, GitHub,
+Google, Cloudflare, and Stripe are independent services. Their own terms,
+retention rules, charges, and privacy policies apply. Z.AI's Coding Plan uses
+its separate coding endpoint and may be used only when Z.AI has approved
+Boolean or otherwise supports the user's use. Boolean does not represent that
+every subscription permits third-party use.
 
 SOFTWARE UPDATE DATA
 Update checks may reveal standard connection information, including your IP
 address, app version, and user-agent, to GitHub or its delivery infrastructure.
 Update checks do not upload your chats, prompts, files, notepad content, API
-keys, or local model data. Before installing an update after the app closes,
-Boolean backs up key local settings and chat data on your computer.
+keys, or local model data. Admin notepad sync is a separate account feature and
+is not part of update checking. Before installing an update after the app
+closes, Boolean backs up key local settings and chat data on your computer.
 
 THIRD-PARTY CLOUD USAGE
 Cloud AI requests use the provider API key selected by the user. Each provider

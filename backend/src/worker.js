@@ -51,8 +51,10 @@ async function route(request, env) {
 
   if (path === "/me" && request.method === "GET") {
     const session = await requireSession(request, env);
+    const user = publicUser(session.user);
+    user.is_admin = user.role === "admin" || isAdminEmail(user.email, env);
     return json({
-      user: publicUser(session.user),
+      user,
       tokens: session.tokens || defaultTokenStatus()
     }, 200, request, env);
   }
@@ -64,6 +66,16 @@ async function route(request, env) {
     if (!tokens) return json({ error: "missing_tokens" }, 400, request, env);
     const result = await debitTokens(session.user.id, tokens, body.reason || "cloud_usage", env);
     return json(result, 200, request, env);
+  }
+
+  if (path === "/notes" && request.method === "GET") {
+    const session = await requireAdmin(request, env);
+    return getAdminNotepad(request, env, session);
+  }
+
+  if (path === "/notes" && request.method === "PUT") {
+    const session = await requireAdmin(request, env);
+    return putAdminNotepad(request, env, session);
   }
 
   if (path === "/chat/completions" && request.method === "POST") {
@@ -141,6 +153,75 @@ async function route(request, env) {
   }
 
   return json({ error: "not_found" }, 404, request, env);
+}
+
+async function getAdminNotepad(request, env, session) {
+  const row = await env.DB.prepare(
+    "SELECT payload, revision, updated_at FROM cloud_notepads WHERE user_id = ?"
+  ).bind(session.user.id).first();
+  if (!row) return json({ notes: [], deleted: {}, revision: 0, updated_at: 0 }, 200, request, env);
+  let payload = { notes: [], deleted: {} };
+  try { payload = JSON.parse(row.payload || "{}"); } catch { /* retain safe empty payload */ }
+  return json({
+    notes: Array.isArray(payload.notes) ? payload.notes : [],
+    deleted: payload.deleted && typeof payload.deleted === "object" ? payload.deleted : {},
+    revision: Number(row.revision || 0),
+    updated_at: Number(row.updated_at || 0)
+  }, 200, request, env);
+}
+
+async function putAdminNotepad(request, env, session) {
+  const body = await request.json().catch(() => ({}));
+  const payload = sanitizeNotepadPayload(body);
+  const encoded = JSON.stringify(payload);
+  if (new TextEncoder().encode(encoded).byteLength > 900_000) {
+    return json({ error: "notes_too_large", message: "Synced notes must be smaller than 900 KB." }, 413, request, env);
+  }
+  const existing = await env.DB.prepare(
+    "SELECT payload, revision, updated_at FROM cloud_notepads WHERE user_id = ?"
+  ).bind(session.user.id).first();
+  const currentRevision = Number(existing?.revision || 0);
+  const expectedRevision = Math.max(0, Math.floor(Number(body.revision || 0)));
+  if (currentRevision !== expectedRevision) {
+    let current = { notes: [], deleted: {} };
+    try { current = JSON.parse(existing?.payload || "{}"); } catch { /* retain safe empty payload */ }
+    return json({
+      error: "notes_conflict",
+      message: "Notes changed on another computer.",
+      notes: Array.isArray(current.notes) ? current.notes : [],
+      deleted: current.deleted && typeof current.deleted === "object" ? current.deleted : {},
+      revision: currentRevision,
+      updated_at: Number(existing?.updated_at || 0)
+    }, 409, request, env);
+  }
+  const revision = currentRevision + 1;
+  const updatedAt = now();
+  await env.DB.prepare(
+    `INSERT INTO cloud_notepads (user_id, payload, revision, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET payload = excluded.payload, revision = excluded.revision, updated_at = excluded.updated_at`
+  ).bind(session.user.id, encoded, revision, updatedAt).run();
+  return json({ ok: true, revision, updated_at: updatedAt }, 200, request, env);
+}
+
+function sanitizeNotepadPayload(body) {
+  const rawNotes = Array.isArray(body?.notes) ? body.notes.slice(0, 100) : [];
+  const notes = rawNotes.map((note) => ({
+    id: String(note?.id || "").slice(0, 80),
+    title: String(note?.title || "Note").slice(0, 64),
+    html: String(note?.html || "").slice(0, 850_000),
+    createdAt: Math.max(0, Math.floor(Number(note?.createdAt || 0))),
+    updatedAt: Math.max(0, Math.floor(Number(note?.updatedAt || 0)))
+  })).filter((note) => note.id);
+  const deleted = {};
+  if (body?.deleted && typeof body.deleted === "object") {
+    Object.entries(body.deleted).slice(0, 500).forEach(([id, at]) => {
+      const cleanId = String(id || "").slice(0, 80);
+      const cleanAt = Math.max(0, Math.floor(Number(at || 0)));
+      if (cleanId && cleanAt) deleted[cleanId] = cleanAt;
+    });
+  }
+  return { notes, deleted };
 }
 
 async function sendTransactionalEmail(env, { to, subject, text, html }) {

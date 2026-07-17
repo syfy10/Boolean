@@ -199,6 +199,25 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "record_debug_evidence",
+      description:
+        "Record one grounded checkpoint in Boolean's required bug-fix workflow. " +
+        "Use reproduced only after a real pre-edit command/page/preview check shows the reported failure; " +
+        "root_cause only after inspecting the responsible code; verified only after repeating the original check following the latest edit.",
+      parameters: {
+        type: "object",
+        properties: {
+          stage: { type: "string", enum: ["reproduced", "root_cause", "verified"] },
+          summary: { type: "string", description: "Concrete observed behavior, mechanism, or successful before/after result" },
+          method: { type: "string", description: "Command, URL, browser sequence, or test used to obtain this evidence" }
+        },
+        required: ["stage", "summary"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "git_status",
       description: "Show the git status of the project (current branch + changed files). Use to see what has changed before committing.",
       parameters: { type: "object", properties: {}, required: [] }
@@ -1284,6 +1303,15 @@ function formatPlan(args) {
   return `Plan (${done}/${steps.length} done):\n${lines.join("\n")}`;
 }
 
+function formatDebugEvidence(args) {
+  const stage = String(args.stage || "").trim();
+  const summary = String(args.summary || "").replace(/\s+/g, " ").trim();
+  if (!["reproduced", "root_cause", "verified"].includes(stage)) return "error: invalid debug evidence stage";
+  if (!summary) return "error: debug evidence summary is required";
+  const method = String(args.method || "").replace(/\s+/g, " ").trim();
+  return `Recorded ${stage} debug evidence: ${summary}${method ? ` (method: ${method})` : ""}`;
+}
+
 // ── symbol-aware code search ──
 function findSymbol(args, resolve) {
   const sym = String(args.symbol || "").trim();
@@ -1546,6 +1574,8 @@ export async function executeTool(name, args, ctx) {
         return searchFiles(args, resolve);
       case "update_plan":
         return formatPlan(args);
+      case "record_debug_evidence":
+        return formatDebugEvidence(args);
       case "git_status":
       case "git_diff":
       case "git_commit":

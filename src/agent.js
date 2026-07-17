@@ -134,7 +134,7 @@ export function projectBrief(projectDir) {
 // the model is asked to emit a fenced ```tool block containing JSON.
 const ARTIFACT_TOOL_NAMES = new Set([
   "create_project", "list_dir", "read_file", "write_file", "run_project", "run_command", "read_page",
-  "create_artifact", "generate_image", "run_guarded"
+  "create_artifact", "generate_image", "run_guarded", "record_debug_evidence"
 ]);
 const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
 
@@ -479,6 +479,7 @@ export async function runTurn(ctx, messages) {
   const artifactActionRequired = requiresArtifactAction(messages);
   const controller = createAgentController({
     objective: ctx.objective || ctx.latestUserText,
+    taskContext: ctx.taskContext || "",
     artifactRequired: artifactActionRequired,
     projectDir: ctx.projectDir,
     persisted: ctx.controllerState
@@ -492,6 +493,11 @@ export async function runTurn(ctx, messages) {
     controller.noteTool(name, args, result);
     publishController();
   };
+  const executeControllerTool = async (name, args) => {
+    const gate = controller.allowTool(name, args);
+    if (!gate.allowed) return `error: ${gate.reason}`;
+    return await executeTool(name, args, ctx);
+  };
   const withController = (source) => source.map((message, index) => index === 0 && message?.role === "system"
     ? { ...message, content: `${message.content}\n\n${controller.prompt()}` }
     : message);
@@ -499,7 +505,7 @@ export async function runTurn(ctx, messages) {
   const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
   if (directAction) {
     onStatus(`running ${directAction.name}...`);
-    const result = await executeTool(directAction.name, directAction.args, ctx);
+    const result = await executeControllerTool(directAction.name, directAction.args);
     noteControllerTool(directAction.name, directAction.args, result);
     emitStep({ name: directAction.name, args: directAction.args, result });
     const pageLabel = String(directAction.args.page || "Windows").replace(/_/g, " ");
@@ -520,7 +526,7 @@ export async function runTurn(ctx, messages) {
     const action = bootstrap || (inferred ? { name: "create_project", args: inferred } : null);
     if (action) {
       onStatus(projectBound ? "checking the current project..." : "creating the project workspace...");
-      const result = await executeTool(action.name, action.args, ctx);
+      const result = await executeControllerTool(action.name, action.args);
       noteControllerTool(action.name, action.args, result);
       emitStep({ name: action.name, args: action.args, result });
       checkpoint();
@@ -575,17 +581,6 @@ export async function runTurn(ctx, messages) {
   let autoContinues = 0;
   const MAX_AUTO_CONTINUE = 8; // finish multi-step builds without looping forever
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
-  let lastToolFingerprint = "";
-  let repeatedToolCount = 0;
-  const recordToolExecution = (name, args, result) => {
-    const fingerprint = JSON.stringify({ name, args: args || {}, result: String(result || "").slice(0, 2000) });
-    repeatedToolCount = fingerprint === lastToolFingerprint ? repeatedToolCount + 1 : 1;
-    lastToolFingerprint = fingerprint;
-    if (repeatedToolCount >= 4) {
-      throw new Error(`The model repeated the same '${name}' action four times without making progress. The task was checkpointed; Continue can resume it.`);
-    }
-  };
-
   for (;;) {
     turn++;
     if (signal?.aborted) return stopped();
@@ -697,8 +692,7 @@ export async function runTurn(ctx, messages) {
       messages.push(msg);
       for (const { call, name, args } of parsedCalls) {
         onStatus(`running ${name}…`);
-        const result = await executeTool(name, args, ctx);
-        recordToolExecution(name, args, result);
+        const result = await executeControllerTool(name, args);
         noteControllerTool(name, args, result);
         const toolContent = result;
         emitStep({ name, args, result });
@@ -723,8 +717,7 @@ export async function runTurn(ctx, messages) {
     if (call) {
       messages.push({ role: "assistant", content: assistantContent });
       onStatus(`running ${call.name}…`);
-      const result = await executeTool(call.name, call.arguments, ctx);
-      recordToolExecution(call.name, call.arguments, result);
+      const result = await executeControllerTool(call.name, call.arguments);
       noteControllerTool(call.name, call.arguments, result);
       const toolResultContent = result;
       emitStep({ name: call.name, args: call.arguments, result });

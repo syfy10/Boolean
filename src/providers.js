@@ -37,12 +37,6 @@ export async function resolveTarget(config, onStatus = () => {}) {
   }
   if (CLOUD[config.provider]) {
     const p = config[config.provider];
-    if (config.provider === "zaiCoding" && !p.approvedUse) {
-      throw new Error("Confirm that Z.AI has approved Boolean or that your use is supported before using the Coding Plan.");
-    }
-    if (config.provider === "customApi" && /api\.z\.ai\/api\/coding\/paas(?:\/v\d+)?\/?$/i.test(providerBaseUrl(p.baseUrl)) && !p.approvedUse) {
-      throw new Error("Confirm that Z.AI has approved Boolean or that your use is supported before using the Coding Plan.");
-    }
     if (!p.apiKey) {
       throw new Error(`no ${CLOUD[config.provider]} API key set — add it in Settings or run: /key ${config.provider} <key>`);
     }
@@ -362,8 +356,6 @@ export async function backendUp(config) {
       return engine.listLocalModels().length > 0 && !!engine.findEngineBinary();
     }
     if (CLOUD[config.provider]) {
-      if (config.provider === "zaiCoding" && !config.zaiCoding?.approvedUse) return false;
-      if (config.provider === "customApi" && /api\.z\.ai\/api\/coding\/paas(?:\/v\d+)?\/?$/i.test(providerBaseUrl(config.customApi?.baseUrl)) && !config.customApi?.approvedUse) return false;
       return !!config[config.provider].apiKey;
     }
     return false;

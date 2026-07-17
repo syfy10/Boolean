@@ -1,5 +1,5 @@
 BOOLEAN END USER LICENSE AGREEMENT
-Boolean - Version 1.1, July 2026
+Boolean - Version 1.2, July 17, 2026
 
 IMPORTANT: READ CAREFULLY BEFORE INSTALLING OR USING BOOLEAN.
 By installing or using Boolean ("the Software"), you agree to be bound by this
@@ -25,6 +25,12 @@ Software installation and administrator-level network changes always require a
 separate confirmation and may show a Windows UAC prompt. Boolean does not run
 permanently as administrator and does not bypass Windows consent prompts.
 
+Boolean may store task objectives, plans, debugging evidence, tool results,
+checkpoints, schedules, selected models, and approval settings locally so work
+can continue after an interruption or run at a scheduled time. Scheduled and
+unattended actions can execute later without the user actively typing. You are
+responsible for reviewing their instructions, permissions, and destinations.
+
 3. YOUR RESPONSIBILITY
 You are responsible for:
   (a) anything the Software does on your computer with your approval;
@@ -36,6 +42,8 @@ You are responsible for:
   (f) reviewing what project files, screenshots, browser content, notes, or
       tool arguments are sent to any online provider or remote MCP server.
   (g) reviewing email recipients and contents before approving any send action.
+  (h) reviewing scheduled tasks, webhooks, and unattended actions before
+      enabling them and removing them when they are no longer needed.
 
 4. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
 Boolean can be used locally without an account. Cloud AI uses an API key you
@@ -43,6 +51,10 @@ supply for a supported third-party provider and does not require Boolean
 sign-in. The provider controls its billing, quotas, retention, and acceptable-
 use terms. Boolean does not grant free AI tokens or sell token packs in this
 version. Optional Boolean account sign-in is separate from AI-provider access.
+Signed-in Boolean administrators may synchronize notepad content through the
+Boolean account service so it is available on other computers using the same
+admin account. Local notes continue to be saved on each computer. The Privacy
+Policy describes the synchronized fields and limits.
 
 5. THIRD-PARTY COMPONENTS AND MODELS
 The Software includes open-source components, including Node.js and llama.cpp.
@@ -55,8 +67,9 @@ You are responsible for reviewing and complying with the license for any
 bundled, downloaded, imported, or cloud-hosted model before using it for your
 own purposes.
 
-Remote MCP servers and API providers are independent third parties. Connecting
-one authorizes Boolean to send protocol requests and relevant tool arguments to
+Remote MCP servers, HTTP agents, API connectors, and API providers are
+independent third parties. Connecting one authorizes Boolean to send protocol
+requests, relevant task content, tool arguments, and configured credentials to
 that service. API keys and connector tokens do not grant rights beyond the
 provider's own plan and terms. In particular, Z.AI Coding Plan access may be
 used only if Z.AI has approved Boolean or otherwise supports that use.
@@ -101,9 +114,12 @@ support, and service notices.
 7. PRIVACY
 See the accompanying PRIVACY.txt. In short: local mode runs on your computer.
 Data leaves your computer only when you choose features that require it, such
-as cloud providers, Boolean account sign-in, model downloads, web
-browsing, remote MCP connections, software updates, installation helpers, or
-online inspection of screenshots, pages, notes, and project files. Optional
+as cloud providers, Boolean account sign-in, model downloads, web research,
+image generation, remote MCP or HTTP-agent connections, scheduled webhooks,
+software updates, installation helpers, or online inspection of screenshots,
+pages, notes, and project files. Signed-in administrator accounts also send
+notepad content to Boolean's account service for cross-computer sync. Scheduled
+online actions send their configured task and relevant context when they run. Optional
 email connectors send OAuth and mail requests directly to Google or Microsoft;
 transactional Boolean notices may be delivered through Cloudflare Email Service.
 

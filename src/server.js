@@ -105,7 +105,10 @@ async function cloudRequest(config, endpoint, options = {}) {
       err.code = "cloud_auth_required";
       throw err;
     }
-    throw new Error(data.message || data.error || `Cloud backend error ${res.status}`);
+    const err = new Error(data.message || data.error || `Cloud backend error ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
   }
   return data;
 }
@@ -452,26 +455,81 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     newThread();
   }
 
-  // Scheduled AI prompts are deliberately answer-only. They can use the
-  // associated chat for context, but cannot invoke tools while the user is
-  // away from the app to approve an action.
+  // Scheduled prompts remain answer-only. A separate, explicit agent action
+  // can use tools unattended when Auto-approve was enabled at schedule time.
   setAutomationActionHandler(async (item) => {
     if (item.actionType === "reminder") return { code: 0, output: item.text || item.name };
     if (item.actionType === "open_url") return { code: 0, output: `Ready to open ${item.url}`, url: item.url };
-    if (item.actionType !== "prompt") return { code: 1, output: `Unsupported scheduled action: ${item.actionType}` };
+    if (!["prompt", "agent"].includes(item.actionType)) return { code: 1, output: `Unsupported scheduled action: ${item.actionType}` };
 
     const t = threads.get(item.threadId) || reuseOrNewThread();
     const text = String(item.text || "").trim();
     if (!text) return { code: 1, output: "The scheduled AI prompt is empty.", threadId: t.id };
     const content = `Scheduled task: ${text}`;
+    const provider = item.provider && config[item.provider] ? item.provider : config.provider;
+    const runConfig = {
+      ...config,
+      provider,
+      projectsDir: t.projectDir || item.cwd || config.projectsDir,
+      [provider]: { ...(config[provider] || {}), ...(item.model ? { model: item.model } : {}) }
+    };
     t.messages.push({ role: "user", content });
     t.log.push({ t: "user", text: content, at: Date.now(), scheduled: true });
+    beginPendingTask(t, content);
     if (t.title === "New chat") t.title = String(item.name || shortThreadTitle(text)).slice(0, 42);
     t.updatedAt = Date.now();
     persist();
 
     try {
-      const target = await resolveTarget(config);
+      if (item.actionType === "agent") {
+        if (!item.autoApprove) throw new Error("This scheduled AI task needs Auto-approve. Edit the task while Auto-approve is enabled, or use Ask AI (answer only).");
+        const taskPrompt = activeTaskPrompt(t.pendingTask);
+        const brief = t.kind === "project" && t.projectDir ? projectBrief(t.projectDir) : "";
+        if (t.messages[0]?.role === "system") {
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, true, runConfig) + brief + (taskPrompt ? `\n\n${taskPrompt}` : "") };
+        }
+        const abort = new AbortController();
+        let replyModel = currentModel(runConfig);
+        let runIn = 0, runOut = 0, runEst = false;
+        const ctx = {
+          config: runConfig,
+          projectDir: t.kind === "project" ? t.projectDir || "" : "",
+          signal: abort.signal,
+          objective: t.pendingTask?.objective || text,
+          taskContext: t.pendingTask?.context || "",
+          controllerState: t.pendingTask?.controller || null,
+          approve: async () => true,
+          approveAlways: async () => true,
+          onStatus: () => {},
+          onToken: () => {},
+          onOptimize: () => {},
+          onUsage: (usage) => {
+            runIn += usage.input || 0; runOut += usage.output || 0; runEst = runEst || !!usage.estimated;
+            if (usage.model) replyModel = usage.model;
+            recordUsage(usage.provider, usage.model, usage.input || 0, usage.output || 0);
+          },
+          onStep: (step) => t.log.push({ t: "tool", name: step.name, summary: stepSummary(step.name, step.args), result: step.result, scheduled: true }),
+          onImage: (src, caption) => t.log.push({ t: "image", src, caption: caption || "", at: Date.now(), scheduled: true }),
+          onController: (controller) => { if (t.pendingTask) t.pendingTask.controller = controller; },
+          onCheckpoint: () => { t.updatedAt = Date.now(); persist(); },
+          onBrowse: () => {},
+          visibleBrowser: async () => "The visible browser is unavailable during an unattended scheduled task. Use background web tools instead.",
+          captureScreenshot: async () => ({ ok: false, error: "Visible screenshots are unavailable during an unattended scheduled task." }),
+          notepad: async () => "The visible notepad is unavailable during an unattended scheduled task."
+        };
+        ctx.runSubagent = (task, options) => runSubagent(ctx, task, options);
+        const answer = String(await runTurn(ctx, t.messages) || "").trim();
+        if (!answer) throw new Error("The selected model returned an empty response.");
+        const aiLabel = shortAiName(provider, replyModel);
+        t.log.push({ t: "ai", text: answer, at: Date.now(), provider, model: replyModel, aiLabel, scheduled: true });
+        if (runIn || runOut) t.log.push({ t: "usage", input: runIn, output: runOut, estimated: runEst });
+        if (t.pendingTask) { t.pendingTask.state = "completed"; t.pendingTask.updatedAt = Date.now(); }
+        t.updatedAt = Date.now();
+        persist();
+        return { code: 0, output: answer, threadId: t.id };
+      }
+
+      const target = await resolveTarget(runConfig);
       const recent = t.messages
         .filter((message) => (message.role === "user" || message.role === "assistant") && message.content && !message.tool_calls?.length)
         .slice(-18)
@@ -483,8 +541,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       const answerMessage = await chatCompletion(target, prompt);
       const answer = String(answerMessage?.content || "").trim();
       if (!answer) throw new Error("The selected model returned an empty response.");
-      const provider = config.provider || "local";
-      const model = target.model || currentModel(config);
+      const model = target.model || currentModel(runConfig);
       const aiLabel = shortAiName(provider, model);
       t.messages.push({ role: "assistant", content: answer });
       t.log.push({ t: "ai", text: answer, at: Date.now(), provider, model, aiLabel, scheduled: true });
@@ -498,6 +555,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       return { code: 0, output: answer, threadId: t.id };
     } catch (error) {
       const message = String(error?.message || error);
+      if (t.pendingTask) { t.pendingTask.state = "interrupted"; t.pendingTask.updatedAt = Date.now(); }
       t.log.push({ t: "error", text: `Scheduled task failed: ${message}`, scheduled: true });
       t.updatedAt = Date.now();
       persist();
@@ -663,9 +721,6 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const provider = String(body.provider || "").trim();
         if (!CLOUD[provider]) return json({ error: "invalid_provider" }, 400);
         if (!config[provider]?.apiKey) return json({ error: "api_key_required" }, 401);
-        if (provider === "zaiCoding" && !config.zaiCoding?.approvedUse) {
-          return json({ error: "approval_required", message: "Confirm approved or supported use first." }, 400);
-        }
         try {
           const target = await resolveTarget({ ...config, provider });
           const reply = await chatCompletion(target, [
@@ -724,6 +779,30 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         config.cloudBackend = { ...(config.cloudBackend || {}), user: data.user || null, tokens: data.tokens || null };
         saveConfig(config);
         json({ ok: true, cloudBackend: publicCloudBackend(config) });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/cloud/notes") {
+        try {
+          const data = await cloudRequest(config, "/notes", { method: "GET" });
+          json(data);
+        } catch (err) {
+          json({ error: err?.data?.error || "cloud_notes_unavailable", message: err.message }, err.status || 502);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/cloud/notes") {
+        const body = await readBody(req);
+        try {
+          const data = await cloudRequest(config, "/notes", {
+            method: "PUT",
+            body: JSON.stringify(body)
+          });
+          json(data);
+        } catch (err) {
+          json(err?.data || { error: "cloud_notes_unavailable", message: err.message }, err.status || 502);
+        }
         return;
       }
 
@@ -1638,6 +1717,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           browserUrl,
           signal: abort.signal,
           objective: t.pendingTask?.objective || "",
+          taskContext: t.pendingTask?.context || "",
           controllerState: t.pendingTask?.controller || null,
           onStatus: (text) => send({ type: "status", text }),
           onToken: (text) => send({ type: "token", text }),

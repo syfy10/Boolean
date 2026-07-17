@@ -5,7 +5,7 @@ import { AgentController } from "../src/controller.js";
 
 test("artifact tasks cannot complete before a change and post-change verification", () => {
   const controller = new AgentController({
-    objective: "Fix the app layout",
+    objective: "Update the app layout",
     artifactRequired: true,
     projectDir: "C:\\demo"
   });
@@ -32,7 +32,7 @@ test("project preparation alone is not treated as implementation", () => {
 
 test("existing projects must be inspected before completion", () => {
   const controller = new AgentController({
-    objective: "Fix the existing app",
+    objective: "Update the existing app",
     artifactRequired: true,
     projectDir: "C:\\project"
   });
@@ -73,4 +73,155 @@ test("ordinary questions do not require tools", () => {
   const controller = new AgentController({ objective: "What is a Boolean value?" });
   assert.equal(controller.actionRequired, false);
   assert.equal(controller.evaluateCompletion("A Boolean is true or false.").complete, true);
+});
+
+test("debug tasks require reproduction and root-cause evidence before editing", () => {
+  const controller = new AgentController({
+    objective: "Fix the notepad first-word caret bug",
+    artifactRequired: true,
+    projectDir: "C:\\project"
+  });
+
+  assert.equal(controller.snapshot().debugRequired, true);
+  assert.equal(controller.allowTool("edit_file").allowed, false);
+
+  controller.noteTool("read_file", { path: "ui.html" }, "current editor code");
+  controller.noteTool("run_command", { command: "npm test -- notepad" }, "error: first word reversed");
+  controller.noteTool("record_debug_evidence", {
+    stage: "reproduced",
+    summary: "Typing Firstword produces reversed characters before any edit."
+  }, "Recorded reproduced debug evidence");
+  assert.equal(controller.allowTool("edit_file").allowed, false);
+
+  controller.noteTool("record_debug_evidence", {
+    stage: "root_cause",
+    summary: "Input refresh replaces the active text node and invalidates the caret."
+  }, "Recorded root-cause debug evidence");
+  assert.equal(controller.allowTool("edit_file").allowed, true);
+});
+
+test("debug tasks cannot complete until the original scenario passes after the fix", () => {
+  const controller = new AgentController({
+    objective: "Repair the broken notepad typing behavior",
+    artifactRequired: true,
+    projectDir: "C:\\project"
+  });
+  controller.noteTool("read_file", { path: "ui.html" }, "current editor code");
+  controller.noteTool("run_project", {}, "Preview shows the first word reversed");
+  controller.noteTool("record_debug_evidence", { stage: "reproduced", summary: "First word reverses in the preview." }, "recorded");
+  controller.noteTool("record_debug_evidence", { stage: "root_cause", summary: "Selection is invalidated by DOM replacement." }, "recorded");
+  controller.noteTool("edit_file", { path: "ui.html" }, "updated ui.html");
+  controller.noteTool("run_project", {}, "Preview now types Firstword second in order");
+
+  assert.match(controller.evaluateCompletion("Fixed.").reason, /original reproduction/i);
+  controller.noteTool("record_debug_evidence", { stage: "verified", summary: "The same typing sequence now passes." }, "recorded");
+  assert.equal(controller.evaluateCompletion("Fixed and verified.").complete, true);
+  assert.equal(controller.snapshot().phase, "completed");
+});
+
+test("debug evidence survives task continuation", () => {
+  const first = new AgentController({ objective: "Fix the broken layout", artifactRequired: true, projectDir: "C:\\project" });
+  first.noteTool("inspect_page_layout", { url: "http://localhost:3210" }, "panel overflows by 20px");
+  first.noteTool("record_debug_evidence", { stage: "reproduced", summary: "Panel exceeds its parent by 20px." }, "recorded");
+  first.noteTool("read_file", { path: "style.css" }, "width: 100vw");
+  first.noteTool("record_debug_evidence", { stage: "root_cause", summary: "100vw ignores the parent rail width." }, "recorded");
+
+  const restored = new AgentController({ persisted: first.snapshot() });
+  assert.match(restored.snapshot().reproductionEvidence, /20px/);
+  assert.match(restored.snapshot().rootCauseEvidence, /100vw/);
+  assert.equal(restored.allowTool("edit_file").allowed, true);
+});
+
+test("working memory survives continuation and stays compact", () => {
+  const controller = new AgentController({
+    objective: "Fix the scanner panel",
+    taskContext: [
+      "Only work inside C:\\demo\\sandbox.",
+      "Do not deploy or use the browser.",
+      "Keep the existing authentication behavior.",
+      "The scanner drifts while scrolling."
+    ].join("\n"),
+    artifactRequired: true,
+    projectDir: "C:\\demo\\sandbox"
+  });
+  controller.noteTool("read_file", { path: "style.css" }, "current styles");
+  const memory = controller.workingMemory();
+  assert.match(memory, /Fix the scanner panel/);
+  assert.match(memory, /Do not deploy or use the browser/i);
+  assert.match(memory, /style\.css/);
+  assert.ok(memory.length <= 3200);
+
+  const restored = new AgentController({ persisted: controller.snapshot() });
+  assert.equal(restored.workingMemory(), memory);
+});
+
+test("working memory redacts common secrets", () => {
+  const controller = new AgentController({
+    objective: "Use sk-exampleSecret123456 to test the provider",
+    taskContext: "Authorization: Bearer secret.token.value"
+  });
+  const memory = controller.workingMemory();
+  assert.doesNotMatch(memory, /exampleSecret|secret\.token/);
+  assert.match(memory, /\[redacted\]/);
+});
+
+test("task contract blocks browser, deploy, and paths outside an allowed project", () => {
+  const controller = new AgentController({
+    objective: "Fix the sandbox styles",
+    taskContext: "Only work in the sandbox. Do not use browser. Do not deploy.",
+    artifactRequired: true,
+    projectDir: "C:\\demo\\sandbox"
+  });
+  assert.equal(controller.allowTool("visible_browser_open", { url: "http://localhost:3000" }).allowed, false);
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, false);
+  assert.equal(controller.allowTool("read_file", { path: "C:\\demo\\production\\app.js" }).allowed, false);
+  assert.equal(controller.allowTool("read_file", { path: "C:\\demo\\sandbox\\app.js" }).allowed, true);
+});
+
+test("task contract discovers an explicit sandbox root from continued chat context", () => {
+  const controller = new AgentController({
+    objective: "Remove the sandbox login",
+    taskContext: "Only work inside this sandbox folder:\n\nC:\\demo\\green scan sandbox\nDo not deploy."
+  });
+  assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\green scan sandbox\\app.js" }).allowed, true);
+  assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\production\\app.js" }).allowed, false);
+});
+
+test("read-only mode allows checks but blocks side-effect commands", () => {
+  const controller = new AgentController({ objective: "Review this code", taskContext: "Read-only. Do not edit anything." });
+  assert.equal(controller.allowTool("run_command", { command: "npm test" }).allowed, true);
+  assert.equal(controller.allowTool("run_command", { command: "npm install lodash" }).allowed, false);
+  assert.equal(controller.allowTool("run_background", { command: "npm run dev" }).allowed, false);
+});
+
+test("command path guard handles quoted paths and command separators", () => {
+  const controller = new AgentController({ objective: "Test sandbox", projectDir: "C:\\demo\\sandbox" });
+  assert.equal(controller.allowTool("run_command", { command: "Set-Location 'C:\\demo\\sandbox'; npm test" }).allowed, true);
+  assert.equal(controller.allowTool("run_command", { command: "Get-Content C:\\demo\\production\\app.js" }).allowed, false);
+});
+
+test("an explicit deploy task permits deploy commands", () => {
+  const controller = new AgentController({ objective: "Deploy the current project" });
+  assert.equal(controller.snapshot().contract.mode, "deploy");
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
+});
+
+test("loop guard blocks a third identical inspection and resets after a change", () => {
+  const controller = new AgentController({ objective: "Inspect and update the app", artifactRequired: true });
+  const args = { path: "app.css" };
+  controller.noteTool("read_file", args, "first read");
+  controller.noteTool("read_file", args, "second read");
+  assert.match(controller.allowTool("read_file", args).reason, /Loop guard/i);
+
+  controller.noteTool("write_file", args, "wrote app.css");
+  assert.equal(controller.allowTool("read_file", args).allowed, true);
+});
+
+test("working memory tracks temporary processes and exposes a handoff report", () => {
+  const controller = new AgentController({ objective: "Fix and preview the app", artifactRequired: true });
+  controller.noteTool("run_background", { name: "preview", command: "npm run dev" }, "Started background process 'preview' - running (pid 42).");
+  assert.match(controller.workingMemory(), /Open temporary processes: preview/);
+  assert.match(controller.handoffReport(), /Open processes: preview/);
+  controller.noteTool("stop_process", { name: "preview" }, "stopped 'preview'");
+  assert.doesNotMatch(controller.handoffReport(), /Open processes: preview/);
 });

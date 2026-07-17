@@ -349,6 +349,9 @@
   .note-more-item:hover{ background:var(--note-tab); }
   .note-more-item .mi{ width:17px; color:var(--note-btn); text-align:center; font-size:13px; }
   .note-more-item.on{ background:var(--note-tab); font-weight:600; }
+  .note-clock-icon{ width:13px; height:13px; display:block; position:relative; border:1.4px solid currentColor; border-radius:50%; }
+  .note-clock-icon:before{ content:""; position:absolute; left:5px; top:2px; width:1.3px; height:4px; border-radius:1px; background:currentColor; }
+  .note-clock-icon:after{ content:""; position:absolute; left:5px; top:5px; width:3.5px; height:1.3px; border-radius:1px; background:currentColor; transform:rotate(28deg); transform-origin:left center; }
   /* PDF / print: isolate the note content on the page */
   #printArea{ display:none; }
   @media print{
@@ -924,6 +927,8 @@
     background:var(--bg); color:var(--text); padding:8px 9px; font:13px var(--ui); outline:0; }
   .schedule-field textarea{ min-height:82px; resize:vertical; line-height:1.4; }
   .schedule-field input:focus,.schedule-field select:focus,.schedule-field textarea:focus{ border-color:var(--green); }
+  .schedule-ai-summary{ grid-column:1/-1; padding:8px 9px; border:1px solid var(--border); border-radius:7px; color:var(--dim); font-size:11px; line-height:1.4; }
+  .schedule-ai-summary b{ color:var(--text); font-weight:600; }
   .automation-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; }
   .automation-list{ display:flex; flex-direction:column; gap:2px; }
   .automation-empty{ color:var(--dim); padding:18px 4px; text-align:center; font-size:12px; }
@@ -956,7 +961,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean</b><small><span id="aboutVersion">v0.09.15</span> · Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean <span id="aboutVersion">v0.09.18</span></b><small>Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -1101,10 +1106,6 @@
                 <button class="zai-key-paste" id="apiConnectionPaste" type="button" title="Paste API key" aria-label="Paste API key"><span class="paste-ico" aria-hidden="true"></span></button>
               </div>
             </div>
-            <label class="setrow" id="apiApprovedRow" style="align-items:flex-start;cursor:pointer;display:none">
-              <span>I have approved or supported use<div class="hint">Required for Z.AI Coding Plan connections.</div></span>
-              <span class="switch"><input type="checkbox" id="apiConnectionApproved"><span class="slider"></span></span>
-            </label>
             <div style="display:flex;gap:6px;margin-top:5px">
               <button class="minibtn" id="apiConnectionSave" style="flex:1">Save &amp; use</button>
               <button class="minibtn dangerbtn" id="apiConnectionRemove" style="display:none">Remove</button>
@@ -1134,10 +1135,6 @@
                 <button class="zai-key-paste" id="zaiCodingPaste" type="button" title="Paste API key" aria-label="Paste API key"><span class="paste-ico" aria-hidden="true"></span></button>
               </div>
             </div>
-            <label class="setrow" style="align-items:flex-start;cursor:pointer">
-              <span>I have approved or supported use<div class="hint">Required by Z.AI's Coding Plan policy. Boolean is not currently listed as an officially supported tool.</div></span>
-              <span class="switch"><input type="checkbox" id="zaiCodingApproved"><span class="slider"></span></span>
-            </label>
             <div style="display:flex;gap:6px;margin-top:5px">
               <button class="minibtn" id="zaiCodingSave" style="flex:1">Save &amp; use</button>
               <button class="minibtn" id="zaiCodingTest" style="flex:1">Test</button>
@@ -1478,11 +1475,12 @@
   <div class="note-actions">
     <button class="note-btn" id="noteUndo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button class="note-btn" id="noteRedo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
-    <button class="note-btn" id="noteSnip" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
     <button class="note-btn" id="noteSend" title="Send selection to message">↗</button>
+    <button class="note-btn" id="noteSchedule" title="Schedule selected text" aria-label="Schedule selected text"><span class="note-clock-icon"></span></button>
     <div class="note-more-wrap">
       <button class="note-btn" id="noteMore" title="More note actions" aria-label="More note actions">⋯</button>
       <div class="note-more-menu" id="noteMoreMenu">
+        <button class="note-more-item" id="noteSnip"><span class="mi"><span class="snip-icon"></span></span>Insert screenshot</button>
         <button class="note-more-item" id="noteCut"><span class="mi">✂</span>Cut</button>
         <button class="note-more-item" id="noteCopy"><span class="mi">⧉</span>Copy</button>
         <button class="note-more-item" id="noteNumbers"><span class="mi">#</span>Line numbers</button>
@@ -1599,12 +1597,13 @@
 <div class="app-modal" id="scheduleModal" aria-hidden="true">
   <div class="app-modal-card schedule-card" role="dialog" aria-modal="true" aria-labelledby="scheduleTitle">
     <h2 id="scheduleTitle">Schedule task</h2>
-    <div class="app-modal-body">Create a reminder or let the selected AI answer in this chat later.</div>
+    <div class="app-modal-body">Create a reminder, get an answer later, or let the selected AI perform a task.</div>
     <div class="schedule-form">
       <label class="schedule-field wide">Task name<input id="scheduleName" maxlength="80" placeholder="Follow up"></label>
       <label class="schedule-field">When<input id="scheduleWhen" type="datetime-local"></label>
       <label class="schedule-field">Repeat<select id="scheduleRepeat"><option value="once">Once</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
-      <label class="schedule-field wide">Action<select id="scheduleAction"><option value="reminder">Remind me</option><option value="prompt">Ask AI in this chat</option><option value="open_url">Open a web page</option><option value="command">Run a PowerShell command</option><option value="webhook">Call an HTTPS webhook</option></select></label>
+      <label class="schedule-field wide">Action<select id="scheduleAction"><option value="reminder">Remind me</option><option value="prompt">Ask AI (answer only)</option><option value="agent">Run AI task (uses tools)</option><option value="open_url">Open a web page</option><option value="command">Run a PowerShell command</option><option value="webhook">Call an HTTPS webhook</option></select></label>
+      <div class="schedule-ai-summary" id="scheduleAiSummary" hidden></div>
       <label class="schedule-field wide"><span id="scheduleContentLabel">Reminder</span><textarea id="scheduleContent" placeholder="What should Boolean remind you about?"></textarea></label>
     </div>
     <div class="app-modal-actions">
@@ -1718,14 +1717,26 @@
   const composerWrap=document.querySelector(".composer-wrap");
   const composerPill=document.querySelector(".composer");
   const composerBase=document.querySelector(".composer-base");
-  const syncComposerHeight=()=>document.documentElement.style.setProperty("--composer-h",`${Math.ceil(composerWrap?.getBoundingClientRect().height||106)}px`);
+  let chatPinnedToBottom=true;
+  const chatBottomTolerance=()=>Math.ceil(composerWrap?.getBoundingClientRect().height||106)+60;
+  const pinChatAfterLayout=()=>{
+    if(!chatPinnedToBottom) return;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>scrollDown()));
+  };
+  const syncComposerHeight=()=>{
+    document.documentElement.style.setProperty("--composer-h",`${Math.ceil(composerWrap?.getBoundingClientRect().height||106)}px`);
+    pinChatAfterLayout();
+  };
   const syncComposerPillHeight=()=>document.documentElement.style.setProperty("--composer-pill-h",`${Math.ceil(composerPill?.getBoundingClientRect().height||52)}px`);
   const syncComposerBaseHeight=()=>document.documentElement.style.setProperty("--composer-base-h",`${Math.ceil(composerBase?.getBoundingClientRect().height||56)}px`);
   const syncComposerRail=()=>document.documentElement.style.setProperty("--chat-scrollbar",`${Math.max(0,chat.offsetWidth-chat.clientWidth)}px`);
+  chat.addEventListener("scroll",()=>{
+    chatPinnedToBottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<=chatBottomTolerance();
+  },{passive:true});
   if(composerWrap) new ResizeObserver(syncComposerHeight).observe(composerWrap);
   if(composerPill) new ResizeObserver(syncComposerPillHeight).observe(composerPill);
   if(composerBase) new ResizeObserver(syncComposerBaseHeight).observe(composerBase);
-  new ResizeObserver(syncComposerRail).observe(chat);
+  new ResizeObserver(()=>{ syncComposerRail(); pinChatAfterLayout(); }).observe(chat);
   syncComposerHeight();
   syncComposerPillHeight();
   syncComposerBaseHeight();
@@ -1754,7 +1765,7 @@
   }
   function scheduleResponsiveClasses(){
     updateResponsiveClasses();
-    requestAnimationFrame(()=>{ updateResponsiveClasses(); requestAnimationFrame(updateResponsiveClasses); });
+    requestAnimationFrame(()=>{ updateResponsiveClasses(); requestAnimationFrame(()=>{ updateResponsiveClasses(); pinChatAfterLayout(); }); });
   }
   window.addEventListener("resize",scheduleResponsiveClasses);
   window.addEventListener("load",scheduleResponsiveClasses);
@@ -1772,27 +1783,47 @@
     return date.toISOString().slice(0,16);
   }
   function scheduleActionCopy(action){
-    if(action==="prompt") return {label:"AI prompt",placeholder:"What should the selected AI answer later?"};
+    if(action==="prompt") return {label:"AI question",placeholder:"What should the selected AI answer later?"};
+    if(action==="agent") return {label:"AI task",placeholder:"What should the selected AI complete?"};
     if(action==="open_url") return {label:"Web page",placeholder:"https://example.com"};
     if(action==="command") return {label:"PowerShell command",placeholder:"Get-Date"};
     if(action==="webhook") return {label:"HTTPS webhook",placeholder:"https://example.com/hook"};
     return {label:"Reminder",placeholder:"What should Boolean remind you about?"};
   }
   function syncScheduleAction(){
-    const copy=scheduleActionCopy($("scheduleAction").value);
+    const action=$("scheduleAction").value, copy=scheduleActionCopy(action);
     $("scheduleContentLabel").textContent=copy.label;
     $("scheduleContent").placeholder=copy.placeholder;
+    const ai=["prompt","agent"].includes(action), provider=editingAutomationSnapshot?.provider||state.provider||"local";
+    const model=editingAutomationSnapshot?.model||(provider==="local"?state.model:(state.providerModels?.[provider]||state.model));
+    $("scheduleAiSummary").hidden=!ai;
+    if(ai) $("scheduleAiSummary").innerHTML='<b>'+esc(PROVIDER_LABELS[provider]||provider)+'</b> · '+esc(friendlyModelName(model)||"Current model")+(action==="agent"?'<br>Runs unattended with tools. Auto-approve must be enabled when saved.':'<br>Answers in this chat without using tools.');
+  }
+  function parseScheduledNoteText(value){
+    const source=String(value||"").trim();
+    const match=source.match(/(?:^|\s|:)at\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/i);
+    if(!match) return {text:source,when:Date.now()+3600000};
+    let hour=Number(match[1]), minute=Number(match[2]||0);
+    if(hour>23||minute>59) return {text:source,when:Date.now()+3600000};
+    const meridiem=String(match[3]||"").toLowerCase();
+    if(meridiem.startsWith("p")&&hour<12) hour+=12;
+    if(meridiem.startsWith("a")&&hour===12) hour=0;
+    const when=new Date(); when.setHours(hour,minute,0,0);
+    if(when.getTime()<=Date.now()) when.setDate(when.getDate()+1);
+    const text=source.replace(match[0],match[0].startsWith(":")?"":" ").replace(/^\s*:\s*/,"").trim();
+    return {text,when:when.getTime()};
   }
   function openScheduleModal({text="",item=null,range=null}={}){
+    const parsed=item?{text:String(item.text||item.command||item.url||""),when:item.runAt||item.nextRunAt}:parseScheduledNoteText(text);
     editingAutomationId=item?.id||"";
     editingAutomationSnapshot=item?{...item}:null;
     scheduledNoteRange=range?range.cloneRange():null;
     $("scheduleTitle").textContent=item?"Edit scheduled task":"Schedule task";
-    $("scheduleName").value=item?.name||String(text||"Scheduled task").split(/\r?\n/)[0].slice(0,80)||"Scheduled task";
-    $("scheduleWhen").value=localDateTimeValue(item?.runAt||item?.nextRunAt||Date.now()+3600000);
+    $("scheduleName").value=item?.name||String(parsed.text||"Scheduled task").split(/\r?\n/)[0].slice(0,80)||"Scheduled task";
+    $("scheduleWhen").value=localDateTimeValue(parsed.when||Date.now()+3600000);
     $("scheduleRepeat").value=["once","daily","weekly","monthly"].includes(item?.schedule)?item.schedule:"once";
-    $("scheduleAction").value=["reminder","prompt","open_url","command","webhook"].includes(item?.actionType)?item.actionType:"reminder";
-    $("scheduleContent").value=item?(item.text||item.command||item.url||""):String(text||"");
+    $("scheduleAction").value=["reminder","prompt","agent","open_url","command","webhook"].includes(item?.actionType)?item.actionType:"reminder";
+    $("scheduleContent").value=parsed.text;
     syncScheduleAction();
     $("scheduleSave").textContent=item?"Save":"Schedule";
     $("scheduleModal").classList.add("open");
@@ -1991,7 +2022,7 @@
     }
     return html;
   }
-  function scrollDown(){ chat.scrollTop=chat.scrollHeight; }
+  function scrollDown(){ chatPinnedToBottom=true; chat.scrollTop=chat.scrollHeight; }
 
   const timeStr=(at)=>at?new Date(at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
   const timeHtml=(at)=>at?'<div class="msg-time">'+timeStr(at)+'</div>':'<div class="msg-time">'+timeStr(Date.now())+'</div>';
@@ -2153,7 +2184,6 @@
     openai:{name:"OpenAI",baseUrl:"https://api.openai.com/v1",model:"gpt-5.1"},
     claude:{name:"Anthropic",baseUrl:"https://api.anthropic.com/v1",model:"claude-sonnet-5"}
   };
-  const isZaiCodingUrl=url=>/api\.z\.ai\/api\/coding\/paas(?:\/v\d+)?\/?$/i.test(String(url||"").replace(/\/+$/, ""));
   function openConnectorDetail(provider,existing=null){
     const overview=$("connectorOverview"), detail=$("connectorDetail");
     if(!overview||!detail) return;
@@ -2172,8 +2202,6 @@
       $("apiConnectionKeyHint").textContent=existing?.hasKey?"key saved":"not set";
       $("apiConnectionKey").placeholder=existing?.hasKey?"Key saved - paste to replace":"Paste API key";
       $("apiConnectionRemove").style.display=existing?"":"none";
-      $("apiConnectionApproved").checked=!!existing?.approvedUse;
-      $("apiApprovedRow").style.display=isZaiCodingUrl(existing?.baseUrl)?"":"none";
       $("apiConnectionStatus").textContent="";
       setTimeout(()=>$("apiConnectionName").focus(),0);
     }
@@ -2250,13 +2278,12 @@
     const details=state.thirdParty?.zaiCoding||{};
     const hasKey=!!state.keys?.zaiCoding;
     $("zaiCodingModel").value=details.model||"GLM-4.7";
-    $("zaiCodingApproved").checked=!!details.approvedUse;
     $("zaiCodingKeyHint").textContent=hasKey?"key saved":"not set";
     $("zaiCodingKey").value="";
     $("zaiCodingKey").placeholder=hasKey?"Key saved - paste to replace":"Paste Z.AI key";
     $("zaiCodingRemove").style.display=hasKey?"":"none";
-    const ready=hasKey&&details.approvedUse;
-    $("zaiCodingStatus").textContent=ready?"Ready to use from the Cloud model picker.":hasKey?"Confirm approved or supported use to enable this connection.":"Add the Coding Plan API key after Z.AI approves this use.";
+    const ready=hasKey;
+    $("zaiCodingStatus").textContent=ready?"Ready to use from the Cloud model picker.":"Add your Z.AI Coding Plan API key.";
     $("zaiCodingStatus").style.color=ready?"var(--green)":"var(--dim)";
     renderConnectorOverview();
   }
@@ -2368,16 +2395,14 @@
     const baseUrl=$("apiConnectionUrl").value.trim().replace(/\/+$/,"");
     const model=$("apiConnectionModel").value.trim();
     const key=$("apiConnectionKey").value.trim();
-    const needsApproval=isZaiCodingUrl(baseUrl);
     if(!name){ apiConnectionStatus("Enter a connection name.","var(--danger,#d14343)"); return; }
     if(!/^https?:\/\//i.test(baseUrl)){ apiConnectionStatus("Enter a valid http(s) base URL.","var(--danger,#d14343)"); return; }
     if(!model){ apiConnectionStatus("Enter the provider's exact model id.","var(--danger,#d14343)"); return; }
-    if(needsApproval&&!$("apiConnectionApproved").checked){ apiConnectionStatus("Confirm approved or supported Z.AI Coding Plan use.","var(--danger,#d14343)"); return; }
     const c=connectorsState();
     const id=editingApiId||crypto.randomUUID();
     const existing=c.apis.find(item=>item.id===id);
     if(!key&&!existing?.hasKey){ apiConnectionStatus("Paste an API key.","var(--danger,#d14343)"); return; }
-    const item={id,name,baseUrl,model,apiKey:key||(existing?.hasKey?"__keep__":""),approvedUse:needsApproval&&$("apiConnectionApproved").checked,enabled:true};
+    const item={id,name,baseUrl,model,apiKey:key||(existing?.hasKey?"__keep__":""),enabled:true};
     const index=c.apis.findIndex(entry=>entry.id===id);
     if(index>=0) c.apis[index]=item; else c.apis.push(item);
     apiConnectionStatus("Saving…","var(--dim)");
@@ -2564,7 +2589,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.17"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.18"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -2643,6 +2668,7 @@
           tempToast("Signed in to your Boolean account.");
           try{ win.close(); }catch{}
           await refresh();
+          await pullCloudNotes({force:true}).catch(()=>{});
           return;
         }
         if(status.status==="expired") throw new Error("Sign-in expired. Please try again.");
@@ -2661,6 +2687,10 @@
     const ok=await appConfirm("Boolean account",`${user.email||"Signed in"}${role}`,"Sign out");
     if(!ok) return;
     await fetch("/api/cloud/logout",{method:"POST",body:JSON.stringify({})});
+    clearTimeout(cloudNoteTimer);
+    cloudNotesHydrated=false;
+    cloudNotesAccount="";
+    cloudNoteRevision=0;
     tempToast("Signed out.");
     await refresh();
   }
@@ -3285,10 +3315,29 @@
   // ── notepad ──
   let notes=JSON.parse(localStorage.getItem("sazNotes")||"null")||[{id:crypto.randomUUID(),title:"Note 1",html:"",createdAt:Date.now(),updatedAt:Date.now()}];
   let noteId=localStorage.getItem("sazNoteActive")||notes[0].id;
+  let noteDeletes=JSON.parse(localStorage.getItem("booleanNoteDeletes")||"{}");
+  let cloudNoteRevision=0;
+  let cloudNotesHydrated=false;
+  let cloudNotesAccount="";
+  let cloudNoteSyncing=false;
+  let cloudNoteSyncQueued=false;
+  let cloudNoteTimer=null;
   const activeNote=()=>notes.find(n=>n.id===noteId)||notes[0];
   const noteImageHtml=(src,alt="image")=>'<div><img draggable="true" src="'+src+'" alt="'+esc(alt)+'"></div>';
-  function normalizeNoteLines(){
+  function normalizeNoteLines(preserveSelection=false){
     const editor=$("noteEditor");
+    let selectionOffsets=null;
+    if(preserveSelection){
+      const sel=getSelection();
+      if(sel?.rangeCount && editor.contains(sel.anchorNode) && editor.contains(sel.focusNode)){
+        const textOffset=(node,offset)=>{
+          const range=document.createRange();
+          range.selectNodeContents(editor); range.setEnd(node,offset);
+          return range.toString().length;
+        };
+        selectionOffsets={anchor:textOffset(sel.anchorNode,sel.anchorOffset),focus:textOffset(sel.focusNode,sel.focusOffset)};
+      }
+    }
     [...editor.childNodes].forEach(node=>{
       if(node.nodeType===3 && node.textContent.trim()){
         const div=document.createElement("div"); div.textContent=node.textContent; editor.replaceChild(div,node);
@@ -3300,6 +3349,21 @@
       }
     });
     editor.querySelectorAll("img").forEach(img=>img.draggable=true);
+    if(selectionOffsets){
+      const pointAt=(target)=>{
+        const walker=document.createTreeWalker(editor,NodeFilter.SHOW_TEXT);
+        let node,remaining=target,last=null;
+        while((node=walker.nextNode())){
+          last=node;
+          if(remaining<=node.textContent.length) return [node,remaining];
+          remaining-=node.textContent.length;
+        }
+        return last?[last,last.textContent.length]:[editor,editor.childNodes.length];
+      };
+      const [anchorNode,anchorOffset]=pointAt(selectionOffsets.anchor);
+      const [focusNode,focusOffset]=pointAt(selectionOffsets.focus);
+      getSelection()?.setBaseAndExtent(anchorNode,anchorOffset,focusNode,focusOffset);
+    }
   }
   function updateNoteLineNumbers(){
     let n=1;
@@ -3311,12 +3375,103 @@
     });
     document.querySelector(".note-paper").classList.toggle("numbered",!!$("noteEditor").querySelector('[data-numbered="1"]'));
   }
-  function saveNotes(){
-    normalizeNoteLines();
-    updateNoteLineNumbers();
-    const n=activeNote(); if(n){ n.html=$("noteEditor").innerHTML; n.updatedAt=Date.now(); }
+  function adminCloudNotesEnabled(){
+    const cloud=state.cloudBackend||{}, user=cloud.user||{};
+    return !!cloud.signedIn && (user.role==="admin" || user.is_admin===true);
+  }
+  function persistNotesLocal(){
+    const cutoff=Date.now()-90*24*60*60*1000;
+    Object.keys(noteDeletes).forEach(id=>{ if(Number(noteDeletes[id]||0)<cutoff) delete noteDeletes[id]; });
     localStorage.setItem("sazNotes",JSON.stringify(notes));
     localStorage.setItem("sazNoteActive",noteId);
+    localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
+  }
+  function scheduleCloudNoteSync(){
+    if(!adminCloudNotesEnabled()) return;
+    clearTimeout(cloudNoteTimer);
+    cloudNoteTimer=setTimeout(()=>pushCloudNotes(),1500);
+  }
+  function saveNotes({sync=true}={}){
+    updateNoteLineNumbers();
+    const n=activeNote(); if(n){ n.html=$("noteEditor").innerHTML; n.updatedAt=Date.now(); }
+    persistNotesLocal();
+    if(sync) scheduleCloudNoteSync();
+  }
+  function cloudNotePayload(){
+    return {
+      notes:notes.map(n=>({id:n.id,title:n.title||"Note",html:n.html||"",createdAt:Number(n.createdAt||0),updatedAt:Number(n.updatedAt||0)})),
+      deleted:{...noteDeletes}
+    };
+  }
+  function canonicalCloudNotes(value){
+    const list=(Array.isArray(value?.notes)?value.notes:[]).map(n=>({id:String(n.id||""),title:String(n.title||"Note"),html:String(n.html||""),createdAt:Number(n.createdAt||0),updatedAt:Number(n.updatedAt||0)})).sort((a,b)=>a.id.localeCompare(b.id));
+    const deleted=Object.fromEntries(Object.entries(value?.deleted||{}).map(([id,at])=>[id,Number(at||0)]).sort(([a],[b])=>a.localeCompare(b)));
+    return JSON.stringify({notes:list,deleted});
+  }
+  function mergeCloudNotes(remote){
+    const mergedDeletes={...noteDeletes};
+    Object.entries(remote?.deleted||{}).forEach(([id,at])=>{ mergedDeletes[id]=Math.max(Number(mergedDeletes[id]||0),Number(at||0)); });
+    const byId=new Map();
+    [...notes,...(Array.isArray(remote?.notes)?remote.notes:[])].forEach(raw=>{
+      const n={id:String(raw?.id||""),title:String(raw?.title||"Note"),html:String(raw?.html||""),createdAt:Number(raw?.createdAt||0),updatedAt:Number(raw?.updatedAt||0)};
+      if(!n.id) return;
+      const old=byId.get(n.id);
+      if(!old || n.updatedAt>old.updatedAt) byId.set(n.id,n);
+    });
+    const localOrder=new Map(notes.map((n,i)=>[n.id,i]));
+    let merged=[...byId.values()].filter(n=>Number(mergedDeletes[n.id]||0)<n.updatedAt);
+    merged.sort((a,b)=>(localOrder.get(a.id)??10000)-(localOrder.get(b.id)??10000)||a.createdAt-b.createdAt);
+    if(!merged.length) merged=[{id:crypto.randomUUID(),title:"Note 1",html:"",createdAt:Date.now(),updatedAt:Date.now()}];
+    const changed=canonicalCloudNotes({notes,deleted:noteDeletes})!==canonicalCloudNotes({notes:merged,deleted:mergedDeletes});
+    notes=merged; noteDeletes=mergedDeletes;
+    if(!notes.some(n=>n.id===noteId)) noteId=notes[0].id;
+    persistNotesLocal();
+    if(changed && document.activeElement!==$("noteEditor")) loadNote();
+    return changed;
+  }
+  async function writeCloudNotes(retry=true){
+    const response=await fetch("/api/cloud/notes",{method:"POST",body:JSON.stringify({...cloudNotePayload(),revision:cloudNoteRevision})});
+    const data=await response.json().catch(()=>({}));
+    if(response.status===409 && retry){
+      cloudNoteRevision=Number(data.revision||0);
+      mergeCloudNotes(data);
+      return writeCloudNotes(false);
+    }
+    if(!response.ok) throw new Error(data.message||data.error||"Could not sync notes.");
+    cloudNoteRevision=Number(data.revision||cloudNoteRevision);
+    localStorage.setItem("booleanCloudNoteRevision:"+cloudNotesAccount,String(cloudNoteRevision));
+  }
+  async function pullCloudNotes({force=false}={}){
+    if(!adminCloudNotesEnabled() || (!force && document.activeElement===$("noteEditor"))) return;
+    const account=String(state.cloudBackend?.user?.email||state.cloudBackend?.user?.id||"admin").toLowerCase();
+    if(account!==cloudNotesAccount){
+      cloudNotesAccount=account;
+      cloudNoteRevision=Number(localStorage.getItem("booleanCloudNoteRevision:"+account)||0);
+      cloudNotesHydrated=false;
+    }
+    const response=await fetch("/api/cloud/notes");
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data.message||data.error||"Could not load synced notes.");
+    const remoteCanonical=canonicalCloudNotes(data);
+    cloudNoteRevision=Number(data.revision||0);
+    mergeCloudNotes(data);
+    cloudNotesHydrated=true;
+    localStorage.setItem("booleanCloudNoteRevision:"+account,String(cloudNoteRevision));
+    if(canonicalCloudNotes(cloudNotePayload())!==remoteCanonical) await writeCloudNotes();
+  }
+  async function pushCloudNotes(){
+    if(!adminCloudNotesEnabled()) return;
+    if(cloudNoteSyncing){ cloudNoteSyncQueued=true; return; }
+    cloudNoteSyncing=true;
+    try{
+      if(!cloudNotesHydrated) await pullCloudNotes({force:true});
+      else await writeCloudNotes();
+    }catch(err){
+      if(!/forbidden|unauthorized/i.test(String(err?.message||err))) tempToast("Notes remain saved locally; cloud sync will retry.",3500);
+    }finally{
+      cloudNoteSyncing=false;
+      if(cloudNoteSyncQueued){ cloudNoteSyncQueued=false; scheduleCloudNoteSync(); }
+    }
   }
   function noteTextFromHtml(html){
     const d=document.createElement("div"); d.innerHTML=html||"";
@@ -3373,7 +3528,6 @@
   }
   function noteRows(){ return [...$("noteEditor").children].filter(el=>["DIV","P","LI"].includes(el.tagName)); }
   function selectedNoteRows(){
-    normalizeNoteLines();
     const editor=$("noteEditor"), sel=getSelection(), rows=noteRows();
     if(!sel||!sel.rangeCount||!editor.contains(sel.anchorNode)) return [];
     if(sel.isCollapsed){
@@ -3472,7 +3626,7 @@
   $("notesToggle").onclick=()=>openNotes(!document.body.classList.contains("notes-on"),{remember:true});
   $("noteClose").onclick=()=>openNotes(false,{remember:true});
   $("noteNew").onclick=()=>{ saveNotes(); const n={id:crypto.randomUUID(),title:"Note "+(notes.length+1),html:"",createdAt:Date.now(),updatedAt:Date.now()}; notes.push(n); noteId=n.id; loadNote(); saveNotes(); };
-  $("noteDelete").onclick=async()=>{ if(notes.length<=1){ $("noteEditor").innerHTML=""; saveNotes(); return; } if(!await appConfirm("Delete note?","\""+(activeNote().title||"This note")+"\" will be permanently deleted. This can't be undone.","Delete",true)) return; notes=notes.filter(n=>n.id!==noteId); noteId=notes[0].id; loadNote(); saveNotes(); };
+  $("noteDelete").onclick=async()=>{ if(notes.length<=1){ $("noteEditor").innerHTML=""; saveNotes(); return; } if(!await appConfirm("Delete note?","\""+(activeNote().title||"This note")+"\" will be permanently deleted. This can't be undone.","Delete",true)) return; noteDeletes[noteId]=Date.now(); notes=notes.filter(n=>n.id!==noteId); noteId=notes[0].id; loadNote(); saveNotes(); };
   $("noteRename").onclick=()=>{ const n=activeNote(); const btn=[...$("noteTabs").querySelectorAll(".note-tab")].find(b=>b.classList.contains("on")); editNoteTitle(btn,n); };
   // undo / redo on the note editor
   $("noteUndo").onclick=()=>{ $("noteEditor").focus(); document.execCommand("undo"); saveNotes(); };
@@ -3533,6 +3687,7 @@
   }
   $("noteSnip").onclick=()=>startSnip("note");
   $("noteNumbers").onclick=()=>{
+    normalizeNoteLines(true);
     const rows=selectedNoteRows().filter(row=>row.innerText.trim()||row.querySelector("img"));
     if(!rows.length) return;
     const turnOn=rows.some(row=>row.dataset.numbered!=="1");
@@ -3543,7 +3698,7 @@
   $("noteCopy").onclick=()=>document.execCommand("copy");
   $("noteMore").onclick=(e)=>{ e.stopPropagation(); $("noteMoreMenu").classList.toggle("open"); };
   $("noteMoreMenu").onclick=(e)=>{ if(e.target.closest("button") && e.target.closest("button").id!=="noteNumbers") $("noteMoreMenu").classList.remove("open"); };
-  ["noteSnip","noteNumbers","noteSend","noteCut","noteCopy","noteMore"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
+  ["noteSnip","noteNumbers","noteSend","noteSchedule","noteCut","noteCopy","noteMore"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
   function selectedNotePayload(){
     const sel=getSelection(); let html="", text="";
     const numbered=document.querySelector(".note-paper").classList.contains("numbered");
@@ -3570,6 +3725,17 @@
   };
   let noteContextSelection="", noteContextRange=null;
   function hideNoteContextMenu(){ $("noteContextMenu").classList.remove("open"); noteContextSelection=""; noteContextRange=null; }
+  function scheduleNoteSelection(text="",range=null){
+    if(!text){
+      const sel=getSelection();
+      const inside=sel&&sel.rangeCount&&!sel.isCollapsed&&$("noteEditor").contains(sel.anchorNode)&&$("noteEditor").contains(sel.focusNode);
+      if(inside){ text=sel.toString().trim(); range=sel.getRangeAt(0).cloneRange(); }
+    }
+    if(!text){ tempToast("Select note text to schedule."); return; }
+    hideNoteContextMenu();
+    openScheduleModal({text,range});
+  }
+  $("noteSchedule").onclick=()=>scheduleNoteSelection();
   function positionSelectionMenu(menu,x,y){
     menu.classList.add("open");
     const width=menu.offsetWidth||176, height=menu.offsetHeight||110;
@@ -3589,10 +3755,7 @@
   $("noteMenuCut").onclick=()=>{ document.execCommand("cut"); saveNotes(); hideNoteContextMenu(); };
   $("noteMenuCopy").onclick=()=>{ document.execCommand("copy"); hideNoteContextMenu(); };
   $("noteMenuSend").onclick=()=>{ const text=noteContextSelection; hideNoteContextMenu(); appendToComposer(text); };
-  $("noteMenuSchedule").onclick=()=>{
-    const text=noteContextSelection, range=noteContextRange?.cloneRange();
-    hideNoteContextMenu(); openScheduleModal({text,range});
-  };
+  $("noteMenuSchedule").onclick=()=>scheduleNoteSelection(noteContextSelection,noteContextRange?.cloneRange());
   function saveChatNodeToNote(msg){
     if(!msg) return;
     let text=msg._raw || "";
@@ -4172,8 +4335,12 @@
     if(actionType==="open_url"&&!/^https?:\/\//i.test(content)){ tempToast("Enter a full http or https page address."); return; }
     if(actionType==="webhook"&&!/^https:\/\//i.test(content)){ tempToast("Webhooks must use an HTTPS address."); return; }
     if(actionType==="command"&&!await appConfirm("Schedule this command?","Boolean will run this PowerShell command automatically while the app is open:\n\n"+content,"Schedule",true)) return;
+    if(actionType==="agent"&&!state.autoApprove){ tempToast("Turn on Auto-approve before scheduling an AI task that uses tools."); return; }
+    if(actionType==="agent"&&!wasEditing&&!await appConfirm("Schedule this AI task?","Boolean will let the selected AI use tools automatically at "+new Date(runAt).toLocaleString()+". Keep Boolean running or open it after the due time.","Schedule")) return;
     const range=scheduledNoteRange?.cloneRange();
-    const body={operation:editingAutomationId?"update":"create",...(editingAutomationId?{id:editingAutomationId}:{}),name,schedule,runAt:new Date(runAt).toISOString(),actionType,threadId:editingAutomationSnapshot?.threadId||(threadId||""),noteId:editingAutomationSnapshot?.noteId||(typeof activeNote==="function"?(activeNote()?.id||""):""),noteTitle:editingAutomationSnapshot?.noteTitle||(typeof activeNote==="function"?(activeNote()?.title||""):"")};
+    const provider=editingAutomationSnapshot?.provider||state.provider||"local";
+    const model=editingAutomationSnapshot?.model||(provider==="local"?state.model:(state.providerModels?.[provider]||state.model));
+    const body={operation:editingAutomationId?"update":"create",...(editingAutomationId?{id:editingAutomationId}:{}),name,schedule,runAt:new Date(runAt).toISOString(),actionType,provider,model,autoApprove:actionType==="agent"&&state.autoApprove,threadId:editingAutomationSnapshot?.threadId||(threadId||""),noteId:editingAutomationSnapshot?.noteId||(typeof activeNote==="function"?(activeNote()?.id||""):""),noteTitle:editingAutomationSnapshot?.noteTitle||(typeof activeNote==="function"?(activeNote()?.title||""):"")};
     if(actionType==="command") body.command=content;
     else if(actionType==="open_url"||actionType==="webhook") body.url=content;
     else body.text=content;
@@ -4183,11 +4350,11 @@
     closeScheduleModal();
     if(range&&result.id){
       try{
-        const marker=document.createElement("span"); marker.className="note-scheduled"; marker.dataset.automationId=result.id; marker.title="Scheduled: "+name; marker.textContent="◷";
+        const marker=document.createElement("span"); marker.className="note-scheduled"; marker.dataset.automationId=result.id; marker.title="Scheduled for "+new Date(result.nextRunAt||runAt).toLocaleString()+": "+name; marker.textContent="◷";
         range.collapse(false); range.insertNode(marker); saveNotes();
       }catch{}
     }
-    await loadAutomations(); tempToast(wasEditing?"Scheduled task updated.":"Task scheduled.");
+    await loadAutomations(); tempToast((wasEditing?"Task updated for ":"Task scheduled for ")+new Date(result.nextRunAt||runAt).toLocaleString()+".");
   };
   $("automationList").onclick=async(e)=>{
     const button=e.target.closest("button[data-action]"), row=e.target.closest(".automation-row");
@@ -4214,7 +4381,7 @@
   // Local / Cloud provider toggle
   let legalLoaded=false;
   const FALLBACK_POLICY=`BOOLEAN END USER LICENSE AGREEMENT
-Boolean - Version 1.1, July 2026
+Boolean - Version 1.2, July 17, 2026
 
 IMPORTANT: READ CAREFULLY BEFORE INSTALLING OR USING BOOLEAN.
 By installing or using Boolean, you agree to this agreement.
@@ -4225,11 +4392,13 @@ Boolean, developed by saz3 Labs, grants you a personal, non-exclusive license to
 2. AI OUTPUT CAN MAKE MISTAKES
 AI output may be inaccurate or wrong. You are responsible for reviewing commands, file changes, browser actions, and messages before approving them. Auto-approve runs actions with less review.
 
+Boolean may store task objectives, plans, debugging evidence, tool results, checkpoints, schedules, selected models, and approval settings locally so work can continue after an interruption or run at a scheduled time. Review scheduled and unattended actions before enabling them.
+
 3. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
 Boolean can be used locally without an account. Cloud AI uses an API key you supply for a supported third-party provider and does not require Boolean sign-in. Provider terms, usage limits, and charges apply. Boolean account sign-in is separate from AI-provider access.
 
 4. PRIVACY
-Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web browsing, remote MCP servers, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boolean or otherwise supports that use.
+Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web research, image generation, remote MCP or HTTP-agent connections, scheduled webhooks, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Signed-in Boolean administrators also synchronize notepad content through the Boolean account service so it is available on their other computers. Scheduled online actions send their configured task and relevant context when they run. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boolean or otherwise supports that use.
 
 Optional Gmail and Outlook connectors use OAuth and send mail requests directly from this PC to Google or Microsoft. Draft-only disables sending; otherwise every send requires separate confirmation. Cloudflare Email Service may deliver Boolean account, security, support, or service notices.
 
@@ -4243,10 +4412,10 @@ The Software and cloud features are provided as is and as available, without war
 To the maximum extent permitted by law, Boolean, saz3 Labs, and its developers are not liable for damages arising from use of the Software or cloud features.
 `;
   const FALLBACK_PRIVACY=`BOOLEAN PRIVACY POLICY
-Boolean - Version 1.1, July 2026
+Boolean - Version 1.2, July 17, 2026
 
 THE SHORT VERSION
-Boolean's local mode runs entirely on your computer. No telemetry, analytics, tracking, or crash reports. Your code, prompts, files, screenshots, and notes stay on your machine unless you choose a feature that needs the internet, such as cloud AI, Google Sign-In, model downloads, web browsing, remote MCP servers, software updates, or installation tools.
+Boolean's local mode runs entirely on your computer. No telemetry, analytics, tracking, or crash reports. Your code, prompts, files, screenshots, and notes stay on your machine unless you choose a feature that needs the internet, such as cloud AI, Google Sign-In, model downloads, web browsing, remote MCP servers, software updates, or installation tools. Signed-in Boolean administrators synchronize notepad content through the Boolean account service for cross-computer access.
 
 WHAT STAYS ON YOUR COMPUTER
 - Conversations and chat history saved locally
@@ -4254,27 +4423,34 @@ WHAT STAYS ON YOUR COMPUTER
 - Any bundled starter model included with the installer
 - Settings and API keys in .saz/config.json
 - Remote MCP server addresses and any Bearer tokens you save
+- HTTP-agent and API connector addresses and credentials you save
 - Optional Gmail/Outlook OAuth client IDs and tokens
 - Boolean account session token after Google Sign-In
+- Notepad content, except while signed in as an administrator using admin notepad sync
 - Files the agent reads or writes at your direction
+- Task objectives, plans, debugging evidence, tool results, checkpoints, schedules, selected models, and approval settings used to continue or automate work
+- Generated documents, spreadsheets, presentations, PDFs, images, and other local artifacts
 
 WHAT BOOLEAN RECEIVES
 When you use only local models, Boolean receives nothing.
 
-If you choose optional Boolean account sign-in, Boolean's account service may receive and store the minimum identity and session data needed to provide the account: Google account identifier, email, display name, profile image, and session records. Account sign-in does not provide or route AI model access.
+If you choose optional Boolean account sign-in, Boolean's account service may receive and store the minimum identity and session data needed to provide the account: Google account identifier, email, display name, profile image, and session records. For signed-in administrators it also stores synchronized notepad titles, content, embedded images, timestamps, and deletion records. Account sign-in does not provide or route AI model access.
 
 WHEN DATA LEAVES YOUR MACHINE
 Data leaves only when you choose features that require it:
 1. Cloud providers: prompts and relevant context are sent to the selected provider.
 2. Boolean account: Google Sign-In and session requests are sent to Boolean's account service. AI prompts are not routed through account sign-in.
 3. Model downloads: downloading a model contacts the hosting service.
-4. Web browsing/search: requests go to the sites/search engines involved.
+4. Web browsing/research: requests, queries, and selected page content go to the sites, search engines, or research services involved.
 5. Installation helpers: tools such as winget contact their own servers.
 6. Software updates: Boolean periodically checks the saz3 Labs GitHub release service and may download an approved installer in the background. Update requests may reveal standard connection information such as your IP address, app version, and user-agent to GitHub. Update checks do not upload chats, prompts, files, notepad content, API keys, or local model data. The installer is SHA-256 verified before installation, and key local settings and chat data are backed up first.
-7. Remote MCP servers: protocol requests, relevant tool arguments, and a configured Bearer token are sent to the server you enable.
+7. Remote MCP, HTTP-agent, and API connectors: protocol requests, relevant task content, tool arguments, and configured credentials are sent to the service you enable.
 8. Screenshots, pages, notes, and project files: these remain local with a local model. Content you ask an online model or remote connector to inspect is sent to that service.
 9. Email connectors: requested Gmail or Outlook mail data travels directly between this PC and Google or Microsoft. Boolean may read requested messages and create drafts. Sending is disabled in Draft-only mode and otherwise always asks for confirmation.
 10. Transactional messages: Cloudflare Email Service may receive the recipient and message data needed to deliver Boolean account, security, support, or service notices.
+11. Scheduled actions: online AI tasks and connector calls send their configured task and relevant context when due. Webhooks receive the payload you configured, and opening a URL contacts that site. Local commands stay on this PC unless the command itself uses the network.
+12. Image generation: prompts, source images, masks, and related instructions are sent to the online image provider you select. Locally generated or edited files stay on this PC unless you send them elsewhere.
+13. Admin notepad sync: signed-in administrators send a notepad snapshot to Boolean's account service over HTTPS so notes can merge across computers. Local saving continues if sync is unavailable. Signing out stops synchronization without deleting local notes.
 
 THIRD-PARTY SERVICES
 Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, and Stripe terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boolean or otherwise supports the user's use.
@@ -4398,16 +4574,12 @@ Optional bundled starter model:
   document.addEventListener("click",()=>{ if($("connectorAddMenu")) $("connectorAddMenu").hidden=true; });
   $("apiPreset").onchange=()=>{
     const preset=API_PRESETS[$("apiPreset").value];
-    $("apiApprovedRow").style.display=$("apiPreset").value==="zai"?"":"none";
     if(!preset) return;
     $("apiConnectionName").value=preset.name;
     $("apiConnectionUrl").value=preset.baseUrl;
     $("apiConnectionModel").value=preset.model;
   };
   $("apiConnectionUrl").oninput=()=>{
-    const needsApproval=isZaiCodingUrl($("apiConnectionUrl").value);
-    $("apiApprovedRow").style.display=needsApproval?"":"none";
-    if(!needsApproval) $("apiConnectionApproved").checked=false;
   };
   $("apiConnectionPaste").onclick=async()=>{
     try{ $("apiConnectionKey").value=(await readClipboardText()).trim(); $("apiConnectionKey").focus(); }
@@ -4452,10 +4624,8 @@ Optional bundled starter model:
   $("mcpSave").onclick=()=>saveMcp();
   async function saveZaiCoding({test=false}={}){
     const key=$("zaiCodingKey").value.trim();
-    const approved=$("zaiCodingApproved").checked;
-    if(!approved){ tempToast("Confirm approved or supported use first."); $("zaiCodingApproved").focus(); return false; }
     if(!key&&!state.keys?.zaiCoding){ tempToast("Enter your Z.AI Coding Plan API key."); $("zaiCodingKey").focus(); return false; }
-    const body={provider:"zaiCoding",model:$("zaiCodingModel").value,zaiCodingApproved:true};
+    const body={provider:"zaiCoding",model:$("zaiCodingModel").value};
     if(key) body.setKey={provider:"zaiCoding",key};
     const saved=await fetch("/api/config",{method:"POST",body:JSON.stringify(body)});
     if(!saved.ok){ tempToast("Could not save the connection."); return false; }
@@ -4471,7 +4641,7 @@ Optional bundled starter model:
   $("zaiCodingTest").onclick=()=>saveZaiCoding({test:true});
   $("zaiCodingRemove").onclick=async()=>{
     if(!await appConfirm("Remove Z.AI Coding Plan?","Remove the saved Coding Plan key from this PC?","Remove",true)) return;
-    await fetch("/api/config",{method:"POST",body:JSON.stringify({clearKey:"zaiCoding",zaiCodingApproved:false})});
+    await fetch("/api/config",{method:"POST",body:JSON.stringify({clearKey:"zaiCoding"})});
     await refresh(); tempToast("Z.AI Coding Plan removed.");
   };
   $("modebtn").onclick=(e)=>{ e.stopPropagation(); $("plusmenu").classList.remove("open"); $("modelmenu").classList.remove("open"); $("modemenu").classList.toggle("open"); };
@@ -5029,6 +5199,7 @@ Optional bundled starter model:
         if(cloudRefresh.ok) await refresh();
       }catch{}
     }
+    await pullCloudNotes({force:true}).catch(()=>{});
     document.body.classList.remove("notes-on","browser-on","settings-open","about-open");
     $("settingsPanel").classList.remove("open");
     if(threadId) await openThread(threadId,{remember:false}); else showEmpty();
@@ -5040,8 +5211,9 @@ Optional bundled starter model:
     if(!state.eulaAccepted) $("eula").showModal();
   })();
   setInterval(()=>{ if(!busy()) refresh(); },15000);
-  setInterval(()=>loadAutomations({notify:true}),30000);
+  setInterval(()=>{ loadAutomations({notify:true}); pullCloudNotes().catch(()=>{}); },30000);
   setInterval(updateStatusMeta,1000); // live elapsed timer while a run is active
+  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") pullCloudNotes().catch(()=>{}); });
   window.addEventListener("pagehide",()=>navigator.sendBeacon("/api/bye"));
   window.addEventListener("keydown",e=>{ if(e.altKey&&e.key==="ArrowLeft"){ e.preventDefault(); goBackInApp(); } });
   input.focus();

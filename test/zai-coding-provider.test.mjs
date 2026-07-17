@@ -17,14 +17,14 @@ function codingConfig(overrides = {}) {
   };
 }
 
-test("Z.AI Coding Plan stays disabled until supported use is confirmed", async () => {
+test("Z.AI Coding Plan is ready when its API key is saved", async () => {
   const config = codingConfig();
-  await assert.rejects(resolveTarget(config), /approved Boolean|supported/);
-  assert.equal(await backendUp(config), false);
+  assert.equal((await resolveTarget(config)).provider, "zaiCoding");
+  assert.equal(await backendUp(config), true);
 });
 
-test("approved Z.AI Coding Plan resolves through its dedicated endpoint", async () => {
-  const config = codingConfig({ approvedUse: true, model: "GLM-5.1" });
+test("Z.AI Coding Plan resolves through its dedicated endpoint", async () => {
+  const config = codingConfig({ model: "GLM-5.1" });
   assert.deepEqual(await resolveTarget(config), {
     base: "https://api.z.ai/api/coding/paas/v4",
     apiKey: "test-key",
@@ -34,7 +34,7 @@ test("approved Z.AI Coding Plan resolves through its dedicated endpoint", async 
   assert.equal(await backendUp(config), true);
 });
 
-test("generic API connections enforce confirmation only for the Z.AI Coding Plan endpoint", async () => {
+test("generic API connections do not require an extra approval toggle", async () => {
   const codingPlan = {
     provider: "customApi",
     customApi: {
@@ -44,10 +44,6 @@ test("generic API connections enforce confirmation only for the Z.AI Coding Plan
       approvedUse: false
     }
   };
-  await assert.rejects(resolveTarget(codingPlan), /approved Boolean|supported/);
-  assert.equal(await backendUp(codingPlan), false);
-
-  codingPlan.customApi.approvedUse = true;
   assert.equal((await resolveTarget(codingPlan)).provider, "customApi");
   assert.equal(await backendUp(codingPlan), true);
 

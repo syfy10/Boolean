@@ -95,6 +95,21 @@ test("persists and manages durable automation definitions", async () => {
   assert.match(await executePlatformTool("manage_automation", { operation: "remove", id: created.id }, ctx), /Removed automation/);
 });
 
+test("scheduled agent tasks preserve their model and unattended approval snapshot", async () => {
+  const created = JSON.parse(await executePlatformTool("manage_automation", {
+    operation: "create", name: "Build later", schedule: "once",
+    runAt: new Date(Date.now() + 60000).toISOString(), actionType: "agent",
+    text: "Build a small tic-tac-toe game", provider: "zaiCoding",
+    model: "glm-5", autoApprove: true, threadId: "thread-1"
+  }, ctx));
+  assert.equal(created.actionType, "agent");
+  assert.equal(created.provider, "zaiCoding");
+  assert.equal(created.model, "glm-5");
+  assert.equal(created.autoApprove, true);
+  assert.equal(created.threadId, "thread-1");
+  await executePlatformTool("manage_automation", { operation: "remove", id: created.id }, ctx);
+});
+
 test("calculates calendar recurrence and executes due app reminders", async () => {
   const daily = nextRunFor({ schedule: "daily", runAt: "2026-07-15T09:30:00.000Z" }, Date.parse("2026-07-17T10:00:00.000Z"));
   const weekly = nextRunFor({ schedule: "weekly", runAt: "2026-07-15T09:30:00.000Z" }, Date.parse("2026-07-17T10:00:00.000Z"));

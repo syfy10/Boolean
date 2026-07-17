@@ -183,6 +183,7 @@ sealed class MainForm : Form
     readonly List<TabItem> _tabs = new();
     int _active = -1;
     bool _full = false;
+    bool _windowSizing;
     ContextMenuStrip _menu = null!;
     Button _menuBtn = null!;
     Button _addTabBtn = new();
@@ -231,6 +232,8 @@ sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         Opacity = 0;
         BackColor = Color.FromArgb(28, 28, 28);
+        DoubleBuffered = true;
+        try { _chat.DefaultBackgroundColor = BackColor; } catch { }
         TryLoadIcon();
         BuildBrowserPane();
         BuildStartupOverlay();
@@ -249,7 +252,24 @@ sealed class MainForm : Form
         _startup.BringToFront();
 
         Load += OnLoad;
-        Resize += (_, __) => { if (_browserOpen && !_full) FitBrowserSplit(); };
+        // Docking already resizes both WebViews during a border drag. Recomputing
+        // SplitterDistance for every WM_SIZE made the panes fight that layout,
+        // producing visible shake and exposing an unpainted edge. Fit once when
+        // resizing ends; non-interactive size changes still fit immediately.
+        ResizeBegin += (_, __) => { _windowSizing = true; };
+        Resize += (_, __) =>
+        {
+            if (_browserOpen && !_full && !_windowSizing) FitBrowserSplit();
+        };
+        ResizeEnd += (_, __) =>
+        {
+            _windowSizing = false;
+            if (!_browserOpen || _full) return;
+            _split.SuspendLayout();
+            try { FitBrowserSplit(); }
+            finally { _split.ResumeLayout(true); }
+            _split.Invalidate(true);
+        };
         Deactivate += (_, __) => _menu?.Close();
         FormClosed += (_, __) => { CleanupCoreOnClose(); LaunchPendingUpdate(); };
         Shown += (_, __) => { _split.Panel2Collapsed = true; }; // browser hidden until toggled
@@ -953,6 +973,7 @@ try {
     {
         _pal = p;
         BackColor = p.PaneBg;
+        try { _chat.DefaultBackgroundColor = p.PaneBg; } catch { }
         ApplyDwmChromeColor(p.PaneBg);
         _split.BackColor = p.Splitter;
         _split.Panel2.BackColor = p.PaneBg;
@@ -987,9 +1008,12 @@ try {
             _tabs[i].Chip.BackColor = (i == _active) ? p.Hover : Color.Transparent;
         }
         foreach (var t in _tabs)
+        {
+            try { t.View.DefaultBackgroundColor = p.PaneBg; } catch { }
             if (t.View.CoreWebView2 != null)
                 t.View.CoreWebView2.Profile.PreferredColorScheme =
                     (p.PaneBg.R < 128) ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light;
+        }
     }
 
     TabItem? Active() => _active >= 0 && _active < _tabs.Count ? _tabs[_active] : null;

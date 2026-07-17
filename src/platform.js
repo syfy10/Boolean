@@ -334,15 +334,15 @@ export async function manageAutomation(args, ctx) {
   const automations = automationStore();
   if (operation === "list") return JSON.stringify({ automations, recentRuns: (readJson(AUTOMATION_LOG, { runs: [] }).runs || []).slice(0, 20) }, null, 2);
   if (operation === "create") {
-    const allowedActions = new Set(["reminder", "prompt", "open_url", "command", "webhook"]);
+    const allowedActions = new Set(["reminder", "prompt", "agent", "open_url", "command", "webhook"]);
     const actionType = allowedActions.has(args.actionType) ? args.actionType : "reminder";
     if (actionType === "command" && !String(args.command || "").trim()) throw new Error("command is required");
     if (actionType === "webhook" && !/^https:\/\//i.test(String(args.url || ""))) throw new Error("an HTTPS webhook URL is required");
     if (actionType === "open_url" && !/^https?:\/\//i.test(String(args.url || ""))) throw new Error("an http(s) page URL is required");
-    if (["reminder", "prompt"].includes(actionType) && !String(args.text || "").trim()) throw new Error("task text is required");
+    if (["reminder", "prompt", "agent"].includes(actionType) && !String(args.text || "").trim()) throw new Error("task text is required");
     const allowedSchedules = new Set(["once", "daily", "weekly", "monthly", "interval"]);
     const schedule = allowedSchedules.has(args.schedule) ? args.schedule : "once";
-    const item = { id: crypto.randomUUID(), name: String(args.name || "Scheduled task").trim(), schedule, runAt: args.runAt || "", everyMinutes: Number(args.everyMinutes || 0), actionType, text: String(args.text || ""), threadId: String(args.threadId || ""), noteId: String(args.noteId || ""), noteTitle: String(args.noteTitle || ""), command: String(args.command || ""), url: String(args.url || ""), method: args.method === "GET" ? "GET" : "POST", body: String(args.body || ""), cwd: String(args.cwd || ctx.projectDir || os.homedir()), enabled: true, running: false, createdAt: Date.now() };
+    const item = { id: crypto.randomUUID(), name: String(args.name || "Scheduled task").trim(), schedule, runAt: args.runAt || "", everyMinutes: Number(args.everyMinutes || 0), actionType, text: String(args.text || ""), threadId: String(args.threadId || ""), noteId: String(args.noteId || ""), noteTitle: String(args.noteTitle || ""), provider: String(args.provider || ""), model: String(args.model || ""), autoApprove: args.autoApprove === true, command: String(args.command || ""), url: String(args.url || ""), method: args.method === "GET" ? "GET" : "POST", body: String(args.body || ""), cwd: String(args.cwd || ctx.projectDir || os.homedir()), enabled: true, running: false, createdAt: Date.now() };
     item.nextRunAt = nextRunFor(item);
     if (!Number.isFinite(item.nextRunAt) || item.nextRunAt <= 0) throw new Error("enter a valid run time or interval");
     if (!await ctx.approve(`create scheduled automation '${item.name}' (${item.actionType})`)) return "user declined automation";
@@ -352,14 +352,16 @@ export async function manageAutomation(args, ctx) {
   if (!item) throw new Error(`automation '${args.id}' was not found`);
   if (operation === "update") {
     const patch = { ...args }; delete patch.operation; delete patch.id;
-    const allowed = ["name", "schedule", "runAt", "everyMinutes", "actionType", "text", "threadId", "noteId", "noteTitle", "command", "url", "method", "body", "cwd"];
-    for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) item[key] = key === "everyMinutes" ? Number(patch[key] || 0) : String(patch[key] || "");
+    const allowed = ["name", "schedule", "runAt", "everyMinutes", "actionType", "text", "threadId", "noteId", "noteTitle", "provider", "model", "autoApprove", "command", "url", "method", "body", "cwd"];
+    for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) {
+      item[key] = key === "everyMinutes" ? Number(patch[key] || 0) : key === "autoApprove" ? patch[key] === true : String(patch[key] || "");
+    }
     if (!["once", "daily", "weekly", "monthly", "interval"].includes(item.schedule)) throw new Error("unsupported schedule");
-    if (!["reminder", "prompt", "open_url", "command", "webhook"].includes(item.actionType)) throw new Error("unsupported action type");
+    if (!["reminder", "prompt", "agent", "open_url", "command", "webhook"].includes(item.actionType)) throw new Error("unsupported action type");
     if (item.actionType === "command" && !item.command.trim()) throw new Error("command is required");
     if (item.actionType === "webhook" && !/^https:\/\//i.test(item.url)) throw new Error("an HTTPS webhook URL is required");
     if (item.actionType === "open_url" && !/^https?:\/\//i.test(item.url)) throw new Error("an http(s) page URL is required");
-    if (["reminder", "prompt"].includes(item.actionType) && !item.text.trim()) throw new Error("task text is required");
+    if (["reminder", "prompt", "agent"].includes(item.actionType) && !item.text.trim()) throw new Error("task text is required");
     if (!await ctx.approve(`update scheduled automation '${item.name}'`)) return "user declined automation update";
     item.nextRunAt = nextRunFor(item, Date.now());
     item.updatedAt = Date.now();
