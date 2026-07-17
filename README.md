@@ -29,9 +29,20 @@ other. Compare is answer-only and never duplicates tools or computer actions.
 
 It can control **PowerShell, cmd, winget, git, npm, and dotnet**, inspect and
 edit project files, search a project, maintain a task plan, capture a running
-project preview, and use the embedded browser and notepad. Ask me first is the
-safe default; Auto-approve allows supported actions to proceed without each
-individual confirmation.
+project preview, and use the embedded browser and notepad. With a compatible
+user-supplied image API, Boolean can also generate new images or edit an
+existing image and save the verified result in the current project. Current
+research uses multiple background sources, ranks official and primary evidence
+first, and supplies numbered citations with direct source links. Ask me first
+is the safe default; Auto-approve allows supported actions to proceed without
+each individual confirmation.
+
+Notepad text can also become a scheduled task. Select text, right-click, and
+choose **Schedule task** to create a one-time or repeating reminder, ask the
+selected AI in the associated chat, open a page, or configure an advanced
+PowerShell/webhook action. Tasks and recent run results are managed under
+Settings > Scheduled tasks. They run while Boolean is open; overdue tasks run
+the next time Boolean starts.
 
 Boolean can install curated models or a public GGUF from a direct Hugging Face
 URL into its managed model folder. It validates the GGUF before use. Vision

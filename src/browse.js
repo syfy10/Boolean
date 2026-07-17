@@ -190,6 +190,15 @@ export async function aiSearch(query, ctx) {
     const news = await aiNewsSearch(query, preferred, ctx);
     if (news) return news;
   }
+  const found = await collectSearchCandidates(query, preferred);
+  if (!found.results.length) return `no results found for "${query}" (the search page may have changed or the network is down)`;
+  aiPage = { url: found.url, title: `Search: ${query}`, html: found.html, text: "", links: found.results };
+  const note = found.usedEngine !== preferred ? `\n(search fallback used ${found.usedEngine})` : "";
+  return `WEB SEARCH RESULTS for "${query}"${note} (use browser_click with a [number] to open one):\n\n` +
+    found.results.map((r, i) => `[${r.n}] ${r.text}\n    ${r.url}${found.snippets[i] ? "\n    " + found.snippets[i] : ""}`).join("\n\n");
+}
+
+async function collectSearchCandidates(query, preferred) {
   const engines = preferred === "bing" ? ["bing", "duckduckgo"] :
     preferred === "duckduckgo" ? ["duckduckgo"] :
     ["google", "bing", "duckduckgo"];
@@ -205,11 +214,108 @@ export async function aiSearch(query, ctx) {
       results = []; snippets = [];
     }
   }
-  if (!results.length) return `no results found for "${query}" (the search page may have changed or the network is down)`;
-  aiPage = { url, title: `Search: ${query}`, html, text: "", links: results };
-  const note = usedEngine !== preferred ? `\n(search fallback used ${usedEngine})` : "";
-  return `WEB SEARCH RESULTS for "${query}"${note} (use browser_click with a [number] to open one):\n\n` +
-    results.map((r, i) => `[${r.n}] ${r.text}\n    ${r.url}${snippets[i] ? "\n    " + snippets[i] : ""}`).join("\n\n");
+  return { url, html, results, snippets, usedEngine };
+}
+
+const PRIMARY_SOURCE_HOSTS = new Set([
+  "who.int", "cdc.gov", "nih.gov", "fda.gov", "sec.gov", "irs.gov", "nasa.gov",
+  "w3.org", "ietf.org", "iso.org", "developer.mozilla.org", "docs.github.com",
+  "learn.microsoft.com", "developers.google.com", "developers.cloudflare.com",
+  "platform.openai.com", "docs.anthropic.com", "docs.python.org", "nodejs.org"
+]);
+const LOW_AUTHORITY_HOSTS = /(^|\.)(reddit\.com|quora\.com|pinterest\.|facebook\.com|tiktok\.com|x\.com)$/i;
+
+export function researchAuthority(url) {
+  let host = "";
+  try { host = new URL(url).hostname.toLowerCase().replace(/^www\./, ""); } catch { return { score: -100, label: "invalid" }; }
+  if (host.endsWith(".gov") || host.endsWith(".mil")) return { score: 80, label: "government primary source" };
+  if (PRIMARY_SOURCE_HOSTS.has(host)) return { score: 70, label: "official primary source" };
+  if (host.endsWith(".edu")) return { score: 55, label: "academic source" };
+  if (/^(docs|developer|developers|support)\./.test(host)) return { score: 45, label: "official documentation" };
+  if (LOW_AUTHORITY_HOSTS.test(host)) return { score: -30, label: "community source" };
+  return { score: 10, label: "web source" };
+}
+
+function researchTerms(query) {
+  const stop = new Set(["about", "after", "before", "could", "does", "from", "have", "into", "official", "should", "that", "their", "there", "these", "this", "what", "when", "where", "which", "with", "would"]);
+  return [...new Set(String(query || "").toLowerCase().match(/[a-z0-9][a-z0-9.+-]{2,}/g) || [])]
+    .filter((term) => !stop.has(term));
+}
+
+export function rankResearchCandidates(results, snippets = [], policy = "authoritative", query = "") {
+  const terms = researchTerms(query);
+  const scored = results.map((item, index) => {
+    const authority = researchAuthority(item.url);
+    let host = "";
+    try { host = new URL(item.url).hostname.toLowerCase().replace(/^www\./, ""); } catch { /* invalid ranks last */ }
+    const policyWeight = policy === "broad" ? 0.25 : policy === "balanced" ? 0.65 : 1;
+    const searchText = `${item.text || ""} ${snippets[index] || ""} ${item.url || ""}`.toLowerCase();
+    const relevance = terms.reduce((score, term) => score + (searchText.includes(term) ? 9 : 0), 0);
+    return { ...item, snippet: snippets[index] || "", host, authority: authority.label, score: authority.score * policyWeight + relevance };
+  }).sort((a, b) => b.score - a.score);
+  const hostUses = new Map();
+  for (const item of scored) {
+    const uses = hostUses.get(item.host) || 0;
+    item.score -= uses * 35;
+    hostUses.set(item.host, uses + 1);
+  }
+  return scored.sort((a, b) => b.score - a.score);
+}
+
+function researchPageText(html, fallback = "", query = "") {
+  const lines = htmlToText(html)
+    .split(/\n+/).map((line) => line.trim())
+    .filter((line) => line.length >= 35 && !/^(menu|sign in|log in|cookie|privacy|advertisement|skip to)/i.test(line));
+  const terms = researchTerms(query);
+  if (!lines.length) return (fallback || "No extract available.").slice(0, 1800);
+  const ranked = lines.map((line, index) => ({
+    index,
+    score: terms.reduce((score, term) => score + (line.toLowerCase().includes(term) ? 1 : 0), 0)
+  })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || a.index - b.index).slice(0, 6);
+  if (!ranked.length) return lines.join("\n").slice(0, 1800);
+  const selected = new Set();
+  for (const item of ranked) {
+    selected.add(item.index);
+    if (item.index > 0) selected.add(item.index - 1);
+    if (item.index + 1 < lines.length) selected.add(item.index + 1);
+  }
+  return [...selected].sort((a, b) => a - b).map((index) => lines[index]).join("\n").slice(0, 1800);
+}
+
+export function formatResearchEvidence(query, items) {
+  return `RESEARCH EVIDENCE for "${query}"\n` +
+    "Answer the user's question from this evidence. Cite factual claims with [1], [2], etc. Do not invent citations.\n\n" +
+    items.map((item, index) => `[${index + 1}] ${item.title || item.text || item.url}\n` +
+      `Source: ${item.host || item.url} | ${item.authority || "web source"}${item.published ? ` | Published: ${item.published}` : ""}\n` +
+      `URL: ${item.url}\nEvidence: ${item.evidence || item.snippet || "No extract available."}`).join("\n\n");
+}
+
+export async function aiResearch(query, args = {}, ctx) {
+  const preferred = ctx?.config?.ui?.searchEngine || "google";
+  const policy = ["authoritative", "balanced", "broad"].includes(args.source_policy)
+    ? args.source_policy : (ctx?.config?.ui?.researchPolicy || "authoritative");
+  const maxSources = Math.max(2, Math.min(6, Number(args.max_sources || 4)));
+  const found = await collectSearchCandidates(query, preferred);
+  if (!found.results.length) return `no research sources found for "${query}"`;
+  const ranked = rankResearchCandidates(found.results, found.snippets, policy, query).slice(0, maxSources);
+  const items = await Promise.all(ranked.map(async (item) => {
+    try {
+      const { res, finalUrl } = await fetchRaw(item.url, { signal: AbortSignal.timeout(10000) });
+      const type = res.headers.get("content-type") || "";
+      if (!res.ok || !/html|xml|text|json/i.test(type)) throw new Error("not readable");
+      const html = (await res.text()).slice(0, MAX_PAGE_BYTES);
+      let published = "";
+      const date = /<(?:meta|time)[^>]+(?:datePublished|article:published_time|datetime)[^>]+(?:content|datetime)=["']([^"']+)/i.exec(html);
+      if (date) published = date[1].slice(0, 40);
+      let host = item.host;
+      try { host = new URL(finalUrl).hostname.toLowerCase().replace(/^www\./, ""); } catch { /* keep */ }
+      return { ...item, url: finalUrl, host, title: titleOf(html) || item.text, published, evidence: researchPageText(html, item.snippet, query) };
+    } catch {
+      return { ...item, title: item.text, evidence: item.snippet || "The source could not be opened; use only the title and URL." };
+    }
+  }));
+  aiPage = { url: found.url, title: `Research: ${query}`, html: found.html, text: "", links: items.map((item, index) => ({ n: index + 1, text: item.title, url: item.url })) };
+  return formatResearchEvidence(query, items);
 }
 
 function isNewsQuery(query) {

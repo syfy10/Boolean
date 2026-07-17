@@ -77,6 +77,10 @@
   .icon-btn.active{ background:var(--hover); color:var(--green); }
   .icon-btn.active svg{ stroke-width:2.1; }
   .icon-btn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+  #notesToggle .notepad-paper{ fill:#f2cf5b; stroke:#263238; stroke-width:2.2; stroke-linejoin:round; }
+  #notesToggle .notepad-header{ fill:#d99a20; stroke:#263238; stroke-width:2.2; stroke-linejoin:round; }
+  #notesToggle .notepad-line{ fill:none; stroke:#7aa7b8; stroke-width:1.8; stroke-linecap:round; }
+  #notesToggle.active svg{ stroke-width:inherit; }
 
   .navbtn{ display:flex; align-items:center; gap:8px; padding:8px 9px; margin:0 6px; border:0;
     border-radius:10px; background:transparent; color:var(--text); font:inherit; font-size:var(--fs-md);
@@ -531,6 +535,11 @@
   .toolcard.webstatus .toolout{ margin-left:4px; }
 
   .status{ font-size:12.5px; color:var(--dim); display:flex; align-items:center; gap:8px; font-family:var(--mono); }
+  .run-result{ align-self:flex-start; display:flex; align-items:center; gap:6px; min-height:20px; padding:1px 3px;
+    color:var(--dim); font:11px/1.3 var(--ui); }
+  .run-result .result-mark{ color:var(--green); font-weight:650; }
+  .run-result.error .result-mark{ color:var(--danger); }
+  .run-result.paused .result-mark{ color:#d89216; }
   .spinner{ width:12px; height:12px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--dim);
     animation:spin .8s linear infinite; flex-shrink:0; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
@@ -907,6 +916,30 @@
   .app-modal-actions button:hover{ background:var(--hover); }
   .app-modal-actions .primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-text); }
   .app-modal-actions .danger{ background:#dc3f42; border-color:#dc3f42; color:#fff; }
+  .schedule-card{ width:min(470px,calc(100vw - 38px)); }
+  .schedule-form{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+  .schedule-field{ display:flex; flex-direction:column; gap:4px; min-width:0; color:var(--dim); font-size:11px; }
+  .schedule-field.wide{ grid-column:1/-1; }
+  .schedule-field input,.schedule-field select,.schedule-field textarea{ width:100%; border:1px solid var(--border); border-radius:7px;
+    background:var(--bg); color:var(--text); padding:8px 9px; font:13px var(--ui); outline:0; }
+  .schedule-field textarea{ min-height:82px; resize:vertical; line-height:1.4; }
+  .schedule-field input:focus,.schedule-field select:focus,.schedule-field textarea:focus{ border-color:var(--green); }
+  .automation-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:7px; }
+  .automation-list{ display:flex; flex-direction:column; gap:2px; }
+  .automation-empty{ color:var(--dim); padding:18px 4px; text-align:center; font-size:12px; }
+  .automation-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center; padding:9px 5px; border-bottom:1px solid var(--border); }
+  .automation-row:last-child{ border-bottom:0; }
+  .automation-name{ font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .automation-meta{ color:var(--dim); font-size:10.5px; margin-top:2px; overflow-wrap:anywhere; }
+  .automation-actions{ display:flex; align-items:center; gap:2px; }
+  .automation-actions button{ width:27px; height:27px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:var(--dim); cursor:pointer; }
+  .automation-actions button:hover{ background:var(--hover); color:var(--text); }
+  .automation-actions button.danger:hover{ color:#dc3f42; }
+  .automation-run{ padding:7px 5px; border-bottom:1px solid var(--border); font-size:11px; }
+  .automation-run:last-child{ border-bottom:0; }
+  .automation-run.ok .automation-run-state{ color:var(--green); }
+  .automation-run.bad .automation-run-state{ color:#dc3f42; }
+  .note-scheduled{ display:inline-flex; align-items:center; justify-content:center; margin-left:3px; color:var(--green); font-size:11px; cursor:pointer; user-select:none; }
 </style>
 </head>
 <body>
@@ -973,6 +1006,36 @@
             <button class="minibtn" id="visionTest" style="width:100%">Test image input</button>
             <div class="hint" id="visionTestOut" style="margin-top:6px"></div>
           </div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="creation">
+        <div class="sechead">Creation &amp; research <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow" style="display:block">
+            <div><b>Image creation</b><div class="hint">Generate new images or edit an attached image through your selected API connection.</div></div>
+          </div>
+          <div class="setrow">
+            <div>Image API<div class="hint">provider charges may apply</div></div>
+            <select id="imageProvider"></select>
+          </div>
+          <div class="setrow">
+            <div>Image model<div class="hint">use a model supported by that API</div></div>
+            <input type="text" id="imageModel" autocomplete="off" spellcheck="false" placeholder="gpt-image-1">
+          </div>
+          <div class="setrow">
+            <div>Default size</div>
+            <select id="imageSize"><option>1024x1024</option><option>1536x1024</option><option>1024x1536</option><option>512x512</option></select>
+          </div>
+          <div class="hint" id="imageCapabilityStatus" style="margin:4px 0 12px"></div>
+          <div class="setrow" style="display:block;border-top:1px solid var(--line);padding-top:10px">
+            <div><b>Web research</b><div class="hint">Boolean searches in the background, reads multiple sources, and gives citation-ready evidence.</div></div>
+          </div>
+          <div class="setrow">
+            <div>Source policy<div class="hint">controls which sources rank first</div></div>
+            <select id="researchPolicy"><option value="authoritative">Authoritative first</option><option value="balanced">Balanced</option><option value="broad">Broad web</option></select>
+          </div>
+          <div class="hint">Authoritative first favors official, primary, government, academic, and first-party documentation sources. Answers include numbered citations and direct source links.</div>
         </div>
       </div>
 
@@ -1221,6 +1284,19 @@
         </div>
       </div>
 
+      <div class="sec" data-sec="scheduled">
+        <div class="sechead">Scheduled tasks <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="automation-head">
+            <div><b>Scheduled tasks</b><div class="hint">Run while Boolean is open; missed tasks run next launch.</div></div>
+            <button class="minibtn" id="newAutomation">New task</button>
+          </div>
+          <div class="automation-list" id="automationList"><div class="automation-empty">Loading tasks...</div></div>
+          <div style="margin-top:14px"><b style="font-size:12px">Recent runs</b></div>
+          <div id="automationRuns"><div class="automation-empty">No runs yet.</div></div>
+        </div>
+      </div>
+
       <div class="sec settings-hidden" data-sec="connectors">
         <div class="sechead">Connectors <span class="caret">▶</span></div>
         <div class="secbody">
@@ -1323,7 +1399,7 @@
     </button>
     <div class="spacer"></div>
     <button class="icon-btn" id="notesToggle" title="Toggle notepad" aria-label="Toggle notepad">
-      <svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path class="notepad-paper" d="M14 7h36v43l-6 6-6-5-6 5-6-5-6 5-6-6z"/><path class="notepad-header" d="M14 7h36v12H14z"/><path class="notepad-line" d="M21 27h22M21 33h22M21 39h22M21 45h15"/></svg>
     </button>
     <button class="icon-btn" id="browserToggle" title="Toggle browser" aria-label="Toggle browser">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
@@ -1428,6 +1504,7 @@
   <button id="noteMenuCut">Cut</button>
   <button id="noteMenuCopy">Copy</button>
   <button id="noteMenuSend">Send to message</button>
+  <button id="noteMenuSchedule">Schedule task</button>
 </div>
 <div class="chat-menu selection-menu" id="browserSelectionMenu">
   <button id="browserMenuCopy">Copy</button>
@@ -1515,6 +1592,24 @@
     <div class="app-modal-actions">
       <button id="appModalCancel">Cancel</button>
       <button id="appModalOk" class="primary">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-modal" id="scheduleModal" aria-hidden="true">
+  <div class="app-modal-card schedule-card" role="dialog" aria-modal="true" aria-labelledby="scheduleTitle">
+    <h2 id="scheduleTitle">Schedule task</h2>
+    <div class="app-modal-body">Create a reminder or let the selected AI answer in this chat later.</div>
+    <div class="schedule-form">
+      <label class="schedule-field wide">Task name<input id="scheduleName" maxlength="80" placeholder="Follow up"></label>
+      <label class="schedule-field">When<input id="scheduleWhen" type="datetime-local"></label>
+      <label class="schedule-field">Repeat<select id="scheduleRepeat"><option value="once">Once</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+      <label class="schedule-field wide">Action<select id="scheduleAction"><option value="reminder">Remind me</option><option value="prompt">Ask AI in this chat</option><option value="open_url">Open a web page</option><option value="command">Run a PowerShell command</option><option value="webhook">Call an HTTPS webhook</option></select></label>
+      <label class="schedule-field wide"><span id="scheduleContentLabel">Reminder</span><textarea id="scheduleContent" placeholder="What should Boolean remind you about?"></textarea></label>
+    </div>
+    <div class="app-modal-actions">
+      <button id="scheduleCancel">Cancel</button>
+      <button id="scheduleSave" class="primary">Schedule</button>
     </div>
   </div>
 </div>
@@ -1667,6 +1762,83 @@
   scheduleResponsiveClasses();
   setTimeout(scheduleResponsiveClasses,250);
   let currentAbort=null, threadId=null;
+  let automationState={automations:[],recentRuns:[]};
+  let editingAutomationId="";
+  let editingAutomationSnapshot=null;
+  let scheduledNoteRange=null;
+  let lastAutomationRunId=localStorage.getItem("booleanLastAutomationRun")||"";
+  function localDateTimeValue(value=Date.now()+3600000){
+    const date=new Date(value); date.setMinutes(date.getMinutes()-date.getTimezoneOffset());
+    return date.toISOString().slice(0,16);
+  }
+  function scheduleActionCopy(action){
+    if(action==="prompt") return {label:"AI prompt",placeholder:"What should the selected AI answer later?"};
+    if(action==="open_url") return {label:"Web page",placeholder:"https://example.com"};
+    if(action==="command") return {label:"PowerShell command",placeholder:"Get-Date"};
+    if(action==="webhook") return {label:"HTTPS webhook",placeholder:"https://example.com/hook"};
+    return {label:"Reminder",placeholder:"What should Boolean remind you about?"};
+  }
+  function syncScheduleAction(){
+    const copy=scheduleActionCopy($("scheduleAction").value);
+    $("scheduleContentLabel").textContent=copy.label;
+    $("scheduleContent").placeholder=copy.placeholder;
+  }
+  function openScheduleModal({text="",item=null,range=null}={}){
+    editingAutomationId=item?.id||"";
+    editingAutomationSnapshot=item?{...item}:null;
+    scheduledNoteRange=range?range.cloneRange():null;
+    $("scheduleTitle").textContent=item?"Edit scheduled task":"Schedule task";
+    $("scheduleName").value=item?.name||String(text||"Scheduled task").split(/\r?\n/)[0].slice(0,80)||"Scheduled task";
+    $("scheduleWhen").value=localDateTimeValue(item?.runAt||item?.nextRunAt||Date.now()+3600000);
+    $("scheduleRepeat").value=["once","daily","weekly","monthly"].includes(item?.schedule)?item.schedule:"once";
+    $("scheduleAction").value=["reminder","prompt","open_url","command","webhook"].includes(item?.actionType)?item.actionType:"reminder";
+    $("scheduleContent").value=item?(item.text||item.command||item.url||""):String(text||"");
+    syncScheduleAction();
+    $("scheduleSave").textContent=item?"Save":"Schedule";
+    $("scheduleModal").classList.add("open");
+    $("scheduleModal").setAttribute("aria-hidden","false");
+    setTimeout(()=>$("scheduleName").focus(),0);
+  }
+  function closeScheduleModal(){
+    $("scheduleModal").classList.remove("open");
+    $("scheduleModal").setAttribute("aria-hidden","true");
+    editingAutomationId=""; editingAutomationSnapshot=null; scheduledNoteRange=null;
+  }
+  function automationTime(item){
+    if(!item.enabled) return "Paused";
+    const next=Number(item.nextRunAt||0);
+    return next?new Date(next).toLocaleString():"Not scheduled";
+  }
+  function renderAutomations(){
+    const list=$("automationList"), runs=$("automationRuns");
+    const items=automationState.automations||[];
+    list.innerHTML=items.length?items.map(item=>'<div class="automation-row" data-id="'+esc(item.id)+'"><div><div class="automation-name">'+esc(item.name||"Scheduled task")+'</div><div class="automation-meta">'+esc((item.actionType||"reminder").replace("open_url","open page"))+' · '+esc(item.schedule||"once")+' · '+esc(automationTime(item))+'</div></div><div class="automation-actions"><button data-action="run" title="Run now" aria-label="Run now">▶</button><button data-action="'+(item.enabled?'pause':'resume')+'" title="'+(item.enabled?'Pause':'Resume')+'" aria-label="'+(item.enabled?'Pause':'Resume')+'">'+(item.enabled?'Ⅱ':'▷')+'</button><button data-action="edit" title="Edit" aria-label="Edit">✎</button><button class="danger" data-action="remove" title="Delete" aria-label="Delete">×</button></div></div>').join(""):'<div class="automation-empty">No scheduled tasks yet.</div>';
+    const recent=(automationState.recentRuns||[]).slice(0,8);
+    runs.innerHTML=recent.length?recent.map(run=>'<div class="automation-run '+(Number(run.code)===0?'ok':'bad')+'"><div><span class="automation-run-state">'+(Number(run.code)===0?'Completed':'Failed')+'</span> · '+esc(run.name||"Scheduled task")+'</div><div class="automation-meta">'+esc(new Date(run.finishedAt||run.startedAt).toLocaleString())+(run.output?' · '+esc(String(run.output).replace(/\s+/g," ").slice(0,90)):'')+'</div></div>').join(""):'<div class="automation-empty">No runs yet.</div>';
+  }
+  async function loadAutomations({notify=false}={}){
+    try{
+      const response=await fetch("/api/automations");
+      if(!response.ok) throw new Error("Could not load scheduled tasks.");
+      automationState=await response.json(); renderAutomations();
+      const latest=automationState.recentRuns?.[0];
+      if(!latest) return;
+      if(!lastAutomationRunId){ lastAutomationRunId=latest.id; localStorage.setItem("booleanLastAutomationRun",latest.id); return; }
+      if(notify&&latest.id!==lastAutomationRunId){
+        const ok=Number(latest.code)===0;
+        tempToast((ok?"Scheduled task complete: ":"Scheduled task failed: ")+(latest.name||"Task"),5000);
+        if(ok&&latest.actionType==="open_url"&&latest.url) aiNavigate(latest.url);
+        if("Notification" in window&&Notification.permission==="granted") new Notification("Boolean",{body:(latest.name||"Scheduled task")+(ok?" completed.":" failed.")});
+      }
+      lastAutomationRunId=latest.id; localStorage.setItem("booleanLastAutomationRun",latest.id);
+    }catch(error){ if($("settingsPanel").dataset.page==="scheduled") $("automationList").innerHTML='<div class="automation-empty">'+esc(error.message||error)+'</div>'; }
+  }
+  async function automationOperation(operation,id){
+    const response=await fetch("/api/automations",{method:"POST",body:JSON.stringify({operation,id})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ tempToast(result.error||"Scheduled task could not be updated."); return false; }
+    await loadAutomations(); return true;
+  }
   let navRestoring=false;
   let navHistory=[];
   try{ navHistory=JSON.parse(sessionStorage.getItem("booleanNavHistory")||"[]"); if(!Array.isArray(navHistory))navHistory=[]; }catch{ navHistory=[]; }
@@ -1889,10 +2061,12 @@
     const open=d.classList.contains("open");
     const isWeb=entry.name==="web_search";
     if(isWeb) d.classList.add("webstatus");
-    const summary=isWeb
+    const fullSummary=isWeb
       ? "Searched web"+(entry.args&&entry.args.query?": "+entry.args.query:"")
       : (entry.summary||entry.name);
-    d.innerHTML='<div class="toolhead"><span class="tk">'+(open?"&#9662;":"&#9656;")+'</span><span class="sum">'+esc(summary)+'</span><span class="caret">'+(open?"hide &#9652;":"details &#9662;")+'</span></div><pre class="toolout">'+esc(entry.result||"")+'</pre>';
+    const summary=isWeb?fullSummary:compactActivityText(fullSummary);
+    const detailText=summary!==fullSummary?fullSummary+(entry.result?"\n\n"+entry.result:""):(entry.result||"");
+    d.innerHTML='<div class="toolhead" title="'+esc(fullSummary)+'"><span class="tk">'+(open?"&#9662;":"&#9656;")+'</span><span class="sum">'+esc(summary)+'</span><span class="caret">'+(open?"hide &#9652;":"details &#9662;")+'</span></div><pre class="toolout">'+esc(detailText)+'</pre>';
     const toggle=()=>{ d.classList.toggle("open"); const isOpen=d.classList.contains("open"); d.querySelector(".tk").innerHTML=isOpen?"&#9662;":"&#9656;"; d.querySelector(".caret").innerHTML=isOpen?"hide &#9652;":(isWeb?"details &#9662;":"show &#9662;"); };
     d.querySelector(".toolhead").onclick=isWeb?null:toggle;
     if(isWeb) d.querySelector(".caret").onclick=(e)=>{ e.stopPropagation(); toggle(); };
@@ -2369,13 +2543,32 @@
     $("ctxLen").value=idx;
     $("ctxLenLabel").textContent=fmtCtx(CTX_STEPS[idx])+" tokens";
   }
+  function applyCreationSettings(){
+    const image=state.imageGeneration||{};
+    const select=$("imageProvider");
+    select.innerHTML="";
+    const providers=Array.isArray(image.providers)?image.providers:[];
+    if(!providers.length){
+      const option=document.createElement("option"); option.value=""; option.textContent="Add an API connection first"; select.appendChild(option); select.disabled=true;
+    }else{
+      select.disabled=false;
+      providers.forEach(provider=>{ const option=document.createElement("option"); option.value=provider.id; option.textContent=provider.name; select.appendChild(option); });
+      select.value=providers.some(provider=>provider.id===image.provider)?image.provider:providers[0].id;
+    }
+    $("imageModel").value=image.model||"gpt-image-1";
+    $("imageSize").value=image.size||"1024x1024";
+    $("researchPolicy").value=state.ui?.researchPolicy||"authoritative";
+    $("imageCapabilityStatus").textContent=providers.length
+      ? "Ready. Ask Boolean to create or edit an image; it will save the result and show a preview."
+      : "Add an OpenAI-compatible image API under Third-party connections to enable image creation.";
+  }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.16"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.17"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
-    applyKeyRow(); applyThirdParty(); applyMode(); applyContextLength();
+    applyKeyRow(); applyThirdParty(); applyMode(); applyContextLength(); applyCreationSettings();
     const label=(state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider;
     $("statusdot").className="dot"+(state.backendUp?"":" down");
     $("statustext").textContent=label+(state.backendUp?" ready":" not ready");
@@ -3375,8 +3568,8 @@
     appendToComposer(p.text);
     p.imgs.forEach((src,i)=>addImageDataURL(src,"note image "+(i+1)+".png"));
   };
-  let noteContextSelection="";
-  function hideNoteContextMenu(){ $("noteContextMenu").classList.remove("open"); noteContextSelection=""; }
+  let noteContextSelection="", noteContextRange=null;
+  function hideNoteContextMenu(){ $("noteContextMenu").classList.remove("open"); noteContextSelection=""; noteContextRange=null; }
   function positionSelectionMenu(menu,x,y){
     menu.classList.add("open");
     const width=menu.offsetWidth||176, height=menu.offsetHeight||110;
@@ -3389,12 +3582,17 @@
     if(!text){ hideNoteContextMenu(); return; }
     e.preventDefault();
     noteContextSelection=text;
+    noteContextRange=sel.getRangeAt(0).cloneRange();
     positionSelectionMenu($("noteContextMenu"),e.clientX,e.clientY);
   });
-  ["noteMenuCut","noteMenuCopy","noteMenuSend"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
+  ["noteMenuCut","noteMenuCopy","noteMenuSend","noteMenuSchedule"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
   $("noteMenuCut").onclick=()=>{ document.execCommand("cut"); saveNotes(); hideNoteContextMenu(); };
   $("noteMenuCopy").onclick=()=>{ document.execCommand("copy"); hideNoteContextMenu(); };
   $("noteMenuSend").onclick=()=>{ const text=noteContextSelection; hideNoteContextMenu(); appendToComposer(text); };
+  $("noteMenuSchedule").onclick=()=>{
+    const text=noteContextSelection, range=noteContextRange?.cloneRange();
+    hideNoteContextMenu(); openScheduleModal({text,range});
+  };
   function saveChatNodeToNote(msg){
     if(!msg) return;
     let text=msg._raw || "";
@@ -3555,6 +3753,26 @@
     scrollDown(); return node;
   }
   function fmtTime(ms){ const s=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); }
+  function compactActivityText(value){
+    const text=String(value||"");
+    return text.replace(/([A-Za-z]:\\(?:[^\\\r\n]+\\)*)([^\\\r\n]+)/g,(match,_dirs,last)=>{
+      const clean=String(last).replace(/["'`),;:]+$/g,"");
+      const suffix=String(last).slice(clean.length);
+      return clean+suffix;
+    });
+  }
+  function makeRunResult(snapshot){
+    const d=document.createElement("div");
+    const outcome=snapshot.outcome||"completed";
+    const parts=[];
+    if(snapshot.steps) parts.push(snapshot.steps+" step"+(snapshot.steps===1?"":"s"));
+    parts.push(fmtTime(Date.now()-snapshot.startTime));
+    const label=outcome==="error"?"Stopped with an error - work saved":outcome==="paused"?"Paused - work saved":"Completed";
+    const mark=outcome==="error"?"!":outcome==="paused"?"||":"&#10003;";
+    d.className="run-result "+outcome;
+    d.innerHTML='<span class="result-mark">'+mark+'</span><span>'+esc(label+" · "+parts.join(" · "))+'</span>';
+    return d;
+  }
   function liveTokenCount(){
     const base=run.tokens?(run.tokens.input+run.tokens.output):0;
     const cur=run.raw?Math.ceil(run.raw.length/4):0; // current, not-yet-counted output
@@ -3585,7 +3803,10 @@
       run.statusEl.innerHTML='<span class="spinner"></span><span class="stx"></span><span class="meta"></span>';
       col.appendChild(run.statusEl);
     }
-    run.statusEl.querySelector(".stx").textContent=run.status||"thinking…";
+    const statusText=run.status||"thinking…";
+    const statusNode=run.statusEl.querySelector(".stx");
+    statusNode.textContent=compactActivityText(statusText);
+    statusNode.title=statusText;
     updateStatusMeta();
     scrollDown();
   }
@@ -3746,8 +3967,10 @@
         while((nl=buf.indexOf("\n"))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(line) handleEvent(JSON.parse(line)); } }
     }catch(err){ if(err.name!=="AbortError" && viewingRun()) insertAbove(makeErr("connection error: "+err.message)); }
     if(run&&run.statusEl&&run.statusEl.isConnected) run.statusEl.remove();
-    const holdQueue=!!run?.holdQueue;
-    lastRunWasCompare=!!run?.compare;
+    const finishedRun=run;
+    const holdQueue=!!finishedRun?.holdQueue;
+    lastRunWasCompare=!!finishedRun?.compare;
+    if(threadId===tid && finishedRun && (finishedRun.steps||finishedRun.outcome&&finishedRun.outcome!=="completed")) col.appendChild(makeRunResult(finishedRun));
     run=null; currentAbort=null; updateSendButton(); renderThreads();
     // auto-send the next queued message for this thread
     const q=queues[tid];
@@ -3762,6 +3985,15 @@
     const showing=viewingRun();
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){ run.status=ev.text; renderThreads(); if(showing) ensureStatusEl(); }
+    else if(ev.type==="controller"){
+      run.controller=ev.controller||null;
+      const phase=run.controller?.phase;
+      if(phase&&phase!=="completed"){
+        const labels={planning:"planning the work...",executing:"working...",verifying:"checking the result...",recovering:"recovering from the failed step..."};
+        if(labels[phase]) run.status=labels[phase];
+        renderThreads(); if(showing) ensureStatusEl();
+      }
+    }
     else if(ev.type==="token"){ run.raw+=ev.text; if(showing) ensureLiveAI(); }
     else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertAbove(makeTool(ev.entry)); run.status="working…"; ensureStatusEl(); } }
     else if(ev.type==="approval"){
@@ -3809,7 +4041,7 @@
     }
     else if(ev.type==="notepadControl"){ executeNotepadControl(ev.id,ev.command); }
     else if(ev.type==="usage"){ if(showing){ const u=makeUsage(ev); if(u) insertAbove(u); } }
-    else if(ev.type==="error"){ if(showing) insertAbove(makeErr(ev)); }
+    else if(ev.type==="error"){ run.outcome="error"; if(showing) insertAbove(makeErr(ev)); }
     if(showing) scrollDown();
   }
   async function stopRun(edit=false){
@@ -3817,6 +4049,7 @@
     const tid=run.threadId;
     const request=run.request?{...run.request,images:[...(run.request.images||[])]}:null;
     run.status=edit?"interrupting for edit…":"stopping…";
+    run.outcome="paused";
     run.holdQueue=true;
     queuePaused[tid]=true;
     ensureStatusEl();
@@ -3885,6 +4118,7 @@
     if(section.dataset.sec==="legal") loadLegalDocs();
     if(section.dataset.sec==="thirdparty") showConnectorOverview();
     if(section.dataset.sec==="email") renderEmailSettings();
+    if(section.dataset.sec==="scheduled") loadAutomations();
     panel.scrollTop=0;
   }
   function closeSettingsPanel(){
@@ -3919,6 +4153,64 @@
   $("openmodels").onclick=()=>fetch("/api/open-models",{method:"POST"});
   $("openproj").onclick=()=>fetch("/api/open-projects",{method:"POST"});
   $("changeproj").onclick=changeProjects;
+  $("scheduleAction").onchange=syncScheduleAction;
+  $("scheduleCancel").onclick=closeScheduleModal;
+  $("scheduleModal").onclick=(e)=>{ if(e.target===$("scheduleModal")) closeScheduleModal(); };
+  $("newAutomation").onclick=()=>openScheduleModal();
+  $("scheduleSave").onclick=async()=>{
+    const wasEditing=!!editingAutomationId;
+    const name=$("scheduleName").value.trim();
+    const when=$("scheduleWhen").value;
+    const schedule=$("scheduleRepeat").value;
+    const actionType=$("scheduleAction").value;
+    const content=$("scheduleContent").value.trim();
+    const runAt=new Date(when).getTime();
+    if(!name){ tempToast("Give the task a short name."); $("scheduleName").focus(); return; }
+    if(!when||!Number.isFinite(new Date(when).getTime())){ tempToast("Choose when this task should run."); $("scheduleWhen").focus(); return; }
+    if(!content){ tempToast("Enter the task content."); $("scheduleContent").focus(); return; }
+    if(schedule==="once"&&runAt<=Date.now()){ tempToast("Choose a future time for a one-time task."); $("scheduleWhen").focus(); return; }
+    if(actionType==="open_url"&&!/^https?:\/\//i.test(content)){ tempToast("Enter a full http or https page address."); return; }
+    if(actionType==="webhook"&&!/^https:\/\//i.test(content)){ tempToast("Webhooks must use an HTTPS address."); return; }
+    if(actionType==="command"&&!await appConfirm("Schedule this command?","Boolean will run this PowerShell command automatically while the app is open:\n\n"+content,"Schedule",true)) return;
+    const range=scheduledNoteRange?.cloneRange();
+    const body={operation:editingAutomationId?"update":"create",...(editingAutomationId?{id:editingAutomationId}:{}),name,schedule,runAt:new Date(runAt).toISOString(),actionType,threadId:editingAutomationSnapshot?.threadId||(threadId||""),noteId:editingAutomationSnapshot?.noteId||(typeof activeNote==="function"?(activeNote()?.id||""):""),noteTitle:editingAutomationSnapshot?.noteTitle||(typeof activeNote==="function"?(activeNote()?.title||""):"")};
+    if(actionType==="command") body.command=content;
+    else if(actionType==="open_url"||actionType==="webhook") body.url=content;
+    else body.text=content;
+    const response=await fetch("/api/automations",{method:"POST",body:JSON.stringify(body)});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ tempToast(result.error||"Could not save the scheduled task."); return; }
+    closeScheduleModal();
+    if(range&&result.id){
+      try{
+        const marker=document.createElement("span"); marker.className="note-scheduled"; marker.dataset.automationId=result.id; marker.title="Scheduled: "+name; marker.textContent="◷";
+        range.collapse(false); range.insertNode(marker); saveNotes();
+      }catch{}
+    }
+    await loadAutomations(); tempToast(wasEditing?"Scheduled task updated.":"Task scheduled.");
+  };
+  $("automationList").onclick=async(e)=>{
+    const button=e.target.closest("button[data-action]"), row=e.target.closest(".automation-row");
+    if(!button||!row) return;
+    const item=automationState.automations.find(entry=>entry.id===row.dataset.id);
+    if(!item) return;
+    const action=button.dataset.action;
+    if(action==="edit"){ openScheduleModal({item}); return; }
+    if(action==="remove"){
+      if(!await appConfirm("Delete scheduled task?",'"'+(item.name||"Scheduled task")+'" will be removed.',"Delete",true)) return;
+      if(await automationOperation("remove",item.id)){
+        saveNotes();
+        notes.forEach(note=>{ const holder=document.createElement("div"); holder.innerHTML=note.html||""; holder.querySelectorAll('[data-automation-id="'+CSS.escape(item.id)+'"]').forEach(marker=>marker.remove()); note.html=holder.innerHTML; });
+        localStorage.setItem("sazNotes",JSON.stringify(notes)); loadNote(); tempToast("Scheduled task deleted.");
+      }
+      return;
+    }
+    if(await automationOperation(action,item.id)) tempToast(action==="run"?"Task ran.":action==="pause"?"Task paused.":"Task resumed.");
+  };
+  $("noteEditor").addEventListener("click",(e)=>{
+    if(!e.target.closest(".note-scheduled")) return;
+    openSettings("scheduled");
+  });
   // Local / Cloud provider toggle
   let legalLoaded=false;
   const FALLBACK_POLICY=`BOOLEAN END USER LICENSE AGREEMENT
@@ -4270,6 +4562,18 @@ Optional bundled starter model:
   });
   ["themeSeg","fontSeg","densitySeg"].forEach(id=>$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{ const key=id==="themeSeg"?"theme":id==="fontSeg"?"fontSize":"density"; setUi({[key]:b.dataset.val}); }));
   $("noteColorSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>setUi({notepadTheme:b.dataset.val}));
+  async function saveImageSettings(){
+    if(!$("imageProvider").value) return;
+    const body={imageGeneration:{provider:$("imageProvider").value,model:$("imageModel").value.trim()||"gpt-image-1",size:$("imageSize").value}};
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify(body)});
+    if(!response.ok){ tempToast("Could not save image settings."); return; }
+    state.imageGeneration={...(state.imageGeneration||{}),...body.imageGeneration};
+    tempToast("Image creation settings saved.");
+  }
+  $("imageProvider").onchange=saveImageSettings;
+  $("imageModel").onchange=saveImageSettings;
+  $("imageSize").onchange=saveImageSettings;
+  $("researchPolicy").onchange=e=>setUi({researchPolicy:e.target.value});
   $("contextSeg").querySelectorAll("button").forEach(b=>b.onclick=async()=>{ await setUi({contextMode:b.dataset.val}); estimateContext(); });
   $("usageToggle").onclick=()=>{ const f=$("usageFold"); f.classList.toggle("open"); $("usageCaret").textContent=f.classList.contains("open")?"▾":"▸"; };
   $("ctxLen").oninput=(e)=>{ $("ctxLenLabel").textContent=fmtCtx(CTX_STEPS[Number(e.target.value)])+" tokens"; };
@@ -4732,9 +5036,11 @@ Optional bundled starter model:
     if(!SHELL) applyBrowser(state.ui);
     syncPanelButtons();
     updateAppBack();
+    await loadAutomations({notify:true});
     if(!state.eulaAccepted) $("eula").showModal();
   })();
   setInterval(()=>{ if(!busy()) refresh(); },15000);
+  setInterval(()=>loadAutomations({notify:true}),30000);
   setInterval(updateStatusMeta,1000); // live elapsed timer while a run is active
   window.addEventListener("pagehide",()=>navigator.sendBeacon("/api/bye"));
   window.addEventListener("keydown",e=>{ if(e.altKey&&e.key==="ArrowLeft"){ e.preventDefault(); goBackInApp(); } });

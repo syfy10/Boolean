@@ -7,7 +7,7 @@ import test from "node:test";
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-platform-"));
 const state = path.join(root, "state");
 process.env.BOOLEAN_PLATFORM_HOME = state;
-const { executePlatformTool } = await import(`../src/platform.js?test=${Date.now()}`);
+const { executePlatformTool, nextRunFor, runDueAutomations, setAutomationActionHandler } = await import(`../src/platform.js?test=${Date.now()}`);
 
 const project = path.join(root, "project");
 fs.mkdirSync(project, { recursive: true });
@@ -32,6 +32,36 @@ test("creates structurally valid document artifacts", async () => {
     const result = await executePlatformTool("create_artifact", { type, path: output, title: "Boolean", content }, ctx);
     assert.match(result, /Created and verified/);
     assert.equal(fs.readFileSync(output).subarray(0, signature.length).toString(), signature);
+  }
+});
+
+test("generates images through the selected saved API connection", async () => {
+  const output = path.join(project, "generated.png");
+  const originalFetch = globalThis.fetch;
+  let request;
+  globalThis.fetch = async (url, options) => {
+    request = { url: String(url), options };
+    return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("image-bytes").toString("base64") }] }), {
+      status: 200, headers: { "content-type": "application/json" }
+    });
+  };
+  const images = [];
+  try {
+    const result = await executePlatformTool("generate_image", { prompt: "A flat Boolean app icon", path: output }, {
+      ...ctx,
+      config: {
+        imageGeneration: { provider: "image-api", model: "image-model", size: "512x512" },
+        connectors: { apis: [{ id: "image-api", name: "Images", baseUrl: "https://images.example/v1", apiKey: "test-key", enabled: true }] }
+      },
+      onImage: (src, caption) => images.push({ src, caption })
+    });
+    assert.match(result, /Generated image/);
+    assert.equal(request.url, "https://images.example/v1/images/generations");
+    assert.deepEqual(JSON.parse(request.options.body), { model: "image-model", prompt: "A flat Boolean app icon", size: "512x512", response_format: "b64_json" });
+    assert.equal(fs.readFileSync(output, "utf8"), "image-bytes");
+    assert.equal(images.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
   }
 });
 
@@ -65,6 +95,27 @@ test("persists and manages durable automation definitions", async () => {
   assert.match(await executePlatformTool("manage_automation", { operation: "remove", id: created.id }, ctx), /Removed automation/);
 });
 
+test("calculates calendar recurrence and executes due app reminders", async () => {
+  const daily = nextRunFor({ schedule: "daily", runAt: "2026-07-15T09:30:00.000Z" }, Date.parse("2026-07-17T10:00:00.000Z"));
+  const weekly = nextRunFor({ schedule: "weekly", runAt: "2026-07-15T09:30:00.000Z" }, Date.parse("2026-07-17T10:00:00.000Z"));
+  assert.equal(new Date(daily).toISOString(), "2026-07-18T09:30:00.000Z");
+  assert.equal(new Date(weekly).toISOString(), "2026-07-22T09:30:00.000Z");
+
+  const seen = [];
+  setAutomationActionHandler(async (item) => { seen.push(item.text); return { code: 0, output: item.text }; });
+  const created = JSON.parse(await executePlatformTool("manage_automation", {
+    operation: "create", name: "Remember this", schedule: "once",
+    runAt: new Date(Date.now() + 1000).toISOString(), actionType: "reminder", text: "Check the report"
+  }, ctx));
+  assert.equal(await runDueAutomations(created.nextRunAt + 1), 1);
+  assert.deepEqual(seen, ["Check the report"]);
+  const listed = JSON.parse(await executePlatformTool("manage_automation", { operation: "list" }, ctx));
+  assert.equal(listed.automations.find((item) => item.id === created.id).enabled, false);
+  assert.equal(listed.recentRuns[0].automationId, created.id);
+  assert.equal(listed.recentRuns[0].code, 0);
+  await executePlatformTool("manage_automation", { operation: "remove", id: created.id }, ctx);
+});
+
 test("reports repository risks with file and line evidence", async () => {
   fs.writeFileSync(path.join(project, "unsafe.js"), "const token = 'api_key=secret-value';\neval(userInput);\n");
   const review = JSON.parse(await executePlatformTool("review_repository", { scope: "repository", profile: "security" }, ctx));
@@ -81,4 +132,3 @@ test("runs commands in a disposable copied workspace", async () => {
   assert.equal(result.files.includes("result.txt"), true);
   assert.equal(result.workspace, "removed");
 });
-

@@ -262,6 +262,10 @@ test("clear artifact requests retry tutorial-only answers with an action nudge",
       message = { role: "assistant", content: "Here are the steps you can follow to make the game yourself." };
     } else if (calls === 2) {
       message = { role: "assistant", content: '```tool\n{"name":"list_dir","arguments":{"path":"."}}\n```' };
+    } else if (calls === 3) {
+      message = { role: "assistant", content: '```tool\n{"name":"write_file","arguments":{"path":"RandomGame/script.js","content":"console.log(\\"game ready\\");"}}\n```' };
+    } else if (calls === 4) {
+      message = { role: "assistant", content: '```tool\n{"name":"run_command","arguments":{"command":"node --check RandomGame/script.js"}}\n```' };
     } else {
       message = { role: "assistant", content: "Built and verified the requested game." };
     }
@@ -296,8 +300,8 @@ test("clear artifact requests retry tutorial-only answers with an action nudge",
   }, messages);
 
   assert.equal(answer, "Built and verified the requested game.");
-  assert.equal(calls, 3);
-  assert.deepEqual(steps, ["create_project", "list_dir"]);
+  assert.equal(calls, 5);
+  assert.deepEqual(steps, ["create_project", "list_dir", "write_file", "run_command"]);
   assert.match(nudgedRequest.messages[0].content, /ACTION REQUIRED/);
   assert.match(nudgedRequest.messages[0].content, /created website project/i);
   assert.equal(nudgedRequest.tool_choice, "required");

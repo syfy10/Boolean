@@ -33,7 +33,7 @@ import {
   getEmailAccount,
   publicEmailConnections
 } from "./email.js";
-import { startAutomationScheduler } from "./platform.js";
+import { manageAutomation, setAutomationActionHandler, startAutomationScheduler } from "./platform.js";
 
 function loadAsset(name, devPath) {
   if (sea.isSea && sea.isSea()) {
@@ -205,6 +205,23 @@ function publicConnectors(config) {
   };
 }
 
+function publicImageGeneration(config) {
+  const providers = [];
+  if (config.openai?.apiKey) providers.push({ id: "openai", name: "OpenAI" });
+  if (config.customApi?.apiKey) providers.push({ id: "customApi", name: config.customApi.name || "Custom API" });
+  for (const item of config.connectors?.apis || []) {
+    if (item.enabled !== false && item.apiKey && !providers.some((entry) => entry.id === item.id)) {
+      providers.push({ id: item.id, name: item.name || "API connection" });
+    }
+  }
+  return {
+    provider: config.imageGeneration?.provider || "openai",
+    model: config.imageGeneration?.model || "gpt-image-1",
+    size: config.imageGeneration?.size || "1024x1024",
+    providers
+  };
+}
+
 function cleanConnectorName(s) {
   return String(s || "").replace(/[^\w .:-]/g, "").trim().slice(0, 80);
 }
@@ -313,7 +330,6 @@ function shortAiName(provider, model = "") {
 const TEST_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
 export function startServer(config, { port = 0, autoExit = false } = {}) {
-  startAutomationScheduler();
   const uiHtml = loadUiHtml();
   const icon32 = loadAsset("icon-32.png", "../assets/saz-32.png");
   const icon256 = loadAsset("icon-256.png", "../assets/saz-256.png");
@@ -357,7 +373,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       context: recentTaskContext(t.messages),
       state: "running",
       startedAt: Date.now(),
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      controller: null
     };
   }
   function activeTaskPrompt(task) {
@@ -434,6 +451,60 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   } else {
     newThread();
   }
+
+  // Scheduled AI prompts are deliberately answer-only. They can use the
+  // associated chat for context, but cannot invoke tools while the user is
+  // away from the app to approve an action.
+  setAutomationActionHandler(async (item) => {
+    if (item.actionType === "reminder") return { code: 0, output: item.text || item.name };
+    if (item.actionType === "open_url") return { code: 0, output: `Ready to open ${item.url}`, url: item.url };
+    if (item.actionType !== "prompt") return { code: 1, output: `Unsupported scheduled action: ${item.actionType}` };
+
+    const t = threads.get(item.threadId) || reuseOrNewThread();
+    const text = String(item.text || "").trim();
+    if (!text) return { code: 1, output: "The scheduled AI prompt is empty.", threadId: t.id };
+    const content = `Scheduled task: ${text}`;
+    t.messages.push({ role: "user", content });
+    t.log.push({ t: "user", text: content, at: Date.now(), scheduled: true });
+    if (t.title === "New chat") t.title = String(item.name || shortThreadTitle(text)).slice(0, 42);
+    t.updatedAt = Date.now();
+    persist();
+
+    try {
+      const target = await resolveTarget(config);
+      const recent = t.messages
+        .filter((message) => (message.role === "user" || message.role === "assistant") && message.content && !message.tool_calls?.length)
+        .slice(-18)
+        .map((message) => ({ role: message.role, content: message.content }));
+      const prompt = [
+        { role: "system", content: "Answer the scheduled request directly. Use recent chat context when useful. This is an unattended, answer-only run: do not call tools, modify files, open pages, send messages, or claim that you performed an action." },
+        ...recent
+      ];
+      const answerMessage = await chatCompletion(target, prompt);
+      const answer = String(answerMessage?.content || "").trim();
+      if (!answer) throw new Error("The selected model returned an empty response.");
+      const provider = config.provider || "local";
+      const model = target.model || currentModel(config);
+      const aiLabel = shortAiName(provider, model);
+      t.messages.push({ role: "assistant", content: answer });
+      t.log.push({ t: "ai", text: answer, at: Date.now(), provider, model, aiLabel, scheduled: true });
+      const usage = answerMessage?.usage || {};
+      if (usage.input || usage.output) {
+        recordUsage(provider, model, usage.input || 0, usage.output || 0);
+        t.log.push({ t: "usage", input: usage.input || 0, output: usage.output || 0, estimated: !!usage.estimated });
+      }
+      t.updatedAt = Date.now();
+      persist();
+      return { code: 0, output: answer, threadId: t.id };
+    } catch (error) {
+      const message = String(error?.message || error);
+      t.log.push({ t: "error", text: `Scheduled task failed: ${message}`, scheduled: true });
+      t.updatedAt = Date.now();
+      persist();
+      return { code: 1, output: message, threadId: t.id };
+    }
+  });
+  startAutomationScheduler();
 
   // ── auto-exit when the app window closes ───────────────────────
   let lastPing = Date.now();
@@ -564,6 +635,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           projectsDir: config.projectsDir,
           referenceModel: config.referenceModel,
           connectors: publicConnectors(config),
+          imageGeneration: publicImageGeneration(config),
           cloudBackend: publicCloudBackend(config),
           browseBase,
           vision: config.provider === "local"
@@ -660,6 +732,32 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
         saveConfig(config);
         json({ ok: true, cloudBackend: publicCloudBackend(config) });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/automations") {
+        const result = await manageAutomation({ operation: "list" }, {
+          projectDir: config.projectsDir,
+          config,
+          approve: async () => true
+        });
+        json(JSON.parse(result));
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/automations") {
+        const body = await readBody(req);
+        const operation = String(body.operation || "");
+        if (!["create", "update", "run", "pause", "resume", "remove"].includes(operation)) {
+          return json({ error: "Unsupported scheduled-task operation." }, 400);
+        }
+        const result = await manageAutomation(body, {
+          projectDir: config.projectsDir,
+          config,
+          approve: async () => true
+        });
+        try { json(JSON.parse(result)); }
+        catch { json({ ok: true, message: result }); }
         return;
       }
 
@@ -818,6 +916,19 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
         if (typeof body.projectsDir === "string" && body.projectsDir.trim()) config.projectsDir = body.projectsDir.trim();
         if (typeof body.referenceModel === "string" && body.referenceModel) config.referenceModel = body.referenceModel;
+        if (body.imageGeneration && typeof body.imageGeneration === "object") {
+          const old = config.imageGeneration || {};
+          const provider = String(body.imageGeneration.provider || old.provider || "openai").trim();
+          const allowed = provider === "openai" || provider === "customApi" || (config.connectors?.apis || []).some((item) => item.id === provider);
+          if (!allowed) return json({ error: "image_provider_not_found" }, 404);
+          const size = String(body.imageGeneration.size || old.size || "1024x1024");
+          if (!/^\d{2,5}x\d{2,5}$/.test(size)) return json({ error: "invalid_image_size" }, 400);
+          config.imageGeneration = {
+            provider,
+            model: String(body.imageGeneration.model || old.model || "gpt-image-1").trim() || "gpt-image-1",
+            size
+          };
+        }
         if (body.connectors && typeof body.connectors === "object") config.connectors = mergeConnectors(config.connectors, body.connectors);
         if (typeof body.removeApiConnector === "string") {
           config.connectors.apis = (config.connectors?.apis || []).filter((x) => x.id !== body.removeApiConnector);
@@ -1526,6 +1637,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
           browserUrl,
           signal: abort.signal,
+          objective: t.pendingTask?.objective || "",
+          controllerState: t.pendingTask?.controller || null,
           onStatus: (text) => send({ type: "status", text }),
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {
@@ -1541,6 +1654,13 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
           },
           onOptimize: (o) => send({ type: "optimized", ...o }),
+          onController: (controller) => {
+            if (t.pendingTask) {
+              t.pendingTask.controller = controller;
+              t.pendingTask.updatedAt = Date.now();
+            }
+            send({ type: "controller", controller });
+          },
           // an image the AI produced (e.g. a screenshot) — show it in the
           // transcript and persist it in the thread log
           onImage: (src, caption) => {
@@ -1665,7 +1785,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             if (/^\(stopped by user\)/i.test(String(answer || "").trim())) {
               t.pendingTask.state = "interrupted";
               t.pendingTask.updatedAt = Date.now();
-            } else if (String(answer || "").trim()) {
+            } else if (String(answer || "").trim() && ctx.controllerResult?.phase === "completed") {
               // Keep the last objective available for the Continue button even
               // when the model ended with a normal-looking, but partial, answer.
               t.pendingTask.state = "completed";

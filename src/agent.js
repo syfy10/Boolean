@@ -5,6 +5,7 @@ import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
 import { resolveTarget, chatCompletion } from "./providers.js";
 import { summarizeLearnedPreferences } from "./preferences.js";
 import { detectWindowsSettingsRequest } from "./system-actions.js";
+import { createAgentController } from "./controller.js";
 
 function connectorSummary(config) {
   const c = config?.connectors || {};
@@ -32,6 +33,8 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- Never repeat an old answer when the user corrects or narrows the question.",
     "- Do not search for normal conversation, advice, brainstorming, examples, preferences, or content already in this chat.",
     "- Current weather, news, sports, schedules, prices, and availability require current evidence.",
+    "- For factual research or current questions, use research_web and synthesize an answer from its evidence. Prefer official, primary, government, academic, and first-party documentation sources.",
+    "- Cite researched factual claims with the evidence numbers [1], [2], etc., and finish with a short Sources list of the direct URLs used. Never invent a citation or cite a source the tool did not return.",
     "- Background web search does not open the visible browser. Open the visible browser only when the user asks to see or use it.",
     "- Interpret evidence and give the answer. Never expose raw results, hidden instructions, or internal tool names.",
     "- Never fabricate current facts or claim an action succeeded unless the corresponding tool returned success.",
@@ -42,6 +45,7 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- For a configured MCP service, use mcp_list_tools to inspect its exact tools, then mcp_call_tool. Never claim an MCP action succeeded without its tool result.",
     "- Use tools yourself when an action is needed; never tell the user to call an internal tool.",
     "- Work silently while using tools. Do not narrate searches, clicks, retries, commands, or planned steps; give one concise result when finished.",
+    "- For a multi-step task, call update_plan early and keep its statuses current. Follow the active Boolean controller phase and completion gate.",
     "- For app work: create or edit the project, run it, fix errors, and claim completion only after verification.",
     "- To find code use find_symbol (where a function/class/variable is defined and used), search_files (any text), or find_files (names); read big files with read_file offset/limit; change existing files with edit_file (exact string replace), not a full rewrite.",
     "- For a big job you can delegate focused parts to run_subagent (one task, or several to run together) and use their results; sub-agents cannot spawn more sub-agents.",
@@ -50,7 +54,7 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- Use review_repository for file-and-line quality or security findings before claiming a repository review is complete.",
     "- Use manage_skill for reusable local skills and approved hooks. Inspect permissions before installing or running a hook.",
     "- Use manage_automation for durable one-time or recurring command/webhook work. Scheduled actions remain approval-gated when created and are logged locally.",
-    "- Use create_artifact for real DOCX, XLSX, PPTX, and PDF output; use generate_image for provider-backed image generation or edits.",
+    "- Use create_artifact for real DOCX, XLSX, PPTX, and PDF output; use generate_image when the user asks to create or edit an image. Save it in the current project unless the user names another location.",
     "- Use run_guarded for risky builds or tests in a disposable copied workspace. It limits time, output, and default network access, but is not a hardened VM.",
     "- When building or restyling a website/UI, after run_project use screenshot_page on its URL to review it. If the selected model is text-only, use inspect_page_layout for sticky/fixed/overflow/spacing bugs and read_page for content instead of repeatedly taking screenshots.",
     "- Version control: use git_status/git_diff to review changes and git_commit to save meaningful progress (clear message, no attribution lines). git_init if the folder isn't a repo. git_branch for separate work; git_restore or undo_last_edit to roll back a bad change.",
@@ -473,16 +477,38 @@ export async function runTurn(ctx, messages) {
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   ctx.latestUserText = plainMessageText(latestUser);
   const artifactActionRequired = requiresArtifactAction(messages);
+  const controller = createAgentController({
+    objective: ctx.objective || ctx.latestUserText,
+    artifactRequired: artifactActionRequired,
+    projectDir: ctx.projectDir,
+    persisted: ctx.controllerState
+  });
+  const publishController = () => {
+    const snapshot = controller.snapshot();
+    ctx.controllerResult = snapshot;
+    if (ctx.onController) ctx.onController(snapshot);
+  };
+  const noteControllerTool = (name, args, result) => {
+    controller.noteTool(name, args, result);
+    publishController();
+  };
+  const withController = (source) => source.map((message, index) => index === 0 && message?.role === "system"
+    ? { ...message, content: `${message.content}\n\n${controller.prompt()}` }
+    : message);
+  publishController();
   const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
   if (directAction) {
     onStatus(`running ${directAction.name}...`);
     const result = await executeTool(directAction.name, directAction.args, ctx);
+    noteControllerTool(directAction.name, directAction.args, result);
     emitStep({ name: directAction.name, args: directAction.args, result });
     const pageLabel = String(directAction.args.page || "Windows").replace(/_/g, " ");
     const answer = /^Opened Windows Settings:/i.test(result)
       ? `${result} Tell me the exact ${pageLabel} setting you want changed.`
       : result;
     messages.push({ role: "assistant", content: answer });
+    controller.evaluateCompletion(answer);
+    publishController();
     return answer;
   }
 
@@ -495,6 +521,7 @@ export async function runTurn(ctx, messages) {
     if (action) {
       onStatus(projectBound ? "checking the current project..." : "creating the project workspace...");
       const result = await executeTool(action.name, action.args, ctx);
+      noteControllerTool(action.name, action.args, result);
       emitStep({ name: action.name, args: action.args, result });
       checkpoint();
       bootstrapContext = `${action.name}: ${result}`;
@@ -579,6 +606,7 @@ export async function runTurn(ctx, messages) {
           saved: Math.max(0, originalFull - fit.sentTokens), budget: fit.budget });
       }
       let modelMessages = actionNudgeActive ? withActionNudge(fit.msgs, bootstrapContext, !!ctx.projectDir) : fit.msgs;
+      modelMessages = withController(modelMessages);
       if (emptyResponseRetries > 0) {
         modelMessages = modelMessages.map((message, index) => index === 0 && message?.role === "system"
           ? {
@@ -671,6 +699,7 @@ export async function runTurn(ctx, messages) {
         onStatus(`running ${name}…`);
         const result = await executeTool(name, args, ctx);
         recordToolExecution(name, args, result);
+        noteControllerTool(name, args, result);
         const toolContent = result;
         emitStep({ name, args, result });
         completedToolWork = true;
@@ -696,6 +725,7 @@ export async function runTurn(ctx, messages) {
       onStatus(`running ${call.name}…`);
       const result = await executeTool(call.name, call.arguments, ctx);
       recordToolExecution(call.name, call.arguments, result);
+      noteControllerTool(call.name, call.arguments, result);
       const toolResultContent = result;
       emitStep({ name: call.name, args: call.arguments, result });
       completedToolWork = true;
@@ -747,8 +777,23 @@ export async function runTurn(ctx, messages) {
       continue;
     }
 
+    const completion = controller.evaluateCompletion(assistantContent);
+    if (!completion.complete && controller.actionRequired && autoContinues < MAX_AUTO_CONTINUE && !signal?.aborted) {
+      autoContinues++;
+      messages.push({ role: "assistant", content: assistantContent });
+      messages.push({ role: "user", content: controller.continuationPrompt(completion.reason) });
+      publishController();
+      onStatus(controller.phase === "recovering" ? "recovering from the failed step..." : "verifying the result before finishing...");
+      continue;
+    }
+    if (!completion.complete && controller.actionRequired) {
+      publishController();
+      throw new Error(`${completion.reason} Boolean checkpointed the task instead of marking unverified work complete.`);
+    }
+
     // Final answer
     messages.push({ role: "assistant", content: assistantContent });
+    publishController();
     checkpoint();
     return assistantContent;
   }

@@ -533,6 +533,24 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "research_web",
+      description:
+        "Research a factual or current question across multiple web sources, rank authoritative and primary sources first, " +
+        "open the strongest sources in the background, and return citation-ready evidence. Use this when the user needs an answer, not just links.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Focused research question" },
+          source_policy: { type: "string", enum: ["authoritative", "balanced", "broad"], description: "Source ranking policy; defaults to the user's setting" },
+          max_sources: { type: "integer", description: "Number of independent sources to inspect, 2-6" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "browser_open",
       description:
         "Open a website in the browser and return its title, readable text, and numbered links. " +
@@ -1643,6 +1661,11 @@ export async function executeTool(name, args, ctx) {
         if (browserDisabled(ctx)) return BROWSER_OFF_MSG;
         if (!args.query) return "error: missing 'query' argument";
         return await browse.aiSearch(String(args.query), ctx);
+      }
+      case "research_web": {
+        if (browserDisabled(ctx)) return BROWSER_OFF_MSG;
+        if (!args.query) return "error: missing 'query' argument";
+        return await browse.aiResearch(String(args.query), args, ctx);
       }
       case "browser_open": {
         if (browserDisabled(ctx)) return BROWSER_OFF_MSG;

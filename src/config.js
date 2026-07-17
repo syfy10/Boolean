@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.16";
-export const APP_DISPLAY_VERSION = "v0.09.16";
+export const APP_VERSION = "0.9.17";
+export const APP_DISPLAY_VERSION = "v0.09.17";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -64,6 +64,11 @@ const DEFAULTS = {
     apiKey: "",
     approvedUse: false
   },
+  imageGeneration: {
+    provider: "openai",
+    model: "gpt-image-1",
+    size: "1024x1024"
+  },
   // when true, run_command / write_file execute without asking first
   autoApprove: false,
   // EULA version the user accepted ("" = not yet accepted)
@@ -114,6 +119,7 @@ const DEFAULTS = {
     aiBrowser: true,          // allow the AI to browse the web (search/open/click/forms)
     systemActions: true,      // typed Windows inspection/settings/package actions
     searchEngine: "google",   // google | bing | duckduckgo â€” address-bar searches
+    researchPolicy: "authoritative",
     browserPerms: { downloads: true, camera: false, mic: false, geo: false },
     browserHistory: [],       // [{url,title,at}] capped at 100
     expandedSections: ["model"] // which Settings sections are open

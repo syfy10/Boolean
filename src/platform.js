@@ -31,14 +31,18 @@ export const PLATFORM_TOOL_DEFINITIONS = [
     source: strProp("Absolute local skill folder to install"),
     event: strProp("Hook event name declared by the skill")
   }, ["operation"]),
-  tool("manage_automation", "Create, list, run, pause, resume, or remove durable scheduled command/webhook automations.", {
-    operation: enumProp(["list", "create", "run", "pause", "resume", "remove"]),
+  tool("manage_automation", "Create, edit, list, run, pause, resume, or remove durable scheduled reminders, AI prompts, page opens, commands, and webhooks.", {
+    operation: enumProp(["list", "create", "update", "run", "pause", "resume", "remove"]),
     id: strProp("Automation id"),
     name: strProp("Short automation name"),
-    schedule: enumProp(["once", "interval"]),
+    schedule: enumProp(["once", "daily", "weekly", "monthly", "interval"]),
     runAt: strProp("ISO date/time for a one-time automation"),
     everyMinutes: intProp("Interval in minutes"),
-    actionType: enumProp(["command", "webhook"]),
+    actionType: enumProp(["reminder", "prompt", "open_url", "command", "webhook"]),
+    text: strProp("Reminder text or AI prompt"),
+    threadId: strProp("Chat where a scheduled AI response should be saved"),
+    noteId: strProp("Source notepad tab id"),
+    noteTitle: strProp("Source notepad tab title"),
     command: strProp("PowerShell command"),
     url: strProp("HTTPS webhook URL"),
     method: enumProp(["GET", "POST"]),
@@ -51,7 +55,7 @@ export const PLATFORM_TOOL_DEFINITIONS = [
     title: strProp("Artifact title"),
     content: strProp("Document text. For XLSX use tab-separated rows; for PPTX separate slides with a line containing ---")
   }, ["type", "path", "content"]),
-  tool("generate_image", "Generate or edit an image with the user's configured OpenAI-compatible image provider and save it locally. This may incur provider charges.", {
+  tool("generate_image", "Generate or edit an image with the image API connection selected in Settings, save it locally, and attach a preview. This may incur provider charges.", {
     prompt: strProp("Image prompt"),
     path: strProp("Output PNG path"),
     source: strProp("Optional existing image path to edit"),
@@ -249,22 +253,49 @@ function automationStore() {
   return Array.isArray(data.automations) ? data.automations : [];
 }
 function saveAutomations(automations) { atomicWrite(AUTOMATIONS_FILE, { version: 1, automations }); }
-function nextRunFor(item, from = Date.now()) {
+export function nextRunFor(item, from = Date.now()) {
   if (item.schedule === "interval") return from + Math.max(1, Number(item.everyMinutes || 1)) * 60000;
-  return new Date(item.runAt).getTime();
+  const base = new Date(item.runAt).getTime();
+  if (!Number.isFinite(base)) return NaN;
+  if (item.schedule === "once" || base > from) return base;
+  const next = new Date(base);
+  const bump = () => {
+    if (item.schedule === "daily") next.setDate(next.getDate() + 1);
+    else if (item.schedule === "weekly") next.setDate(next.getDate() + 7);
+    else if (item.schedule === "monthly") next.setMonth(next.getMonth() + 1);
+    else return false;
+    return true;
+  };
+  let guard = 0;
+  while (next.getTime() <= from && guard++ < 5000) if (!bump()) break;
+  return next.getTime();
+}
+
+let automationActionHandler = null;
+export function setAutomationActionHandler(handler) {
+  automationActionHandler = typeof handler === "function" ? handler : null;
 }
 
 async function executeAutomation(item) {
   const startedAt = Date.now();
   let result;
-  if (item.actionType === "command") {
-    result = await runProcess("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", item.command], { cwd: item.cwd || os.homedir(), timeoutMs: 10 * 60 * 1000 });
-  } else {
-    const response = await fetch(item.url, { method: item.method || "POST", headers: item.body ? { "content-type": "application/json" } : {}, body: item.method === "GET" ? undefined : item.body || undefined, signal: AbortSignal.timeout(120000) });
-    result = { code: response.ok ? 0 : response.status, output: (await response.text()).slice(0, 120000) };
+  try {
+    if (item.actionType === "command") {
+      result = await runProcess("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", item.command], { cwd: item.cwd || os.homedir(), timeoutMs: 10 * 60 * 1000 });
+    } else if (item.actionType === "webhook") {
+      const response = await fetch(item.url, { method: item.method || "POST", headers: item.body ? { "content-type": "application/json" } : {}, body: item.method === "GET" ? undefined : item.body || undefined, signal: AbortSignal.timeout(120000) });
+      result = { code: response.ok ? 0 : response.status, output: (await response.text()).slice(0, 120000) };
+    } else if (automationActionHandler) {
+      result = await automationActionHandler(item);
+    } else {
+      result = { code: 1, output: `No app handler is available for ${item.actionType}.` };
+    }
+  } catch (error) {
+    result = { code: 1, output: error?.message || String(error) };
   }
+  result = result && typeof result === "object" ? result : { code: 0, output: String(result || "") };
   const runs = readJson(AUTOMATION_LOG, { version: 1, runs: [] }).runs || [];
-  runs.unshift({ id: crypto.randomUUID(), automationId: item.id, name: item.name, startedAt, finishedAt: Date.now(), code: result.code, output: result.output });
+  runs.unshift({ id: crypto.randomUUID(), automationId: item.id, name: item.name, actionType: item.actionType, startedAt, finishedAt: Date.now(), code: Number(result.code || 0), output: String(result.output || "").slice(0, 120000), threadId: String(result.threadId || item.threadId || ""), url: String(result.url || item.url || "") });
   atomicWrite(AUTOMATION_LOG, { version: 1, runs: runs.slice(0, 200) });
   return result;
 }
@@ -275,7 +306,10 @@ export async function runDueAutomations(now = Date.now()) {
   for (const item of due) {
     item.running = true;
     saveAutomations(automations);
-    try { await executeAutomation(item); item.lastError = ""; }
+    try {
+      const result = await executeAutomation(item);
+      item.lastError = Number(result.code || 0) === 0 ? "" : String(result.output || "Scheduled task failed.").slice(0, 2000);
+    }
     catch (error) { item.lastError = error.message; }
     item.lastRunAt = Date.now();
     item.running = false;
@@ -295,16 +329,20 @@ export function startAutomationScheduler() {
   return automationTimer;
 }
 
-async function manageAutomation(args, ctx) {
+export async function manageAutomation(args, ctx) {
   const operation = String(args.operation || "list");
   const automations = automationStore();
   if (operation === "list") return JSON.stringify({ automations, recentRuns: (readJson(AUTOMATION_LOG, { runs: [] }).runs || []).slice(0, 20) }, null, 2);
   if (operation === "create") {
-    const actionType = args.actionType === "webhook" ? "webhook" : "command";
+    const allowedActions = new Set(["reminder", "prompt", "open_url", "command", "webhook"]);
+    const actionType = allowedActions.has(args.actionType) ? args.actionType : "reminder";
     if (actionType === "command" && !String(args.command || "").trim()) throw new Error("command is required");
     if (actionType === "webhook" && !/^https:\/\//i.test(String(args.url || ""))) throw new Error("an HTTPS webhook URL is required");
-    const schedule = args.schedule === "interval" ? "interval" : "once";
-    const item = { id: crypto.randomUUID(), name: String(args.name || "Scheduled task").trim(), schedule, runAt: args.runAt || "", everyMinutes: Number(args.everyMinutes || 0), actionType, command: String(args.command || ""), url: String(args.url || ""), method: args.method === "GET" ? "GET" : "POST", body: String(args.body || ""), cwd: String(args.cwd || ctx.projectDir || os.homedir()), enabled: true, running: false, createdAt: Date.now() };
+    if (actionType === "open_url" && !/^https?:\/\//i.test(String(args.url || ""))) throw new Error("an http(s) page URL is required");
+    if (["reminder", "prompt"].includes(actionType) && !String(args.text || "").trim()) throw new Error("task text is required");
+    const allowedSchedules = new Set(["once", "daily", "weekly", "monthly", "interval"]);
+    const schedule = allowedSchedules.has(args.schedule) ? args.schedule : "once";
+    const item = { id: crypto.randomUUID(), name: String(args.name || "Scheduled task").trim(), schedule, runAt: args.runAt || "", everyMinutes: Number(args.everyMinutes || 0), actionType, text: String(args.text || ""), threadId: String(args.threadId || ""), noteId: String(args.noteId || ""), noteTitle: String(args.noteTitle || ""), command: String(args.command || ""), url: String(args.url || ""), method: args.method === "GET" ? "GET" : "POST", body: String(args.body || ""), cwd: String(args.cwd || ctx.projectDir || os.homedir()), enabled: true, running: false, createdAt: Date.now() };
     item.nextRunAt = nextRunFor(item);
     if (!Number.isFinite(item.nextRunAt) || item.nextRunAt <= 0) throw new Error("enter a valid run time or interval");
     if (!await ctx.approve(`create scheduled automation '${item.name}' (${item.actionType})`)) return "user declined automation";
@@ -312,6 +350,23 @@ async function manageAutomation(args, ctx) {
   }
   const item = automations.find((entry) => entry.id === String(args.id || ""));
   if (!item) throw new Error(`automation '${args.id}' was not found`);
+  if (operation === "update") {
+    const patch = { ...args }; delete patch.operation; delete patch.id;
+    const allowed = ["name", "schedule", "runAt", "everyMinutes", "actionType", "text", "threadId", "noteId", "noteTitle", "command", "url", "method", "body", "cwd"];
+    for (const key of allowed) if (Object.prototype.hasOwnProperty.call(patch, key)) item[key] = key === "everyMinutes" ? Number(patch[key] || 0) : String(patch[key] || "");
+    if (!["once", "daily", "weekly", "monthly", "interval"].includes(item.schedule)) throw new Error("unsupported schedule");
+    if (!["reminder", "prompt", "open_url", "command", "webhook"].includes(item.actionType)) throw new Error("unsupported action type");
+    if (item.actionType === "command" && !item.command.trim()) throw new Error("command is required");
+    if (item.actionType === "webhook" && !/^https:\/\//i.test(item.url)) throw new Error("an HTTPS webhook URL is required");
+    if (item.actionType === "open_url" && !/^https?:\/\//i.test(item.url)) throw new Error("an http(s) page URL is required");
+    if (["reminder", "prompt"].includes(item.actionType) && !item.text.trim()) throw new Error("task text is required");
+    if (!await ctx.approve(`update scheduled automation '${item.name}'`)) return "user declined automation update";
+    item.nextRunAt = nextRunFor(item, Date.now());
+    item.updatedAt = Date.now();
+    if (!Number.isFinite(item.nextRunAt) || item.nextRunAt <= 0) throw new Error("enter a valid run time or interval");
+    saveAutomations(automations);
+    return JSON.stringify(item, null, 2);
+  }
   if (operation === "run") {
     if (!await ctx.approve(`run automation '${item.name}' now`)) return "user declined automation run";
     const result = await executeAutomation(item); return `Exit ${result.code}\n${result.output}`;
@@ -413,20 +468,27 @@ async function createArtifact(args, ctx) {
 }
 
 async function generateImage(args, ctx) {
-  const provider = ctx.config?.openai?.apiKey ? ctx.config.openai : ctx.config?.customApi?.apiKey ? ctx.config.customApi : null;
-  if (!provider) throw new Error("Add an OpenAI-compatible image API key in Cloud settings first.");
+  const settings = ctx.config?.imageGeneration || {};
+  const selected = String(settings.provider || "openai");
+  const saved = (ctx.config?.connectors?.apis || []).find((item) => item.id === selected && item.enabled !== false);
+  const provider = saved?.apiKey ? saved :
+    selected === "customApi" && ctx.config?.customApi?.apiKey ? ctx.config.customApi :
+    selected === "openai" && ctx.config?.openai?.apiKey ? ctx.config.openai : null;
+  if (!provider) throw new Error("Choose an image API connection with a saved key in Settings > Creation & research.");
   const source = args.source ? path.resolve(String(args.source)) : "";
   if (source && (!fs.existsSync(source) || !fs.statSync(source).isFile())) throw new Error(`source image was not found: ${source}`);
-  if (!await ctx.approve(`${source ? "edit" : "generate"} an image with ${args.model || "gpt-image-1"}; provider charges may apply`)) return "user declined image operation";
+  const model = String(args.model || settings.model || "gpt-image-1");
+  const size = String(args.size || settings.size || "1024x1024");
+  if (!await ctx.approve(`${source ? "edit" : "generate"} an image with ${model}; provider charges may apply`)) return "user declined image operation";
   const base = String(provider.baseUrl || "https://api.openai.com/v1").replace(/\/+$/, "");
   let response;
   if (source) {
     const form = new FormData();
-    form.set("model", args.model || "gpt-image-1"); form.set("prompt", args.prompt); form.set("size", args.size || "1024x1024");
+    form.set("model", model); form.set("prompt", args.prompt); form.set("size", size);
     form.set("image", new Blob([fs.readFileSync(source)]), path.basename(source));
     response = await fetch(`${base}/images/edits`, { method: "POST", headers: { authorization: `Bearer ${provider.apiKey}` }, body: form, signal: AbortSignal.timeout(180000) });
   } else {
-    response = await fetch(`${base}/images/generations`, { method: "POST", headers: { authorization: `Bearer ${provider.apiKey}`, "content-type": "application/json" }, body: JSON.stringify({ model: args.model || "gpt-image-1", prompt: args.prompt, size: args.size || "1024x1024", response_format: "b64_json" }), signal: AbortSignal.timeout(180000) });
+    response = await fetch(`${base}/images/generations`, { method: "POST", headers: { authorization: `Bearer ${provider.apiKey}`, "content-type": "application/json" }, body: JSON.stringify({ model, prompt: args.prompt, size, response_format: "b64_json" }), signal: AbortSignal.timeout(180000) });
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error?.message || `image provider returned HTTP ${response.status}`);
