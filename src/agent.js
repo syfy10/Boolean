@@ -8,6 +8,41 @@ import { summarizeLearnedPreferences } from "./preferences.js";
 import { detectWindowsSettingsRequest } from "./system-actions.js";
 import { createAgentController } from "./controller.js";
 
+const CLOUD_FALLBACK_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+function cloudFallbackAllowed(config, primaryTarget, err, emitted) {
+  if (emitted || primaryTarget?.provider === "local") return false;
+  const fb = config?.cloudFallback || {};
+  if (!fb.enabled || !fb.provider || fb.provider === "local" || fb.provider === primaryTarget?.provider) return false;
+  if (!CLOUD[fb.provider] || !config?.[fb.provider]?.apiKey) return false;
+  return err?.code === "cloud_transport_error" || CLOUD_FALLBACK_STATUSES.has(err?.status);
+}
+
+function cloudLabel(target) {
+  return CLOUD[target?.provider] || target?.provider || "Cloud";
+}
+
+async function chatCompletionWithFallback(config, primaryTarget, messages, tools, signal, onToken, onStatus) {
+  let emitted = false;
+  const trackedToken = typeof onToken === "function"
+    ? (text) => {
+        if (text) emitted = true;
+        onToken(text);
+      }
+    : onToken;
+  try {
+    return { target: primaryTarget, message: await chatCompletion(primaryTarget, messages, tools, signal, trackedToken) };
+  } catch (err) {
+    if (!cloudFallbackAllowed(config, primaryTarget, err, emitted)) throw err;
+    const fb = config.cloudFallback || {};
+    const fallbackTarget = await resolveProviderTarget(config, fb.provider, onStatus);
+    const target = fb.model ? { ...fallbackTarget, model: fb.model } : fallbackTarget;
+    if (target.provider === primaryTarget.provider && target.model === primaryTarget.model) throw err;
+    onStatus?.(`${cloudLabel(primaryTarget)} is unavailable - trying backup ${cloudLabel(target)}...`);
+    return { target, message: await chatCompletion(target, messages, tools, signal, onToken) };
+  }
+}
+
 function connectorSummary(config) {
   const c = config?.connectors || {};
   const mcp = (c.mcp || []).filter((x) => x.enabled !== false).map((x) => x.name || x.id).filter(Boolean);
@@ -784,8 +819,8 @@ export async function runTurn(ctx, messages) {
   let localRecoveryAttempted = false;
   let localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
   let useNativeTools = !localCompactTools;
-  const emitUsage = (msg) => {
-    if (onUsage && msg?.usage) onUsage({ provider: config.provider, model: target.model, ...msg.usage });
+  const emitUsage = (msg, usedTarget = target) => {
+    if (onUsage && msg?.usage) onUsage({ provider: usedTarget.provider || config.provider, model: usedTarget.model, ...msg.usage });
   };
   // Project tool loops can accumulate huge page dumps and file reads in one
   // turn. A focused cloud cap keeps the model on the current bug while the
@@ -870,9 +905,18 @@ export async function runTurn(ctx, messages) {
       const requestTarget = actionNudgeActive && !completedToolWork && useNativeTools && availableTools.length
         ? { ...target, toolChoice: "required" }
         : target;
-      msg = await chatCompletion(requestTarget, modelMessages, useNativeTools && availableTools.length ? availableTools : undefined, signal, onToken);
+      const completion = await chatCompletionWithFallback(
+        config,
+        requestTarget,
+        modelMessages,
+        useNativeTools && availableTools.length ? availableTools : undefined,
+        signal,
+        onToken,
+        onStatus
+      );
+      msg = completion.message;
       localRecoveryAttempted = false;
-      emitUsage(msg);
+      emitUsage(msg, completion.target);
     } catch (err) {
       if (err?.name === "AbortError" || signal?.aborted) return stopped();
       // prompt still too big for the engine — trim harder and retry automatically

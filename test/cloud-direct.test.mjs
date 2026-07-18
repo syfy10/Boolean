@@ -83,6 +83,111 @@ test("transient cloud failures retry without becoming sign-in failures", async (
   assert.equal(result.content, "Recovered cloud response.");
 });
 
+test("cloud fallback is off by default even when another key exists", async (t) => {
+  let primaryCalls = 0;
+  let fallbackCalls = 0;
+  const primary = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    primaryCalls++;
+    res.writeHead(503, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "temporarily_unavailable" }));
+  });
+  const fallback = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    fallbackCalls++;
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Backup should not run." } }] }));
+  });
+  await new Promise((resolve) => primary.listen(0, "127.0.0.1", resolve));
+  await new Promise((resolve) => fallback.listen(0, "127.0.0.1", resolve));
+  t.after(() => primary.close());
+  t.after(() => fallback.close());
+
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${primary.address().port}`, model: "primary", apiKey: "primary-key" },
+    glm: { baseUrl: `http://127.0.0.1:${fallback.address().port}`, model: "backup", apiKey: "backup-key" },
+    cloudFallback: { enabled: false, provider: "glm", model: "" },
+    maxToolTurns: 0,
+    autoApprove: false,
+    projectsDir: "",
+    ui: { aiBrowser: false, contextMode: "minimal", referenceChatMemory: false, learnedMemory: false },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt("", false, config) },
+    { role: "user", content: "hello" }
+  ];
+
+  await assert.rejects(
+    runTurn({ config, approve: async () => false, onStatus() {}, onStep() {}, onUsage() {} }, messages),
+    (err) => err?.status === 503
+  );
+  assert.equal(primaryCalls, 3);
+  assert.equal(fallbackCalls, 0);
+});
+
+test("enabled cloud fallback tries the selected backup provider after primary outage", async (t) => {
+  let primaryCalls = 0;
+  let fallbackCalls = 0;
+  const primary = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    primaryCalls++;
+    res.writeHead(503, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "temporarily_unavailable" }));
+  });
+  const fallback = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    fallbackCalls++;
+    const body = JSON.parse(raw);
+    assert.equal(body.model, "backup-model");
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "Backup answered." } }],
+      usage: { prompt_tokens: 8, completion_tokens: 2 }
+    }));
+  });
+  await new Promise((resolve) => primary.listen(0, "127.0.0.1", resolve));
+  await new Promise((resolve) => fallback.listen(0, "127.0.0.1", resolve));
+  t.after(() => primary.close());
+  t.after(() => fallback.close());
+
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${primary.address().port}`, model: "primary-model", apiKey: "primary-key" },
+    glm: { baseUrl: `http://127.0.0.1:${fallback.address().port}`, model: "backup-model", apiKey: "backup-key" },
+    cloudFallback: { enabled: true, provider: "glm", model: "" },
+    maxToolTurns: 0,
+    autoApprove: false,
+    projectsDir: "",
+    ui: { aiBrowser: false, contextMode: "minimal", referenceChatMemory: false, learnedMemory: false },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt("", false, config) },
+    { role: "user", content: "hello" }
+  ];
+  const statuses = [];
+  const usage = [];
+
+  const answer = await runTurn({
+    config,
+    approve: async () => false,
+    onStatus(status) { statuses.push(status); },
+    onStep() {},
+    onUsage(item) { usage.push(item); }
+  }, messages);
+
+  assert.equal(answer, "Backup answered.");
+  assert.equal(primaryCalls, 3);
+  assert.equal(fallbackCalls, 1);
+  assert.equal(config.provider, "openai", "fallback must not change the user's selected provider");
+  assert.ok(statuses.some((status) => /trying backup GLM/i.test(status)));
+  assert.equal(usage.at(-1)?.provider, "glm");
+  assert.equal(usage.at(-1)?.model, "backup-model");
+});
+
 test("exhausted cloud retries preserve the selected provider and API key", async (t) => {
   let calls = 0;
   const server = http.createServer(async (req, res) => {

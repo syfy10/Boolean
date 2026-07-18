@@ -1080,7 +1080,7 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="model" data-search="ai models local cloud provider default task chat coding vision research fast speed cost context quality automatic">
+      <div class="sec" data-sec="model" data-search="ai models local cloud provider default task chat coding vision research fast speed cost context quality automatic backup fallback outage reliability">
         <div class="sechead">AI Models <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow">
@@ -1093,6 +1093,14 @@
               <option value="claude">Claude (Anthropic)</option>
               <option value="customApi">User API / Custom</option>
             </select>
+          </div>
+          <div class="setrow" id="cloudFallbackRow">
+            <div>Backup cloud model<div class="hint">Off by default. If the selected cloud provider is temporarily down, try this saved provider once.</div></div>
+            <span class="switch"><input type="checkbox" id="cloudFallbackEnabled"><span class="slider"></span></span>
+          </div>
+          <div class="setrow" id="cloudFallbackPick" style="display:none">
+            <div>Backup provider<div class="hint" id="cloudFallbackHint">Choose a provider with a saved API key.</div></div>
+            <select id="cloudFallbackProvider"></select>
           </div>
           <div class="setrow api-quick" id="customApiQuick" style="display:none">
             <div><b>User API</b><div class="hint" id="customApiQuickHint">Use any OpenAI-compatible endpoint. Your key stays on this PC.</div></div>
@@ -1964,7 +1972,7 @@
   syncComposerPillHeight();
   syncComposerBaseHeight();
   syncComposerRail();
-  let state={ provider:"local", models:[], providerModels:{}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null };
+  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null };
   let compareState={ active:false, targets:[] };
   try{ compareState={...compareState,...JSON.parse(localStorage.getItem("booleanCompare")||"{}")}; }catch{}
   let compareCatalog=[];
@@ -2603,6 +2611,33 @@
   }
 
   // ── state / threads ──
+  function renderCloudFallbackSettings(){
+    const row=$("cloudFallbackRow"), pick=$("cloudFallbackPick"), toggle=$("cloudFallbackEnabled"), sel=$("cloudFallbackProvider"), hint=$("cloudFallbackHint");
+    if(!row||!pick||!toggle||!sel) return;
+    const cloud=state.cloud||{}, keys=state.keys||{}, fb=state.cloudFallback||{};
+    const options=Object.keys(cloud).filter(prov=>prov!=="customApi"||keys[prov]).filter(prov=>keys[prov]&&prov!=="local");
+    toggle.checked=!!fb.enabled;
+    pick.style.display=toggle.checked?"":"none";
+    sel.innerHTML="";
+    if(!options.length){
+      const opt=document.createElement("option"); opt.value=""; opt.textContent="No saved cloud keys";
+      sel.appendChild(opt);
+      sel.disabled=true;
+      if(hint) hint.textContent="Save an API key first, then choose it as backup.";
+      return;
+    }
+    sel.disabled=false;
+    for(const prov of options){
+      const opt=document.createElement("option");
+      opt.value=prov;
+      const model=providerModelName(prov);
+      opt.textContent=((cloud[prov]||PROVIDER_LABELS[prov]||prov)+(model?" - "+model:""));
+      sel.appendChild(opt);
+    }
+    const chosen=options.includes(fb.provider)?fb.provider:options.find(prov=>prov!==state.provider)||options[0];
+    sel.value=chosen||"";
+    if(hint) hint.textContent=chosen?`Backup stays idle unless ${cloud[state.provider]||PROVIDER_LABELS[state.provider]||"the selected cloud"} has a temporary outage.`:"Choose a provider with a saved API key.";
+  }
   function applyKeyRow(){
     const prov=$("providersel").value;
     const cloud=state.cloud||{};
@@ -2627,6 +2662,7 @@
     } else { $("keyrow").style.display="none"; $("clearKey").style.display=(custom&&hasKey)?"":"none"; }
     $("modelfolderrow").style.display=(prov==="local")?"":"none";
     $("modellibraryrow").style.display=(prov==="local")?"block":"none";
+    renderCloudFallbackSettings();
   }
   let connectorFilter="all", editingApiId="", editingAgentId="";
   const API_PRESETS={
@@ -3057,6 +3093,7 @@
     updateCompareButton();
     $("providersel").value=state.provider;
     applyKeyRow(); applyThirdParty(); applyMode(); applyContextLength(); applyCreationSettings();
+    renderCloudFallbackSettings();
     const label=(state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider;
     $("statusdot").className="dot"+(state.backendUp?"":" down");
     $("statustext").textContent=label+(state.backendUp?" ready":" not ready");
@@ -5223,6 +5260,18 @@ Optional bundled starter model:
   }
   document.querySelectorAll("#netmode button").forEach(b=>b.onclick=()=>selectNet(b.dataset.net));
   $("providersel").onchange=async(e)=>{ await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:e.target.value})}); $("apikey").value=""; await refresh(); if(e.target.value==="customApi") $("customApiBase")?.focus(); };
+  async function saveCloudFallbackSettings(){
+    const enabled=!!$("cloudFallbackEnabled")?.checked;
+    const provider=($("cloudFallbackProvider")?.value||"").trim();
+    if(enabled&&!provider){ $("cloudFallbackEnabled").checked=false; tempToast("Save a backup cloud API key first."); return; }
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({cloudFallback:{enabled,provider}})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ $("cloudFallbackEnabled").checked=false; tempToast(result.error||"Could not save backup cloud setting."); }
+    await refresh();
+    if(response.ok) tempToast(enabled?"Backup cloud model is on.":"Backup cloud model is off.");
+  }
+  if($("cloudFallbackEnabled")) $("cloudFallbackEnabled").onchange=saveCloudFallbackSettings;
+  if($("cloudFallbackProvider")) $("cloudFallbackProvider").onchange=saveCloudFallbackSettings;
   $("clearKey").onclick=async()=>{ const prov=$("providersel").value;
     if(!await appConfirm("Remove API key?","Remove the saved "+((state.cloud&&state.cloud[prov])||prov)+" API key from this app?","Remove",true)) return;
     await fetch("/api/config",{method:"POST",body:JSON.stringify({clearKey:prov})}); $("apikey").value=""; await refresh(); };

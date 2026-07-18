@@ -712,6 +712,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           appName: APP_NAME, version: APP_VERSION, displayVersion: APP_DISPLAY_VERSION, tagline: APP_TAGLINE,
           provider: config.provider, providers: PROVIDERS, models,
           providerModels: Object.fromEntries(PROVIDERS.map((p) => [p, config[p]?.model || ""])),
+          cloudFallback: {
+            enabled: !!config.cloudFallback?.enabled,
+            provider: config.cloudFallback?.provider || "",
+            model: config.cloudFallback?.model || ""
+          },
           model: currentModel(config), autoApprove: config.autoApprove,
           local: { ctx: config.local.ctx },
           backendUp: await backendUp(config),
@@ -1070,9 +1075,20 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (typeof body.clearKey === "string" && CLOUD[body.clearKey]) {
           config[body.clearKey].apiKey = "";
           if (config.provider === body.clearKey) config.provider = "local";
+          if (config.cloudFallback?.provider === body.clearKey) config.cloudFallback = { enabled: false, provider: "", model: "" };
         }
         if (typeof body.projectsDir === "string" && body.projectsDir.trim()) config.projectsDir = body.projectsDir.trim();
         if (typeof body.referenceModel === "string" && body.referenceModel) config.referenceModel = body.referenceModel;
+        if (body.cloudFallback && typeof body.cloudFallback === "object") {
+          const enabled = body.cloudFallback.enabled === true;
+          const provider = String(body.cloudFallback.provider || "").trim();
+          const model = String(body.cloudFallback.model || "").trim().slice(0, 200);
+          if (enabled) {
+            if (!CLOUD[provider] || provider === "local") return json({ error: "invalid_fallback_provider" }, 400);
+            if (!config[provider]?.apiKey) return json({ error: "fallback_api_key_required" }, 400);
+          }
+          config.cloudFallback = { enabled, provider: enabled ? provider : "", model: enabled ? model : "" };
+        }
         if (body.imageGeneration && typeof body.imageGeneration === "object") {
           const old = config.imageGeneration || {};
           const provider = String(body.imageGeneration.provider || old.provider || "openai").trim();
