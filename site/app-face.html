@@ -452,7 +452,7 @@
   .approval .verdict{ font-size:13px; color:var(--dim); }
   .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:12px; font-size:13.5px; }
 
-  .composer-wrap{ padding:6px 20px 20px; min-width:0; }
+  .composer-wrap{ padding:6px 20px 52px; min-width:0; }
   .composer{ width:min(760px,100%); min-width:0; margin:0 auto; border:1px solid var(--border); border-radius:28px;
     background:var(--bg); box-shadow:0 2px 10px rgba(0,0,0,.05); padding:8px 10px; overflow:visible; }
   .attachments{ display:flex; flex-wrap:wrap; gap:8px; padding:2px 4px 8px; }
@@ -539,6 +539,40 @@
   .menu .item:hover{ background:var(--hover); }
   .menu .item .dl{ color:var(--dim); font-size:11.5px; }
   .menu .item .check{ color:var(--dim); font-size:12px; }
+
+  /* ── compact bottom command/status bar ───────────────────── */
+  .cmdbar{ position:fixed; left:0; right:0; bottom:0; z-index:35; height:36px;
+    display:flex; align-items:center; background:var(--sidebar); border-top:1px solid var(--border);
+    transition:transform .18s; }
+  .cmdbar-row{ display:flex; align-items:center; gap:0; width:100%; padding:0 6px; }
+  .cmdbar-cmds{ display:flex; align-items:center; gap:1px; flex-shrink:0; }
+  .cmd-btn{ display:flex; align-items:center; gap:5px; height:28px; padding:0 9px; border:0;
+    border-radius:7px; background:transparent; color:var(--dim); font:var(--fs-xs) var(--ui); cursor:pointer;
+    white-space:nowrap; transition:background .12s, color .12s; }
+  .cmd-btn svg{ width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:1.7;
+    stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+  .cmd-btn:hover{ background:var(--hover); color:var(--text); }
+  .cmd-btn:active{ transform:scale(.96); }
+  .cmdbar-status{ display:flex; align-items:center; gap:5px; margin-left:auto; padding-right:2px; }
+  .cmd-chip{ display:flex; align-items:center; gap:5px; height:24px; max-width:140px; padding:0 8px;
+    border-radius:12px; background:var(--bubble); color:var(--dim); font:var(--fs-xxs) var(--mono); cursor:default;
+    white-space:nowrap; overflow:hidden; }
+  .cmd-chip-dot{ width:6px; height:6px; border-radius:50%; background:var(--dim); flex-shrink:0; }
+  .cmd-chip-dot.srv{ background:#f85149; }
+  .cmd-chip.active .cmd-chip-dot{ background:var(--green); }
+  .cmd-chip-dot.running{ background:var(--green); animation:pulse 1s ease-in-out infinite; }
+  .cmd-chip-label{ overflow:hidden; text-overflow:ellipsis; }
+  /* shift status text above bar in compact mode */
+  body.compact .cmd-btn{ padding:0 7px; }
+  body.compact .cmd-btn span{ display:none; }
+  body.compact .cmd-btn svg{ width:16px; height:16px; }
+  body.compact .cmd-chip{ padding:0 6px; }
+  /* hide chips on very narrow windows */
+  body.win-xs .cmdbar-status .cmd-chip:nth-child(n+3){ display:none; }
+  body.chat-xs .cmdbar-status .cmd-chip:nth-child(n+2){ display:none; }
+  /* move bar up when browser bottom toolbar is present (legacy) */
+  body.browser-on .cmdbar{ z-index:30; }
+
   .menu .model-head{ padding:8px 10px 4px; color:var(--label); font-size:10px; font-weight:700; letter-spacing:.35px; text-transform:uppercase; }
   .menu .item.model-rec{ align-items:flex-start; padding:8px 10px; }
   .menu .item.model-rec.selected{ background:rgba(34,197,94,.08); box-shadow:inset 2px 0 0 var(--green); }
@@ -1026,6 +1060,46 @@
   <button class="closebtn" id="acceptEula" style="background:var(--accent);color:var(--accent-text);border-color:var(--accent)">I agree — continue</button>
   <button class="closebtn" id="declineEula">Decline</button>
 </dialog>
+
+<!-- ── compact bottom command/status bar ─────────────────────── -->
+<div id="cmdbar" class="cmdbar">
+  <div class="cmdbar-row">
+    <div class="cmdbar-cmds">
+      <button class="cmd-btn" id="cmdFile" title="Open a file from your project">
+        <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M13 2v7h7"/></svg>
+        <span>File</span>
+      </button>
+      <button class="cmd-btn" id="cmdTest" title="Run a test or build command">
+        <svg viewBox="0 0 24 24"><path d="M10 2v8L4 20a2 2 0 0 0 1.7 3h12.6A2 2 0 0 0 20 20l-6-10V2"/><path d="M8.5 2h7"/></svg>
+        <span>Test</span>
+      </button>
+      <button class="cmd-btn" id="cmdWeb" title="Search the web">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+        <span>Web</span>
+      </button>
+      <button class="cmd-btn" id="cmdNote" title="Save current note">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+        <span>Note</span>
+      </button>
+    </div>
+    <div class="cmdbar-status">
+      <div class="cmd-chip" id="chipModel" title="Current model">
+        <span class="cmd-chip-dot"></span>
+        <span class="cmd-chip-label" id="chipModelTxt">—</span>
+      </div>
+      <div class="cmd-chip" id="chipTask" title="Current task">
+        <span class="cmd-chip-label" id="chipTaskTxt">idle</span>
+      </div>
+      <div class="cmd-chip" id="chipFiles" title="Changed files">
+        <span class="cmd-chip-label" id="chipFilesTxt">0 files</span>
+      </div>
+      <div class="cmd-chip" id="chipServer" title="Dev server">
+        <span class="cmd-chip-dot srv"></span>
+        <span class="cmd-chip-label" id="chipServerTxt">off</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="app-modal" id="appModal" aria-hidden="true">
   <div class="app-modal-card" role="dialog" aria-modal="true" aria-labelledby="appModalTitle">
@@ -2904,6 +2978,79 @@ Optional bundled starter model:
   setInterval(()=>{ if(!busy()) refresh(); },15000);
   setInterval(updateStatusMeta,1000); // live elapsed timer while a run is active
   window.addEventListener("pagehide",()=>navigator.sendBeacon("/api/bye"));
+
+  /* ── bottom command/status bar logic ────────────────────── */
+  const chipModel=$("chipModel"), chipModelTxt=$("chipModelTxt");
+  const chipTask=$("chipTask"), chipTaskTxt=$("chipTaskTxt");
+  const chipFiles=$("chipFiles"), chipFilesTxt=$("chipFilesTxt");
+  const chipServer=$("chipServer"), chipServerTxt=$("chipServerTxt");
+
+  /* model chip — derived from local state, no network needed */
+  function cmdbarUpdateModel(){
+    let name = state.model ? displayName(state.model) : (state.provider!=="local" ? (PROVIDER_LABELS[state.provider]||"Cloud") : "No model");
+    chipModelTxt.textContent = name.length>18 ? name.slice(0,17)+"…" : name;
+    chipModel.classList.toggle("active", !!state.model || state.provider!=="local");
+  }
+
+  /* task chip — busy() is the live in-flight indicator */
+  function cmdbarUpdateTask(){
+    const isBusy = busy();
+    chipTask.classList.toggle("active", isBusy);
+    let dot = chipTask.querySelector(".cmd-chip-dot");
+    if(isBusy){
+      chipTaskTxt.textContent = "running…";
+      if(!dot){ dot=document.createElement("span"); dot.className="cmd-chip-dot running"; chipTask.insertBefore(dot,chipTaskTxt); }
+      dot.classList.add("running");
+    } else {
+      chipTaskTxt.textContent = "idle";
+      if(dot && dot.classList.contains("running")) dot.remove();
+    }
+  }
+
+  /* files + server chips — fetched from /api/project-status */
+  async function cmdbarUpdateProject(){
+    try{
+      const d = await fetch("/api/project-status").then(r=>r.json());
+      if(d && d.ok){
+        const n = (d.changedFiles||[]).length;
+        chipFilesTxt.textContent = n ? (n+" file"+(n>1?"s":"")) : "clean";
+        chipFiles.classList.toggle("active", n>0);
+        const srvOn = !!d.serverRunning;
+        chipServerTxt.textContent = srvOn ? "server on" : "off";
+        chipServer.classList.toggle("active", srvOn);
+        const sdot = chipServer.querySelector(".cmd-chip-dot");
+        if(sdot) sdot.classList.toggle("running", srvOn);
+      }
+    }catch(e){ /* endpoint not available (e.g. static demo) — leave defaults */ }
+  }
+
+  // Patch refresh to also update model + task chips
+  const _origRefresh = refresh;
+  refresh = async function(){
+    const r = await _origRefresh.apply(this, arguments);
+    cmdbarUpdateModel();
+    cmdbarUpdateTask();
+    cmdbarUpdateProject();
+    return r;
+  };
+
+  // Command button handlers
+  $("cmdFile")?.addEventListener("click",()=>{ const fa=$("fileAny"); if(fa) fa.click(); });
+  $("cmdTest")?.addEventListener("click",()=>{ input.value = "/test"; send?.click(); });
+  $("cmdWeb")?.addEventListener("click",()=>{
+    if(!document.body.classList.contains("browser-on")) $("browserToggle")?.click();
+    setTimeout(()=>{ const a=$("bAddr"); if(a){ a.focus(); a.select(); } }, 120);
+  });
+  $("cmdNote")?.addEventListener("click",()=>{ $("notesToggle")?.click(); });
+
+  // Update chips immediately, then keep in sync
+  cmdbarUpdateModel();
+  cmdbarUpdateTask();
+  cmdbarUpdateProject();
+  setInterval(cmdbarUpdateProject, 8000); // poll project status periodically
+  const cmdbarObserver = new MutationObserver(cmdbarUpdateTask);
+  cmdbarObserver.observe(document.body,{attributes:true,attributeFilter:["class"]});
+
   input.focus();
 })();
 </script>

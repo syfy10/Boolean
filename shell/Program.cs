@@ -252,9 +252,11 @@ sealed class MainForm : Form
         Text = "Boolean";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
-        Width = Math.Min(920, (int)(wa.Width * 0.65));    // roomy by default, still fits the screen
-        Height = Math.Min(620, (int)(wa.Height * 0.69));
-        StartPosition = FormStartPosition.CenterScreen;
+        Width = Math.Min(460, (int)(wa.Width * 0.28));    // roomy by default, still fits the screen
+        Height = Math.Min(wa.Height, (int)(wa.Height * 0.96));
+        StartPosition = FormStartPosition.Manual;
+        Left = wa.Left + 8;
+        Top  = wa.Top + (wa.Height - Height) / 2;
         Opacity = 0;
         BackColor = Color.FromArgb(28, 28, 28);
         DoubleBuffered = true;
