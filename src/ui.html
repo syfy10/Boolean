@@ -10,32 +10,42 @@
 <link rel="manifest" href="/manifest.json">
 <style>
   :root{
-    --bg:#ffffff; --sidebar:#ffffff; --text:#1a1a1a; --dim:#8a8a8a; --border:#f1f1ef;
-    --hover:#f3f3f1; --bubble:#f6f6f3; --user-bubble:#171717; --user-bubble-text:#ffffff; --ai-bubble:#f7f7f4; --accent:#171717; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
-    --green:#3fb950; --label:#666; --shadow:0 1px 2px rgba(0,0,0,.04);
+    --bg:#fafafa; --sidebar:#ffffff; --text:#1a1a1a; --dim:#8a8a8a; --border:#ececea;
+    --hover:#f3f3f1; --bubble:#f4f4f1; --user-bubble:#2d2d2d; --user-bubble-text:#ffffff; --ai-bubble:#f7f7f4; --accent:#2d2d2d; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
+    --green:#3fb950; --label:#666;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.03);
+    --shadow:0 2px 8px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.04);
+    --shadow-lg:0 8px 32px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.04);
+    --shadow-glow:0 0 0 1px rgba(0,0,0,.02),0 4px 16px rgba(0,0,0,.06);
+    --glass-bg:rgba(255,255,255,.72); --glass-border:rgba(255,255,255,.5); --glass-blur:blur(20px) saturate(1.8);
+    --radius-sm:8px; --radius:12px; --radius-lg:16px; --radius-xl:20px; --radius-pill:999px;
+    --ease:cubic-bezier(.4,0,.2,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
+    --t-fast:.12s var(--ease); --t:.2s var(--ease); --t-slow:.32s var(--ease);
     --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
-    --mono:"Segoe UI",system-ui,sans-serif;
-    --app-fs:15px; --chat-fs:13.5px; --msg-pad:7px 10px; --col-gap:5px;
+    --mono:"Cascadia Code","JetBrains Mono","Consolas","Segoe UI",monospace;
+    --app-fs:15px; --chat-fs:13.5px; --msg-pad:9px 13px; --col-gap:6px;
     --fs-xxs:10.5px; --fs-xs:11.5px; --fs-sm:12.5px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:26px;
     --content-max:760px; --content-x:20px;
   }
   /* dark palette, shared by system-dark and explicit dark */
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
-      --bg:#1c1c1c; --sidebar:#1c1c1c; --text:#ececec; --dim:#8f8f8f; --border:#252525;
-      --hover:#262626; --bubble:#2a2a2a; --user-bubble:#ececec; --user-bubble-text:#171717; --ai-bubble:#272726; --accent:#ececec; --accent-text:#171717; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#222; --label:#aaa;
-      --shadow:0 1px 2px rgba(0,0,0,.25); } }
+      --bg:#141414; --sidebar:#1a1a1a; --text:#ececec; --dim:#8f8f8f; --border:#262626;
+      --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --label:#aaa;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
+      --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06); } }
   :root[data-theme="dark"]{
-    --bg:#1c1c1c; --sidebar:#1c1c1c; --text:#ececec; --dim:#8f8f8f; --border:#252525;
-    --hover:#262626; --bubble:#2a2a2a; --user-bubble:#ececec; --user-bubble-text:#171717; --ai-bubble:#272726; --accent:#ececec; --accent-text:#171717; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#222; --label:#aaa;
-    --shadow:0 1px 2px rgba(0,0,0,.25);
+    --bg:#141414; --sidebar:#1a1a1a; --text:#ececec; --dim:#8f8f8f; --border:#262626;
+    --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --label:#aaa;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
+    --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06);
   }
   body.win-xs{ --app-fs:13px; --chat-fs:13px; --fs-xxs:9.5px; --fs-xs:10.5px; --fs-sm:11.5px; --fs-md:12.5px; --fs-lg:13px; --fs-xl:22px; }
   body.win-sm{ --app-fs:14px; --chat-fs:14px; --fs-xxs:10px; --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:14px; --fs-xl:24px; }
   body.win-lg{ --app-fs:16px; --chat-fs:16px; --fs-xxs:11px; --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:16px; --fs-xl:28px; }
   body.fs-small{ --chat-fs:calc(var(--app-fs) - 2px); } body.fs-large{ --chat-fs:calc(var(--app-fs) + 2px); }
-  body.compact{ --msg-pad:4px 8px; --col-gap:5px; }
+  body.compact{ --msg-pad:5px 10px; --col-gap:5px; }
   *{ box-sizing:border-box; margin:0; }
-  /* flat, minimal scrollbars */
+  /* modern thin scrollbars */
   *{ scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
   ::-webkit-scrollbar{ width:8px; height:8px; }
   ::-webkit-scrollbar-track{ background:transparent; }
@@ -44,10 +54,11 @@
   ::-webkit-scrollbar-corner{ background:transparent; }
   html,body{ height:100%; overflow:hidden; overscroll-behavior:none; }
   body{ display:flex; background:var(--bg); color:var(--text);
-    font:var(--app-fs)/1.45 var(--ui); }
+    font:var(--app-fs)/1.5 var(--ui); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    text-rendering:optimizeLegibility; font-feature-settings:"cv01","cv03","ss01"; }
 
-  aside{ width:202px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--border);
-    display:flex; flex-direction:column; overflow:hidden; transition:width .18s, margin .18s; }
+  aside{ width:210px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; overflow:hidden; transition:width var(--t),margin var(--t); }
   body.collapsed aside{ position:absolute; left:0; top:0; z-index:40; width:44px; height:44px; margin-left:0; overflow:hidden; border-right-color:transparent; background:transparent; }
   body.collapsed .threadlist,
   body.collapsed .sidefoot{ display:none; }
@@ -72,7 +83,7 @@
   .brand-about:hover .brand-tip,.brand-about:focus-visible .brand-tip{ opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0); }
   body.collapsed .brand-tip{ display:none; }
   .icon-btn{ width:30px; height:30px; border:0; border-radius:50%; background:transparent; color:var(--text);
-    cursor:pointer; display:grid; place-items:center; }
+    cursor:pointer; display:grid; place-items:center; transition:background var(--t-fast); }
   .icon-btn:hover{ background:var(--hover); }
   .icon-btn.active{ background:var(--hover); color:var(--green); }
   .icon-btn.active svg{ stroke-width:2.1; }
@@ -87,17 +98,19 @@
     cursor:pointer; text-align:left; width:calc(100% - 12px); }
   .navbtn:hover{ background:var(--hover); }
   .navbtn.active{ background:var(--hover); color:var(--green); }
-  .navbtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.7; flex-shrink:0; }
+  .navbtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.7; flex-shrink:0; transition:stroke-width var(--t-fast); }
+  .navbtn.active svg{ stroke-width:2; }
 
   .sidehead{ flex-shrink:0; height:44px; display:flex; align-items:center; gap:8px; padding:0 7px; }
   body.collapsed .sidehead{ justify-content:center; padding:0 7px; }
   body.collapsed .sidebar-brand{ display:none; }
   .sidehead .icon-btn{ width:30px; height:30px; border-radius:50%; }
-  .threadlist{ flex:1; min-height:40px; overflow-y:auto; padding:4px 5px; display:flex; flex-direction:column; gap:1px; }
-  .thread{ display:flex; align-items:center; gap:5px; min-height:24px; padding:4px 7px; border-radius:8px; cursor:pointer;
-    font-size:var(--fs-xs); color:var(--text); white-space:nowrap; overflow:hidden; }
+  .threadlist{ flex:1; min-height:40px; overflow-y:auto; padding:4px 6px; display:flex; flex-direction:column; gap:2px; }
+  .thread{ display:flex; align-items:center; gap:6px; min-height:30px; padding:5px 9px; border-radius:var(--radius-sm); cursor:pointer;
+    font-size:var(--fs-xs); color:var(--text); white-space:nowrap; overflow:hidden;
+    transition:background var(--t-fast),box-shadow var(--t-fast); }
   .thread:hover{ background:var(--hover); }
-  .thread.active{ background:var(--hover); font-weight:500; }
+  .thread.active{ background:var(--hover); font-weight:500; box-shadow:inset 2px 0 0 var(--green); }
   .thread.working{ background:var(--card); box-shadow:inset 2px 0 0 var(--green); }
   .thread.working.active{ background:var(--hover); }
   .thread .ttl{ flex:1; overflow:hidden; text-overflow:ellipsis; }
@@ -129,11 +142,16 @@
   .thread .rename{ flex:1; border:1px solid var(--green); border-radius:6px; background:var(--bg);
     color:var(--text); font:inherit; font-size:13px; padding:3px 6px; outline:0; min-width:0; }
 
-  .sidefoot{ flex-shrink:0; border-top:1px solid var(--border); padding:5px 0 6px; display:flex; flex-direction:column; }
-  #settingsPanel{ order:1; }
-  #cloudSignIn{ order:3; }
-  #topSettings{ order:4; }
-  .foot-status{ order:5; }
+  .sidefoot{ flex-shrink:0; border-top:1px solid var(--border); padding:0; display:flex; flex-direction:column; background:var(--sidebar); }
+  .sidefoot-nav{ display:flex; align-items:stretch; }
+  #topSettings,#cloudSignIn{ flex:1; justify-content:center; margin:0; padding:7px 4px; border-radius:0;
+    font-size:11px; gap:5px; border-right:1px solid var(--border); }
+  #topSettings svg,#cloudSignIn svg{ width:15px; height:15px; }
+  #cloudSignIn{ border-right:1px solid var(--border); }
+  .foot-status{ display:flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px;
+    font-size:10px; color:var(--dim); border-top:0; flex-shrink:0; min-width:0; overflow:hidden; }
+  .foot-status .dot{ width:6px; height:6px; flex-shrink:0; }
+  .foot-status #statustext{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .panel{ display:none; padding:6px 16px 12px; border-top:1px solid var(--border); background:var(--card); }
   .panel.open{ display:block; }
   body.settings-open #chat,
@@ -142,9 +160,10 @@
     background:var(--bg); box-shadow:none; padding:0 clamp(12px,4vw,42px) 18px; }
   main > #settingsPanel.open{ display:block; }
   .settings-head{ position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:8px;
-    min-height:38px; margin:0 calc(clamp(12px,4vw,42px) * -1) 8px; padding:6px clamp(12px,4vw,42px); background:var(--bg);
-    border-bottom:1px solid var(--border); box-shadow:0 -18px 0 18px var(--bg); }
-  .settings-head b{ font-size:13px; font-weight:600; }
+    min-height:44px; margin:0 calc(clamp(12px,4vw,42px) * -1) 8px; padding:8px clamp(12px,4vw,42px); background:var(--glass-bg);
+    backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
+    border-bottom:1px solid var(--border); box-shadow:0 -18px 0 18px var(--glass-bg); }
+  .settings-head b{ font-size:14px; font-weight:600; letter-spacing:-.01em; }
   .settings-head .spacer{ flex:1; }
   .settings-head button{ width:28px; height:28px; border:0; border-radius:50%; background:transparent;
     color:var(--dim); cursor:pointer; display:grid; place-items:center; font:18px/1 var(--ui); }
@@ -155,8 +174,8 @@
     background:var(--bg); color:var(--text); font:inherit; font-size:12.5px; padding:6px 8px; width:130px; }
   .switch{ position:relative; width:40px; height:22px; flex-shrink:0; }
   .switch input{ opacity:0; width:0; height:0; }
-  .slider{ position:absolute; inset:0; border-radius:22px; background:var(--border); transition:.15s; cursor:pointer; }
-  .slider:before{ content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:var(--bg); top:3px; left:3px; transition:.15s; }
+  .slider{ position:absolute; inset:0; border-radius:var(--radius-pill); background:var(--border); transition:background var(--t); cursor:pointer; }
+  .slider:before{ content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:var(--bg); top:3px; left:3px; transition:transform var(--t-spring); box-shadow:var(--shadow-sm); }
   .switch input:checked + .slider{ background:var(--green); }
   .switch input:checked + .slider:before{ transform:translateX(18px); }
   .minibtn{ border:0; background:transparent; color:var(--text); border-radius:999px;
@@ -164,34 +183,40 @@
   .minibtn:hover{ background:var(--hover); }
   .navbtn.account-on{ color:var(--green); }
   .navbtn.account-on svg{ stroke:var(--green); }
-  .foot-status{ display:flex; align-items:center; gap:6px; padding:3px 14px 2px; font-size:10.5px; color:var(--dim); }
+  .foot-status{ display:flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px;
+    font-size:10px; color:var(--dim); flex-shrink:0; min-width:0; overflow:hidden; }
+  .foot-status .dot{ width:6px; height:6px; flex-shrink:0; }
+  .foot-status #statustext{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dot{ width:7px; height:7px; border-radius:50%; background:var(--green); }
   .dot.down{ background:#f85149; }
   .about-line{ font-size:10.5px; color:var(--dim); padding:2px 0; line-height:1.45; }
   .about-line b{ color:var(--text); font-weight:500; }
 
   /* settings index and focused section pages */
-  .settings-dashboard{ max-width:880px; margin:0 auto 12px; padding:4px 0 2px; }
+  .settings-dashboard{ max-width:880px; margin:0 auto 8px; padding:2px 0 0; }
   #settingsPanel.settings-detail .settings-dashboard{ display:none; }
-  .settings-search{ position:relative; margin:6px 0 12px; }
-  .settings-search input{ width:100%; height:38px; border:1px solid var(--border); border-radius:12px; background:var(--bubble); color:var(--text); outline:0; padding:0 13px 0 34px; font:13px var(--ui); }
-  .settings-search:before{ content:"⌕"; position:absolute; left:12px; top:8px; color:var(--dim); font-size:16px; }
-  .settings-overview{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:10px; }
-  .settings-card{ border:1px solid var(--border); border-radius:13px; background:var(--card); padding:10px; min-width:0; }
-  .settings-card small{ display:block; color:var(--dim); font-size:10.5px; margin-bottom:4px; }
-  .settings-card b{ display:block; color:var(--text); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .settings-card .badge{ display:inline-flex; align-items:center; gap:4px; margin-top:6px; padding:2px 7px; border-radius:999px; background:color-mix(in srgb,var(--green) 14%,transparent); color:var(--green); font-size:10px; }
-  .settings-checklist{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin:0 0 10px; }
-  .settings-check{ display:flex; align-items:flex-start; gap:8px; border:1px solid var(--border); border-radius:11px; background:var(--bg); padding:8px 9px; font-size:12px; cursor:pointer; }
-  .settings-check span:first-child{ width:17px; height:17px; border-radius:50%; display:grid; place-items:center; background:var(--bubble); color:var(--dim); flex-shrink:0; font-size:10px; }
+  .settings-search{ position:relative; margin:4px 0 8px; }
+  .settings-search input{ width:100%; height:38px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bubble); color:var(--text); outline:0; padding:0 12px 0 36px; font:13px var(--ui); transition:border-color var(--t-fast),box-shadow var(--t-fast); }
+  .settings-search input:focus{ border-color:var(--green); box-shadow:0 0 0 3px rgba(34,197,94,.1); }
+  .settings-search:before{ content:"⌕"; position:absolute; left:11px; top:6px; color:var(--dim); font-size:15px; }
+  .settings-overview{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .settings-card{ flex:1 1 0; min-width:120px; border:1px solid var(--border); border-radius:var(--radius); background:var(--card); padding:9px 11px; display:flex; flex-direction:column; gap:3px; box-shadow:var(--shadow-sm); transition:box-shadow var(--t-fast),border-color var(--t-fast); }
+  .settings-card:hover{ box-shadow:var(--shadow); border-color:color-mix(in srgb,var(--green) 25%,var(--border)); }
+  .settings-card small{ color:var(--dim); font-size:9.5px; line-height:1.2; }
+  .settings-card b{ color:var(--text); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .settings-card .badge{ align-self:flex-start; margin-top:2px; padding:1px 6px; border-radius:999px; background:color-mix(in srgb,var(--green) 14%,transparent); color:var(--green); font-size:9px; line-height:1.4; }
+  .settings-checklist{ display:flex; flex-wrap:wrap; gap:5px; margin:0 0 8px; }
+  .settings-check{ flex:1 1 0; min-width:150px; align-items:center; gap:6px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); padding:7px 9px; font-size:11px; cursor:pointer; transition:background var(--t-fast),border-color var(--t-fast); }
+  .settings-check:hover{ background:var(--hover); border-color:color-mix(in srgb,var(--green) 20%,var(--border)); }
+  .settings-check span:first-child{ width:15px; height:15px; border-radius:50%; display:grid; place-items:center; background:var(--bubble); color:var(--dim); flex-shrink:0; font-size:9px; }
   .settings-check.done span:first-child{ background:color-mix(in srgb,var(--green) 18%,transparent); color:var(--green); }
-  .settings-check small{ display:block; color:var(--dim); font-size:10.5px; margin-top:1px; }
+  .settings-check small{ display:block; color:var(--dim); font-size:9.5px; margin-top:1px; line-height:1.25; }
   .settings-empty-filter{ display:none; color:var(--dim); text-align:center; padding:18px 8px; font-size:12px; }
   #settingsPanel.settings-filtering .settings-dashboard .settings-overview,#settingsPanel.settings-filtering .settings-dashboard .settings-checklist{ display:none; }
   #settingsPanel.settings-filtering .sec.settings-filter-hidden{ display:none; }
   .agent-mode-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:8px; }
-  .agent-mode{ border:1px solid var(--border); border-radius:11px; background:var(--bg); color:var(--text); text-align:left; padding:9px; cursor:pointer; font:inherit; }
-  .agent-mode:hover,.agent-mode.on{ background:var(--bubble); border-color:color-mix(in srgb,var(--green) 45%,var(--border)); }
+  .agent-mode{ border:1px solid var(--border); border-radius:var(--radius); background:var(--bg); color:var(--text); text-align:left; padding:11px; cursor:pointer; font:inherit; transition:background var(--t-fast),border-color var(--t-fast),box-shadow var(--t-fast); }
+  .agent-mode:hover,.agent-mode.on{ background:var(--bubble); border-color:color-mix(in srgb,var(--green) 45%,var(--border)); box-shadow:var(--shadow-sm); }
   .agent-mode b{ display:block; font-size:12px; }
   .agent-mode small{ display:block; color:var(--dim); font-size:10.5px; margin-top:2px; line-height:1.3; }
   .workflow-steps{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; margin:8px 0; }
@@ -204,7 +229,7 @@
   .rules-card code{ font-family:var(--mono); font-size:11px; }
   @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .sec{ border-bottom:1px solid var(--border); }
-  .sechead{ display:flex; align-items:center; gap:8px; padding:10px 16px; cursor:pointer; font-size:13px; font-weight:500; color:var(--text); user-select:none; }
+  .sechead{ display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; font-size:13.5px; font-weight:500; color:var(--text); user-select:none; transition:background var(--t-fast); }
   .sechead:hover{ background:var(--hover); }
   .sechead .caret{ margin-left:auto; color:var(--dim); font-size:11px; transition:transform .12s; }
   .secbody{ display:none; padding:4px 16px 12px; }
@@ -217,8 +242,8 @@
   #settingsPanel.settings-detail .sec.settings-page-active .secbody{ display:block; max-width:760px; margin:0 auto; padding:6px 4px 18px; }
   #settingsPanel.settings-detail #savesettings{ max-width:760px; display:block; margin:10px auto 4px !important; width:100% !important; }
   .seg{ display:flex; gap:2px; background:var(--bubble); border-radius:20px; padding:3px; }
-  .seg button{ flex:1; border:0; background:transparent; color:var(--dim); border-radius:16px; font:inherit; font-size:12px; font-weight:500; padding:6px 4px; cursor:pointer; }
-  .seg button.on{ background:var(--bg); color:var(--text); box-shadow:var(--shadow); }
+  .seg button{ flex:1; border:0; background:transparent; color:var(--dim); border-radius:var(--radius-pill); font:inherit; font-size:12px; font-weight:500; padding:6px 4px; cursor:pointer; transition:background var(--t-fast),color var(--t-fast); }
+  .seg button.on{ background:var(--bg); color:var(--text); box-shadow:var(--shadow-sm); }
   .theme-note{ color:var(--dim); font-size:12px; margin:2px 0 8px; }
   .theme-list{ display:flex; flex-direction:column; border-top:1px solid var(--line); }
   .theme-choice{ display:grid; grid-template-columns:22px minmax(0,1fr) 18px; align-items:center; gap:9px; width:100%;
@@ -239,9 +264,9 @@
 
   /* retry / continue actions after an answer or error */
   .actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:2px; }
-  .actbtn{ display:inline-flex; align-items:center; gap:6px; border:0; background:transparent; color:var(--text); border-radius:999px; font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer; }
+  .actbtn{ display:inline-flex; align-items:center; gap:6px; border:0; background:transparent; color:var(--text); border-radius:var(--radius-pill); font:inherit; font-size:12.5px; padding:6px 12px; cursor:pointer; transition:background var(--t-fast); }
   .actbtn:hover{ background:var(--hover); }
-  .actbtn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .actbtn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); box-shadow:var(--shadow-sm); }
   .usagebox{ border-top:1px solid var(--border); margin-top:8px; padding-top:8px; }
   .usagetitle{ font-size:13px; font-weight:500; margin-bottom:6px; }
   .usagebody{ font:11.5px/1.6 var(--mono); color:var(--text); }
@@ -298,37 +323,85 @@
   .menu .item.disabled{ opacity:.45; cursor:default; }
   .bsearch{ margin-top:14px; width:min(340px,90%); border:1px solid var(--border); border-radius:20px;
     background:var(--card); color:var(--text); font:13.5px inherit; padding:10px 16px; outline:0; }
-  .browser-head{ order:1; display:flex; align-items:center; gap:6px; min-height:44px; padding:0 8px;
-    border-top:0; border-bottom:1px solid rgba(0,0,0,.06); background:var(--bg); }
-  :root[data-theme="dark"] .browser-head{ border-bottom-color:rgba(255,255,255,.08); }
-  .btoolbar{ display:flex; align-items:center; gap:6px; flex:1 1 330px; min-width:230px; padding:0; border-bottom:0; background:transparent; }
-  .bbtn{ width:26px; height:26px; flex-shrink:0; border:0; background:transparent; color:var(--dim);
-    border-radius:50%; cursor:pointer; font-size:15px; display:grid; place-items:center; line-height:1; }
-  .bbtn:hover{ background:transparent; color:var(--text); }
-  .bbtn.active{ background:var(--hover); color:var(--green); }
-  .bbtn:disabled{ opacity:.35; cursor:default; }
-  #bHome{ display:none; }
-  #bAddr{ flex:1; min-width:46px; border:0; border-radius:0; background:transparent;
-    color:var(--text); font:var(--fs-sm) var(--mono); padding:5px 8px; outline:0; height:28px; text-align:center; }
-  #bAddr:focus{ box-shadow:none; background:transparent; }
-  .btabs{ min-height:36px; display:flex; align-items:center; gap:5px; flex:0 1 170px; min-width:92px; padding:4px 0; overflow:hidden; border-bottom:0; background:transparent; }
+  /* ═══ MODERN BROWSER PANE ═══ */
+  .browser-head{ order:1; display:flex; flex-direction:column; gap:0; padding:0;
+    border-top:0; border-bottom:1px solid var(--border); background:var(--bg); }
+  .browser-tabbar{ display:flex; align-items:center; gap:2px; padding:4px 6px 0; overflow-x:auto; scrollbar-width:none; }
+  .browser-tabbar::-webkit-scrollbar{ display:none; }
+  .btabs{ display:flex; align-items:center; gap:3px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; }
+  .btabs::-webkit-scrollbar{ display:none; }
   .btabs:empty{ display:none; }
-  .btab{ height:28px; flex:1 1 104px; min-width:42px; max-width:156px; display:flex; align-items:center; gap:6px; padding:0 8px; border:0;
-    border-radius:10px; background:transparent; color:var(--dim); font-size:12px; cursor:pointer; white-space:nowrap; }
-  .btab:hover{ color:var(--text); }
+  .btab{ height:30px; flex:0 1 160px; min-width:40px; max-width:180px; display:flex; align-items:center; gap:7px; padding:0 8px; border:0;
+    border-radius:8px 8px 0 0; background:transparent; color:var(--dim); font-size:var(--fs-xs); cursor:pointer; white-space:nowrap;
+    transition:background .15s,color .15s; position:relative; }
+  .btab:hover{ background:var(--hover); color:var(--text); }
   .btab.active{ background:var(--bubble); color:var(--text); font-weight:500; }
-  .btab.add{ flex:0 0 28px; width:28px; justify-content:center; padding:0; font-size:18px; border-radius:50%; }
-  .btab .fav{ font-size:13px; line-height:1; color:var(--dim); flex-shrink:0; }
-  .btab .t{ overflow:hidden; text-overflow:ellipsis; }
-  .btab .x{ color:var(--dim); font-size:12px; opacity:.72; transition:opacity .12s; flex-shrink:0; padding:0 2px; }
-  .btab:hover .x,.btab.active .x{ opacity:1; }
-  .btab .x:hover{ color:var(--text); }
+  .btab.active::after{ content:""; position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--green); border-radius:2px 2px 0 0; }
+  .btab.add{ flex:0 0 28px; width:28px; justify-content:center; padding:0; font-size:16px; border-radius:8px; }
+  .btab .fav{ width:16px; height:16px; flex-shrink:0; display:grid; place-items:center; overflow:hidden; }
+  .btab .fav img{ width:16px; height:16px; object-fit:contain; }
+  .btab .fav .ph{ font-size:12px; line-height:1; }
+  .btab .t{ overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
+  .btab .x{ color:var(--dim); font-size:13px; opacity:0; transition:opacity .12s; flex-shrink:0; padding:0 2px; border-radius:50%; width:18px; height:18px; display:grid; place-items:center; }
+  .btab:hover .x,.btab.active .x{ opacity:.7; }
+  .btab .x:hover{ opacity:1; color:var(--text); background:var(--hover); }
+  .browser-toolbar{ display:flex; align-items:center; gap:4px; padding:3px 8px; border-bottom:1px solid var(--border); background:var(--bg); }
+  .btoolbar{ display:flex; align-items:center; gap:3px; flex:0 0 auto; }
+  .bbtn{ width:30px; height:30px; flex-shrink:0; border:0; background:transparent; color:var(--dim);
+    border-radius:8px; cursor:pointer; font-size:15px; display:grid; place-items:center; line-height:1;
+    transition:background .15s,color .15s; }
+  .bbtn:hover{ background:var(--hover); color:var(--text); }
+  .bbtn.active{ background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); }
+  .bbtn:disabled{ opacity:.3; cursor:default; }
+  #bHome{ display:none; }
+  .addr-wrap{ flex:1; position:relative; display:flex; align-items:center; min-width:0; }
+  #bAddr{ flex:1; min-width:0; border:1px solid var(--border); border-radius:10px; background:var(--bubble);
+    color:var(--text); font:var(--fs-sm) var(--mono); padding:6px 30px 6px 32px; outline:0; height:32px; text-align:left;
+    transition:border-color .15s,box-shadow .15s; }
+  #bAddr:focus{ border-color:var(--green); box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 12%,transparent); background:var(--bg); }
+  .addr-icon{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--dim); font-size:13px; pointer-events:none; z-index:1; }
+  .addr-star{ position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; border:0; background:transparent;
+    color:var(--dim); cursor:pointer; border-radius:6px; display:grid; place-items:center; font-size:14px; z-index:1; transition:color .15s; }
+  .addr-star:hover{ background:var(--hover); color:var(--text); }
+  .addr-star.active{ color:var(--online); }
+  /* autocomplete dropdown */
+  .ac-wrap{ position:relative; }
+  .ac-list{ position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:50; max-height:320px; overflow-y:auto;
+    border:1px solid var(--border); border-radius:10px; background:var(--bg); box-shadow:0 8px 24px rgba(0,0,0,.12); display:none; }
+  .ac-list.on{ display:block; }
+  .ac-item{ display:flex; align-items:center; gap:8px; padding:7px 10px; cursor:pointer; border-radius:6px; font-size:var(--fs-sm); }
+  .ac-item:hover,.ac-item.sel{ background:var(--hover); }
+  .ac-item .ac-fav{ width:16px; height:16px; flex-shrink:0; display:grid; place-items:center; }
+  .ac-item .ac-fav img{ width:16px; height:16px; object-fit:contain; }
+  .ac-item .ac-title{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+  .ac-item .ac-url{ color:var(--dim); font-size:var(--fs-xxs); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ac-item .ac-tag{ font-size:9px; padding:1px 5px; border-radius:4px; background:var(--hover); color:var(--dim); flex-shrink:0; }
+  .ac-item .ac-tag.bm{ background:color-mix(in srgb,var(--orange) 14%,transparent); color:var(--online); }
+  /* bookmarks bar */
+  .bm-bar{ display:flex; align-items:center; gap:2px; padding:2px 8px; border-bottom:1px solid var(--border); background:var(--bg);
+    overflow-x:auto; scrollbar-width:none; min-height:30px; }
+  .bm-bar::-webkit-scrollbar{ display:none; }
+  .bm-bar:empty{ display:none; }
+  .bm-item{ display:flex; align-items:center; gap:6px; padding:4px 8px; border:0; background:transparent; border-radius:6px;
+    color:var(--dim); font-size:var(--fs-xs); cursor:pointer; white-space:nowrap; transition:background .15s,color .15s; flex-shrink:0; }
+  .bm-item:hover{ background:var(--hover); color:var(--text); }
+  .bm-item img{ width:14px; height:14px; object-fit:contain; }
+  .bm-item .bm-x{ opacity:0; font-size:12px; color:var(--dim); margin-left:2px; }
+  .bm-item:hover .bm-x{ opacity:.7; }
+  .bm-item .bm-x:hover{ opacity:1; color:var(--text); }
+  /* browser task buttons — modern pill design */
+  .browser-tasks{ display:flex; align-items:center; gap:3px; padding:2px 8px; overflow-x:auto; scrollbar-width:none; }
+  .browser-tasks::-webkit-scrollbar{ display:none; }
+  .bt-task{ flex-shrink:0; display:flex; align-items:center; gap:4px; padding:5px 10px; border:1px solid var(--border);
+    border-radius:999px; background:var(--bg); color:var(--dim); font-size:var(--fs-xxs); cursor:pointer; white-space:nowrap;
+    transition:all .15s; }
+  .bt-task:hover{ background:var(--hover); border-color:var(--dim); color:var(--text); }
   .bfind{ order:2; }
   .bframewrap{ order:4; flex:1; position:relative; min-height:0; background:var(--bg); }
   @container (max-width:380px){
-    .browser-head{ flex-wrap:wrap; align-content:center; padding:4px 8px; }
+    .browser-tabbar{ flex-wrap:wrap; }
     .btabs{ flex-basis:100%; }
-    .btoolbar{ flex-basis:100%; }
+    .browser-toolbar{ flex-wrap:wrap; }
     .bmenu{ top:86px; }
   }
   :root[data-theme="dark"] .bframewrap{ background:#181818; }
@@ -342,6 +415,19 @@
   .bread.on{ display:flex; }
   @keyframes eyepulse{ 0%,100%{opacity:1} 50%{opacity:.4} }
   .beye{ animation:eyepulse 1s infinite; }
+  /* reader mode overlay */
+  .breader{ position:absolute; inset:0; z-index:10; overflow-y:auto; background:#faf9f7; color:#2c2c2c; display:none;
+    padding:40px 24px 80px; }
+  :root[data-theme="dark"] .breader{ background:#1a1a1a; color:#ddd; }
+  .breader.on{ display:block; }
+  .breader-inner{ max-width:720px; margin:0 auto; font:17px/1.75 Georgia,"Times New Roman",serif; }
+  .breader-inner h1,.breader-inner h2,.breader-inner h3{ font-family:system-ui,sans-serif; margin:1.2em 0 .4em; line-height:1.3; }
+  .breader-inner h1{ font-size:28px; }
+  .breader-inner a{ color:#6b6b6b; text-decoration:none; }
+  .breader-inner img{ max-width:100%; height:auto; border-radius:8px; margin:12px 0; }
+  .breader-inner blockquote{ border-left:3px solid var(--border); margin:1em 0; padding:.5em 1em; color:#666; font-style:italic; }
+  .breader-inner pre{ background:#f0efed; padding:12px 16px; border-radius:8px; overflow-x:auto; font:13px/1.5 monospace; }
+  :root[data-theme="dark"] .breader-inner pre{ background:#2a2a2a; }
 
   /* notepad panel */
   #notesPanel{ width:clamp(260px,32vw,360px); flex-shrink:0; display:none; flex-direction:column; min-width:240px;
@@ -503,16 +589,17 @@
   .ctxbar .warn{ color:#e3a008; }
   .opt-line{ font:11px var(--mono); color:var(--green); margin-top:1px; }
   .empty{ margin-top:20vh; text-align:center; color:var(--dim); }
-  .empty h1{ font-size:26px; font-weight:600; color:var(--text); margin-bottom:8px; }
+  .empty h1{ font-size:26px; font-weight:600; color:var(--text); margin-bottom:8px; letter-spacing:-.02em; }
 
-  .msg-user,.msg-ai{ width:fit-content; word-break:break-word; position:relative; line-height:1.32; }
-  .msg-user{ align-self:flex-end; max-width:min(72%,520px); }
-  .msg-ai{ align-self:flex-start; max-width:min(72%,540px); }
-  .msg-user .body,.msg-ai .body{ --msg-fill:var(--ai-bubble); position:relative; padding:var(--msg-pad); background:var(--msg-fill); box-shadow:0 1px 2px rgba(0,0,0,.035); }
-  .msg-user .body{ --msg-fill:var(--user-bubble); color:var(--user-bubble-text); border-radius:16px 16px 4px 16px; }
-  .msg-ai .body{ border-radius:16px 16px 16px 4px; }
-  .msg-ai:not(.cloud) .body{ --msg-fill:transparent; border:1px solid color-mix(in srgb,var(--text) 13%,transparent); box-shadow:none; }
-  .msg-ai.cloud .body{ --msg-fill:var(--cloud-bubble); }
+  .msg-user,.msg-ai{ width:fit-content; word-break:break-word; position:relative; line-height:1.4; animation:msgIn var(--t-slow); }
+  @keyframes msgIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+  .msg-user{ align-self:flex-end; max-width:min(74%,520px); }
+  .msg-ai{ align-self:flex-start; max-width:min(74%,560px); }
+  .msg-user .body,.msg-ai .body{ --msg-fill:var(--ai-bubble); position:relative; padding:var(--msg-pad); background:var(--msg-fill); box-shadow:var(--shadow-sm); }
+  .msg-user .body{ --msg-fill:var(--user-bubble); color:var(--user-bubble-text); border-radius:18px 18px 4px 18px; }
+  .msg-ai .body{ border-radius:18px 18px 18px 4px; }
+  .msg-ai:not(.cloud) .body{ --msg-fill:transparent; border:1px solid color-mix(in srgb,var(--text) 10%,transparent); box-shadow:none; }
+  .msg-ai.cloud .body{ --msg-fill:var(--cloud-bubble); border:1px solid var(--cloud-border); }
   .msg-user .body:after,.msg-ai .body:after{ content:""; position:absolute; bottom:0; width:9px; height:11px; background:var(--msg-fill); }
   .msg-user .body:after{ right:-5px; clip-path:polygon(0 0,100% 100%,0 78%); }
   .msg-ai .body:after{ left:-5px; clip-path:polygon(100% 0,0 100%,100% 78%); }
@@ -563,9 +650,9 @@
   .chat-menu button:hover{ background:var(--hover); }
   .selection-menu{ min-width:176px; border-radius:8px; padding:5px; }
   .selection-menu button{ display:block; width:100%; border-radius:5px; padding:7px 9px; }
-  .msg-ai pre{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px;
-    overflow-x:auto; font:13px/1.5 var(--mono); margin:8px 0; }
-  .msg-ai code{ font:.9em var(--mono); background:var(--bubble); border-radius:5px; padding:1px 5px; }
+  .msg-ai pre{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:13px 16px;
+    overflow-x:auto; font:13px/1.6 var(--mono); margin:8px 0; box-shadow:var(--shadow-sm); }
+  .msg-ai code{ font:.9em var(--mono); background:var(--bubble); border-radius:6px; padding:1px 6px; }
   .msg-ai pre code{ background:none; padding:0; }
   /* clickable links in AI answers: URLs open the browser, files open the notepad */
   a.chat-link{ color:var(--accent); text-decoration:none; border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,transparent); cursor:pointer; word-break:break-word; }
@@ -619,7 +706,7 @@
   .approval button{ padding:7px 18px; border-radius:9px; font:600 13px/1 inherit; cursor:pointer; border:1px solid var(--border); background:var(--bg); color:var(--text); }
   .approval button.allow{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
   .approval .verdict{ font-size:13px; color:var(--dim); }
-  .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:12px; font-size:13.5px; }
+  .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:var(--radius); font-size:13.5px; box-shadow:var(--shadow-sm); }
 
   .composer-wrap{ --composer-x:var(--content-x); --composer-bottom:20px; position:absolute; z-index:12;
     left:calc(50% - (var(--chat-scrollbar,0px) / 2)); right:auto; bottom:0;
@@ -627,13 +714,15 @@
     padding:6px 0 var(--composer-bottom); min-width:0; background:transparent; pointer-events:none; }
   .composer,.composer-tools{ pointer-events:auto; }
   .composer{ width:100%; min-width:0; margin:0; border:1px solid var(--border); border-radius:28px;
-    background:var(--bg); box-shadow:0 2px 10px rgba(0,0,0,.05); padding:8px 10px; overflow:visible; }
-  .composer.image-drop{ border-color:var(--green); box-shadow:0 0 0 3px rgba(34,197,94,.12); }
+    background:var(--bg); box-shadow:var(--shadow-lg); padding:8px 10px; overflow:visible;
+    backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); transition:border-color var(--t-fast),box-shadow var(--t-fast); }
+  .composer:hover{ border-color:color-mix(in srgb,var(--green) 30%,var(--border)); }
+  .composer.image-drop{ border-color:var(--green); box-shadow:0 0 0 3px rgba(34,197,94,.12),var(--shadow-lg); }
   .attachments{ display:flex; flex-wrap:wrap; gap:8px; padding:2px 4px 8px; }
   .attachments:empty{ display:none; }
   .queued{ display:flex; flex-direction:column; gap:5px; padding:2px 4px 8px; }
   .queued:empty{ display:none; }
-  .qchip{ display:flex; align-items:center; gap:8px; background:var(--bubble); border-radius:10px; padding:6px 10px; font-size:12.5px; color:var(--text); }
+  .qchip{ display:flex; align-items:center; gap:8px; background:var(--bubble); border-radius:var(--radius); padding:6px 10px; font-size:12.5px; color:var(--text); }
   .qchip .qlabel{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   /* inline queued-question editor — replaces the label right inside the chip */
   .qchip .qedit-input{ flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--text);
@@ -671,8 +760,8 @@
   /* pencil + send live inside the pill, hugging the input's last line */
   .promptline #interruptEdit, .promptline #send{ align-self:flex-end; margin-bottom:2px; }
   .promptline #interruptEdit{ margin-right:3px; }
-  .iconbtn{ width:25px; height:25px; flex:0 0 auto; border-radius:7px; border:0; background:transparent;
-    color:var(--text); font-size:15px; font-weight:500; cursor:pointer; display:grid; place-items:center; position:relative; line-height:1; }
+  .iconbtn{ width:25px; height:25px; flex:0 0 auto; border-radius:var(--radius-sm); border:0; background:transparent;
+    color:var(--text); font-size:15px; font-weight:500; cursor:pointer; display:grid; place-items:center; position:relative; line-height:1; transition:background var(--t-fast); }
   .iconbtn:hover{ background:var(--hover); }
   #interruptEdit{ display:none; color:var(--dim); }
   #interruptEdit.visible{ display:grid; }
@@ -719,25 +808,27 @@
   .netseg{ display:flex; background:var(--bubble); border-radius:20px; padding:2px; gap:2px; }
   .netseg button{ border:0; background:transparent; color:var(--dim); font:inherit; font-size:11px; font-weight:500;
     padding:5px 8px; border-radius:16px; cursor:pointer; white-space:nowrap; }
-  .netseg button.on{ background:var(--bg); color:var(--text); box-shadow:var(--shadow); }
+  .netseg button.on{ background:var(--bg); color:var(--text); box-shadow:var(--shadow-sm); }
   .netseg button[data-net="online"].on{ background:color-mix(in srgb,var(--online) 12%,var(--bg)); color:var(--online); box-shadow:none; }
   .temp-toast{ position:fixed; left:50%; top:54px; transform:translateX(-50%) translateY(-8px); z-index:90;
-    max-width:min(360px,calc(100vw - 32px)); padding:9px 13px; border:1px solid var(--border); border-radius:999px;
-    background:var(--bg); color:var(--text); box-shadow:var(--shadow); font:12px/1.35 var(--ui);
+    max-width:min(360px,calc(100vw - 32px)); padding:9px 14px; border:1px solid var(--border); border-radius:var(--radius-pill);
+    background:var(--glass-bg); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); color:var(--text); box-shadow:var(--shadow-lg); font:12px/1.35 var(--ui);
     opacity:0; pointer-events:none; transition:opacity .16s, transform .16s; }
   .temp-toast.on{ opacity:1; transform:translateX(-50%) translateY(0); }
   .stx{ }
   .status .meta{ color:var(--dim); }
-  #send{ width:32px; height:32px; flex:0 0 auto; margin-left:0; border:1px solid var(--border); border-radius:50%; background:var(--bubble); color:var(--dim);
-    font-size:14px; font-weight:600; cursor:pointer; display:grid; place-items:center; line-height:1; padding:0; }
+  #send{ width:34px; height:34px; flex:0 0 auto; margin-left:0; border:1px solid var(--border); border-radius:50%; background:var(--accent); color:var(--accent-text);
+    font-size:14px; font-weight:600; cursor:pointer; display:grid; place-items:center; line-height:1; padding:0;
+    box-shadow:var(--shadow-sm); transition:transform var(--t-fast),box-shadow var(--t-fast),opacity var(--t-fast); }
   #send svg{ width:16px; height:16px; display:block; }
-  #send:hover{ background:var(--hover); color:var(--text); }
+  #send:hover:not(:disabled){ transform:scale(1.06); box-shadow:var(--shadow); }
+  #send:active:not(:disabled){ transform:scale(.95); }
   #send:disabled{ opacity:.35; cursor:default; }
   #send.stop{ background:#f85149; border-color:transparent; color:#fff; padding-bottom:0; font-size:14px; }
   #send.stop:hover{ background:#f85149; color:#fff; }
   .anchor{ position:relative; }
-  .menu{ position:absolute; background:var(--bg); border:1px solid var(--border); border-radius:14px;
-    box-shadow:var(--shadow); padding:6px; display:none; z-index:20; }
+  .menu{ position:absolute; background:var(--glass-bg); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); border-radius:var(--radius);
+    box-shadow:var(--shadow-lg); padding:6px; display:none; z-index:20; }
   .menu.open{ display:block; }
   .menu#modelmenu{ bottom:54px; right:0; width:292px; max-height:420px; overflow-y:auto; }
   .model-help{ padding:8px 10px 6px; color:var(--dim); font-size:10.5px; line-height:1.35; border-bottom:1px solid var(--border); }
@@ -1054,17 +1145,23 @@
   .terminal-empty .te-hint{ margin-top:4px; font-size:10.5px; }
 
   /* ── Project dashboard ── */
-  .proj-dashboard{ max-width:var(--content-max); margin:0 auto; padding:8px var(--content-x) 4px; }
-  .proj-dashboard-inner{ border:1px solid var(--border); border-radius:13px; background:var(--card); padding:10px 12px; }
-  .pd-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .pd-head .pd-title{ font:600 12.5px var(--ui); color:var(--text); }
-  .pd-head .pd-branch{ font:11px var(--mono); color:var(--green); padding:2px 8px; border-radius:99px; background:color-mix(in srgb,var(--green) 12%,transparent); }
+  .proj-dashboard{ max-width:var(--content-max); margin:0 auto; padding:6px var(--content-x) 2px; transition:padding .2s; }
+  .proj-dashboard-inner{ border:1px solid var(--border); border-radius:13px; background:var(--card); padding:7px 12px; transition:padding .2s; }
+  .pd-head{ display:flex; align-items:center; gap:8px; margin-bottom:0; cursor:pointer; user-select:none; }
+  .pd-head:hover .pd-title{ color:var(--accent,var(--online)); }
+  .pd-head .pd-title{ font:600 12px var(--ui); color:var(--text); }
+  .pd-head .pd-branch{ font:10.5px var(--mono); color:var(--green); padding:1px 7px; border-radius:99px; background:color-mix(in srgb,var(--green) 12%,transparent); }
   .pd-head .pd-spacer{ flex:1; }
-  .pd-head .pd-next{ font:11px var(--ui); color:var(--dim); }
+  .pd-head .pd-next{ font:10.5px var(--ui); color:var(--dim); }
+  .pd-head .pd-summary{ font:10.5px var(--ui); color:var(--dim); }
+  .pd-head .pd-toggle{ font:10px var(--ui); color:var(--dim); transition:transform .2s; flex-shrink:0; }
+  .proj-dashboard:not(.collapsed) .pd-toggle{ transform:rotate(90deg); }
+  .proj-dashboard.collapsed .pd-dashboard-body{ display:none; }
+  .pd-dashboard-body{ margin-top:7px; }
   .pd-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:6px; }
   .pd-stat{ border:1px solid var(--border); border-radius:9px; background:var(--bg); padding:6px 8px; }
-  .pd-stat small{ display:block; font-size:10px; color:var(--dim); margin-bottom:2px; }
-  .pd-stat b{ font:600 11.5px var(--ui); color:var(--text); display:flex; align-items:center; gap:4px; }
+  .pd-stat small{ display:block; font-size:9.5px; color:var(--dim); margin-bottom:2px; }
+  .pd-stat b{ font:600 11px var(--ui); color:var(--text); display:flex; align-items:center; gap:4px; }
   .pd-stat b .pd-stat-dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
   .pd-stat-dot.running{ background:var(--online); animation:pulse 1.5s infinite; }
   .pd-stat-dot.ok{ background:var(--green); }
@@ -1144,21 +1241,52 @@
   .next-edit-bar button:hover{ opacity:.85; }
 
   /* ── Recipe quick-start cards ── */
-  .recipes-panel{ max-width:var(--content-max); margin:0 auto 4px; padding:0 var(--content-x) 4px; display:none; }
+  .recipes-panel{ max-width:var(--content-max); margin:0 auto 2px; padding:0 var(--content-x) 2px; display:none; }
   body.recipes-open .recipes-panel{ display:block; }
-  .recipes-inner{ border:1px solid var(--border); border-radius:13px; background:var(--card); padding:10px 12px; }
-  .recipes-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-  .recipes-head b{ font:600 12.5px var(--ui); color:var(--text); }
-  .recipes-head small{ color:var(--dim); font:11px var(--ui); }
-  .recipes-head .spacer{ flex:1; }
-  .recipes-close{ width:24px; height:24px; border:0; border-radius:6px; background:transparent; color:var(--dim); cursor:pointer; }
+  .recipes-inner{ display:flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:10px; background:var(--card); padding:3px 6px 3px 8px; }
+  .recipes-head{ display:flex; align-items:center; gap:4px; flex:0 0 auto; }
+  .recipes-head b{ font:600 11px var(--ui); color:var(--text); white-space:nowrap; }
+  .recipes-head small{ display:none; }
+  .recipes-head .spacer{ display:none; }
+  .recipes-close{ width:20px; height:20px; flex:0 0 auto; border:0; border-radius:5px; background:transparent; color:var(--dim); cursor:pointer; font:13px var(--ui); line-height:1; }
   .recipes-close:hover{ background:var(--hover); color:var(--text); }
-  .recipe-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:7px; }
-  .recipe-card{ text-align:left; border:1px solid var(--border); border-radius:11px; background:var(--bg); padding:9px 10px; cursor:pointer; color:var(--text); font:12px var(--ui); }
+  .recipe-grid{ display:flex; gap:4px; overflow-x:auto; scrollbar-width:thin; flex:1; align-items:center; padding:0; }
+  .recipe-card{ flex:0 0 auto; min-width:0; text-align:left; border:1px solid var(--border); border-radius:7px; background:var(--bg); padding:4px 7px; cursor:pointer; color:var(--text); font:10.5px var(--ui); white-space:nowrap; transition:border-color .12s, background .12s; }
   .recipe-card:hover{ border-color:var(--accent); background:var(--hover); }
-  .recipe-card b{ display:block; font:600 12px var(--ui); margin-bottom:2px; }
-  .recipe-card small{ display:block; color:var(--dim); font:10.5px/1.35 var(--ui); }
-  .recipe-card .recipe-chip{ display:inline-block; margin-top:6px; padding:2px 7px; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); font:10px var(--ui); }
+  .recipe-card b{ display:inline; font:600 10.5px var(--ui); }
+  .recipe-card small{ display:none; }
+  .recipe-card .recipe-chip{ display:inline-block; margin-left:4px; padding:0 5px; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); font:9px var(--ui); vertical-align:middle; }
+
+  /* ── MCP Connector Gallery ── */
+  .mcp-gallery{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; margin-top:6px; }
+  .mcp-card{ border:1px solid var(--border); border-radius:11px; background:var(--bg); padding:10px 11px; }
+  .mcp-card:hover{ border-color:var(--accent); }
+  .mcp-card-head{ display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .mcp-card-head .mcp-ico{ font-size:15px; }
+  .mcp-card-head b{ font:600 12px var(--ui); flex:1; }
+  .mcp-status{ font:10px var(--ui); padding:1px 7px; border-radius:99px; background:color-mix(in srgb,var(--dim) 15%,transparent); color:var(--dim); }
+  .mcp-status.connected{ background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); }
+  .mcp-status.needs-login{ background:color-mix(in srgb,var(--accent) 12%,transparent); color:var(--accent); }
+  .mcp-desc{ font:11px/1.35 var(--ui); color:var(--dim); margin:4px 0 7px; }
+
+  /* ── Research Cards ── */
+  .research-card{ border:1px solid var(--border); border-radius:10px; padding:8px 10px; margin-bottom:6px; background:color-mix(in srgb,var(--accent) 3%,var(--bg)); }
+  .research-card .rc-title{ font:600 12px var(--ui); margin-bottom:3px; word-break:break-word; }
+  .research-card .rc-summary{ font:11.5px/1.4 var(--ui); color:var(--text); margin-bottom:4px; }
+  .research-card .rc-source{ font:10px var(--ui); color:var(--dim); word-break:break-all; }
+  .research-card .rc-citation{ font:10px var(--ui); color:var(--accent); }
+
+  /* ── Design Assistant ── */
+  .design-bar{ display:flex; align-items:center; gap:8px; padding:7px 12px; background:color-mix(in srgb,var(--accent) 4%,var(--panel)); border-bottom:1px solid var(--border); }
+  .design-bar .db-label{ font:600 12px var(--ui); }
+  .design-bar button{ font:11px var(--ui); padding:4px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); cursor:pointer; }
+  .design-bar button:hover{ border-color:var(--accent); }
+  .design-critique{ font:12px/1.4 var(--ui); color:var(--text); padding:8px 12px; }
+  .design-critique .dc-issue{ display:flex; gap:6px; margin-bottom:4px; align-items:flex-start; }
+  .design-critique .dc-icon{ flex-shrink:0; }
+  .design-critique .dc-severity-high{ color:#dc3f42; }
+  .design-critique .dc-severity-med{ color:#e8a317; }
+  .design-critique .dc-severity-low{ color:var(--dim); }
 
   /* ── Diagnostics ── */
   .diag-grid{ display:grid; grid-template-columns:1fr; gap:0; }
@@ -1215,14 +1343,61 @@
   .s-badge.browser{ background:color-mix(in srgb,#f59e0b 12%,transparent); color:#b06d00; }
   @keyframes sBadgePulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
 
-  /* ── Command bar ── */
-  .cmd-bar{ display:flex; align-items:center; gap:4px; padding:0 6px; height:32px; border-bottom:1px solid var(--border); background:var(--sidebar); flex-shrink:0; }
-  .cmd-bar .cmd-loc{ display:flex; align-items:center; gap:4px; padding:0 6px; font:11px var(--mono); color:var(--dim); flex-shrink:0; }
-  .cmd-bar .cmd-input{ flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--text); font:12px var(--ui); height:28px; padding:0 4px; }
-  .cmd-bar .cmd-input::placeholder{ color:var(--dim); opacity:.55; }
-  .cmd-bar .cmd-btn{ flex-shrink:0; padding:3px 9px; border:0; border-radius:6px; background:transparent; color:var(--dim); font:11px var(--ui); cursor:pointer; white-space:nowrap; }
+  /* ── Command bar (action bar) ── */
+  .cmd-bar{ display:flex; align-items:center; gap:3px; padding:0 8px; height:38px; border-bottom:1px solid var(--border); background:var(--sidebar); flex-shrink:0; }
+  .cmd-bar .cmd-loc{ display:flex; align-items:center; gap:4px; padding:0 4px; font:13px var(--mono); color:var(--accent); flex-shrink:0; opacity:.5; }
+  .cmd-bar .cmd-input{ flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--text); font:12.5px var(--ui); height:30px; padding:0 4px; }
+  .cmd-bar .cmd-input::placeholder{ color:var(--dim); opacity:.5; }
+  .cmd-bar .cmd-btn{ flex-shrink:0; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border:0; border-radius:8px; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; white-space:nowrap; transition:all var(--t-fast); }
   .cmd-bar .cmd-btn:hover{ background:var(--hover); color:var(--text); }
-  .cmd-bar .cmd-hint{ font:10px var(--mono); color:var(--dim); opacity:.4; flex-shrink:0; padding-right:4px; }
+  .cmd-bar .cmd-btn:active{ transform:scale(.95); }
+  .cmd-bar .cmd-btn svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; opacity:.7; }
+  .cmd-bar .cmd-btn:hover svg{ opacity:1; }
+  .cmd-bar .cmd-btn.primary{ background:var(--accent); color:var(--accent-text); }
+  .cmd-bar .cmd-btn.primary:hover{ opacity:.88; }
+  .cmd-bar .cmd-btn.primary svg{ opacity:.85; }
+  .cmd-bar .cmd-sep{ width:1px; height:18px; background:var(--border); flex-shrink:0; margin:0 1px; }
+  .cmd-bar .cmd-hint{ font:10px var(--mono); color:var(--dim); opacity:.35; flex-shrink:0; padding-right:2px; }
+  .cmd-bar .cmd-shortcut{ display:inline-flex; align-items:center; gap:2px; font:9.5px var(--mono); color:var(--dim); opacity:.4; background:var(--hover); border:1px solid var(--border); border-radius:4px; padding:1px 5px; flex-shrink:0; margin-left:4px; }
+  .cmd-bar .cmd-shortcut kbd{ font:inherit; }
+  .cmd-bar .cmd-more{ flex-shrink:0; display:inline-flex; align-items:center; gap:3px; padding:4px 8px; border:0; border-radius:8px; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; white-space:nowrap; transition:all var(--t-fast); }
+  .cmd-bar .cmd-more:hover{ background:var(--hover); color:var(--text); }
+  .cmd-bar .cmd-more svg{ width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; opacity:.7; }
+  .cmd-bar .cmd-more:hover svg{ opacity:1; }
+
+  /* ── Command palette dropdown ── */
+  .cmd-palette{ position:fixed; z-index:10002; top:80px; left:50%; transform:translateX(-50%) translateY(-8px); width:min(560px,calc(100vw - 24px)); max-height:440px; display:flex; flex-direction:column; background:var(--glass-bg); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); border:1px solid var(--glass-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:opacity var(--t-fast),transform var(--t-fast); overflow:hidden; }
+  .cmd-palette.open{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  .cmd-palette-head{ display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .cmd-palette-head svg{ width:16px; height:16px; stroke:var(--dim); fill:none; stroke-width:1.8; stroke-linecap:round; flex-shrink:0; }
+  .cmd-palette-head input{ flex:1; border:0; outline:0; background:transparent; color:var(--text); font:14px var(--ui); height:28px; }
+  .cmd-palette-head input::placeholder{ color:var(--dim); opacity:.6; }
+  .cmd-palette-list{ overflow-y:auto; padding:4px; flex:1; min-height:0; }
+  .cmd-palette-list::-webkit-scrollbar{ width:6px; } .cmd-palette-list::-webkit-scrollbar-thumb{ background:var(--border); border-radius:3px; }
+  .cmd-item{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:var(--radius-sm); cursor:pointer; transition:background var(--t-fast); }
+  .cmd-item:hover{ background:var(--hover); }
+  .cmd-item.sel{ background:color-mix(in srgb,var(--accent) 8%,transparent); }
+  .cmd-item.sel .cmd-item-icon{ color:var(--accent); }
+  .cmd-item-icon{ width:30px; height:30px; border-radius:8px; background:var(--bubble); display:grid; place-items:center; flex-shrink:0; color:var(--dim); transition:color var(--t-fast); }
+  .cmd-item-icon svg{ width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .cmd-item-body{ flex:1; min-width:0; }
+  .cmd-item-title{ font:12.5px var(--ui); font-weight:600; color:var(--text); line-height:1.3; }
+  .cmd-item-desc{ font:11px var(--ui); color:var(--dim); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cmd-item-key{ font:10px var(--mono); color:var(--dim); opacity:.5; background:var(--bubble); border:1px solid var(--border); border-radius:4px; padding:2px 5px; flex-shrink:0; }
+  .cmd-palette-foot{ display:flex; align-items:center; gap:12px; padding:6px 14px; border-top:1px solid var(--border); font:10.5px var(--ui); color:var(--dim); flex-shrink:0; }
+  .cmd-palette-foot span{ display:inline-flex; align-items:center; gap:3px; }
+  .cmd-palette-foot kbd{ font:9.5px var(--mono); background:var(--bubble); border:1px solid var(--border); border-radius:3px; padding:1px 4px; }
+  .cmd-palette-backdrop{ position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.15); opacity:0; pointer-events:none; transition:opacity var(--t); }
+  .cmd-palette-backdrop.open{ opacity:1; pointer-events:auto; }
+  @media(max-width:768px){
+    .cmd-bar{ overflow-x:auto; scrollbar-width:none; }
+    .cmd-bar::-webkit-scrollbar{ display:none; }
+    .cmd-bar .cmd-btn span{ display:none; }
+    .cmd-bar .cmd-btn svg{ width:15px; height:15px; }
+    .cmd-bar .cmd-input{ min-width:100px; }
+    .cmd-bar .cmd-shortcut{ display:none; }
+    .cmd-palette{ width:calc(100vw - 16px); border-radius:14px 14px var(--radius-lg) var(--radius-lg); }
+  }
 
   /* ── Task stepper ── */
   .task-stepper{ display:flex; align-items:center; gap:0; padding:0 10px; height:28px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; flex-shrink:0; }
@@ -1682,6 +1857,62 @@
         </div>
       </div>
 
+      <div class="sec" data-sec="mcp" data-search="mcp connectors gallery github notion stripe supabase cloudflare gmail jira slack linear api setup one-click agent">
+        <div class="sechead">MCP Connectors <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow" style="display:block">
+            <div><b>MCP Connector Gallery</b><div class="hint">One-click setup cards for Model Context Protocol servers that let Boolean talk to external services.</div></div>
+          </div>
+          <div class="mcp-gallery" id="mcpGallery">
+            <div class="mcp-card" data-mcp="github">
+              <div class="mcp-card-head"><span class="mcp-ico">🐙</span><b>GitHub</b><span class="mcp-status" id="mcpGithubSt">Available</span></div>
+              <p class="mcp-desc">Repo access, issues, PRs, and workflow integration.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="github">Set up</button>
+            </div>
+            <div class="mcp-card" data-mcp="notion">
+              <div class="mcp-card-head"><span class="mcp-ico">📝</span><b>Notion</b><span class="mcp-status" id="mcpNotionSt">Available</span></div>
+              <p class="mcp-desc">Search, read, and create Notion pages and databases.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="notion">Set up</button>
+            </div>
+            <div class="mcp-card" data-mcp="supabase">
+              <div class="mcp-card-head"><span class="mcp-ico">🗄️</span><b>Supabase</b><span class="mcp-status" id="mcpSupabaseSt">Available</span></div>
+              <p class="mcp-desc">Query and manage Supabase databases and auth.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="supabase">Set up</button>
+            </div>
+            <div class="mcp-card" data-mcp="stripe">
+              <div class="mcp-card-head"><span class="mcp-ico">💳</span><b>Stripe</b><span class="mcp-status" id="mcpStripeSt">Available</span></div>
+              <p class="mcp-desc">Check balances, create invoices, and manage customers.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="stripe">Set up</button>
+            </div>
+            <div class="mcp-card" data-mcp="cloudflare">
+              <div class="mcp-card-head"><span class="mcp-ico">☁️</span><b>Cloudflare</b><span class="mcp-status" id="mcpCloudflareSt">Available</span></div>
+              <p class="mcp-desc">Manage Workers, KV, R2, and DNS records.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="cloudflare">Set up</button>
+            </div>
+            <div class="mcp-card" data-mcp="jira">
+              <div class="mcp-card-head"><span class="mcp-ico">📋</span><b>Jira</b><span class="mcp-status" id="mcpJiraSt">Available</span></div>
+              <p class="mcp-desc">Create and track issues, sprints, and epics.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="jira">Set up</button>
+            </div>
+            <div class="mcp-card" data-mcp="slack">
+              <div class="mcp-card-head"><span class="mcp-ico">💬</span><b>Slack</b><span class="mcp-status" id="mcpSlackSt">Available</span></div>
+              <p class="mcp-desc">Send messages, search channels, and read history.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="slack">Set up</button>
+            </div>
+            <div class="mcp-card" data-mcp="linear">
+              <div class="mcp-card-head"><span class="mcp-ico">📐</span><b>Linear</b><span class="mcp-status" id="mcpLinearSt">Available</span></div>
+              <p class="mcp-desc">Manage issues, projects, and cycles in Linear.</p>
+              <button class="minibtn mcp-setup" data-mcp-setup="linear">Set up</button>
+            </div>
+          </div>
+          <div class="setrow" style="margin-top:8px;display:block">
+            <div>Custom MCP server<div class="hint">connect to any MCP server by URL or command</div></div>
+            <div style="display:flex;gap:6px;margin-top:4px"><input type="text" id="mcpCustomUrl" placeholder="npx @some/mcp-server or https://…" spellcheck="false" autocomplete="off" style="flex:1"><button class="minibtn" id="mcpCustomAdd" type="button">Add</button></div>
+          </div>
+          <div class="hint" style="margin-top:9px">MCP tool calls always require your confirmation, including trading and financial actions. Each connector shows its permission scope before first use.</div>
+        </div>
+      </div>
+
       <div class="sec" data-sec="email" data-search="email gmail outlook draft-only send confirm permissions privacy safety">
         <div class="sechead">Email <span class="caret">▶</span></div>
         <div class="secbody">
@@ -1875,17 +2106,19 @@
       <button class="minibtn" id="savesettings" style="width:calc(100% - 32px);margin:10px 16px">Close</button>
     </div>
 
-    <button class="navbtn" id="topSettings">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
-      Settings
-    </button>
+    <div class="sidefoot-nav">
+      <button class="navbtn" id="topSettings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        Settings
+      </button>
 
-    <button class="navbtn" id="cloudSignIn" title="Sign in to your Boolean account">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-      <span id="cloudSignInText">Sign in</span>
-    </button>
+      <button class="navbtn" id="cloudSignIn" title="Sign in to your Boolean account">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <span id="cloudSignInText">Sign in</span>
+      </button>
 
-    <div class="foot-status"><span class="dot" id="statusdot"></span><span id="statustext">checking…</span></div>
+      <div class="foot-status" title="" id="footStatus"><span class="dot" id="statusdot"></span><span id="statustext">…</span></div>
+    </div>
   </div>
 </aside>
 
@@ -1895,7 +2128,7 @@
     <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
     <button class="ws-tab" data-ws="browser" title="Browser workspace"><span class="ws-dot"></span>Browser</button>
     <button class="ws-tab" data-ws="notes" title="Notes workspace"><span class="ws-dot"></span>Notes</button>
-    <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span>Preview</button>
+    <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span><span class="ws-label">Preview</span></button>
     <button class="ws-tab" data-ws="git" title="Git workspace"><span class="ws-dot"></span>Git</button>
     <button class="ws-tab" data-ws="recipes" title="Recipe quick-starts"><span class="ws-dot"></span>Recipes</button>
     <button class="ws-tab" data-ws="automations" title="Automations workspace"><span class="ws-dot"></span>Automations</button>
@@ -1934,33 +2167,57 @@
 
   <div id="banner" class="banner" style="display:none"></div>
 
-  <div class="proj-dashboard" id="projDashboard">
+  <div class="proj-dashboard collapsed" id="projDashboard">
     <div class="proj-dashboard-inner">
-      <div class="pd-head">
+      <div class="pd-head" id="pdHeadToggle">
         <span class="pd-title" id="pdTitle">Project</span>
         <span class="pd-branch" id="pdBranch">—</span>
         <span class="pd-spacer"></span>
-        <span class="pd-next" id="pdNext">No active task</span>
+        <span class="pd-summary" id="pdSummary"></span>
+        <span class="pd-next" id="pdNext" style="display:none"></span>
+        <span class="pd-toggle">▸</span>
       </div>
-      <div class="pd-grid">
-        <div class="pd-stat"><small>Current task</small><b><span class="pd-stat-dot idle" id="pdTaskDot"></span><span id="pdTask">Idle</span></b></div>
-        <div class="pd-stat"><small>Changed files</small><b><span class="pd-stat-dot idle" id="pdFilesDot"></span><span id="pdFiles">0</span></b></div>
-        <div class="pd-stat"><small>Dev server</small><b><span class="pd-stat-dot idle" id="pdServerDot"></span><span id="pdServer">Off</span></b></div>
-        <div class="pd-stat"><small>Tests</small><b><span class="pd-stat-dot idle" id="pdTestsDot"></span><span id="pdTests">—</span></b></div>
+      <div class="pd-dashboard-body">
+        <div class="pd-grid">
+          <div class="pd-stat"><small>Current task</small><b><span class="pd-stat-dot idle" id="pdTaskDot"></span><span id="pdTask">Idle</span></b></div>
+          <div class="pd-stat"><small>Changed files</small><b><span class="pd-stat-dot idle" id="pdFilesDot"></span><span id="pdFiles">0</span></b></div>
+          <div class="pd-stat"><small>Dev server</small><b><span class="pd-stat-dot idle" id="pdServerDot"></span><span id="pdServer">Off</span></b></div>
+          <div class="pd-stat"><small>Tests</small><b><span class="pd-stat-dot idle" id="pdTestsDot"></span><span id="pdTests">—</span></b></div>
+        </div>
+        <div class="pd-changed" id="pdChanged"></div>
       </div>
-      <div class="pd-changed" id="pdChanged"></div>
     </div>
   </div>
 
   <!-- Command bar: central input for quick actions -->
   <div class="cmd-bar" id="cmdBar">
     <span class="cmd-loc">›</span>
-    <input class="cmd-input" id="cmdInput" placeholder="Open file, run test, search web, save note, commit changes…" spellcheck="false" autocomplete="off">
-    <button class="cmd-btn" id="cmdRun" title="Run as command">Run</button>
-    <button class="cmd-btn" id="cmdSearch" title="Search the web">Web</button>
-    <button class="cmd-btn" id="cmdFile" title="Open file">File</button>
+    <input class="cmd-input" id="cmdInput" placeholder="Type a command, or use the action buttons…" spellcheck="false" autocomplete="off">
+    <button class="cmd-btn" id="cmdFile" title="Open and read a file">
+      <svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg><span>File</span>
+    </button>
+    <button class="cmd-btn" id="cmdTest" title="Run tests or build">
+      <svg viewBox="0 0 24 24"><path d="M10 2v6.5"/><path d="M14 2v6.5"/><path d="M7 8.5h10l-2 12a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1z"/><path d="M10 13l1.5 1.5L14 12"/></svg><span>Test</span>
+    </button>
+    <button class="cmd-btn" id="cmdSearch" title="Search the web">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg><span>Web</span>
+    </button>
+    <span class="cmd-sep"></span>
+    <button class="cmd-btn" id="cmdNote" title="Save text to notepad">
+      <svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg><span>Note</span>
+    </button>
+    <button class="cmd-btn primary" id="cmdCommit" title="Commit all changes">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><line x1="3" y1="12" x2="8.5" y2="12"/><line x1="15.5" y1="12" x2="21" y2="12"/></svg><span>Commit</span>
+    </button>
+    <button class="cmd-more" id="cmdMore" title="All commands (Ctrl+K)">
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+    </button>
+    <span class="cmd-shortcut"><kbd>Ctrl</kbd>+<kbd>K</kbd></span>
     <span class="cmd-hint">↵</span>
   </div>
+
+  <!-- Command palette dropdown (moved to end of body for z-index) -->
+  
 
   <!-- Task stepper: Plan → Edit → Run → Verify → Commit -->
   <div class="task-stepper hidden" id="taskStepper">
@@ -1983,7 +2240,7 @@
 
   <div class="recipes-panel" id="recipesPanel" aria-label="Recipe quick-starts">
     <div class="recipes-inner">
-      <div class="recipes-head"><b>Recipes</b><small>Start common Boolean tasks with one click.</small><span class="spacer"></span><button class="recipes-close" id="recipesClose" title="Hide recipes">×</button></div>
+      <div class="recipes-head"><b>Recipes</b></div>
       <div class="recipe-grid" id="recipeGrid">
         <button class="recipe-card" data-recipe="Build a project dashboard that shows status, changed files, running server, and git branch."><b>Project dashboard</b><small>Surface workspace health at the top.</small><span class="recipe-chip">UI</span></button>
         <button class="recipe-card" data-recipe="Add side-by-side diff preview for changed files with accept and reject actions."><b>Diff review</b><small>Preview edits before trusting them.</small><span class="recipe-chip">Safety</span></button>
@@ -2013,6 +2270,25 @@
     </select>
     <span class="dp-desc" id="deployDesc">Connect your repo and deploy with guided steps and rollback.</span>
     <button id="deployStart">Start deploy</button>
+    <button id="genCommitMsg" title="Generate a commit message from current changes" style="font:11px var(--ui);padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer;white-space:nowrap">✎ Generate commit message</button>
+  </div>
+
+  <!-- Developer browser: auto-open local site + console error detection -->
+  <div class="design-bar" id="devBrowserBar" style="display:none">
+    <span class="db-label">🖥️ Developer Browser</span>
+    <button id="devBrowserOpen" title="Auto-open the local dev server in the browser">Open local site</button>
+    <button id="devBrowserConsole" title="Check for console errors on the current page">Check console</button>
+    <button id="devBrowserFix" title="Let Boolean analyze and fix detected errors">Fix errors</button>
+    <span class="db-status" id="devBrowserStatus" style="font:11px var(--ui);color:var(--dim);flex:1"></span>
+  </div>
+
+  <!-- Design assistant: screenshot critique + CSS patch -->
+  <div class="design-bar" id="designBar" style="display:none">
+    <span class="db-label">🎨 Design Assistant</span>
+    <button id="designScreenshot" title="Screenshot the current page and critique the design">Screenshot &amp; critique</button>
+    <button id="designCssPatch" title="Analyze layout issues and generate CSS fixes">Patch CSS</button>
+    <button id="designCompare" title="Compare before/after screenshots">Compare</button>
+    <span class="db-status" id="designStatus" style="font:11px var(--ui);color:var(--dim);flex:1"></span>
   </div>
 
   <div id="chat"><div class="col" id="col"></div></div>
@@ -2142,6 +2418,16 @@
     <div class="note-meta"><span class="note-date" id="noteDate"></span><span class="note-days" id="noteDays"></span></div>
     <div id="noteEditor" contenteditable="true" spellcheck="true"></div>
   </div>
+  <!-- Research cards: auto-saved browser summaries/links/citations -->
+  <div class="research-cards-section" id="researchCardsSection" style="padding:0 12px 12px;display:none">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <b style="font:600 12px var(--ui)">Research Cards</b>
+      <small style="font:11px var(--ui);color:var(--dim)">Auto-saved from browser research</small>
+      <span style="flex:1"></span>
+      <button class="minibtn" id="researchClear" type="button" style="font:10px var(--ui)">Clear</button>
+    </div>
+    <div id="researchCardsList"></div>
+  </div>
 </section>
 
 <div class="chat-menu selection-menu" id="noteContextMenu">
@@ -2159,18 +2445,28 @@
 <div id="bdrag" title="Drag to resize"></div>
 <section id="browser">
   <div class="browser-head">
-    <div class="btabs" id="btabs"></div>
-    <div class="btoolbar">
-    <button class="bbtn" id="bBack" title="Back">‹</button>
-    <button class="bbtn" id="bFwd" title="Forward">›</button>
-    <button class="bbtn" id="bReload" title="Refresh">⟳</button>
+    <div class="browser-tabbar">
+      <div class="btabs" id="btabs"></div>
+    </div>
+    <div class="browser-toolbar">
+    <button class="bbtn" id="bBack" title="Back (Alt+←)">‹</button>
+    <button class="bbtn" id="bFwd" title="Forward (Alt+→)">›</button>
+    <button class="bbtn" id="bReload" title="Refresh (Ctrl+R)">⟳</button>
     <button class="bbtn" id="bStop" title="Stop" style="display:none">✕</button>
     <button class="bbtn" id="bHome" title="Home">⌂</button>
-    <input id="bAddr" placeholder="Search the web or type a URL…" spellcheck="false">
-    <button class="bbtn" id="bFindBtn" title="Find on page">⌕</button>
+    <div class="addr-wrap ac-wrap">
+      <span class="addr-icon">⌕</span>
+      <input id="bAddr" placeholder="Search or type a URL…" spellcheck="false" autocomplete="off">
+      <button class="addr-star" id="bStar" title="Bookmark this page" style="display:none">☆</button>
+      <div class="ac-list" id="acList"></div>
+    </div>
+    <button class="bbtn" id="bReader" title="Reader mode">📖</button>
+    <button class="bbtn" id="bDarkPage" title="Force dark page">🌗</button>
+    <button class="bbtn" id="bFindBtn" title="Find on page (Ctrl+F)">⌕</button>
     <button class="bbtn" id="bMenuBtn" title="Browser menu">⋮</button>
     <button class="bbtn active" id="bClose" title="Hide browser">◎</button>
     </div>
+    <div class="bm-bar" id="bmBar"></div>
     <div class="browser-tasks">
       <button class="bt-task" data-btask="use" title="Send this page as context to Boolean">📄 Use page</button>
       <button class="bt-task" data-btask="docs" title="Extract documentation and code samples">📖 Extract docs</button>
@@ -2186,9 +2482,12 @@
     <button class="bbtn" id="bFindClose" title="Close">✕</button>
   </div>
   <div class="menu bmenu" id="bmenu">
-    <div class="item" id="bmNewTab"><span>New tab</span></div>
-    <div class="item" id="bmCloseTab"><span>Close current tab</span></div>
+    <div class="item" id="bmNewTab"><span>New tab <small style="color:var(--dim)">Ctrl+T</small></span></div>
+    <div class="item" id="bmCloseTab"><span>Close current tab <small style="color:var(--dim)">Ctrl+W</small></span></div>
     <div class="item" id="bmCloseOthers"><span>Close other tabs</span></div>
+    <div class="sep"></div>
+    <div class="item" id="bmBookmark"><span>Add to bookmarks</span></div>
+    <div class="item" id="bmReader"><span>Toggle reader mode</span></div>
     <div class="sep"></div>
     <div class="item" id="bmSendPage"><span>Send page to AI</span></div>
     <div class="item" id="bmSendSel"><span>Send selected text to message</span></div>
@@ -2211,6 +2510,7 @@
   <div class="bframewrap">
     <div class="bread" id="bread"><span class="beye">👁</span> Boolean is browsing…</div>
     <iframe id="bframe" sandbox="allow-scripts allow-forms allow-modals allow-downloads" referrerpolicy="no-referrer"></iframe>
+    <div class="breader" id="breader"><div class="breader-inner" id="breaderInner"></div></div>
     <div class="bblank" id="bblank">
       <div>
         <p style="font-weight:500;margin-bottom:6px">Browse the web</p>
@@ -3586,7 +3886,8 @@
     renderCloudFallbackSettings();
     const label=(state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider;
     $("statusdot").className="dot"+(state.backendUp?"":" down");
-    $("statustext").textContent=label+(state.backendUp?" ready":" not ready");
+    $("statustext").textContent=state.backendUp?"ready":"not ready";
+    $("footStatus").title=label+(state.backendUp?" · ready":" · not ready");
     $("banner").style.display=state.backendUp?"none":"";
     $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready — open Settings to pick a provider, add a key, or download a model.";
     $("projdir").textContent=state.projectsDir||"";
@@ -6155,11 +6456,13 @@ Optional bundled starter model:
 
   // ── in-app browser (real internet via the /browse proxy) ──
   const bframe=$("bframe"), bAddr=$("bAddr");
-  let btabs=[], bactive=-1, bhist=[];
+  let btabs=[], bactive=-1, bhist=[], bbookmarks=[];
+  let readerOn=false, darkPageOn=false;
+  const faviconCache={};
   const curTab=()=>btabs[bactive];
   const isLocalUrl=(u)=>/^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0|192\.168\.|10\.)/i.test(u||"");
   const browseBase=()=>state.browseBase||"";
-  const frameSrc=(u)=>!u?"about:blank":(isLocalUrl(u)?u:browseBase()+"/browse?u="+encodeURIComponent(u));
+  const frameSrc=(u)=>!u?"about:blank":(isLocalUrl(u)?u:browseBase()+"/browse?u="+encodeURIComponent(u)+(darkPageOn?"&dark=1":"")+(readerOn?"&reader=1":""));
   const SEARCH_URLS={ google:"https://www.google.com/search?q=", bing:"https://www.bing.com/search?q=", duckduckgo:"https://duckduckgo.com/?q=" };
   const searchUrl=(q)=>SEARCH_URLS[(state.ui&&state.ui.searchEngine)||"google"]+encodeURIComponent(q);
   function normUrl(v){ v=(v||"").trim(); if(!v) return "";
@@ -6172,7 +6475,7 @@ Optional bundled starter model:
   function updateNav(){ const t=curTab(); $("bBack").disabled=!(t&&t.hi>0); $("bFwd").disabled=!(t&&t.hi<t.hist.length-1); }
   let saveT=null;
   function saveBrowser(){ clearTimeout(saveT); saveT=setTimeout(()=>setUi({ browserTabs:btabs.map(t=>({url:t.url,title:t.title})),
-    browserOpen:document.body.classList.contains("browser-on"), browserHistory:bhist.slice(-100) }),400); }
+    browserOpen:document.body.classList.contains("browser-on"), browserHistory:bhist.slice(-100), browserBookmarks:bbookmarks }),400); }
   function pushHist(url,title){ if(!url) return; const last=bhist[bhist.length-1];
     if(last&&last.url===url) { last.title=title||last.title; return; }
     bhist.push({url,title:title||url,at:Date.now()}); if(bhist.length>150) bhist=bhist.slice(-100); }
@@ -6188,20 +6491,116 @@ Optional bundled starter model:
       "allow-scripts allow-forms allow-popups allow-same-origin allow-modals"+dl);
     bframe.setAttribute("allow",[perms.camera?"camera":"",perms.mic?"microphone":"",perms.geo?"geolocation":""].filter(Boolean).join("; "));
   }
+  function faviconURL(url){
+    if(!url) return "";
+    try{ const h=new URL(url).hostname; if(!h) return ""; return "https://www.google.com/s2/favicons?domain="+h+"&sz=32"; }catch{ return ""; }
+  }
+  function faviconHTML(url){
+    const f=faviconURL(url); if(!f) return '<span class="ph">◎</span>';
+    if(faviconCache[url]===false) return '<span class="ph">◎</span>';
+    if(faviconCache[url]) return '<img src="'+faviconCache[url]+'" />';
+    return '<img src="'+f+'" onerror="this.parentNode.innerHTML=\'<span class=&quot;ph&quot;>◎</span>\';" onload="this.dataset.ok=1" />';
+  }
   function renderTabs(){
     const el=$("btabs"); el.innerHTML="";
     btabs.forEach((t,i)=>{ const d=document.createElement("div"); d.className="btab"+(i===bactive?" active":"");
       const label=((t.ai?"AI ":"")+(t.title||t.url||"New tab")).replace(/^https?:\/\//,"").slice(0,24)||"New tab";
-      d.innerHTML='<span class="fav">◎</span><span class="t">'+esc(label)+'</span><span class="x">×</span>';
+      d.innerHTML=faviconHTML(t.url)+'<span class="t">'+esc(label)+'</span><span class="x">×</span>';
       d.onclick=()=>switchTab(i);
       d.querySelector(".x").onclick=(e)=>{ e.stopPropagation(); closeTab(i); };
       el.appendChild(d); });
     const add=document.createElement("div"); add.className="btab add"; add.textContent="+"; add.title="New tab"; add.onclick=()=>newTab(); el.appendChild(add);
   }
+  function renderBookmarks(){
+    const el=$("bmBar"); if(!el) return; el.innerHTML="";
+    bbookmarks.forEach((bm,i)=>{
+      const d=document.createElement("button"); d.className="bm-item"; d.title=bm.title||bm.url;
+      d.innerHTML='<img src="'+faviconURL(bm.url)+'" onerror="this.style.display=\'none\'" />'+esc((bm.title||bm.url||"").replace(/^https?:\/\//,"").slice(0,20))+'<span class="bm-x">×</span>';
+      d.onclick=(e)=>{ if(e.target.classList.contains("bm-x")){ e.stopPropagation(); bbookmarks.splice(i,1); renderBookmarks(); saveBrowser(); updateStar(); } else navigate(bm.url); };
+      el.appendChild(d);
+    });
+    updateStar();
+  }
+  function isBookmarked(url){ return bbookmarks.some(b=>b.url===url); }
+  function updateStar(){ const star=$("bStar"); const t=curTab(); if(!t||!t.url){ star.style.display="none"; return; } star.style.display="grid"; star.classList.toggle("active",isBookmarked(t.url)); star.textContent=isBookmarked(t.url)?"★":"☆"; }
+  function toggleBookmark(){
+    const t=curTab(); if(!t||!t.url) return;
+    const i=bbookmarks.findIndex(b=>b.url===t.url);
+    if(i>=0){ bbookmarks.splice(i,1); tempToast("Removed from bookmarks"); }
+    else{ bbookmarks.push({url:t.url,title:t.title||t.url}); tempToast("Added to bookmarks"); }
+    renderBookmarks(); saveBrowser();
+  }
+  // ── autocomplete ──
+  let acIndex=-1, acItems=[];
+  function buildAutocomplete(q){
+    q=(q||"").toLowerCase().trim(); if(!q) return [];
+    const results=[]; const seen=new Set();
+    for(const bm of bbookmarks){ if(bm.url.toLowerCase().includes(q)||(bm.title||"").toLowerCase().includes(q)){ if(!seen.has(bm.url)){ results.push({...bm,tag:"★"}); seen.add(bm.url); } } }
+    for(const h of bhist.slice(-50).reverse()){ if(h.url.toLowerCase().includes(q)||(h.title||"").toLowerCase().includes(q)){ if(!seen.has(h.url)){ results.push({url:h.url,title:h.title||h.url,tag:"⏱"}); seen.add(h.url); } } }
+    return results.slice(0,8);
+  }
+  function renderAutocomplete(){
+    const el=$("acList"); const q=bAddr.value.trim(); acItems=buildAutocomplete(q);
+    if(!acItems.length){ el.classList.remove("on"); el.innerHTML=""; acIndex=-1; return; }
+    el.innerHTML=acItems.map((it,i)=>'<div class="ac-item'+(i===acIndex?" sel":"")+'" data-i="'+i+'">'+
+      '<span class="ac-fav">'+(faviconURL(it.url)?'<img src="'+faviconURL(it.url)+'" onerror="this.style.display=\'none\'" />':'')+'</span>'+
+      '<div style="flex:1;min-width:0"><div class="ac-title">'+esc(it.title||it.url)+'</div><div class="ac-url">'+esc(it.url)+'</div></div>'+
+      '<span class="ac-tag'+(it.tag==="★"?" bm":"")+'">'+it.tag+'</span></div>').join("");
+    el.classList.add("on");
+    el.querySelectorAll(".ac-item").forEach(node=>{ node.onclick=()=>{ const i=+node.dataset.i; if(acItems[i]){ bAddr.value=acItems[i].url; hideAutocomplete(); navigate(acItems[i].url); } }; });
+  }
+  function hideAutocomplete(){ $("acList").classList.remove("on"); $("acList").innerHTML=""; acIndex=-1; }
+  function acMove(d){
+    if(!acItems.length) return; acIndex=Math.max(-1,Math.min(acItems.length-1,acIndex+d));
+    const sel=$("acList").querySelector(".sel"); if(sel) sel.classList.remove("sel");
+    if(acIndex>=0){ const node=$("acList").querySelector('[data-i="'+acIndex+'"]'); if(node) node.classList.add("sel"); }
+  }
+  // ── reader mode ──
+  async function toggleReader(){
+    const t=curTab(); if(!t||!t.url){ tempToast("Open a page first."); return; }
+    readerOn=!readerOn;
+    $("breader").classList.toggle("on",readerOn);
+    $("bReader").classList.toggle("active",readerOn);
+    if(readerOn){
+      $("breaderInner").innerHTML='<p style="color:var(--dim);text-align:center;padding:40px 0">Extracting article…</p>';
+      try{
+        const resp=await fetch("/browse?u="+encodeURIComponent(t.url)+"&reader=1");
+        const html=await resp.text();
+        // extract article content from reader HTML
+        const tmp=document.createElement("div"); tmp.innerHTML=html;
+        const article=extractArticle(tmp);
+        $("breaderInner").innerHTML=article;
+      }catch(err){ $("breaderInner").innerHTML='<p style="color:var(--dim)">Could not extract article: '+esc(err.message)+'</p>'; }
+    } else { showFrame(t); }
+  }
+  function extractArticle(doc){
+    // try common article containers first
+    const selectors=["article","main","[role=main]", ".article-content",".post-content",".entry-content",".article-body",".content"];
+    let best=null;
+    for(const sel of selectors){ const el=doc.querySelector(sel); if(el&&el.innerText.length>200){ best=el; break; } }
+    if(!best){
+      // score paragraphs by text density
+      const paras=[...doc.querySelectorAll("p,div")].filter(p=>p.children.length<=3&&p.innerText.length>80);
+      if(paras.length){ const container=document.createElement("div"); paras.forEach(p=>container.appendChild(p.cloneNode(true))); best=container; }
+      else best=doc.body||doc;
+    }
+    // get title
+    const title=doc.querySelector("h1")?.innerText||doc.title||"";
+    const titleHTML=title?("<h1>"+esc(title)+"</h1>"):"";
+    // clean: remove nav, ads, etc
+    best.querySelectorAll("script,style,nav,footer,header,aside,.ad,.ads,.sidebar,.share,.social,iframe").forEach(e=>e.remove());
+    return titleHTML+best.innerHTML;
+  }
+  // ── dark page toggle ──
+  function toggleDarkPage(){
+    darkPageOn=!darkPageOn;
+    $("bDarkPage").classList.toggle("active",darkPageOn);
+    const t=curTab(); if(t&&t.url) showFrame(t);
+  }
   function showFrame(t){
     applyFrameSecurity(t.url);
     bframe.src=frameSrc(t.url); bAddr.value=t.url||""; showBlank(!t.url);
-    reportUrl(t.url); updateNav(); renderTabs();
+    reportUrl(t.url); updateNav(); renderTabs(); updateStar();
   }
   function loadUrl(url){
     const t=curTab(); if(!t) return;
@@ -6251,7 +6650,7 @@ Optional bundled starter model:
     if(d.saz3==="nav"){ const t=curTab(); if(!t) return;
       if(t.url!==d.url){ if(t.hist[t.hi]!==d.url){ t.hist=t.hist.slice(0,t.hi+1); t.hist.push(d.url); t.hi=t.hist.length-1; } t.url=d.url; }
       if(d.title) t.title=d.title;
-      bAddr.value=d.url; pushHist(d.url,d.title); reportUrl(d.url); updateNav(); renderTabs(); saveBrowser();
+      bAddr.value=d.url; pushHist(d.url,d.title); reportUrl(d.url); updateNav(); renderTabs(); updateStar(); saveBrowser();
       postFrame({cmd:"zoom",z:t.zoom||1});
     }
     else if(d.saz3==="newtab"&&d.url){ newTab(d.url); }
@@ -6379,8 +6778,20 @@ Optional bundled starter model:
   $("bHome").onclick=()=>{ const t=curTab(); if(t){ t.url=""; t.hist=[]; t.hi=-1; t.title="New tab"; } showFrame(curTab()); saveBrowser(); };
   $("bClose").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"hide"}) : openBrowser(false); };
   $("browserToggle").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"toggle"}) : openBrowser(!document.body.classList.contains("browser-on")); };
-  bAddr.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); navigate(bAddr.value); } });
-  bAddr.addEventListener("focus",()=>bAddr.select());
+  $("bReader").onclick=toggleReader;
+  $("bDarkPage").onclick=toggleDarkPage;
+  $("bStar").onclick=toggleBookmark;
+  $("bmBookmark").onclick=()=>{ bmenu.classList.remove("open"); toggleBookmark(); };
+  $("bmReader").onclick=()=>{ bmenu.classList.remove("open"); toggleReader(); };
+  bAddr.addEventListener("keydown",(e)=>{
+    if(e.key==="Enter"){ e.preventDefault(); if(acIndex>=0&&acItems[acIndex]){ bAddr.value=acItems[acIndex].url; hideAutocomplete(); navigate(acItems[acIndex].url); } else { hideAutocomplete(); navigate(bAddr.value); } return; }
+    if(e.key==="ArrowDown"){ e.preventDefault(); acMove(1); return; }
+    if(e.key==="ArrowUp"){ e.preventDefault(); acMove(-1); return; }
+    if(e.key==="Escape"){ hideAutocomplete(); return; }
+    setTimeout(renderAutocomplete,0);
+  });
+  bAddr.addEventListener("focus",()=>{ bAddr.select(); setTimeout(renderAutocomplete,0); });
+  bAddr.addEventListener("blur",()=>setTimeout(hideAutocomplete,200));
   $("bStartSearch").addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&e.target.value.trim()){ e.preventDefault(); navigate(e.target.value); e.target.value=""; } });
   $("bblankhint").innerHTML='Quick open: <a href="#" data-u="https://www.google.com">Google</a> · <a href="#" data-u="https://en.wikipedia.org">Wikipedia</a> · <a href="#" data-u="localhost:3210">localhost:3210</a>';
   $("bblankhint").querySelectorAll("a").forEach(a=>a.onclick=(e)=>{ e.preventDefault(); navigate(a.dataset.u); });
@@ -6418,10 +6829,10 @@ Optional bundled starter model:
     if(!bhist.length) el.innerHTML='<div class="item disabled">no history yet</div>';
   }
   $("bmClearData").onclick=async()=>{ bmenu.classList.remove("open");
-    if(!await appConfirm("Clear browsing data?","This clears browser history and cookies saved by Boolean.","Clear",true)) return;
-    bhist=[]; await fetch("/api/browse/clear",{method:"POST"}); setUi({browserHistory:[]}); };
-  $("clearBrowseData").onclick=async()=>{ if(!await appConfirm("Clear browsing data?","This clears browser history and cookies saved by Boolean.","Clear",true)) return;
-    bhist=[]; await fetch("/api/browse/clear",{method:"POST"}); setUi({browserHistory:[]}); };
+    if(!await appConfirm("Clear browsing data?","This clears browser history, bookmarks, and cookies saved by Boolean.","Clear",true)) return;
+    bhist=[]; bbookmarks=[]; renderBookmarks(); await fetch("/api/browse/clear",{method:"POST"}); setUi({browserHistory:[],browserBookmarks:[]}); };
+  $("clearBrowseData").onclick=async()=>{ if(!await appConfirm("Clear browsing data?","This clears browser history, bookmarks, and cookies saved by Boolean.","Clear",true)) return;
+    bhist=[]; bbookmarks=[]; renderBookmarks(); await fetch("/api/browse/clear",{method:"POST"}); setUi({browserHistory:[],browserBookmarks:[]}); };
 
   // Send page content as context, or route selected text directly to a destination.
   async function sendPageToAI(what){
@@ -6487,10 +6898,11 @@ Optional bundled starter model:
     document.body.style.setProperty("--bw",(ui.browserW||460)+"px");
     browserManualSize=!!ui.browserW;
     bhist=Array.isArray(ui.browserHistory)?ui.browserHistory.slice():[];
+    bbookmarks=Array.isArray(ui.browserBookmarks)?ui.browserBookmarks.slice():[];
     btabs=[];
     bactive=-1;
     document.body.classList.remove("browser-on");
-    renderTabs();
+    renderTabs(); renderBookmarks();
   }
   function showReading(){ const b=$("bread"); b.classList.add("on"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("on"),2600); }
   // the AI opened a page — mirror it in a dedicated 🤖 tab
@@ -6576,7 +6988,20 @@ Optional bundled starter model:
   setInterval(updateStatusMeta,1000); // live elapsed timer while a run is active
   document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") pullCloudNotes().catch(()=>{}); });
   window.addEventListener("pagehide",()=>navigator.sendBeacon("/api/bye"));
-  window.addEventListener("keydown",e=>{ if(e.altKey&&e.key==="ArrowLeft"){ e.preventDefault(); goBackInApp(); } });
+  window.addEventListener("keydown",e=>{
+    if(e.altKey&&e.key==="ArrowLeft"&&!document.body.classList.contains("browser-on")){ e.preventDefault(); goBackInApp(); return; }
+    // browser keyboard shortcuts (only when browser is visible and focus is not in a text field)
+    if(!document.body.classList.contains("browser-on")) return;
+    const inField=e.target.matches("input,textarea,#bAddr,#bFindInput,noteEditor")||e.target.isContentEditable;
+    if(e.ctrlKey&&e.key==="t"&&!inField){ e.preventDefault(); newTab(); bAddr.focus(); return; }
+    if(e.ctrlKey&&e.key==="w"&&!inField){ e.preventDefault(); closeTab(bactive); return; }
+    if(e.ctrlKey&&e.key==="l"&&!inField){ e.preventDefault(); bAddr.focus(); bAddr.select(); return; }
+    if(e.ctrlKey&&e.key==="f"){ e.preventDefault(); $("bfind").classList.add("on"); $("bFindInput").focus(); return; }
+    if(e.ctrlKey&&e.key==="r"&&!inField){ e.preventDefault(); const t=curTab(); if(t&&t.url) showFrame(t); return; }
+    if(e.ctrlKey&&e.key==="d"&&!inField){ e.preventDefault(); toggleBookmark(); return; }
+    if(e.altKey&&e.key==="ArrowLeft"){ e.preventDefault(); back(); return; }
+    if(e.altKey&&e.key==="ArrowRight"){ e.preventDefault(); fwd(); return; }
+  });
   input.focus();
 
   // ══════════════════════════════════════════════════════════════
@@ -6593,10 +7018,10 @@ Optional bundled starter model:
       if (dot) dot.classList.toggle("active", active);
     });
     document.body.classList.toggle("recipes-open", ws === "recipes");
-    if (ws === "browser") { SHELL ? hostPost({type:"browser",cmd:"show"}) : openBrowser(true); }
+    if (ws === "browser") { if (SHELL) { document.body.classList.add("browser-on"); syncPanelButtons(); hostPost({type:"browser",cmd:"show"}); } else openBrowser(true); }
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { toggleTerminal(true); tempToast("Terminal opened for code work."); }
-    else if (ws === "preview") { refreshProjectDashboard(); tempToast("Preview tab: run a project to see it here."); }
+    else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
     else if (ws === "git") { openSettings("github"); }
     else if (ws === "automations") { openSettings("scheduled"); }
   }
@@ -6693,8 +7118,33 @@ Optional bundled starter model:
           changedEl.appendChild(chip);
         });
       }
+      // Auto-collapse/expand: expand when there's real activity, collapse when idle
+      const hasActivity = (r.changedFiles?.length) || r.serverRunning || (r.taskState && r.taskState !== "idle") || (r.testState && r.testState !== "idle");
+      const pd = $("projDashboard");
+      const userPinned = pd?.classList.contains("user-pinned");
+      if (pd && !userPinned) {
+        if (hasActivity) { pd.classList.remove("collapsed"); }
+        else { pd.classList.add("collapsed"); }
+      }
+      // Build summary text for collapsed view
+      const parts = [];
+      if (r.changedFiles?.length) parts.push(r.changedFiles.length + " changed");
+      if (r.serverRunning) parts.push("Server running");
+      if (r.testStatus && r.testStatus !== "—") parts.push("Tests: " + r.testStatus);
+      if (r.task && r.task !== "Idle") parts.push(r.task);
+      if ($("pdSummary")) $("pdSummary").textContent = parts.length ? parts.join(" · ") : "Idle";
     } catch(e) { /* silently skip if endpoint not ready */ }
   }
+
+  // Toggle dashboard on header click (pin state so auto-expand doesn't override)
+  document.addEventListener("click", function(e) {
+    const toggle = e.target.closest("#pdHeadToggle");
+    if (!toggle) return;
+    const pd = $("projDashboard");
+    if (!pd) return;
+    if (pd.classList.contains("collapsed")) { pd.classList.remove("collapsed"); pd.classList.add("user-pinned"); }
+    else { pd.classList.add("collapsed"); pd.classList.remove("user-pinned"); }
+  });
 
   // Refresh dashboard periodically and after messages
   setInterval(refreshProjectDashboard, 15000);
@@ -7075,50 +7525,260 @@ Optional bundled starter model:
   }
 
   // ══════════════════════════════════════════════════════════════
-  // COMMAND BAR — central input for quick actions
+  // COMMAND BAR + PALETTE — central input for quick actions
   // ══════════════════════════════════════════════════════════════
   const cmdInput = $("cmdInput");
+  const cmdPalette = $("cmdPalette");
+  const cmdBackdrop = $("cmdBackdrop");
+  const cmdPaletteInput = $("cmdPaletteInput");
+  const cmdPaletteList = $("cmdPaletteList");
+  let cmdSelIdx = 0;
+  let cmdFiltered = [];
+
+  function cmdSendChat(text) {
+    $("input").value = text;
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+  }
+
+  // ── Command registry ──
+  // Each: { id, title, desc, icon (svg), keywords, hint, run(arg) }
+  const SVG = {
+    file: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
+    run: '<path d="M5 4l10 8-10 8V4z"/><line x1="19" y1="5" x2="19" y2="19"/>',
+    test: '<path d="M10 2v6.5"/><path d="M14 2v6.5"/><path d="M7 8.5h10l-2 12a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1z"/><path d="M10 13l1.5 1.5L14 12"/>',
+    web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"/>',
+    note: '<path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/>',
+    commit: '<circle cx="12" cy="12" r="3.5"/><line x1="3" y1="12" x2="8.5" y2="12"/><line x1="15.5" y1="12" x2="21" y2="12"/>',
+    preview: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="7" cy="6.5" r="1"/><circle cx="10" cy="6.5" r="1"/>',
+    review: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    research: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 0 4 21V4.5A2.5 2.5 0 0 1 6.5 2z"/>',
+    document: '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M9 13h6"/><path d="M9 17h4"/>',
+    email: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    automate: '<circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    git: '<circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8.5v7"/><path d="M8.5 7 16 11"/>',
+    deploy: '<path d="M12 2l3 7h-6l3-7z"/><path d="M5 12l-3 7h18l-3-7"/><path d="M12 9v13"/>',
+    search: '<circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/>',
+    terminal: '<path d="M4 17l6-5-6-5"/><path d="M12 19h8"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'
+  };
+  function svgIcon(name) { return '<svg viewBox="0 0 24 24">' + (SVG[name] || SVG.search) + '</svg>'; }
+
+  const COMMANDS = [
+    { id:"open", title:"Open File", desc:"Read or open a file from the project", icon:"file", kw:["open","read","file","view","code","source"],
+      run: a => { const t = a||""; cmdSendChat(t? "Open and read the file: " + t : "List the files in the current project so I can pick one to open."); } },
+    { id:"run", title:"Run Command", desc:"Execute a shell or npm command", icon:"run", kw:["run","exec","shell","terminal","start"],
+      run: a => { const t = a||""; cmdSendChat(t? "Run this command: " + t : "What command do you want to run?"); } },
+    { id:"test", title:"Run Tests / Build", desc:"Find and run the project test or build command", icon:"test", kw:["test","build","npm","jest","vitest","jest","check","verify","compile"],
+      run: a => { const t = a||""; cmdSendChat(t? "Run: " + t : "Find and run the test or build command for this project, then report the result."); } },
+    { id:"web", title:"Search Web", desc:"Search the internet for current information", icon:"web", kw:["search","web","google","bing","find online","look up","query"],
+      run: a => { const t = a||""; cmdSendChat(t? "Search the web for: " + t : "What do you want me to search the web for?"); } },
+    { id:"note", title:"Save Note", desc:"Save text to the notepad", icon:"note", kw:["note","save","write down","remember","notepad","jot"],
+      run: a => {
+        const t = (a||"").trim();
+        if (t) { const ed = $("noteEditor"); if (ed) ed.innerHTML += "<div>" + esc(t) + "</div>"; tempToast("Saved to notepad."); }
+        else tempToast("Type your note in the command bar first, then run this.");
+      } },
+    { id:"commit", title:"Commit Changes", desc:"Stage and commit all changes with a clear message", icon:"commit", kw:["commit","git","save","stage","push"],
+      run: () => cmdSendChat("Commit all changes with a clear message.") },
+    { id:"preview", title:"Preview App", desc:"Run the project and open a live preview", icon:"preview", kw:["preview","run","dev","serve","launch","open browser","localhost"],
+      run: () => cmdSendChat("Run the project dev server and give me the local URL to preview.") },
+    { id:"review", title:"Review Code", desc:"Review changes for bugs, security, and quality", icon:"review", kw:["review","check","scan","audit","security","lint","quality"],
+      run: () => cmdSendChat("Review all code changes for bugs, security issues, style problems, and risky commands.") },
+    { id:"research", title:"Research Topic", desc:"Research a topic across multiple sources with citations", icon:"research", kw:["research","investigate","study","sources","cite","deep dive","compare"],
+      run: a => { const t = a||""; cmdSendChat(t? "Research this topic across multiple sources with citations: " + t : "What topic do you want me to research?"); } },
+    { id:"document", title:"Create Document", desc:"Generate a DOCX, PDF, spreadsheet, or presentation", icon:"document", kw:["document","docx","pdf","xlsx","pptx","export","spreadsheet","presentation","word"],
+      run: a => { const t = a||""; cmdSendChat(t? "Create a document: " + t : "What type of document do you want? DOCX, PDF, spreadsheet, or presentation?"); } },
+    { id:"email", title:"Write Email", desc:"Draft an email and save it for review", icon:"email", kw:["email","mail","draft","compose","send","message","gmail","outlook"],
+      run: a => { const t = a||""; cmdSendChat(t? "Write an email: " + t : "What should the email be about?"); } },
+    { id:"automate", title:"Automate Task", desc:"Set up a recurring task, reminder, or schedule", icon:"automate", kw:["automate","schedule","recurring","reminder","cron","daily","weekly","automation"],
+      run: a => { const t = a||""; cmdSendChat(t? "Set up an automation: " + t : "What task do you want to automate? (daily, weekly, or interval)"); } },
+    { id:"git", title:"Git Workflow", desc:"Branch, PR, diff, or check GitHub status", icon:"git", kw:["git","branch","pr","pull request","diff","status","log","github","merge"],
+      run: a => { const t = a||""; cmdSendChat(t? "Git workflow: " + t : "Show git status and recent commits for this project."); } },
+    { id:"deploy", title:"Deploy", desc:"Deploy to Cloudflare, Vercel, or Netlify", icon:"deploy", kw:["deploy","cloudflare","vercel","netlify","publish","ship","release","wrangler"],
+      run: () => cmdSendChat("Guide me through deploying this project - check for deployment config and deploy.") },
+    { id:"terminal", title:"Open Terminal", desc:"Focus the terminal drawer for command output", icon:"terminal", kw:["terminal","console","command line","cmd","powershell"],
+      run: () => { const td = $("termDrawer"); if (td) { td.classList.remove("hidden"); setWorkspaceTab("code"); } } },
+    { id:"settings", title:"Open Settings", desc:"View or change configuration", icon:"settings", kw:["settings","config","configure","options","preferences","theme","model"],
+      run: () => { if (typeof openSettings === "function") openSettings(null); } }
+  ];
+
+  // ── Palette logic ──
+  function cmdFilterCommands(query) {
+    const q = (query || "").toLowerCase().trim();
+    if (!q) return COMMANDS.slice();
+    return COMMANDS.filter(c => {
+      const hay = (c.title + " " + c.desc + " " + c.kw.join(" ")).toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  function cmdRenderList(query) {
+    cmdFiltered = cmdFilterCommands(query);
+    cmdSelIdx = 0;
+    if (!cmdFiltered.length) {
+      cmdPaletteList.innerHTML = '<div style="padding:24px;text-align:center;color:var(--dim);font:12.5px var(--ui)">No commands found</div>';
+      return;
+    }
+    cmdPaletteList.innerHTML = cmdFiltered.map((c, i) =>
+      '<div class="cmd-item' + (i === 0 ? ' sel' : '') + '" data-idx="' + i + '">' +
+        '<div class="cmd-item-icon">' + svgIcon(c.icon) + '</div>' +
+        '<div class="cmd-item-body">' +
+          '<div class="cmd-item-title">' + c.title + '</div>' +
+          '<div class="cmd-item-desc">' + c.desc + '</div>' +
+        '</div>' +
+        '<span class="cmd-item-key">' + c.id + '</span>' +
+      '</div>'
+    ).join("");
+    // attach click handlers
+    cmdPaletteList.querySelectorAll(".cmd-item").forEach(el => {
+      el.addEventListener("click", () => {
+        const idx = parseInt(el.dataset.idx, 10);
+        if (cmdFiltered[idx]) { cmdExecute(cmdFiltered[idx]); }
+      });
+    });
+  }
+
+  function cmdScrollToSel() {
+    const el = cmdPaletteList.querySelector(".cmd-item.sel");
+    if (el) el.scrollIntoView({ block:"nearest", behavior:"smooth" });
+  }
+
+  function cmdMoveSel(delta) {
+    if (!cmdFiltered.length) return;
+    cmdSelIdx = (cmdSelIdx + delta + cmdFiltered.length) % cmdFiltered.length;
+    cmdPaletteList.querySelectorAll(".cmd-item").forEach((el, i) => {
+      el.classList.toggle("sel", i === cmdSelIdx);
+    });
+    cmdScrollToSel();
+  }
+
+  function cmdExecute(cmd) {
+    if (!cmd) return;
+    const arg = cmdPaletteInput.value.trim();
+    closeCmdPalette();
+    cmd.run(arg);
+  }
+
+  function openCmdPalette() {
+    cmdBackdrop.classList.add("open");
+    cmdPalette.classList.add("open");
+    cmdPaletteInput.value = cmdInput.value.trim();
+    cmdRenderList("");
+    setTimeout(() => cmdPaletteInput.focus(), 50);
+  }
+
+  function closeCmdPalette() {
+    cmdBackdrop.classList.remove("open");
+    cmdPalette.classList.remove("open");
+  }
+
+  // Palette keyboard navigation
+  if (cmdPaletteInput) {
+    cmdPaletteInput.addEventListener("input", () => cmdRenderList(cmdPaletteInput.value));
+    cmdPaletteInput.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown") { e.preventDefault(); cmdMoveSel(1); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); cmdMoveSel(-1); }
+      else if (e.key === "Enter") { e.preventDefault(); if (cmdFiltered[cmdSelIdx]) cmdExecute(cmdFiltered[cmdSelIdx]); }
+      else if (e.key === "Escape") { e.preventDefault(); closeCmdPalette(); cmdInput.focus(); }
+    });
+  }
+  if (cmdBackdrop) cmdBackdrop.addEventListener("click", closeCmdPalette);
+
+  // Ctrl+K to open palette globally
+  document.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      e.preventDefault();
+      if (cmdPalette.classList.contains("open")) closeCmdPalette();
+      else openCmdPalette();
+    }
+  });
+
+  // ── Command bar inline handling ──
   function handleCommandBar(value) {
     const v = (value || "").trim();
-    if (!v) return;
+    if (!v) { openCmdPalette(); return; }
     const lower = v.toLowerCase();
+    // Try to match a slash command
+    if (v.startsWith("/")) {
+      const parts = v.slice(1).split(/\s+(.*)/);
+      const cmdName = parts[0].toLowerCase();
+      const arg = parts[1] || "";
+      const cmd = COMMANDS.find(c => c.id === cmdName || c.kw.includes(cmdName));
+      if (cmd) { cmd.run(arg); cmdInput.value = ""; return; }
+    }
     if (lower.startsWith("run ") || lower.startsWith("test") || lower.startsWith("build") || lower.startsWith("npm ") || lower.startsWith("git ") || lower.startsWith("dotnet ")) {
-      $("input").value = v;
-      setWorkspaceTab("chat");
-      $("send") && $("send").click();
+      cmdSendChat(v);
     } else if (lower.startsWith("open ") || lower.startsWith("read ") || lower.startsWith("edit ")) {
-      $("input").value = v;
-      setWorkspaceTab("chat");
-      $("send") && $("send").click();
+      cmdSendChat(v);
     } else if (lower.startsWith("commit")) {
-      $("input").value = "Commit all changes with a clear message.";
-      setWorkspaceTab("chat");
-      $("send") && $("send").click();
+      cmdSendChat("Commit all changes with a clear message.");
     } else if (lower.startsWith("note ") || lower.startsWith("save ")) {
       const noteText = v.replace(/^(note|save)\s*/i, "");
       const editor = $("noteEditor");
       if (editor) editor.innerHTML += "<div>" + esc(noteText) + "</div>";
       tempToast("Saved to notepad.");
+    } else if (lower.startsWith("search ") || lower.startsWith("web ")) {
+      cmdSendChat("Search the web for: " + v.replace(/^(search|web)\s*/i, ""));
+    } else if (lower.startsWith("deploy")) {
+      cmdSendChat("Guide me through deploying this project.");
+    } else if (lower.startsWith("review")) {
+      cmdSendChat("Review all code changes for bugs, security issues, and quality.");
     } else {
-      $("input").value = v;
-      setWorkspaceTab("chat");
-      $("send") && $("send").click();
+      cmdSendChat(v);
     }
     cmdInput.value = "";
   }
   if (cmdInput) {
     cmdInput.addEventListener("keydown", e => {
       if (e.key === "Enter") { e.preventDefault(); handleCommandBar(cmdInput.value); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); openCmdPalette(); }
     });
-    $("cmdRun") && ($("cmdRun").onclick = () => handleCommandBar(cmdInput.value));
-    $("cmdSearch") && ($("cmdSearch").onclick = () => {
-      const v = cmdInput.value.trim();
-      if (v) { $("input").value = "Search the web for: " + v; setWorkspaceTab("chat"); $("send") && $("send").click(); cmdInput.value = ""; }
-    });
+    // File — open/read a file
     $("cmdFile") && ($("cmdFile").onclick = () => {
       const v = cmdInput.value.trim();
-      if (v) { $("input").value = "Open and read the file: " + v; setWorkspaceTab("chat"); $("send") && $("send").click(); cmdInput.value = ""; }
+      if (v) { cmdSendChat("Open and read the file: " + v); cmdInput.value = ""; }
+      else { cmdSendChat("List the files in the current project so I can pick one to open."); }
     });
+    // Test — run tests or build
+    $("cmdTest") && ($("cmdTest").onclick = () => {
+      const v = cmdInput.value.trim();
+      if (v) { cmdSendChat("Run: " + v); cmdInput.value = ""; }
+      else { cmdSendChat("Find and run the test or build command for this project, then report the result."); }
+    });
+    // Web — search the web
+    $("cmdSearch") && ($("cmdSearch").onclick = () => {
+      const v = cmdInput.value.trim();
+      if (v) { cmdSendChat("Search the web for: " + v); cmdInput.value = ""; }
+      else { cmdInput.focus(); cmdInput.placeholder = "Type a search query, then click Web…"; }
+    });
+    // Note — save text to notepad
+    $("cmdNote") && ($("cmdNote").onclick = () => {
+      const v = cmdInput.value.trim();
+      if (v) {
+        const editor = $("noteEditor");
+        if (editor) editor.innerHTML += "<div>" + esc(v) + "</div>";
+        tempToast("Saved to notepad.");
+        cmdInput.value = "";
+      } else {
+        const ne = $("noteEditor");
+        if (ne && !ne.querySelector(".hint-muted")) {
+          const hint = document.createElement("div");
+          hint.className = "hint-muted";
+          hint.style.cssText = "color:var(--dim);font-size:11px;padding:2px 0";
+          hint.textContent = "Type text above, then click Note to save.";
+          ne.prepend(hint);
+        }
+        cmdInput.focus();
+      }
+    });
+    // Commit — commit all changes
+    $("cmdCommit") && ($("cmdCommit").onclick = () => {
+      cmdSendChat("Commit all changes with a clear message.");
+      cmdInput.value = "";
+    });
+    // More — open palette
+    $("cmdMore") && ($("cmdMore").onclick = () => openCmdPalette());
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -7294,11 +7954,148 @@ Optional bundled starter model:
     window.setWorkspaceTab = function(ws) {
       const result = _origSetWsTab.call(this, ws);
       if (deployBar) deployBar.style.display = (ws === "git") ? "flex" : "none";
+      const devBar = $("devBrowserBar");
+      if (devBar) devBar.style.display = (ws === "preview" || ws === "browser") ? "flex" : "none";
+      const dsnBar = $("designBar");
+      if (dsnBar) dsnBar.style.display = (ws === "preview") ? "flex" : "none";
       return result;
     };
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // GENERATE COMMIT MESSAGE
+  // ══════════════════════════════════════════════════════════════
+  $("genCommitMsg") && ($("genCommitMsg").onclick = () => {
+    $("input").value = "Show me the current git diff and generate a clear, concise commit message based on the changes. Do not commit yet — just suggest the message.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // MCP CONNECTOR GALLERY
+  // ══════════════════════════════════════════════════════════════
+  const mcpSetupInfo = {
+    github: "Set up the GitHub MCP connector: show me how to connect the GitHub MCP server so Boolean can manage repositories, issues, and PRs.",
+    notion: "Set up the Notion MCP connector: show me how to connect Notion so Boolean can search, read, and create pages.",
+    supabase: "Set up the Supabase MCP connector: show me how to connect Supabase for database queries and auth management.",
+    stripe: "Set up the Stripe MCP connector: show me how to connect Stripe for billing and customer management.",
+    cloudflare: "Set up the Cloudflare MCP connector: show me how to connect Cloudflare for Workers, KV, and DNS management.",
+    jira: "Set up the Jira MCP connector: show me how to connect Jira for issue and sprint tracking.",
+    slack: "Set up the Slack MCP connector: show me how to connect Slack for messaging and channel search.",
+    linear: "Set up the Linear MCP connector: show me how to connect Linear for issue and project management."
+  };
+  document.querySelectorAll(".mcp-setup").forEach(btn => {
+    btn.onclick = () => {
+      const mcp = btn.dataset.mcpSetup;
+      $("input").value = mcpSetupInfo[mcp] || "Set up this MCP connector.";
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    };
+  });
+  $("mcpCustomAdd") && ($("mcpCustomAdd").onclick = () => {
+    const url = ($("mcpCustomUrl").value || "").trim();
+    if (!url) { tempToast("Enter an MCP server URL or command."); return; }
+    $("input").value = "Add a custom MCP server with this endpoint: " + url + " — guide me through configuration and list available tools.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+    $("mcpCustomUrl").value = "";
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // RESEARCH CARDS — auto-save from browser summarize
+  // ══════════════════════════════════════════════════════════════
+  const researchList = $("researchCardsList");
+  const researchSection = $("researchCardsSection");
+  window.addResearchCard = function(opts) {
+    if (!researchList || !researchSection) return;
+    researchSection.style.display = "block";
+    const card = document.createElement("div");
+    card.className = "research-card";
+    card.innerHTML =
+      '<div class="rc-title">' + esc(opts.title || "Research finding") + '</div>' +
+      '<div class="rc-summary">' + esc(opts.summary || "") + '</div>' +
+      (opts.url ? '<div class="rc-source">🔗 ' + esc(opts.url) + '</div>' : '') +
+      (opts.citation ? '<div class="rc-citation">[' + esc(String(opts.citation)) + ']</div>' : '');
+    researchList.prepend(card);
+    tempToast("Research card saved to notepad.");
+  };
+  $("researchClear") && ($("researchClear").onclick = () => {
+    if (researchList) researchList.innerHTML = "";
+    if (researchSection) researchSection.style.display = "none";
+    tempToast("Research cards cleared.");
+  });
+  // Intercept "summarize" browser task to also save a research card
+  const _origBtTaskHandler = window.handleBrowserTask;
+  window.handleBrowserTask = function(task) {
+    if (task === "summarize") {
+      // after sending the summarize prompt, also save a card
+      try {
+        const addr = $("bAddr");
+        const title = addr ? addr.value : "Browser page";
+        addResearchCard({ title: title || "Browser page", summary: "Summary pending — Boolean is summarizing this page.", url: addr ? addr.value : "" });
+      } catch(e) {}
+    }
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // DEVELOPER BROWSER — auto-open + console detection
+  // ══════════════════════════════════════════════════════════════
+  $("devBrowserOpen") && ($("devBrowserOpen").onclick = () => {
+    $("input").value = "Run the current project, then open the local dev server URL in the browser. Check the page loads correctly.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+    const st = $("devBrowserStatus");
+    if (st) st.textContent = "Opening local site…";
+  });
+  $("devBrowserConsole") && ($("devBrowserConsole").onclick = () => {
+    $("input").value = "Inspect the current browser page for console errors, failed network requests, and JavaScript issues. Report any problems found.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+    const st = $("devBrowserStatus");
+    if (st) st.textContent = "Checking console…";
+  });
+  $("devBrowserFix") && ($("devBrowserFix").onclick = () => {
+    $("input").value = "The browser has console errors. Find the root cause in the code, patch it, and verify the fix.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // DESIGN ASSISTANT — screenshot critique + CSS patch
+  // ══════════════════════════════════════════════════════════════
+  $("designScreenshot") && ($("designScreenshot").onclick = () => {
+    $("input").value = "Take a screenshot of the current page, critique the design (spacing, hierarchy, overflow, alignment, responsiveness), and suggest specific improvements.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+    const st = $("designStatus");
+    if (st) st.textContent = "Capturing screenshot…";
+  });
+  $("designCssPatch") && ($("designCssPatch").onclick = () => {
+    $("input").value = "Analyze the current page for CSS issues (overflow, sticky positioning, spacing bugs, clipping) and generate targeted CSS fixes.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+  });
+  $("designCompare") && ($("designCompare").onclick = () => {
+    $("input").value = "Compare the before and after screenshots of the design changes. Show me what improved and what still needs work.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+  });
+
 })();
 </script>
+<!-- Command palette (fixed overlay) -->
+<div class="cmd-palette-backdrop" id="cmdBackdrop"></div>
+<div class="cmd-palette" id="cmdPalette" role="dialog" aria-label="Command palette">
+  <div class="cmd-palette-head">
+    <svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
+    <input id="cmdPaletteInput" placeholder="Search commands… run, open, commit, deploy…" spellcheck="false" autocomplete="off">
+  </div>
+  <div class="cmd-palette-list" id="cmdPaletteList"></div>
+  <div class="cmd-palette-foot">
+    <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+    <span><kbd>↵</kbd> run</span>
+    <span><kbd>Esc</kbd> close</span>
+  </div>
+</div>
 </body>
 </html>

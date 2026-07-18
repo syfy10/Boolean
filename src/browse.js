@@ -508,16 +508,32 @@ var lt=document.title;setInterval(function(){if(document.title!==lt){lt=document
 })();</` + `script>`;
 }
 
-function rewriteHtml(html, realUrl) {
+function rewriteHtml(html, realUrl, opts = {}) {
   // remove CSP metas (we serve the page ourselves) and reroute meta-refresh
   html = html.replace(/<meta[^>]+http-equiv\s*=\s*["']?content-security-policy[^>]*>/gi, "");
   html = html.replace(/(<meta[^>]+http-equiv\s*=\s*["']?refresh[^>]*content\s*=\s*["'][^"';]*;\s*url=)([^"']+)/gi,
     (m, pre, u) => { try { return pre + "/browse?u=" + encodeURIComponent(new URL(u.trim(), realUrl).href); } catch { return m; } });
-  const inject = injectedScript(realUrl);
+  let inject = injectedScript(realUrl);
+  if (opts.dark) inject = darkPageCSS + inject;
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + inject);
   if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, (m) => m + "<head>" + inject + "</head>");
   return inject + html;
 }
+
+// CSS injected for forced dark mode on proxied pages
+const darkPageCSS = `<style data-saz3-dark>
+*,*::before,*::after{border-color:#3a3a3a !important;}
+html{color-scheme:dark !important;}
+body{background:#1e1e1e !important;color:#e0e0e0 !important;background-image:none !important;}
+a{color:#7ab8ff !important;}
+input,textarea,select{background:#2a2a2a !important;color:#e0e0e0 !important;border-color:#444 !important;}
+table,th,td{border-color:#444 !important;}
+img{opacity:.85;}
+img[src*="logo"],img[class*="logo"]{opacity:1;}
+div,section,article,header,footer,nav,aside{background-color:transparent !important;background-image:none !important;}
+[style*="background: #fff"],[style*="background:#fff"],[style*="background: white"],[style*="background:white"]{background:#1e1e1e !important;}
+[style*="color: #000"],[style*="color:#000"],[style*="color: black"],[style*="color:black"]{color:#e0e0e0 !important;}
+</style>`;
 
 const errPage = (msg) =>
   `<!doctype html><meta charset="utf-8"><body style="font:14px system-ui;color:#888;background:#fff;display:grid;place-items:center;height:95vh"><div style="max-width:420px;text-align:center"><b style="color:#444">Page failed to load</b><br><br>${escAttr(msg)}</div></body>`;
@@ -533,6 +549,8 @@ export async function handleBrowse(req, res, urlObj, config) {
   const target = urlObj.searchParams.get("u") || "";
   const raw = urlObj.searchParams.get("r") === "1";
   const forceDl = urlObj.searchParams.get("dl") === "1";
+  const darkMode = urlObj.searchParams.get("dark") === "1";
+  const readerMode = urlObj.searchParams.get("reader") === "1";
   const cors = { "access-control-allow-origin": "*", "cache-control": "no-store" };
   if (!/^https?:\/\//i.test(target)) {
     res.writeHead(400, { "content-type": "text/html; charset=utf-8", ...cors });
@@ -575,7 +593,7 @@ export async function handleBrowse(req, res, urlObj, config) {
       let html;
       try { html = new TextDecoder(charset).decode(buf); } catch { html = buf.toString("utf8"); }
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", ...cors });
-      res.end(rewriteHtml(html, finalUrl));
+      res.end(rewriteHtml(html, finalUrl, { dark: darkMode, reader: readerMode }));
       return;
     }
 

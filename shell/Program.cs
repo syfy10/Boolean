@@ -1347,6 +1347,17 @@ try {
         {
             if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
             _split.Panel2Collapsed = false;
+            // Navigate the initial tab if it was created at startup but never loaded
+            var t = Active();
+            if (t != null && t.View.CoreWebView2 != null)
+            {
+                var src = t.View.CoreWebView2.Source?.ToString() ?? "";
+                if (string.IsNullOrEmpty(src) || src == "about:blank")
+                {
+                    t.Url = _homeUrl;
+                    t.View.CoreWebView2.Navigate(_homeUrl);
+                }
+            }
             BeginInvoke(new Action(FitBrowserSplit)); // fit after the layout settles
         }
         else _split.Panel2Collapsed = true;
