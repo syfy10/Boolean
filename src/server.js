@@ -36,7 +36,7 @@ import {
   getEmailAccount,
   publicEmailConnections
 } from "./email.js";
-import { manageAutomation, setAutomationActionHandler, startAutomationScheduler } from "./platform.js";
+import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
 
 function loadAsset(name, devPath) {
@@ -851,6 +851,40 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
         saveConfig(config);
         json({ ok: true, cloudBackend: publicCloudBackend(config) });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/skills") {
+        try {
+          const skills = installedSkills().map(({ id, name, version, description, permissions }) => ({ id, name, version, description: description || "", permissions }));
+          json({ skills });
+        } catch (err) { json({ error: err.message }, 500); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/skills") {
+        const body = await readBody(req);
+        const operation = String(body.operation || "");
+        if (!["install", "remove", "inspect"].includes(operation)) {
+          return json({ error: "Unsupported skill operation." }, 400);
+        }
+        try {
+          const result = await manageSkill(body, {
+            projectDir: config.projectsDir,
+            config,
+            approve: async () => true
+          });
+          try { json(JSON.parse(result)); }
+          catch { json({ ok: true, message: result }); }
+        } catch (err) { json({ error: err.message }, 500); }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/github/status") {
+        try {
+          const status = await ghStatus({ projectDir: config.projectsDir, config });
+          json(status);
+        } catch (err) { json({ installed: false, authenticated: false, error: err.message }); }
         return;
       }
 

@@ -141,6 +141,25 @@ async function githubWorkflow(args, ctx) {
   return result.output || "GitHub operation completed.";
 }
 
+export async function ghStatus(ctx) {
+  const cwd = projectDir(ctx);
+  const authResult = await runProcess("gh", ["auth", "status", "--show-token"], { cwd, timeoutMs: 10000 });
+  const authenticated = authResult.code === 0;
+  let repo = null;
+  if (authenticated) {
+    const repoResult = await runProcess("gh", ["repo", "view", "--json", "nameWithOwner,url,defaultBranchRef"], { cwd, timeoutMs: 10000 });
+    if (repoResult.code === 0) {
+      try { repo = JSON.parse(repoResult.output); } catch { /* not a repo */ }
+    }
+  }
+  let user = null;
+  if (authenticated) {
+    const userResult = await runProcess("gh", ["api", "user", "--jq", ".login"], { cwd, timeoutMs: 10000 });
+    if (userResult.code === 0) user = userResult.output.trim();
+  }
+  return { installed: true, authenticated, user, repo, raw: authenticated ? "" : authResult.output };
+}
+
 const REVIEW_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".cs", ".java", ".go", ".rs", ".php", ".rb", ".ps1", ".html"]);
 const REVIEW_RULES = [
   { severity: "high", label: "Possible embedded secret", regex: /\b(api[_-]?key|client[_-]?secret|access[_-]?token|password)\b\s*[:=]\s*["'][^"']{12,}/i },
@@ -204,14 +223,14 @@ function validateSkillManifest(manifest) {
   return { version: 1, ...manifest, id, name: String(manifest.name).trim(), instructions: String(manifest.instructions).trim(), permissions: Array.isArray(manifest.permissions) ? manifest.permissions.map(String) : [] };
 }
 
-function installedSkills() {
+export function installedSkills() {
   fs.mkdirSync(SKILLS_DIR, { recursive: true });
   return fs.readdirSync(SKILLS_DIR, { withFileTypes: true }).filter((item) => item.isDirectory()).flatMap((item) => {
     try { return [validateSkillManifest(readJson(path.join(SKILLS_DIR, item.name, "skill.json"), null))]; } catch { return []; }
   });
 }
 
-async function manageSkill(args, ctx) {
+export async function manageSkill(args, ctx) {
   const operation = String(args.operation || "list");
   const skills = installedSkills();
   if (operation === "list") return JSON.stringify(skills.map(({ id, name, version, description, permissions }) => ({ id, name, version, description: description || "", permissions })), null, 2);

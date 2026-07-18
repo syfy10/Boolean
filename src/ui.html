@@ -1059,6 +1059,8 @@
         <div class="settings-checklist" aria-label="Setup checklist">
           <div class="settings-check done" data-open-sec="model"><span>✓</span><div>Choose default AI model<small>Local, cloud, or auto routing.</small></div></div>
           <div class="settings-check" data-open-sec="thirdparty"><span>•</span><div>Connect GitHub or deploy tools<small>Shows connected / needs login / disabled.</small></div></div>
+          <div class="settings-check" data-open-sec="github"><span>•</span><div>Set up GitHub<small>Check CLI auth, repository status, and account.</small></div></div>
+          <div class="settings-check" data-open-sec="skills"><span>•</span><div>Manage skills<small>Install, inspect, or remove local capability packages.</small></div></div>
           <div class="settings-check done" data-open-sec="agent"><span>✓</span><div>Set coding mode<small>Quick Fix, Build Feature, Debug, Review, Refactor.</small></div></div>
           <div class="settings-check" data-open-sec="browser"><span>•</span><div>Configure browser permissions<small>Research, page context, safe-click rules.</small></div></div>
           <div class="settings-check" data-open-sec="memory"><span>•</span><div>Configure memory<small>Review/delete preferences and project notes.</small></div></div>
@@ -1337,6 +1339,53 @@
             <div class="hint" id="agentStatus" style="margin-top:7px"></div>
           </div>
           </div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="github" data-search="github git repositories issues pull requests pr checks workflow logs commits branches status auth login cli gh">
+        <div class="sechead">GitHub <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow" style="display:block">
+            <div><b>GitHub integration</b><div class="hint">Authenticated GitHub CLI access for repository status, issues, pull requests, checks, and workflow logs.</div></div>
+          </div>
+          <div id="ghStatusContainer" class="conn-card" style="display:block;padding:10px 12px">
+            <div class="top"><span class="kind">Status</span><b id="ghAuthStatus">Checking…</b></div>
+            <div class="hint" id="ghDetailStatus" style="margin-top:6px"></div>
+          </div>
+          <div class="setrow" id="ghRepoRow" style="display:none">
+            <div>Repository<div class="hint">current project's GitHub remote</div></div>
+            <b id="ghRepoName">—</b>
+          </div>
+          <div class="setrow" id="ghUserRow" style="display:none">
+            <div>Account<div class="hint">authenticated GitHub user</div></div>
+            <b id="ghUserName">—</b>
+          </div>
+          <div class="setrow" id="ghBranchRow" style="display:none">
+            <div>Default branch<div class="hint">repository's main branch</div></div>
+            <b id="ghDefaultBranch">—</b>
+          </div>
+          <div class="setrow">
+            <div>CLI setup<div class="hint">install GitHub CLI then run 'gh auth login'</div></div>
+            <button class="minibtn" id="ghRefresh" type="button">Refresh</button>
+          </div>
+          <div class="hint" style="margin-top:9px">Mutating operations (PR create, comments) always require approval.</div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="skills" data-search="skills install packages hooks permissions reusable capabilities local community remove activate manage">
+        <div class="sechead">Skills <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow" style="display:block">
+            <div><b>Skills &amp; capabilities</b><div class="hint">Local packages that add reusable instructions, permissions, and event hooks to Boolean.</div></div>
+          </div>
+          <div id="skillListContainer" style="margin-top:4px">
+            <div class="hint" id="skillLoadingHint">Loading skills…</div>
+          </div>
+          <div class="setrow" style="margin-top:8px">
+            <div>Install<div class="hint">point to a local folder containing skill.json</div></div>
+            <button class="minibtn" id="skillInstallBtn" type="button">Browse…</button>
+          </div>
+          <div class="hint" style="margin-top:9px">Skill installs require approval. Packages are local and permission-declared but not yet signed.</div>
         </div>
       </div>
 
@@ -2042,6 +2091,72 @@
       }
       lastAutomationRunId=latest.id; localStorage.setItem("booleanLastAutomationRun",latest.id);
     }catch(error){ if($("settingsPanel").dataset.page==="scheduled") $("automationList").innerHTML='<div class="automation-empty">'+esc(error.message||error)+'</div>'; }
+  }
+
+  async function loadGithubStatus(){
+    const statusEl=$("ghAuthStatus"), detailEl=$("ghDetailStatus");
+    if(!statusEl) return;
+    statusEl.textContent="Checking…"; detailEl.textContent="";
+    $("ghRepoRow").style.display="none"; $("ghUserRow").style.display="none"; $("ghBranchRow").style.display="none";
+    try{
+      const res=await fetch("/api/github/status");
+      const data=await res.json();
+      if(data.authenticated){
+        statusEl.textContent="Authenticated"; statusEl.style.color="var(--green)";
+        if(data.user){ $("ghUserRow").style.display="flex"; $("ghUserName").textContent=data.user; }
+        if(data.repo){
+          $("ghRepoRow").style.display="flex"; $("ghRepoName").textContent=data.repo.nameWithOwner||"—";
+          const branch=data.repo.defaultBranchRef?.name;
+          if(branch){ $("ghBranchRow").style.display="flex"; $("ghDefaultBranch").textContent=branch; }
+          if(data.repo.url) detailEl.innerHTML='<a href="'+esc(data.repo.url)+'" target="_blank">'+esc(data.repo.url)+'</a>';
+        } else { detailEl.textContent="No GitHub repository in the current project folder."; }
+      } else {
+        statusEl.textContent="Not authenticated"; statusEl.style.color="var(--orange)";
+        detailEl.textContent=data.raw?("Install gh CLI and run 'gh auth login'. Error: "+data.raw):"Install GitHub CLI and run 'gh auth login'.";
+      }
+    }catch(err){
+      statusEl.textContent="Unavailable"; statusEl.style.color="var(--dim)";
+      detailEl.textContent=String(err.message||err);
+    }
+  }
+
+  async function loadSkillList(){
+    const container=$("skillListContainer");
+    if(!container) return;
+    container.innerHTML='<div class="hint">Loading skills…</div>';
+    try{
+      const res=await fetch("/api/skills");
+      const data=await res.json();
+      if(!data.skills||data.skills.length===0){
+        container.innerHTML='<div class="hint">No skills installed. Install a local skill package to add reusable instructions and hooks.</div>';
+        return;
+      }
+      container.innerHTML=data.skills.map(skill=>{
+        const perms=skill.permissions&&skill.permissions.length?skill.permissions.map(esc).join(", "):"none";
+        return '<div class="conn-card" style="display:block;padding:8px 10px;margin-bottom:4px">'+
+          '<div class="top"><span class="kind">'+esc(skill.name)+'</span>'+
+          '<b>v'+esc(String(skill.version||1))+'</b>'+
+          '<button class="minibtn dangerbtn" data-skill-remove="'+esc(skill.id)+'">Remove</button></div>'+
+          (skill.description?'<div class="hint" style="margin-top:4px">'+esc(skill.description)+'</div>':'')+
+          '<div class="hint" style="margin-top:2px"><b>Permissions:</b> '+perms+'</div>'+
+          '</div>';
+      }).join("");
+      container.querySelectorAll("[data-skill-remove]").forEach(btn=>{
+        btn.onclick=async()=>{
+          const id=btn.dataset.skillRemove;
+          if(!await appConfirm("Remove skill?","Remove '"+id+"' from Boolean.","Remove",true)) return;
+          try{
+            const r=await fetch("/api/skills",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({operation:"remove",id})});
+            const d=await r.json();
+            if(d.error) throw new Error(d.error);
+            tempToast("Skill removed",3000);
+            loadSkillList();
+          }catch(err){ tempToast("Failed: "+(err.message||err),4000); }
+        };
+      });
+    }catch(err){
+      container.innerHTML='<div class="hint">Could not load skills: '+esc(String(err.message||err))+'</div>';
+    }
   }
   async function automationOperation(operation,id){
     if(automationBusyIds.has(id)) return false;
@@ -4819,6 +4934,8 @@
     if(section.dataset.sec==="thirdparty") showConnectorOverview();
     if(section.dataset.sec==="email") renderEmailSettings();
     if(section.dataset.sec==="scheduled") loadAutomations();
+    if(section.dataset.sec==="github") loadGithubStatus();
+    if(section.dataset.sec==="skills") loadSkillList();
     panel.scrollTop=0;
   }
   function closeSettingsPanel(){
@@ -5397,6 +5514,12 @@ Optional bundled starter model:
   $("exportTxt").onclick=()=>window.open("/api/export?id="+threadId+"&format=txt");
   $("exportMd").onclick=()=>window.open("/api/export?id="+threadId+"&format=md");
   $("clearHistory").onclick=async()=>{ if(await appConfirm("Delete all saved chats?","Every saved chat will be permanently deleted. This can't be undone.","Delete",true)){ const r=await (await fetch("/api/clear-history",{method:"POST"})).json(); threadId=r.activeThreadId; await refresh(); openThread(threadId); } };
+  // ── GitHub + Skills settings handlers ──
+  if($("ghRefresh")) $("ghRefresh").onclick=()=>loadGithubStatus();
+  if($("skillInstallBtn")) $("skillInstallBtn").onclick=async()=>{
+    tempToast("To install a skill, use the chat command: manage_skill install from a local folder path.",5000);
+  };
+
   $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",codingAgent:{mode:"quick",autoTest:true,stopLoop:true,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
 
   // ── in-app browser (real internet via the /browse proxy) ──
