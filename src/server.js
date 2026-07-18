@@ -390,18 +390,37 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     return [
       "ACTIVE TASK (keep working until it is genuinely complete):",
       task.context || task.objective,
-      "Do not lose the user's folder restrictions, safety constraints, or requested deliverable. Review existing tool results before repeating work."
+      "Do not lose the user's folder restrictions, safety constraints, or requested deliverable. Review existing tool results before repeating work.",
+      "If the newest user message only asks whether you are working, why the run stopped, or says to continue, do not replace this objective with that message. Briefly acknowledge if needed, then resume this active task from the checkpoint."
     ].join("\n");
   }
-  function resumeTaskMessage(task) {
+  function isTaskResumeOrStatusText(text) {
+    const s = String(text || "").trim().toLowerCase();
+    if (!s) return false;
+    if (/^(continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it)\b/i.test(s)) return true;
+    if (/\b(are you|r u|you)\s+(still\s+)?(checking|working|running|doing|stuck|stopped)\b/i.test(s)) return true;
+    if (/\b(what happened|why did (it|you) stop|did (it|you) stop|what are you doing|where are we|status update|give me status|can move forward)\b/i.test(s)) return true;
+    if (/^(check now|try again|please continue|continue where you left off)\b/i.test(s)) return true;
+    return false;
+  }
+  function resumeTaskMessage(task, latestUserText = "") {
     if (!task) return "Continue exactly where you left off. Do not repeat work already done.";
-    return [
+    const lines = [
       "RESUME INTERRUPTED TASK:",
       `Original objective: ${task.objective || "Finish the prior request."}`,
       "Relevant user instructions and constraints:",
       task.context || task.objective || "",
       "Continue from the existing messages and tool results. Do not restart, switch projects, or claim the context is missing. Finish the task and report the files changed."
-    ].join("\n");
+    ];
+    const latest = String(latestUserText || "").trim();
+    if (latest) {
+      lines.push(
+        "",
+        `Latest user message: ${latest}`,
+        "Treat the latest user message as a status/resume instruction, not as a replacement objective."
+      );
+    }
+    return lines.join("\n");
   }
   function isBlankNewThread(t) {
     if (!t || t.kind === "project" || t.title !== "New chat" || t.pinned) return false;
@@ -693,6 +712,12 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           backendUp: await backendUp(config),
           cloud: { ...CLOUD, customApi: config.customApi?.name || CLOUD.customApi },
           keys: Object.fromEntries(Object.keys(CLOUD).map((k) => [k, !!config[k]?.apiKey])),
+          userApi: {
+            name: config.customApi?.name || "Custom API",
+            baseUrl: config.customApi?.baseUrl || "",
+            model: config.customApi?.model || "",
+            hasKey: !!config.customApi?.apiKey
+          },
           thirdParty: {
             zaiCoding: {
               endpoint: "https://api.z.ai/api/coding/paas/v4",
@@ -1692,10 +1717,19 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             ...body.images.map((u) => ({ type: "image_url", image_url: { url: u } }))
           ];
         }
-        t.messages.push({ role: "user", content });
-        t.log.push({ t: "user", text: userTextOnly(content), images: imagesOf(content), at: Date.now() });
-        beginPendingTask(t, content);
-        if (config.ui?.learnedMemory !== false) learnFromUserText(userTextOnly(content));
+        const visibleUserText = userTextOnly(content);
+        const savedTask = t.pendingTask && ["running", "interrupted"].includes(t.pendingTask.state) ? t.pendingTask : null;
+        const shouldResumeSavedTask = savedTask && isTaskResumeOrStatusText(visibleUserText);
+        if (shouldResumeSavedTask) {
+          t.messages.push({ role: "user", content: resumeTaskMessage(savedTask, visibleUserText) });
+          savedTask.state = "running";
+          savedTask.updatedAt = Date.now();
+        } else {
+          t.messages.push({ role: "user", content });
+          beginPendingTask(t, content);
+        }
+        t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now() });
+        if (config.ui?.learnedMemory !== false) learnFromUserText(visibleUserText);
         if (t.title === "New chat") t.title = shortThreadTitle(content).slice(0, 42);
         t.updatedAt = Date.now();
         persist();

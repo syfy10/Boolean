@@ -70,7 +70,9 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "read_file",
-      description: "Read a text file and return its contents. For large files, pass offset (1-based start line) and limit (line count) to read only a slice.",
+      description:
+        "Read a text file. Large files return a compact preview unless offset/limit is provided. " +
+        "Use search_files/find_symbol first, then read the exact line slice needed.",
       parameters: {
         type: "object",
         properties: {
@@ -795,6 +797,10 @@ export const TOOL_DEFINITIONS = [
 ];
 
 const MAX_OUTPUT_CHARS = 12000;
+const MAX_DIRECT_READ_CHARS = 9000;
+const MAX_DIRECT_READ_LINES = 220;
+const MAX_READ_SLICE_LINES = 220;
+const DEFAULT_LARGE_FILE_PREVIEW_LINES = 80;
 
 function truncate(text) {
   if (text.length <= MAX_OUTPUT_CHARS) return text;
@@ -802,6 +808,47 @@ function truncate(text) {
     text.slice(0, MAX_OUTPUT_CHARS) +
     `\n... [output truncated, ${text.length - MAX_OUTPUT_CHARS} more characters]`
   );
+}
+
+function formatFileSlice(lines, start, limit, totalLines) {
+  const safeStart = Math.max(0, start);
+  const safeLimit = Math.max(1, Math.min(MAX_READ_SLICE_LINES, limit));
+  const end = Math.min(lines.length, safeStart + safeLimit);
+  const slice = lines.slice(safeStart, end);
+  const capped = limit > MAX_READ_SLICE_LINES
+    ? `\n[note: requested ${limit} lines; capped at ${MAX_READ_SLICE_LINES} to keep context small]`
+    : "";
+  return truncate(`[lines ${safeStart + 1}-${safeStart + slice.length} of ${totalLines}]\n` + slice.join("\n") + capped);
+}
+
+function summarizeLargeRead(target, content) {
+  const lines = content.split(/\r?\n/);
+  if (content.length <= MAX_DIRECT_READ_CHARS && lines.length <= MAX_DIRECT_READ_LINES) return null;
+  const ext = path.extname(target).toLowerCase();
+  const likelyGenerated = /(?:^|[\\/])(dist|build|out|coverage|node_modules)[\\/]/i.test(target);
+  const headings = [];
+  const defs = [];
+  const headingRx = /<h[1-6]\b[^>]*>|^\s*(?:function|class|const|let|var|async function)\s+[A-Za-z_$][\w$]*|^\s*[A-Za-z_$][\w$]*\s*[:=]\s*(?:function|\([^)]*\)\s*=>)|^\s*(?:export\s+)?(?:function|class|const|let)\s+/;
+  for (let i = 0; i < lines.length && headings.length < 30; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    if (/^<!--|^\/\//.test(line)) continue;
+    if (headingRx.test(line)) {
+      const rec = `${i + 1}: ${line.slice(0, 140)}`;
+      if (/^<h[1-6]\b/i.test(line)) headings.push(rec);
+      else defs.push(rec);
+    }
+  }
+  const previewLines = lines.slice(0, DEFAULT_LARGE_FILE_PREVIEW_LINES).join("\n");
+  const map = [
+    `Large file preview: ${path.basename(target)} (${lines.length} lines, ${content.length.toLocaleString()} chars${ext ? `, ${ext}` : ""}${likelyGenerated ? ", generated/build path" : ""}).`,
+    "Boolean did not return the full file to avoid wasting tokens or causing repeated truncated reads.",
+    "Next step: use search_files/find_symbol, or call read_file with offset and limit for the exact lines needed.",
+    headings.length ? `Headings:\n${headings.join("\n")}` : "",
+    defs.length ? `Definitions/anchors:\n${defs.slice(0, 20).join("\n")}` : "",
+    `[preview lines 1-${Math.min(DEFAULT_LARGE_FILE_PREVIEW_LINES, lines.length)} of ${lines.length}]\n${previewLines}`
+  ].filter(Boolean).join("\n\n");
+  return truncate(map);
 }
 
 function runCommand(command, shell, timeoutMs, cwd) {
@@ -1558,15 +1605,18 @@ export async function executeTool(name, args, ctx) {
       }
       case "read_file": {
         if (!args.path) return "error: missing 'path' argument";
-        const content = fs.readFileSync(resolve(args.path), "utf8");
+        const target = resolve(args.path);
+        const content = fs.readFileSync(target, "utf8");
+        if (content.includes("\0")) return `error: ${target} appears to be binary; use a text file or a specialized tool.`;
         const off = Number(args.offset), lim = Number(args.limit);
         if (Number.isFinite(off) || Number.isFinite(lim)) {
           const lines = content.split(/\r?\n/);
           const start = Math.max(0, (Number.isFinite(off) ? off : 1) - 1);
-          const end = Number.isFinite(lim) ? start + Math.max(0, lim) : lines.length;
-          const slice = lines.slice(start, end);
-          return truncate(`[lines ${start + 1}-${start + slice.length} of ${lines.length}]\n` + slice.join("\n"));
+          const requested = Number.isFinite(lim) ? Math.max(1, lim) : MAX_READ_SLICE_LINES;
+          return formatFileSlice(lines, start, requested, lines.length);
         }
+        const largePreview = summarizeLargeRead(target, content);
+        if (largePreview) return largePreview;
         return truncate(content);
       }
       case "edit_file":

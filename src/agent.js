@@ -47,7 +47,7 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- Work silently while using tools. Do not narrate searches, clicks, retries, commands, or planned steps; give one concise result when finished.",
     "- For a multi-step task, call update_plan early and keep its statuses current. Follow the active Boolean controller phase and completion gate.",
     "- For app work: create or edit the project, run it, fix errors, and claim completion only after verification.",
-    "- To find code use find_symbol (where a function/class/variable is defined and used), search_files (any text), or find_files (names); read big files with read_file offset/limit; change existing files with edit_file (exact string replace), not a full rewrite.",
+    "- To find code use find_symbol (where a function/class/variable is defined and used), search_files (any text), or find_files (names); read_file returns only a preview for big files, so use offset/limit for the exact line range. Do not reread the same big file without a narrower range. Change existing files with edit_file (exact string replace), not a full rewrite.",
     "- For a big job you can delegate focused parts to run_subagent (one task, or several to run together) and use their results; sub-agents cannot spawn more sub-agents.",
     "- In a Git-backed project, use run_subagent with isolation='worktree' for independent edits. Review the returned summaries, then apply only the chosen result with apply_subagent_result. Never apply competing edits blindly.",
     "- Use github_workflow for authenticated GitHub issues, pull requests, checks, workflow logs, comments, and PR creation. Mutating operations require approval.",

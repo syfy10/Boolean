@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.22";
-export const APP_DISPLAY_VERSION = "v0.09.22";
+export const APP_VERSION = "0.9.23";
+export const APP_DISPLAY_VERSION = "v0.09.23";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -113,6 +113,14 @@ const DEFAULTS = {
     learnedMemory: true,      // saved safe user preferences/behaviors
     notifications: false,
     contextMode: "balanced",  // minimal | balanced | full â€” Context Optimizer
+    codingAgent: {
+      mode: "quick",          // quick | feature | debug | review | refactor
+      autoTest: true,
+      stopLoop: true,
+      maxRetries: 2,
+      budget: "normal",       // small | normal | large
+      autoCommit: false
+    },
     browserOpen: false,       // in-app browser panel visible
     browserW: 460,            // browser panel width (px)
     browserTabs: [],          // [{url,title}] restored on launch

@@ -171,6 +171,38 @@
   .about-line b{ color:var(--text); font-weight:500; }
 
   /* settings index and focused section pages */
+  .settings-dashboard{ max-width:880px; margin:0 auto 12px; padding:4px 0 2px; }
+  #settingsPanel.settings-detail .settings-dashboard{ display:none; }
+  .settings-search{ position:relative; margin:6px 0 12px; }
+  .settings-search input{ width:100%; height:38px; border:1px solid var(--border); border-radius:12px; background:var(--bubble); color:var(--text); outline:0; padding:0 13px 0 34px; font:13px var(--ui); }
+  .settings-search:before{ content:"⌕"; position:absolute; left:12px; top:8px; color:var(--dim); font-size:16px; }
+  .settings-overview{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:10px; }
+  .settings-card{ border:1px solid var(--border); border-radius:13px; background:var(--card); padding:10px; min-width:0; }
+  .settings-card small{ display:block; color:var(--dim); font-size:10.5px; margin-bottom:4px; }
+  .settings-card b{ display:block; color:var(--text); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .settings-card .badge{ display:inline-flex; align-items:center; gap:4px; margin-top:6px; padding:2px 7px; border-radius:999px; background:color-mix(in srgb,var(--green) 14%,transparent); color:var(--green); font-size:10px; }
+  .settings-checklist{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; margin:0 0 10px; }
+  .settings-check{ display:flex; align-items:flex-start; gap:8px; border:1px solid var(--border); border-radius:11px; background:var(--bg); padding:8px 9px; font-size:12px; cursor:pointer; }
+  .settings-check span:first-child{ width:17px; height:17px; border-radius:50%; display:grid; place-items:center; background:var(--bubble); color:var(--dim); flex-shrink:0; font-size:10px; }
+  .settings-check.done span:first-child{ background:color-mix(in srgb,var(--green) 18%,transparent); color:var(--green); }
+  .settings-check small{ display:block; color:var(--dim); font-size:10.5px; margin-top:1px; }
+  .settings-empty-filter{ display:none; color:var(--dim); text-align:center; padding:18px 8px; font-size:12px; }
+  #settingsPanel.settings-filtering .settings-dashboard .settings-overview,#settingsPanel.settings-filtering .settings-dashboard .settings-checklist{ display:none; }
+  #settingsPanel.settings-filtering .sec.settings-filter-hidden{ display:none; }
+  .agent-mode-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:8px; }
+  .agent-mode{ border:1px solid var(--border); border-radius:11px; background:var(--bg); color:var(--text); text-align:left; padding:9px; cursor:pointer; font:inherit; }
+  .agent-mode:hover,.agent-mode.on{ background:var(--bubble); border-color:color-mix(in srgb,var(--green) 45%,var(--border)); }
+  .agent-mode b{ display:block; font-size:12px; }
+  .agent-mode small{ display:block; color:var(--dim); font-size:10.5px; margin-top:2px; line-height:1.3; }
+  .workflow-steps{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; margin:8px 0; }
+  .workflow-steps span{ border:1px solid var(--border); border-radius:999px; padding:5px 4px; text-align:center; color:var(--dim); font-size:10.5px; background:var(--bg); }
+  .agent-budget-card{ display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid var(--border); border-radius:12px; background:var(--bubble); padding:9px 10px; margin:8px 0; }
+  .agent-budget-card b{ display:block; font-size:12px; }
+  .agent-budget-card small{ display:block; color:var(--dim); font-size:10.5px; line-height:1.3; }
+  .agent-budget-card .badge{ flex-shrink:0; border-radius:999px; padding:3px 8px; color:var(--green); background:color-mix(in srgb,var(--green) 14%,transparent); font-size:10.5px; }
+  .rules-card{ border:1px solid var(--border); border-radius:12px; background:var(--card); padding:10px; margin-top:8px; }
+  .rules-card code{ font-family:var(--mono); font-size:11px; }
+  @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .sec{ border-bottom:1px solid var(--border); }
   .sechead{ display:flex; align-items:center; gap:8px; padding:10px 16px; cursor:pointer; font-size:13px; font-weight:500; color:var(--text); user-select:none; }
   .sechead:hover{ background:var(--hover); }
@@ -434,13 +466,19 @@
   #appBack.available{ display:grid; }
   body.collapsed main .topbar{ padding-left:54px; }
   .topbar .spacer{ flex:1; }
-  .topbar .netseg{ height:22px; padding:2px; align-items:center; border-radius:999px; }
+  .topbar .netseg{ height:22px; padding:2px; align-items:center; border-radius:999px; flex:0 1 auto; max-width:128px; overflow:hidden; }
   .topbar .netseg button{ height:18px; min-width:46px; font-size:11px; padding:0 9px; line-height:18px; border-radius:999px; }
   .topbar #newchat{ margin-left:0; }
   body.browser-on .topbar{ gap:4px; }
   body.browser-on .topbar .spacer{ order:20; min-width:2px; }
   body.browser-on #notesToggle{ order:21; flex-shrink:0; }
   body.browser-on #browserToggle{ order:22; flex-shrink:0; }
+  body.chat-xxs .topbar{ padding:0 6px; justify-content:flex-end; }
+  body.chat-xxs .topbar .netseg{ max-width:68px; }
+  body.chat-xxs .topbar .netseg button{ min-width:0; padding:0 8px; }
+  body.chat-xxs .topbar .netseg button:not(.on){ display:none; }
+  body.chat-xxs #newchat,body.chat-xxs #copyall,body.chat-xxs #notesToggle,body.chat-xxs #browserToggle{ display:none; }
+  body.chat-xxs .topbar .spacer{ display:none; }
   /* window controls — only in the native shell, and only when the browser pane isn't covering the corner */
   .winctl{ display:none; align-items:center; gap:1px; margin-left:4px; }
   body.shell .winctl{ display:flex; }
@@ -804,6 +842,8 @@
   body.win-xs .model-error, body.chat-xs .model-error{ max-width:90%; }
   /* ultra-narrow: shrink the model chip further */
   body.chat-xxs .modelbtn{ max-width:66px; }
+  body.chat-xxs #compareAnchor{ display:none; }
+  body.chat-xxs .composer-tools .spacer{ display:none; }
   body.chat-xxs .menu#modemenu{ left:0; width:150px; }
 
   /* compact Settings: shrink section headers, rows and controls */
@@ -818,6 +858,11 @@
   #settingsPanel .setrow > div:first-child{ min-width:0; }
   #settingsPanel .setrow .hint,#settingsPanel .hint{ font-size:var(--fs-xxs); line-height:1.35; }
   #settingsPanel .setrow select,#settingsPanel .setrow input[type=password]{ border:0; border-radius:999px; background:var(--bubble); font-size:var(--fs-xs); padding:5px 8px; width:94px; min-height:27px; flex-shrink:0; }
+  #settingsPanel .api-quick{ display:block; padding:8px 0 10px; }
+  #settingsPanel .api-quick input{ width:100%; min-width:0; margin-top:6px; border:0; border-radius:10px; background:var(--bubble); color:var(--text); font:var(--fs-xs) var(--ui); padding:8px 9px; outline:0; }
+  #settingsPanel .api-quick input:focus{ box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--green) 45%,transparent); }
+  .api-quick-actions{ display:grid; grid-template-columns:1fr 1fr auto; gap:6px; margin-top:7px; }
+  .api-quick-actions .minibtn{ min-width:0; }
   #settingsPanel .switch{ width:34px; height:19px; }
   #settingsPanel .slider{ background:#e6e6e2; box-shadow:inset 0 0 0 1px rgba(0,0,0,.04); }
   #settingsPanel .slider:before{ width:13px; height:13px; box-shadow:0 1px 2px rgba(0,0,0,.12); }
@@ -1003,8 +1048,38 @@
         <button id="settingsClose" title="Close settings" aria-label="Close settings">×</button>
       </div>
 
-      <div class="sec" data-sec="model">
-        <div class="sechead">Model <span class="caret">▶</span></div>
+      <div class="settings-dashboard" id="settingsDashboard">
+        <div class="settings-search"><input type="search" id="settingsSearch" autocomplete="off" spellcheck="false" placeholder="Search settings, models, connectors, permissions…"></div>
+        <div class="settings-overview" aria-label="Settings overview">
+          <div class="settings-card"><small>Current model</small><b id="settingsCurrentModel">Local</b><span class="badge" id="settingsModelBadge">Ready</span></div>
+          <div class="settings-card"><small>Token budget</small><b id="settingsTokenBudget">Per task</b><span class="badge">Visible</span></div>
+          <div class="settings-card"><small>Connected tools</small><b id="settingsToolsStatus">Checking…</b><span class="badge">Status</span></div>
+          <div class="settings-card"><small>Project folder</small><b id="settingsProjectFolder">Projects</b><span class="badge">Local</span></div>
+        </div>
+        <div class="settings-checklist" aria-label="Setup checklist">
+          <div class="settings-check done" data-open-sec="model"><span>✓</span><div>Choose default AI model<small>Local, cloud, or auto routing.</small></div></div>
+          <div class="settings-check" data-open-sec="thirdparty"><span>•</span><div>Connect GitHub or deploy tools<small>Shows connected / needs login / disabled.</small></div></div>
+          <div class="settings-check done" data-open-sec="agent"><span>✓</span><div>Set coding mode<small>Quick Fix, Build Feature, Debug, Review, Refactor.</small></div></div>
+          <div class="settings-check" data-open-sec="browser"><span>•</span><div>Configure browser permissions<small>Research, page context, safe-click rules.</small></div></div>
+          <div class="settings-check" data-open-sec="memory"><span>•</span><div>Configure memory<small>Review/delete preferences and project notes.</small></div></div>
+          <div class="settings-check" data-open-sec="agent"><span>•</span><div>Test build tools<small>Verified loop: plan, edit, run, verify.</small></div></div>
+        </div>
+        <div class="settings-empty-filter" id="settingsEmptyFilter">No settings match that search.</div>
+      </div>
+
+      <div class="sec" data-sec="overview" data-search="overview status health provider model token budget tools project folder privacy checklist setup">
+        <div class="sechead">Overview <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow"><div>Current model/provider<div class="hint">Shows what Boolean will use for the next answer.</div></div><b id="overviewProvider">Local</b></div>
+          <div class="setrow"><div>Token/time budget<div class="hint">Keeps runs bounded so Boolean stops instead of wasting tokens.</div></div><b id="overviewBudget">Task controlled</b></div>
+          <div class="setrow"><div>Connected tools status<div class="hint">Connectors display Connected, Needs login, Disabled, or Permissions.</div></div><b id="overviewTools">Checking…</b></div>
+          <div class="setrow"><div>Project folder<div class="hint">The folder Boolean reads, edits, tests, and remembers rules for.</div></div><b id="overviewProject">Projects</b></div>
+          <div class="setrow"><div>Privacy mode<div class="hint">Local-only keeps model work on this PC; cloud AI requires your chosen provider/API.</div></div><b id="overviewPrivacy">Local first</b></div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="model" data-search="ai models local cloud provider default task chat coding vision research fast speed cost context quality automatic">
+        <div class="sechead">AI Models <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow">
             <div>Provider<div class="hint">where the model runs</div></div>
@@ -1014,7 +1089,20 @@
               <option value="glm">GLM (Z.ai)</option>
               <option value="zaiCoding">Z.AI Coding Plan</option>
               <option value="claude">Claude (Anthropic)</option>
+              <option value="customApi">User API / Custom</option>
             </select>
+          </div>
+          <div class="setrow api-quick" id="customApiQuick" style="display:none">
+            <div><b>User API</b><div class="hint" id="customApiQuickHint">Use any OpenAI-compatible endpoint. Your key stays on this PC.</div></div>
+            <input type="text" id="customApiName" autocomplete="off" spellcheck="false" placeholder="Connection name">
+            <input type="text" id="customApiBase" autocomplete="off" spellcheck="false" placeholder="https://api.provider.com/v1">
+            <input type="text" id="customApiModel" autocomplete="off" spellcheck="false" placeholder="model id">
+            <input type="password" id="customApiKey" autocomplete="off" spellcheck="false" placeholder="Paste API key">
+            <div class="api-quick-actions">
+              <button class="minibtn" id="customApiSave" type="button">Save &amp; use</button>
+              <button class="minibtn" id="customApiTest" type="button">Test</button>
+              <button class="minibtn" id="customApiQuickOpen" type="button">Advanced</button>
+            </div>
           </div>
           <div class="setrow" id="keyrow" style="display:none">
             <div><span id="keylabel">API key</span><div class="hint" id="keyhint">not set</div></div>
@@ -1041,8 +1129,36 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="creation">
-        <div class="sechead">Creation &amp; research <span class="caret">▶</span></div>
+      <div class="sec" data-sec="agent" data-search="coding agent quick fix build feature debug review refactor strict loop token time budget stop-loop retries tests builds auto commit risky commands project rules BOOLEAN.md diff verify">
+        <div class="sechead">Coding Agent <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow" style="display:block">
+            <div><b>Verified coding loop</b><div class="hint">Plan briefly → inspect relevant files → edit small → run command → read error → fix → verify → summarize.</div></div>
+            <div class="workflow-steps"><span>Plan</span><span>Edit</span><span>Run</span><span>Verify</span><span>Ship</span></div>
+          </div>
+          <div class="setrow" style="display:block">
+            <div>Default mode<div class="hint">Controls how much planning, editing, and verification Boolean does.</div></div>
+            <div class="agent-mode-grid" id="agentModeGrid">
+              <button class="agent-mode on" type="button" data-mode="quick"><b>Quick Fix</b><small>Minimal targeted edit, no overthinking.</small></button>
+              <button class="agent-mode" type="button" data-mode="feature"><b>Build Feature</b><small>Plan, implement, test, then summarize.</small></button>
+              <button class="agent-mode" type="button" data-mode="debug"><b>Debug</b><small>Reproduce, root cause, patch, verify.</small></button>
+              <button class="agent-mode" type="button" data-mode="review"><b>Review</b><small>Inspect and report issues only.</small></button>
+              <button class="agent-mode" type="button" data-mode="refactor"><b>Refactor</b><small>Preserve behavior while improving structure.</small></button>
+            </div>
+          </div>
+          <div class="agent-budget-card" id="agentBudgetSummary"><div><b>Task budget: Normal</b><small>Caps retries and context so Boolean can verify without looping.</small></div><span class="badge">Visible</span></div>
+          <label class="setrow" style="cursor:pointer"><span>Auto-run tests/builds<div class="hint">Boolean looks for package scripts and verifies before saying done.</div></span><span class="switch"><input type="checkbox" id="agentAutoTest" checked><span class="slider"></span></span></label>
+          <label class="setrow" style="cursor:pointer"><span>Stop-loop protection<div class="hint">Prevents Boolean from repeating the same failed action and wasting tokens.</div></span><span class="switch"><input type="checkbox" id="agentStopLoop" checked><span class="slider"></span></span></label>
+          <div class="setrow"><div>Max retries<div class="hint">Stops and asks when confidence is low.</div></div><select id="agentRetries"><option>1</option><option selected>2</option><option>3</option></select></div>
+          <div class="setrow"><div>Token/time budget<div class="hint">Visible cap per task; older context is compressed into project memory.</div></div><select id="agentBudget"><option>Small</option><option selected>Normal</option><option>Large</option></select></div>
+          <label class="setrow" style="cursor:pointer"><span>Auto-commit option<div class="hint">When enabled, Boolean can save verified progress to git after approval.</div></span><span class="switch"><input type="checkbox" id="agentAutoCommit"><span class="slider"></span></span></label>
+          <label class="setrow" style="cursor:pointer"><span>Confirm before risky commands<div class="hint">Commands that delete, elevate, purchase, or submit sensitive forms require confirmation.</div></span><span class="switch"><input type="checkbox" checked disabled><span class="slider"></span></span></label>
+          <div class="rules-card"><b>Project rules</b><div class="hint">Add <code>BOOLEAN.md</code> or <code>.boolean/rules.md</code> so each project teaches Boolean style, commands, architecture, and “never do this” rules.</div></div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="creation" data-search="creation research image web citations source policy browser summarize compare sources save findings">
+        <div class="sechead">Creation &amp; Research <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow" style="display:block">
             <div><b>Image creation</b><div class="hint">Generate new images or edit an attached image through your selected API connection.</div></div>
@@ -1071,8 +1187,8 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="thirdparty">
-        <div class="sechead">Third-party connections <span class="caret">▶</span></div>
+      <div class="sec" data-sec="thirdparty" data-search="connectors github gmail outlook cloudflare vercel netlify mcp servers agent connectors api connected needs login disabled permissions">
+        <div class="sechead">Connectors <span class="caret">▶</span></div>
         <div class="secbody">
           <div id="connectorOverview">
             <div class="connector-toolbar">
@@ -1224,7 +1340,7 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="email">
+      <div class="sec" data-sec="email" data-search="email gmail outlook draft-only send confirm permissions privacy safety">
         <div class="sechead">Email <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow" style="display:block">
@@ -1257,7 +1373,7 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="appearance">
+      <div class="sec" data-sec="appearance" data-search="appearance theme font size density comfortable compact panel layout sidebar position code editor theme reduce motion">
         <div class="sechead">Appearance <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="theme-note">Choose a display theme for this device.</div>
@@ -1276,8 +1392,8 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="memory">
-        <div class="sechead">Memory <span class="caret">▶</span></div>
+      <div class="sec" data-sec="memory" data-search="notepad memory project notes global notes saved preferences remember review delete active note project rule">
+        <div class="sechead">Notepad &amp; Memory <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Current chat memory<div class="hint">keeps up with this open chat</div></div><label class="switch"><input type="checkbox" id="referenceChatMemory"><span class="slider"></span></label></div>
           <div class="setrow"><div>Learn behavior<div class="hint">safe preferences and formats only</div></div><label class="switch"><input type="checkbox" id="learnedMemory"><span class="slider"></span></label></div>
@@ -1289,7 +1405,7 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="browser">
+      <div class="sec" data-sec="browser" data-search="browser embedded system open links auto summarize page context research citation style safe-click rules task browser use this page fill draft extract docs turn into code monitor page">
         <div class="sechead">Browser <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Windows system actions<div class="hint">PC info, Settings &amp; apps; admin changes always ask</div></div><label class="switch"><input type="checkbox" id="systemActions"><span class="slider"></span></label></div>
@@ -1309,8 +1425,8 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="scheduled">
-        <div class="sechead">Notepad and tasks <span class="caret">▶</span></div>
+      <div class="sec" data-sec="scheduled" data-search="notepad tasks automations schedule reminders prompt command webhook recurring one-time">
+        <div class="sechead">Tasks &amp; Automations <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Auto-save notes<div class="hint">Save while you type.</div></div><label class="switch"><input type="checkbox" id="noteAutoSave"><span class="slider"></span></label></div>
           <div class="setrow"><div>Saved on this PC<div class="hint" id="noteSaveLocation">Local browser storage</div></div><span class="hint">local</span></div>
@@ -1346,8 +1462,8 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="legal">
-        <div class="sechead">Policy &amp; privacy <span class="caret">▶</span></div>
+      <div class="sec" data-sec="legal" data-search="privacy safety local-only cloud ai allowed web access email draft-only approval rules commands purchases sensitive forms mcp tools data storage explanation policy">
+        <div class="sechead">Privacy &amp; Safety <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow" style="display:block">
             <div>Legal documents<div class="hint">bundled with this app and stored locally</div></div>
@@ -1360,8 +1476,8 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="advanced">
-        <div class="sechead">Advanced <span class="caret">▶</span></div>
+      <div class="sec" data-sec="advanced" data-search="developer advanced logs config export import reset settings debug flags local server ports model folder location experimental features diagnostics">
+        <div class="sechead">Developer / Advanced <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Context sent to model<div class="hint">less = fewer tokens</div></div></div>
           <div class="seg" id="contextSeg"><button data-val="minimal">Minimal</button><button data-val="balanced">Balanced</button><button data-val="full">Full</button></div>
@@ -1819,7 +1935,7 @@
     document.body.classList.toggle("win-lg",w>=1280);
     const mainW=document.querySelector("main")?.getBoundingClientRect().width||w;
     document.body.classList.toggle("chat-xs",mainW<430);
-    document.body.classList.toggle("chat-xxs",mainW<220);
+    document.body.classList.toggle("chat-xxs",mainW<260);
   }
   function scheduleResponsiveClasses(){
     updateResponsiveClasses();
@@ -2014,7 +2130,7 @@
     }finally{ navRestoring=false; updateAppBack(); }
   }
   let attachments=[]; // {kind:'image'|'file', name, dataURL?, text?}
-  const PROVIDER_LABELS={ local:"Local", openai:"OpenAI", glm:"GLM", zaiCoding:"Z.AI Coding Plan", claude:"Claude" };
+  const PROVIDER_LABELS={ local:"Local", openai:"OpenAI", glm:"GLM", zaiCoding:"Z.AI Coding Plan", claude:"Claude", customApi:"User API" };
   const CTX_STEPS=[4096,8192,16384,32768,65536,131072,262144];
   const fmtCtx=(n)=>n>=1048576?Math.round(n/1048576)+"m":Math.round(n/1024)+"k";
   const displayName=(m)=>(m||"").replace(/^@cf\/[^/]+\//,"").replace(/\.gguf$/i,"").replace(/-Instruct-Q\d.*$/i,"").replace(/^google_/,"");
@@ -2314,6 +2430,53 @@
     el.querySelector("#pl-open").onclick=()=>fetch("/api/open-projects",{method:"POST"});
     el.querySelector("#pl-change").onclick=changeProjects;
   }
+  function updateSettingsDashboard(){
+    if(!$("settingsPanel")) return;
+    const provider=state.provider||"local";
+    const label=(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider||"Local";
+    const ready=!!state.backendUp;
+    const model=provider==="local"?displayName(state.model)||"Local model":(state.userApi&&provider==="customApi"?state.userApi.model||"Custom API":label);
+    const project=shortPath(state.projectsDir)||"Projects";
+    const connectors=connectorsState();
+    const connectorCount=(connectors.apis||[]).length+(connectors.mcp||[]).length+(connectors.agents||[]).length+Object.values(connectors.email||{}).filter(Boolean).length;
+    const agent=(state.ui&&state.ui.codingAgent)||{};
+    const budget=({small:"Small",normal:"Normal",large:"Large"})[agent.budget||"normal"]||"Normal";
+    const setText=(id,text)=>{ const el=$(id); if(el) el.textContent=text; };
+    setText("settingsCurrentModel",model);
+    setText("settingsModelBadge",ready?"Ready":"Needs setup");
+    setText("settingsTokenBudget",budget+" · "+(agent.maxRetries||2)+" retries");
+    setText("settingsToolsStatus",connectorCount?connectorCount+" connected":"None connected");
+    setText("settingsProjectFolder",project);
+    setText("overviewProvider",label+(ready?" ready":" needs setup"));
+    setText("overviewBudget",budget+" budget · "+(agent.autoTest===false?"manual tests":"auto verify"));
+    setText("overviewTools",connectorCount?connectorCount+" connector"+(connectorCount===1?"":"s"):"No connectors");
+    setText("overviewProject",project);
+    setText("overviewPrivacy",provider==="local"?"Local first":"Cloud provider selected");
+    document.querySelectorAll(".settings-check").forEach(check=>{
+      const sec=check.dataset.openSec;
+      let done=false;
+      if(sec==="model") done=ready;
+      else if(sec==="agent") done=!!(state.ui&&state.ui.codingAgent);
+      else if(sec==="thirdparty") done=connectorCount>0;
+      else if(sec==="browser") done=!!(state.ui&&state.ui.aiBrowser!==false);
+      else if(sec==="memory") done=!!(state.ui&&(state.ui.referenceChatMemory!==false||state.ui.learnedMemory!==false));
+      check.classList.toggle("done",done);
+      const mark=check.querySelector("span:first-child"); if(mark) mark.textContent=done?"✓":"•";
+    });
+  }
+  function applySettingsFilter(){
+    const panel=$("settingsPanel"), input=$("settingsSearch"); if(!panel||!input) return;
+    const q=input.value.trim().toLowerCase();
+    panel.classList.toggle("settings-filtering",!!q);
+    let shown=0;
+    panel.querySelectorAll(".sec:not(.settings-hidden)").forEach(section=>{
+      const text=((section.dataset.search||"")+" "+settingSectionTitle(section)).toLowerCase();
+      const match=!q||text.includes(q);
+      section.classList.toggle("settings-filter-hidden",!match);
+      if(match) shown++;
+    });
+    $("settingsEmptyFilter").style.display=q&&shown===0?"block":"none";
+  }
   function updateCopyButton(){ $("copyall").style.display=col.querySelector(".msg-user,.msg-ai,.model-error")?"":"none"; }
   function showEmpty(){ col.innerHTML=""; updateCopyButton(); } // clean, blank chat screen
   async function changeProjects(){
@@ -2329,12 +2492,24 @@
     const prov=$("providersel").value;
     const cloud=state.cloud||{};
     const hasKey=state.keys&&state.keys[prov];
-    if(cloud[prov]){
+    const custom=prov==="customApi";
+    if($("customApiQuick")){
+      $("customApiQuick").style.display=custom?"block":"none";
+      const api=state.userApi||{};
+      $("customApiQuickHint").textContent=api.hasKey&&api.baseUrl&&api.model
+        ? `${api.name||"Custom API"} ready · ${api.model}`
+        : "Enter your endpoint, model, and API key once.";
+      if($("customApiName")&&document.activeElement!==$("customApiName")) $("customApiName").value=api.name||"";
+      if($("customApiBase")&&document.activeElement!==$("customApiBase")) $("customApiBase").value=api.baseUrl||"";
+      if($("customApiModel")&&document.activeElement!==$("customApiModel")) $("customApiModel").value=api.model||"";
+      if($("customApiKey")) $("customApiKey").placeholder=api.hasKey?"Key saved - paste to replace":"Paste API key";
+    }
+    if(cloud[prov]&&!custom){
       $("keyrow").style.display="";
       $("keylabel").textContent=cloud[prov]+" API key";
       $("keyhint").textContent=hasKey?"key set ✓":"not set";
       $("clearKey").style.display=hasKey?"":"none";
-    } else { $("keyrow").style.display="none"; $("clearKey").style.display="none"; }
+    } else { $("keyrow").style.display="none"; $("clearKey").style.display=(custom&&hasKey)?"":"none"; }
     $("modelfolderrow").style.display=(prov==="local")?"":"none";
     $("modellibraryrow").style.display=(prov==="local")?"block":"none";
   }
@@ -2355,13 +2530,16 @@
     $("connectorAddMenu").hidden=true;
     if(provider==="api"){
       editingApiId=existing?.id||"";
+      const userApi=state.userApi||{};
+      const fallback=!existing&&state.provider==="customApi"&&userApi.baseUrl?userApi:null;
       $("apiPreset").value="";
-      $("apiConnectionName").value=existing?.name||"";
-      $("apiConnectionUrl").value=existing?.baseUrl||"";
-      $("apiConnectionModel").value=existing?.model||"";
+      $("apiConnectionName").value=existing?.name||fallback?.name||"";
+      $("apiConnectionUrl").value=existing?.baseUrl||fallback?.baseUrl||"";
+      $("apiConnectionModel").value=existing?.model||fallback?.model||"";
       $("apiConnectionKey").value="";
-      $("apiConnectionKeyHint").textContent=existing?.hasKey?"key saved":"not set";
-      $("apiConnectionKey").placeholder=existing?.hasKey?"Key saved - paste to replace":"Paste API key";
+      const fallbackHasKey=!!fallback?.hasKey;
+      $("apiConnectionKeyHint").textContent=existing?.hasKey||fallbackHasKey?"key saved":"not set";
+      $("apiConnectionKey").placeholder=existing?.hasKey||fallbackHasKey?"Key saved - paste to replace":"Paste API key";
       $("apiConnectionRemove").style.display=existing?"":"none";
       $("apiConnectionStatus").textContent="";
       setTimeout(()=>$("apiConnectionName").focus(),0);
@@ -2562,7 +2740,13 @@
     const c=connectorsState();
     const id=editingApiId||crypto.randomUUID();
     const existing=c.apis.find(item=>item.id===id);
-    if(!key&&!existing?.hasKey){ apiConnectionStatus("Paste an API key.","var(--danger,#d14343)"); return; }
+    if(!key&&!existing?.hasKey){
+      const body={provider:"customApi",customApi:{name,baseUrl,model,apiKey:state.userApi?.hasKey?"__keep__":"",use:true}};
+      const response=await fetch("/api/config",{method:"POST",body:JSON.stringify(body)});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok){ apiConnectionStatus(result.error||"Paste an API key.","var(--danger,#d14343)"); return; }
+      await refresh(); tempToast(name+" connected and selected."); showConnectorOverview(); return;
+    }
     const item={id,name,baseUrl,model,apiKey:key||(existing?.hasKey?"__keep__":""),enabled:true};
     const index=c.apis.findIndex(entry=>entry.id===id);
     if(index>=0) c.apis[index]=item; else c.apis.push(item);
@@ -2767,6 +2951,7 @@
     applyUi(state.ui);
     renderConnectors();
     renderEmailSettings();
+    updateSettingsDashboard();
     updateProjLine();
     applyVisionUI();
     applyNetMode();
@@ -3581,7 +3766,7 @@
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
   function safeCloudUiPayload(ui=state.ui||{}){
-    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","contextMode","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
+    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","contextMode","codingAgent","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
     const data={};
     allowed.forEach(key=>{
       const value=ui[key];
@@ -3590,6 +3775,7 @@
       else if(key==="browserHistory") data[key]=Array.isArray(value)?value.slice(-80).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140),at:Number(tab.at||0)})):[];
       else if(key==="expandedSections") data[key]=Array.isArray(value)?value.slice(0,10).map(String):[];
       else if(key==="browserPerms"&&value&&typeof value==="object") data[key]={downloads:value.downloads!==false,camera:!!value.camera,mic:!!value.mic,geo:!!value.geo};
+      else if(key==="codingAgent"&&value&&typeof value==="object") data[key]={mode:String(value.mode||"quick"),autoTest:value.autoTest!==false,stopLoop:value.stopLoop!==false,maxRetries:Number(value.maxRetries||2),budget:String(value.budget||"normal"),autoCommit:!!value.autoCommit};
       else if(["string","boolean","number"].includes(typeof value)) data[key]=value;
     });
     return { data, updatedAt:Number(localStorage.getItem("booleanCloudUiUpdatedAt")||0) };
@@ -4607,6 +4793,8 @@
     $("settingsTitle").textContent="Settings";
     $("settingsBack").title="Close settings";
     $("settingsBack").setAttribute("aria-label","Close settings");
+    updateSettingsDashboard();
+    applySettingsFilter();
     panel.scrollTop=0;
   }
   function showSettingsSection(id,{remember=false}={}){
@@ -4614,9 +4802,11 @@
     if(remember&&!navRestoring) rememberCurrentView();
     const section=panel.querySelector(`.sec[data-sec="${CSS.escape(String(id||""))}"]:not(.settings-hidden)`);
     if(!section){ showSettingsHome(); return; }
-    panel.classList.remove("settings-home");
+    panel.classList.remove("settings-home","settings-filtering");
     panel.classList.add("settings-detail");
     panel.dataset.page=section.dataset.sec;
+    if($("settingsSearch")) $("settingsSearch").value="";
+    applySettingsFilter();
     panel.querySelectorAll(".sec").forEach(item=>{
       const active=item===section;
       item.classList.toggle("settings-page-active",active);
@@ -4655,6 +4845,8 @@
     else discardCurrentHistory();
   }
   $("topSettings").onclick=toggleSettingsPanel;
+  $("settingsSearch").oninput=applySettingsFilter;
+  document.querySelectorAll(".settings-check[data-open-sec]").forEach(card=>card.onclick=()=>showSettingsSection(card.dataset.openSec,{remember:true}));
   $("cloudSignIn").onclick=cloudAccountClick;
   $("settingsBack").onclick=()=>$("settingsPanel").classList.contains("settings-detail")?showSettingsHome():goBackInApp();
   $("settingsClose").onclick=closeSettingsPanel;
@@ -4913,7 +5105,7 @@ Optional bundled starter model:
     }
   }
   document.querySelectorAll("#netmode button").forEach(b=>b.onclick=()=>selectNet(b.dataset.net));
-  $("providersel").onchange=async(e)=>{ await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:e.target.value})}); $("apikey").value=""; await refresh(); };
+  $("providersel").onchange=async(e)=>{ await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:e.target.value})}); $("apikey").value=""; await refresh(); if(e.target.value==="customApi") $("customApiBase")?.focus(); };
   $("clearKey").onclick=async()=>{ const prov=$("providersel").value;
     if(!await appConfirm("Remove API key?","Remove the saved "+((state.cloud&&state.cloud[prov])||prov)+" API key from this app?","Remove",true)) return;
     await fetch("/api/config",{method:"POST",body:JSON.stringify({clearKey:prov})}); $("apikey").value=""; await refresh(); };
@@ -4922,6 +5114,28 @@ Optional bundled starter model:
   $("connectorAdd").onclick=event=>{ event.stopPropagation(); $("connectorAddMenu").hidden=!$("connectorAddMenu").hidden; };
   $("connectorAddMenu").onclick=event=>event.stopPropagation();
   document.querySelectorAll("[data-add-connector]").forEach(button=>button.onclick=()=>openConnectorDetail(button.dataset.addConnector));
+  if($("customApiQuickOpen")) $("customApiQuickOpen").onclick=()=>{ openSettings("thirdparty"); openConnectorDetail("api"); };
+  async function saveCustomApiQuick({test=false}={}){
+    const name=($("customApiName")?.value||"Custom API").trim()||"Custom API";
+    const baseUrl=($("customApiBase")?.value||"").trim().replace(/\/+$/,"");
+    const model=($("customApiModel")?.value||"").trim();
+    const key=($("customApiKey")?.value||"").trim();
+    if(!/^https?:\/\//i.test(baseUrl)){ tempToast("Enter a valid http(s) API base URL."); $("customApiBase")?.focus(); return false; }
+    if(!model){ tempToast("Enter the provider's exact model id."); $("customApiModel")?.focus(); return false; }
+    if(!key&&!state.userApi?.hasKey){ tempToast("Paste your API key."); $("customApiKey")?.focus(); return false; }
+    const body={provider:"customApi",customApi:{name,baseUrl,model,apiKey:key||"__keep__",use:true}};
+    const saved=await fetch("/api/config",{method:"POST",body:JSON.stringify(body)});
+    const result=await saved.json().catch(()=>({}));
+    if(!saved.ok){ tempToast(result.error||"Could not save the API connection."); return false; }
+    await refresh();
+    if(!test){ tempToast(name+" saved and selected."); return true; }
+    const response=await fetch("/api/provider-test",{method:"POST",body:JSON.stringify({provider:"customApi"})});
+    const tested=await response.json().catch(()=>({}));
+    tempToast(response.ok?"User API connected.":(tested.message||"Connection failed."));
+    return response.ok;
+  }
+  if($("customApiSave")) $("customApiSave").onclick=()=>saveCustomApiQuick();
+  if($("customApiTest")) $("customApiTest").onclick=()=>saveCustomApiQuick({test:true});
   document.querySelectorAll("[data-connector-filter]").forEach(button=>button.onclick=()=>{
     connectorFilter=button.dataset.connectorFilter;
     document.querySelectorAll("[data-connector-filter]").forEach(tab=>{
@@ -5071,6 +5285,16 @@ Optional bundled starter model:
     // tell the native shell to match the browser chrome to the current theme
     if(SHELL){ const dark=(ui.theme==="dark")||(ui.theme!=="light" && matchMedia("(prefers-color-scheme:dark)").matches); hostPost({type:"browser",cmd:"theme",dark}); }
     $("searchEngine").value=ui.searchEngine||"google";
+    const agent=ui.codingAgent||{};
+    const mode=agent.mode||"quick";
+    document.querySelectorAll("#agentModeGrid .agent-mode").forEach(button=>button.classList.toggle("on",button.dataset.mode===mode));
+    $("agentAutoTest").checked=agent.autoTest!==false;
+    $("agentStopLoop").checked=agent.stopLoop!==false;
+    $("agentRetries").value=String(agent.maxRetries||2);
+    $("agentBudget").value=({small:"Small",normal:"Normal",large:"Large"})[agent.budget||"normal"]||"Normal";
+    $("agentAutoCommit").checked=!!agent.autoCommit;
+    const budgetLabel=$("agentBudget").value;
+    $("agentBudgetSummary").innerHTML='<div><b>Task budget: '+esc(budgetLabel)+'</b><small>'+ (agent.stopLoop===false?'Loop guard is off — use carefully.':'Caps retries and context so Boolean can verify without looping.') +'</small></div><span class="badge">'+(agent.autoTest===false?'Manual test':'Auto verify')+'</span>';
     const bp=ui.browserPerms||{};
     $("permDownloads").checked=bp.downloads!==false;
     $("permCamera").checked=!!bp.camera;
@@ -5111,6 +5335,13 @@ Optional bundled starter model:
   $("imageModel").onchange=saveImageSettings;
   $("imageSize").onchange=saveImageSettings;
   $("researchPolicy").onchange=e=>setUi({researchPolicy:e.target.value});
+  function updateCodingAgent(patch){ setUi({codingAgent:{...((state.ui&&state.ui.codingAgent)||{}),...patch}}); }
+  $("agentModeGrid").querySelectorAll(".agent-mode").forEach(button=>button.onclick=()=>updateCodingAgent({mode:button.dataset.mode||"quick"}));
+  $("agentAutoTest").onchange=e=>updateCodingAgent({autoTest:e.target.checked});
+  $("agentStopLoop").onchange=e=>updateCodingAgent({stopLoop:e.target.checked});
+  $("agentRetries").onchange=e=>updateCodingAgent({maxRetries:Number(e.target.value)||2});
+  $("agentBudget").onchange=e=>updateCodingAgent({budget:String(e.target.value||"Normal").toLowerCase()});
+  $("agentAutoCommit").onchange=e=>updateCodingAgent({autoCommit:e.target.checked});
   $("contextSeg").querySelectorAll("button").forEach(b=>b.onclick=async()=>{ await setUi({contextMode:b.dataset.val}); estimateContext(); });
   $("usageToggle").onclick=()=>{ const f=$("usageFold"); f.classList.toggle("open"); $("usageCaret").textContent=f.classList.contains("open")?"▾":"▸"; };
   $("ctxLen").oninput=(e)=>{ $("ctxLenLabel").textContent=fmtCtx(CTX_STEPS[Number(e.target.value)])+" tokens"; };
@@ -5166,7 +5397,7 @@ Optional bundled starter model:
   $("exportTxt").onclick=()=>window.open("/api/export?id="+threadId+"&format=txt");
   $("exportMd").onclick=()=>window.open("/api/export?id="+threadId+"&format=md");
   $("clearHistory").onclick=async()=>{ if(await appConfirm("Delete all saved chats?","Every saved chat will be permanently deleted. This can't be undone.","Delete",true)){ const r=await (await fetch("/api/clear-history",{method:"POST"})).json(); threadId=r.activeThreadId; await refresh(); openThread(threadId); } };
-  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",expandedSections:["model"]}); applySections(); } };
+  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",codingAgent:{mode:"quick",autoTest:true,stopLoop:true,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
 
   // ── in-app browser (real internet via the /browse proxy) ──
   const bframe=$("bframe"), bAddr=$("bAddr");
