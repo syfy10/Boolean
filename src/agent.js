@@ -666,6 +666,15 @@ export function estimateContext(messages, budgetTokens, mode) {
   return { full: originalFull, sent: r.sentTokens, saved: Math.max(0, originalFull - r.sentTokens), budget: r.budget };
 }
 
+export function controllerStopAnswerFromToolResult(result) {
+  if (!/^blocked:/i.test(String(result || ""))) return "";
+  const reason = String(result || "").split(/\r?\n/)[0].replace(/^blocked:\s*/i, "").trim();
+  const loopGuard = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i.test(reason);
+  return loopGuard
+    ? "Paused to avoid repeating the same checks. Work is saved."
+    : "Paused for safety. Work is saved.";
+}
+
 /**
  * Run one user turn through the agent loop, executing tools until the model
  * produces a final text answer.
@@ -721,15 +730,7 @@ export async function runTurn(ctx, messages) {
     return await executeTool(name, args, ctx);
   };
   const controllerStopAnswer = (result) => {
-    if (!/^blocked:/i.test(String(result || ""))) return "";
-    const reason = String(result || "").split(/\r?\n/)[0].replace(/^blocked:\s*/i, "").trim();
-    const loopGuard = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i.test(reason);
-    return [
-      `I paused because Boolean's controller blocked a loop: ${reason}`,
-      loopGuard
-        ? "The task is checkpointed. Next move should use the evidence already shown, make a targeted edit, or run a known build/test command. I should not start over by inspecting the same files again."
-        : "The task is checkpointed. Resolve the blocker or ask me to continue with a different safe approach."
-    ].join("\n\n");
+    return controllerStopAnswerFromToolResult(result);
   };
   const withController = (source) => source.map((message, index) => index === 0 && message?.role === "system"
     ? { ...message, content: turnMode === "agent" ? `${message.content}\n\n${controller.prompt()}` : message.content }

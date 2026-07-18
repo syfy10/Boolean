@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, estimateContext, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, estimateContext, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -29,6 +29,14 @@ test("local context overflow reports clamp future prompt budgets to the real eng
   ];
   const estimate = estimateContext(messages, budget, "balanced");
   assert.ok(estimate.sent <= 3800, "local chat history should fit below the 8k engine plus tool overhead");
+});
+
+test("controller loop stops render as a compact user-facing pause", () => {
+  const answer = controllerStopAnswerFromToolResult(
+    "blocked: Loop guard: this task already repeated the same kind of inspection several times. Do not inspect again; use the evidence already collected and take a different progress step."
+  );
+  assert.equal(answer, "Paused to avoid repeating the same checks. Work is saved.");
+  assert.doesNotMatch(answer, /controller|loop guard|checkpointed|Do not inspect/i);
 });
 
 test("third-party provider 401 responses do not affect Boolean account sign-in", async (t) => {
