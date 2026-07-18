@@ -53,15 +53,17 @@
   ::-webkit-scrollbar-thumb:hover{ background:var(--text); }
   ::-webkit-scrollbar-corner{ background:transparent; }
   html,body{ height:100%; overflow:hidden; overscroll-behavior:none; }
-  body{ display:flex; gap:0; padding:16px; background:var(--bg); color:var(--text);
+  body{ display:flex; gap:0; padding:0; background:var(--sidebar); color:var(--text);
     font:var(--app-fs)/1.5 var(--ui); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
     text-rendering:optimizeLegibility; font-feature-settings:"cv01","cv03","ss01"; }
+  body.shell{ padding:0; background:var(--sidebar); }
   /* decorative backdrop behind floating panels */
-  body::before{ content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  body::before{ content:""; display:none; position:fixed; inset:0; z-index:-1; pointer-events:none;
     background:
       radial-gradient(ellipse 70% 50% at 15% 20%, color-mix(in srgb,var(--green) 10%,transparent), transparent 60%),
       radial-gradient(ellipse 60% 50% at 85% 80%, color-mix(in srgb,var(--online) 8%,transparent), transparent 60%),
       var(--bg); }
+  body.shell::before{ display:none; }
 
   aside{ width:210px; flex-shrink:0; background:var(--sidebar); border:1px solid var(--border);
     border-radius:var(--radius-lg); box-shadow:var(--shadow-lg);
@@ -72,8 +74,8 @@
   body.collapsed .sidefoot{ display:none; }
 
   .brand svg{ display:block; }
-  .sidebar-brand{ flex-shrink:0; display:flex; align-items:center; gap:3px; min-width:0; padding:0; }
-  .brand-word{ min-width:0; flex:0 0 auto; line-height:1; }
+  .sidebar-brand{ flex-shrink:0; display:flex; align-items:flex-start; gap:3px; min-width:0; padding:0; }
+  .brand-word{ min-width:0; flex:1 1 auto; line-height:1; display:flex; flex-direction:column; gap:2px; }
   .brand-name{ display:block; width:max-content; font-size:16px; line-height:1.15; font-weight:560; letter-spacing:.01em; color:var(--text); }
   .brand-about{ position:relative; margin-left:1px; width:20px; height:20px; border:0; border-radius:50%; background:transparent; color:var(--dim);
     display:grid; place-items:center; cursor:help; padding:0; }
@@ -109,12 +111,12 @@
   .navbtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.7; flex-shrink:0; transition:stroke-width var(--t-fast); }
   .navbtn.active svg{ stroke-width:2; }
 
-  .sidehead{ flex-shrink:0; height:44px; display:flex; align-items:center; gap:8px; padding:0 7px; }
+  .sidehead{ flex-shrink:0; min-height:52px; display:flex; align-items:center; gap:6px; padding:7px 8px; }
   body.collapsed .sidehead{ justify-content:center; padding:0; }
   body.collapsed .sidebar-brand{ display:none; }
   .sidehead .icon-btn{ width:30px; height:30px; border-radius:50%; }
-  .threadlist{ flex:1; min-height:40px; overflow-y:auto; padding:4px 6px; display:flex; flex-direction:column; gap:2px; }
-  .thread{ display:flex; align-items:center; gap:6px; min-height:30px; padding:5px 9px; border-radius:var(--radius-sm); cursor:pointer;
+  .threadlist{ flex:1; min-height:40px; overflow-y:auto; padding:4px 5px; display:flex; flex-direction:column; gap:2px; }
+  .thread{ display:flex; align-items:center; gap:5px; min-height:29px; padding:5px 8px; border-radius:var(--radius-sm); cursor:pointer;
     font-size:var(--fs-xs); color:var(--text); white-space:nowrap; overflow:hidden;
     transition:background var(--t-fast),box-shadow var(--t-fast); }
   .thread:hover{ background:var(--hover); }
@@ -129,7 +131,7 @@
   .thread .pin{ color:var(--dim); flex-shrink:0; display:inline-flex; }
   .thread .pin svg,.thread .acts svg{ width:12px; height:12px; }
   .grouphead{ display:flex; align-items:center; gap:4px; font-size:var(--fs-xs); font-weight:650; letter-spacing:.25px; text-transform:uppercase; color:var(--label);
-    padding:5px 7px 1px; user-select:none; }
+    padding:5px 6px 1px; user-select:none; }
   .grouphead:first-child{ padding-top:1px; }
   .grouphead.foldable{ cursor:pointer; border-radius:7px; }
   .grouphead.foldable:hover{ background:var(--hover); }
@@ -152,12 +154,12 @@
 
   .sidefoot{ flex-shrink:0; border-top:1px solid var(--border); padding:0; display:flex; flex-direction:column; background:var(--sidebar); }
   .sidefoot-nav{ display:flex; align-items:stretch; }
-  #topSettings,#cloudSignIn{ flex:1; justify-content:center; margin:0; padding:7px 4px; border-radius:0;
-    font-size:11px; gap:5px; border-right:1px solid var(--border); }
+  #topSettings,#cloudSignIn{ flex:1; justify-content:center; margin:0; padding:7px 3px; border-radius:0;
+    font-size:10.5px; gap:4px; border-right:1px solid var(--border); }
   #topSettings svg,#cloudSignIn svg{ width:15px; height:15px; }
-  #cloudSignIn{ border-right:1px solid var(--border); }
-  .foot-status{ display:flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px;
-    font-size:10px; color:var(--dim); border-top:0; flex-shrink:0; min-width:0; overflow:hidden; }
+  #cloudSignIn{ border-right:0; }
+  .foot-status{ display:flex; align-items:center; justify-content:flex-start; gap:5px; padding:0;
+    font-size:10px; line-height:1.15; color:var(--dim); border-top:0; flex-shrink:0; min-width:0; overflow:hidden; }
   .foot-status .dot{ width:6px; height:6px; flex-shrink:0; }
   .foot-status #statustext{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .panel{ display:none; padding:6px 16px 12px; border-top:1px solid var(--border); background:var(--card); }
@@ -176,6 +178,14 @@
   .settings-head button{ width:28px; height:28px; border:0; border-radius:50%; background:transparent;
     color:var(--dim); cursor:pointer; display:grid; place-items:center; font:18px/1 var(--ui); }
   .settings-head button:hover{ background:var(--hover); color:var(--text); }
+  .settings-tabs{ position:sticky; top:44px; z-index:2; display:flex; align-items:center; gap:4px; overflow-x:auto;
+    margin:0 calc(clamp(12px,4vw,42px) * -1) 8px; padding:7px clamp(12px,4vw,42px); background:var(--bg);
+    border-bottom:1px solid var(--border); scrollbar-width:none; }
+  .settings-tabs::-webkit-scrollbar{ display:none; }
+  .settings-tab{ flex:0 0 auto; border:0; border-radius:999px; background:transparent; color:var(--dim);
+    padding:5px 10px; font:11.5px var(--ui); cursor:pointer; white-space:nowrap; }
+  .settings-tab:hover{ background:var(--hover); color:var(--text); }
+  .settings-tab.active{ background:var(--accent); color:var(--accent-text); }
   .setrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; font-size:13.5px; }
   .setrow .hint{ font-size:11.5px; color:var(--dim); }
   .setrow select,.setrow input[type=password]{ border:1px solid var(--border); border-radius:8px;
@@ -191,8 +201,8 @@
   .minibtn:hover{ background:var(--hover); }
   .navbtn.account-on{ color:var(--green); }
   .navbtn.account-on svg{ stroke:var(--green); }
-  .foot-status{ display:flex; align-items:center; justify-content:center; gap:5px; padding:5px 8px;
-    font-size:10px; color:var(--dim); flex-shrink:0; min-width:0; overflow:hidden; }
+  .foot-status{ display:flex; align-items:center; justify-content:flex-start; gap:5px; padding:0;
+    font-size:10px; line-height:1.15; color:var(--dim); flex-shrink:0; min-width:0; overflow:hidden; }
   .foot-status .dot{ width:6px; height:6px; flex-shrink:0; }
   .foot-status #statustext{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dot{ width:7px; height:7px; border-radius:50%; background:var(--green); }
@@ -249,6 +259,25 @@
   #settingsPanel.settings-detail .sec.settings-page-active .sechead{ display:none; }
   #settingsPanel.settings-detail .sec.settings-page-active .secbody{ display:block; max-width:760px; margin:0 auto; padding:6px 4px 18px; }
   #settingsPanel.settings-detail #savesettings{ max-width:760px; display:block; margin:10px auto 4px !important; width:100% !important; }
+  #settingsPanel.settings-detail .sec[data-sec="model"].settings-page-active .secbody{ max-width:720px; padding:12px 6px 18px; }
+  #settingsPanel .sec[data-sec="model"] .setrow{ align-items:flex-start; min-height:42px; padding:10px 0; }
+  #settingsPanel .sec[data-sec="model"] .setrow > div:first-child{ flex:1 1 auto; min-width:0; padding-right:14px; }
+  #settingsPanel .sec[data-sec="model"] .setrow select{ flex:0 0 min(260px,44%); width:min(260px,44%); min-width:176px; height:32px; border-radius:999px; padding:0 26px 0 11px; background:var(--bubble); }
+  #settingsPanel .sec[data-sec="model"] #keyrow input[type=password]{ flex:0 0 min(300px,46%); width:min(300px,46%); min-width:190px; height:32px; border-radius:999px; background:var(--bubble); }
+  .model-routing-row{ display:block !important; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin:2px 0 8px; padding:13px 0 12px !important; }
+  .model-routing-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:10px; }
+  .model-routing-head > div{ min-width:0; }
+  .model-routing-head b{ display:block; font-size:13px; line-height:1.25; }
+  .model-routing-toggle{ width:auto; height:auto; display:flex; align-items:center; gap:8px; flex:0 0 auto; margin-top:1px; color:var(--dim); font:11px var(--ui); cursor:pointer; white-space:nowrap; }
+  .model-routing-toggle .slider{ position:relative; display:inline-block; width:40px; height:22px; flex:0 0 auto; }
+  .model-routing-toggle input{ opacity:0; width:0; height:0; position:absolute; }
+  @media(max-width:680px){
+    #settingsPanel.settings-detail .sec[data-sec="model"].settings-page-active .secbody{ padding-left:12px; padding-right:12px; }
+    #settingsPanel .sec[data-sec="model"] .setrow{ flex-direction:column; gap:7px; }
+    #settingsPanel .sec[data-sec="model"] .setrow select,
+    #settingsPanel .sec[data-sec="model"] #keyrow input[type=password]{ flex:0 0 auto; width:100%; min-width:0; }
+    .model-routing-head{ flex-direction:column; gap:8px; }
+  }
   .seg{ display:flex; gap:2px; background:var(--bubble); border-radius:20px; padding:3px; }
   .seg button{ flex:1; border:0; background:transparent; color:var(--dim); border-radius:var(--radius-pill); font:inherit; font-size:12px; font-weight:500; padding:6px 4px; cursor:pointer; transition:background var(--t-fast),color var(--t-fast); }
   .seg button.on{ background:var(--bg); color:var(--text); box-shadow:var(--shadow-sm); }
@@ -556,6 +585,8 @@
   main{ flex:1; display:flex; flex-direction:column; min-width:0; position:relative;
     background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg);
     overflow:hidden; }
+  body.shell main{ border-radius:0; box-shadow:none; }
+  body.shell aside{ border-radius:0; box-shadow:none; }
   body:not(.collapsed) main{ border-top-left-radius:0; border-bottom-left-radius:0; }
   main::after{ content:""; position:absolute; z-index:11; left:0; right:0; bottom:0;
     height:calc(var(--composer-base-h,56px) + (var(--composer-pill-h,52px) / 2));
@@ -563,9 +594,11 @@
   body.settings-open main::after{ display:none; }
   body.browser-on main{ min-width:270px; flex-shrink:0; }
   body.browser-on.notes-on main{ min-width:260px; }
-  .topbar{ height:44px; flex-shrink:0; display:flex; align-items:center; gap:5px; padding:0 10px; background:var(--bg); }
+  .topbar{ height:38px; flex-shrink:0; display:flex; align-items:center; gap:5px; padding:0 10px; background:var(--bg); border-bottom:1px solid var(--border); }
   #appBack{ display:none; }
   #appBack.available{ display:grid; }
+  .topbar #panelToggle{ width:28px; height:28px; flex:0 0 28px; border-radius:7px; margin-right:4px; }
+  .topbar #panelToggle svg{ width:15px; height:15px; }
   .topbar .spacer{ flex:1; }
   .topbar .netseg{ height:22px; padding:2px; align-items:center; border-radius:999px; flex:0 1 auto; max-width:128px; overflow:hidden; }
   .topbar .netseg button{ height:18px; min-width:46px; font-size:11px; padding:0 9px; line-height:18px; border-radius:999px; }
@@ -918,11 +951,11 @@
   .needs-repair{ color:#a54a3d; }
   .model-bad{ display:block; max-width:100%; min-width:0; color:#a54a3d; font-size:10px; margin-top:2px;
     white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
-  .model-error{ position:relative; align-self:flex-start; width:fit-content; max-width:min(78%,580px); min-width:0; color:#b3483e;
+  .model-error{ position:relative; display:block; align-self:flex-start; width:fit-content; max-width:min(78%,580px); min-width:0; color:#b3483e;
     font-size:12.5px; line-height:1.4; padding:5px 7px; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
   .model-error>span:first-child{ display:block; max-width:100%; min-width:0; white-space:pre-wrap; overflow-wrap:anywhere; word-break:break-word; }
-  .model-error-actions{ display:flex; gap:6px; margin-top:6px; }
-  .model-error-actions button{ border:1px solid color-mix(in srgb,currentColor 24%,transparent); border-radius:999px; background:transparent; color:inherit; padding:4px 9px; font:11px var(--ui); cursor:pointer; }
+  .model-error-actions{ display:flex; align-items:center; gap:6px; width:max-content; max-width:100%; margin-top:6px; }
+  .model-error-actions button{ flex:0 0 auto; min-width:max-content; white-space:nowrap; writing-mode:horizontal-tb; border:1px solid color-mix(in srgb,currentColor 24%,transparent); border-radius:999px; background:transparent; color:inherit; padding:4px 9px; font:11px var(--ui); cursor:pointer; }
   .model-error-actions button:hover{ background:color-mix(in srgb,currentColor 8%,transparent); }
 
   /* narrow composer: stay on ONE row, collapse labels to icons instead of stacking */
@@ -964,6 +997,12 @@
   #settingsPanel .setrow > div:first-child{ min-width:0; }
   #settingsPanel .setrow .hint,#settingsPanel .hint{ font-size:var(--fs-xxs); line-height:1.35; }
   #settingsPanel .setrow select,#settingsPanel .setrow input[type=password]{ border:0; border-radius:999px; background:var(--bubble); font-size:var(--fs-xs); padding:5px 8px; width:94px; min-height:27px; flex-shrink:0; }
+  #settingsPanel .sec[data-sec="model"] .setrow select{ flex:0 0 min(260px,44%) !important; width:min(260px,44%) !important; min-width:176px; height:32px; padding:0 26px 0 11px; }
+  #settingsPanel .sec[data-sec="model"] #keyrow input[type=password]{ flex:0 0 min(300px,46%) !important; width:min(300px,46%) !important; min-width:190px; height:32px; padding:0 34px 0 11px; }
+  @media(max-width:680px){
+    #settingsPanel .sec[data-sec="model"] .setrow select,
+    #settingsPanel .sec[data-sec="model"] #keyrow input[type=password]{ flex:0 0 auto !important; width:100% !important; min-width:0; }
+  }
   #settingsPanel .api-quick{ display:block; padding:8px 0 10px; }
   #settingsPanel .api-quick input{ width:100%; min-width:0; margin-top:6px; border:0; border-radius:10px; background:var(--bubble); color:var(--text); font:var(--fs-xs) var(--ui); padding:8px 9px; outline:0; }
   #settingsPanel .api-quick input:focus{ box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--green) 45%,transparent); }
@@ -1059,7 +1098,7 @@
   .navbtn,.thread,.setrow,.banner,.approval .cmd,.approval .q,.approval .verdict,.projline,.bsearch,.bbtn,#bAddr,.bfind input,.menu input,.menu .item{ font-size:var(--fs-md); }
   .setrow .hint,.minibtn,.actbtn,.usage-grid,.usage-line,.status,.qchip,.chip,.toolhead,.approval button,.netseg button{ font-size:var(--fs-sm); }
   .usage-tbl .m,.ctxbar,.toolout,.msg-time,.btab,.bread,.menu .item .dl,.menu .item .check{ font-size:var(--fs-xs); }
-  #topSettings{ gap:6px; padding:4px 14px 3px; margin:0; width:100%; color:var(--text); font-size:10.5px; }
+  #topSettings{ gap:4px; padding:4px 8px 3px; margin:0; width:100%; color:var(--text); font-size:10px; }
   #topSettings svg{ width:13px; height:13px; stroke-width:1.8; }
   .grouphead,.bmenu .histlist .item .hu{ font-size:var(--fs-xxs); }
   .thread{ font-size:var(--fs-xs); }
@@ -1125,10 +1164,8 @@
   .note-scheduled{ display:inline-flex; align-items:center; justify-content:center; margin-left:3px; color:var(--green); font-size:11px; cursor:pointer; user-select:none; }
 
   /* ── Workspace tabs ── */
-  .workspace-tabs{ display:flex; align-items:center; gap:1px; padding:0 8px; height:34px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
+  .workspace-tabs{ display:flex; align-items:center; gap:1px; padding:0 8px 0 38px; height:34px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
   .workspace-tabs::-webkit-scrollbar{ display:none; }
-  .workspace-tabs #panelToggle{ width:28px; height:28px; flex:0 0 28px; border-radius:7px; margin-right:1px; }
-  .workspace-tabs #panelToggle svg{ width:15px; height:15px; }
   .ws-tab{ display:flex; align-items:center; gap:5px; padding:5px 11px; border:0; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; border-radius:7px 7px 0 0; border-bottom:2px solid transparent; white-space:nowrap; transition:color .12s; }
   .ws-tab:hover{ color:var(--text); background:var(--hover); }
   .ws-tab.active{ color:var(--text); border-bottom-color:var(--accent); font-weight:550; }
@@ -1136,7 +1173,16 @@
   .ws-tab .ws-dot.active{ background:var(--green); }
   .ws-tab .ws-dot.error{ background:#dc3f42; }
   .ws-tab .ws-badge{ font-size:9.5px; padding:1px 5px; border-radius:99px; background:color-mix(in srgb,var(--green) 16%,transparent); color:var(--green); }
-  body.ws-tabs-hidden .workspace-tabs{ display:none; }
+  .workspace-tabs .cmd-status{ display:flex; align-items:center; gap:3px; flex:0 0 auto; margin-left:8px; }
+  .workspace-tabs .cmd-chip{ max-width:74px; height:24px; display:inline-flex; align-items:center; gap:4px; padding:0 7px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--dim); font:10.5px var(--ui); white-space:nowrap; overflow:hidden; }
+  .workspace-tabs .cmd-chip.active{ color:var(--text); background:color-mix(in srgb,var(--accent) 5%,var(--bg)); }
+  .workspace-tabs .cmd-chip.changed{ color:var(--green); border-color:color-mix(in srgb,var(--green) 38%,var(--border)); }
+  .workspace-tabs .cmd-chip.err{ color:#dc3f42; border-color:color-mix(in srgb,#dc3f42 42%,var(--border)); }
+  .workspace-tabs .cmd-chip-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .workspace-tabs .cmd-chip-dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; background:var(--dim); }
+  .workspace-tabs .cmd-chip-dot.running{ background:var(--online); animation:pulse 1.5s infinite; }
+  .workspace-tabs .cmd-chip-dot.ok{ background:var(--green); }
+  .workspace-tabs .cmd-chip-dot.err{ background:#dc3f42; }
   body.ws-terminal-open #chat{ padding-bottom:200px; scroll-padding-bottom:calc(var(--composer-h,106px) + 212px); }
 
   /* ── Terminal drawer ── */
@@ -1227,9 +1273,11 @@
   /* ── Onboarding flow ── */
   .onboard-overlay{ position:fixed; inset:0; z-index:300; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; }
   .onboard-overlay.open{ display:flex; }
-  .onboard-card{ width:min(92vw,520px); background:var(--bg); border:1px solid var(--border); border-radius:16px; padding:0; overflow:hidden; box-shadow:0 10px 50px rgba(0,0,0,.25); }
+  .onboard-card{ position:relative; width:min(92vw,520px); background:var(--bg); border:1px solid var(--border); border-radius:16px; padding:0; overflow:hidden; box-shadow:0 10px 50px rgba(0,0,0,.25); }
   .onboard-progress{ height:3px; background:var(--border); }
   .onboard-progress .ob-fill{ height:100%; background:var(--green); transition:width .3s; }
+  .onboard-once{ position:absolute; top:10px; right:12px; display:flex; align-items:center; gap:6px; color:var(--dim); font:11px var(--ui); cursor:pointer; user-select:none; }
+  .onboard-once input{ width:13px; height:13px; accent-color:var(--green); }
   .onboard-body{ padding:24px 28px; }
   .onboard-body h2{ font:700 18px var(--ui); color:var(--text); margin-bottom:6px; }
   .onboard-body p{ font:13px/1.55 var(--ui); color:var(--dim); margin-bottom:16px; }
@@ -1259,21 +1307,22 @@
   .next-edit-bar button:hover{ opacity:.85; }
 
   /* ── Recipe quick-start cards ── */
-  .recipes-panel{ max-width:var(--content-max); margin:0 auto 2px; padding:0 var(--content-x) 2px; display:none; }
+  .recipes-panel{ width:100%; margin:0; padding:9px var(--content-x) 10px; display:none; background:var(--bg); border-bottom:1px solid var(--border); }
   body.recipes-open .recipes-panel{ display:block; }
-  .recipes-inner{ display:flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:10px; background:var(--card); padding:3px 6px 3px 8px; }
-  .recipes-head{ display:flex; align-items:center; gap:4px; flex:0 0 auto; }
-  .recipes-head b{ font:600 11px var(--ui); color:var(--text); white-space:nowrap; }
-  .recipes-head small{ display:none; }
+  .recipes-inner{ max-width:960px; margin:0 auto; display:grid; grid-template-columns:118px minmax(0,1fr) 26px; align-items:start; gap:10px; }
+  .recipes-head{ display:flex; flex-direction:column; gap:2px; padding-top:3px; min-width:0; }
+  .recipes-head b{ font:650 12px var(--ui); color:var(--text); white-space:nowrap; }
+  .recipes-head small{ display:block; color:var(--dim); font:10.5px/1.25 var(--ui); }
   .recipes-head .spacer{ display:none; }
-  .recipes-close{ width:20px; height:20px; flex:0 0 auto; border:0; border-radius:5px; background:transparent; color:var(--dim); cursor:pointer; font:13px var(--ui); line-height:1; }
+  .recipes-close{ width:24px; height:24px; flex:0 0 auto; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; font:16px/1 var(--ui); display:grid; place-items:center; }
   .recipes-close:hover{ background:var(--hover); color:var(--text); }
-  .recipe-grid{ display:flex; gap:4px; overflow-x:auto; scrollbar-width:thin; flex:1; align-items:center; padding:0; }
-  .recipe-card{ flex:0 0 auto; min-width:0; text-align:left; border:1px solid var(--border); border-radius:7px; background:var(--bg); padding:4px 7px; cursor:pointer; color:var(--text); font:10.5px var(--ui); white-space:nowrap; transition:border-color .12s, background .12s; }
-  .recipe-card:hover{ border-color:var(--accent); background:var(--hover); }
-  .recipe-card b{ display:inline; font:600 10.5px var(--ui); }
-  .recipe-card small{ display:none; }
-  .recipe-card .recipe-chip{ display:inline-block; margin-left:4px; padding:0 5px; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); font:9px var(--ui); vertical-align:middle; }
+  .recipe-grid{ display:flex; gap:7px; min-width:0; overflow-x:auto; overflow-y:hidden; padding:0 2px 4px 0; scrollbar-width:thin; }
+  .recipe-card{ flex:0 0 168px; height:76px; min-width:0; text-align:left; border:1px solid var(--border); border-radius:8px; background:var(--card); padding:7px 8px; cursor:pointer; color:var(--text); font:11px/1.25 var(--ui); transition:border-color .12s, background .12s, transform .12s; overflow:hidden; }
+  .recipe-card:hover{ border-color:color-mix(in srgb,var(--green) 38%,var(--border)); background:var(--hover); transform:translateY(-1px); }
+  .recipe-card b{ display:block; font:650 11.5px/1.2 var(--ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .recipe-card small{ display:block; color:var(--dim); font:10px/1.25 var(--ui); margin-top:2px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .recipe-card .recipe-chip{ display:inline-flex; margin-top:5px; padding:1px 6px; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); font:9px/1.4 var(--ui); vertical-align:middle; }
+  @media(max-width:720px){ .recipes-inner{ grid-template-columns:1fr 26px; } .recipes-head{ grid-column:1; } .recipe-grid{ grid-column:1 / -1; grid-row:2; } }
 
   /* ── MCP Connector Gallery ── */
   .mcp-gallery{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; margin-top:6px; }
@@ -1396,6 +1445,9 @@
 
   /* ── Command bar (action bar) ── */
   .cmd-bar{ display:flex; align-items:center; gap:3px; padding:0 8px; height:38px; border-bottom:1px solid var(--border); background:var(--sidebar); flex-shrink:0; border-radius:var(--radius-lg) var(--radius-lg) 0 0; }
+  body.shell .cmd-bar{ border-radius:0; }
+  .cmd-row{ display:contents; }
+  .cmd-bar .cmd-input{ flex:1 1 180px; max-width:none; }
   .cmd-bar .cmd-loc{ display:flex; align-items:center; gap:4px; padding:0 4px; font:13px var(--mono); color:var(--accent); flex-shrink:0; opacity:.5; }
   .cmd-bar .cmd-input{ flex:0 1 min(320px,42%); min-width:120px; max-width:320px; border:0; outline:0; background:transparent; color:var(--text); font:12px var(--ui); height:30px; padding:0 4px; }
   .cmd-bar .cmd-input::placeholder{ color:var(--dim); opacity:.5; }
@@ -1421,6 +1473,7 @@
   .cmd-bar .cmd-hint{ font:10px var(--mono); color:var(--dim); opacity:.35; flex-shrink:0; padding-right:2px; }
   .cmd-bar .cmd-shortcut{ display:inline-flex; align-items:center; gap:2px; font:9.5px var(--mono); color:var(--dim); opacity:.4; background:var(--hover); border:1px solid var(--border); border-radius:4px; padding:1px 5px; flex-shrink:0; margin-left:4px; }
   .cmd-bar .cmd-shortcut kbd{ font:inherit; }
+  .cmd-bar .cmd-extra,.cmd-bar .cmd-shortcut,.cmd-bar .cmd-hint{ display:none; }
   .cmd-bar .cmd-more{ flex-shrink:0; display:inline-flex; align-items:center; gap:3px; padding:4px 8px; border:0; border-radius:8px; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; white-space:nowrap; transition:all var(--t-fast); }
   .cmd-bar .cmd-more:hover{ background:var(--hover); color:var(--text); }
   .cmd-bar .cmd-more svg{ width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; opacity:.7; }
@@ -1531,6 +1584,7 @@
     <div class="sidebar-brand" aria-label="Boolean">
       <div class="brand-word">
         <div class="brand-name">Boolean</div>
+        <div class="foot-status" title="" id="footStatus"><span class="dot" id="statusdot"></span><span id="statustext">…</span></div>
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
@@ -1547,6 +1601,18 @@
         <b id="settingsTitle">Settings</b>
         <span class="spacer"></span>
         <button id="settingsClose" title="Close settings" aria-label="Close settings">×</button>
+      </div>
+
+      <div class="settings-tabs" id="settingsTabs" aria-label="Settings sections">
+        <button class="settings-tab active" data-settings-tab="home">Home</button>
+        <button class="settings-tab" data-settings-tab="model">Models</button>
+        <button class="settings-tab" data-settings-tab="agent">Agent</button>
+        <button class="settings-tab" data-settings-tab="thirdparty">Connections</button>
+        <button class="settings-tab" data-settings-tab="browser">Browser</button>
+        <button class="settings-tab" data-settings-tab="memory">Notes</button>
+        <button class="settings-tab" data-settings-tab="scheduled">Tasks</button>
+        <button class="settings-tab" data-settings-tab="appearance">Look</button>
+        <button class="settings-tab" data-settings-tab="advanced">Advanced</button>
       </div>
 
       <div class="settings-dashboard" id="settingsDashboard">
@@ -1622,9 +1688,11 @@
             <div>Backup provider<div class="hint" id="cloudFallbackHint">Choose a provider with a saved API key.</div></div>
             <select id="cloudFallbackProvider"></select>
           </div>
-          <div class="setrow" style="display:block">
-            <div>Model routing<div class="hint">Automatically pick the best model per task type — small local for simple edits, strong cloud for debugging, vision for screenshots.</div></div>
-            <label class="switch" style="margin:4px 0 8px;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="autoRouteModels"><span class="slider"></span><span class="hint">Use best model automatically</span></label>
+          <div class="setrow model-routing-row">
+            <div class="model-routing-head">
+              <div><b>Model routing</b><div class="hint">Automatically pick the best model per task type: small local for simple edits, strong cloud for debugging, vision for screenshots.</div></div>
+              <label class="model-routing-toggle"><input type="checkbox" id="autoRouteModels"><span class="slider"></span><span>Auto</span></label>
+            </div>
             <div class="agent-mode-grid" id="modelRoutingGrid">
               <button class="agent-mode on" type="button" data-route="chat"><b>Chat</b><small>Default conversation model.</small></button>
               <button class="agent-mode" type="button" data-route="coding"><b>Coding</b><small>Repo edits and builds.</small></button>
@@ -2031,6 +2099,7 @@
           <div class="setrow" style="margin-top:6px"><div>Show timestamps</div><label class="switch"><input type="checkbox" id="showTimestamps"><span class="slider"></span></label></div>
           <div class="setrow"><div>Show token counts</div><label class="switch"><input type="checkbox" id="showTokens"><span class="slider"></span></label></div>
           <div class="setrow"><div>Auto-collapse tool logs</div><label class="switch"><input type="checkbox" id="collapseLogs"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Show welcome setup on next launch<div class="hint">Reopens the first-run setup once, then hides again by default.</div></div><label class="switch"><input type="checkbox" id="showOnboarding"><span class="slider"></span></label></div>
           <div class="setrow"><div>Desktop notifications<div class="hint">Alert when tasks finish, error, or need approval while the window is in the background.</div></div><label class="switch"><input type="checkbox" id="notificationsToggle"><span class="slider"></span></label></div>
           <div class="setrow"><div>Reduce motion<div class="hint">Minimizes animations and transitions across the interface for better focus and accessibility.</div></div><label class="switch"><input type="checkbox" id="reduceMotion"><span class="slider"></span></label></div>
           <div class="setrow"><div>Export this chat</div>
@@ -2194,27 +2263,15 @@
         <span id="cloudSignInText">Sign in</span>
       </button>
 
-      <div class="foot-status" title="" id="footStatus"><span class="dot" id="statusdot"></span><span id="statustext">…</span></div>
     </div>
   </div>
 </aside>
 
 <main>
-  <div class="workspace-tabs" id="workspaceTabs">
+  <div class="topbar">
     <button class="icon-btn" id="panelToggle" title="Toggle sidebar" aria-label="Toggle sidebar">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
     </button>
-    <button class="ws-tab active" data-ws="chat" title="Chat workspace"><span class="ws-dot active"></span>Chat</button>
-    <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
-    <button class="ws-tab" data-ws="browser" title="Browser workspace"><span class="ws-dot"></span>Browser</button>
-    <button class="ws-tab" data-ws="notes" title="Notes workspace"><span class="ws-dot"></span>Notes</button>
-    <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span><span class="ws-label">Preview</span></button>
-    <button class="ws-tab" data-ws="git" title="Git workspace"><span class="ws-dot"></span>Git</button>
-    <button class="ws-tab" data-ws="recipes" title="Recipe quick-starts"><span class="ws-dot"></span>Recipes</button>
-    <button class="ws-tab" data-ws="automations" title="Automations workspace"><span class="ws-dot"></span>Automations</button>
-  </div>
-
-  <div class="topbar">
     <button class="icon-btn" id="appBack" title="Go back" aria-label="Go back">
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/><path d="M9 12h10"/></svg>
     </button>
@@ -2242,6 +2299,21 @@
       <button class="win-btn" id="winMin" title="Minimize" aria-label="Minimize"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <button class="win-btn" id="winMax" title="Maximize" aria-label="Maximize"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
       <button class="win-btn win-close" id="winClose" title="Close" aria-label="Close"><svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+    </div>
+  </div>
+
+  <div class="workspace-tabs" id="workspaceTabs">
+    <button class="ws-tab active" data-ws="chat" title="Chat workspace"><span class="ws-dot active"></span>Chat</button>
+    <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
+    <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span><span class="ws-label">Preview</span></button>
+    <button class="ws-tab" data-ws="git" title="Git workspace"><span class="ws-dot"></span>Git</button>
+    <button class="ws-tab" data-ws="recipes" title="Recipe quick-starts"><span class="ws-dot"></span>Recipes</button>
+    <button class="ws-tab" data-ws="automations" title="Automations workspace"><span class="ws-dot"></span>Automations</button>
+    <div class="cmd-status" id="cmdProjectStatus" aria-label="Project status">
+      <div class="cmd-chip" id="cmdTaskChip" title="Current task"><span class="cmd-chip-dot" id="cmdTaskDot"></span><span class="cmd-chip-label" id="cmdTaskText">Idle</span></div>
+      <div class="cmd-chip" id="cmdFilesChip" title="Changed files"><span class="cmd-chip-dot" id="cmdFilesDot"></span><span class="cmd-chip-label" id="cmdFilesText">0</span></div>
+      <div class="cmd-chip" id="cmdServerChip" title="Dev server"><span class="cmd-chip-dot" id="cmdServerDot"></span><span class="cmd-chip-label" id="cmdServerText">Off</span></div>
+      <div class="cmd-chip" id="cmdTestsChip" title="Tests"><span class="cmd-chip-dot" id="cmdTestsDot"></span><span class="cmd-chip-label" id="cmdTestsText">—</span></div>
     </div>
   </div>
 
@@ -2282,12 +2354,6 @@
     <button class="cmd-btn" id="cmdSearch" title="Search the web">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg><span>Web</span>
     </button>
-    <div class="cmd-status" id="cmdProjectStatus" aria-label="Project status">
-      <div class="cmd-chip" id="cmdTaskChip" title="Current task"><span class="cmd-chip-dot" id="cmdTaskDot"></span><span class="cmd-chip-label" id="cmdTaskText">Idle</span></div>
-      <div class="cmd-chip" id="cmdFilesChip" title="Changed files"><span class="cmd-chip-dot" id="cmdFilesDot"></span><span class="cmd-chip-label" id="cmdFilesText">0</span></div>
-      <div class="cmd-chip" id="cmdServerChip" title="Dev server"><span class="cmd-chip-dot" id="cmdServerDot"></span><span class="cmd-chip-label" id="cmdServerText">Off</span></div>
-      <div class="cmd-chip" id="cmdTestsChip" title="Tests"><span class="cmd-chip-dot" id="cmdTestsDot"></span><span class="cmd-chip-label" id="cmdTestsText">—</span></div>
-    </div>
     <span class="cmd-sep"></span>
     <button class="cmd-btn" id="cmdNote" title="Save text to notepad">
       <svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg><span>Note</span>
@@ -2295,13 +2361,13 @@
     <button class="cmd-btn primary" id="cmdCommit" title="Commit all changes">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><line x1="3" y1="12" x2="8.5" y2="12"/><line x1="15.5" y1="12" x2="21" y2="12"/></svg><span>Commit</span>
     </button>
-    <button class="cmd-btn" id="cmdGenCommit" title="Generate commit message from current changes">
+    <button class="cmd-btn cmd-extra" id="cmdGenCommit" title="Generate commit message from current changes">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>Msg</span>
     </button>
-    <button class="cmd-btn" id="cmdReview" title="AI code review — scan changes for bugs, security, style">
+    <button class="cmd-btn cmd-extra" id="cmdReview" title="AI code review - scan changes for bugs, security, style">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Review</span>
     </button>
-    <button class="cmd-btn" id="cmdBgAgent" title="Background agent — run a task in isolation">
+    <button class="cmd-btn cmd-extra" id="cmdBgAgent" title="Background agent - run a task in isolation">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Agent</span>
     </button>
     <button class="cmd-more" id="cmdMore" title="All commands (Ctrl+K)">
@@ -2335,7 +2401,7 @@
 
   <div class="recipes-panel" id="recipesPanel" aria-label="Recipe quick-starts">
     <div class="recipes-inner">
-      <div class="recipes-head"><b>Recipes</b></div>
+      <div class="recipes-head"><b>Recipes</b><small>Start common work fast.</small></div>
       <div class="recipe-grid" id="recipeGrid">
         <button class="recipe-card" data-recipe="Build a project dashboard that shows status, changed files, running server, and git branch."><b>Project dashboard</b><small>Surface workspace health at the top.</small><span class="recipe-chip">UI</span></button>
         <button class="recipe-card" data-recipe="Add side-by-side diff preview for changed files with accept and reject actions."><b>Diff review</b><small>Preview edits before trusting them.</small><span class="recipe-chip">Safety</span></button>
@@ -2350,6 +2416,7 @@
         <button class="recipe-card" data-recipe="Connect a GitHub repository, check CI status, review pull requests, or create a PR."><b>GitHub workflow</b><small>Issues, PRs, checks, comments.</small><span class="recipe-chip">Git</span></button>
         <button class="recipe-card" data-recipe="Deploy the current project to Cloudflare Workers, Vercel, or Netlify with guided steps."><b>Deploy assistant</b><small>Guided deploy with rollback.</small><span class="recipe-chip">Deploy</span></button>
       </div>
+      <button class="recipes-close" id="recipesClose" title="Close recipes" aria-label="Close recipes">×</button>
     </div>
   </div>
 
@@ -2699,6 +2766,7 @@
 <div class="onboard-overlay" id="onboardOverlay">
   <div class="onboard-card">
     <div class="onboard-progress"><div class="ob-fill" id="onboardProgress" style="width:33%"></div></div>
+    <label class="onboard-once" title="Keep checked to hide this setup after closing it."><input type="checkbox" id="onboardDontShow" checked>Don't show next time</label>
     <div class="onboard-body" id="onboardBody">
       <h2 id="onboardTitle">Welcome to Boolean</h2>
       <p id="onboardDesc">Let's get you set up in 3 quick steps.</p>
@@ -2786,7 +2854,7 @@
   // setting is on.  Uses the native shell toast if available, otherwise
   // falls back to the browser Notification API.
   function notify(title, body){
-    if(ui.notifications!==true) return;
+    if(state.ui?.notifications!==true) return;
     if(!document.hidden) return;
     if(SHELL) hostPost({type:"notify",title,body});
     else if("Notification" in window && Notification.permission==="granted") new Notification(title,{body});
@@ -2874,6 +2942,7 @@
   syncComposerBaseHeight();
   syncComposerRail();
   let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
+  let cleanStartupApplied=false;
   let compareState={ active:false, targets:[] };
   try{ compareState={...compareState,...JSON.parse(localStorage.getItem("booleanCompare")||"{}")}; }catch{}
   let compareCatalog=[];
@@ -3008,8 +3077,8 @@
     statusEl.textContent="Checking…"; detailEl.textContent="";
     $("ghRepoRow").style.display="none"; $("ghUserRow").style.display="none"; $("ghBranchRow").style.display="none";
     try{
-      const res=await fetch("/api/github/status");
-      const data=await res.json();
+      githubDashboardStatus=null;
+      const data=await refreshGithubDashboard();
       if(data.authenticated){
         statusEl.textContent="Authenticated"; statusEl.style.color="var(--green)";
         if(data.user){ $("ghUserRow").style.display="flex"; $("ghUserName").textContent=data.user; }
@@ -3155,6 +3224,13 @@
   }
   let attachments=[]; // {kind:'image'|'file', name, dataURL?, text?}
   const PROVIDER_LABELS={ local:"Local", openai:"OpenAI", glm:"GLM", zaiCoding:"Z.AI Coding Plan", claude:"Claude", customApi:"User API" };
+  function shortProviderLabel(provider,label){
+    if(provider==="zaiCoding") return "Z.AI";
+    if(provider==="customApi") return "API";
+    if(provider==="local") return "Local";
+    const text=String(label||provider||"API").trim();
+    return text.replace(/\s*\([^)]*\)\s*/g," ").replace(/\s+Coding\s+Plan\b/i,"").split(/\s*[-/|]\s*/)[0].trim().slice(0,12)||"API";
+  }
   const CTX_STEPS=[4096,8192,16384,32768,65536,131072,262144];
   const fmtCtx=(n)=>n>=1048576?Math.round(n/1048576)+"m":Math.round(n/1024)+"k";
   const displayName=(m)=>(m||"").replace(/^@cf\/[^/]+\//,"").replace(/\.gguf$/i,"").replace(/-Instruct-Q\d.*$/i,"").replace(/^google_/,"");
@@ -3373,9 +3449,12 @@
     d.dataset.toolCount="1";
     d._toolDetails=detailText;
     d.innerHTML='<div class="toolhead" title="'+esc(fullSummary)+'"><span class="tk">'+(open?"&#9662;":"&#9656;")+'</span><span class="sum">'+esc(summary)+'</span><span class="caret">'+(open?"hide &#9652;":"details &#9662;")+'</span></div><pre class="toolout">'+esc(detailText)+'</pre>';
-    const toggle=()=>{ d.classList.toggle("open"); const isOpen=d.classList.contains("open"); d.querySelector(".tk").innerHTML=isOpen?"&#9662;":"&#9656;"; d.querySelector(".caret").innerHTML=isOpen?"hide &#9652;":(isWeb?"details &#9662;":"show &#9662;"); };
-    d.querySelector(".toolhead").onclick=isWeb?null:toggle;
-    if(isWeb) d.querySelector(".caret").onclick=(e)=>{ e.stopPropagation(); toggle(); };
+    const head=d.querySelector(".toolhead");
+    const tick=d.querySelector(".tk");
+    const caret=d.querySelector(".caret");
+    const toggle=()=>{ d.classList.toggle("open"); const isOpen=d.classList.contains("open"); if(tick) tick.innerHTML=isOpen?"&#9662;":"&#9656;"; if(caret) caret.innerHTML=isOpen?"hide &#9652;":(isWeb?"details &#9662;":"show &#9662;"); };
+    if(head) head.onclick=isWeb?null:toggle;
+    if(isWeb&&caret) caret.onclick=(e)=>{ e.stopPropagation(); toggle(); };
     return d;
   }
   function mergeToolCard(card,entry){
@@ -3454,6 +3533,26 @@
     el.querySelector("#pl-open").onclick=()=>fetch("/api/open-projects",{method:"POST"});
     el.querySelector("#pl-change").onclick=changeProjects;
   }
+  let githubDashboardStatus=null;
+  let githubDashboardRequest=null;
+  async function refreshGithubDashboard(){
+    if(githubDashboardRequest) return githubDashboardRequest;
+    githubDashboardRequest=fetch("/api/github/status")
+      .then(async response=>{
+        const data=await response.json();
+        if(!response.ok) throw new Error(data.error||"Could not check GitHub status.");
+        githubDashboardStatus=data;
+        updateSettingsDashboard();
+        return data;
+      })
+      .catch(error=>{
+        githubDashboardStatus={installed:false,authenticated:false,error:String(error.message||error)};
+        updateSettingsDashboard();
+        return githubDashboardStatus;
+      })
+      .finally(()=>{ githubDashboardRequest=null; });
+    return githubDashboardRequest;
+  }
   function updateSettingsDashboard(){
     if(!$("settingsPanel")) return;
     const provider=state.provider||"local";
@@ -3463,17 +3562,19 @@
     const project=shortPath(state.projectsDir)||"Projects";
     const connectors=connectorsState();
     const connectorCount=(connectors.apis||[]).length+(connectors.mcp||[]).length+(connectors.agents||[]).length+Object.values(connectors.email||{}).filter(Boolean).length;
+    const githubConnected=githubDashboardStatus?.authenticated===true;
+    const connectedToolCount=connectorCount+(githubConnected?1:0);
     const agent=(state.ui&&state.ui.codingAgent)||{};
     const budget=({small:"Small",normal:"Normal",large:"Large"})[agent.budget||"normal"]||"Normal";
     const setText=(id,text)=>{ const el=$(id); if(el) el.textContent=text; };
     setText("settingsCurrentModel",model);
     setText("settingsModelBadge",ready?"Ready":"Needs setup");
     setText("settingsTokenBudget",budget+" · "+(agent.maxRetries||2)+" retries");
-    setText("settingsToolsStatus",connectorCount?connectorCount+" connected":"None connected");
+    setText("settingsToolsStatus",connectedToolCount?connectedToolCount+" connected":"None connected");
     setText("settingsProjectFolder",project);
     setText("overviewProvider",label+(ready?" ready":" needs setup"));
     setText("overviewBudget",budget+" budget · "+(agent.autoTest===false?"manual tests":"auto verify"));
-    setText("overviewTools",connectorCount?connectorCount+" connector"+(connectorCount===1?"":"s"):"No connectors");
+    setText("overviewTools",connectedToolCount?connectedToolCount+" connected tool"+(connectedToolCount===1?"":"s"):"No connected tools");
     setText("overviewProject",project);
     setText("overviewPrivacy",provider==="local"?"Local first":"Cloud provider selected");
     document.querySelectorAll(".settings-check").forEach(check=>{
@@ -3481,7 +3582,8 @@
       let done=false;
       if(sec==="model") done=ready;
       else if(sec==="agent") done=!!(state.ui&&state.ui.codingAgent);
-      else if(sec==="thirdparty") done=connectorCount>0;
+      else if(sec==="thirdparty") done=connectedToolCount>0;
+      else if(sec==="github") done=githubConnected;
       else if(sec==="browser") done=!!(state.ui&&state.ui.aiBrowser!==false);
       else if(sec==="memory") done=!!(state.ui&&(state.ui.referenceChatMemory!==false||state.ui.learnedMemory!==false));
       check.classList.toggle("done",done);
@@ -3996,8 +4098,9 @@
     applyKeyRow(); applyThirdParty(); applyMode(); applyContextLength(); applyCreationSettings();
     renderCloudFallbackSettings();
     const label=(state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider;
+    const shortLabel=shortProviderLabel(state.provider,label);
     $("statusdot").className="dot"+(state.backendUp?"":" down");
-    $("statustext").textContent=state.backendUp?"ready":"not ready";
+    $("statustext").textContent=shortLabel+" "+(state.backendUp?"ready":"not ready");
     $("footStatus").title=label+(state.backendUp?" · ready":" · not ready");
     $("banner").style.display=state.backendUp?"none":"";
     $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready — open Settings to pick a provider, add a key, or download a model.";
@@ -4286,12 +4389,16 @@
     const log=t.log||[];
     if(!log.length && !(run&&run.threadId===id)) showEmpty();
     log.forEach(e=>{
-      if(e.t==="user") addUser(e.text,e.images,e.at);
-      else if(e.t==="ai" && String(e.text||"").trim()) col.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
-      else if(e.t==="tool"){ addToolCard(col,e); if(e.name==="read_file"||e.name==="write_file"||e.name==="edit_file") updateFileChip(e); }
-      else if(e.t==="image") col.appendChild(makeShot(e.src,e.caption));
-      else if(e.t==="usage"){ const u=makeUsage(e); if(u) col.appendChild(u); }
-      else if(e.t==="error") col.appendChild(makeErr(e));
+      try{
+        if(e.t==="user") addUser(e.text,e.images,e.at);
+        else if(e.t==="ai" && String(e.text||"").trim()) col.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
+        else if(e.t==="tool"){ addToolCard(col,e); if(e.name==="read_file"||e.name==="write_file"||e.name==="edit_file") updateFileChip(e); }
+        else if(e.t==="image") col.appendChild(makeShot(e.src,e.caption));
+        else if(e.t==="usage"){ const u=makeUsage(e); if(u) col.appendChild(u); }
+        else if(e.t==="error") col.appendChild(makeErr(e));
+      }catch(err){
+        console.warn("Skipped saved log entry", err);
+      }
     });
     // if this thread has a run in flight, rebuild its live status + partial answer
     if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); renderPendingApprovals(); }
@@ -4822,7 +4929,7 @@
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
   function safeCloudUiPayload(ui=state.ui||{}){
-    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
+    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","showOnboarding","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
     const data={};
     allowed.forEach(key=>{
       const value=ui[key];
@@ -5147,6 +5254,7 @@
     if(remember && !!on!==document.body.classList.contains("notes-on")) rememberCurrentView();
     document.body.classList.toggle("notes-on",!!on);
     $("notesToggle").classList.toggle("active",!!on);
+    if(on && SHELL) hostPost({type:"window",action:"growContext"});
     if(document.body.classList.contains("browser-on")) requestAnimationFrame(fitBrowserSplit);
     if(on){
       loadNote();
@@ -5725,22 +5833,42 @@
         try{ const data=JSON.parse(text); message=data.error||data.message||text; }catch{}
         throw new Error(message||("Request failed: "+res.status));
       }
-      const rd=res.body.getReader(), dec=new TextDecoder(); let buf="";
+      const rd=res.body.getReader(), dec=new TextDecoder(); let buf="", streamDone=false;
       for(;;){ const{done,value}=await rd.read(); if(done)break; buf+=dec.decode(value,{stream:true}); let nl;
-        while((nl=buf.indexOf("\n"))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(line) handleEvent(JSON.parse(line)); } }
+        while((nl=buf.indexOf("\n"))>=0){
+          const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1);
+          if(!line) continue;
+          const event=JSON.parse(line);
+          handleEvent(event);
+          const compareFinished=event.type==="compareAnswer"&&run?.slots?.filter(slot=>slot?.answered).length>=2;
+          // `answer` is emitted only after the model/controller has returned.
+          // Treat it as terminal so WebView2 never depends on a trailing
+          // transport-only `done` record to unlock the composer.
+          if(event.type==="done"||event.type==="answer"||event.type==="error"||compareFinished) streamDone=true;
+        }
+        if(streamDone){
+          // WebView2 can leave cancel() pending even after the server's
+          // protocol-level done event. Never block composer cleanup on it.
+          try{ rd.cancel().catch(()=>{}); }catch{}
+          break;
+        }
+      }
     }catch(err){ if(err.name!=="AbortError" && viewingRun()) insertAbove(makeErr("connection error: "+err.message)); }
     if(run&&run.statusEl&&run.statusEl.isConnected) run.statusEl.remove();
     const finishedRun=run;
-    // fire a desktop notification when the task completed while the window was hidden
-    if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
-      notify("Boolean finished its task", (finishedRun.raw||"").slice(0,120) || "Task complete.");
     const holdQueue=!!finishedRun?.holdQueue;
     lastRunWasCompare=!!finishedRun?.compare;
-    if(threadId===tid && finishedRun && (finishedRun.steps||finishedRun.outcome&&finishedRun.outcome!=="completed")) col.appendChild(makeRunResult(finishedRun));
-    // Generate a next-edit suggestion from the finished run
-    if(threadId===tid && finishedRun && finishedRun.raw && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
-      maybeShowNextEdit(finishedRun);
-    run=null; currentAbort=null; updateSendButton(); await refresh();
+    // Release the composer before optional completion UI. A notification,
+    // suggestion, or refresh failure must never strand chat in Stop mode.
+    run=null; currentAbort=null; updateSendButton();
+    try{
+      if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
+        notify("Boolean finished its task", (finishedRun.raw||"").slice(0,120) || "Task complete.");
+      if(threadId===tid && finishedRun && (finishedRun.steps||finishedRun.outcome&&finishedRun.outcome!=="completed")) col.appendChild(makeRunResult(finishedRun));
+      if(threadId===tid && finishedRun && finishedRun.raw && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
+        maybeShowNextEdit(finishedRun);
+    }catch(err){ console.warn("Completion UI failed",err); }
+    await refresh().catch(err=>console.warn("Completion refresh failed",err));
     // auto-send the next queued message for this thread
     const q=queues[tid];
     if(q&&q.length&&!holdQueue&&!queuePaused[tid]){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
@@ -5843,6 +5971,7 @@
   async function stopRun(edit=false){
     if(!run||!viewingRun()) return;
     const tid=run.threadId;
+    const stoppingRun=run;
     const request=run.request?{...run.request,images:[...(run.request.images||[])]}:null;
     run.status=edit?"interrupting for edit…":"stopping…";
     run.outcome="paused";
@@ -5857,8 +5986,21 @@
       autosize();
     }
     renderQueue();
+    try{
+      const stopRequest=fetch("/api/stop",{method:"POST",body:JSON.stringify({threadId:tid,rollback})});
+      await Promise.race([stopRequest,new Promise(resolve=>setTimeout(resolve,1200))]);
+    }catch{}
     if(currentAbort) currentAbort.abort();
-    await fetch("/api/stop",{method:"POST",body:JSON.stringify({threadId:tid,rollback})});
+    setTimeout(()=>{
+      if(run!==stoppingRun) return;
+      run.statusEl?.remove();
+      run=null; currentAbort=null;
+      updateSendButton();
+      renderQueue();
+      refresh().catch(()=>{});
+      renderEndActions();
+      input.focus();
+    },1800);
     if(edit&&request?.display){ input.focus(); input.setSelectionRange(input.value.length,input.value.length); }
   }
   $("interruptEdit").onclick=()=>stopRun(true);
@@ -5885,6 +6027,11 @@
     const head=section?.querySelector(".sechead");
     return head?.childNodes?.[0]?.textContent?.trim()||"Settings";
   }
+  function syncSettingsTabs(page="home"){
+    document.querySelectorAll(".settings-tab").forEach(tab=>{
+      tab.classList.toggle("active", (tab.dataset.settingsTab||"home") === page);
+    });
+  }
   function showSettingsHome(){
     const panel=$("settingsPanel");
     panel.classList.add("settings-home");
@@ -5894,7 +6041,9 @@
     $("settingsTitle").textContent="Settings";
     $("settingsBack").title="Close settings";
     $("settingsBack").setAttribute("aria-label","Close settings");
+    syncSettingsTabs("home");
     updateSettingsDashboard();
+    refreshGithubDashboard();
     applySettingsFilter();
     panel.scrollTop=0;
   }
@@ -5906,6 +6055,7 @@
     panel.classList.remove("settings-home","settings-filtering");
     panel.classList.add("settings-detail");
     panel.dataset.page=section.dataset.sec;
+    syncSettingsTabs(section.dataset.sec);
     if($("settingsSearch")) $("settingsSearch").value="";
     applySettingsFilter();
     panel.querySelectorAll(".sec").forEach(item=>{
@@ -5948,6 +6098,11 @@
     else discardCurrentHistory();
   }
   $("topSettings").onclick=toggleSettingsPanel;
+  document.querySelectorAll(".settings-tab").forEach(tab=>tab.onclick=()=>{
+    const page=tab.dataset.settingsTab||"home";
+    if(page==="home") showSettingsHome();
+    else showSettingsSection(page,{remember:true});
+  });
   $("settingsSearch").oninput=applySettingsFilter;
   // ── Diagnostics ──
   async function runDiagnostics(){
@@ -6415,6 +6570,10 @@ Optional bundled starter model:
     else root.removeAttribute("data-theme");
     document.body.classList.remove("fs-small","fs-large");
     document.body.classList.add("compact");
+    if(!cleanStartupApplied){
+      document.body.classList.toggle("collapsed", ui.cleanStartup !== false);
+      cleanStartupApplied=true;
+    }
     document.body.classList.toggle("hide-tokens", ui.showTokens===false);
     document.body.classList.toggle("show-time", !!ui.showTimestamps);
     const noteTheme=ui.notepadTheme==="warm"?"obsidian":ui.notepadTheme;
@@ -6429,6 +6588,7 @@ Optional bundled starter model:
     $("showTimestamps").checked=!!ui.showTimestamps;
     $("showTokens").checked=ui.showTokens!==false;
     $("collapseLogs").checked=ui.collapseLogs!==false;
+    if($("showOnboarding")) $("showOnboarding").checked=ui.showOnboarding===true;
   $("notificationsToggle").checked=ui.notifications===true;
     $("reduceMotion").checked=ui.reduceMotion===true;
     document.body.classList.toggle("reduce-motion",ui.reduceMotion===true);
@@ -6536,6 +6696,7 @@ Optional bundled starter model:
   $("showTimestamps").onchange=e=>setUi({showTimestamps:e.target.checked});
   $("showTokens").onchange=e=>setUi({showTokens:e.target.checked});
   $("collapseLogs").onchange=e=>setUi({collapseLogs:e.target.checked});
+  if($("showOnboarding")) $("showOnboarding").onchange=e=>{ try{ if(e.target.checked) localStorage.removeItem("boolean_onboarded"); else localStorage.setItem("boolean_onboarded","1"); }catch{} setUi({showOnboarding:e.target.checked}); };
   $("notificationsToggle").onchange=e=>{
     if(e.target.checked && "Notification" in window && Notification.permission!=="granted" && !SHELL) Notification.requestPermission();
     setUi({notifications:e.target.checked});
@@ -6576,7 +6737,7 @@ Optional bundled starter model:
     tempToast("To install a skill, use the chat command: manage_skill install from a local folder path.",5000);
   };
 
-  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
+  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,showOnboarding:false,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",cleanStartup:true,codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
 
   // ── in-app browser (real internet via the /browse proxy) ──
   const bframe=$("bframe"), bAddr=$("bAddr");
@@ -7061,7 +7222,7 @@ Optional bundled starter model:
     $("winMax").onclick=()=>winCmd("maxtoggle");
     $("winClose").onclick=()=>winCmd("close");
     const _dragOk=(t)=>!t.closest("button, .netseg, input, textarea, select, a, .menu, .winctl, .thread, .acts, .showmore, .foldable, .panel, .sidefoot");
-    const _dragZone=(e)=>e.target.matches(".topbar,.topbar > .spacer,.sidehead");
+    const _dragZone=(e)=>e.target.matches(".topbar,.topbar > .spacer,.workspace-tabs,.cmd-bar,.sidehead");
     document.addEventListener("pointerdown",(e)=>{ if(e.button===0 && _dragZone(e) && _dragOk(e.target)) winCmd("drag"); });
     document.addEventListener("dblclick",(e)=>{ if(_dragZone(e) && _dragOk(e.target)) winCmd("maxtoggle"); });
     window.chrome.webview.addEventListener("message",(e)=>{
@@ -7106,7 +7267,9 @@ Optional bundled starter model:
       }catch{}
     }
     await pullCloudNotes({force:true}).catch(()=>{});
-    document.body.classList.remove("notes-on","browser-on","settings-open","about-open");
+    document.body.classList.remove("notes-on","browser-on","settings-open","about-open","zone-3","ws-tabs-hidden");
+    document.body.classList.toggle("collapsed", state.ui?.cleanStartup !== false);
+    try { if (state.ui?.cleanStartup !== false) localStorage.removeItem("boolean_ctx_zone"); } catch(e) {}
     $("settingsPanel").classList.remove("open");
     if(threadId) await openThread(threadId,{remember:false}); else showEmpty();
     estimateContext();
@@ -7141,15 +7304,27 @@ Optional bundled starter model:
   // WORKSPACE TABS + RECIPE QUICK STARTS
   // ══════════════════════════════════════════════════════════════
   let activeWsTab = "chat";
-  function setWorkspaceTab(ws) {
-    if (!ws) return;
-    activeWsTab = ws;
+  let previousWsTab = "chat";
+  function closeWorkspaceTab(ws) {
+    if (ws === "browser") { SHELL ? hostPost({type:"browser",cmd:"hide"}) : openBrowser(false); }
+    else if (ws === "notes") { openNotes(false,{remember:false,focus:false}); }
+    else if (ws === "code") { toggleTerminal(false); }
+    else if (ws === "recipes") { document.body.classList.remove("recipes-open"); }
+    else if (ws === "git" || ws === "automations") { closeSettingsPanel(); }
+  }
+  function markWorkspaceTab(ws) {
+    activeWsTab = ws || "chat";
     document.querySelectorAll(".ws-tab").forEach(tab => {
-      const active = tab.dataset.ws === ws;
+      const active = tab.dataset.ws === activeWsTab;
       tab.classList.toggle("active", active);
       const dot = tab.querySelector(".ws-dot");
       if (dot) dot.classList.toggle("active", active);
     });
+  }
+  function activateWorkspaceTab(ws) {
+    if (!ws) return;
+    if (ws !== activeWsTab) previousWsTab = activeWsTab || "chat";
+    markWorkspaceTab(ws);
     document.body.classList.toggle("recipes-open", ws === "recipes");
     if (ws === "browser") { if (SHELL) { document.body.classList.add("browser-on"); syncPanelButtons(); hostPost({type:"browser",cmd:"show"}); } else openBrowser(true); }
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
@@ -7158,7 +7333,26 @@ Optional bundled starter model:
     else if (ws === "git") { openSettings("github"); }
     else if (ws === "automations") { openSettings("scheduled"); }
   }
-  document.querySelectorAll(".ws-tab").forEach(tab => { tab.onclick = () => setWorkspaceTab(tab.dataset.ws); });
+  function setWorkspaceTab(ws) {
+    if (!ws) return;
+    const currentWs = document.querySelector(".ws-tab.active")?.dataset.ws || activeWsTab;
+    if (ws === currentWs && ws !== "chat") {
+      closeWorkspaceTab(ws);
+      previousWsTab = "chat";
+      markWorkspaceTab("chat");
+      requestAnimationFrame(()=>markWorkspaceTab("chat"));
+      return;
+    }
+    activateWorkspaceTab(ws);
+  }
+  document.querySelectorAll(".ws-tab").forEach(tab => { tab.onclick = null; });
+  $("workspaceTabs").addEventListener("click",(e)=>{
+    const tab=e.target.closest(".ws-tab");
+    if(!tab) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    setWorkspaceTab(tab.dataset.ws);
+  },true);
   if ($("recipesClose")) $("recipesClose").onclick = () => setWorkspaceTab("chat");
   document.querySelectorAll(".recipe-card").forEach(card => {
     card.onclick = () => {
@@ -7180,6 +7374,7 @@ Optional bundled starter model:
   function toggleTerminal(force) {
     const open = force !== undefined ? force : !document.body.classList.contains("ws-terminal-open");
     document.body.classList.toggle("ws-terminal-open", open);
+    if(!open && activeWsTab==="code") requestAnimationFrame(()=>markWorkspaceTab("chat"));
     syncChatScroll();
   }
   function termAdd(text, type) {
@@ -7453,11 +7648,14 @@ Optional bundled starter model:
   function openOnboarding() {
     onboardStep = 0;
     renderOnboardStep();
+    if($("onboardDontShow")) $("onboardDontShow").checked = true;
     $("onboardOverlay").classList.add("open");
   }
   function closeOnboarding() {
     $("onboardOverlay").classList.remove("open");
-    try { localStorage.setItem("boolean_onboarded", "1"); } catch(e) {}
+    const hideNext = $("onboardDontShow") ? $("onboardDontShow").checked : true;
+    try { if(hideNext) localStorage.setItem("boolean_onboarded", "1"); else localStorage.removeItem("boolean_onboarded"); } catch(e) {}
+    setUi({showOnboarding:!hideNext});
   }
   if ($("onboardNext")) $("onboardNext").onclick = () => {
     if (onboardStep < onboardSteps.length - 1) {
@@ -7490,7 +7688,7 @@ Optional bundled starter model:
   setTimeout(() => {
     let onboarded = false;
     try { onboarded = localStorage.getItem("boolean_onboarded") === "1"; } catch(e) {}
-    if (!onboarded && state.eulaAccepted) openOnboarding();
+    if (state.eulaAccepted && (state.ui?.showOnboarding===true || !onboarded)) openOnboarding();
   }, 1500);
 
   // ══════════════════════════════════════════════════════════════
@@ -7779,10 +7977,14 @@ Optional bundled starter model:
       } },
     { id:"commit", title:"Commit Changes", desc:"Stage and commit all changes with a clear message", icon:"commit", kw:["commit","git","save","stage","push"],
       run: () => cmdSendChat("Commit all changes with a clear message.") },
+    { id:"commit-msg", title:"Draft Commit Message", desc:"Generate a commit message without committing", icon:"review", kw:["message","commit message","msg","summary","diff"],
+      run: () => cmdSendChat("Show me the current git diff and generate a clear, concise commit message based on the changes. Do not commit yet - just suggest the message.") },
     { id:"preview", title:"Preview App", desc:"Run the project and open a live preview", icon:"preview", kw:["preview","run","dev","serve","launch","open browser","localhost"],
       run: () => cmdSendChat("Run the project dev server and give me the local URL to preview.") },
     { id:"review", title:"Review Code", desc:"Review changes for bugs, security, and quality", icon:"review", kw:["review","check","scan","audit","security","lint","quality"],
       run: () => cmdSendChat("Review all code changes for bugs, security issues, style problems, and risky commands.") },
+    { id:"background-agent", title:"Background Agent", desc:"Run a task in an isolated background workspace", icon:"automate", kw:["agent","background","isolate","subagent","parallel"],
+      run: () => { const panel = $("bgAgentPanel"); if (panel) panel.classList.add("open"); } },
     { id:"research", title:"Research Topic", desc:"Research a topic across multiple sources with citations", icon:"research", kw:["research","investigate","study","sources","cite","deep dive","compare"],
       run: a => { const t = a||""; cmdSendChat(t? "Research this topic across multiple sources with citations: " + t : "What topic do you want me to research?"); } },
     { id:"document", title:"Create Document", desc:"Generate a DOCX, PDF, spreadsheet, or presentation", icon:"document", kw:["document","docx","pdf","xlsx","pptx","export","spreadsheet","presentation","word"],

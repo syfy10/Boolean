@@ -216,6 +216,8 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
   let buf = "";
   let content = "";
   let usage = null;
+  let streamFinished = false;
+  let terminalChoice = false;
   const toolCalls = []; // by index
   for (;;) {
     let part;
@@ -238,14 +240,14 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
       buf = buf.slice(nl + 1);
       if (!line.startsWith("data:")) continue;
       const payload = line.slice(5).trim();
-      if (payload === "[DONE]") continue;
+      if (payload === "[DONE]") { streamFinished = true; break; }
       let obj;
       try { obj = JSON.parse(payload); } catch { continue; }
       if (obj.usage) usage = { input: obj.usage.prompt_tokens || 0, output: obj.usage.completion_tokens || 0, estimated: false };
-      const delta = obj.choices?.[0]?.delta;
-      if (!delta) continue;
-      if (delta.content) { content += delta.content; onToken(delta.content); }
-      if (delta.tool_calls) {
+      const choice = obj.choices?.[0];
+      const delta = choice?.delta;
+      if (delta?.content) { content += delta.content; onToken(delta.content); }
+      if (delta?.tool_calls) {
         for (const tc of delta.tool_calls) {
           const i = tc.index ?? 0;
           toolCalls[i] = toolCalls[i] || { id: tc.id, type: "function", function: { name: "", arguments: "" } };
@@ -254,6 +256,15 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
           if (tc.function?.arguments) toolCalls[i].function.arguments += tc.function.arguments;
         }
       }
+      if (choice && choice.finish_reason != null) terminalChoice = true;
+    }
+    // Some OpenAI-compatible providers omit [DONE] and leave the HTTP stream
+    // alive after a terminal finish_reason. Process the whole buffered chunk
+    // first (it may also contain usage), then close the reader ourselves.
+    if (terminalChoice) streamFinished = true;
+    if (streamFinished) {
+      try { await reader.cancel(); } catch { /* response is already complete */ }
+      break;
     }
   }
   const msg = { role: "assistant", content };

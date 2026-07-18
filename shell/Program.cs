@@ -155,6 +155,10 @@ sealed class MainForm : Form
                 ReleaseCapture();
                 SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
                 break;
+            case "growContext":
+                GrowForBrowser();
+                if (_browserOpen && !_full) BeginInvoke(new Action(FitBrowserSplit));
+                break;
             case "min": WindowState = FormWindowState.Minimized; break;
             case "maxtoggle": ToggleMaximize(); break;
             case "close": Close(); break;
@@ -252,8 +256,9 @@ sealed class MainForm : Form
         Text = "Boolean";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
-        Width = Math.Min(460, (int)(wa.Width * 0.28));    // roomy by default, still fits the screen
-        Height = Math.Min(wa.Height, (int)(wa.Height * 0.96));
+        MinimumSize = new Size(Math.Min(620, Math.Max(360, wa.Width - 16)), Math.Min(520, Math.Max(360, wa.Height - 16)));
+        Width = Math.Min(Math.Max(720, (int)(wa.Width * 0.42)), Math.Min(820, wa.Width - 16)); // compact, but wide enough for first-run UI
+        Height = Math.Min(Math.Min(720, wa.Height), (int)(wa.Height * 0.82));
         StartPosition = FormStartPosition.Manual;
         Left = wa.Left + 8;
         Top  = wa.Top + (wa.Height - Height) / 2;
@@ -934,11 +939,11 @@ try {
             tabRight.Controls.Add(b); _barBtns.Add(b); return b;
         }
         TabIcon("\u2922", "Full width (hide chat)", (_, __) => ToggleFull());
-        _browserCloseBtn = TabIcon("\u25CE", "Hide browser", (_, __) => ToggleBrowser(false));
+        _browserCloseBtn = TabIcon("\u25CE", "Close current browser tab", (_, __) => CloseTab(_active));
         TabIcon("\u2014", "Minimize", (_, __) => WindowState = FormWindowState.Minimized);
         TabIcon("\u25A1", "Maximize", (_, __) => ToggleMaximize());
-        var winClose = TabIcon("\u00D7", "Close", (_, __) => Close());
-        winClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(232, 17, 35);
+        var hideBrowser = TabIcon("\u00D7", "Hide browser", (_, __) => ToggleBrowser(false));
+        hideBrowser.FlatAppearance.MouseOverBackColor = Color.FromArgb(45, 45, 45);
 
         _tabStrip.Dock = DockStyle.Fill;
         _tabStrip.Resize += (_, __) => LayoutTabs();
@@ -1347,6 +1352,7 @@ try {
         _browserOpen = force ?? !_browserOpen;
         if (_browserOpen)
         {
+            GrowForBrowser();
             if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
             _split.Panel2Collapsed = false;
             // Navigate the initial tab if it was created at startup but never loaded

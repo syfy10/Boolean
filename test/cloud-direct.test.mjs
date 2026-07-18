@@ -296,6 +296,75 @@ test("a dropped local model stream is identified for engine recovery", async (t)
   );
 });
 
+test("a provider DONE event completes without waiting for the HTTP connection to close", async (t) => {
+  const sockets = new Set();
+  const server = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    res.write('data: {"choices":[{"delta":{"content":"Ready"}}]}\n\n');
+    res.write('data: [DONE]\n\n');
+    // Deliberately leave the response open. Some compatible providers keep the
+    // transport alive after the protocol-level completion marker.
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    for (const socket of sockets) socket.destroy();
+    server.close();
+  });
+
+  const completion = chatCompletion({
+    base: `http://127.0.0.1:${server.address().port}`,
+    apiKey: "active-session",
+    model: "test-cloud-model",
+    provider: "zaiCoding"
+  }, [{ role: "user", content: "hello" }], undefined, undefined, () => {});
+
+  const result = await Promise.race([
+    completion,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("stream did not finish after [DONE]")), 500))
+  ]);
+  assert.equal(result.content, "Ready");
+});
+
+test("a provider finish reason completes when DONE is omitted and the connection stays open", async (t) => {
+  const sockets = new Set();
+  const server = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    res.write('data: {"choices":[{"delta":{"content":"Finished"}}]}\n\n');
+    res.write('data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":1}}\n\n');
+    // No [DONE] and no res.end(): this matches providers that finish at the
+    // protocol level but keep the transport available for reuse.
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    for (const socket of sockets) socket.destroy();
+    server.close();
+  });
+
+  const completion = chatCompletion({
+    base: `http://127.0.0.1:${server.address().port}`,
+    apiKey: "active-session",
+    model: "test-cloud-model",
+    provider: "zaiCoding"
+  }, [{ role: "user", content: "hello" }], undefined, undefined, () => {});
+
+  const result = await Promise.race([
+    completion,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("stream did not finish after finish_reason")), 500))
+  ]);
+  assert.equal(result.content, "Finished");
+  assert.deepEqual(result.usage, { input: 4, output: 1, estimated: false });
+});
+
 test("the model receives topic changes without deterministic routing", async (t) => {
   let requestBody = null;
   const server = http.createServer(async (req, res) => {
@@ -396,6 +465,7 @@ test("ordinary chat turns send no tools and use a compact prompt", async (t) => 
 
 test("turn classifier chooses the smallest useful mode", () => {
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }]), "chat");
+  assert.equal(classifyTurnMode([{ role: "user", content: "hi" }], { projectDir: "C:\\repo" }), "chat");
   assert.equal(classifyTurnMode([{ role: "user", content: "stock news today" }]), "research");
   assert.equal(classifyTurnMode([{ role: "user", content: "build me a tic tac toe game" }], { artifactActionRequired: true }), "agent");
   assert.equal(classifyTurnMode([{ role: "user", content: "are you checking it?" }], { connectorActionRequired: true }), "agent");

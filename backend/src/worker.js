@@ -243,6 +243,7 @@ function sanitizeUiPayload(value) {
     "learnedMemory",
     "notifications",
     "contextMode",
+    "cleanStartup",
     "browserOpen",
     "browserW",
     "browserTabs",

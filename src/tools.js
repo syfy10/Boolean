@@ -9,7 +9,7 @@ import { providerImageSupport } from "./providers.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
 import { listEmail, readEmail, createEmailDraft, createReplyDraft, sendEmailDraft } from "./email.js";
-import { PLATFORM_TOOL_DEFINITIONS, PLATFORM_TOOL_NAMES, executePlatformTool } from "./platform.js";
+import { PLATFORM_TOOL_DEFINITIONS, PLATFORM_TOOL_NAMES, executePlatformTool, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
 import {
   applyAgentRun,
@@ -1598,6 +1598,12 @@ export async function executeTool(name, args, ctx) {
     switch (name) {
       case "run_command": {
         if (!args.command) return "error: missing 'command' argument";
+        const normalizedCommand = String(args.command).trim().replace(/^&\s*/, "");
+        if (/^gh(?:\.exe)?\s+auth\s+login(?:\s|$)/i.test(normalizedCommand)) {
+          const status = await ghStatus(ctx);
+          if (status.authenticated) return `GitHub CLI is already authenticated${status.user ? ` as ${status.user}` : ""}. No login is needed.`;
+          return "GitHub login needs an interactive browser or terminal. Open GitHub settings and start the visible sign-in flow; Boolean will not run this command hidden.";
+        }
         const shell = args.shell === "cmd" ? "cmd" : "powershell";
         const ok = await ctx.approve(`run [${shell}]: ${args.command}`);
         if (!ok) return "user declined to run this command";

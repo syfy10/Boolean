@@ -11,7 +11,7 @@ import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
 } from "./config.js";
-import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext } from "./agent.js";
+import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp } from "./providers.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
@@ -395,6 +395,14 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       updatedAt: Date.now(),
       controller: null
     };
+  }
+  function shouldTrackPendingTask(messages, latestText) {
+    const prospective = Array.isArray(messages) ? messages : [];
+    return classifyTurnMode(prospective, {
+      latestText,
+      artifactActionRequired: requiresArtifactAction(prospective),
+      connectorActionRequired: requiresConnectorContinuationAction(prospective)
+    }) === "agent";
   }
   function activeTaskPrompt(task) {
     if (!task || !["running", "interrupted"].includes(task.state)) return "";
@@ -1943,7 +1951,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           savedTask.updatedAt = Date.now();
         } else {
           t.messages.push({ role: "user", content });
-          beginPendingTask(t, content);
+          if (shouldTrackPendingTask(t.messages, visibleUserText)) beginPendingTask(t, content);
+          else t.pendingTask = null;
         }
         t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now() });
         if (config.ui?.learnedMemory !== false) learnFromUserText(visibleUserText);

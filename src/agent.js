@@ -474,7 +474,7 @@ const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|ha
 
 export function classifyTurnMode(messages, options = {}) {
   const latest = options.latestText ?? plainMessageText([...(messages || [])].reverse().find((message) => message?.role === "user"));
-  if (options.directAction || options.artifactActionRequired || options.connectorActionRequired || options.projectDir) return "agent";
+  if (options.directAction || options.artifactActionRequired || options.connectorActionRequired) return "agent";
   if (RESEARCH_REQUEST.test(latest)) return "research";
   if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "agent";
   return "chat";

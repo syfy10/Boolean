@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.25";
-export const APP_DISPLAY_VERSION = "v0.09.25";
+export const APP_VERSION = "0.9.31";
+export const APP_DISPLAY_VERSION = "v0.09.31";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -113,6 +113,7 @@ const DEFAULTS = {
     notepadTheme: "yellow",    // Classic | Paper | Slate | Obsidian
     showTimestamps: false,
     showTokens: true,
+    showOnboarding: false,    // Settings can show the first-run setup once again
     autoSave: true,           // persist chats to disk (workspace recovery)
     keepLocalWarm: true,      // keep llama-server running after the window closes
     collapseLogs: true,       // auto-collapse tool cards
@@ -129,6 +130,7 @@ const DEFAULTS = {
       autoCommit: false
     },
     browserOpen: false,       // in-app browser panel visible
+    cleanStartup: true,       // open with sidebar/workspace tabs/panels closed
     browserW: 460,            // browser panel width (px)
     browserTabs: [],          // [{url,title}] restored on launch
     aiBrowser: true,          // allow the AI to browse the web (search/open/click/forms)
