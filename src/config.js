@@ -27,6 +27,11 @@ export const CLOUD = {
 const DEFAULTS = {
   aiBehaviorVersion: AI_BEHAVIOR_VERSION,
   provider: "local",
+  cloudFallback: {
+    enabled: false,
+    provider: "",
+    model: ""
+  },
   local: {
     model: "",            // gguf filename in ~/.saz/models
     port: 8783,

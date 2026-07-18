@@ -4,7 +4,7 @@
 import * as engine from "./engine.js";
 import { CLOUD } from "./config.js";
 
-function providerBaseUrl(value) {
+export function providerBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
 }
 
@@ -30,23 +30,27 @@ export function providerImageSupport(config) {
  * Resolve the current provider to a chat target { base, apiKey, model, headers? }.
  * For "local" this also starts the embedded engine if needed.
  */
-export async function resolveTarget(config, onStatus = () => {}) {
-  if (config.provider === "local") {
+export async function resolveProviderTarget(config, provider = config.provider, onStatus = () => {}) {
+  if (provider === "local") {
     const { base, model, ctx } = await engine.ensureRunning(config, onStatus);
     return { base, apiKey: "local", model, provider: "local", ctx };
   }
-  if (CLOUD[config.provider]) {
-    const p = config[config.provider];
+  if (CLOUD[provider]) {
+    const p = config[provider];
     if (!p.apiKey) {
-      throw new Error(`no ${CLOUD[config.provider]} API key set — add it in Settings or run: /key ${config.provider} <key>`);
+      throw new Error(`no ${CLOUD[provider]} API key set - add it in Settings or run: /key ${provider} <key>`);
     }
     const base = providerBaseUrl(p.baseUrl);
     if (!base || !p.model) {
-      throw new Error(`${CLOUD[config.provider]} needs an endpoint and model in Settings.`);
+      throw new Error(`${CLOUD[provider]} needs an endpoint and model in Settings.`);
     }
-    return { base, apiKey: p.apiKey, model: p.model, provider: config.provider };
+    return { base, apiKey: p.apiKey, model: p.model, provider };
   }
-  throw new Error(`unknown provider: ${config.provider}`);
+  throw new Error(`unknown provider: ${provider}`);
+}
+
+export async function resolveTarget(config, onStatus = () => {}) {
+  return resolveProviderTarget(config, config.provider, onStatus);
 }
 
 /**
