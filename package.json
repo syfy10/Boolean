@@ -13,7 +13,8 @@
     "build:exe": "powershell -ExecutionPolicy Bypass -File build/build-exe.ps1",
     "build:shell": "powershell -ExecutionPolicy Bypass -File build/build-shell.ps1",
     "build:installer": "powershell -ExecutionPolicy Bypass -File build/build-installer.ps1",
-    "build:all": "npm run build:shell && npm run build:installer"
+    "build:all": "npm run build:shell && npm run build:installer",
+    "test": "node --test test/controller.test.mjs"
   },
   "engines": {
     "node": ">=18"
