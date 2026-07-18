@@ -4,7 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { SAZ_DIR } from "./config.js";
 
-const USAGE_FILE = path.join(SAZ_DIR, "usage.json");
+// Allow tests to point usage at a temp dir without touching real user data.
+let _usageDir = SAZ_DIR;
+export function _setUsageDirForTest(dir) { _usageDir = dir; }
+function usageFile() { return path.join(_usageDir, "usage.json"); }
+
+// Current calendar-month key, e.g. "2025-01". Used for monthly budget tracking.
+function monthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
 
 // Approximate list price in USD per 1M tokens { in, out }. These are ESTIMATES
 // for display only and may drift from providers' actual current pricing.
@@ -38,15 +46,15 @@ export function costOf(input, output, model) {
 
 export function loadUsage() {
   try {
-    return { byKey: {}, ...JSON.parse(fs.readFileSync(USAGE_FILE, "utf8")) };
+    return { byKey: {}, months: {}, ...JSON.parse(fs.readFileSync(usageFile(), "utf8")) };
   } catch {
-    return { byKey: {} };
+    return { byKey: {}, months: {} };
   }
 }
 
 function save(u) {
-  fs.mkdirSync(SAZ_DIR, { recursive: true });
-  fs.writeFileSync(USAGE_FILE, JSON.stringify(u, null, 2));
+  fs.mkdirSync(_usageDir, { recursive: true });
+  fs.writeFileSync(usageFile(), JSON.stringify(u, null, 2));
 }
 
 // record one model call. key is "provider/model" so per-provider & per-model both work.
@@ -58,11 +66,39 @@ export function recordUsage(provider, model, input, output) {
   cur.input += input || 0;
   cur.output += output || 0;
   u.byKey[key] = cur;
+  // Track monthly cost accumulation for budget enforcement
+  const mk = monthKey();
+  u.months = u.months || {};
+  const month = u.months[mk] || { cost: 0 };
+  month.cost += costOf(input || 0, output || 0, model);
+  u.months[mk] = month;
   save(u);
 }
 
 export function resetUsage() {
-  save({ byKey: {} });
+  save({ byKey: {}, months: {} });
+}
+
+/**
+ * Current month spend in USD.
+ */
+export function monthSpend(date = new Date()) {
+  const u = loadUsage();
+  return (u.months?.[monthKey(date)] || { cost: 0 }).cost;
+}
+
+/**
+ * Check spending against a monthly budget limit (USD). Returns:
+ *   { spent, limit, pct, level }
+ * level is "ok" | "warning" (≥80%) | "exceeded".
+ * If limit is falsy/0, returns level "ok" with pct 0.
+ */
+export function checkBudget(limit, date = new Date()) {
+  const spent = monthSpend(date);
+  if (!limit || limit <= 0) return { spent, limit: 0, pct: 0, level: "ok" };
+  const pct = Math.min(1, spent / limit);
+  const level = pct >= 1 ? "exceeded" : pct >= 0.8 ? "warning" : "ok";
+  return { spent, limit, pct, level };
 }
 
 /**
@@ -70,7 +106,7 @@ export function resetUsage() {
  * cost, total actual cost, and estimated savings vs the reference model
  * (what the same tokens WOULD have cost on that model, minus what they did).
  */
-export function summarizeUsage(referenceModel) {
+export function summarizeUsage(referenceModel, budgetLimit) {
   const u = loadUsage();
   const rows = Object.values(u.byKey).map((r) => ({
     ...r,
@@ -83,11 +119,13 @@ export function summarizeUsage(referenceModel) {
   const cost = rows.reduce((s, r) => s + r.cost, 0);
   // savings = cost if every token had gone through the reference model − actual
   const refCost = costOf(input, output, referenceModel);
+  const budget = checkBudget(budgetLimit);
   return {
     input, output, total: input + output,
     cost, rows,
     referenceModel,
     referenceCost: refCost,
-    savings: Math.max(0, refCost - cost)
+    savings: Math.max(0, refCost - cost),
+    budget
   };
 }

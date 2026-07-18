@@ -220,6 +220,13 @@ test("command path guard handles quoted paths and command separators", () => {
   assert.equal(controller.allowTool("run_command", { command: "Get-Content C:\\demo\\production\\app.js" }).allowed, false);
 });
 
+test("command path guard allows trusted build toolchain paths outside workspace", () => {
+  const controller = new AgentController({ objective: "Build the Windows app", projectDir: "C:\\demo\\sandbox" });
+  const command = "dotnet build C:\\demo\\sandbox\\App.csproj -p:XamlCompiler=\"C:\\Users\\S10\\.nuget\\packages\\microsoft.windowsappsdk\\1.7.260224002\\tools\\net472\\XamlCompiler.exe\"";
+  const allowed = controller.allowTool("run_command", { command });
+  assert.equal(allowed.allowed, true, allowed.reason);
+});
+
 test("an explicit deploy task permits deploy commands", () => {
   const controller = new AgentController({ objective: "Deploy the current project" });
   assert.equal(controller.snapshot().contract.mode, "deploy");

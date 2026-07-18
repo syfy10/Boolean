@@ -1564,6 +1564,9 @@
               <button class="minibtn dangerbtn" id="resetusage" style="width:100%;margin-top:4px">Reset token stats</button>
             </div>
           </div>
+          <div class="setrow" id="budgetRow"><div>Monthly budget<div class="hint">$0 = no limit, warns at 80%</div></div>
+            <div style="display:flex;align-items:center;gap:4px"><span style="color:var(--dim)">$</span><input type="number" id="budgetLimitInput" min="0" step="0.50" style="width:70px" placeholder="0"></div>
+          </div>
           <div class="hint" id="ctxHint" style="display:none">32,768 tokens</div>
           <button class="minibtn dangerbtn" id="clearHistory" style="width:100%;margin-top:6px">Clear all saved chats</button>
           <button class="minibtn dangerbtn" id="resetSettings" style="width:100%;margin-top:6px">Reset all settings</button>
@@ -1972,7 +1975,7 @@
   syncComposerPillHeight();
   syncComposerBaseHeight();
   syncComposerRail();
-  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null };
+  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
   let compareState={ active:false, targets:[] };
   try{ compareState={...compareState,...JSON.parse(localStorage.getItem("booleanCompare")||"{}")}; }catch{}
   let compareCatalog=[];
@@ -3100,6 +3103,7 @@
     $("banner").style.display=state.backendUp?"none":"";
     $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready — open Settings to pick a provider, add a key, or download a model.";
     $("projdir").textContent=state.projectsDir||"";
+    if($("budgetLimitInput")) $("budgetLimitInput").value=state.budgetLimit||0;
     applyUi(state.ui);
     renderConnectors();
     renderEmailSettings();
@@ -3390,7 +3394,7 @@
       else if(e.t==="error") col.appendChild(makeErr(e));
     });
     // if this thread has a run in flight, rebuild its live status + partial answer
-    if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); }
+    if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); renderPendingApprovals(); }
     else if(log.length) renderEndActions();
     updateCopyButton(); updateSendButton(); renderQueue(); estimateContext();
     renderThreads(); scrollDown();
@@ -4707,6 +4711,23 @@
     if(threadId===tid) renderQueue();
     startRun(tid,next);
   }
+  function queueTextKey(value){
+    return String(value||"").toLowerCase().replace(/\s+/g," ").trim();
+  }
+  function isContinueQueueText(value){
+    return /^(continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|continue where you left off)\b/i.test(String(value||"").trim());
+  }
+  function enqueueFollowup(item){
+    const q=queues[threadId]=queues[threadId]||[];
+    const key=queueTextKey(item.text||item.msg||item.display);
+    if(key&&isContinueQueueText(key)&&q.some(existing=>queueTextKey(existing.text||existing.msg||existing.display)===key)){
+      tempToast("Already queued to continue.");
+      renderQueue();
+      return;
+    }
+    q.push(item);
+    renderQueue();
+  }
   function renderQueue(){
     const el=$("queued"); el.innerHTML="";
     const q=queues[threadId]||[];
@@ -4749,8 +4770,7 @@
       // a run is in flight — queue it (only possible while viewing the running thread)
       if(!viewingRun()) return;
       const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
-      (queues[threadId]=queues[threadId]||[]).push({display,text,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined});
-      renderQueue();
+      enqueueFollowup({display,text,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined});
       return;
     }
     const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
@@ -4785,7 +4805,7 @@
       if(mode==="chat"||mode==="compare"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now()); }
       else if(mode==="retry"||mode==="compare-retry"){ removeLastTurnDom(); }
     }
-    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local",
+    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local", pendingApprovals:[],
       request:{...opts,images:[...(opts.images||[])]}, holdQueue:false };
     const isCompare=mode==="compare"||mode==="compare-retry";
     if(isCompare) Object.assign(run,{status:"comparing...",compare:true,targets:opts.targets||compareState.targets,slots:[{},{}]});
@@ -4827,6 +4847,27 @@
     if(!canContinueThread()){ tempToast("There is no paused task to continue."); renderEndActions(); return; }
     startRun(threadId,{mode:"continue"});
   }
+  function approvalExists(id){
+    return [...col.querySelectorAll(".approval")].some(card=>card.dataset.approvalId===String(id||""));
+  }
+  function makeApprovalCard(ev){
+    const card=document.createElement("div"); card.className="approval"; card.dataset.approvalId=String(ev.id||"");
+    card.innerHTML='<div class="q">Boolean is waiting for approval:</div><div class="cmd">'+esc(ev.summary)+'</div><div class="btns"><button class="allow">Allow</button><button class="deny">Deny</button></div>';
+    const decide=async(ok)=>{
+      card.querySelector(".btns")?.replaceWith(Object.assign(document.createElement("div"),{className:"verdict",textContent:ok?"allowed":"denied"}));
+      if(run?.pendingApprovals) run.pendingApprovals=run.pendingApprovals.filter(item=>item.id!==ev.id);
+      await fetch("/api/approve",{method:"POST",body:JSON.stringify({id:ev.id,approved:ok})});
+    };
+    card.querySelector(".allow").onclick=()=>decide(true);
+    card.querySelector(".deny").onclick=()=>decide(false);
+    return card;
+  }
+  function renderPendingApprovals(){
+    if(!viewingRun()) return;
+    for(const ev of run.pendingApprovals||[]){
+      if(!approvalExists(ev.id)) insertAbove(makeApprovalCard(ev));
+    }
+  }
   function handleEvent(ev){
     if(!run) return;
     const showing=viewingRun();
@@ -4844,13 +4885,11 @@
     else if(ev.type==="token"){ run.raw+=ev.text; if(showing) ensureLiveAI(); }
     else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertToolAbove(ev.entry); run.status="working…"; ensureStatusEl(); } }
     else if(ev.type==="approval"){
-      if(showing){
-        const card=document.createElement("div"); card.className="approval";
-        card.innerHTML='<div class="q">Boolean wants to:</div><div class="cmd">'+esc(ev.summary)+'</div><div class="btns"><button class="allow">Allow</button><button class="deny">Deny</button></div>';
-        insertAbove(card);
-        const decide=async(ok)=>{ card.querySelector(".btns").outerHTML='<div class="verdict">'+(ok?"✓ allowed":"✗ denied")+"</div>"; await fetch("/api/approve",{method:"POST",body:JSON.stringify({id:ev.id,approved:ok})}); };
-        card.querySelector(".allow").onclick=()=>decide(true); card.querySelector(".deny").onclick=()=>decide(false);
-      }
+      run.status="waiting for approval...";
+      run.pendingApprovals=(run.pendingApprovals||[]).filter(item=>item.id!==ev.id).concat(ev);
+      renderThreads();
+      if(showing) renderPendingApprovals();
+      else tempToast("Boolean is waiting for approval in that task.");
     }
     else if(ev.type==="answer"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(showing && run.raw.trim()){ ensureLiveAI(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
     else if(ev.type==="compareStart"){
@@ -4888,6 +4927,10 @@
     }
     else if(ev.type==="notepadControl"){ executeNotepadControl(ev.id,ev.command); }
     else if(ev.type==="usage"){ if(showing){ const u=makeUsage(ev); if(u) insertAbove(u); } }
+    else if(ev.type==="budget"){
+      if(ev.level==="exceeded") tempToast("Monthly budget exceeded: $"+(ev.spent||0).toFixed(2)+" of $"+(ev.limit||0).toFixed(2)+". Cloud calls continue but please review your usage.");
+      else if(ev.level==="warning") tempToast("Approaching monthly budget: "+(ev.pct||0)+"% of $"+(ev.limit||0).toFixed(2)+" used.");
+    }
     else if(ev.type==="error"){ run.outcome="error"; if(showing) insertAbove(makeErr(ev)); }
     if(showing) scrollDown();
   }
@@ -5272,6 +5315,11 @@ Optional bundled starter model:
   }
   if($("cloudFallbackEnabled")) $("cloudFallbackEnabled").onchange=saveCloudFallbackSettings;
   if($("cloudFallbackProvider")) $("cloudFallbackProvider").onchange=saveCloudFallbackSettings;
+  if($("budgetLimitInput")) $("budgetLimitInput").onchange=async()=>{
+    const v=Math.max(0,Number($("budgetLimitInput").value)||0);
+    await fetch("/api/config",{method:"POST",body:JSON.stringify({budgetLimit:v})});
+    tempToast(v>0?("Monthly budget set to $"+v.toFixed(2)):"Monthly budget disabled");
+  };
   $("clearKey").onclick=async()=>{ const prov=$("providersel").value;
     if(!await appConfirm("Remove API key?","Remove the saved "+((state.cloud&&state.cloud[prov])||prov)+" API key from this app?","Remove",true)) return;
     await fetch("/api/config",{method:"POST",body:JSON.stringify({clearKey:prov})}); $("apikey").value=""; await refresh(); };

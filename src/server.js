@@ -14,7 +14,7 @@ import {
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp } from "./providers.js";
 import * as engine from "./engine.js";
-import { recordUsage, resetUsage, summarizeUsage } from "./usage.js";
+import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads } from "./store.js";
 import { handleBrowse, clearCookies } from "./browse.js";
 import { learnFromUserText, publicPreferences, deletePreference, clearPreferences } from "./preferences.js";
@@ -737,6 +737,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           },
           projectsDir: config.projectsDir,
           referenceModel: config.referenceModel,
+          budgetLimit: config.budgetLimit || 0,
           connectors: publicConnectors(config),
           imageGeneration: publicImageGeneration(config),
           cloudBackend: publicCloudBackend(config),
@@ -1079,6 +1080,10 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
         if (typeof body.projectsDir === "string" && body.projectsDir.trim()) config.projectsDir = body.projectsDir.trim();
         if (typeof body.referenceModel === "string" && body.referenceModel) config.referenceModel = body.referenceModel;
+        if (body.budgetLimit !== undefined) {
+          const v = Number(body.budgetLimit);
+          config.budgetLimit = (!isNaN(v) && v >= 0) ? Math.round(v * 100) / 100 : 0;
+        }
         if (body.cloudFallback && typeof body.cloudFallback === "object") {
           const enabled = body.cloudFallback.enabled === true;
           const provider = String(body.cloudFallback.provider || "").trim();
@@ -1554,7 +1559,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       }
 
       if (req.method === "GET" && p === "/api/usage") {
-        json(summarizeUsage(config.referenceModel));
+        json(summarizeUsage(config.referenceModel, config.budgetLimit || 0));
         return;
       }
 
@@ -2000,6 +2005,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst, calls: runCalls };
             t.log.push(usage);
             send({ type: "usage", ...usage });
+            // Budget warning after each turn that records cloud usage
+            const budget = checkBudget(config.budgetLimit || 0);
+            if (budget.level !== "ok") {
+              send({ type: "budget", level: budget.level, spent: Math.round(budget.spent * 10000) / 10000, limit: budget.limit, pct: Math.round(budget.pct * 100) });
+            }
           }
         } catch (err) {
           if (t.pendingTask) {

@@ -39,6 +39,7 @@ const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing
 
 const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b/i;
 const INSPECTION_COMMAND = /\b(?:get-content|select-string|findstr|rg\b|grep\b|regex|matches|indexof|dir\b|ls\b|type\b|cat\b)\b/i;
+const COMMAND_MUTATES_FILE = /\b(?:set-content|add-content|out-file|copy-item|move-item|remove-item|new-item|del|erase|rm|rmdir|mkdir)\b|(?:^|[^>])>{1,2}(?:[^>]|$)/i;
 const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
 const LOOP_BLOCK_REASON = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i;
 
@@ -119,6 +120,25 @@ function extractWindowsPaths(command) {
   const unquoted = /(?:^|[\s=])([A-Za-z]:\\[^\s;|&"']+)/g;
   for (const match of text.matchAll(unquoted)) paths.push(match[1]);
   return [...new Set(paths.map((item) => item.trim()).filter(Boolean))];
+}
+
+function isTrustedExternalToolchainPath(value) {
+  const candidate = normalizedPath(value);
+  if (!candidate) return false;
+  const segments = candidate.replace(/\//g, "\\");
+  return /\\\.nuget\\packages\\/.test(segments)
+    || /\\\.dotnet\\/.test(segments)
+    || /\\program files\\dotnet\\/.test(segments)
+    || /\\program files \(x86\)\\windows kits\\/.test(segments)
+    || /\\program files\\microsoft visual studio\\/.test(segments);
+}
+
+function commandMayReferenceExternalToolchain(command, candidate) {
+  if (!isTrustedExternalToolchainPath(candidate)) return false;
+  const text = String(command || "");
+  if (COMMAND_MUTATES_FILE.test(text) && !CHECK_COMMAND.test(text)) return false;
+  if (CHECK_COMMAND.test(text)) return true;
+  return /\.(?:exe|dll|targets|props|tasks)$/i.test(String(candidate || ""));
 }
 
 function inferContract(options, saved) {
@@ -460,7 +480,10 @@ export class AgentController {
     }
     if (name === "run_command" && this.contract.allowedRoots.length) {
       const absolutePaths = extractWindowsPaths(args.command);
-      const outside = absolutePaths.find((candidate) => !this.contract.allowedRoots.some((root) => isWithin(root, candidate.trim())));
+      const outside = absolutePaths.find((candidate) =>
+        !this.contract.allowedRoots.some((root) => isWithin(root, candidate.trim()))
+        && !commandMayReferenceExternalToolchain(args.command, candidate)
+      );
       if (outside) return { allowed: false, reason: `Command references a path outside the allowed workspace: ${cleanText(outside, 260)}` };
     }
     const coarseFingerprint = coarseActionFingerprint(name, args);

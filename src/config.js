@@ -82,6 +82,8 @@ const DEFAULTS = {
   projectsDir: path.join(os.homedir(), "Documents", "Boolean"),
   // reference model for the "estimated savings" figure
   referenceModel: "gpt-5.1",
+  // monthly cloud spending budget in USD. 0 = no limit. UI warns at 80%+.
+  budgetLimit: 0,
   connectors: {
     apis: [],             // [{id,name,baseUrl,model,apiKey,approvedUse,enabled}] OpenAI-compatible APIs
     mcp: [],              // [{id,name,url,token,oauth,enabled}] remote Streamable-HTTP MCP servers
