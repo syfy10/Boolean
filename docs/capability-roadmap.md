@@ -36,12 +36,11 @@ all capabilities instead of building separate agent systems.
 
 ## Next product work
 
-1. Add first-class Settings pages for skills and GitHub.
-2. Add render-and-visual verification workers for Word, Excel, PowerPoint, PDF,
+1. Add render-and-visual verification workers for Word, Excel, PowerPoint, PDF,
    and generated images.
-3. Replace copied-workspace execution with a hardened sandbox service where
+2. Replace copied-workspace execution with a hardened sandbox service where
    untrusted public code must be executed.
-4. Add signed skill packages, update feeds, connector scopes, retry policies,
+3. Add signed skill packages, update feeds, connector scopes, retry policies,
    richer Windows notifications, model budgets, and per-run cancellation controls.
 
 Every enhancement must preserve Local mode, user-owned API keys, explicit
