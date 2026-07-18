@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import * as sea from "node:sea";
-import { fileURLToPath } from "node:url";
 import * as browse from "./browse.js";
 import * as engine from "./engine.js";
 import { saveConfig, SAZ_DIR } from "./config.js";
@@ -11,6 +10,7 @@ import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
 import { listEmail, readEmail, createEmailDraft, createReplyDraft, sendEmailDraft } from "./email.js";
 import { PLATFORM_TOOL_DEFINITIONS, PLATFORM_TOOL_NAMES, executePlatformTool } from "./platform.js";
+import { appPath } from "./paths.js";
 import {
   applyAgentRun,
   createIsolatedAgentRun,
@@ -23,7 +23,7 @@ import {
 // repo's templates/ folder in dev)
 function templatesDir() {
   if (sea.isSea && sea.isSea()) return path.join(path.dirname(process.execPath), "templates");
-  return path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "templates");
+  return appPath("templates");
 }
 export function listTemplates() {
   try { return fs.readdirSync(templatesDir(), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name); }

@@ -6,6 +6,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import * as sea from "node:sea";
 import { SAZ_DIR, saveConfig } from "./config.js";
+import { appPath } from "./paths.js";
 
 export const MODELS_DIR = path.join(SAZ_DIR, "models");
 const ENGINE_DIR = path.join(SAZ_DIR, "engine");
@@ -62,15 +63,10 @@ export const CATALOG = [
   }
 ];
 
-function appDir() {
-  if (sea.isSea && sea.isSea()) return path.dirname(process.execPath);
-  return path.resolve(new URL("..", import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, "$1"));
-}
-
 export function findEngineBinary() {
   const candidates = [
-    path.join(appDir(), "engine", "llama-server.exe"),      // installed layout
-    path.join(appDir(), "build", "engine", "llama-server.exe"), // dev layout
+    appPath("engine", "llama-server.exe"),      // installed layout
+    appPath("build", "engine", "llama-server.exe"), // dev layout
     path.join(ENGINE_DIR, "llama-server.exe")               // downloaded at runtime
   ];
   return candidates.find((p) => fs.existsSync(p)) || null;

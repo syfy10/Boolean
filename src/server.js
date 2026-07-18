@@ -37,19 +37,24 @@ import {
   publicEmailConnections
 } from "./email.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler } from "./platform.js";
+import { appPath } from "./paths.js";
 
 function loadAsset(name, devPath) {
   if (sea.isSea && sea.isSea()) {
     return Buffer.from(sea.getAsset(name));
   }
-  return fs.readFileSync(new URL(devPath, import.meta.url));
+  const normalized = devPath.replace(/\\/g, "/");
+  if (normalized.startsWith("../assets/")) {
+    return fs.readFileSync(appPath("assets", path.basename(devPath)));
+  }
+  return fs.readFileSync(appPath("src", path.basename(devPath)));
 }
 
 const IS_SEA = !!(sea.isSea && sea.isSea());
 const loadUiHtml = () => loadAsset("ui.html", "./ui.html").toString("utf8");
 function loadLegalText(file) {
   if (IS_SEA) return fs.readFileSync(path.join(path.dirname(process.execPath), file), "utf8");
-  return fs.readFileSync(new URL(`../assets/${file}`, import.meta.url), "utf8");
+  return fs.readFileSync(appPath("assets", file), "utf8");
 }
 
 async function readBody(req) {
@@ -2109,9 +2114,8 @@ export function openAppWindow(url) {
     icon = path.join(dir, "saz.ico");
     if (!fs.existsSync(icon)) icon = path.join(dir, "Boolean.exe"); // fall back to exe icon
   } else {
-    const assets = path.resolve(new URL("../assets", import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, "$1"));
-    script = path.join(assets, "set-window-icon.ps1");
-    icon = path.join(assets, "saz.ico");
+    script = appPath("assets", "set-window-icon.ps1");
+    icon = appPath("assets", "saz.ico");
   }
   if (fs.existsSync(script) && fs.existsSync(icon)) {
     const ps = spawn("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
