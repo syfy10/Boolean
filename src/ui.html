@@ -508,6 +508,10 @@
   .note-clock-icon:after{ content:""; position:absolute; left:5px; top:5px; width:3.5px; height:1.3px; border-radius:1px; background:currentColor; transform:rotate(28deg); transform-origin:left center; }
   /* PDF / print: isolate the note content on the page */
   #printArea{ display:none; }
+  body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
+    animation-duration:0.001ms !important; animation-iteration-count:1 !important;
+    transition-duration:0.001ms !important; scroll-behavior:auto !important;
+  }
   @media print{
     body.printing > *:not(#printArea){ display:none !important; }
     #printArea{ display:block !important; padding:24px 28px; color:#000; background:#fff; font:14px/1.55 "Segoe UI",system-ui,sans-serif; }
@@ -1618,6 +1622,17 @@
             <div>Backup provider<div class="hint" id="cloudFallbackHint">Choose a provider with a saved API key.</div></div>
             <select id="cloudFallbackProvider"></select>
           </div>
+          <div class="setrow" style="display:block">
+            <div>Model routing<div class="hint">Automatically pick the best model per task type — small local for simple edits, strong cloud for debugging, vision for screenshots.</div></div>
+            <label class="switch" style="margin:4px 0 8px;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="autoRouteModels"><span class="slider"></span><span class="hint">Use best model automatically</span></label>
+            <div class="agent-mode-grid" id="modelRoutingGrid">
+              <button class="agent-mode on" type="button" data-route="chat"><b>Chat</b><small>Default conversation model.</small></button>
+              <button class="agent-mode" type="button" data-route="coding"><b>Coding</b><small>Repo edits and builds.</small></button>
+              <button class="agent-mode" type="button" data-route="vision"><b>Vision</b><small>Screenshots and design.</small></button>
+              <button class="agent-mode" type="button" data-route="research"><b>Research</b><small>Multi-source synthesis.</small></button>
+              <button class="agent-mode" type="button" data-route="fast"><b>Fast</b><small>Quick summaries &amp; simple tasks.</small></button>
+            </div>
+          </div>
           <div class="setrow api-quick" id="customApiQuick" style="display:none">
             <div><b>User API</b><div class="hint" id="customApiQuickHint">Use any OpenAI-compatible endpoint. Your key stays on this PC.</div></div>
             <input type="text" id="customApiName" autocomplete="off" spellcheck="false" placeholder="Connection name">
@@ -2017,6 +2032,7 @@
           <div class="setrow"><div>Show token counts</div><label class="switch"><input type="checkbox" id="showTokens"><span class="slider"></span></label></div>
           <div class="setrow"><div>Auto-collapse tool logs</div><label class="switch"><input type="checkbox" id="collapseLogs"><span class="slider"></span></label></div>
           <div class="setrow"><div>Desktop notifications<div class="hint">Alert when tasks finish, error, or need approval while the window is in the background.</div></div><label class="switch"><input type="checkbox" id="notificationsToggle"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Reduce motion<div class="hint">Minimizes animations and transitions across the interface for better focus and accessibility.</div></div><label class="switch"><input type="checkbox" id="reduceMotion"><span class="slider"></span></label></div>
           <div class="setrow"><div>Export this chat</div>
             <div style="display:flex;gap:6px"><button class="minibtn" id="exportTxt">TXT</button><button class="minibtn" id="exportMd">MD</button></div></div>
         </div>
@@ -2031,6 +2047,10 @@
             <div>Learned behavior<div class="hint">stored locally on this PC</div></div>
             <div class="memory-list" id="memoryList"></div>
             <button class="minibtn dangerbtn" id="clearMemory" style="width:100%;margin-top:6px">Clear learned behavior</button>
+          </div>
+          <div class="setrow" style="display:block">
+            <div>Turn active note into project rule<div class="hint">Saves the current notepad tab as a rule in <code>BOOLEAN.md</code> so Boolean follows it for this project.</div></div>
+            <button class="minibtn" id="turnNoteIntoRule" style="width:100%;margin-top:4px">Turn active note into project rule</button>
           </div>
         </div>
       </div>
@@ -2274,6 +2294,9 @@
     </button>
     <button class="cmd-btn primary" id="cmdCommit" title="Commit all changes">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><line x1="3" y1="12" x2="8.5" y2="12"/><line x1="15.5" y1="12" x2="21" y2="12"/></svg><span>Commit</span>
+    </button>
+    <button class="cmd-btn" id="cmdGenCommit" title="Generate commit message from current changes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span>Msg</span>
     </button>
     <button class="cmd-btn" id="cmdReview" title="AI code review — scan changes for bugs, security, style">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span>Review</span>
@@ -4799,7 +4822,7 @@
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
   function safeCloudUiPayload(ui=state.ui||{}){
-    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","contextMode","codingAgent","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
+    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
     const data={};
     allowed.forEach(key=>{
       const value=ui[key];
@@ -6407,6 +6430,11 @@ Optional bundled starter model:
     $("showTokens").checked=ui.showTokens!==false;
     $("collapseLogs").checked=ui.collapseLogs!==false;
   $("notificationsToggle").checked=ui.notifications===true;
+    $("reduceMotion").checked=ui.reduceMotion===true;
+    document.body.classList.toggle("reduce-motion",ui.reduceMotion===true);
+    $("autoRouteModels").checked=ui.autoRouteModels===true;
+    const routeGrid=$("modelRoutingGrid");
+    if(routeGrid){ const mr=ui.modelRouting||{}; routeGrid.querySelectorAll(".agent-mode").forEach(btn=>btn.classList.toggle("on",false)); const sel=routeGrid.querySelector('[data-route="'+(mr.selected||"chat")+'"]'); if(sel) sel.classList.add("on"); }
     $("noteAutoSave").checked=ui.noteAutoSave!==false;
     $("noteAutoName").checked=ui.noteAutoName!==false;
     refreshNoteCloudSettingsStatus();
@@ -6522,6 +6550,11 @@ Optional bundled starter model:
   $("aiBrowser").onchange=e=>setUi({aiBrowser:e.target.checked});
   if($("researchMode")) $("researchMode").onchange=e=>setUi({researchMode:e.target.checked});
   $("searchEngine").onchange=e=>setUi({searchEngine:e.target.value});
+  $("reduceMotion").onchange=e=>{ setUi({reduceMotion:e.target.checked}); document.body.classList.toggle("reduce-motion",e.target.checked); };
+  $("autoRouteModels").onchange=e=>setUi({autoRouteModels:e.target.checked});
+  if($("modelRoutingGrid")) $("modelRoutingGrid").querySelectorAll(".agent-mode").forEach(btn=>btn.onclick=()=>{ const route=btn.dataset.route||"chat"; setUi({modelRouting:{...((state.ui&&state.ui.modelRouting)||{}),selected:route}}); $("modelRoutingGrid").querySelectorAll(".agent-mode").forEach(b=>b.classList.toggle("on",b===btn)); });
+  if($("turnNoteIntoRule")) $("turnNoteIntoRule").onclick=()=>{ cmdSendChat("Turn the active notepad note into a project rule and save it to BOOLEAN.md."); };
+  if($("cmdGenCommit")) $("cmdGenCommit").onclick=()=>{ cmdSendChat("Generate a commit message from the current uncommitted changes — read the git diff and summarize."); };
   async function setPerm(key,val){
     const bp={...(state.ui&&state.ui.browserPerms||{}),[key]:val};
     await setUi({browserPerms:bp});
