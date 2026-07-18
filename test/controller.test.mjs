@@ -312,7 +312,7 @@ test("loop guard recovery allows progress actions but blocks more inspection", (
     projectDir: "C:\\demo"
   });
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 28; i++) {
     controller.noteTool("read_file", { path: `C:\\demo\\file${i}.cs` }, "read source");
   }
 

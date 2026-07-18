@@ -42,6 +42,8 @@ const INSPECTION_COMMAND = /\b(?:get-content|select-string|findstr|rg\b|grep\b|r
 const COMMAND_MUTATES_FILE = /\b(?:set-content|add-content|out-file|copy-item|move-item|remove-item|new-item|del|erase|rm|rmdir|mkdir)\b|(?:^|[^>])>{1,2}(?:[^>]|$)/i;
 const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
 const LOOP_BLOCK_REASON = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i;
+const PROGRESS_WARNING_INSPECTIONS = 12;
+const NON_PROGRESS_INSPECTION_LIMIT = 28;
 
 function cleanText(value, max = 240) {
   return String(value || "").replace(SECRET_PATTERN, "[redacted]").replace(/\s+/g, " ").trim().slice(0, max);
@@ -439,7 +441,7 @@ export class AgentController {
       lines.push("Completion gate: perform the requested action with the relevant tool and rely on its result. Instructions or a claim of success are not evidence.");
     }
     lines.push("Choose the tool whose result directly advances the objective. Do not substitute web search, browser activity, or unrelated inspection for the requested action.");
-    if (this.nonProgressCount >= 6) lines.push("Progress warning: too many inspection actions have occurred without a change or new evidence. Summarize the cause now and choose one different, targeted next action.");
+    if (this.nonProgressCount >= PROGRESS_WARNING_INSPECTIONS) lines.push("Progress warning: many inspection actions have occurred without a file change or new evidence. Prefer a targeted edit or known build/test command soon; continue inspecting only if it directly narrows the fix.");
     return lines.join("\n");
   }
 
@@ -490,8 +492,8 @@ export class AgentController {
     if (coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= 3) {
       return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Do not inspect again; use the evidence already collected and take a different progress step such as a targeted edit or known build/test command." };
     }
-    if (this.nonProgressCount >= 10 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
-      return { allowed: false, reason: "Tool budget reached: too many inspection steps happened without a file change or new result. Do not inspect again; continue from the saved evidence with a targeted edit, a known build/test command, or a concise blocker summary." };
+    if (this.nonProgressCount >= NON_PROGRESS_INSPECTION_LIMIT && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
+      return { allowed: false, reason: "Tool budget reached: many inspection steps happened without a file change or new result. Do not inspect again; continue from the saved evidence with a targeted edit, a known build/test command, or a concise blocker summary." };
     }
     const fingerprint = actionFingerprint(name, args);
     if ((this.actionCounts[fingerprint] || 0) >= 2 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name))) {
