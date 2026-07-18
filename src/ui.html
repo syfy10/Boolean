@@ -338,12 +338,29 @@
   body.shell #notesPanel{ display:flex; }
   body:not(.notes-on) #notesPanel{ display:none !important; }
   .notes-top{ min-height:39px; display:flex; align-items:center; gap:6px; padding:7px 9px 5px; border-bottom:1px solid var(--note-bar); }
-  .notes-tabs{ flex:1; min-width:0; display:flex; gap:6px; overflow-x:auto; }
+  .notes-tabs{ flex:1; min-width:0; display:flex; align-items:center; gap:6px; overflow:visible; position:relative; }
   .note-tab{ height:26px; max-width:116px; border:0; border-radius:10px; background:transparent; color:var(--note-muted);
-    padding:0 9px; cursor:pointer; font:var(--fs-xs) var(--ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    padding:0 7px 0 9px; cursor:pointer; font:var(--fs-xs) var(--ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    display:flex; align-items:center; gap:5px; min-width:0; flex:0 1 auto; }
   .note-tab.on{ background:var(--note-tab); color:var(--note-text); font-weight:600; }
   .note-tab.editing{ padding:0 5px; overflow:visible; }
   .note-tab input{ width:82px; max-width:100%; border:0; outline:0; background:transparent; color:inherit; font:inherit; font-weight:600; text-align:center; }
+  .note-tab-title{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .note-tab-x{ width:15px; height:15px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; opacity:.55; font-size:12px; line-height:1; }
+  .note-tab:hover .note-tab-x,.note-tab.on .note-tab-x{ opacity:.9; }
+  .note-tab-x:hover{ background:color-mix(in srgb,var(--note-text) 12%,transparent); opacity:1; }
+  .note-tab-more{ height:26px; border:0; border-radius:10px; background:transparent; color:var(--note-muted);
+    padding:0 8px; cursor:pointer; font:var(--fs-xs) var(--ui); white-space:nowrap; }
+  .note-tab-more:hover,.note-tab-more.on{ background:var(--note-tab); color:var(--note-text); }
+  .note-tab-menu-wrap{ position:relative; flex:0 0 auto; }
+  .note-tab-menu{ display:none; position:absolute; z-index:55; top:30px; left:0; width:190px; max-height:240px; overflow:auto;
+    padding:5px; border:1px solid var(--note-border); border-radius:9px; background:var(--note-panel); box-shadow:0 10px 28px rgba(0,0,0,.18); }
+  .note-tab-menu.open{ display:block; }
+  .note-tab-menu-row{ width:100%; min-height:28px; display:flex; align-items:center; gap:7px; border:0; border-radius:7px; background:transparent;
+    color:var(--note-text); padding:5px 6px 5px 8px; text-align:left; font:12px var(--ui); cursor:pointer; }
+  .note-tab-menu-row:hover,.note-tab-menu-row.on{ background:var(--note-tab); }
+  .note-tab-menu-row span:first-child{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .note-tab-menu-row .note-tab-x{ color:var(--note-muted); }
   .note-btn{ width:27px; height:27px; border:0; border-radius:50%; background:transparent; color:var(--note-btn);
     display:grid; place-items:center; cursor:pointer; font:14px/1 var(--ui); flex-shrink:0; }
   .note-btn:hover{ background:var(--note-tab); color:var(--note-text); }
@@ -3563,6 +3580,31 @@
     localStorage.setItem("sazNoteActive",noteId);
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
+  function safeCloudUiPayload(ui=state.ui||{}){
+    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","contextMode","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
+    const data={};
+    allowed.forEach(key=>{
+      const value=ui[key];
+      if(value===undefined) return;
+      if(key==="browserTabs") data[key]=Array.isArray(value)?value.slice(0,12).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140)})):[];
+      else if(key==="browserHistory") data[key]=Array.isArray(value)?value.slice(-80).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140),at:Number(tab.at||0)})):[];
+      else if(key==="expandedSections") data[key]=Array.isArray(value)?value.slice(0,10).map(String):[];
+      else if(key==="browserPerms"&&value&&typeof value==="object") data[key]={downloads:value.downloads!==false,camera:!!value.camera,mic:!!value.mic,geo:!!value.geo};
+      else if(["string","boolean","number"].includes(typeof value)) data[key]=value;
+    });
+    return { data, updatedAt:Number(localStorage.getItem("booleanCloudUiUpdatedAt")||0) };
+  }
+  async function applyCloudUiPayload(remoteUi){
+    if(!remoteUi||typeof remoteUi!=="object") return;
+    const remoteAt=Number(remoteUi.updatedAt||0);
+    const localAt=Number(localStorage.getItem("booleanCloudUiUpdatedAt")||0);
+    const data=remoteUi.data&&typeof remoteUi.data==="object"?remoteUi.data:{};
+    if(!remoteAt || remoteAt<=localAt || !Object.keys(data).length) return;
+    state.ui={...(state.ui||{}),...data};
+    localStorage.setItem("booleanCloudUiUpdatedAt",String(remoteAt));
+    applyUi(state.ui);
+    await fetch("/api/config",{method:"POST",body:JSON.stringify({ui:data})}).catch(()=>{});
+  }
   function scheduleCloudNoteSync(){
     if(!adminCloudNotesEnabled()) return;
     clearTimeout(cloudNoteTimer);
@@ -3579,13 +3621,15 @@
   function cloudNotePayload(){
     return {
       notes:notes.map(n=>({id:n.id,title:n.title||"Note",html:n.html||"",autoNamed:n.autoNamed===true||isDefaultNoteTitle(n.title),createdAt:Number(n.createdAt||0),updatedAt:Number(n.updatedAt||0)})),
-      deleted:{...noteDeletes}
+      deleted:{...noteDeletes},
+      ui:safeCloudUiPayload()
     };
   }
   function canonicalCloudNotes(value){
     const list=(Array.isArray(value?.notes)?value.notes:[]).map(n=>({id:String(n.id||""),title:String(n.title||"Note"),html:String(n.html||""),autoNamed:n.autoNamed!==false,createdAt:Number(n.createdAt||0),updatedAt:Number(n.updatedAt||0)})).sort((a,b)=>a.id.localeCompare(b.id));
     const deleted=Object.fromEntries(Object.entries(value?.deleted||{}).map(([id,at])=>[id,Number(at||0)]).sort(([a],[b])=>a.localeCompare(b)));
-    return JSON.stringify({notes:list,deleted});
+    const ui=value?.ui&&typeof value.ui==="object"?{updatedAt:Number(value.ui.updatedAt||0),data:value.ui.data||{}}:{updatedAt:0,data:{}};
+    return JSON.stringify({notes:list,deleted,ui});
   }
   function mergeCloudNotes(remote){
     const mergedDeletes={...noteDeletes};
@@ -3600,6 +3644,24 @@
     });
     const localOrder=new Map(notes.map((n,i)=>[n.id,i]));
     let merged=[...byId.values()].filter(n=>Number(mergedDeletes[n.id]||0)<n.updatedAt);
+    const hasNoteContent=(n)=>noteTextFromHtml(n.html).trim() || /<img\b/i.test(n.html||"");
+    const realNotes=merged.filter(hasNoteContent);
+    if(realNotes.length){
+      merged=merged.filter(n=>!isDefaultNoteTitle(n.title) || hasNoteContent(n));
+    } else {
+      const emptyDefaults=merged.filter(n=>isDefaultNoteTitle(n.title) && !hasNoteContent(n));
+      if(emptyDefaults.length>1){
+        const keep=emptyDefaults.reduce((best,n)=>n.id===noteId || (!best || n.updatedAt>best.updatedAt)?n:best,null);
+        merged=merged.filter(n=>!(isDefaultNoteTitle(n.title) && !hasNoteContent(n) && n.id!==keep.id));
+      }
+    }
+    const byContent=new Map();
+    merged.forEach(n=>{
+      const key=(String(n.title||"").trim().toLowerCase()+"\n"+String(n.html||"").trim()).slice(0,12000);
+      const old=byContent.get(key);
+      if(!old || n.updatedAt>old.updatedAt) byContent.set(key,n);
+    });
+    merged=[...byContent.values()];
     merged.sort((a,b)=>(localOrder.get(a.id)??10000)-(localOrder.get(b.id)??10000)||a.createdAt-b.createdAt);
     if(!merged.length) merged=[{id:crypto.randomUUID(),title:"Note 1",html:"",autoNamed:true,createdAt:Date.now(),updatedAt:Date.now()}];
     const changed=canonicalCloudNotes({notes,deleted:noteDeletes})!==canonicalCloudNotes({notes:merged,deleted:mergedDeletes});
@@ -3635,6 +3697,7 @@
     const remoteCanonical=canonicalCloudNotes(data);
     cloudNoteRevision=Number(data.revision||0);
     mergeCloudNotes(data);
+    await applyCloudUiPayload(data.ui);
     cloudNotesHydrated=true;
     localStorage.setItem("booleanCloudNoteRevision:"+account,String(cloudNoteRevision));
     if(canonicalCloudNotes(cloudNotePayload())!==remoteCanonical) await writeCloudNotes();
@@ -3743,7 +3806,86 @@
   }
   function renderNoteTabs(){
     const tabs=$("noteTabs"); tabs.innerHTML="";
-    notes.forEach(n=>{ const b=document.createElement("button"); const active=n.id===noteId; b.className="note-tab"+(active?" on":""); b.textContent=n.title||"Note"; b.title=active?"Rename note":(n.title||"Note"); b.onclick=()=>{ if(active) editNoteTitle(b,n); else { saveNotes(); noteId=n.id; loadNote(); } }; tabs.appendChild(b); });
+    const active=activeNote();
+    const makeTab=(n,{isActive=false}={})=>{
+      const b=document.createElement("button");
+      b.type="button";
+      b.className="note-tab"+(isActive?" on":"");
+      b.title=isActive?"Rename note":(n.title||"Note");
+      const label=document.createElement("span");
+      label.className="note-tab-title";
+      label.textContent=n.title||"Note";
+      b.appendChild(label);
+      if(notes.length>1){
+        const close=document.createElement("span");
+        close.className="note-tab-x";
+        close.textContent="x";
+        close.title="Close note";
+        close.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); deleteNoteById(n.id); };
+        b.appendChild(close);
+      }
+      b.onclick=()=>{ if(isActive) editNoteTitle(b,n); else { saveNotes(); noteId=n.id; loadNote(); } };
+      return b;
+    };
+    if(notes.length<=3){
+      notes.forEach(n=>tabs.appendChild(makeTab(n,{isActive:n.id===noteId})));
+      return;
+    }
+    tabs.appendChild(makeTab(active,{isActive:true}));
+    const wrap=document.createElement("div");
+    wrap.className="note-tab-menu-wrap";
+    const more=document.createElement("button");
+    more.type="button";
+    more.className="note-tab-more";
+    more.textContent=notes.length+" notes";
+    more.title="Show all notes";
+    const menu=document.createElement("div");
+    menu.className="note-tab-menu";
+    notes.forEach(n=>{
+      const row=document.createElement("button");
+      row.type="button";
+      row.className="note-tab-menu-row"+(n.id===noteId?" on":"");
+      const name=document.createElement("span");
+      name.textContent=n.title||"Note";
+      row.appendChild(name);
+      if(notes.length>1){
+        const close=document.createElement("span");
+        close.className="note-tab-x";
+        close.textContent="x";
+        close.title="Close note";
+        close.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); menu.classList.remove("open"); more.classList.remove("on"); deleteNoteById(n.id); };
+        row.appendChild(close);
+      }
+      row.onclick=()=>{ saveNotes(); noteId=n.id; menu.classList.remove("open"); more.classList.remove("on"); loadNote(); };
+      menu.appendChild(row);
+    });
+    more.onclick=(e)=>{ e.stopPropagation(); const open=!menu.classList.contains("open"); menu.classList.toggle("open",open); more.classList.toggle("on",open); };
+    wrap.appendChild(more); wrap.appendChild(menu); tabs.appendChild(wrap);
+  }
+  function noteHasContent(n){
+    return !!(noteTextFromHtml(n?.html||"").trim() || /<img\b/i.test(n?.html||""));
+  }
+  async function deleteNoteById(id,{confirm=true}={}){
+    const target=notes.find(n=>n.id===id);
+    if(!target) return;
+    if(notes.length<=1){
+      noteId=target.id;
+      $("noteEditor").innerHTML="";
+      target.html="";
+      target.updatedAt=Date.now();
+      saveNotes();
+      renderNoteTabs();
+      return;
+    }
+    if(confirm && noteHasContent(target)){
+      const ok=await appConfirm("Delete note?","\""+(target.title||"This note")+"\" will be permanently deleted. This can't be undone.","Delete",true);
+      if(!ok) return;
+    }
+    noteDeletes[id]=Date.now();
+    notes=notes.filter(n=>n.id!==id);
+    if(noteId===id) noteId=notes[0]?.id;
+    loadNote();
+    saveNotes();
   }
   function loadNote(){
     if(!notes.length){ notes=[{id:crypto.randomUUID(),title:"Note 1",html:"",autoNamed:true,createdAt:Date.now(),updatedAt:Date.now()}]; noteId=notes[0].id; }
@@ -3806,7 +3948,7 @@
   $("notesToggle").onclick=()=>openNotes(!document.body.classList.contains("notes-on"),{remember:true});
   $("noteClose").onclick=()=>openNotes(false,{remember:true});
   $("noteNew").onclick=()=>{ saveNotes(); const n={id:crypto.randomUUID(),title:"Note "+(notes.length+1),html:"",autoNamed:true,createdAt:Date.now(),updatedAt:Date.now()}; notes.push(n); noteId=n.id; loadNote(); saveNotes(); };
-  $("noteDelete").onclick=async()=>{ if(notes.length<=1){ $("noteEditor").innerHTML=""; saveNotes(); return; } if(!await appConfirm("Delete note?","\""+(activeNote().title||"This note")+"\" will be permanently deleted. This can't be undone.","Delete",true)) return; noteDeletes[noteId]=Date.now(); notes=notes.filter(n=>n.id!==noteId); noteId=notes[0].id; loadNote(); saveNotes(); };
+  $("noteDelete").onclick=()=>deleteNoteById(noteId);
   $("noteRename").onclick=()=>{ const n=activeNote(); const btn=[...$("noteTabs").querySelectorAll(".note-tab")].find(b=>b.classList.contains("on")); editNoteTitle(btn,n); };
   // undo / redo on the note editor
   $("noteUndo").onclick=()=>{ $("noteEditor").focus(); document.execCommand("undo"); saveNotes(); };
@@ -4613,7 +4755,7 @@ Boolean may store task objectives, plans, debugging evidence, tool results, chec
 Boolean can be used locally without an account. Cloud AI uses an API key you supply for a supported third-party provider and does not require Boolean sign-in. Provider terms, usage limits, and charges apply. Boolean account sign-in is separate from AI-provider access.
 
 4. PRIVACY
-Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web research, image generation, remote MCP or HTTP-agent connections, scheduled webhooks, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Signed-in Boolean administrators also synchronize notepad content through the Boolean account service so it is available on their other computers. Scheduled online actions send their configured task and relevant context when they run. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boolean or otherwise supports that use.
+Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web research, image generation, remote MCP or HTTP-agent connections, scheduled webhooks, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Signed-in Boolean administrators also synchronize notepad content and safe app preferences, such as layout, theme, notepad color, and browser state, through the Boolean account service so they are available on their other computers. Provider API keys and connector tokens remain local unless Boolean later adds a separate encrypted key-vault feature. Scheduled online actions send their configured task and relevant context when they run. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boolean or otherwise supports that use.
 
 Optional Gmail and Outlook connectors use OAuth and send mail requests directly from this PC to Google or Microsoft. Draft-only disables sending; otherwise every send requires separate confirmation. Cloudflare Email Service may deliver Boolean account, security, support, or service notices.
 
@@ -4630,7 +4772,7 @@ To the maximum extent permitted by law, Boolean, saz3 Labs, and its developers a
 Boolean - Version 1.2, July 17, 2026
 
 THE SHORT VERSION
-Boolean's local mode runs entirely on your computer. No telemetry, analytics, tracking, or crash reports. Your code, prompts, files, screenshots, and notes stay on your machine unless you choose a feature that needs the internet, such as cloud AI, Google Sign-In, model downloads, web browsing, remote MCP servers, software updates, or installation tools. Signed-in Boolean administrators synchronize notepad content through the Boolean account service for cross-computer access.
+Boolean's local mode runs entirely on your computer. No telemetry, analytics, tracking, or crash reports. Your code, prompts, files, screenshots, and notes stay on your machine unless you choose a feature that needs the internet, such as cloud AI, Google Sign-In, model downloads, web browsing, remote MCP servers, software updates, or installation tools. Signed-in Boolean administrators synchronize notepad content and safe app preferences through the Boolean account service for cross-computer access. API keys and connector tokens stay local unless a future encrypted key-vault feature is enabled.
 
 WHAT STAYS ON YOUR COMPUTER
 - Conversations and chat history saved locally
@@ -4641,7 +4783,8 @@ WHAT STAYS ON YOUR COMPUTER
 - HTTP-agent and API connector addresses and credentials you save
 - Optional Gmail/Outlook OAuth client IDs and tokens
 - Boolean account session token after Google Sign-In
-- Notepad content, except while signed in as an administrator using admin notepad sync
+- Notepad content and safe app preferences, except while signed in as an administrator using admin sync
+- Provider API keys and connector tokens. These remain local and are not included in admin sync.
 - Files the agent reads or writes at your direction
 - Task objectives, plans, debugging evidence, tool results, checkpoints, schedules, selected models, and approval settings used to continue or automate work
 - Generated documents, spreadsheets, presentations, PDFs, images, and other local artifacts
@@ -4649,7 +4792,7 @@ WHAT STAYS ON YOUR COMPUTER
 WHAT BOOLEAN RECEIVES
 When you use only local models, Boolean receives nothing.
 
-If you choose optional Boolean account sign-in, Boolean's account service may receive and store the minimum identity and session data needed to provide the account: Google account identifier, email, display name, profile image, and session records. For signed-in administrators it also stores synchronized notepad titles, content, embedded images, timestamps, and deletion records. Account sign-in does not provide or route AI model access.
+If you choose optional Boolean account sign-in, Boolean's account service may receive and store the minimum identity and session data needed to provide the account: Google account identifier, email, display name, profile image, and session records. For signed-in administrators it also stores synchronized notepad titles, content, embedded images, timestamps, deletion records, and safe UI preferences such as layout, theme, notepad color, and browser state. Account sign-in does not provide or route AI model access.
 
 WHEN DATA LEAVES YOUR MACHINE
 Data leaves only when you choose features that require it:
@@ -4665,7 +4808,7 @@ Data leaves only when you choose features that require it:
 10. Transactional messages: Cloudflare Email Service may receive the recipient and message data needed to deliver Boolean account, security, support, or service notices.
 11. Scheduled actions: online AI tasks and connector calls send their configured task and relevant context when due. Webhooks receive the payload you configured, and opening a URL contacts that site. Local commands stay on this PC unless the command itself uses the network.
 12. Image generation: prompts, source images, masks, and related instructions are sent to the online image provider you select. Locally generated or edited files stay on this PC unless you send them elsewhere.
-13. Admin notepad sync: signed-in administrators send a notepad snapshot to Boolean's account service over HTTPS so notes can merge across computers. Local saving continues if sync is unavailable. Signing out stops synchronization without deleting local notes.
+13. Admin sync: signed-in administrators send a notepad and safe-preferences snapshot to Boolean's account service over HTTPS so notes, layout, theme, notepad color, and browser state can merge across computers. API keys and connector tokens are not synced. Local saving continues if sync is unavailable. Signing out stops synchronization without deleting local notes.
 
 THIRD-PARTY SERVICES
 Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, and Stripe terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boolean or otherwise supports the user's use.
@@ -4939,7 +5082,13 @@ Optional bundled starter model:
     if(panel.classList.contains("settings-detail")&&panel.dataset.page) showSettingsSection(panel.dataset.page);
     else showSettingsHome();
   }
-  async function setUi(patch){ state.ui={...(state.ui||{}),...patch}; applyUi(state.ui); await fetch("/api/config",{method:"POST",body:JSON.stringify({ui:patch})}); }
+  async function setUi(patch){
+    state.ui={...(state.ui||{}),...patch};
+    localStorage.setItem("booleanCloudUiUpdatedAt",String(Date.now()));
+    applyUi(state.ui);
+    await fetch("/api/config",{method:"POST",body:JSON.stringify({ui:patch})});
+    scheduleCloudNoteSync();
+  }
 
   document.querySelectorAll("#settingsPanel .sechead").forEach(h=>{
     h.setAttribute("role","button");
@@ -5410,6 +5559,12 @@ Optional bundled starter model:
   document.addEventListener("pointerdown",(e)=>{
     if(!$("noteContextMenu").contains(e.target)) hideNoteContextMenu();
     if(!$("browserSelectionMenu").contains(e.target)) hideBrowserSelectionMenu();
+    const noteTabs=$("noteTabs");
+    const tabMenu=noteTabs?.querySelector(".note-tab-menu.open");
+    if(tabMenu && !noteTabs.contains(e.target)){
+      tabMenu.classList.remove("open");
+      noteTabs.querySelector(".note-tab-more.on")?.classList.remove("on");
+    }
   });
 
   (async()=>{

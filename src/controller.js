@@ -40,6 +40,7 @@ const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing
 const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b/i;
 const INSPECTION_COMMAND = /\b(?:get-content|select-string|findstr|rg\b|grep\b|regex|matches|indexof|dir\b|ls\b|type\b|cat\b)\b/i;
 const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
+const LOOP_BLOCK_REASON = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i;
 
 function cleanText(value, max = 240) {
   return String(value || "").replace(SECRET_PATTERN, "[redacted]").replace(/\s+/g, " ").trim().slice(0, max);
@@ -207,6 +208,10 @@ function isInspectionCommand(name, args = {}) {
   return INSPECTION_COMMAND.test(command);
 }
 
+function isLoopBlock(reason = "") {
+  return LOOP_BLOCK_REASON.test(String(reason || ""));
+}
+
 function commandSubject(command = "") {
   const paths = extractWindowsPaths(command)
     .map((item) => path.basename(item).toLowerCase())
@@ -244,7 +249,7 @@ export class AgentController {
     this.objective = cleanText(options.objective || saved.objective, 4000);
     this.artifactRequired = !!(options.artifactRequired || saved.artifactRequired);
     this.debugRequired = saved.debugRequired === true || (this.artifactRequired && DEBUG_REQUEST.test(this.objective));
-    this.actionRequired = !!(saved.actionRequired || this.artifactRequired || ACTION_REQUEST.test(this.objective));
+    this.actionRequired = !!(saved.actionRequired || options.actionRequired || this.artifactRequired || ACTION_REQUEST.test(this.objective));
     this.projectBound = !!(options.projectDir || saved.projectBound);
     this.taskContext = cleanText(options.taskContext || saved.taskContext, 12000);
     this.contract = inferContract(options, saved.contract || saved);
@@ -384,7 +389,11 @@ export class AgentController {
     }
     if (this.lastFailure) {
       lines.push(`Last failure: ${this.lastFailure}`);
-      lines.push("Diagnose the evidence and change strategy. Do not repeat the same failing action unchanged.");
+      if (isLoopBlock(this.lastFailure)) {
+        lines.push("LOOP RECOVERY: do not start by inspecting the same files, running another search, or checking current state again. Use the evidence already collected. The next progress step must be a targeted edit, a known build/test/check command, or a plain blocker summary.");
+      } else {
+        lines.push("Diagnose the evidence and change strategy. Do not repeat the same failing action unchanged.");
+      }
     }
     if (Object.keys(this.sourceOfTruth).length) {
       lines.push("SOURCE OF TRUTH: use the recorded edit folder, build command, deploy command, live URL, and verification URL when present. Do not substitute older folders or commands from chat history.");
@@ -456,10 +465,10 @@ export class AgentController {
     }
     const coarseFingerprint = coarseActionFingerprint(name, args);
     if (coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= 3) {
-      return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Use the evidence already collected and summarize the blocker instead of checking again." };
+      return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Do not inspect again; use the evidence already collected and take a different progress step such as a targeted edit or known build/test command." };
     }
     if (this.nonProgressCount >= 10 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
-      return { allowed: false, reason: "Tool budget reached: too many inspection steps happened without a file change or new result. Stop and summarize what is known so far." };
+      return { allowed: false, reason: "Tool budget reached: too many inspection steps happened without a file change or new result. Do not inspect again; continue from the saved evidence with a targeted edit, a known build/test command, or a concise blocker summary." };
     }
     const fingerprint = actionFingerprint(name, args);
     if ((this.actionCounts[fingerprint] || 0) >= 2 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name))) {
@@ -482,7 +491,7 @@ export class AgentController {
     this.blockedActionCounts[fingerprint] = (this.blockedActionCounts[fingerprint] || 0) + 1;
     this.consecutiveFailures++;
     this.lastFailure = `${name} blocked: ${cleanText(reason, 420)}`;
-    this.phase = "blocked";
+    this.phase = isLoopBlock(reason) ? "recovering" : "blocked";
     return {
       count: this.blockedToolCount,
       repeated: this.blockedActionCounts[fingerprint],
@@ -693,10 +702,13 @@ export class AgentController {
   continuationPrompt(reason) {
     this.phase = this.lastFailure ? "recovering" : (this.mutationCount ? "verifying" : "executing");
     this.updatedAt = Date.now();
+    const loopRecovery = isLoopBlock(reason) || isLoopBlock(this.lastFailure);
     return [
       "BOOLEAN CONTROLLER: Do not stop yet.",
       reason,
-      this.lastFailure ? "Inspect the failure, choose a different corrective action, and retry safely." : "Use the available tools to finish the missing work now.",
+      loopRecovery
+        ? "Do not inspect the same files or re-check current state. Use the saved evidence, make a targeted edit if there is enough evidence, or run the known build/test command. If neither is possible, give a concise blocker summary."
+        : this.lastFailure ? "Inspect the failure, choose a different corrective action, and retry safely." : "Use the available tools to finish the missing work now.",
       this.debugRequired
         ? "Follow the debug checkpoints in order. Record concrete reproduction, root-cause, and post-fix evidence with record_debug_evidence; do not skip directly to editing or completion."
         : "After the latest change, run a relevant test/build/check (and visual inspection for UI work). Return a concise result only when that evidence succeeds."

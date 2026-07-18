@@ -165,6 +165,7 @@ async function getAdminNotepad(request, env, session) {
   return json({
     notes: Array.isArray(payload.notes) ? payload.notes : [],
     deleted: payload.deleted && typeof payload.deleted === "object" ? payload.deleted : {},
+    ui: sanitizeUiPayload(payload.ui || {}),
     revision: Number(row.revision || 0),
     updated_at: Number(row.updated_at || 0)
   }, 200, request, env);
@@ -190,6 +191,7 @@ async function putAdminNotepad(request, env, session) {
       message: "Notes changed on another computer.",
       notes: Array.isArray(current.notes) ? current.notes : [],
       deleted: current.deleted && typeof current.deleted === "object" ? current.deleted : {},
+      ui: sanitizeUiPayload(current.ui || {}),
       revision: currentRevision,
       updated_at: Number(existing?.updated_at || 0)
     }, 409, request, env);
@@ -221,7 +223,72 @@ function sanitizeNotepadPayload(body) {
       if (cleanId && cleanAt) deleted[cleanId] = cleanAt;
     });
   }
-  return { notes, deleted };
+  return { notes, deleted, ui: sanitizeUiPayload(body?.ui || {}) };
+}
+
+function sanitizeUiPayload(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const input = source.data && typeof source.data === "object" ? source.data : {};
+  const allowed = new Set([
+    "theme",
+    "notepadTheme",
+    "noteAutoSave",
+    "noteAutoName",
+    "showTimestamps",
+    "showTokens",
+    "autoSave",
+    "keepLocalWarm",
+    "collapseLogs",
+    "referenceChatMemory",
+    "learnedMemory",
+    "notifications",
+    "contextMode",
+    "browserOpen",
+    "browserW",
+    "browserTabs",
+    "aiBrowser",
+    "systemActions",
+    "searchEngine",
+    "researchPolicy",
+    "browserPerms",
+    "browserHistory",
+    "expandedSections"
+  ]);
+  const data = {};
+  for (const [key, raw] of Object.entries(input)) {
+    if (!allowed.has(key)) continue;
+    if (key === "browserTabs") {
+      data[key] = Array.isArray(raw)
+        ? raw.slice(0, 12).map((tab) => ({
+            url: String(tab?.url || "").slice(0, 900),
+            title: String(tab?.title || "").slice(0, 140)
+          }))
+        : [];
+    } else if (key === "browserHistory") {
+      data[key] = Array.isArray(raw)
+        ? raw.slice(-80).map((tab) => ({
+            url: String(tab?.url || "").slice(0, 900),
+            title: String(tab?.title || "").slice(0, 140),
+            at: Math.max(0, Math.floor(Number(tab?.at || 0)))
+          }))
+        : [];
+    } else if (key === "expandedSections") {
+      data[key] = Array.isArray(raw) ? raw.slice(0, 10).map((item) => String(item).slice(0, 80)) : [];
+    } else if (key === "browserPerms" && raw && typeof raw === "object") {
+      data[key] = {
+        downloads: raw.downloads !== false,
+        camera: raw.camera === true,
+        mic: raw.mic === true,
+        geo: raw.geo === true
+      };
+    } else if (["string", "boolean", "number"].includes(typeof raw)) {
+      data[key] = raw;
+    }
+  }
+  return {
+    data,
+    updatedAt: Math.max(0, Math.floor(Number(source.updatedAt || 0)))
+  };
 }
 
 async function sendTransactionalEmail(env, { to, subject, text, html }) {

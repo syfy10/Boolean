@@ -69,6 +69,15 @@ test("direct action requests require a successful action result", () => {
   assert.equal(controller.evaluateCompletion("The draft was sent.").complete, true);
 });
 
+test("explicit controller action requirement blocks status-only completion", () => {
+  const controller = new AgentController({ objective: "are you checking it?", actionRequired: true });
+  assert.equal(controller.actionRequired, true);
+  assert.match(controller.evaluateCompletion("Doing it now.").reason, /not been performed/i);
+
+  controller.noteTool("mcp_call_tool", { server: "stocksignal", tool: "get_signals" }, "KMB active setup");
+  assert.equal(controller.evaluateCompletion("KMB active setup.").complete, true);
+});
+
 test("ordinary questions do not require tools", () => {
   const controller = new AgentController({ objective: "What is a Boolean value?" });
   assert.equal(controller.actionRequired, false);
@@ -287,6 +296,28 @@ test("loop guard catches repeated PowerShell inspection variants", () => {
   assert.equal(blocked.allowed, false);
   assert.match(blocked.reason, /Loop guard/i);
   assert.equal(controller.snapshot().successfulActionCount, 0);
+});
+
+test("loop guard recovery allows progress actions but blocks more inspection", () => {
+  const controller = new AgentController({
+    objective: "Finish building the WinUI app",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+
+  for (let i = 0; i < 10; i++) {
+    controller.noteTool("read_file", { path: `C:\\demo\\file${i}.cs` }, "read source");
+  }
+
+  const blocked = controller.allowTool("read_file", { path: "C:\\demo\\MainPage.xaml" });
+  assert.equal(blocked.allowed, false);
+  assert.match(blocked.reason, /Do not inspect again/i);
+
+  controller.noteBlockedTool("read_file", { path: "C:\\demo\\MainPage.xaml" }, blocked.reason);
+  assert.match(controller.prompt(), /LOOP RECOVERY/i);
+  assert.match(controller.continuationPrompt(blocked.reason), /Do not inspect the same files/i);
+  assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\MainPage.xaml" }).allowed, true);
+  assert.equal(controller.allowTool("run_command", { command: "dotnet build" }).allowed, true);
 });
 
 test("working memory tracks temporary processes and exposes a handoff report", () => {

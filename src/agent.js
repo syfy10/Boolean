@@ -384,13 +384,17 @@ const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:i
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
 const RESEARCH_REQUEST = /\b(?:current|latest|today|tonight|tomorrow|yesterday|right now|live|news|headline|weather|forecast|score|won|winner|match|game|fixture|schedule|stock|stocks|market|price|earnings|dividend|available|availability|search|look up|lookup|web|internet|source|sources|cite)\b/i;
 const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
+const CONNECTOR_CONTEXT = /\b(?:mcp|connector|stocksignal|stockunc|robinhood|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
+const CONNECTOR_ACTION_REQUEST = /\b(?:check|checking|connected|connection|connect|use|call|pull|fetch|get|see|refresh|try again|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
+const CONNECTOR_DATA_ACTION = /\b(?:pull|fetch|get|give|show|list|all|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
+const CONNECTOR_PROGRESS_FOLLOWUP = /\b(?:are you (?:checking|doing|working)|did you check|doing it now|checking it|check now|what happened|still checking|try again|refresh it)\b/i;
 // text that signals the model is describing MORE work instead of finishing it —
 // small models often narrate the next step rather than doing it and then stop
 const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|have to)\s+(?:now\s+|then\s+|also\s+)?(?:add|create|build|write|implement|update|make|set ?up|style|wire|continue|proceed|finish|start|handle|generate|scaffold|develop|do)|next step|next[,:]|let'?s\s+(?:now\s+)?(?:add|create|build|write|implement|continue|proceed|finish|do)|let us\s+(?:now\s+)?(?:add|create|build|continue|proceed|finish|do)|still (?:need|have) to|remaining\b|to-?do\b|step \d+\b|going to\s+(?:add|create|build|write|implement|make|finish|do)|shall i\b|would you like me to\b|after (?:that|this)\b|proceed to\b)/i;
 
 export function classifyTurnMode(messages, options = {}) {
   const latest = options.latestText ?? plainMessageText([...(messages || [])].reverse().find((message) => message?.role === "user"));
-  if (options.directAction || options.artifactActionRequired || options.projectDir) return "agent";
+  if (options.directAction || options.artifactActionRequired || options.connectorActionRequired || options.projectDir) return "agent";
   if (RESEARCH_REQUEST.test(latest)) return "research";
   if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "agent";
   return "chat";
@@ -424,6 +428,53 @@ export function requiresArtifactAction(messages) {
   if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return true;
   if (!ACTION_ONLY_FOLLOWUP.test(latest)) return false;
   return users.slice(-4, -1).some((text) => ARTIFACT_TARGET.test(text));
+}
+
+export function requiresConnectorContinuationAction(messages) {
+  const source = Array.isArray(messages) ? messages : [];
+  const latestUser = [...source].reverse().find((message) => message?.role === "user");
+  const latest = plainMessageText(latestUser);
+  if (!latest) return false;
+  const recent = source
+    .filter((message) => message?.role === "user" || message?.role === "assistant")
+    .slice(-8, -1)
+    .map(plainMessageText)
+    .filter(Boolean)
+    .join("\n");
+  const connectorMentioned = CONNECTOR_CONTEXT.test(latest) || CONNECTOR_CONTEXT.test(recent);
+  if (!connectorMentioned) return false;
+  return CONNECTOR_ACTION_REQUEST.test(latest) || CONNECTOR_PROGRESS_FOLLOWUP.test(latest);
+}
+
+export function requiresConnectorToolResult(messages) {
+  if (!requiresConnectorContinuationAction(messages)) return false;
+  const source = Array.isArray(messages) ? messages : [];
+  const latestUser = [...source].reverse().find((message) => message?.role === "user");
+  const latest = plainMessageText(latestUser);
+  if (CONNECTOR_DATA_ACTION.test(latest)) return true;
+  const recent = source
+    .filter((message) => message?.role === "user" || message?.role === "assistant")
+    .slice(-8, -1)
+    .map(plainMessageText)
+    .filter(Boolean)
+    .join("\n");
+  return CONNECTOR_PROGRESS_FOLLOWUP.test(latest) && /\b(?:pull|fetch|get|scanner|strategy feeds?|trade ideas?|signals?|watchlist|positions?|orders?)\b/i.test(recent);
+}
+
+function connectorNamesForPreflight(config, text) {
+  const enabled = (config?.connectors?.mcp || []).filter((item) => item.enabled !== false && item.url);
+  const source = String(text || "").toLowerCase();
+  const matches = enabled.filter((item) => {
+    const id = String(item.id || "").toLowerCase();
+    const name = String(item.name || "").toLowerCase();
+    return (id && source.includes(id)) || (name && source.includes(name)) ||
+      (source.includes("stocksignal") && `${id} ${name}`.includes("stocksignal")) ||
+      (source.includes("stock signal") && `${id} ${name}`.includes("stocksignal")) ||
+      (source.includes("stockunc") && `${id} ${name}`.includes("stock")) ||
+      (source.includes("robinhood") && `${id} ${name}`.includes("robinhood"));
+  });
+  if (matches.length) return matches.map((item) => item.name || item.id).filter(Boolean).slice(0, 3);
+  return enabled.length === 1 ? [enabled[0].name || enabled[0].id].filter(Boolean) : [];
 }
 
 function inferArtifactBootstrap(messages) {
@@ -571,9 +622,10 @@ function fitToContext(messages, budgetTokens, mode = "balanced") {
 export function estimateContext(messages, budgetTokens, mode) {
   const originalFull = approxTokens(messages);
   const artifactActionRequired = requiresArtifactAction(messages);
+  const connectorActionRequired = requiresConnectorContinuationAction(messages);
   const latestUser = [...(messages || [])].reverse().find((message) => message?.role === "user");
   const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
-  const turnMode = classifyTurnMode(messages, { artifactActionRequired, directAction });
+  const turnMode = classifyTurnMode(messages, { artifactActionRequired, connectorActionRequired, directAction });
   const r = fitToContext(focusedMessagesForTurn(messages, turnMode), budgetTokens, mode);
   return { full: originalFull, sent: r.sentTokens, saved: Math.max(0, originalFull - r.sentTokens), budget: r.budget };
 }
@@ -593,10 +645,13 @@ export async function runTurn(ctx, messages) {
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   ctx.latestUserText = plainMessageText(latestUser);
   const artifactActionRequired = requiresArtifactAction(messages);
+  const connectorActionRequired = requiresConnectorContinuationAction(messages);
+  const connectorToolResultRequired = requiresConnectorToolResult(messages);
   const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
   const turnMode = classifyTurnMode(messages, {
     latestText: ctx.latestUserText,
     artifactActionRequired,
+    connectorActionRequired,
     projectDir: ctx.projectDir,
     directAction
   });
@@ -604,6 +659,7 @@ export async function runTurn(ctx, messages) {
     objective: ctx.objective || ctx.latestUserText,
     taskContext: ctx.taskContext || "",
     artifactRequired: artifactActionRequired,
+    actionRequired: connectorToolResultRequired,
     projectDir: ctx.projectDir,
     persisted: ctx.controllerState
   });
@@ -631,7 +687,13 @@ export async function runTurn(ctx, messages) {
   const controllerStopAnswer = (result) => {
     if (!/^blocked:/i.test(String(result || ""))) return "";
     const reason = String(result || "").split(/\r?\n/)[0].replace(/^blocked:\s*/i, "").trim();
-    return `I stopped because Boolean's loop guard was triggered: ${reason}\n\nWhat I found so far is saved above. Continue only if you want me to try a different approach.`;
+    const loopGuard = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i.test(reason);
+    return [
+      `I paused because Boolean's controller blocked a loop: ${reason}`,
+      loopGuard
+        ? "The task is checkpointed. Next move should use the evidence already shown, make a targeted edit, or run a known build/test command. I should not start over by inspecting the same files again."
+        : "The task is checkpointed. Resolve the blocker or ask me to continue with a different safe approach."
+    ].join("\n\n");
   };
   const withController = (source) => source.map((message, index) => index === 0 && message?.role === "system"
     ? { ...message, content: turnMode === "agent" ? `${message.content}\n\n${controller.prompt()}` : message.content }
@@ -655,6 +717,45 @@ export async function runTurn(ctx, messages) {
     controller.evaluateCompletion(answer);
     publishController();
     return answer;
+  }
+
+  if (connectorActionRequired) {
+    const parts = [];
+    onStatus("checking configured connectors...");
+    let connectorListResult = "";
+    try {
+      connectorListResult = await executeControllerTool("list_connectors", {});
+    } catch (err) {
+      connectorListResult = `error: ${err?.message || String(err)}`;
+    }
+    parts.push(`list_connectors:\n${connectorListResult}`);
+    const preflightText = `${ctx.latestUserText}\n${messages
+      .filter((message) => message?.role === "user" || message?.role === "assistant")
+      .slice(-8, -1)
+      .map(plainMessageText)
+      .join("\n")}`;
+    for (const connector of connectorNamesForPreflight(config, preflightText)) {
+      const args = { connector };
+      let toolsResult = "";
+      try {
+        toolsResult = await executeControllerTool("mcp_list_tools", args);
+      } catch (err) {
+        toolsResult = `error: ${err?.message || String(err)}`;
+      }
+      parts.push(`mcp_list_tools(${connector}):\n${toolsResult}`);
+    }
+    messages.push({
+      role: "user",
+      content: [
+        "SYSTEM PREFLIGHT: The latest user message is about configured connectors.",
+        "Use this factual connector state before answering. Do not claim a connector or MCP access is unavailable if it is listed here.",
+        connectorToolResultRequired
+          ? "The user is asking for connector data/action. Call the relevant MCP tool or report the exact MCP blocker from the tool result."
+          : "If the user is only asking whether a connector exists, answer from this check.",
+        parts.join("\n\n")
+      ].join("\n")
+    });
+    checkpoint();
   }
 
   let bootstrapContext = "";

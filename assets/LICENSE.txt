@@ -51,10 +51,13 @@ supply for a supported third-party provider and does not require Boolean
 sign-in. The provider controls its billing, quotas, retention, and acceptable-
 use terms. Boolean does not grant free AI tokens or sell token packs in this
 version. Optional Boolean account sign-in is separate from AI-provider access.
-Signed-in Boolean administrators may synchronize notepad content through the
-Boolean account service so it is available on other computers using the same
-admin account. Local notes continue to be saved on each computer. The Privacy
-Policy describes the synchronized fields and limits.
+Signed-in Boolean administrators may synchronize notepad content and safe app
+preferences, such as layout, theme, notepad color, and browser state, through
+the Boolean account service so they are available on other computers using the
+same admin account. Provider API keys and connector tokens remain local unless
+Boolean later adds a separate encrypted key-vault feature. Local notes continue
+to be saved on each computer. The Privacy Policy describes the synchronized
+fields and limits.
 
 5. THIRD-PARTY COMPONENTS AND MODELS
 The Software includes open-source components, including Node.js and llama.cpp.
@@ -118,8 +121,9 @@ as cloud providers, Boolean account sign-in, model downloads, web research,
 image generation, remote MCP or HTTP-agent connections, scheduled webhooks,
 software updates, installation helpers, or online inspection of screenshots,
 pages, notes, and project files. Signed-in administrator accounts also send
-notepad content to Boolean's account service for cross-computer sync. Scheduled
-online actions send their configured task and relevant context when they run. Optional
+notepad content and safe app preferences to Boolean's account service for
+cross-computer sync. API keys and connector tokens are not included in that
+sync. Scheduled online actions send their configured task and relevant context when they run. Optional
 email connectors send OAuth and mail requests directly to Google or Microsoft;
 transactional Boolean notices may be delivered through Cloudflare Email Service.
 

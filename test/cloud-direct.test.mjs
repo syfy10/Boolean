@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, estimateContext, requiresArtifactAction, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, estimateContext, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -261,8 +261,39 @@ test("turn classifier chooses the smallest useful mode", () => {
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }]), "chat");
   assert.equal(classifyTurnMode([{ role: "user", content: "stock news today" }]), "research");
   assert.equal(classifyTurnMode([{ role: "user", content: "build me a tic tac toe game" }], { artifactActionRequired: true }), "agent");
+  assert.equal(classifyTurnMode([{ role: "user", content: "are you checking it?" }], { connectorActionRequired: true }), "agent");
   assert.equal(toolDefinitionsForTurnMode("chat").length, 0);
   assert.deepEqual(toolDefinitionsForTurnMode("research").map((tool) => tool.function.name).sort(), ["research_web", "web_search"]);
+});
+
+test("connector progress follow-ups stay in tool mode", () => {
+  assert.equal(requiresConnectorContinuationAction([
+    { role: "user", content: "are you okay?" }
+  ]), false);
+
+  assert.equal(requiresConnectorContinuationAction([
+    { role: "user", content: "any other trade idea/" },
+    { role: "assistant", content: "Let me check the scanner and strategy feeds separately." },
+    { role: "user", content: "are you checking it?" }
+  ]), true);
+
+  assert.equal(requiresConnectorContinuationAction([
+    { role: "user", content: "are you connected to robinhood and stocksignal?" }
+  ]), true);
+
+  assert.equal(requiresConnectorToolResult([
+    { role: "user", content: "are you connected to robinhood and stocksignal?" }
+  ]), false);
+
+  assert.equal(requiresConnectorToolResult([
+    { role: "user", content: "give me all the trade idea available from stocksignal" }
+  ]), true);
+
+  assert.equal(requiresConnectorToolResult([
+    { role: "user", content: "any other trade idea/" },
+    { role: "assistant", content: "Let me check the scanner and strategy feeds separately." },
+    { role: "user", content: "are you checking it?" }
+  ]), true);
 });
 
 test("agent tasks continue past the legacy tool-turn limit", async (t) => {

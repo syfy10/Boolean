@@ -9,15 +9,19 @@ cloud AI, Google Sign-In, model downloads, web research, image generation, or
 installation tools. Connecting a remote MCP server, HTTP agent, API connector,
 or sending a screenshot, page, note, or project file to an online provider also
 uses the network. Scheduled online actions use the network when they run. For
-signed-in Boolean administrators, notepad sync is enabled so notes can follow
-the same admin account across computers.
+signed-in Boolean administrators, sync is enabled so notes and safe app
+preferences can follow the same admin account across computers. API keys and
+connector tokens remain local unless Boolean later adds a separate encrypted
+key-vault feature.
 
 WHAT STAYS ON YOUR COMPUTER
 - Your conversations with the AI
 - AI model files stored in the .saz\models folder in your user profile
 - Any bundled starter model included with the installer
 - Your settings, including any API keys you enter, stored at
-  .saz\config.json in your user profile; protect this file like a password
+  .saz\config.json in your user profile; protect this file like a password.
+  Safe preferences such as theme, layout, notepad color, and browser state may
+  sync for signed-in administrators, but API keys do not.
 - Remote MCP server addresses and any Bearer tokens you save; connector
   secrets are stored locally and are not returned by Boolean's state API
 - HTTP-agent and API connector addresses and credentials you save; protect
@@ -28,7 +32,7 @@ WHAT STAYS ON YOUR COMPUTER
 - Your Boolean account session token after Google Sign-In, stored locally so the
   app can stay signed in; sign out to remove it
 - Your notepad content, except when signed in as an administrator with admin
-  notepad sync enabled
+  sync enabled
 - Everything the agent reads or writes at your direction
 - Task objectives, plans, debugging evidence, tool results, checkpoints,
   schedules, selected models, and approval settings used to continue or
@@ -48,7 +52,8 @@ receive and store the minimum identity and session data needed for the account:
 - Google account identifier, email, display name, and profile image
 - session records used to keep you signed in
 - for signed-in administrators, synchronized notepad titles, note content,
-  embedded note images, timestamps, and deletion records
+  embedded note images, timestamps, deletion records, and safe UI preferences
+  such as theme, layout, notepad color, and browser state
 
 WHEN DATA DOES LEAVE YOUR MACHINE
 Only in these cases, and only because you set them up:
@@ -91,12 +96,14 @@ Only in these cases, and only because you set them up:
 12. Image generation: prompts, source images, masks, and related instructions
    are sent to the online image provider you select. Generated or edited files
    remain local unless you send them elsewhere.
-13. Admin notepad sync: when a Boolean administrator is signed in, Boolean
-   sends the administrator's notepad snapshot to the Boolean account service
-   over HTTPS and stores it in the account database. This allows the same notes
-   to merge across computers signed in to that admin account. Local saving
-   continues if sync is unavailable. Embedded images count toward the sync size
-   limit. Signing out stops synchronization but does not erase local notes.
+13. Admin sync: when a Boolean administrator is signed in, Boolean sends the
+   administrator's notepad and safe-preferences snapshot to the Boolean account
+   service over HTTPS and stores it in the account database. This allows notes,
+   layout, theme, notepad color, and browser state to merge across computers
+   signed in to that admin account. API keys and connector tokens are not
+   synced. Local saving continues if sync is unavailable. Embedded images count
+   toward the sync size limit. Signing out stops synchronization but does not
+   erase local notes.
 
 THIRD-PARTY PROVIDERS AND CONNECTIONS
 OpenAI, Anthropic, Z.AI, Hugging Face, image providers, MCP/HTTP-agent/API
@@ -111,8 +118,8 @@ SOFTWARE UPDATE DATA
 Update checks may reveal standard connection information, including your IP
 address, app version, and user-agent, to GitHub or its delivery infrastructure.
 Update checks do not upload your chats, prompts, files, notepad content, API
-keys, or local model data. Admin notepad sync is a separate account feature and
-is not part of update checking. Before installing an update after the app
+keys, or local model data. Admin sync is a separate account feature and is not
+part of update checking. Before installing an update after the app
 closes, Boolean backs up key local settings and chat data on your computer.
 
 THIRD-PARTY CLOUD USAGE
