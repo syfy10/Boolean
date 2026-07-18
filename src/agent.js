@@ -122,6 +122,32 @@ export function systemPrompt(projectsDir = "", fullAccess = false, config = null
   return cleanSystemPrompt(projectsDir, fullAccess, connectors, learned);
 }
 
+// Load per-project rules from BOOLEAN.md or .boolean/rules.md. These teach
+// Boolean the project's coding style, commands, architecture, and constraints
+// so it doesn't need to re-discover them every turn. Capped to 4 KB.
+const MAX_RULES_BYTES = 4096;
+export function loadProjectRules(projectDir) {
+  try {
+    if (!projectDir || !fs.existsSync(projectDir)) return "";
+    const candidates = [
+      path.join(projectDir, "BOOLEAN.md"),
+      path.join(projectDir, ".boolean", "rules.md")
+    ];
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        let text = fs.readFileSync(candidate, "utf8").trim();
+        if (!text) return "";
+        // Strip a leading markdown H1 title to avoid redundancy.
+        text = text.replace(/^#\s+.+\r?\n?/, "").trim();
+        if (text.length > MAX_RULES_BYTES) text = text.slice(0, MAX_RULES_BYTES) + "\n…(rules truncated)";
+        const label = path.basename(candidate) === "rules.md" ? ".boolean/rules.md" : "BOOLEAN.md";
+        return `PROJECT RULES (from ${label}):\n${text}`;
+      }
+    }
+  } catch { /* ignore */ }
+  return "";
+}
+
 // Compact file map for project chats. Small local models rarely explore a
 // codebase on their own, so every project run starts with this orientation
 // instead of a blind folder path. Capped so it stays a few hundred tokens.
@@ -159,6 +185,8 @@ export function projectBrief(projectDir) {
       "Work on the files in THIS folder. Read a file with read_file before changing it,",
       "edit with write_file, and verify changes with run_command before claiming success."
     ];
+    const rules = loadProjectRules(projectDir);
+    if (rules) header.push(rules);
     if (!lines.length) return [...header, "The folder is currently empty."].join("\n");
     return [...header, "File map:", ...lines].join("\n");
   } catch {
@@ -1197,6 +1225,7 @@ export async function runSubagent(parentCtx, task, options = {}) {
   const workspaceDir = options.workspaceDir || cfg.projectsDir;
   const childConfig = workspaceDir === cfg.projectsDir ? cfg : { ...cfg, projectsDir: workspaceDir };
   const sys = systemPrompt(workspaceDir, childConfig.autoApprove, childConfig) +
+    (options.workspaceDir ? loadProjectRules(options.workspaceDir) : "") +
     "\n\nYou are a focused SUB-AGENT handling ONE task for the main assistant. " +
     "Use your tools to complete it, then reply with a concise result the main assistant can use. " +
     "Do not ask questions; make reasonable assumptions and finish." +

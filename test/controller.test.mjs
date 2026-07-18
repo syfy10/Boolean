@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { AgentController } from "../src/controller.js";
+import { loadProjectRules, projectBrief } from "../src/agent.js";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 
 test("artifact tasks cannot complete before a change and post-change verification", () => {
   const controller = new AgentController({
@@ -364,4 +368,47 @@ test("working memory tracks temporary processes and exposes a handoff report", (
   assert.match(controller.handoffReport(), /Open processes: preview/);
   controller.noteTool("stop_process", { name: "preview" }, "stopped 'preview'");
   assert.doesNotMatch(controller.handoffReport(), /Open processes: preview/);
+});
+
+test("project rules load from BOOLEAN.md and inject into project brief", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-rules-"));
+  try {
+    fs.writeFileSync(path.join(dir, "BOOLEAN.md"), "# My Project\n\nBuild with foo --bar\nNever deploy.");
+    const rules = loadProjectRules(dir);
+    assert.match(rules, /PROJECT RULES/);
+    assert.match(rules, /Build with foo --bar/);
+    assert.match(rules, /Never deploy/);
+    assert.doesNotMatch(rules, /^# My Project/m, "H1 title should be stripped");
+
+    // projectBrief should include rules + file map
+    fs.writeFileSync(path.join(dir, "main.js"), "console.log(1);");
+    const brief = projectBrief(dir);
+    assert.match(brief, /PROJECT RULES/);
+    assert.match(brief, /Build with foo --bar/);
+    assert.match(brief, /File map:/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("project rules load from .boolean/rules.md fallback", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-rules2-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".boolean"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".boolean", "rules.md"), "Style: use tabs.");
+    const rules = loadProjectRules(dir);
+    assert.match(rules, /\.boolean\/rules\.md/);
+    assert.match(rules, /use tabs/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("project rules return empty when no rules file exists", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-norules-"));
+  try {
+    assert.equal(loadProjectRules(dir), "");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
