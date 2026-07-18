@@ -29,7 +29,8 @@ test("Z.AI Coding Plan resolves through its dedicated endpoint", async () => {
     base: "https://api.z.ai/api/coding/paas/v4",
     apiKey: "test-key",
     model: "GLM-5.1",
-    provider: "zaiCoding"
+    provider: "zaiCoding",
+    maxRetries: 3
   });
   assert.equal(await backendUp(config), true);
 });
@@ -60,7 +61,8 @@ test("generic API connections do not require an extra approval toggle", async ()
     base: "https://models.example.com/v1",
     apiKey: "test-key",
     model: "example-chat",
-    provider: "customApi"
+    provider: "customApi",
+    maxRetries: 3
   });
   assert.equal(await backendUp(otherProvider), true);
 });

@@ -5,7 +5,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import * as sea from "node:sea";
 import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
@@ -61,6 +61,12 @@ async function readBody(req) {
   let data = "";
   for await (const chunk of req) data += chunk;
   return data ? JSON.parse(data) : {};
+}
+
+async function readRawBody(req) {
+  let data = "";
+  for await (const chunk of req) data += chunk;
+  return data;
 }
 
 function publicCloudBackend(config) {
@@ -991,6 +997,157 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const t = newThread({ kind: "project", title: path.basename(dir), projectDir: dir });
         persist();
         json({ id: t.id, name: t.title, projectDir: dir });
+        return;
+      }
+
+      // ── Diagnostics ──
+      if (req.method === "GET" && p === "/api/diagnostics") {
+        const results = {};
+        const spawnCheck = (cmd, args) => {
+          try {
+            const r = spawnSync(cmd, args, { encoding: "utf8", timeout: 4000, shell: args.length === 0 });
+            return { ok: r.status === 0, out: (r.stdout || "").trim().split("\n")[0].slice(0, 80) };
+          } catch(e) { return { ok: false, out: "not found" }; }
+        };
+
+        // Provider/backend
+        const provider = config.provider || "local";
+        results.provider = { status: "ok", label: provider === "local" ? "Local engine" : provider, detail: config.backendUp === false ? "needs setup" : "ready" };
+
+        // Local model
+        const modelFile = config.model || "";
+        results.localModel = { status: modelFile ? "ok" : "warn", label: modelFile || "No model selected", detail: modelFile ? "available" : "select a model" };
+
+        // Git
+        const git = spawnCheck("git", ["--version"]);
+        results.git = { status: git.ok ? "ok" : "err", label: git.ok ? git.out : "not installed", detail: git.ok ? "ready" : "install Git" };
+
+        // Node
+        const node = spawnCheck("node", ["--version"]);
+        results.node = { status: node.ok ? "ok" : "err", label: node.ok ? node.out : "not installed", detail: node.ok ? "ready" : "needs Node.js" };
+
+        // WebView2 / shell
+        results.webview = { status: "ok", label: config.appVersion || "0.9.x", detail: "running" };
+
+        // Tool permissions
+        results.permissions = {
+          status: "ok",
+          label: (config.fullAccess ? "Full access" : "Standard"),
+          detail: config.fullAccess ? "file + network + commands" : "ask before risky actions"
+        };
+
+        // Cloud budget
+        const budget = config.cloud?.monthlyBudget || 0;
+        results.cloudBudget = {
+          status: budget > 0 ? "ok" : "idle",
+          label: budget > 0 ? "$" + budget + "/mo" : "no limit",
+          detail: budget > 0 ? "configured" : "unlimited"
+        };
+
+        json({ ok: true, results });
+        return;
+      }
+
+      // ── Export logs ──
+      if (req.method === "GET" && p === "/api/export-logs") {
+        const logs = [];
+        try {
+          const logDir = path.join(path.dirname(process.execPath), "..", "logs");
+          if (fs.existsSync(logDir)) {
+            for (const f of fs.readdirSync(logDir).filter(f => f.endsWith(".log")).slice(-3)) {
+              logs.push({ file: f, content: fs.readFileSync(path.join(logDir, f), "utf8").slice(-5000) });
+            }
+          }
+        } catch(e) {}
+        json({ ok: true, logs, timestamp: new Date().toISOString() });
+        return;
+      }
+
+      // ── Project status (dashboard data) ──
+      if (req.method === "GET" && p === "/api/project-status") {
+        const t = threads.get(activeThreadId);
+        const projectDir = t?.projectDir || "";
+        let branch = null, changedFiles = [];
+        if (projectDir) {
+          try {
+            const gitResult = spawnSync("git", ["status", "--porcelain=v1", "-b"], { cwd: projectDir, encoding: "utf8", timeout: 4000 });
+            if (gitResult.status === 0 && gitResult.stdout) {
+              const lines = gitResult.stdout.split("\n");
+              const branchLine = lines.find(l => l.startsWith("## "));
+              if (branchLine) { const m = branchLine.match(/## (.+?)(\.\.|$)/); branch = m ? m[1].trim() : null; }
+              for (const line of lines) {
+                if (!line || line.startsWith("##")) continue;
+                const status = line[0] === "A" ? "added" : line[0] === "D" ? "deleted" : "modified";
+                const file = line.slice(3).trim();
+                if (file) changedFiles.push({ path: file, status });
+              }
+            }
+          } catch(e) { /* no git */ }
+        }
+        json({ ok: true, projectName: t?.title || "No project", branch, changedFiles,
+          task: t?.task || null, taskState: t?.taskState || "idle", nextAction: t?.nextAction || null,
+          serverRunning: !!(globalThis._bgServers?.size > 0), testStatus: null, testState: "idle" });
+        return;
+      }
+
+      // ── Stripe billing endpoints ──
+      if (req.method === "GET" && p === "/api/billing/plans") {
+        json({ ok: true, plans: [
+          { id: "free", name: "Free", price: 0, credits: 1000, features: ["Local AI", "1 cloud credit/day", "Community support"] },
+          { id: "pro", name: "Pro", price: 12, credits: 500000, features: ["Everything in Free", "500K cloud credits/mo", "Priority models", "Email support"] },
+          { id: "team", name: "Team", price: 39, credits: 2000000, features: ["Everything in Pro", "2M cloud credits/mo", "Shared workspace", "Priority support"] }
+        ], current: config.cloud?.plan || "free" });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/billing/checkout") {
+        const body = await readBody(req);
+        const planId = String(body.planId || "").trim();
+        const validPlans = ["pro", "team"];
+        if (!validPlans.includes(planId)) return json({ error: "Invalid plan." }, 400);
+        const key = process.env.STRIPE_SECRET_KEY || config.cloud?.stripeKey || "";
+        if (!key) return json({ error: "Billing not configured. Set STRIPE_SECRET_KEY." }, 503);
+        try {
+          const prices = { pro: "price_pro_monthly", team: "price_team_monthly" };
+          const resp = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              "mode": "subscription",
+              "line_items[0][price]": prices[planId],
+              "line_items[0][quantity]": "1",
+              "success_url": body.successUrl || `http://localhost:${server.address()?.port || 0}/?billing=success`,
+              "cancel_url": body.cancelUrl || `http://localhost:${server.address()?.port || 0}/?billing=cancel`,
+            }).toString()
+          });
+          const session = await resp.json();
+          if (!resp.ok) return json({ error: session.error?.message || "Stripe checkout failed." }, 502);
+          json({ ok: true, url: session.url, sessionId: session.id });
+        } catch(e) { json({ error: "Could not reach Stripe: " + e.message }, 502); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/billing/webhook") {
+        const raw = await readRawBody(req);
+        const key = process.env.STRIPE_SECRET_KEY || config.cloud?.stripeKey || "";
+        const sig = req.headers["stripe-signature"] || "";
+        if (!key) return json({ error: "Webhooks not configured." }, 503);
+        try {
+          const event = JSON.parse(raw);
+          if (event.type === "checkout.session.completed") {
+            const plan = event.data?.object?.metadata?.plan || "pro";
+            config.cloud = config.cloud || {};
+            config.cloud.plan = plan;
+            persist();
+          }
+          json({ received: true });
+        } catch(e) { json({ error: "Invalid webhook payload." }, 400); }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/billing/status") {
+        const plan = config.cloud?.plan || "free";
+        json({ ok: true, plan, creditsUsed: 0, creditsLimit: plan === "free" ? 1000 : plan === "pro" ? 500000 : 2000000 });
         return;
       }
 
