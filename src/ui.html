@@ -1564,7 +1564,7 @@
               <button class="minibtn dangerbtn" id="resetusage" style="width:100%;margin-top:4px">Reset token stats</button>
             </div>
           </div>
-          <div class="setrow" id="budgetRow"><div>Monthly budget<div class="hint">$0 = no limit, warns at 80%</div></div>
+          <div class="setrow" id="budgetRow"><div>Monthly budget<div class="hint">$0 = no limit. Cloud models pause at the limit; warns at 80%.</div></div>
             <div style="display:flex;align-items:center;gap:4px"><span style="color:var(--dim)">$</span><input type="number" id="budgetLimitInput" min="0" step="0.50" style="width:70px" placeholder="0"></div>
           </div>
           <div class="hint" id="ctxHint" style="display:none">32,768 tokens</div>
@@ -4928,7 +4928,7 @@
     else if(ev.type==="notepadControl"){ executeNotepadControl(ev.id,ev.command); }
     else if(ev.type==="usage"){ if(showing){ const u=makeUsage(ev); if(u) insertAbove(u); } }
     else if(ev.type==="budget"){
-      if(ev.level==="exceeded") tempToast("Monthly budget exceeded: $"+(ev.spent||0).toFixed(2)+" of $"+(ev.limit||0).toFixed(2)+". Cloud calls continue but please review your usage.");
+      if(ev.level==="exceeded") tempToast("Monthly budget exceeded: $"+(ev.spent||0).toFixed(2)+" of $"+(ev.limit||0).toFixed(2)+". Cloud models are paused. Raise the budget in Settings or switch to a local model.");
       else if(ev.level==="warning") tempToast("Approaching monthly budget: "+(ev.pct||0)+"% of $"+(ev.limit||0).toFixed(2)+" used.");
     }
     else if(ev.type==="error"){ run.outcome="error"; if(showing) insertAbove(makeErr(ev)); }

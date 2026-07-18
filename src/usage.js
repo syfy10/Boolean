@@ -102,6 +102,14 @@ export function checkBudget(limit, date = new Date()) {
 }
 
 /**
+ * True when the monthly cloud budget is set and spending has reached it.
+ * Use this as a hard gate before any paid cloud model call.
+ */
+export function budgetExceeded(limit, date = new Date()) {
+  return checkBudget(limit, date).level === "exceeded";
+}
+
+/**
  * Summary for the Settings panel. Computes lifetime totals, per-model rows with
  * cost, total actual cost, and estimated savings vs the reference model
  * (what the same tokens WOULD have cost on that model, minus what they did).

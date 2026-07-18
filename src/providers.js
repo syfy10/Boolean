@@ -3,6 +3,7 @@
 // Anthropic's OpenAI-compatible endpoint.
 import * as engine from "./engine.js";
 import { CLOUD } from "./config.js";
+import { budgetExceeded } from "./usage.js";
 
 export function providerBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
@@ -43,6 +44,13 @@ export async function resolveProviderTarget(config, provider = config.provider, 
     const base = providerBaseUrl(p.baseUrl);
     if (!base || !p.model) {
       throw new Error(`${CLOUD[provider]} needs an endpoint and model in Settings.`);
+    }
+    if (budgetExceeded(config.budgetLimit || 0)) {
+      throw new Error(
+        `Monthly cloud budget of ${(config.budgetLimit || 0).toFixed(2)} has been reached. ` +
+        "Cloud models are paused until next month or until you raise the budget in Settings > Usage. " +
+        "Local models remain available — switch to a local model in Settings to continue working."
+      );
     }
     return { base, apiKey: p.apiKey, model: p.model, provider };
   }
