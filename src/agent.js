@@ -445,10 +445,57 @@ export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false,
 
 function focusedMessagesForTurn(messages, mode) {
   const focused = focusConversation(messages);
-  if (mode === "agent") return focused;
+  if (mode === "agent") return withRecentTaskStatusMemory(focused, messages);
   const system = focused[0];
   const recent = focused.slice(1).slice(-(mode === "research" ? 10 : 6));
   return [system, ...recent];
+}
+
+const STATUS_FOLLOWUP = /\b(?:finish|continue|do|build|make|implement|fix|handle|work on|start)\b[\s\S]{0,80}\b(?:\d+(?:\s*[-–]\s*\d+)?|remaining|missing|those|that|them|next)\b/i;
+const STATUS_REPORT_HINT = /\b(?:real status|roadmap|status|implemented|built|not started|missing|remaining|line \d+|files changed|checks|deploy)\b/i;
+const STATUS_TABLE_HINT = /\|\s*(?:roadmap item|item|status|what changed|files?|checks?)\s*\|/i;
+
+export function recentTaskStatusMemory(messages) {
+  if (!Array.isArray(messages) || messages.length < 3) return "";
+  let latestUserIndex = -1;
+  for (let i = messages.length - 1; i > 0; i--) {
+    if (messages[i]?.role === "user" && !/^SYSTEM PREFLIGHT:/i.test(plainMessageText(messages[i]))) {
+      latestUserIndex = i;
+      break;
+    }
+  }
+  if (latestUserIndex < 1) return "";
+  const latest = plainMessageText(messages[latestUserIndex]);
+  if (!STATUS_FOLLOWUP.test(latest)) return "";
+
+  for (let i = latestUserIndex - 1; i > Math.max(0, latestUserIndex - 12); i--) {
+    if (messages[i]?.role !== "assistant") continue;
+    const text = plainMessageText(messages[i]).trim();
+    if (!text || text.length < 80) continue;
+    if (!STATUS_TABLE_HINT.test(text) && !STATUS_REPORT_HINT.test(text)) continue;
+    const compact = text
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]+\n/g, "\n")
+      .trim();
+    return compact.length > 3000 ? `${compact.slice(0, 3000)}\n[status report clipped]` : compact;
+  }
+  return "";
+}
+
+function withRecentTaskStatusMemory(focused, fullMessages) {
+  const status = recentTaskStatusMemory(fullMessages);
+  if (!status) return focused;
+  const note = [
+    "RECENT TASK STATUS FROM THIS CHAT:",
+    status,
+    "",
+    "Use this status report as source-of-truth for shorthand follow-ups such as item numbers, ranges, 'those', 'remaining', or 'finish 7-9'.",
+    "Resolve the user's latest follow-up from this report before inspecting files. Do not reread the whole project just to rediscover this same status; inspect only the targeted files needed to implement or verify the referenced missing work."
+  ].join("\n");
+  const copy = focused.map((message) => ({ ...message }));
+  if (copy[0]?.role === "system") copy.splice(1, 0, { role: "system", content: note });
+  else copy.unshift({ role: "system", content: note });
+  return copy;
 }
 
 // Keep the model in charge of implementation details, but recognize the narrow
@@ -675,6 +722,15 @@ export function controllerStopAnswerFromToolResult(result) {
     : "Paused for safety. Work is saved.";
 }
 
+function controllerStopReason(result) {
+  if (!/^blocked:/i.test(String(result || ""))) return "";
+  return String(result || "").split(/\r?\n/)[0].replace(/^blocked:\s*/i, "").trim();
+}
+
+function isLoopRecoveryStop(reason) {
+  return /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i.test(String(reason || ""));
+}
+
 /**
  * Run one user turn through the agent loop, executing tools until the model
  * produces a final text answer.
@@ -706,6 +762,7 @@ export async function runTurn(ctx, messages) {
     artifactRequired: artifactActionRequired,
     actionRequired: connectorToolResultRequired,
     projectDir: ctx.projectDir,
+    loopStop: ctx.config?.ui?.codingAgent?.stopLoop === true,
     persisted: ctx.controllerState
   });
   const publishController = () => {
@@ -860,10 +917,28 @@ export async function runTurn(ctx, messages) {
   let emptyResponseRetries = 0;
   let textOnlyContentFallback = false;
   let autoContinues = 0;
+  let controllerRecoveries = 0;
   let activeToolDefinitions = [];
   const MAX_AUTO_CONTINUE = 8; // finish multi-step builds without looping forever
+  const MAX_CONTROLLER_RECOVERIES = 4;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
-  for (;;) {
+  const handleControllerStop = (result) => {
+    const stoppedByController = controllerStopAnswer(result);
+    if (!stoppedByController) return "";
+    const reason = controllerStopReason(result);
+    if (isLoopRecoveryStop(reason) && autoContinues < MAX_AUTO_CONTINUE && controllerRecoveries < MAX_CONTROLLER_RECOVERIES && !signal?.aborted) {
+      controllerRecoveries++;
+      autoContinues++;
+      messages.push({ role: "user", content: controller.continuationPrompt(reason) +
+        " Continue inside this same run. Do not ask the user to type continue. Do not repeat the blocked inspection; use saved evidence and take the next progress action." });
+      publishController();
+      onStatus("continuing from saved evidence...");
+      return "__continue__";
+    }
+    messages.push({ role: "assistant", content: stoppedByController });
+    return stoppedByController;
+  };
+  agentLoop: for (;;) {
     turn++;
     if (signal?.aborted) return stopped();
     // bounded runs (used by sub-agents) stop after their turn budget
@@ -1009,11 +1084,12 @@ export async function runTurn(ctx, messages) {
           tool_call_id: call.id || `call_${turn}`,
           content: toolContent
         });
-        const stoppedByController = controllerStopAnswer(result);
-        if (stoppedByController) {
-          messages.push({ role: "assistant", content: stoppedByController });
-          return stoppedByController;
+        const stoppedByController = handleControllerStop(result);
+        if (stoppedByController === "__continue__") {
+          checkpoint();
+          continue agentLoop;
         }
+        if (stoppedByController) return stoppedByController;
         checkpoint();
       }
       flushPendingImages();
@@ -1038,11 +1114,13 @@ export async function runTurn(ctx, messages) {
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
       });
-      const stoppedByController = controllerStopAnswer(result);
-      if (stoppedByController) {
-        messages.push({ role: "assistant", content: stoppedByController });
-        return stoppedByController;
+      const stoppedByController = handleControllerStop(result);
+      if (stoppedByController === "__continue__") {
+        flushPendingImages();
+        checkpoint();
+        continue;
       }
+      if (stoppedByController) return stoppedByController;
       flushPendingImages();
       checkpoint();
       continue;

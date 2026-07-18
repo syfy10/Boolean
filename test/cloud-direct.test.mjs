@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, estimateContext, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, estimateContext, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -29,6 +29,30 @@ test("local context overflow reports clamp future prompt budgets to the real eng
   ];
   const estimate = estimateContext(messages, budget, "balanced");
   assert.ok(estimate.sent <= 3800, "local chat history should fit below the 8k engine plus tool overhead");
+});
+
+test("numbered status follow-ups preserve the last assistant roadmap", () => {
+  const messages = [
+    { role: "system", content: "system" },
+    { role: "user", content: "tell me where we are with this project on this list" },
+    { role: "assistant", content: [
+      "Interesting - most of these are already built in ui.html. Here's the real status:",
+      "| Roadmap item | Status |",
+      "|---|---|",
+      "| 1 Settings search bar | Built - line 1193 |",
+      "| 2 Setup checklist / onboarding | Built - section 2048 |",
+      "| 7 Next-edit suggestions | Built - CSS at 1137, JS at 6629 |",
+      "| 8 Three-zone layout | Not started - no left/center/right zone structure found |",
+      "| 9 Crash/error telemetry | Not started - only referenced in privacy policy |",
+      "7 of 9 are implemented. The two genuinely missing items are the three-zone layout and crash/error telemetry."
+    ].join("\n") },
+    { role: "user", content: "finish 7-9" }
+  ];
+
+  const memory = recentTaskStatusMemory(messages);
+  assert.match(memory, /Three-zone layout \| Not started/i);
+  assert.match(memory, /Crash\/error telemetry \| Not started/i);
+  assert.match(memory, /Next-edit suggestions \| Built/i);
 });
 
 test("controller loop stops render as a compact user-facing pause", () => {

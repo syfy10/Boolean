@@ -26,10 +26,32 @@ const SETTINGS = Object.freeze({
   accounts: "ms-settings:yourinfo"
 });
 
+const RESUME_OR_STATUS_ONLY = /^(?:continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it|check now|please continue|continue where you left off)\b/i;
+const STATUS_QUESTION = /\b(?:are you|r u|you)\s+(?:still\s+)?(?:checking|working|running|doing|stuck|stopped)\b|\b(?:what happened|why did (?:it|you) stop|did (?:it|you) stop|what are you doing|where are we|status update|give me status|can move forward)\b/i;
+const TRANSCRIPT_MARKER = /(?:^|\n)\s*(?:You|GPT|GLM|AI|Boolean|Qwen|Claude|Codex)\s*:/i;
+
+function directActionSource(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return "";
+  if (RESUME_OR_STATUS_ONLY.test(raw) || STATUS_QUESTION.test(raw)) return "";
+
+  const firstLine = raw.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+  const longContext = raw.length > 700 || TRANSCRIPT_MARKER.test(raw) || raw.split(/\r?\n/).length > 8;
+  if (!longContext) return raw;
+
+  // Long pasted notes, handoff reports, and chat transcripts often mention
+  // "settings", "privacy", "open", or "change" as descriptive text. Only
+  // allow the deterministic Windows shortcut when the latest visible line
+  // itself is the command. Everything else should go to the model/controller.
+  return firstLine;
+}
+
 // Small/local models are not reliable enough to discover obvious Windows
 // Settings actions through tool calling every time. Route only clear,
 // allowlisted requests here; everything else still goes through the model.
 export function detectWindowsSettingsRequest(input) {
+  const source = directActionSource(input);
+  if (!source) return null;
   const normalize = (value) => String(value || "")
     .toLowerCase()
     .replace(/\bdesplay\b/g, "display")
@@ -41,7 +63,7 @@ export function detectWindowsSettingsRequest(input) {
   // Keep actions scoped to the sentence/line that contains the setting. A long
   // project handoff may mention "open the app" on one line and "scanner" on
   // another; treating the whole message as one phrase used to open Printers.
-  const clauses = String(input || "").split(/[\r\n]+|(?<=[.!?;])\s+/).map(normalize).filter(Boolean);
+  const clauses = source.split(/[\r\n]+|(?<=[.!?;])\s+/).map(normalize).filter(Boolean);
 
   const pages = [
     ["advanced_display", /\badvanced display\b/],

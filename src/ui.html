@@ -1156,9 +1156,9 @@
               <button class="agent-mode" type="button" data-mode="refactor"><b>Refactor</b><small>Preserve behavior while improving structure.</small></button>
             </div>
           </div>
-          <div class="agent-budget-card" id="agentBudgetSummary"><div><b>Task budget: Normal</b><small>Caps retries and context so Boolean can verify without looping.</small></div><span class="badge">Visible</span></div>
+          <div class="agent-budget-card" id="agentBudgetSummary"><div><b>Task budget: Normal</b><small>Warns about loops but keeps working by default.</small></div><span class="badge">Visible</span></div>
           <label class="setrow" style="cursor:pointer"><span>Auto-run tests/builds<div class="hint">Boolean looks for package scripts and verifies before saying done.</div></span><span class="switch"><input type="checkbox" id="agentAutoTest" checked><span class="slider"></span></span></label>
-          <label class="setrow" style="cursor:pointer"><span>Stop-loop protection<div class="hint">Prevents Boolean from repeating the same failed action and wasting tokens.</div></span><span class="switch"><input type="checkbox" id="agentStopLoop" checked><span class="slider"></span></span></label>
+          <label class="setrow" style="cursor:pointer"><span>Strict stop-loop protection<div class="hint">When enabled, Boolean pauses after repeated inspections instead of continuing with warnings.</div></span><span class="switch"><input type="checkbox" id="agentStopLoop"><span class="slider"></span></span></label>
           <div class="setrow"><div>Max retries<div class="hint">Stops and asks when confidence is low.</div></div><select id="agentRetries"><option>1</option><option selected>2</option><option>3</option></select></div>
           <div class="setrow"><div>Token/time budget<div class="hint">Visible cap per task; older context is compressed into project memory.</div></div><select id="agentBudget"><option>Small</option><option selected>Normal</option><option>Large</option></select></div>
           <label class="setrow" style="cursor:pointer"><span>Auto-commit option<div class="hint">When enabled, Boolean can save verified progress to git after approval.</div></span><span class="switch"><input type="checkbox" id="agentAutoCommit"><span class="slider"></span></span></label>
@@ -2342,6 +2342,10 @@
     return html;
   }
   function scrollDown(){ chatPinnedToBottom=true; chat.scrollTop=chat.scrollHeight; }
+  function scrollDownIfPinned(wasPinned=chatPinnedToBottom){
+    if(!wasPinned) return;
+    requestAnimationFrame(()=>{ chat.scrollTop=chat.scrollHeight; chatPinnedToBottom=true; });
+  }
 
   const timeStr=(at)=>at?new Date(at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
   const timeHtml=(at)=>at?'<div class="msg-time">'+timeStr(at)+'</div>':'<div class="msg-time">'+timeStr(Date.now())+'</div>';
@@ -2548,7 +2552,7 @@
     }
     return d;
   }
-  function addNode(cls,html){ const d=document.createElement("div"); d.className=cls; if(html!==undefined)d.innerHTML=html; col.appendChild(d); scrollDown(); return d; }
+  function addNode(cls,html){ const follow=chatPinnedToBottom; const d=document.createElement("div"); d.className=cls; if(html!==undefined)d.innerHTML=html; col.appendChild(d); scrollDownIfPinned(follow); return d; }
   function shortPath(p){ const a=(p||"").split(/[\\/]/).filter(Boolean); return a.slice(-2).join("\\")||p||""; }
   function updateProjLine(){
     const el=$("projline"); if(!el) return;
@@ -3931,7 +3935,7 @@
       else if(key==="browserHistory") data[key]=Array.isArray(value)?value.slice(-80).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140),at:Number(tab.at||0)})):[];
       else if(key==="expandedSections") data[key]=Array.isArray(value)?value.slice(0,10).map(String):[];
       else if(key==="browserPerms"&&value&&typeof value==="object") data[key]={downloads:value.downloads!==false,camera:!!value.camera,mic:!!value.mic,geo:!!value.geo};
-      else if(key==="codingAgent"&&value&&typeof value==="object") data[key]={mode:String(value.mode||"quick"),autoTest:value.autoTest!==false,stopLoop:value.stopLoop!==false,maxRetries:Number(value.maxRetries||2),budget:String(value.budget||"normal"),autoCommit:!!value.autoCommit};
+      else if(key==="codingAgent"&&value&&typeof value==="object") data[key]={mode:String(value.mode||"quick"),autoTest:value.autoTest!==false,stopLoop:value.stopLoop===true,maxRetries:Number(value.maxRetries||2),budget:String(value.budget||"normal"),autoCommit:!!value.autoCommit};
       else if(["string","boolean","number"].includes(typeof value)) data[key]=value;
     });
     return { data, updatedAt:Number(localStorage.getItem("booleanCloudUiUpdatedAt")||0) };
@@ -4580,16 +4584,18 @@
       input.placeholder="Ask anything..."; }
   }
   function insertAbove(node){
+    const follow=chatPinnedToBottom;
     const s=(run&&run.statusEl&&run.statusEl.isConnected)?run.statusEl:null;
     if(s) col.insertBefore(node,s); else col.appendChild(node);
     updateCopyButton();
-    scrollDown(); return node;
+    scrollDownIfPinned(follow); return node;
   }
   function insertToolAbove(entry){
+    const follow=chatPinnedToBottom;
     const s=(run&&run.statusEl&&run.statusEl.isConnected)?run.statusEl:null;
     const node=addToolCard(col,entry,s);
     updateCopyButton();
-    scrollDown(); return node;
+    scrollDownIfPinned(follow); return node;
   }
   function fmtTime(ms){ const s=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); }
   function compactActivityText(value){
@@ -4637,6 +4643,7 @@
   }
   function ensureStatusEl(){
     if(!run) return;
+    const follow=chatPinnedToBottom;
     if(!run.statusEl||!run.statusEl.isConnected){
       run.statusEl=document.createElement("div"); run.statusEl.className="status";
       run.statusEl.innerHTML='<span class="spinner"></span><span class="stx"></span><span class="meta"></span>';
@@ -4647,19 +4654,22 @@
     statusNode.textContent=compactActivityText(statusText);
     statusNode.title=statusText;
     updateStatusMeta();
-    scrollDown();
+    scrollDownIfPinned(follow);
   }
   function ensureLiveAI(){
     if(!run) return;
     if(!String(run.raw||"").trim()) return;
+    const follow=chatPinnedToBottom;
     if(!run.liveAI||!run.liveAI.isConnected){ run.liveAI=makeAI(run.raw||"",null,run.provider,run.model,run.aiLabel); insertAbove(run.liveAI); }
     run.liveAI._raw=run.raw;
     run.liveAI.querySelector(".body").innerHTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(run.raw);
+    scrollDownIfPinned(follow);
   }
   function ensureCompareAI(slot){
     if(!run?.compare) return;
     const item=run.slots[slot];
     if(!item||!String(item.raw||"").trim()) return;
+    const follow=chatPinnedToBottom;
     if(!item.liveAI||!item.liveAI.isConnected){
       item.liveAI=makeAI(item.raw,null,item.provider,item.model,item.aiLabel);
       item.liveAI.classList.add("cloud");
@@ -4671,6 +4681,7 @@
     item.liveAI.dataset.model=item.model||"";
     item.liveAI.dataset.aiLabel=item.aiLabel||shortAiName(item.provider,item.model);
     item.liveAI.querySelector(".body").innerHTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(item.raw);
+    scrollDownIfPinned(follow);
   }
 
   // pending follow-up messages per thread, sent automatically when the run ends
@@ -4787,6 +4798,7 @@
   function renderEndActions(){
     removeEndActions();
     if(busy() || !col.querySelector(".msg-user")) return;
+    const follow=chatPinnedToBottom;
     const bar=document.createElement("div"); bar.className="actions end-actions";
     bar.innerHTML='<button class="actbtn" data-a="retry" title="Retry" aria-label="Retry response">&#8635;</button>'
       +(canContinueThread()?'<button class="actbtn" data-a="continue" title="Continue paused task" aria-label="Continue paused task">&#8594;</button>':'');
@@ -4795,7 +4807,7 @@
     if(cont) cont.onclick=continueRun;
     const foot=[...col.querySelectorAll(".msg-ai .msg-foot")].pop();
     if(foot) foot.appendChild(bar); else col.appendChild(bar);
-    scrollDown();
+    scrollDownIfPinned(follow);
   }
 
   async function startRun(tid, opts){
@@ -4871,6 +4883,7 @@
   function handleEvent(ev){
     if(!run) return;
     const showing=viewingRun();
+    const follow=chatPinnedToBottom;
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){ run.status=ev.text; renderThreads(); if(showing) ensureStatusEl(); }
     else if(ev.type==="controller"){
@@ -4932,7 +4945,7 @@
       else if(ev.level==="warning") tempToast("Approaching monthly budget: "+(ev.pct||0)+"% of $"+(ev.limit||0).toFixed(2)+" used.");
     }
     else if(ev.type==="error"){ run.outcome="error"; if(showing) insertAbove(makeErr(ev)); }
-    if(showing) scrollDown();
+    if(showing) scrollDownIfPinned(follow);
   }
   async function stopRun(edit=false){
     if(!run||!viewingRun()) return;
@@ -5503,12 +5516,12 @@ Optional bundled starter model:
     const mode=agent.mode||"quick";
     document.querySelectorAll("#agentModeGrid .agent-mode").forEach(button=>button.classList.toggle("on",button.dataset.mode===mode));
     $("agentAutoTest").checked=agent.autoTest!==false;
-    $("agentStopLoop").checked=agent.stopLoop!==false;
+    $("agentStopLoop").checked=agent.stopLoop===true;
     $("agentRetries").value=String(agent.maxRetries||2);
     $("agentBudget").value=({small:"Small",normal:"Normal",large:"Large"})[agent.budget||"normal"]||"Normal";
     $("agentAutoCommit").checked=!!agent.autoCommit;
     const budgetLabel=$("agentBudget").value;
-    $("agentBudgetSummary").innerHTML='<div><b>Task budget: '+esc(budgetLabel)+'</b><small>'+ (agent.stopLoop===false?'Loop guard is off — use carefully.':'Caps retries and context so Boolean can verify without looping.') +'</small></div><span class="badge">'+(agent.autoTest===false?'Manual test':'Auto verify')+'</span>';
+    $("agentBudgetSummary").innerHTML='<div><b>Task budget: '+esc(budgetLabel)+'</b><small>'+ (agent.stopLoop===true?'Strict loop guard can pause repeated inspections.':'Warns about loops but keeps working by default.') +'</small></div><span class="badge">'+(agent.autoTest===false?'Manual test':'Auto verify')+'</span>';
     const bp=ui.browserPerms||{};
     $("permDownloads").checked=bp.downloads!==false;
     $("permCamera").checked=!!bp.camera;
@@ -5617,7 +5630,7 @@ Optional bundled starter model:
     tempToast("To install a skill, use the chat command: manage_skill install from a local folder path.",5000);
   };
 
-  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",codingAgent:{mode:"quick",autoTest:true,stopLoop:true,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
+  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
 
   // ── in-app browser (real internet via the /browse proxy) ──
   const bframe=$("bframe"), bAddr=$("bAddr");

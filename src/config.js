@@ -123,7 +123,7 @@ const DEFAULTS = {
     codingAgent: {
       mode: "quick",          // quick | feature | debug | review | refactor
       autoTest: true,
-      stopLoop: true,
+      stopLoop: false,
       maxRetries: 2,
       budget: "normal",       // small | normal | large
       autoCommit: false

@@ -17,6 +17,25 @@ can you take over this project?`;
   assert.equal(detectWindowsSettingsRequest(prompt), null);
 });
 
+test("does not route long settings roadmap context as a Windows privacy action", () => {
+  const prompt = `You: tell me where are we with this project on this list.
+
+I would change Settings from a long options page into a control center.
+
+8. Privacy & Safety
+- Local-only mode
+- Cloud AI allowed/on/off
+- Web access allowed/on/off
+
+Add a guided local vs cloud setup flow, model recommendation by RAM, and a visible privacy data explanation.`;
+  assert.equal(detectWindowsSettingsRequest(prompt), null);
+});
+
+test("does not route resume/status messages into Windows Settings", () => {
+  assert.equal(detectWindowsSettingsRequest("keep going"), null);
+  assert.equal(detectWindowsSettingsRequest("why did it stop?"), null);
+});
+
 test("still routes explicit display settings requests", () => {
   assert.deepEqual(detectWindowsSettingsRequest("Open display settings"), {
     name: "windows_settings_open",
@@ -28,5 +47,12 @@ test("still routes explicit printer settings requests", () => {
   assert.deepEqual(detectWindowsSettingsRequest("Show my printer settings"), {
     name: "windows_settings_open",
     args: { page: "printers" }
+  });
+});
+
+test("still routes explicit privacy settings requests", () => {
+  assert.deepEqual(detectWindowsSettingsRequest("Open Windows privacy settings"), {
+    name: "windows_settings_open",
+    args: { page: "privacy" }
   });
 });

@@ -128,11 +128,11 @@ function isTrustedExternalToolchainPath(value) {
   const candidate = normalizedPath(value);
   if (!candidate) return false;
   const segments = candidate.replace(/\//g, "\\");
-  return /\\\.nuget\\packages\\/.test(segments)
-    || /\\\.dotnet\\/.test(segments)
-    || /\\program files\\dotnet\\/.test(segments)
-    || /\\program files \(x86\)\\windows kits\\/.test(segments)
-    || /\\program files\\microsoft visual studio\\/.test(segments);
+  return segments.includes("\\.nuget\\packages\\")
+    || segments.includes("\\.dotnet\\")
+    || segments.includes("\\program files\\dotnet\\")
+    || segments.includes("\\program files (x86)\\windows kits\\")
+    || segments.includes("\\program files\\microsoft visual studio\\");
 }
 
 function commandMayReferenceExternalToolchain(command, candidate) {
@@ -307,6 +307,8 @@ export class AgentController {
     this.recentActions = Array.isArray(saved.recentActions) ? saved.recentActions.map((item) => cleanText(item, 260)).filter(Boolean).slice(-10) : [];
     this.actionCounts = saved.actionCounts && typeof saved.actionCounts === "object" ? { ...saved.actionCounts } : {};
     this.nonProgressCount = Number(saved.nonProgressCount) || 0;
+    const savedLoopStop = saved.loopStopEnabled ?? saved.loopStop;
+    this.loopStopEnabled = options.loopStop === undefined ? savedLoopStop === true : options.loopStop === true;
     this.deployEvidence = cleanText(saved.deployEvidence, 700);
     this.deployVerificationEvidence = cleanText(saved.deployVerificationEvidence, 700);
     this.blockedToolCount = Number(saved.blockedToolCount) || 0;
@@ -351,6 +353,7 @@ export class AgentController {
       recentActions: [...this.recentActions],
       actionCounts: { ...this.actionCounts },
       nonProgressCount: this.nonProgressCount,
+      loopStopEnabled: this.loopStopEnabled,
       deployEvidence: this.deployEvidence,
       deployVerificationEvidence: this.deployVerificationEvidence,
       blockedToolCount: this.blockedToolCount,
@@ -441,7 +444,10 @@ export class AgentController {
       lines.push("Completion gate: perform the requested action with the relevant tool and rely on its result. Instructions or a claim of success are not evidence.");
     }
     lines.push("Choose the tool whose result directly advances the objective. Do not substitute web search, browser activity, or unrelated inspection for the requested action.");
-    if (this.nonProgressCount >= PROGRESS_WARNING_INSPECTIONS) lines.push("Progress warning: many inspection actions have occurred without a file change or new evidence. Prefer a targeted edit or known build/test command soon; continue inspecting only if it directly narrows the fix.");
+    if (this.nonProgressCount >= PROGRESS_WARNING_INSPECTIONS) {
+      lines.push("Progress warning: many inspection actions have occurred without a file change or new evidence. Prefer a targeted edit or known build/test command soon; continue inspecting only if it directly narrows the fix.");
+      if (!this.loopStopEnabled) lines.push("Loop guard is advisory for this task: do not pause because of repeated inspection. If more inspection is not helping, make the best targeted edit/check from current evidence and keep going.");
+    }
     return lines.join("\n");
   }
 
@@ -489,14 +495,14 @@ export class AgentController {
       if (outside) return { allowed: false, reason: `Command references a path outside the allowed workspace: ${cleanText(outside, 260)}` };
     }
     const coarseFingerprint = coarseActionFingerprint(name, args);
-    if (coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= 3) {
+    if (this.loopStopEnabled && coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= 3) {
       return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Do not inspect again; use the evidence already collected and take a different progress step such as a targeted edit or known build/test command." };
     }
-    if (this.nonProgressCount >= NON_PROGRESS_INSPECTION_LIMIT && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
+    if (this.loopStopEnabled && this.nonProgressCount >= NON_PROGRESS_INSPECTION_LIMIT && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
       return { allowed: false, reason: "Tool budget reached: many inspection steps happened without a file change or new result. Do not inspect again; continue from the saved evidence with a targeted edit, a known build/test command, or a concise blocker summary." };
     }
     const fingerprint = actionFingerprint(name, args);
-    if ((this.actionCounts[fingerprint] || 0) >= 2 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name))) {
+    if (this.loopStopEnabled && (this.actionCounts[fingerprint] || 0) >= 2 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name))) {
       return { allowed: false, reason: `Loop guard: '${name}' already ran twice with the same target. Use the existing evidence, summarize the cause, or choose a different check.` };
     }
     if (!this.debugRequired || !MUTATION_TOOLS.has(name)) return { allowed: true, reason: "" };

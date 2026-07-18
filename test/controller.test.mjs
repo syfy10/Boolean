@@ -227,6 +227,13 @@ test("command path guard allows trusted build toolchain paths outside workspace"
   assert.equal(allowed.allowed, true, allowed.reason);
 });
 
+test("command path guard allows direct trusted compiler executables outside workspace", () => {
+  const controller = new AgentController({ objective: "Build the Windows app", projectDir: "C:\\demo\\sandbox" });
+  const command = "\"C:\\Users\\S10\\.nuget\\packages\\microsoft.windowsappsdk\\1.7.260224002\\tools\\net472\\XamlCompiler.exe\" \"C:\\demo\\sandbox\\App.csproj\"";
+  const allowed = controller.allowTool("run_command", { command });
+  assert.equal(allowed.allowed, true, allowed.reason);
+});
+
 test("an explicit deploy task permits deploy commands", () => {
   const controller = new AgentController({ objective: "Deploy the current project" });
   assert.equal(controller.snapshot().contract.mode, "deploy");
@@ -270,7 +277,7 @@ test("blocked means stop after repeated blocked actions", () => {
 });
 
 test("loop guard blocks a third identical inspection and resets after a change", () => {
-  const controller = new AgentController({ objective: "Inspect and update the app", artifactRequired: true });
+  const controller = new AgentController({ objective: "Inspect and update the app", artifactRequired: true, loopStop: true });
   const args = { path: "app.css" };
   controller.noteTool("read_file", args, "first read");
   controller.noteTool("read_file", args, "second read");
@@ -284,7 +291,8 @@ test("loop guard catches repeated PowerShell inspection variants", () => {
   const controller = new AgentController({
     objective: "Find why the tab close button does not work",
     artifactRequired: true,
-    projectDir: "C:\\demo"
+    projectDir: "C:\\demo",
+    loopStop: true
   });
 
   const variants = [
@@ -309,7 +317,8 @@ test("loop guard recovery allows progress actions but blocks more inspection", (
   const controller = new AgentController({
     objective: "Finish building the WinUI app",
     artifactRequired: true,
-    projectDir: "C:\\demo"
+    projectDir: "C:\\demo",
+    loopStop: true
   });
 
   for (let i = 0; i < 28; i++) {
@@ -325,6 +334,27 @@ test("loop guard recovery allows progress actions but blocks more inspection", (
   assert.match(controller.continuationPrompt(blocked.reason), /Do not inspect the same files/i);
   assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\MainPage.xaml" }).allowed, true);
   assert.equal(controller.allowTool("run_command", { command: "dotnet build" }).allowed, true);
+});
+
+test("loop guard is advisory by default so long tasks keep working", () => {
+  const controller = new AgentController({
+    objective: "Finish building the WinUI app",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+
+  const args = { path: "C:\\demo\\MainPage.xaml" };
+  controller.noteTool("read_file", args, "first read");
+  controller.noteTool("read_file", args, "second read");
+  assert.equal(controller.allowTool("read_file", args).allowed, true);
+
+  for (let i = 0; i < 28; i++) {
+    controller.noteTool("read_file", { path: `C:\\demo\\file${i}.cs` }, "read source");
+  }
+
+  const allowed = controller.allowTool("read_file", { path: "C:\\demo\\OtherPage.xaml" });
+  assert.equal(allowed.allowed, true, allowed.reason);
+  assert.match(controller.prompt(), /Loop guard is advisory/i);
 });
 
 test("working memory tracks temporary processes and exposes a handoff report", () => {
