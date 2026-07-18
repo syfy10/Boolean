@@ -7293,6 +7293,7 @@ Optional bundled starter model:
   // ══════════════════════════════════════════════════════════════
   let diffFiles = [];
   let diffIndex = 0;
+  let diffDecisions = {};
 
   function showDiffPreview(files) {
     diffFiles = files;
@@ -7329,7 +7330,6 @@ Optional bundled starter model:
     body.appendChild(sec);
     updateDiffHeader();
   }
-  let diffDecisions = {};
   function updateDiffHeader() {
     const accepted = Object.values(diffDecisions).filter(v => v === "accept").length;
     const rejected = Object.values(diffDecisions).filter(v => v === "reject").length;
