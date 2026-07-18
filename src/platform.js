@@ -438,7 +438,18 @@ function officeEntries(type, title, content) {
     ["word/document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${[title, ...lines].filter(Boolean).map((line) => `<w:p><w:r><w:t xml:space="preserve">${xmlEscape(line)}</w:t></w:r></w:p>`).join("")}<w:sectPr/></w:body></w:document>`]
   ];
   if (type === "xlsx") {
-    const rows = lines.map((line, row) => `<row r="${row + 1}">${line.split("\t").map((cell, column) => `<c r="${String.fromCharCode(65 + column)}${row + 1}" t="inlineStr"><is><t>${xmlEscape(cell)}</t></is></c>`).join("")}</row>`).join("");
+    const colRef = (column) => {
+      // Convert 0-based column index to Excel column reference: 0→A, 25→Z, 26→AA, 701→ZZ
+      let ref = "";
+      let n = column;
+      while (true) {
+        ref = String.fromCharCode(65 + (n % 26)) + ref;
+        if (n < 26) break;
+        n = Math.floor(n / 26) - 1;
+      }
+      return ref;
+    };
+    const rows = lines.map((line, row) => `<row r="${row + 1}">${line.split("\t").map((cell, column) => `<c r="${colRef(column)}${row + 1}" t="inlineStr"><is><t>${xmlEscape(cell)}</t></is></c>`).join("")}</row>`).join("");
     return [
       ["[Content_Types].xml", `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`], ["_rels/.rels", rootRels],
       ["xl/workbook.xml", `<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xmlEscape(title || "Sheet1")}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
@@ -465,11 +476,55 @@ function officeEntries(type, title, content) {
 
 function simplePdf(title, content) {
   const escape = (value) => String(value).replace(/[^\x20-\x7e]/g, "?").replace(/([\\()])/g, "\\$1");
-  const lines = [title, ...String(content).split(/\r?\n/)].filter(Boolean).slice(0, 55);
-  const stream = `BT /F1 12 Tf 54 760 Td 15 TL ${lines.map((line, index) => `${index ? "T* " : ""}(${escape(line.slice(0, 100))}) Tj`).join(" ")} ET`;
-  const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>", `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"];
-  let body = "%PDF-1.4\n", offsets = [0];
-  objects.forEach((object, index) => { offsets.push(Buffer.byteLength(body)); body += `${index + 1} 0 obj\n${object}\nendobj\n`; });
+  const pageWidth = 612, pageHeight = 792, margin = 54, lineHeight = 15, fontSize = 12;
+  const maxChars = 110; // approximate characters that fit within the page width at 12pt Helvetica
+
+  // Wrap long lines to fit page width, then paginate.
+  const allLines = [title, ...String(content).split(/\r?\n/)];
+  const wrapped = [];
+  for (const raw of allLines) {
+    if (!raw) { wrapped.push(""); continue; }
+    let remaining = raw;
+    while (remaining.length > maxChars) {
+      // Try to break at a space near the limit; otherwise hard-break.
+      let breakAt = remaining.lastIndexOf(" ", maxChars);
+      if (breakAt <= 0) breakAt = maxChars;
+      wrapped.push(remaining.slice(0, breakAt));
+      remaining = remaining.slice(breakAt).replace(/^ /, "");
+    }
+    if (remaining) wrapped.push(remaining);
+  }
+
+  const linesPerPage = Math.floor((pageHeight - margin * 2) / lineHeight);
+  const pages = [];
+  for (let i = 0; i < wrapped.length; i += linesPerPage) {
+    pages.push(wrapped.slice(i, i + linesPerPage));
+  }
+  if (pages.length === 0) pages.push([""]);
+
+  const pageObjects = [];
+  const fontObj = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+  const objects = [];
+  objects.push("<< /Type /Catalog /Pages 2 0 R >>"); // obj 1
+  const pageRefs = pages.map((_, i) => `${3 + i * 2} 0 R`).join(" ");
+  objects.push(`<< /Type /Pages /Kids [${pageRefs}] /Count ${pages.length} >>`); // obj 2
+  // Each page gets a Page object and a Contents stream object.
+  for (let p = 0; p < pages.length; p++) {
+    const pageLines = pages[p];
+    const yStart = pageHeight - margin;
+    const stream = `BT /F1 ${fontSize} Tf ${margin} ${yStart} Td ${lineHeight} TL ${pageLines.map((line, idx) => `${idx ? "T* " : ""}(${escape(line.slice(0, maxChars))}) Tj`).join(" ")} ET`;
+    const streamLen = Buffer.byteLength(stream);
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${(pages.length * 2 + 4)} 0 R >> >> /Contents ${(4 + p * 2)} 0 R >>`);
+    objects.push(`<< /Length ${streamLen} >>\nstream\n${stream}\nendstream`);
+  }
+  objects.push(fontObj); // font is last object
+
+  let body = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(body));
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
   const xref = Buffer.byteLength(body);
   body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `).join("\n")}\ntrailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return Buffer.from(body);

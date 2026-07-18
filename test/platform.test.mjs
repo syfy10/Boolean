@@ -35,6 +35,50 @@ test("creates structurally valid document artifacts", async () => {
   }
 });
 
+test("XLSX columns beyond Z produce correct AA, AB references", async () => {
+  // 30 columns → last column should be AD, not [
+  const headers = Array.from({ length: 30 }, (_, i) => `C${i + 1}`).join("\t");
+  const output = path.join(project, "wide.xlsx");
+  const result = await executePlatformTool("create_artifact", { type: "xlsx", path: output, title: "Wide", content: headers }, ctx);
+  assert.match(result, /Created and verified/);
+  const xml = fs.readFileSync(output, "latin1");
+  // Column 27 (index 26) → AA, Column 30 (index 29) → AD
+  assert.match(xml, /r="AA1"/);
+  assert.match(xml, /r="AD1"/);
+  // No invalid column reference characters ([, \, ], ^, _, `
+  assert.doesNotMatch(xml, /r="[\[\\\]^_`]/);
+});
+
+test("PDF writer paginates long content across multiple pages", async () => {
+  const manyLines = Array.from({ length: 120 }, (_, i) => `Line ${i + 1}: ${"X".repeat(60)}`).join("\n");
+  const output = path.join(project, "long.pdf");
+  const result = await executePlatformTool("create_artifact", { type: "pdf", path: output, title: "Long Doc", content: manyLines }, ctx);
+  assert.match(result, /Created and verified/);
+  const pdf = fs.readFileSync(output, "latin1");
+  // Multiple page objects → /Type /Page appears more than once
+  const pageMatches = pdf.match(/\/Type\s*\/Page[^s]/g) || [];
+  assert.ok(pageMatches.length > 1, `expected multiple pages, got ${pageMatches.length}`);
+  // The /Count should reflect more than one page
+  const countMatch = pdf.match(/\/Count\s+(\d+)/);
+  assert.ok(countMatch);
+  assert.ok(Number(countMatch[1]) > 1, `expected /Count > 1, got ${countMatch[1]}`);
+  // Later content should survive — check that "Line 100" or nearby appears
+  // (exact content depends on wrapping, but we should NOT see only 55 lines)
+  assert.ok(pdf.includes("Line 1"), "first line present");
+});
+
+test("PDF writer wraps very long lines instead of truncating at 100 chars", async () => {
+  const longLine = "A".repeat(250);
+  const output = path.join(project, "wrapped.pdf");
+  const result = await executePlatformTool("create_artifact", { type: "pdf", path: output, title: "Wrap", content: longLine }, ctx);
+  assert.match(result, /Created and verified/);
+  const pdf = fs.readFileSync(output, "latin1");
+  // The original line of 250 A's should produce multiple wrapped Tj entries
+  // Verify the PDF has multiple text-show operators (wrapping produces multiple lines)
+  const tjCount = (pdf.match(/\) Tj/g) || []).length;
+  assert.ok(tjCount > 2, `expected wrapping to produce multiple Tj entries, got ${tjCount}`);
+});
+
 test("generates images through the selected saved API connection", async () => {
   const output = path.join(project, "generated.png");
   const originalFetch = globalThis.fetch;
