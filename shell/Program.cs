@@ -1394,6 +1394,13 @@ try {
                 }
                 return;
             }
+            if (type == "notify")
+            {
+                var title = root.TryGetProperty("title", out var tp2) ? tp2.GetString() ?? "Boolean" : "Boolean";
+                var body = root.TryGetProperty("body", out var bp) ? bp.GetString() ?? "" : "";
+                ShowToast(title, body);
+                return;
+            }
             if (type != "browser") return;
             var cmd = root.TryGetProperty("cmd", out var cp) ? cp.GetString() : null;
             switch (cmd)
@@ -1441,6 +1448,60 @@ try {
     void PostToChat(object o)
     {
         try { _chat.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(o)); } catch { }
+    }
+
+    NotifyIcon? _notifyIcon;
+    void ShowToast(string title, string body)
+    {
+        BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                if (_notifyIcon == null)
+                {
+                    var iconPath = Path.Combine(AppContext.BaseDirectory, "saz.ico");
+                    _notifyIcon = new NotifyIcon
+                    {
+                        Icon = File.Exists(iconPath) ? new Icon(iconPath) : SystemIcons.Application,
+                        Visible = true,
+                        Text = "Boolean",
+                    };
+                }
+                _notifyIcon.ShowBalloonTip(4000, title, body, ToolTipIcon.Info);
+                FlashTaskbar();
+            }
+            catch { }
+        }));
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    struct FLASHWINFO
+    {
+        public uint cbSize;
+        public IntPtr hwnd;
+        public uint dwFlags;
+        public uint uCount;
+        public uint dwTimeout;
+    }
+
+    void FlashTaskbar()
+    {
+        try
+        {
+            var fw = new FLASHWINFO
+            {
+                cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<FLASHWINFO>(),
+                hwnd = Handle,
+                dwFlags = 0x3,
+                uCount = 3,
+                dwTimeout = 0,
+            };
+            FlashWindowEx(ref fw);
+        }
+        catch { }
     }
 
     async Task StartScreenSnipAsync(string target)

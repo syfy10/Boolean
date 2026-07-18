@@ -43,6 +43,22 @@ async function chatCompletionWithFallback(config, primaryTarget, messages, tools
   }
 }
 
+// Map the UI budget preset ("small"|"normal"|"large") to per-run token and
+// time caps. 0 means unlimited — the coding-agent loop continues until done.
+const BUDGET_PRESETS = {
+  small:  { tokens: 50_000,  timeMs: 120_000 },
+  normal: { tokens: 150_000, timeMs: 600_000 },
+  large:  { tokens: 0,       timeMs: 0 }
+};
+function perRunTokenBudget(config) {
+  const preset = config?.ui?.codingAgent?.budget || "normal";
+  return BUDGET_PRESETS[preset]?.tokens ?? 0;
+}
+function perRunTimeBudgetMs(config) {
+  const preset = config?.ui?.codingAgent?.budget || "normal";
+  return BUDGET_PRESETS[preset]?.timeMs ?? 0;
+}
+
 function connectorSummary(config) {
   const c = config?.connectors || {};
   const mcp = (c.mcp || []).filter((x) => x.enabled !== false).map((x) => x.name || x.id).filter(Boolean);
@@ -791,7 +807,9 @@ export async function runTurn(ctx, messages) {
     actionRequired: connectorToolResultRequired,
     projectDir: ctx.projectDir,
     loopStop: ctx.config?.ui?.codingAgent?.stopLoop === true,
-    persisted: ctx.controllerState
+    persisted: ctx.controllerState,
+    tokenBudget: perRunTokenBudget(config),
+    timeBudgetMs: perRunTimeBudgetMs(config)
   });
   const publishController = () => {
     const snapshot = controller.snapshot();
@@ -906,6 +924,7 @@ export async function runTurn(ctx, messages) {
   let localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
   let useNativeTools = !localCompactTools;
   const emitUsage = (msg, usedTarget = target) => {
+    if (msg?.usage) controller.addUsage(msg.usage);
     if (onUsage && msg?.usage) onUsage({ provider: usedTarget.provider || config.provider, model: usedTarget.model, ...msg.usage });
   };
   // Project tool loops can accumulate huge page dumps and file reads in one
@@ -969,6 +988,15 @@ export async function runTurn(ctx, messages) {
   agentLoop: for (;;) {
     turn++;
     if (signal?.aborted) return stopped();
+    // Check per-run token/time budget and user cancellation
+    const budget = controller.checkBudget();
+    if (budget.budgeted) {
+      const bail = `(stopped: ${budget.reason})`;
+      messages.push({ role: "assistant", content: bail });
+      publishController();
+      checkpoint();
+      return bail;
+    }
     // bounded runs (used by sub-agents) stop after their turn budget
     if (ctx.maxTurns && turn > ctx.maxTurns) {
       const partial = String(messages.filter((m) => m.role === "assistant").map((m) => m.content).filter((c) => typeof c === "string").pop() || "").trim();

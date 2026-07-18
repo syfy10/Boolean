@@ -52,7 +52,7 @@ export async function resolveProviderTarget(config, provider = config.provider, 
         "Local models remain available — switch to a local model in Settings to continue working."
       );
     }
-    return { base, apiKey: p.apiKey, model: p.model, provider };
+    return { base, apiKey: p.apiKey, model: p.model, provider, maxRetries: config.cloudRetries || 3 };
   }
   throw new Error(`unknown provider: ${provider}`);
 }
@@ -152,7 +152,11 @@ function localConnectionError(interrupted = false, cause) {
 function retryDelay(err, attempt) {
   const headerSeconds = err?.retryAfter == null || err.retryAfter === "" ? NaN : Number(err.retryAfter);
   if (Number.isFinite(headerSeconds) && headerSeconds >= 0) return Math.min(2000, headerSeconds * 1000);
-  return attempt === 0 ? 250 : 750;
+  // Exponential backoff with jitter: base * 2^attempt ± 25% jitter.
+  // attempt 0 → ~250ms, attempt 1 → ~500ms, attempt 2 → ~1000ms
+  const base = 250 * Math.pow(2, attempt);
+  const jitter = base * 0.25 * (Math.random() * 2 - 1);
+  return Math.min(2000, Math.round(base + jitter));
 }
 
 async function chatCompletionOnce(target, messages, tools, signal, onToken) {
@@ -265,7 +269,9 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
 
 export async function chatCompletion(target, messages, tools, signal, onToken) {
   const cloud = target.provider !== "local";
-  const maxAttempts = cloud ? 3 : 1;
+  // Cloud retry count is configurable via config.cloudRetries (default 3).
+  // Local models get a single attempt (the engine itself handles internal retries).
+  const maxAttempts = cloud ? (target.maxRetries || 3) : 1;
   let emitted = false;
   const trackedToken = typeof onToken === "function"
     ? (text) => {

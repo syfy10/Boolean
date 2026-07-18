@@ -316,6 +316,12 @@ export class AgentController {
     this.openProcesses = Array.isArray(saved.openProcesses)
       ? saved.openProcesses.map((item) => cleanText(item, 80)).filter(Boolean).slice(-8)
       : [];
+    // Per-run token/time budget (0 = unlimited). Set from config.ui.codingAgent.budget.
+    this.tokenBudget = Number(saved.tokenBudget) || 0;
+    this.tokensUsed = Number(saved.tokensUsed) || 0;
+    this.timeBudgetMs = Number(saved.timeBudgetMs) || 0;
+    this.startedAt = Number(saved.startedAt) || Date.now();
+    this.cancelRequested = !!saved.cancelRequested;
     this.updatedAt = Date.now();
   }
 
@@ -359,6 +365,11 @@ export class AgentController {
       blockedToolCount: this.blockedToolCount,
       blockedActionCounts: { ...this.blockedActionCounts },
       openProcesses: [...this.openProcesses],
+      tokenBudget: this.tokenBudget,
+      tokensUsed: this.tokensUsed,
+      timeBudgetMs: this.timeBudgetMs,
+      startedAt: this.startedAt,
+      cancelRequested: this.cancelRequested,
       updatedAt: this.updatedAt
     };
   }
@@ -683,6 +694,32 @@ export class AgentController {
         if (this.plan[verificationIndex + 1]) this.plan[verificationIndex + 1].status = "in_progress";
       }
     }
+    return this.snapshot();
+  }
+
+  /** Called each turn by the agent loop to accumulate token usage. */
+  addUsage(usage) {
+    if (!usage) return;
+    const tokens = (usage.input || 0) + (usage.output || 0);
+    if (tokens > 0) this.tokensUsed += tokens;
+  }
+
+  /** Returns {budgeted, reason} when a per-run token or time limit is exceeded. */
+  checkBudget() {
+    if (this.cancelRequested) return { budgeted: true, reason: "The task was cancelled by the user." };
+    if (this.tokenBudget > 0 && this.tokensUsed >= this.tokenBudget) {
+      return { budgeted: true, reason: `Token budget of ${this.tokenBudget} has been reached for this task.` };
+    }
+    if (this.timeBudgetMs > 0 && (Date.now() - this.startedAt) >= this.timeBudgetMs) {
+      return { budgeted: true, reason: `Time budget of ${Math.round(this.timeBudgetMs / 1000)}s has been reached for this task.` };
+    }
+    return { budgeted: false };
+  }
+
+  /** User-requested cancellation. Returns a snapshot. */
+  cancel() {
+    this.cancelRequested = true;
+    this.updatedAt = Date.now();
     return this.snapshot();
   }
 
