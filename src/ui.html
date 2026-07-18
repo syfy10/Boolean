@@ -408,6 +408,7 @@
   .note-more-item:hover{ background:var(--note-tab); }
   .note-more-item .mi{ width:17px; color:var(--note-btn); text-align:center; font-size:13px; }
   .note-more-item.on{ background:var(--note-tab); font-weight:600; }
+  .note-more-divider{ height:1px; background:var(--border); margin:4px 0; }
   .note-clock-icon{ width:13px; height:13px; display:block; position:relative; border:1.4px solid currentColor; border-radius:50%; }
   .note-clock-icon:before{ content:""; position:absolute; left:5px; top:2px; width:1.3px; height:4px; border-radius:1px; background:currentColor; }
   .note-clock-icon:after{ content:""; position:absolute; left:5px; top:5px; width:3.5px; height:1.3px; border-radius:1px; background:currentColor; transform:rotate(28deg); transform-origin:left center; }
@@ -1142,6 +1143,23 @@
   .next-edit-bar button.ne-apply{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
   .next-edit-bar button:hover{ opacity:.85; }
 
+  /* ── Recipe quick-start cards ── */
+  .recipes-panel{ max-width:var(--content-max); margin:0 auto 4px; padding:0 var(--content-x) 4px; display:none; }
+  body.recipes-open .recipes-panel{ display:block; }
+  .recipes-inner{ border:1px solid var(--border); border-radius:13px; background:var(--card); padding:10px 12px; }
+  .recipes-head{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .recipes-head b{ font:600 12.5px var(--ui); color:var(--text); }
+  .recipes-head small{ color:var(--dim); font:11px var(--ui); }
+  .recipes-head .spacer{ flex:1; }
+  .recipes-close{ width:24px; height:24px; border:0; border-radius:6px; background:transparent; color:var(--dim); cursor:pointer; }
+  .recipes-close:hover{ background:var(--hover); color:var(--text); }
+  .recipe-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:7px; }
+  .recipe-card{ text-align:left; border:1px solid var(--border); border-radius:11px; background:var(--bg); padding:9px 10px; cursor:pointer; color:var(--text); font:12px var(--ui); }
+  .recipe-card:hover{ border-color:var(--accent); background:var(--hover); }
+  .recipe-card b{ display:block; font:600 12px var(--ui); margin-bottom:2px; }
+  .recipe-card small{ display:block; color:var(--dim); font:10.5px/1.35 var(--ui); }
+  .recipe-card .recipe-chip{ display:inline-block; margin-top:6px; padding:2px 7px; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); font:10px var(--ui); }
+
   /* ── Diagnostics ── */
   .diag-grid{ display:grid; grid-template-columns:1fr; gap:0; }
   .diag-row{ display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
@@ -1158,6 +1176,113 @@
   .diag-actions button{ padding:5px 14px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
   .diag-actions button:hover{ background:var(--hover); }
   .diag-actions button.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+
+  /* ── Three-zone layout (sidebar | main | context panel) ── */
+  #ctxZone{ width:0; flex-shrink:0; display:none; flex-direction:column; min-width:0;
+    background:var(--bg); border-left:1px solid var(--border); overflow:hidden; transition:width .2s ease; }
+  body.zone-3 #ctxZone{ display:flex; width:clamp(260px,24vw,380px); min-width:240px; }
+  body.zone-3 main{ min-width:320px; }
+  .ctx-head{ display:flex; align-items:center; gap:6px; padding:7px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .ctx-head .ch-title{ font:600 11px var(--ui); color:var(--text); flex:1; }
+  .ctx-head button{ width:24px; height:24px; border:0; border-radius:5px; background:transparent; color:var(--dim); cursor:pointer; font:14px var(--ui); display:grid; place-items:center; }
+  .ctx-head button:hover{ background:var(--hover); color:var(--text); }
+  .ctx-body{ flex:1; overflow-y:auto; padding:8px 10px; font:12.5px/1.55 var(--ui); color:var(--dim); }
+  .ctx-body .ctx-empty{ text-align:center; padding:40px 16px; color:var(--dim); font-size:11.5px; }
+  .ctx-body .ctx-section{ margin-bottom:14px; }
+  .ctx-body .ctx-section h4{ font:600 11px var(--ui); color:var(--text); text-transform:uppercase; letter-spacing:.04em; margin-bottom:5px; }
+  .ctx-body .ctx-item{ padding:5px 8px; border-radius:7px; background:var(--bubble); margin-bottom:3px; font-size:11.5px; color:var(--text); }
+  .ctx-body .ctx-item small{ display:block; color:var(--dim); font-size:10.5px; margin-top:1px; }
+  @media(max-width:900px){ body.zone-3 #ctxZone{ display:none; } body.zone-3 main{ min-width:0; } }
+
+  /* ── Crash/error telemetry ── */
+  .telemetry-log{ max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:9px; background:var(--bubble); padding:6px 8px; font:11px/1.5 var(--mono); color:var(--dim); margin-top:6px; }
+  .telemetry-log .tel-entry{ padding:2px 0; border-bottom:1px solid color-mix(in srgb,var(--border) 50%,transparent); }
+  .telemetry-log .tel-entry:last-child{ border-bottom:0; }
+  .telemetry-log .tel-entry .tel-ts{ color:var(--dim); font-size:10px; }
+  .telemetry-log .tel-entry .tel-msg{ color:#dc3f42; }
+  .telemetry-empty{ color:var(--dim); font-size:11px; text-align:center; padding:12px; }
+
+  /* ── Status badges ── */
+  .s-badge{ display:inline-flex; align-items:center; gap:4px; padding:1px 7px; border-radius:999px; font:600 9.5px/1.6 var(--ui); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap; }
+  .s-badge::before{ content:""; width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+  .s-badge.running{ background:color-mix(in srgb,var(--accent) 14%,transparent); color:var(--accent); }
+  .s-badge.running::before{ animation:sBadgePulse 1.2s ease-in-out infinite; }
+  .s-badge.approval{ background:#fff3cd; color:#997a00; }
+  .s-badge.error{ background:#fde8e8; color:#c4233a; }
+  .s-badge.verified{ background:#dcf5e3; color:#18913c; }
+  .s-badge.draft{ background:#e2e8fd; color:#3b5bdb; }
+  .s-badge.idle{ background:var(--bubble); color:var(--dim); }
+  .s-badge.browser{ background:color-mix(in srgb,#f59e0b 12%,transparent); color:#b06d00; }
+  @keyframes sBadgePulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── Command bar ── */
+  .cmd-bar{ display:flex; align-items:center; gap:4px; padding:0 6px; height:32px; border-bottom:1px solid var(--border); background:var(--sidebar); flex-shrink:0; }
+  .cmd-bar .cmd-loc{ display:flex; align-items:center; gap:4px; padding:0 6px; font:11px var(--mono); color:var(--dim); flex-shrink:0; }
+  .cmd-bar .cmd-input{ flex:1; min-width:0; border:0; outline:0; background:transparent; color:var(--text); font:12px var(--ui); height:28px; padding:0 4px; }
+  .cmd-bar .cmd-input::placeholder{ color:var(--dim); opacity:.55; }
+  .cmd-bar .cmd-btn{ flex-shrink:0; padding:3px 9px; border:0; border-radius:6px; background:transparent; color:var(--dim); font:11px var(--ui); cursor:pointer; white-space:nowrap; }
+  .cmd-bar .cmd-btn:hover{ background:var(--hover); color:var(--text); }
+  .cmd-bar .cmd-hint{ font:10px var(--mono); color:var(--dim); opacity:.4; flex-shrink:0; padding-right:4px; }
+
+  /* ── Task stepper ── */
+  .task-stepper{ display:flex; align-items:center; gap:0; padding:0 10px; height:28px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; flex-shrink:0; }
+  .task-stepper::-webkit-scrollbar{ display:none; }
+  .ts-step{ display:flex; align-items:center; gap:3px; padding:2px 6px; font:10.5px var(--ui); color:var(--dim); white-space:nowrap; }
+  .ts-step .ts-num{ width:16px; height:16px; border-radius:50%; border:1.5px solid var(--border); display:grid; place-items:center; font:9px var(--ui); font-weight:700; flex-shrink:0; }
+  .ts-step.active .ts-num{ background:var(--accent); border-color:var(--accent); color:var(--accent-text); }
+  .ts-step.done .ts-num{ background:var(--green); border-color:var(--green); color:#fff; }
+  .ts-step.active{ color:var(--text); font-weight:600; }
+  .ts-step.done{ color:var(--green); }
+  .ts-arrow{ color:var(--border); font-size:12px; flex-shrink:0; }
+  .task-stepper.hidden{ display:none; }
+
+  /* ── File context chips ── */
+  .ctx-chips{ display:flex; align-items:center; gap:4px; padding:0 10px; min-height:26px; flex-wrap:wrap; border-bottom:1px solid var(--border); background:var(--bg); overflow:hidden; }
+  .ctx-chips:empty{ display:none; }
+  .fchip{ display:inline-flex; align-items:center; gap:3px; padding:1px 7px; border-radius:6px; background:var(--bubble); font:11px var(--mono); color:var(--dim); cursor:default; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
+  .fchip.edit{ background:color-mix(in srgb,var(--accent) 12%,transparent); color:var(--accent); }
+  .fchip.read{ background:var(--bubble); color:var(--dim); }
+  .fchip .fchip-x{ cursor:pointer; opacity:.4; }
+  .fchip .fchip-x:hover{ opacity:1; }
+
+  /* ── Empty states ── */
+  .empty-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; padding:36px 20px; text-align:center; gap:12px; }
+  .empty-state .es-icon{ width:48px; height:48px; border-radius:14px; background:var(--bubble); display:grid; place-items:center; color:var(--dim); font-size:22px; }
+  .empty-state .es-title{ font:600 13px var(--ui); color:var(--text); }
+  .empty-state .es-desc{ font:12px/1.5 var(--ui); color:var(--dim); max-width:280px; }
+  .empty-state .es-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .empty-state .es-btn{ padding:6px 14px; border:1px solid var(--border); border-radius:8px; background:var(--bubble); color:var(--text); font:12px var(--ui); cursor:pointer; }
+  .empty-state .es-btn:hover{ background:var(--hover); }
+  .empty-state .es-btn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+
+  /* ── Proactive action offers ── */
+  .action-offers{ display:flex; gap:6px; padding:6px 10px; flex-wrap:wrap; }
+  .action-offers:empty{ display:none; }
+  .ao-btn{ display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border:1px solid var(--border); border-radius:8px; background:var(--bubble); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
+  .ao-btn:hover{ background:var(--hover); }
+  .ao-btn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .ao-btn svg{ width:13px; height:13px; }
+
+  /* ── Browser task buttons ── */
+  .browser-tasks{ display:flex; gap:4px; padding:4px 6px; border-bottom:1px solid var(--border); background:var(--sidebar); flex-shrink:0; overflow-x:auto; scrollbar-width:none; }
+  .browser-tasks::-webkit-scrollbar{ display:none; }
+  .bt-task{ display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border:0; border-radius:6px; background:transparent; color:var(--dim); font:11px var(--ui); cursor:pointer; white-space:nowrap; }
+  .bt-task:hover{ background:var(--hover); color:var(--text); }
+
+  /* ── Note structured tabs ── */
+  .note-cat-tabs{ display:flex; gap:2px; padding:3px 6px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; flex-shrink:0; }
+  .note-cat-tabs::-webkit-scrollbar{ display:none; }
+  .nc-tab{ padding:2px 8px; border:0; border-radius:6px; background:transparent; color:var(--dim); font:10.5px var(--ui); cursor:pointer; white-space:nowrap; }
+  .nc-tab.active{ background:var(--accent); color:var(--accent-text); font-weight:600; }
+  .nc-tab:hover:not(.active){ background:var(--hover); color:var(--text); }
+
+  /* ── Deploy assistant ── */
+  .deploy-bar{ display:flex; align-items:center; gap:8px; padding:6px 10px; border:1px solid var(--border); border-radius:10px; background:var(--bubble); margin:6px 0; }
+  .deploy-bar .dp-label{ font:600 11px var(--ui); color:var(--text); }
+  .deploy-bar .dp-desc{ font:11px var(--ui); color:var(--dim); flex:1; }
+  .deploy-bar select{ border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); font:11px var(--ui); padding:3px 6px; }
+  .deploy-bar button{ padding:4px 12px; border:0; border-radius:6px; background:var(--accent); color:var(--accent-text); font:11.5px var(--ui); cursor:pointer; }
+  .deploy-bar button:hover{ filter:brightness(1.08); }
 </style>
 </head>
 <body>
@@ -1694,7 +1819,7 @@
         </div>
       </div>
 
-      <div class="sec" data-sec="advanced" data-search="developer advanced logs config export import reset settings debug flags local server ports model folder location experimental features diagnostics">
+      <div class="sec" data-sec="advanced" data-search="developer advanced logs config export import reset settings debug flags local server ports model folder location experimental features diagnostics crash error telemetry">
         <div class="sechead">Developer / Advanced <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Context sent to model<div class="hint">less = fewer tokens</div></div></div>
@@ -1718,6 +1843,18 @@
           </div>
           <div class="setrow"><div>Save chat history<div class="hint">restore chats after restart</div></div><label class="switch"><input type="checkbox" id="autoSave"><span class="slider"></span></label></div>
           <div class="setrow"><div>Keep local model warm<div class="hint">faster reopen, uses RAM after close</div></div><label class="switch"><input type="checkbox" id="keepLocalWarm"><span class="slider"></span></label></div>
+          <div class="setrow" style="display:block">
+            <div>Crash / error telemetry<div class="hint">Capture JS errors locally. Nothing is sent anywhere — export manually.</div></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <label class="switch"><input type="checkbox" id="telemetryToggle"><span class="slider"></span></label>
+              <span style="font:11.5px var(--ui);color:var(--dim)">Opt-in (local only)</span>
+            </div>
+            <div class="telemetry-log" id="telemetryLog"><div class="telemetry-empty">No errors recorded.</div></div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button class="minibtn" id="telemetryExport">Export log</button>
+              <button class="minibtn dangerbtn" id="telemetryClear">Clear log</button>
+            </div>
+          </div>
           <div class="setrow" style="display:block;margin-top:2px">
             <button class="minibtn usage-toggle" id="usageToggle"><span>Tokens used</span><span id="usageCaret">▶</span></button>
             <div class="usage-fold" id="usageFold">
@@ -1731,6 +1868,7 @@
           <div class="hint" id="ctxHint" style="display:none">32,768 tokens</div>
           <button class="minibtn dangerbtn" id="clearHistory" style="width:100%;margin-top:6px">Clear all saved chats</button>
           <button class="minibtn dangerbtn" id="resetSettings" style="width:100%;margin-top:6px">Reset all settings</button>
+
         </div>
       </div>
 
@@ -1759,6 +1897,7 @@
     <button class="ws-tab" data-ws="notes" title="Notes workspace"><span class="ws-dot"></span>Notes</button>
     <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span>Preview</button>
     <button class="ws-tab" data-ws="git" title="Git workspace"><span class="ws-dot"></span>Git</button>
+    <button class="ws-tab" data-ws="recipes" title="Recipe quick-starts"><span class="ws-dot"></span>Recipes</button>
     <button class="ws-tab" data-ws="automations" title="Automations workspace"><span class="ws-dot"></span>Automations</button>
   </div>
 
@@ -1782,6 +1921,9 @@
     </button>
     <button class="icon-btn" id="browserToggle" title="Toggle browser" aria-label="Toggle browser">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
+    </button>
+    <button class="icon-btn" id="ctxToggle" title="Toggle context panel" aria-label="Toggle context panel">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="15" y1="4" x2="15" y2="20"/></svg>
     </button>
     <div class="winctl" id="winctl">
       <button class="win-btn" id="winMin" title="Minimize" aria-label="Minimize"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -1808,6 +1950,69 @@
       </div>
       <div class="pd-changed" id="pdChanged"></div>
     </div>
+  </div>
+
+  <!-- Command bar: central input for quick actions -->
+  <div class="cmd-bar" id="cmdBar">
+    <span class="cmd-loc">›</span>
+    <input class="cmd-input" id="cmdInput" placeholder="Open file, run test, search web, save note, commit changes…" spellcheck="false" autocomplete="off">
+    <button class="cmd-btn" id="cmdRun" title="Run as command">Run</button>
+    <button class="cmd-btn" id="cmdSearch" title="Search the web">Web</button>
+    <button class="cmd-btn" id="cmdFile" title="Open file">File</button>
+    <span class="cmd-hint">↵</span>
+  </div>
+
+  <!-- Task stepper: Plan → Edit → Run → Verify → Commit -->
+  <div class="task-stepper hidden" id="taskStepper">
+    <div class="ts-step" data-step="plan"><span class="ts-num">1</span>Plan</div>
+    <span class="ts-arrow">→</span>
+    <div class="ts-step" data-step="edit"><span class="ts-num">2</span>Edit</div>
+    <span class="ts-arrow">→</span>
+    <div class="ts-step" data-step="run"><span class="ts-num">3</span>Run</div>
+    <span class="ts-arrow">→</span>
+    <div class="ts-step" data-step="verify"><span class="ts-num">4</span>Verify</div>
+    <span class="ts-arrow">→</span>
+    <div class="ts-step" data-step="commit"><span class="ts-num">5</span>Commit</div>
+  </div>
+
+  <!-- File context chips: which files are being read/edited -->
+  <div class="ctx-chips" id="ctxChips"></div>
+
+  <!-- Proactive action offers -->
+  <div class="action-offers" id="actionOffers"></div>
+
+  <div class="recipes-panel" id="recipesPanel" aria-label="Recipe quick-starts">
+    <div class="recipes-inner">
+      <div class="recipes-head"><b>Recipes</b><small>Start common Boolean tasks with one click.</small><span class="spacer"></span><button class="recipes-close" id="recipesClose" title="Hide recipes">×</button></div>
+      <div class="recipe-grid" id="recipeGrid">
+        <button class="recipe-card" data-recipe="Build a project dashboard that shows status, changed files, running server, and git branch."><b>Project dashboard</b><small>Surface workspace health at the top.</small><span class="recipe-chip">UI</span></button>
+        <button class="recipe-card" data-recipe="Add side-by-side diff preview for changed files with accept and reject actions."><b>Diff review</b><small>Preview edits before trusting them.</small><span class="recipe-chip">Safety</span></button>
+        <button class="recipe-card" data-recipe="Run the project, capture errors, and fix the first failing build or runtime issue."><b>Fix failing run</b><small>Reproduce, root-cause, verify.</small><span class="recipe-chip">Debug</span></button>
+        <button class="recipe-card" data-recipe="Create a polished first-run onboarding flow for local model, cloud keys, and privacy choices."><b>Onboarding</b><small>Guide setup in 3 short steps.</small><span class="recipe-chip">Setup</span></button>
+        <button class="recipe-card" data-recipe="Build a new app from scratch - website, API, or desktop app."><b>Build an app</b><small>Scaffold a project in seconds.</small><span class="recipe-chip">Create</span></button>
+        <button class="recipe-card" data-recipe="Review all code changes for bugs, security issues, style problems, and risky commands."><b>Review code</b><small>Scan for bugs and security risks.</small><span class="recipe-chip">Quality</span></button>
+        <button class="recipe-card" data-recipe="Research a topic across the web, extract docs, and save findings as note cards with citations."><b>Research docs</b><small>Summarize, cite, save to notes.</small><span class="recipe-chip">Research</span></button>
+        <button class="recipe-card" data-recipe="Write a professional email and save it as a draft."><b>Write email</b><small>Draft, review, send via connector.</small><span class="recipe-chip">Writing</span></button>
+        <button class="recipe-card" data-recipe="Create a formatted document - DOCX, PDF, spreadsheet, or presentation."><b>Create document</b><small>Export professional artifacts.</small><span class="recipe-chip">Export</span></button>
+        <button class="recipe-card" data-recipe="Set up a recurring task or reminder - daily, weekly, or interval-based."><b>Automate task</b><small>Schedule commands and reminders.</small><span class="recipe-chip">Automate</span></button>
+        <button class="recipe-card" data-recipe="Connect a GitHub repository, check CI status, review pull requests, or create a PR."><b>GitHub workflow</b><small>Issues, PRs, checks, comments.</small><span class="recipe-chip">Git</span></button>
+        <button class="recipe-card" data-recipe="Deploy the current project to Cloudflare Workers, Vercel, or Netlify with guided steps."><b>Deploy assistant</b><small>Guided deploy with rollback.</small><span class="recipe-chip">Deploy</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deploy assistant bar -->
+  <div class="deploy-bar" id="deployBar" style="display:none">
+    <span class="dp-label">🚀 Deploy</span>
+    <select id="deployTarget">
+      <option value="">Select platform…</option>
+      <option value="cloudflare">Cloudflare Workers</option>
+      <option value="vercel">Vercel</option>
+      <option value="netlify">Netlify</option>
+      <option value="github-pages">GitHub Pages</option>
+    </select>
+    <span class="dp-desc" id="deployDesc">Connect your repo and deploy with guided steps and rollback.</span>
+    <button id="deployStart">Start deploy</button>
   </div>
 
   <div id="chat"><div class="col" id="col"></div></div>
@@ -1880,6 +2085,18 @@
   </div>
 </main>
 
+<section id="ctxZone">
+  <div class="ctx-head">
+    <span class="ch-title">Context</span>
+    <span class="spacer" style="flex:1"></span>
+    <button id="ctxRefresh" title="Refresh context">⟳</button>
+    <button id="ctxClose" title="Close context panel">×</button>
+  </div>
+  <div class="ctx-body" id="ctxBody">
+    <div class="ctx-empty">Context items appear here:<br>changed files, active task, git branch, and relevant notes.</div>
+  </div>
+</section>
+
 <section id="notesPanel">
   <div class="notes-top">
     <div class="notes-tabs" id="noteTabs"></div>
@@ -1903,8 +2120,23 @@
         <button class="note-more-item" id="notePdf"><span class="mi">⎙</span>Share as PDF</button>
         <button class="note-more-item" id="noteRename"><span class="mi">T</span>Rename note</button>
         <button class="note-more-item" id="noteDelete"><span class="mi">⌫</span>Delete note</button>
+        <div class="note-more-divider"></div>
+        <button class="note-more-item" id="noteToPlan"><span class="mi">📋</span>Turn into plan</button>
+        <button class="note-more-item" id="noteToTodo"><span class="mi">✓</span>Make todo list</button>
+        <button class="note-more-item" id="noteToFiles"><span class="mi">📂</span>Create files from this</button>
+        <button class="note-more-item" id="noteToRule"><span class="mi">⚖</span>Turn into project rule</button>
+        <button class="note-more-item" id="noteSummarizeThread"><span class="mi">∞</span>Summarize this thread</button>
       </div>
     </div>
+  </div>
+  <div class="note-cat-tabs" id="noteCatTabs">
+    <button class="nc-tab active" data-cat="general">📌 General</button>
+    <button class="nc-tab" data-cat="ideas">💡 Ideas</button>
+    <button class="nc-tab" data-cat="bugs">🐛 Bugs</button>
+    <button class="nc-tab" data-cat="tasks">✓ Tasks</button>
+    <button class="nc-tab" data-cat="research">🔬 Research</button>
+    <button class="nc-tab" data-cat="commands">⌘ Commands</button>
+    <button class="nc-tab" data-cat="decisions">⚖ Decisions</button>
   </div>
   <div class="note-paper">
     <div class="note-meta"><span class="note-date" id="noteDate"></span><span class="note-days" id="noteDays"></span></div>
@@ -1938,6 +2170,13 @@
     <button class="bbtn" id="bFindBtn" title="Find on page">⌕</button>
     <button class="bbtn" id="bMenuBtn" title="Browser menu">⋮</button>
     <button class="bbtn active" id="bClose" title="Hide browser">◎</button>
+    </div>
+    <div class="browser-tasks">
+      <button class="bt-task" data-btask="use" title="Send this page as context to Boolean">📄 Use page</button>
+      <button class="bt-task" data-btask="docs" title="Extract documentation and code samples">📖 Extract docs</button>
+      <button class="bt-task" data-btask="code" title="Turn this page into code">⌗ Turn into code</button>
+      <button class="bt-task" data-btask="summarize" title="Summarize this page and save to notes">✦ Summarize</button>
+      <button class="bt-task" data-btask="monitor" title="Watch this page for changes">⏱ Monitor</button>
     </div>
   </div>
   <div class="bfind" id="bfind">
@@ -5085,11 +5324,14 @@
     const holdQueue=!!finishedRun?.holdQueue;
     lastRunWasCompare=!!finishedRun?.compare;
     if(threadId===tid && finishedRun && (finishedRun.steps||finishedRun.outcome&&finishedRun.outcome!=="completed")) col.appendChild(makeRunResult(finishedRun));
+    // Generate a next-edit suggestion from the finished run
+    if(threadId===tid && finishedRun && finishedRun.raw && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
+      maybeShowNextEdit(finishedRun);
     run=null; currentAbort=null; updateSendButton(); await refresh();
     // auto-send the next queued message for this thread
     const q=queues[tid];
     if(q&&q.length&&!holdQueue&&!queuePaused[tid]){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
-    else { if(threadId===tid){ renderEndActions(); estimateContext(); } input.focus(); }
+    else { if(threadId===tid){ renderEndActions(); estimateContext(); if(finishedRun) maybeShowNextEditSuggestion(finishedRun); } input.focus(); }
   }
   let lastRunWasCompare=false;
   function retry(){ if(!busy()) startRun(threadId,lastRunWasCompare&&compareState.targets.length===2?{mode:"compare-retry",targets:compareState.targets}:{mode:"retry"}); }
@@ -6338,52 +6580,35 @@ Optional bundled starter model:
   input.focus();
 
   // ══════════════════════════════════════════════════════════════
-  // WORKSPACE TABS
-  // ══════════════════════════════════════════════════════════════
-  const wsTabs = document.querySelectorAll(".ws-tab");
-  function setWorkspaceTab(name) {
-    wsTabs.forEach(t => {
-      const active = t.dataset.ws === name;
-      t.classList.toggle("active", active);
-      const dot = t.querySelector(".ws-dot");
-      if (dot) dot.classList.toggle("active", active && name === "chat");
-    });
-    // Route to the right panel
-    if (name === "browser") { if (!$("browser").classList.contains("open")) browserToggle.click(); }
-    else if (name === "notes") { if (!$("notesPanel").classList.contains("open")) notesToggle.click(); }
-    else if (name === "automations") { openSettings("scheduled"); }
-    else if (name === "git") { openSettings("github"); }
-    else if (name === "preview") { tempToast("Preview tab: run a project to see it here."); }
-    else if (name === "code") { tempToast("Code tab: file changes appear in the project dashboard above."); }
-  }
-  wsTabs.forEach(t => t.onclick = () => setWorkspaceTab(t.dataset.ws));
-
-  // ══════════════════════════════════════════════════════════════
-  // WORKSPACE TABS
+  // WORKSPACE TABS + RECIPE QUICK STARTS
   // ══════════════════════════════════════════════════════════════
   let activeWsTab = "chat";
-  document.querySelectorAll(".ws-tab").forEach(tab => {
-    tab.onclick = () => {
-      const ws = tab.dataset.ws;
-      if (!ws || ws === activeWsTab) return;
-      activeWsTab = ws;
-      document.querySelectorAll(".ws-tab").forEach(t => { t.classList.remove("active"); const d = t.querySelector(".ws-dot"); if (d) d.classList.remove("active"); });
-      tab.classList.add("active");
-      const dot = tab.querySelector(".ws-dot"); if (dot) dot.classList.add("active");
-      // Route to the right panel
-      if (ws === "chat") { /* default view, nothing extra */ }
-      else if (ws === "browser") { if (typeof toggleBrowser === "function") toggleBrowser(true); }
-      else if (ws === "notes") { if (typeof toggleNotepad === "function") toggleNotepad(true); }
-      else if (ws === "code") { toggleTerminal(true); }
-      else if (ws === "preview") { if (typeof refreshProjectDashboard === "function") refreshProjectDashboard(); }
-      else if (ws === "git") {
-        // Trigger git status display via input hint
-        $("input").value = "Show me the current git status and changed files";
-        $("input").focus();
-      }
-      else if (ws === "automations") {
-        const a = $("newAutomation"); if (a) a.click();
-      }
+  function setWorkspaceTab(ws) {
+    if (!ws) return;
+    activeWsTab = ws;
+    document.querySelectorAll(".ws-tab").forEach(tab => {
+      const active = tab.dataset.ws === ws;
+      tab.classList.toggle("active", active);
+      const dot = tab.querySelector(".ws-dot");
+      if (dot) dot.classList.toggle("active", active);
+    });
+    document.body.classList.toggle("recipes-open", ws === "recipes");
+    if (ws === "browser") { SHELL ? hostPost({type:"browser",cmd:"show"}) : openBrowser(true); }
+    else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
+    else if (ws === "code") { toggleTerminal(true); tempToast("Terminal opened for code work."); }
+    else if (ws === "preview") { refreshProjectDashboard(); tempToast("Preview tab: run a project to see it here."); }
+    else if (ws === "git") { openSettings("github"); }
+    else if (ws === "automations") { openSettings("scheduled"); }
+  }
+  document.querySelectorAll(".ws-tab").forEach(tab => { tab.onclick = () => setWorkspaceTab(tab.dataset.ws); });
+  if ($("recipesClose")) $("recipesClose").onclick = () => setWorkspaceTab("chat");
+  document.querySelectorAll(".recipe-card").forEach(card => {
+    card.onclick = () => {
+      const text = card.dataset.recipe || "Start this recipe.";
+      $("input").value = text;
+      setWorkspaceTab("chat");
+      $("input").focus();
+      tempToast("Recipe loaded into chat.");
     };
   });
 
@@ -6643,12 +6868,435 @@ Optional bundled starter model:
     col.scrollTop = col.scrollHeight;
   }
 
+  // Heuristic next-edit suggestion generator — fires after an AI run completes
+  function maybeShowNextEdit(run) {
+    if (!run || !run.raw) return;
+    const text = String(run.raw || "");
+    const hasFileRef = /\b[\w/-]+\.(js|html|css|ts|json|md|py|cs|go|rs)\b/.test(text);
+    const hasRunHint = /\b(run|test|build|check|verify|start.*server|npm|node|dotnet)\b/i.test(text);
+    const hasStep = /\b(next|then|now|after that|you can|try|should|want me)\b/i.test(text);
+    if (!hasFileRef && !hasStep) return;
+
+    let suggestion = null;
+    if (hasRunHint && hasFileRef) {
+      suggestion = { text: "▶ Run and verify", detail: "Test the build and check for errors.", action: "Run the build and verify everything works" };
+    } else if (hasFileRef) {
+      suggestion = { text: "📋 Review the diff", detail: "See changes before committing.", action: "Show me a diff of the changes" };
+    } else {
+      const clean = text.replace(/[#*`]/g, "");
+      const sentences = clean.split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 12 && s.length < 100);
+      suggestion = { text: "⬇ Continue", detail: sentences[sentences.length - 1] || "Next step", action: (sentences[sentences.length - 1] || "").slice(0, 120) };
+    }
+    if (suggestion) {
+      setTimeout(() => { if (!busy()) showNextEditSuggestion(suggestion); }, 400);
+    }
+  }
+
   // Expose for other code
   window.termAdd = termAdd;
   window.toggleTerminal = toggleTerminal;
   window.refreshProjectDashboard = refreshProjectDashboard;
   window.showDiffPreview = showDiffPreview;
   window.showNextEditSuggestion = showNextEditSuggestion;
+
+  // ══════════════════════════════════════════════════════════════
+  // THREE-ZONE LAYOUT — context panel toggle + render
+  // ══════════════════════════════════════════════════════════════
+  function toggleCtxZone(force) {
+    const open = force !== undefined ? force : !document.body.classList.contains("zone-3");
+    document.body.classList.toggle("zone-3", open);
+    try { localStorage.setItem("boolean_ctx_zone", open ? "1" : "0"); } catch(e) {}
+    if (open) refreshCtxZone();
+  }
+  async function refreshCtxZone() {
+    const body = $("ctxBody");
+    if (!body) return;
+    let html = '';
+    // Active task
+    html += '<div class="ctx-section"><h4>Active task</h4>';
+    const pd = $("pdTask"), pdNext = $("pdNext");
+    const taskText = pd ? pd.textContent : "Idle";
+    const nextText = pdNext ? pdNext.textContent : "";
+    html += '<div class="ctx-item">' + esc(taskText) + (nextText ? '<small>Next: ' + esc(nextText) + '</small>' : '') + '</div>';
+    html += '</div>';
+    // Changed files
+    html += '<div class="ctx-section"><h4>Changed files</h4>';
+    const changedEl = $("pdChanged");
+    if (changedEl && changedEl.children.length) {
+      [...changedEl.children].slice(0, 10).forEach(chip => {
+        html += '<div class="ctx-item">' + esc(chip.textContent) + '</div>';
+      });
+    } else {
+      html += '<div class="ctx-item">No uncommitted changes</div>';
+    }
+    html += '</div>';
+    // Recent notes hint
+    html += '<div class="ctx-section"><h4>Recent notes</h4>';
+    try {
+      const recent = (notes || []).slice(-3).reverse();
+      if (recent.length) {
+        recent.forEach(n => {
+          html += '<div class="ctx-item">' + esc(n.title || "Untitled") + '<small>' + new Date(n.updatedAt || Date.now()).toLocaleDateString() + '</small></div>';
+        });
+      } else {
+        html += '<div class="ctx-item">No notes yet</div>';
+      }
+    } catch(e) { html += '<div class="ctx-item">Notes unavailable</div>'; }
+    html += '</div>';
+    body.innerHTML = html;
+  }
+  if ($("ctxToggle")) $("ctxToggle").onclick = () => toggleCtxZone();
+  if ($("ctxClose")) $("ctxClose").onclick = () => toggleCtxZone(false);
+  if ($("ctxRefresh")) $("ctxRefresh").onclick = () => refreshCtxZone();
+  // Restore saved state
+  try { if (localStorage.getItem("boolean_ctx_zone") === "1") document.body.classList.add("zone-3"); } catch(e) {}
+  // Update context panel when dashboard refreshes
+  const _origRefreshPd = window.refreshProjectDashboard;
+  window.refreshProjectDashboard = async function() { await _origRefreshPd.call(this); if (document.body.classList.contains("zone-3")) refreshCtxZone(); };
+
+  // ══════════════════════════════════════════════════════════════
+  // NEXT-EDIT SUGGESTIONS — auto-wire into agent message completion
+  // ══════════════════════════════════════════════════════════════
+  function maybeShowNextEditSuggestion(run) {
+    if (!run || !run.raw) return;
+    const text = String(run.raw || "");
+    // Heuristic: if the AI response mentions a file path or code change, suggest a follow-up
+    const hasFileRef = /\b[\w-]+\.(js|html|css|ts|json|md|py)\b/.test(text);
+    const hasTodo = /\b(todo|fixme|next|then|after that|now you|you can|try running|run the)\b/i.test(text);
+    if (!hasFileRef && !hasTodo) return;
+    // Build a smart suggestion from the last sentence
+    const sentences = text.replace(/[#*`]/g, "").split(/[.!?\n]/).map(s => s.trim()).filter(s => s.length > 15 && s.length < 120);
+    const lastSentence = sentences[sentences.length - 1] || "";
+    let suggestion;
+    if (hasFileRef && /run|test|build|check|verify/i.test(text)) {
+      suggestion = { text: "Run and verify the changes", detail: "Boolean can test the build and check for errors.", action: "Run the build and verify the changes work" };
+    } else if (hasFileRef) {
+      suggestion = { text: "Review the changes", detail: "See a side-by-side diff before committing.", action: "Show me a diff of the changes" };
+    } else if (hasTodo) {
+      suggestion = { text: lastSentence.slice(0, 80), detail: "Continue with the suggested next step.", action: lastSentence.slice(0, 100) };
+    }
+    if (suggestion) setTimeout(() => showNextEditSuggestion(suggestion), 300);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // CRASH / ERROR TELEMETRY (opt-in, local only)
+  // ══════════════════════════════════════════════════════════════
+  let errorLog = [];
+  let telemetryEnabled = false;
+  try { telemetryEnabled = localStorage.getItem("boolean_telemetry") === "1"; } catch(e) {}
+  try { errorLog = JSON.parse(localStorage.getItem("boolean_error_log") || "[]"); } catch(e) { errorLog = []; }
+
+  function logError(type, message, detail) {
+    const entry = { type, message: String(message || "").slice(0, 500), detail: String(detail || "").slice(0, 300), ts: Date.now() };
+    errorLog.push(entry);
+    if (errorLog.length > 100) errorLog = errorLog.slice(-100);
+    try { localStorage.setItem("boolean_error_log", JSON.stringify(errorLog)); } catch(e) {}
+    // Update telemetry log UI if visible
+    const telLog = $("telemetryLog");
+    if (telLog) renderTelemetryLog();
+  }
+
+  function renderTelemetryLog() {
+    const el = $("telemetryLog");
+    if (!el) return;
+    if (!errorLog.length) {
+      el.innerHTML = '<div class="telemetry-empty">No errors recorded.</div>';
+      return;
+    }
+    el.innerHTML = errorLog.slice(-20).reverse().map(e => {
+      const time = new Date(e.ts).toLocaleTimeString();
+      return '<div class="tel-entry"><span class="tel-ts">' + esc(time) + '</span> <span class="tel-msg">' + esc(e.type) + ': ' + esc(e.message) + '</span></div>';
+    }).join("");
+  }
+
+  function exportErrorLog() {
+    if (!errorLog.length) { tempToast("No error logs to export."); return; }
+    const text = "Boolean Error Log\nGenerated: " + new Date().toISOString() + "\n\n" +
+      errorLog.map(e => "[" + new Date(e.ts).toISOString() + "] " + e.type + ": " + e.message + (e.detail ? "\n  " + e.detail : "")).join("\n\n");
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "boolean-error-log-" + new Date().toISOString().slice(0, 10) + ".txt";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    tempToast("Error log exported.");
+  }
+
+  function clearErrorLog() {
+    errorLog = [];
+    try { localStorage.removeItem("boolean_error_log"); } catch(e) {}
+    renderTelemetryLog();
+    tempToast("Error log cleared.");
+  }
+
+  // Install global error handlers (always capture, only send if telemetry opt-in)
+  window.addEventListener("error", function(e) {
+    logError("Error", e.message || "Unknown error", (e.filename || "") + ":" + (e.lineno || 0));
+  });
+  window.addEventListener("unhandledrejection", function(e) {
+    const reason = e.reason && (e.reason.message || String(e.reason)) || "Unhandled promise rejection";
+    logError("Promise", reason);
+  });
+
+  // Wire up settings controls when settings panel is open
+  function initTelemetryControls() {
+    const toggle = $("telemetryToggle");
+    if (toggle) {
+      toggle.checked = telemetryEnabled;
+      toggle.onchange = () => {
+        telemetryEnabled = toggle.checked;
+        try { localStorage.setItem("boolean_telemetry", telemetryEnabled ? "1" : "0"); } catch(e) {}
+        tempToast(telemetryEnabled ? "Error reporting enabled (local only)." : "Error reporting disabled.");
+      };
+    }
+    if ($("telemetryExport")) $("telemetryExport").onclick = exportErrorLog;
+    if ($("telemetryClear")) $("telemetryClear").onclick = clearErrorLog;
+    renderTelemetryLog();
+  }
+
+  // Hook into finishRun to trigger next-edit suggestions
+  const _origFinishRun = window.finishRun;
+  if (typeof _origFinishRun === "function") {
+    window.finishRun = function(run) {
+      const result = _origFinishRun.call(this, run);
+      maybeShowNextEditSuggestion(run);
+      return result;
+    };
+  }
+
+  // Re-init telemetry controls whenever settings opens
+  const _origOpenSettings = window.openSettings;
+  if (typeof _origOpenSettings === "function") {
+    window.openSettings = function(sec) {
+      const result = _origOpenSettings.call(this, sec);
+      setTimeout(initTelemetryControls, 50);
+      return result;
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // COMMAND BAR — central input for quick actions
+  // ══════════════════════════════════════════════════════════════
+  const cmdInput = $("cmdInput");
+  function handleCommandBar(value) {
+    const v = (value || "").trim();
+    if (!v) return;
+    const lower = v.toLowerCase();
+    if (lower.startsWith("run ") || lower.startsWith("test") || lower.startsWith("build") || lower.startsWith("npm ") || lower.startsWith("git ") || lower.startsWith("dotnet ")) {
+      $("input").value = v;
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    } else if (lower.startsWith("open ") || lower.startsWith("read ") || lower.startsWith("edit ")) {
+      $("input").value = v;
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    } else if (lower.startsWith("commit")) {
+      $("input").value = "Commit all changes with a clear message.";
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    } else if (lower.startsWith("note ") || lower.startsWith("save ")) {
+      const noteText = v.replace(/^(note|save)\s*/i, "");
+      const editor = $("noteEditor");
+      if (editor) editor.innerHTML += "<div>" + esc(noteText) + "</div>";
+      tempToast("Saved to notepad.");
+    } else {
+      $("input").value = v;
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    }
+    cmdInput.value = "";
+  }
+  if (cmdInput) {
+    cmdInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") { e.preventDefault(); handleCommandBar(cmdInput.value); }
+    });
+    $("cmdRun") && ($("cmdRun").onclick = () => handleCommandBar(cmdInput.value));
+    $("cmdSearch") && ($("cmdSearch").onclick = () => {
+      const v = cmdInput.value.trim();
+      if (v) { $("input").value = "Search the web for: " + v; setWorkspaceTab("chat"); $("send") && $("send").click(); cmdInput.value = ""; }
+    });
+    $("cmdFile") && ($("cmdFile").onclick = () => {
+      const v = cmdInput.value.trim();
+      if (v) { $("input").value = "Open and read the file: " + v; setWorkspaceTab("chat"); $("send") && $("send").click(); cmdInput.value = ""; }
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // STATUS BADGES
+  // ══════════════════════════════════════════════════════════════
+  window.createStatusBadge = function(type, text) {
+    const badge = document.createElement("span");
+    badge.className = "s-badge " + (type || "idle");
+    badge.textContent = text || type || "";
+    return badge;
+  };
+  function updateDashboardBadge(type, text) {
+    const taskEl = $("pdTask");
+    if (!taskEl) return;
+    let badge = taskEl.parentElement.querySelector(".s-badge");
+    if (!badge) { badge = createStatusBadge(type, text); taskEl.parentElement.appendChild(badge); }
+    else { badge.className = "s-badge " + type; badge.textContent = text; }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // TASK STEPPER — Plan → Edit → Run → Verify → Commit
+  // ══════════════════════════════════════════════════════════════
+  const taskStepper = $("taskStepper");
+  const stepperSteps = ["plan","edit","run","verify","commit"];
+  window.setTaskStep = function(step) {
+    if (!taskStepper) return;
+    const idx = stepperSteps.indexOf(step);
+    if (idx < 0) return;
+    taskStepper.classList.remove("hidden");
+    taskStepper.querySelectorAll(".ts-step").forEach((el, i) => {
+      el.classList.remove("active","done");
+      if (i < idx) el.classList.add("done");
+      else if (i === idx) el.classList.add("active");
+    });
+    const labels = ["Planning","Editing","Running","Verifying","Committing"];
+    if ($("pdNext")) $("pdNext").textContent = labels[idx] || "Active";
+  };
+  window.resetTaskStepper = function() {
+    if (!taskStepper) return;
+    taskStepper.classList.add("hidden");
+    taskStepper.querySelectorAll(".ts-step").forEach(el => el.classList.remove("active","done"));
+    if ($("pdNext")) $("pdNext").textContent = "No active task";
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // FILE CONTEXT CHIPS
+  // ══════════════════════════════════════════════════════════════
+  const ctxChipsEl = $("ctxChips");
+  window.addFileChip = function(filename, type) {
+    if (!ctxChipsEl) return;
+    const chip = document.createElement("span");
+    chip.className = "fchip " + (type || "read");
+    chip.innerHTML = (type === "edit" ? "✎ " : "👁 ") + esc(filename) + ' <span class="fchip-x">×</span>';
+    chip.querySelector(".fchip-x").onclick = () => chip.remove();
+    ctxChipsEl.appendChild(chip);
+  };
+  window.clearFileChips = function() {
+    if (ctxChipsEl) ctxChipsEl.innerHTML = "";
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // PROACTIVE ACTION OFFERS
+  // ══════════════════════════════════════════════════════════════
+  const actionOffersEl = $("actionOffers");
+  window.showActionOffers = function(actions) {
+    if (!actionOffersEl || !actions || !actions.length) return;
+    actionOffersEl.innerHTML = "";
+    actions.forEach(a => {
+      const btn = document.createElement("button");
+      btn.className = "ao-btn" + (a.primary ? " primary" : "");
+      btn.innerHTML = (a.icon || "") + " " + esc(a.label);
+      btn.onclick = () => {
+        $("input").value = a.action;
+        setWorkspaceTab("chat");
+        $("send") && $("send").click();
+        actionOffersEl.innerHTML = "";
+      };
+      actionOffersEl.appendChild(btn);
+    });
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // EMPTY STATES
+  // ══════════════════════════════════════════════════════════════
+  window.showEmptyState = function(container, opts) {
+    if (!container) return;
+    container.innerHTML = '<div class="empty-state">' +
+      '<div class="es-icon">' + (opts.icon || "📋") + '</div>' +
+      '<div class="es-title">' + esc(opts.title || "Nothing here yet") + '</div>' +
+      '<div class="es-desc">' + esc(opts.desc || "") + '</div>' +
+      '<div class="es-actions">' +
+        (opts.actions || []).map(a => '<button class="es-btn' + (a.primary ? " primary" : "") + '" data-action="' + esc(a.action) + '">' + esc(a.label) + '</button>').join("") +
+      '</div></div>';
+    container.querySelectorAll(".es-btn").forEach(btn => {
+      btn.onclick = () => {
+        $("input").value = btn.dataset.action;
+        setWorkspaceTab("chat");
+        $("send") && $("send").click();
+      };
+    });
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // BROWSER TASK BUTTONS
+  // ══════════════════════════════════════════════════════════════
+  document.querySelectorAll(".bt-task").forEach(btn => {
+    btn.onclick = () => {
+      const task = btn.dataset.btask;
+      const prompts = {
+        use: "Use the current browser page as context and tell me what's important.",
+        docs: "Extract the documentation and code samples from the current browser page.",
+        code: "Turn the content of the current browser page into working code.",
+        summarize: "Summarize the current browser page and save the key findings to the notepad.",
+        monitor: "Monitor the current browser page for changes and alert me."
+      };
+      $("input").value = prompts[task] || prompts.use;
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    };
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // NOTE CATEGORY TABS + AI NOTE ACTIONS
+  // ══════════════════════════════════════════════════════════════
+  document.querySelectorAll(".nc-tab").forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll(".nc-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      tempToast("Note category: " + tab.textContent.trim());
+    };
+  });
+  const noteActionMap = {
+    noteToPlan: "Turn this note into a step-by-step plan:\n",
+    noteToTodo: "Turn this note into a checklist todo list:\n",
+    noteToFiles: "Create project files based on this note:\n",
+    noteToRule: "Turn this note into a project rule and save it to BOOLEAN.md:\n",
+    noteSummarizeThread: "Summarize the current chat conversation and save key points to the notepad."
+  };
+  Object.entries(noteActionMap).forEach(([id, prefix]) => {
+    const el = $(id);
+    if (el) el.onclick = () => {
+      const editor = $("noteEditor");
+      const selected = editor ? (window.getSelection().toString() || editor.innerText.trim()) : "";
+      $("input").value = prefix + (selected ? "\n" + selected : "");
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    };
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // DEPLOY ASSISTANT
+  // ══════════════════════════════════════════════════════════════
+  const deployBar = $("deployBar");
+  const deployStartBtn = $("deployStart");
+  if (deployStartBtn) {
+    deployStartBtn.onclick = () => {
+      const target = $("deployTarget").value;
+      if (!target) { tempToast("Select a deploy platform first."); return; }
+      const platforms = {
+        cloudflare: "Deploy this project to Cloudflare Workers. Guide me step by step with commands and rollback steps.",
+        vercel: "Deploy this project to Vercel. Guide me step by step with commands and rollback steps.",
+        netlify: "Deploy this project to Netlify. Guide me step by step with commands and rollback steps.",
+        "github-pages": "Deploy this project to GitHub Pages. Guide me step by step with commands and rollback steps."
+      };
+      $("input").value = platforms[target] || platforms.cloudflare;
+      setWorkspaceTab("chat");
+      $("send") && $("send").click();
+    };
+  }
+  // Show deploy bar on Git workspace tab
+  const _origSetWsTab = window.setWorkspaceTab;
+  if (typeof _origSetWsTab === "function") {
+    window.setWorkspaceTab = function(ws) {
+      const result = _origSetWsTab.call(this, ws);
+      if (deployBar) deployBar.style.display = (ws === "git") ? "flex" : "none";
+      return result;
+    };
+  }
 
 })();
 </script>
