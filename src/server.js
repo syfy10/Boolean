@@ -428,7 +428,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     return [...threads.values()]
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
       .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, pinned: !!t.pinned,
-        kind: isProjectThread(t) ? "project" : "chat", projectDir: t.projectDir || "" }));
+        kind: isProjectThread(t) ? "project" : "chat", projectDir: t.projectDir || "",
+        pendingTask: t.pendingTask ? {
+          state: t.pendingTask.state || "",
+          updatedAt: t.pendingTask.updatedAt || 0
+        } : null }));
   }
   const renderThread = (t) => t.log; // display log = full history incl. tool steps
   let activeThreadId = null;
@@ -495,7 +499,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
         const abort = new AbortController();
         let replyModel = currentModel(runConfig);
-        let runIn = 0, runOut = 0, runEst = false;
+        let runIn = 0, runOut = 0, runEst = false, runCalls = 0;
         const ctx = {
           config: runConfig,
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
@@ -510,6 +514,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           onOptimize: () => {},
           onUsage: (usage) => {
             runIn += usage.input || 0; runOut += usage.output || 0; runEst = runEst || !!usage.estimated;
+            if ((usage.input || 0) || (usage.output || 0)) runCalls++;
             if (usage.model) replyModel = usage.model;
             recordUsage(usage.provider, usage.model, usage.input || 0, usage.output || 0);
           },
@@ -527,7 +532,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (!answer) throw new Error("The selected model returned an empty response.");
         const aiLabel = shortAiName(provider, replyModel);
         t.log.push({ t: "ai", text: answer, at: Date.now(), provider, model: replyModel, aiLabel, scheduled: true });
-        if (runIn || runOut) t.log.push({ t: "usage", input: runIn, output: runOut, estimated: runEst });
+        if (runIn || runOut) t.log.push({ t: "usage", input: runIn, output: runOut, estimated: runEst, calls: runCalls });
         if (t.pendingTask) { t.pendingTask.state = "completed"; t.pendingTask.updatedAt = Date.now(); }
         t.updatedAt = Date.now();
         persist();
@@ -850,7 +855,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (!t) return json({ error: "no such thread" }, 404);
         activeThreadId = t.id;
         json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat",
-          projectDir: t.projectDir || "", log: renderThread(t) });
+          projectDir: t.projectDir || "", log: renderThread(t),
+          pendingTask: t.pendingTask ? {
+            state: t.pendingTask.state || "",
+            updatedAt: t.pendingTask.updatedAt || 0
+          } : null });
         return;
       }
 
@@ -1587,16 +1596,19 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (req.method === "POST" && p === "/api/continue") {
         const body = await readBody(req);
         const t = threads.get(body.threadId) || threads.get(activeThreadId);
+        if (!t) return json({ error: "No active chat to continue." }, 404);
         const savedTask = t.pendingTask;
+        if (t.abort) {
+          return json({ error: "A response is already running in this chat. Stop it before continuing." }, 409);
+        }
+        if (!savedTask || savedTask.state === "completed") {
+          return json({ error: "There is no interrupted task to continue in this chat." }, 409);
+        }
         const content = resumeTaskMessage(savedTask);
         t.messages.push({ role: "user", content });
         t.log.push({ t: "user", text: "Continue", images: [], at: Date.now() });
-        if (savedTask) {
-          savedTask.state = "running";
-          savedTask.updatedAt = Date.now();
-        } else {
-          beginPendingTask(t, content);
-        }
+        savedTask.state = "running";
+        savedTask.updatedAt = Date.now();
         t.updatedAt = Date.now();
         persist();
         return streamRun(t, res);
@@ -1729,7 +1741,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
 
         const abort = new AbortController();
         t.abort = abort;
-        let runIn = 0, runOut = 0, runEst = false;
+        let runIn = 0, runOut = 0, runEst = false, runCalls = 0;
         const ctx = {
           config: runConfig,
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
@@ -1742,9 +1754,10 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {
             runIn += u.input || 0; runOut += u.output || 0; runEst = runEst || !!u.estimated;
+            if ((u.input || 0) || (u.output || 0)) runCalls++;
             if (u.model) replyModel = u.model;
             recordUsage(u.provider, u.model, u.input || 0, u.output || 0);
-            send({ type: "tokens", input: runIn, output: runOut, estimated: runEst });
+            send({ type: "tokens", input: runIn, output: runOut, estimated: runEst, calls: runCalls });
           },
           onStep: (step) => {
             const entry = { t: "tool", name: step.name, summary: stepSummary(step.name, step.args), result: step.result };
@@ -1895,7 +1908,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             }
           }
           if (runIn || runOut) {
-            const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst };
+            const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst, calls: runCalls };
             t.log.push(usage);
             send({ type: "usage", ...usage });
           }
@@ -2060,7 +2073,7 @@ export function openAppWindow(url) {
     const dir = path.dirname(process.execPath);
     script = path.join(dir, "set-window-icon.ps1");
     icon = path.join(dir, "saz.ico");
-    if (!fs.existsSync(icon)) icon = path.join(dir, "saz.exe"); // fall back to exe icon
+    if (!fs.existsSync(icon)) icon = path.join(dir, "Boolean.exe"); // fall back to exe icon
   } else {
     const assets = path.resolve(new URL("../assets", import.meta.url).pathname.replace(/^\/([a-zA-Z]:)/, "$1"));
     script = path.join(assets, "set-window-icon.ps1");

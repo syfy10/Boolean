@@ -971,7 +971,7 @@
       </div>
       <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean <span id="aboutVersion">v0.09.20</span></b><small>Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
+        <span class="brand-tip" role="tooltip"><b>Boolean <span id="aboutVersion">v0.09.21</span></b><small>Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
   </div>
@@ -1380,7 +1380,7 @@
         </div>
       </div>
 
-      <button class="minibtn" id="savesettings" style="width:calc(100% - 32px);margin:10px 16px">Save &amp; close</button>
+      <button class="minibtn" id="savesettings" style="width:calc(100% - 32px);margin:10px 16px">Close</button>
     </div>
 
     <button class="navbtn" id="topSettings">
@@ -1818,6 +1818,8 @@
   let editingAutomationId="";
   let editingAutomationSnapshot=null;
   let scheduledNoteRange=null;
+  let scheduleSaving=false;
+  const automationBusyIds=new Set();
   let lastAutomationRunId=localStorage.getItem("booleanLastAutomationRun")||"";
   function localDateTimeValue(value=Date.now()+3600000){
     const date=new Date(value); date.setMinutes(date.getMinutes()-date.getTimezoneOffset());
@@ -1884,7 +1886,10 @@
   function renderAutomations(){
     const list=$("automationList"), runs=$("automationRuns");
     const items=automationState.automations||[];
-    list.innerHTML=items.length?items.map(item=>'<div class="automation-row" data-id="'+esc(item.id)+'"><div><div class="automation-name">'+esc(item.name||"Scheduled task")+'</div><div class="automation-meta">'+esc((item.actionType||"reminder").replace("open_url","open page"))+' · '+esc(item.schedule||"once")+' · '+esc(automationTime(item))+'</div></div><div class="automation-actions"><button data-action="run" title="Run now" aria-label="Run now">▶</button><button data-action="'+(item.enabled?'pause':'resume')+'" title="'+(item.enabled?'Pause':'Resume')+'" aria-label="'+(item.enabled?'Pause':'Resume')+'">'+(item.enabled?'Ⅱ':'▷')+'</button><button data-action="edit" title="Edit" aria-label="Edit">✎</button><button class="danger" data-action="remove" title="Delete" aria-label="Delete">×</button></div></div>').join(""):'<div class="automation-empty">No scheduled tasks yet.</div>';
+    list.innerHTML=items.length?items.map(item=>{
+      const disabled=automationBusyIds.has(item.id)?' disabled':'';
+      return '<div class="automation-row" data-id="'+esc(item.id)+'"><div><div class="automation-name">'+esc(item.name||"Scheduled task")+'</div><div class="automation-meta">'+esc((item.actionType||"reminder").replace("open_url","open page"))+' · '+esc(item.schedule||"once")+' · '+esc(automationTime(item))+'</div></div><div class="automation-actions"><button data-action="run" title="Run now" aria-label="Run now"'+disabled+'>▶</button><button data-action="'+(item.enabled?'pause':'resume')+'" title="'+(item.enabled?'Pause':'Resume')+'" aria-label="'+(item.enabled?'Pause':'Resume')+'"'+disabled+'>'+(item.enabled?'Ⅱ':'▷')+'</button><button data-action="edit" title="Edit" aria-label="Edit"'+disabled+'>✎</button><button class="danger" data-action="remove" title="Delete" aria-label="Delete"'+disabled+'>×</button></div></div>';
+    }).join(""):'<div class="automation-empty">No scheduled tasks yet.</div>';
     const recent=(automationState.recentRuns||[]).slice(0,8);
     runs.innerHTML=recent.length?recent.map(run=>'<div class="automation-run '+(Number(run.code)===0?'ok':'bad')+'"><div><span class="automation-run-state">'+(Number(run.code)===0?'Completed':'Failed')+'</span> · '+esc(run.name||"Scheduled task")+'</div><div class="automation-meta">'+esc(new Date(run.finishedAt||run.startedAt).toLocaleString())+(run.output?' · '+esc(String(run.output).replace(/\s+/g," ").slice(0,90)):'')+'</div></div>').join(""):'<div class="automation-empty">No runs yet.</div>';
   }
@@ -1906,10 +1911,19 @@
     }catch(error){ if($("settingsPanel").dataset.page==="scheduled") $("automationList").innerHTML='<div class="automation-empty">'+esc(error.message||error)+'</div>'; }
   }
   async function automationOperation(operation,id){
-    const response=await fetch("/api/automations",{method:"POST",body:JSON.stringify({operation,id})});
-    const result=await response.json().catch(()=>({}));
-    if(!response.ok){ tempToast(result.error||"Scheduled task could not be updated."); return false; }
-    await loadAutomations(); return true;
+    if(automationBusyIds.has(id)) return false;
+    automationBusyIds.add(id); renderAutomations();
+    try{
+      const response=await fetch("/api/automations",{method:"POST",body:JSON.stringify({operation,id})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok){ tempToast(result.error||"Scheduled task could not be updated."); return false; }
+      await loadAutomations(); return true;
+    }catch(error){
+      tempToast(error.message||"Scheduled task could not be updated.");
+      return false;
+    }finally{
+      automationBusyIds.delete(id); renderAutomations();
+    }
   }
   let navRestoring=false;
   let navHistory=[];
@@ -1923,6 +1937,11 @@
   const threadMore=JSON.parse(localStorage.getItem("sazThreadMore")||'{"Projects":false,"Chats":false}');
   const busy=()=>!!run;
   const viewingRun=()=>run && threadId===run.threadId;
+  const threadSummary=(id=threadId)=>(state.threads||[]).find(t=>t.id===id)||null;
+  const canContinueThread=(id=threadId)=>{
+    const status=threadSummary(id)?.pendingTask?.state||"";
+    return status==="interrupted"||status==="running";
+  };
   function currentAppView(){
     const settingsOpen=$("settingsPanel").classList.contains("open");
     const section=settingsOpen?document.querySelector("#settingsPanel .sec.open")?.dataset.sec||"":"";
@@ -2069,6 +2088,18 @@
   const timeHtml=(at)=>at?'<div class="msg-time">'+timeStr(at)+'</div>':'<div class="msg-time">'+timeStr(Date.now())+'</div>';
   const inlineTimeHtml=(at)=>'<span class="msg-time">'+timeStr(at||Date.now())+'</span>';
   const shortNum=(n)=>n>=1000000?(Math.round(n/100000)/10)+"m":n>=1000?(Math.round(n/100)/10)+"k":String(n);
+  function usageText(input, output, estimated, calls){
+    const total=(input||0)+(output||0);
+    const callText=calls>1?(" · "+calls+" calls"):"";
+    const exact=(total||0).toLocaleString()+" tokens"+(output?(" · "+(output||0).toLocaleString()+" out"):"")+callText+(estimated?" estimated":"");
+    if(total>=1000000) return {text:"▸ heavy run"+callText+" · "+shortNum(output||0)+" out"+(estimated?" est":""), title:exact};
+    return {text:"▸ "+shortNum(total)+" tokens · "+shortNum(output||0)+" out"+callText+(estimated?" est":""), title:exact};
+  }
+  function liveTokenText(n, estimated, calls){
+    const callText=calls>1?" · "+calls+" calls":"";
+    if(n>=1000000) return "heavy token use"+callText+(estimated?" (est)":"");
+    return n.toLocaleString()+" tokens"+callText+(estimated?" (est)":"");
+  }
   function relTime(at){
     if(!at) return "";
     const s=Math.floor((Date.now()-at)/1000);
@@ -2128,21 +2159,87 @@
     if(a.dataset.url) openUrlInBrowser(a.dataset.url);
     else if(a.dataset.file) openFileInNotepad(a.dataset.file);
   });
+  function toolRawSummary(entry){
+    if(!entry) return "";
+    if(entry.name==="web_search") return "Searched web"+(entry.args&&entry.args.query?": "+entry.args.query:"");
+    return entry.summary||entry.name||"Tool";
+  }
+  function toolCommandText(entry){
+    const source=String(entry?.args?.command||entry?.summary||"");
+    const cut=source.split(/\s[▸>]\s/).pop();
+    return cut||source;
+  }
+  function toolGroupKey(entry){
+    const name=entry?.name||"tool";
+    if(name==="run_command"){
+      const cmd=toolCommandText(entry).toLowerCase();
+      if(/\b(get-content|select-string|findstr|rg\b|grep\b|regex|matches|indexof|dir\b|ls\b)\b/.test(cmd)) return "run:inspect";
+      if(/\b(npm|node|dotnet|wrangler|git)\b/.test(cmd)&&/\b(test|tests|build|lint|check|compile|typecheck|status|diff|log)\b/.test(cmd)) return "run:check";
+      return "run:command";
+    }
+    if(["read_file","list_dir","find_files","search_files","find_symbol","git_status","git_diff"].includes(name)) return "inspect:files";
+    if(["read_page","visible_browser_read","screenshot_page","inspect_page_layout"].includes(name)) return "inspect:browser";
+    if(["write_file","edit_file","create_artifact","create_project"].includes(name)) return "change:files";
+    return name;
+  }
+  function toolDisplayLabel(entry){
+    const name=entry?.name||"tool";
+    if(name==="web_search") return toolRawSummary(entry);
+    if(name==="run_command"){
+      const key=toolGroupKey(entry);
+      if(key==="run:inspect") return "PowerShell checks";
+      if(key==="run:check") return "Run checks";
+      return "Run command";
+    }
+    const labels={
+      read_file:"Read files", list_dir:"List folders", find_files:"Search project", search_files:"Search project", find_symbol:"Search code",
+      git_status:"Check git", git_diff:"Check git changes", read_page:"Read page", visible_browser_read:"Read browser",
+      screenshot_page:"Screenshot page", inspect_page_layout:"Inspect page", write_file:"Edit files", edit_file:"Edit files",
+      create_artifact:"Create artifact", create_project:"Create project", run_project:"Run project", web_search:"Searched web"
+    };
+    return labels[name]||compactActivityText(toolRawSummary(entry));
+  }
+  function toolDetailText(entry){
+    const summary=toolRawSummary(entry);
+    const result=entry?.result?String(entry.result):"";
+    return summary+(result?"\n\n"+result:"");
+  }
   function makeTool(entry){
     const d=document.createElement("div"); d.className="toolcard"+((state.ui&&state.ui.collapseLogs===false)?" open":"");
     const open=d.classList.contains("open");
     const isWeb=entry.name==="web_search";
     if(isWeb) d.classList.add("webstatus");
-    const fullSummary=isWeb
-      ? "Searched web"+(entry.args&&entry.args.query?": "+entry.args.query:"")
-      : (entry.summary||entry.name);
-    const summary=isWeb?fullSummary:compactActivityText(fullSummary);
-    const detailText=summary!==fullSummary?fullSummary+(entry.result?"\n\n"+entry.result:""):(entry.result||"");
+    const fullSummary=toolRawSummary(entry);
+    const summary=toolDisplayLabel(entry);
+    const detailText=toolDetailText(entry);
+    d.dataset.toolKey=toolGroupKey(entry);
+    d.dataset.toolCount="1";
+    d._toolDetails=detailText;
     d.innerHTML='<div class="toolhead" title="'+esc(fullSummary)+'"><span class="tk">'+(open?"&#9662;":"&#9656;")+'</span><span class="sum">'+esc(summary)+'</span><span class="caret">'+(open?"hide &#9652;":"details &#9662;")+'</span></div><pre class="toolout">'+esc(detailText)+'</pre>';
     const toggle=()=>{ d.classList.toggle("open"); const isOpen=d.classList.contains("open"); d.querySelector(".tk").innerHTML=isOpen?"&#9662;":"&#9656;"; d.querySelector(".caret").innerHTML=isOpen?"hide &#9652;":(isWeb?"details &#9662;":"show &#9662;"); };
     d.querySelector(".toolhead").onclick=isWeb?null:toggle;
     if(isWeb) d.querySelector(".caret").onclick=(e)=>{ e.stopPropagation(); toggle(); };
     return d;
+  }
+  function mergeToolCard(card,entry){
+    const count=Math.min(99,Number(card.dataset.toolCount||"1")+1);
+    card.dataset.toolCount=String(count);
+    const detail=toolDetailText(entry);
+    card._toolDetails=(card._toolDetails||card.querySelector(".toolout")?.textContent||"")+"\n\n---\n"+detail;
+    card.querySelector(".sum").textContent=toolDisplayLabel(entry)+" x"+count;
+    card.querySelector(".toolout").textContent=card._toolDetails;
+    card.title=toolRawSummary(entry);
+    return card;
+  }
+  function addToolCard(parent,entry,before){
+    const key=toolGroupKey(entry);
+    const prev=before?before.previousElementSibling:parent.lastElementChild;
+    if(prev&&prev.classList&&prev.classList.contains("toolcard")&&!prev.classList.contains("webstatus")&&prev.dataset.toolKey===key){
+      return mergeToolCard(prev,entry);
+    }
+    const node=makeTool(entry);
+    if(before) parent.insertBefore(node,before); else parent.appendChild(node);
+    return node;
   }
   async function removeInstalledModel(file, sourceNode){
     const ok=await appConfirm("Remove model?",displayName(file)+" will be deleted from this PC. You can download it again later.","Remove",true);
@@ -2639,7 +2736,7 @@
   }
   async function refresh(){
     try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
-    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.20"));
+    if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.21"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
@@ -2925,13 +3022,15 @@
     closeConversationPanels();
     threadId=id;
     const t=await (await fetch("/api/thread?id="+id)).json();
+    const known=threadSummary(id);
+    if(known) known.pendingTask=t.pendingTask||null;
     col.innerHTML="";
     const log=t.log||[];
     if(!log.length && !(run&&run.threadId===id)) showEmpty();
     log.forEach(e=>{
       if(e.t==="user") addUser(e.text,e.images,e.at);
       else if(e.t==="ai" && String(e.text||"").trim()) col.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
-      else if(e.t==="tool") col.appendChild(makeTool(e));
+      else if(e.t==="tool") addToolCard(col,e);
       else if(e.t==="image") col.appendChild(makeShot(e.src,e.caption));
       else if(e.t==="usage"){ const u=makeUsage(e); if(u) col.appendChild(u); }
       else if(e.t==="error") col.appendChild(makeErr(e));
@@ -4002,6 +4101,12 @@
     updateCopyButton();
     scrollDown(); return node;
   }
+  function insertToolAbove(entry){
+    const s=(run&&run.statusEl&&run.statusEl.isConnected)?run.statusEl:null;
+    const node=addToolCard(col,entry,s);
+    updateCopyButton();
+    scrollDown(); return node;
+  }
   function fmtTime(ms){ const s=Math.max(0,Math.floor(ms/1000)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); }
   function compactActivityText(value){
     const text=String(value||"");
@@ -4034,16 +4139,16 @@
     const parts=[];
     if(run.steps) parts.push("step "+run.steps);
     parts.push(fmtTime(Date.now()-run.startTime));
-    if(!state.ui || state.ui.showTokens!==false){ const tk=liveTokenCount(); if(tk.n) parts.push(tk.n.toLocaleString()+" tokens"+(tk.est?" (est)":"")); }
+    if(!state.ui || state.ui.showTokens!==false){ const tk=liveTokenCount(); if(tk.n) parts.push(liveTokenText(tk.n,tk.est,run.tokens?.calls||0)); }
     m.textContent=" · "+parts.join(" · ");
   }
   function makeUsage(u){
-    const total=(u.input||0)+(u.output||0);
-    const text="▸ "+shortNum(total)+" tokens · "+shortNum(u.output||0)+" out"+(u.estimated?" est":"");
+    const usage=usageText(u.input||0,u.output||0,u.estimated,u.calls||0);
     const foot=[...col.querySelectorAll(".msg-ai .msg-foot")].pop();
-    if(foot){ const slot=foot.querySelector(".usage-inline"); if(slot){ slot.textContent=text; return null; } }
+    if(foot){ const slot=foot.querySelector(".usage-inline"); if(slot){ slot.textContent=usage.text; slot.title=usage.title; return null; } }
     const d=document.createElement("div"); d.className="usage-line";
-    d.textContent=text;
+    d.textContent=usage.text;
+    d.title=usage.title;
     return d;
   }
   function ensureStatusEl(){
@@ -4183,9 +4288,11 @@
     removeEndActions();
     if(busy() || !col.querySelector(".msg-user")) return;
     const bar=document.createElement("div"); bar.className="actions end-actions";
-    bar.innerHTML='<button class="actbtn" data-a="retry" title="Retry" aria-label="Retry response">&#8635;</button><button class="actbtn" data-a="continue" title="Continue" aria-label="Continue response">&#8594;</button>';
+    bar.innerHTML='<button class="actbtn" data-a="retry" title="Retry" aria-label="Retry response">&#8635;</button>'
+      +(canContinueThread()?'<button class="actbtn" data-a="continue" title="Continue paused task" aria-label="Continue paused task">&#8594;</button>':'');
     bar.querySelector('[data-a="retry"]').onclick=retry;
-    bar.querySelector('[data-a="continue"]').onclick=continueRun;
+    const cont=bar.querySelector('[data-a="continue"]');
+    if(cont) cont.onclick=continueRun;
     const foot=[...col.querySelectorAll(".msg-ai .msg-foot")].pop();
     if(foot) foot.appendChild(bar); else col.appendChild(bar);
     scrollDown();
@@ -4212,6 +4319,12 @@
       :{threadId:tid,targets:opts.targets};
     try{
       const res=await fetch(url,{method:"POST",signal:currentAbort.signal,body:JSON.stringify(body)});
+      if(!res.ok){
+        const text=await res.text();
+        let message=text;
+        try{ const data=JSON.parse(text); message=data.error||data.message||text; }catch{}
+        throw new Error(message||("Request failed: "+res.status));
+      }
       const rd=res.body.getReader(), dec=new TextDecoder(); let buf="";
       for(;;){ const{done,value}=await rd.read(); if(done)break; buf+=dec.decode(value,{stream:true}); let nl;
         while((nl=buf.indexOf("\n"))>=0){ const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1); if(line) handleEvent(JSON.parse(line)); } }
@@ -4221,7 +4334,7 @@
     const holdQueue=!!finishedRun?.holdQueue;
     lastRunWasCompare=!!finishedRun?.compare;
     if(threadId===tid && finishedRun && (finishedRun.steps||finishedRun.outcome&&finishedRun.outcome!=="completed")) col.appendChild(makeRunResult(finishedRun));
-    run=null; currentAbort=null; updateSendButton(); renderThreads();
+    run=null; currentAbort=null; updateSendButton(); await refresh();
     // auto-send the next queued message for this thread
     const q=queues[tid];
     if(q&&q.length&&!holdQueue&&!queuePaused[tid]){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
@@ -4229,7 +4342,11 @@
   }
   let lastRunWasCompare=false;
   function retry(){ if(!busy()) startRun(threadId,lastRunWasCompare&&compareState.targets.length===2?{mode:"compare-retry",targets:compareState.targets}:{mode:"retry"}); }
-  function continueRun(){ if(!busy()) startRun(threadId,{mode:"continue"}); }
+  function continueRun(){
+    if(busy()) return;
+    if(!canContinueThread()){ tempToast("There is no paused task to continue."); renderEndActions(); return; }
+    startRun(threadId,{mode:"continue"});
+  }
   function handleEvent(ev){
     if(!run) return;
     const showing=viewingRun();
@@ -4245,7 +4362,7 @@
       }
     }
     else if(ev.type==="token"){ run.raw+=ev.text; if(showing) ensureLiveAI(); }
-    else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertAbove(makeTool(ev.entry)); run.status="working…"; ensureStatusEl(); } }
+    else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertToolAbove(ev.entry); run.status="working…"; ensureStatusEl(); } }
     else if(ev.type==="approval"){
       if(showing){
         const card=document.createElement("div"); card.className="approval";
@@ -4350,8 +4467,9 @@
     $("settingsBack").setAttribute("aria-label","Close settings");
     panel.scrollTop=0;
   }
-  function showSettingsSection(id){
+  function showSettingsSection(id,{remember=false}={}){
     const panel=$("settingsPanel");
+    if(remember&&!navRestoring) rememberCurrentView();
     const section=panel.querySelector(`.sec[data-sec="${CSS.escape(String(id||""))}"]:not(.settings-hidden)`);
     if(!section){ showSettingsHome(); return; }
     panel.classList.remove("settings-home");
@@ -4408,6 +4526,7 @@
   $("scheduleModal").onclick=(e)=>{ if(e.target===$("scheduleModal")) closeScheduleModal(); };
   $("newAutomation").onclick=()=>openScheduleModal();
   $("scheduleSave").onclick=async()=>{
+    if(scheduleSaving) return;
     const wasEditing=!!editingAutomationId;
     const name=$("scheduleName").value.trim();
     const when=$("scheduleWhen").value;
@@ -4431,9 +4550,18 @@
     if(actionType==="command") body.command=content;
     else if(actionType==="open_url"||actionType==="webhook") body.url=content;
     else body.text=content;
-    const response=await fetch("/api/automations",{method:"POST",body:JSON.stringify(body)});
-    const result=await response.json().catch(()=>({}));
-    if(!response.ok){ tempToast(result.error||"Could not save the scheduled task."); return; }
+    scheduleSaving=true; $("scheduleSave").disabled=true;
+    let result={};
+    try{
+      const response=await fetch("/api/automations",{method:"POST",body:JSON.stringify(body)});
+      result=await response.json().catch(()=>({}));
+      if(!response.ok){ tempToast(result.error||"Could not save the scheduled task."); return; }
+    }catch(error){
+      tempToast(error.message||"Could not save the scheduled task.");
+      return;
+    }finally{
+      scheduleSaving=false; $("scheduleSave").disabled=false;
+    }
     closeScheduleModal();
     if(range&&result.id){
       try{
@@ -4816,7 +4944,7 @@ Optional bundled starter model:
   document.querySelectorAll("#settingsPanel .sechead").forEach(h=>{
     h.setAttribute("role","button");
     h.tabIndex=0;
-    const open=()=>showSettingsSection(h.parentElement.dataset.sec);
+    const open=()=>showSettingsSection(h.parentElement.dataset.sec,{remember:true});
     h.onclick=open;
     h.onkeydown=(event)=>{ if(event.key==="Enter"||event.key===" "){ event.preventDefault(); open(); } };
   });

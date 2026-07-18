@@ -1,6 +1,6 @@
 # Builds the native WebView2 shell distribution into dist\saz-app\:
-#   saz.exe          - the .NET WebView2 window we own (taskbar icon, real browser)
-#   saz-core.exe     - the Node backend (engine + server + web UI), launched by the shell
+#   Boolean.exe      - the .NET WebView2 window we own (taskbar icon, real browser)
+#   Boolean-core.exe - the Node backend (engine + server + web UI), launched by the shell
 #   engine\, templates\, saz.ico, docs
 # Run:  powershell -ExecutionPolicy Bypass -File build\build-shell.ps1
 $ErrorActionPreference = "Stop"
@@ -8,11 +8,11 @@ $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root
 $out = "$root\dist\saz-app"
 
-Write-Host "[1/5] building Node core (saz-core.exe)..."
+Write-Host "[1/5] building Node core (Boolean-core.exe)..."
 & powershell -ExecutionPolicy Bypass -File "$root\build\build-exe.ps1"
 if ($LASTEXITCODE -ne 0) { throw "core build failed" }
 
-Write-Host "[2/5] publishing .NET shell (self-contained saz.exe)..."
+Write-Host "[2/5] publishing .NET shell (self-contained Boolean.exe)..."
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 & dotnet publish "$root\shell\SazShell.csproj" -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
@@ -21,7 +21,7 @@ if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 if ($LASTEXITCODE -ne 0) { throw "shell publish failed" }
 
 Write-Host "[3/5] placing the Node core next to the shell..."
-Copy-Item "$root\dist\saz.exe" "$out\saz-core.exe" -Force
+Copy-Item "$root\dist\saz.exe" "$out\Boolean-core.exe" -Force
 
 Write-Host "[4/5] bundling engine, templates and icon..."
 Copy-Item "$root\build\engine" "$out\engine" -Recurse -Force

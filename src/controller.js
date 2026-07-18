@@ -38,6 +38,7 @@ const ACTION_REQUEST = /(?:^|\b(?:please|can you|could you|would you|i want you 
 const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing|ure)?|fix|repair|regression|not working|doesn['’]?t work|stuck|cut(?:s|ting)? off|overlap(?:s|ping)?|wrong|issue)\b/i;
 
 const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b/i;
+const INSPECTION_COMMAND = /\b(?:get-content|select-string|findstr|rg\b|grep\b|regex|matches|indexof|dir\b|ls\b|type\b|cat\b)\b/i;
 const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
 
 function cleanText(value, max = 240) {
@@ -197,6 +198,33 @@ function isVerification(name, args) {
 
 function isDeployCommand(name, args) {
   return name === "run_command" && DEPLOY_COMMAND.test(String(args?.command || ""));
+}
+
+function isInspectionCommand(name, args = {}) {
+  if (name !== "run_command") return false;
+  const command = String(args.command || "");
+  if (!command || CHECK_COMMAND.test(command) || DEPLOY_COMMAND.test(command)) return false;
+  return INSPECTION_COMMAND.test(command);
+}
+
+function commandSubject(command = "") {
+  const paths = extractWindowsPaths(command)
+    .map((item) => path.basename(item).toLowerCase())
+    .filter(Boolean)
+    .sort();
+  if (paths.length) return paths.slice(0, 4).join(",");
+  const files = [...String(command || "").matchAll(/\b[A-Za-z0-9_.-]+\.(?:html|css|js|mjs|cjs|ts|tsx|jsx|json|md|ps1|cs|py|toml|ya?ml)\b/gi)]
+    .map((match) => match[0].toLowerCase())
+    .sort();
+  if (files.length) return files.slice(0, 4).join(",");
+  return cleanText(command, 80).toLowerCase();
+}
+
+function coarseActionFingerprint(name, args = {}) {
+  if (isInspectionCommand(name, args)) return `coarse:run_inspect:${commandSubject(args.command)}`;
+  if (INSPECTION_TOOLS.has(name)) return `coarse:inspect:${name}:${cleanText(fileArgument(args) || args.query || args.url || "", 120).toLowerCase()}`;
+  if (BROWSER_TOOLS.has(name)) return `coarse:browser:${name}:${cleanText(args.url || args.selector || args.text || "", 120).toLowerCase()}`;
+  return "";
 }
 
 function isDeployVerification(name, args, result, sourceOfTruth = {}) {
@@ -426,6 +454,13 @@ export class AgentController {
       const outside = absolutePaths.find((candidate) => !this.contract.allowedRoots.some((root) => isWithin(root, candidate.trim())));
       if (outside) return { allowed: false, reason: `Command references a path outside the allowed workspace: ${cleanText(outside, 260)}` };
     }
+    const coarseFingerprint = coarseActionFingerprint(name, args);
+    if (coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= 3) {
+      return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Use the evidence already collected and summarize the blocker instead of checking again." };
+    }
+    if (this.nonProgressCount >= 10 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
+      return { allowed: false, reason: "Tool budget reached: too many inspection steps happened without a file change or new result. Stop and summarize what is known so far." };
+    }
     const fingerprint = actionFingerprint(name, args);
     if ((this.actionCounts[fingerprint] || 0) >= 2 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name))) {
       return { allowed: false, reason: `Loop guard: '${name}' already ran twice with the same target. Use the existing evidence, summarize the cause, or choose a different check.` };
@@ -460,7 +495,9 @@ export class AgentController {
     this.toolCount++;
     this.updatedAt = Date.now();
     const fingerprint = actionFingerprint(name, args);
+    const coarseFingerprint = coarseActionFingerprint(name, args);
     this.actionCounts[fingerprint] = (this.actionCounts[fingerprint] || 0) + 1;
+    if (coarseFingerprint) this.actionCounts[coarseFingerprint] = (this.actionCounts[coarseFingerprint] || 0) + 1;
     this.recentActions.push(`${name}: ${cleanText(fileArgument(args) || args.command || result, 220)}`);
     this.recentActions = this.recentActions.slice(-10);
 
@@ -558,17 +595,18 @@ export class AgentController {
 
     this.consecutiveFailures = 0;
     this.lastFailure = "";
-    if (name !== "update_plan" && !INSPECTION_TOOLS.has(name)) this.successfulActionCount++;
+    const inspectionCommand = isInspectionCommand(name, args);
+    if (name !== "update_plan" && !INSPECTION_TOOLS.has(name) && !inspectionCommand) this.successfulActionCount++;
     if (PREPARATION_TOOLS.has(name)) {
       this.preparationCount++;
       this.phase = "executing";
       setPlanProgress(this.plan, 0, "done");
       if (this.plan[1]?.status === "pending") this.plan[1].status = "in_progress";
     }
-    if (INSPECTION_TOOLS.has(name)) {
+    if (INSPECTION_TOOLS.has(name) || inspectionCommand) {
       this.inspectionCount++;
       this.nonProgressCount++;
-      const inspected = cleanText(fileArgument(args), 260);
+      const inspected = cleanText(fileArgument(args) || commandSubject(args.command), 260);
       if (inspected && !this.inspectedFiles.includes(inspected)) this.inspectedFiles.push(inspected);
       this.inspectedFiles = this.inspectedFiles.slice(-12);
       setPlanProgress(this.plan, 0, "done");

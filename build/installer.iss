@@ -3,9 +3,10 @@
 ; Build:  ISCC.exe build\installer.iss
 
 #define AppName "Boolean"
-#define AppVersion "0.9.20"
+#define AppVersion "0.9.21"
 #define AppPublisher "saz3 Labs"
-#define AppExe "saz.exe"
+#define AppExe "Boolean.exe"
+#define CoreExe "Boolean-core.exe"
 
 [Setup]
 AppId={{3D9A7B42-C1E6-4F8A-9B2D-E5F0A3C81D67}
@@ -27,20 +28,20 @@ UninstallDisplayIcon={app}\{#AppExe}
 LicenseFile=..\assets\LICENSE.txt
 
 [Files]
-; the whole native-shell distribution (saz.exe shell + saz-core.exe backend +
+; the whole native-shell distribution (Boolean.exe shell + Boolean-core.exe backend +
 ; engine + templates + docs), produced by build\build-shell.ps1
 Source: "..\dist\saz-app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{userprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\saz.ico"; WorkingDir: "{app}"
-Name: "{userprograms}\{#AppName} (terminal)"; Filename: "{app}\saz-core.exe"; IconFilename: "{app}\saz.ico"; WorkingDir: "{userdocs}"
+Name: "{userprograms}\{#AppName} (terminal)"; Filename: "{app}\{#CoreExe}"; IconFilename: "{app}\saz.ico"; WorkingDir: "{userdocs}"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\saz.ico"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
 
 [Registry]
-; add install dir to the user PATH so 'saz-core' works in any terminal
+; add install dir to the user PATH so Boolean-core works in any terminal
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; \
   ValueData: "{olddata};{app}"; Check: NeedsAddPath(ExpandConstant('{app}'))
 
@@ -56,6 +57,8 @@ var
 begin
   Exec('taskkill.exe', '/F /T /IM saz.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /T /IM saz-core.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /T /IM Boolean.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /T /IM Boolean-core.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /T /IM llama-server.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Script :=
     '$roots=@(' +
@@ -67,7 +70,7 @@ begin
     Script := Script + '$roots += ''' + ExpandConstant('{app}') + '''; ';
   Script := Script +
     'for($i=0;$i -lt 24;$i++){ ' +
-    '$procs=Get-Process saz,saz-core,llama-server -ErrorAction SilentlyContinue | Where-Object { ' +
+    '$procs=Get-Process Boolean,Boolean-core,saz,saz-core,llama-server -ErrorAction SilentlyContinue | Where-Object { ' +
     'try{$p=$_.Path}catch{$p=$null}; ' +
     '$p -and ($roots | Where-Object { $p.StartsWith($_,[StringComparison]::OrdinalIgnoreCase) }) ' +
     '}; ' +

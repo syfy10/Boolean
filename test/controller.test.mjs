@@ -264,6 +264,31 @@ test("loop guard blocks a third identical inspection and resets after a change",
   assert.equal(controller.allowTool("read_file", args).allowed, true);
 });
 
+test("loop guard catches repeated PowerShell inspection variants", () => {
+  const controller = new AgentController({
+    objective: "Find why the tab close button does not work",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+
+  const variants = [
+    "Get-Content index.html -Raw | Select-String closeButton",
+    "$content = Get-Content index.html -Raw; $content.IndexOf('closeButton')",
+    "$matches = [regex]::Matches((Get-Content index.html -Raw),'closeButton'); $matches.Count"
+  ];
+  for (const command of variants) {
+    assert.equal(controller.allowTool("run_command", { command }).allowed, true);
+    controller.noteTool("run_command", { command }, "found matching text");
+  }
+
+  const blocked = controller.allowTool("run_command", {
+    command: "Select-String -Path index.html -Pattern closeButton"
+  });
+  assert.equal(blocked.allowed, false);
+  assert.match(blocked.reason, /Loop guard/i);
+  assert.equal(controller.snapshot().successfulActionCount, 0);
+});
+
 test("working memory tracks temporary processes and exposes a handoff report", () => {
   const controller = new AgentController({ objective: "Fix and preview the app", artifactRequired: true });
   controller.noteTool("run_background", { name: "preview", command: "npm run dev" }, "Started background process 'preview' - running (pid 42).");

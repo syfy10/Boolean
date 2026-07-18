@@ -10,7 +10,7 @@ $iscc = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 if (-not $iscc) { throw "Inno Setup not found. Install with: winget install JRSoftware.InnoSetup" }
-if (-not (Test-Path "$root\dist\saz-app\saz.exe")) { throw "dist\saz-app missing. Run build\build-shell.ps1 first." }
+if (-not (Test-Path "$root\dist\saz-app\Boolean.exe")) { throw "dist\saz-app missing. Run build\build-shell.ps1 first." }
 
 & $iscc "$root\build\installer.iss"
 if ($LASTEXITCODE -ne 0) { throw "installer build failed" }

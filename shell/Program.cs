@@ -406,7 +406,7 @@ sealed class MainForm : Form
 
         // Development builds do not update themselves. Packaged builds always
         // contain the core executable beside the shell.
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "saz-core.exe"))) { _updateCheckRunning = false; return; }
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "Boolean-core.exe"))) { _updateCheckRunning = false; return; }
 
         try
         {
@@ -561,7 +561,7 @@ sealed class MainForm : Form
             var helperPath = Path.Combine(_updateDir, "apply-update.ps1");
             var logPath = Path.Combine(_updateDir, "update-install.log");
             var pendingFile = Path.Combine(_updateDir, "pending-update.json");
-            var appExe = Path.Combine(AppContext.BaseDirectory, "saz.exe");
+            var appExe = Path.Combine(AppContext.BaseDirectory, "Boolean.exe");
             var script = """
 param(
   [Parameter(Mandatory=$true)][string]$Installer,
@@ -792,11 +792,11 @@ try {
         catch { return ""; }
     }
 
-    // packaged: saz-core.exe next to us. dev: node <repo>\src\index.js
+    // packaged: Boolean-core.exe next to us. dev: node <repo>\src\index.js
     (string exe, string[] args) ResolveCore(int port)
     {
         var dir = AppContext.BaseDirectory;
-        var core = Path.Combine(dir, "saz-core.exe");
+        var core = Path.Combine(dir, "Boolean-core.exe");
         string[] tail = { "ui", "--no-open", "--port", port.ToString() };
         if (File.Exists(core)) return (core, tail);
 
@@ -806,7 +806,7 @@ try {
             var node = new[] { index }.Concat(tail).ToArray();
             return ("node", node);
         }
-        throw new Exception("saz-core.exe not found and dev src\\index.js not located");
+        throw new Exception("Boolean-core.exe not found and dev src\\index.js not located");
     }
 
     static string? FindUp(string start, string rel)

@@ -628,6 +628,11 @@ export async function runTurn(ctx, messages) {
     }
     return await executeTool(name, args, ctx);
   };
+  const controllerStopAnswer = (result) => {
+    if (!/^blocked:/i.test(String(result || ""))) return "";
+    const reason = String(result || "").split(/\r?\n/)[0].replace(/^blocked:\s*/i, "").trim();
+    return `I stopped because Boolean's loop guard was triggered: ${reason}\n\nWhat I found so far is saved above. Continue only if you want me to try a different approach.`;
+  };
   const withController = (source) => source.map((message, index) => index === 0 && message?.role === "system"
     ? { ...message, content: turnMode === "agent" ? `${message.content}\n\n${controller.prompt()}` : message.content }
     : message);
@@ -637,6 +642,11 @@ export async function runTurn(ctx, messages) {
     const result = await executeControllerTool(directAction.name, directAction.args);
     noteControllerTool(directAction.name, directAction.args, result);
     emitStep({ name: directAction.name, args: directAction.args, result });
+    const stoppedByController = controllerStopAnswer(result);
+    if (stoppedByController) {
+      messages.push({ role: "assistant", content: stoppedByController });
+      return stoppedByController;
+    }
     const pageLabel = String(directAction.args.page || "Windows").replace(/_/g, " ");
     const answer = /^Opened Windows Settings:/i.test(result)
       ? `${result} Tell me the exact ${pageLabel} setting you want changed.`
@@ -658,6 +668,11 @@ export async function runTurn(ctx, messages) {
       const result = await executeControllerTool(action.name, action.args);
       noteControllerTool(action.name, action.args, result);
       emitStep({ name: action.name, args: action.args, result });
+      const stoppedByController = controllerStopAnswer(result);
+      if (stoppedByController) {
+        messages.push({ role: "assistant", content: stoppedByController });
+        return stoppedByController;
+      }
       checkpoint();
       bootstrapContext = `${action.name}: ${result}`;
     }
@@ -847,6 +862,11 @@ export async function runTurn(ctx, messages) {
           tool_call_id: call.id || `call_${turn}`,
           content: toolContent
         });
+        const stoppedByController = controllerStopAnswer(result);
+        if (stoppedByController) {
+          messages.push({ role: "assistant", content: stoppedByController });
+          return stoppedByController;
+        }
         checkpoint();
       }
       flushPendingImages();
@@ -871,6 +891,11 @@ export async function runTurn(ctx, messages) {
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
       });
+      const stoppedByController = controllerStopAnswer(result);
+      if (stoppedByController) {
+        messages.push({ role: "assistant", content: stoppedByController });
+        return stoppedByController;
+      }
       flushPendingImages();
       checkpoint();
       continue;
