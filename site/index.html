@@ -3,8 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Boolean by saz3 Labs</title>
-  <meta name="description" content="Boolean is a clean Windows AI workspace: local models, an embedded browser, and a notepad in one app.">
+  <title>Boolean - Local AI workspace for Windows</title>
+  <meta name="description" content="Boolean is a local-first Windows AI workspace with chat, coding agents, an embedded browser, notepad, local GGUF models, and optional cloud providers.">
+  <link rel="canonical" href="https://saz3.com/boolean/">
+  <meta property="og:title" content="Boolean - Local AI workspace for Windows">
+  <meta property="og:description" content="Chat, build, browse, and keep notes in one local-first Windows workspace.">
+  <meta property="og:image" content="https://saz3.com/boolean/assets/boolean-app-screen.png">
   <link rel="icon" href="./assets/boolean-app-icon-clear.png">
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -12,13 +16,14 @@
   <main id="top">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Windows AI Workspace</p>
-        <h1>One clean local AI workspace.</h1>
-        <p class="lead">Chat, an embedded browser, a notepad, and local models in one simple desktop app from saz3 Labs.</p>
+        <p class="eyebrow">Windows AI workspace <span class="release-label">v0.9.34</span></p>
+        <h1>Boolean</h1>
+        <p class="lead">A local-first workspace for chat, coding agents, web research, notes, and supported GGUF models on Windows.</p>
         <div class="actions">
-          <a class="button primary" href="https://github.com/syfy10/Boolean/releases/latest/download/Boolean-setup.exe">Download Boolean</a>
-          <a class="button ghost" href="#features">See what it does</a>
+          <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.34/Boolean-setup.exe">Download v0.9.34</a>
+          <a class="button ghost" href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">View on GitHub</a>
         </div>
+        <p class="release-note">Windows 10/11, x64 <span aria-hidden="true">&middot;</span> Local mode needs no account</p>
       </div>
 
       <div class="app-frame-wrap">
@@ -33,7 +38,7 @@
       <article class="local-panel">
         <div class="download-card">
           <div class="download-card-head">
-            <h3>Qwen2.5-7B</h3>
+            <h3>Qwen3.5-4B</h3>
             <span>Downloading</span>
           </div>
           <p>Saved to <code>~/.saz/models</code></p>
@@ -79,45 +84,45 @@
           <b class="code-mark">&lt;/&gt;</b>
           <em class="mail-mark"></em>
         </div>
-        <h3>Chat that gets work done</h3>
-        <p>Draft emails, summarize reports, write code, and plan tasks with the current work kept in context.</p>
+        <h3>Main chat plus Side chat</h3>
+        <p>Keep long project work in the main conversation while a compact answer-only Side chat handles quick questions.</p>
       </article>
       <article>
         <div class="feature-visual notes-visual" aria-hidden="true">
           <span></span><span></span><span></span><i></i>
         </div>
         <h3>Browser and notepad built in</h3>
-        <p>Research beside chat, then keep drafts, snippets, and screenshots in a clean paper-style notepad.</p>
+        <p>Research beside chat with safe-click confirmation, then keep drafts, snippets, and screenshots in the notepad.</p>
       </article>
       <article>
         <div class="feature-visual local-visual" aria-hidden="true">
           <span></span><b>1</b><b>0</b><i></i>
         </div>
-        <h3>Runs on your PC</h3>
-        <p>Use supported GGUF models locally. No account is required for standard local use.</p>
+        <h3>Local-first by design</h3>
+        <p>Run supported GGUF models on your PC. Provider keys, projects, chats, and notes remain under your control.</p>
       </article>
       <article>
         <div class="feature-visual doc-visual" aria-hidden="true">
           <b class="doc-icon">DOC</b>
           <i></i>
         </div>
-        <h3>Documents and images</h3>
-        <p>Create real Word, Excel, PowerPoint, and PDF files, or generate and edit images — all saved to your project.</p>
+        <h3>Settings without the hunt</h3>
+        <p>Navigate models, agents, connectors, privacy, appearance, shortcuts, notifications, and updates from one control center.</p>
       </article>
       <article>
         <div class="feature-visual agent-visual" aria-hidden="true">
           <span></span><span></span><span></span>
         </div>
-        <h3>Parallel agents</h3>
-        <p>Run up to three focused sub-agents at once with isolated Git branches, then review and apply the best result.</p>
+        <h3>Coding agent workflows</h3>
+        <p>Plan, edit, test, debug, and review project changes with durable progress, recovery checkpoints, and isolated agent branches.</p>
       </article>
       <article>
         <div class="feature-visual auto-visual" aria-hidden="true">
           <b class="clock-icon">&#9200;</b>
           <i></i>
         </div>
-        <h3>Automate and research</h3>
-        <p>Schedule reminders, commands, and webhooks. Search the web with cited sources and work directly with GitHub issues and PRs.</p>
+        <h3>Create and automate</h3>
+        <p>Build documents and images, schedule tasks and webhooks, research with citations, and work with GitHub issues and PRs.</p>
       </article>
     </section>
 
@@ -125,16 +130,16 @@
       <div class="github-copy">
         <p class="eyebrow">GitHub</p>
         <h2>Follow Boolean in the open.</h2>
-        <p>Browse the source, review each Windows release, or report a problem directly in the public repository.</p>
+        <p>Browse the source, download the current Windows release, or report a problem in the public repository.</p>
       </div>
       <nav class="github-links" aria-label="Boolean on GitHub">
         <a href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">
           <strong>Source code</strong>
           <span>View repository <b aria-hidden="true">&#8599;</b></span>
         </a>
-        <a href="https://github.com/syfy10/Boolean/releases" target="_blank" rel="noopener noreferrer">
-          <strong>Releases</strong>
-          <span>Versions and notes <b aria-hidden="true">&#8599;</b></span>
+        <a href="https://github.com/syfy10/Boolean/releases/tag/v0.9.34" target="_blank" rel="noopener noreferrer">
+          <strong>Current release</strong>
+          <span>Boolean v0.9.34 <b aria-hidden="true">&#8599;</b></span>
         </a>
         <a href="https://github.com/syfy10/Boolean/issues" target="_blank" rel="noopener noreferrer">
           <strong>Issues</strong>
@@ -157,8 +162,9 @@
         </div>
       </div>
       <div class="footer-actions">
-        <a class="button primary" href="https://github.com/syfy10/Boolean/releases/latest/download/Boolean-setup.exe">Download installer</a>
+        <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.34/Boolean-setup.exe">Download v0.9.34</a>
         <nav aria-label="Footer">
+          <a href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">GitHub</a>
           <a href="mailto:saz3labs@gmail.com">Contact</a>
           <a href="./privacy.html">Privacy</a>
           <a href="./policy.html">Policy</a>

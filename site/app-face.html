@@ -3324,7 +3324,7 @@ Optional bundled starter model:
   const cmdbarObserver = new MutationObserver(cmdbarUpdateTask);
   cmdbarObserver.observe(document.body,{attributes:true,attributeFilter:["class"]});
 
-  input.focus();
+  if(window.top===window) input.focus();
 })();
 </script>
 <!-- ===== marketing-site demo patch (not part of the shipped app) ===== -->
