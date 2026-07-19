@@ -13,6 +13,20 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
+  <header class="sticky-nav" id="nav">
+    <div class="nav-inner">
+      <a href="#top" class="nav-brand">Boolean</a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#quickstart">Get Started</a>
+        <a href="#features">Features</a>
+        <a href="#models">Models</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="nav-download button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.34/Boolean-setup.exe">Download</a>
+    </div>
+  </header>
+
   <main id="top">
     <section class="hero">
       <div class="hero-copy">
@@ -27,10 +41,47 @@
       </div>
 
       <div class="app-frame-wrap">
-        <p class="demo-hint"><span></span> Live app preview</p>
+        <p class="demo-hint"><span></span> What you see is what you get</p>
         <div class="app-frame">
           <iframe src="./app-face.html" title="Boolean app preview" loading="lazy"></iframe>
         </div>
+      </div>
+    </section>
+
+    <section class="mission" id="why-boolean">
+      <p class="eyebrow">Why Boolean?</p>
+      <h2>AI shouldn't be a luxury.</h2>
+      <p class="mission-body">We built Boolean because everyone should have access to AI, no matter their circumstances or skill level. In fact, we built roughly 70% of this very application using Boolean and GLM 5 models, learning from watching people with zero coding knowledge build real applications. That experience shaped everything about how we designed this tool: to be so easy and intuitive that anyone can use it to build apps or tackle any task from day one. Our goal is to keep it simple and completely free: no bait and switch, no paywalls, no tiered access, and no "free trial" that quietly expires. Everyone deserves the chance to learn, build, and explore with AI regardless of their budget.</p>
+    </section>
+
+    <section class="quickstart" id="quickstart">
+      <p class="eyebrow">Quick Start</p>
+      <h2>Up and running in 60 seconds.</h2>
+      <ol class="quickstart-steps">
+        <li>
+          <span class="step-num">1</span>
+          <div>
+            <strong>Download Boolean</strong>
+            <p>Grab the installer for Windows 10/11, x64. No Node.js, Python, or extra tools needed.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div>
+            <strong>Open it and pick a model</strong>
+            <p>Download a supported local GGUF model or paste your own API key for Claude, OpenAI, or GLM.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div>
+            <strong>Start chatting or point it at a project folder</strong>
+            <p>Ask questions, research the web, edit code, build apps — all from one window.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="quickstart-shortcuts">
+        <code>Ctrl+Enter</code> send <code>Ctrl+Shift+N</code> new thread <code>Ctrl+B</code> toggle sidebar
       </div>
     </section>
 
@@ -74,7 +125,22 @@
           <h2>Bring the provider you use.</h2>
           <p>Add your own API key for OpenAI, GLM, Z.AI Coding Plan, or Claude. Cloud AI does not require Boolean sign-in, and keys stay on your computer.</p>
         </div>
-      </article>
+    </article>
+    </section>
+
+    <section class="model-table-section" id="model-table">
+      <div class="model-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Mode</th><th>Best for</th><th>Speed</th><th>Requirements</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Local (Qwen 4B)</strong></td><td>Quick tasks, offline</td><td>Fast</td><td>16 GB RAM</td></tr>
+            <tr><td><strong>Local (7B)</strong></td><td>Coding, chat</td><td>Medium</td><td>16 GB RAM</td></tr>
+            <tr><td><strong>Cloud (Claude/GPT)</strong></td><td>Complex tasks</td><td>Depends</td><td>API key + internet</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section class="features" id="features">
@@ -115,6 +181,9 @@
         </div>
         <h3>Coding agent workflows</h3>
         <p>Plan, edit, test, debug, and review project changes with durable progress, recovery checkpoints, and isolated agent branches.</p>
+        <pre class="terminal-example"><code>→ "Fix the failing test in auth.js"
+  ✎ Edited src/auth.js (line 42)
+  ✅ 3 tests passing</code></pre>
       </article>
       <article>
         <div class="feature-visual auto-visual" aria-hidden="true">
@@ -123,6 +192,9 @@
         </div>
         <h3>Create and automate</h3>
         <p>Build documents and images, schedule tasks and webhooks, research with citations, and work with GitHub issues and PRs.</p>
+        <pre class="terminal-example"><code>→ "Research the best React state library"
+  📄 Opened 4 sources · Cited [1][2][3]
+  ✅ Summary saved to notepad</code></pre>
       </article>
     </section>
 
@@ -146,6 +218,47 @@
           <span>Report a bug <b aria-hidden="true">&#8599;</b></span>
         </a>
       </nav>
+    </section>
+
+    <section class="how-it-works" id="how-it-works">
+      <p class="eyebrow">Under the Hood</p>
+      <h2>How Boolean works.</h2>
+      <p>Transparent, local-first architecture built for developers who want to know what's running on their machine.</p>
+      <div class="stack-pills">
+        <span class="pill"><strong>Node.js</strong> backend & agent runtime</span>
+        <span class="pill"><strong>.NET WinForms</strong> native shell</span>
+        <span class="pill"><strong>WebView2</strong> renderer</span>
+        <span class="pill"><strong>llama.cpp</strong> local inference</span>
+        <span class="pill"><strong>No Electron</strong></span>
+      </div>
+      <p class="stack-note">The app runs on your PC, keeps browser content isolated from the app API, and owns the helper processes it starts.</p>
+    </section>
+
+    <section class="faq-section" id="faq">
+      <p class="eyebrow">FAQ</p>
+      <h2>Common questions.</h2>
+      <dl class="faq-list">
+        <div class="faq-item">
+          <dt>Does it need Node.js or Python installed?</dt>
+          <dd>No. Boolean ships its own Node.js runtime. You don't need to install anything else.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>Does it phone home?</dt>
+          <dd>No. Boolean is local-first. It only talks to the internet when you explicitly use a cloud provider or browse the web. No telemetry, no tracking.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>Can I use my own models?</dt>
+          <dd>Yes. Boolean supports standard GGUF models. Download any compatible model or point it at your own file.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>Is it open source?</dt>
+          <dd>The source is available on GitHub. Use and distribution are governed by Boolean's included license terms: <a href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">github.com/syfy10/Boolean</a>.</dd>
+        </div>
+        <div class="faq-item">
+          <dt>What about macOS or Linux?</dt>
+          <dd>Boolean is built for Windows 10/11 (x64). The shell uses .NET WinForms and WebView2; there are no current plans for other platforms.</dd>
+        </div>
+      </dl>
     </section>
 
   </main>
