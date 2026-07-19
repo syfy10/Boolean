@@ -463,6 +463,44 @@ test("ordinary chat turns send no tools and use a compact prompt", async (t) => 
   assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
 });
 
+test("side chat stays answer-only even when its wording resembles an action", async (t) => {
+  let requestBody = null;
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    requestBody = JSON.parse(raw);
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Side chat works." } }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "side-chat-test", apiKey: "test" },
+    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
+    autoApprove: true,
+    ui: { contextMode: "balanced", learnedMemory: false }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(config.projectsDir, true, config) },
+    { role: "user", content: "Reply with exactly: Side chat works." }
+  ];
+  const steps = [];
+  const answer = await runTurn({
+    config,
+    forceTurnMode: "chat",
+    approve: async () => { throw new Error("side chat must not request approval"); },
+    onStatus() {},
+    onStep(step) { steps.push(step); },
+    onUsage() {}
+  }, messages);
+
+  assert.equal(answer, "Side chat works.");
+  assert.equal(requestBody.tools, undefined);
+  assert.deepEqual(steps, []);
+});
+
 test("turn classifier chooses the smallest useful mode", () => {
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }]), "chat");
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }], { projectDir: "C:\\repo" }), "chat");

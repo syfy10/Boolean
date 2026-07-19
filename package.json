@@ -1,6 +1,6 @@
 {
   "name": "boolean",
-  "version": "0.9.31",
+  "version": "0.9.34",
   "description": "Local AI workspace for Windows with a built-in GGUF engine, browser, notepad, and optional cloud models.",
   "type": "module",
   "bin": {

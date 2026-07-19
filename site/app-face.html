@@ -655,6 +655,47 @@
   .usage-fold{ display:none; padding:2px 0 8px 6px; border-left:1px solid var(--border); margin-left:4px; }
   .usage-fold.open{ display:block; }
 
+  /* Settings Control Center: sidebar nav + search + breadcrumb */
+  main > #settingsPanel{ display:none; }
+  main > #settingsPanel.open{ display:flex; flex-direction:column; }
+  .settings-shell{ display:flex; min-height:0; flex:1; width:100%; }
+  .settings-nav{ width:188px; flex-shrink:0; border-right:1px solid var(--border); overflow-y:auto; padding:6px 0; background:var(--card); }
+  .settings-nav .nav-item{ display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; color:var(--dim); font-size:12.5px; border-left:2px solid transparent; user-select:none; }
+  .settings-nav .nav-item:hover{ background:var(--hover); color:var(--text); }
+  .settings-nav .nav-item.active{ color:var(--text); border-left-color:var(--accent); background:var(--hover); font-weight:500; }
+  .settings-nav .nav-item svg{ width:14px; height:14px; stroke-width:1.8; flex-shrink:0; }
+  .settings-nav .nav-item .ni-dot{ width:7px; height:7px; border-radius:50%; margin-left:auto; background:var(--green); flex-shrink:0; }
+  .settings-nav .nav-item .ni-dot.warn{ background:#f0b429; }
+  .settings-nav .nav-item .ni-dot.down{ background:#f85149; }
+  .settings-content{ flex:1; overflow-y:auto; padding:0 18px 24px; min-width:0; }
+  .settings-topbar{ position:sticky; top:0; z-index:4; display:flex; align-items:center; gap:8px; padding:8px 0 10px; background:var(--bg); box-shadow:0 14px 0 14px var(--bg); margin-bottom:4px; }
+  .settings-search{ flex:1; display:flex; align-items:center; gap:6px; background:var(--bubble); border-radius:999px; padding:5px 12px; min-height:32px; }
+  .settings-search svg{ width:13px; height:13px; color:var(--dim); flex-shrink:0; }
+  .settings-search input{ border:0; background:transparent; outline:0; color:var(--text); font:inherit; font-size:12.5px; width:100%; }
+  .settings-search input::placeholder{ color:var(--dim); }
+  .settings-breadcrumb{ font-size:11px; color:var(--dim); padding:0 2px 8px; display:flex; gap:5px; align-items:center; }
+  .settings-breadcrumb b{ color:var(--text); font-weight:500; }
+  .settings-breadcrumb .bc-sep{ opacity:.5; }
+  .health-banner{ display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px; background:var(--bubble); margin-bottom:6px; font-size:12px; }
+  .health-banner .hb-dot{ width:9px; height:9px; border-radius:50%; background:var(--green); flex-shrink:0; }
+  .health-banner.warn .hb-dot{ background:#f0b429; }
+  .health-banner.down .hb-dot{ background:#f85149; }
+  .health-banner .hb-label{ font-weight:500; color:var(--text); }
+  .health-banner .hb-detail{ color:var(--dim); }
+  .sec-pane{ display:none; }
+  .sec-pane.active{ display:block; }
+  .sec-pane > .sechead{ display:none; }
+  .sec-pane > .secbody{ display:block !important; padding:4px 0 12px; margin:0 !important; border-left:0 !important; }
+  .settings-adv-toggle{ display:flex; align-items:center; gap:6px; margin:8px 0 4px; padding:6px 10px; border-radius:8px; background:var(--bubble); cursor:pointer; font-size:11.5px; color:var(--dim); }
+  .settings-adv-toggle:hover{ color:var(--text); }
+  .settings-adv-toggle .caret{ margin-left:auto; transition:transform .12s; }
+  .settings-adv-toggle.open .caret{ transform:rotate(90deg); }
+  .adv-fields{ display:none; }
+  .adv-fields.open{ display:block; }
+  .tooltip-label{ position:relative; cursor:help; text-decoration:underline dotted var(--dim); text-underline-offset:2px; }
+  .tooltip-label:hover::after{ content:attr(data-tip); position:absolute; bottom:125%; left:0; background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:11px; white-space:nowrap; z-index:10; box-shadow:var(--shadow); }
+  @media(max-width:620px){ .settings-nav{ width:48px; } .settings-nav .nav-item span{ display:none; } .settings-nav .nav-item .ni-dot{ display:none; } }
+
   .navbtn,.thread,.setrow,.banner,.approval .cmd,.approval .q,.approval .verdict,.projline,.bsearch,.bbtn,#bAddr,.bfind input,.menu input,.menu .item{ font-size:var(--fs-md); }
   .setrow .hint,.minibtn,.actbtn,.usage-grid,.usage-line,.status,.qchip,.chip,.toolhead,.approval button,.netseg button{ font-size:var(--fs-sm); }
   .usage-tbl .m,.ctxbar,.toolout,.msg-time,.btab,.bread,.menu .item .dl,.menu .item .check{ font-size:var(--fs-xs); }
@@ -717,163 +758,326 @@
   <div class="sidefoot">
     <div class="panel" id="settingsPanel">
       <div class="settings-head">
-        <button id="settingsBack" title="Close settings" aria-label="Close settings">‹</button>
+        <button id="settingsBack" title="Close settings" aria-label="Close settings">&#8249;</button>
+        <b>Settings</b>
         <span class="spacer"></span>
-        <button id="settingsClose" title="Close settings" aria-label="Close settings">×</button>
+        <button id="settingsClose" title="Close settings" aria-label="Close settings">&times;</button>
       </div>
 
-      <div class="sec" data-sec="model">
-        <div class="sechead">Model <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="setrow">
-            <div>Provider<div class="hint">where the model runs</div></div>
-            <select id="providersel">
-              <option value="local">Local (built-in)</option>
-              <option value="openai">OpenAI</option>
-              <option value="glm">GLM (Z.ai)</option>
-              <option value="claude">Claude (Anthropic)</option>
-            </select>
-          </div>
-          <div class="setrow" id="keyrow" style="display:none">
-            <div><span id="keylabel">API key</span><div class="hint" id="keyhint">not set</div></div>
-            <input type="password" id="apikey" placeholder="paste key…">
-          </div>
-          <button class="minibtn dangerbtn" id="clearKey" style="width:100%;display:none;margin-bottom:4px">Remove saved key</button>
-          <div class="setrow" id="modelfolderrow">
-            <div>Local models<div class="hint">drop .gguf + .mmproj files here</div></div>
-            <button class="minibtn" id="openmodels">Open folder</button>
-          </div>
-          <div class="setrow" id="modellibraryrow" style="display:block">
-            <div style="margin-bottom:6px">Model library<div class="hint">recommended local models</div></div>
-            <div class="model-library" id="modelLibrary"></div>
-          </div>
-          <div id="visionBox" style="display:none">
-            <div class="setrow">
-              <div>Vision projector<div class="hint">.mmproj enables image input</div></div>
-              <select id="mmprojSel"></select>
-            </div>
-            <div class="hint" id="visionStatus" style="margin:2px 0 6px"></div>
-            <button class="minibtn" id="visionTest" style="width:100%">Test image input</button>
-            <div class="hint" id="visionTestOut" style="margin-top:6px"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="sec" data-sec="appearance">
-        <div class="sechead">Appearance &amp; chat <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="seg" id="themeSeg"><button data-val="system">System</button><button data-val="light">Light</button><button data-val="dark">Dark</button></div>
-          <div class="seg settings-hidden" id="fontSeg" style="margin-top:6px"><button data-val="small">Small</button><button data-val="medium">Medium</button><button data-val="large">Large</button></div>
-          <div class="seg settings-hidden" id="densitySeg" style="margin-top:6px"><button data-val="comfortable">Comfortable</button><button data-val="compact">Compact</button></div>
-          <div class="setrow" style="display:block;margin-top:6px">
-            <div>Notepad color<div class="hint">paper style stays saved</div></div>
-            <div class="seg" id="noteColorSeg" style="margin-top:6px"><button data-val="yellow">Classic</button><button data-val="white">Paper</button><button data-val="charcoal">Slate</button><button data-val="obsidian">Obsidian</button></div>
-          </div>
-          <div class="setrow" style="margin-top:6px"><div>Show timestamps</div><label class="switch"><input type="checkbox" id="showTimestamps"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Show token counts</div><label class="switch"><input type="checkbox" id="showTokens"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Auto-collapse tool logs</div><label class="switch"><input type="checkbox" id="collapseLogs"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Export this chat</div>
-            <div style="display:flex;gap:6px"><button class="minibtn" id="exportTxt">TXT</button><button class="minibtn" id="exportMd">MD</button></div></div>
-        </div>
-      </div>
-
-      <div class="sec" data-sec="memory">
-        <div class="sechead">Memory <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="setrow"><div>Current chat memory<div class="hint">keeps up with this open chat</div></div><label class="switch"><input type="checkbox" id="referenceChatMemory"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Learn behavior<div class="hint">safe preferences and formats only</div></div><label class="switch"><input type="checkbox" id="learnedMemory"><span class="slider"></span></label></div>
-          <div class="setrow" style="display:block">
-            <div>Learned behavior<div class="hint">stored locally on this PC</div></div>
-            <div class="memory-list" id="memoryList"></div>
-            <button class="minibtn dangerbtn" id="clearMemory" style="width:100%;margin-top:6px">Clear learned behavior</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="sec" data-sec="browser">
-        <div class="sechead">Browser <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="setrow"><div>Let AI browse the web<div class="hint">forms &amp; downloads still ask first</div></div><label class="switch"><input type="checkbox" id="aiBrowser"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Search engine</div>
-            <select id="searchEngine">
-              <option value="google">Google</option>
-              <option value="bing">Bing</option>
-              <option value="duckduckgo">DuckDuckGo</option>
-            </select>
-          </div>
-          <div class="setrow"><div>Allow downloads</div><label class="switch"><input type="checkbox" id="permDownloads"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Allow camera</div><label class="switch"><input type="checkbox" id="permCamera"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Allow microphone</div><label class="switch"><input type="checkbox" id="permMic"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Allow location</div><label class="switch"><input type="checkbox" id="permGeo"><span class="slider"></span></label></div>
-          <button class="minibtn dangerbtn" id="clearBrowseData" style="width:100%;margin-top:4px">Clear browsing data</button>
-        </div>
-      </div>
-
-      <div class="sec settings-hidden" data-sec="connectors">
-        <div class="sechead">Connectors <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="hint" style="margin-bottom:6px">Add remote MCP URLs or HTTP agents Boolean can use.</div>
-          <div class="setrow" style="display:block">
-            <div>Agent connectors<div class="hint">POST endpoint that accepts a task/message</div></div>
-            <div class="conn-list" id="agentConnectors"></div>
-            <button class="minibtn" id="addAgentConnector" style="width:100%">Add agent connector</button>
-          </div>
-          <div class="setrow" style="display:block">
-            <div>MCP servers<div class="hint">remote URL or local command server</div></div>
-            <div class="conn-list" id="mcpConnectors"></div>
-            <button class="minibtn" id="addMcpConnector" style="width:100%">Add MCP server</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="sec" data-sec="legal">
-        <div class="sechead">Policy &amp; privacy <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="setrow" style="display:block">
-            <div>Legal documents<div class="hint">bundled with this app and stored locally</div></div>
-            <div class="legal-docs" id="legalDocs">
-              <div class="legal-doc"><h4>Requirements</h4><pre id="legalRequirementsText">Loading...</pre></div>
-              <div class="legal-doc"><h4>Policy</h4><pre id="legalPolicyText">Loading...</pre></div>
-              <div class="legal-doc"><h4>Privacy</h4><pre id="legalPrivacyText">Loading...</pre></div>
+      <div class="settings-shell">
+        <nav class="settings-nav" id="settingsNav"></nav>
+        <div class="settings-content" id="settingsContent">
+          <div class="settings-topbar">
+            <div class="settings-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+              <input type="text" id="settingsSearchInput" placeholder="Search settings&hellip;" autocomplete="off">
             </div>
           </div>
-        </div>
-      </div>
+          <div class="settings-breadcrumb" id="settingsBreadcrumb">Settings <span class="bc-sep">/</span> <b>Overview</b></div>
 
-      <div class="sec" data-sec="advanced">
-        <div class="sechead">Advanced <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="setrow"><div>Context sent to model<div class="hint">less = fewer tokens</div></div></div>
-          <div class="seg" id="contextSeg"><button data-val="minimal">Minimal</button><button data-val="balanced">Balanced</button><button data-val="full">Full</button></div>
-          <div class="hint" id="ctxModeHelp" style="margin:6px 0"></div>
-          <div class="setrow" style="display:block">
-            <div>Context length<div class="hint">local model memory window</div></div>
-            <div class="ctx-slider">
-              <input id="ctxLen" type="range" min="0" max="6" step="1">
-              <div class="ctx-ticks"><span>4k</span><span>8k</span><span>16k</span><span>32k</span><span>64k</span><span>128k</span><span>256k</span></div>
-              <div class="ctx-value" id="ctxLenLabel">32k tokens</div>
+          <!-- 1. Overview / Dashboard -->
+          <div class="sec sec-pane" data-sec="overview" data-name="Overview">
+            <div class="sechead">Overview <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="health-banner" id="healthBanner"><span class="hb-dot"></span><span class="hb-label">Everything OK</span><span class="hb-detail" id="healthDetail"></span></div>
+              <div class="setrow"><div>Current model<div class="hint" id="ovModel">Local</div></div></div>
+              <div class="setrow"><div>Provider<div class="hint" id="ovProvider">Local (built-in)</div></div></div>
+              <div class="setrow"><div>Token usage<div class="hint" id="ovTokens">-</div></div></div>
+              <div class="setrow"><div>Active project folder<div class="hint" id="ovProjdir">-</div></div></div>
+              <div class="setrow"><div>Privacy mode<div class="hint" id="ovPrivacy">Local-only</div></div></div>
+              <div class="setrow" style="display:block">
+                <div>Connected tools<div class="hint">health at a glance</div></div>
+                <div class="ov-health" id="ovHealth" style="margin-top:4px;font-size:12px;color:var(--dim)"></div>
+              </div>
+              <div class="setrow" style="display:block">
+                <div>Setup checklist<div class="hint">needs attention</div></div>
+                <div id="ovChecklist" style="margin-top:4px;font-size:12px"></div>
+              </div>
             </div>
           </div>
-          <div class="usagebody" id="ctxNow" style="margin-bottom:8px">—</div>
-          <div class="setrow" style="display:block">
-            <div>Projects folder<div class="hint" id="projdir">…</div></div>
-            <div style="display:flex;gap:6px;margin-top:6px">
-              <button class="minibtn" id="openproj">Open</button>
-              <button class="minibtn" id="changeproj">Change…</button>
+
+          <!-- 2. AI Models -->
+          <div class="sec sec-pane" data-sec="model" data-name="AI Models">
+            <div class="sechead">Model <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow">
+                <div class="tooltip-label" data-tip="Where the AI model runs: locally on your PC or in the cloud">Provider</div>
+                <select id="providersel">
+                  <option value="local">Local (built-in)</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="glm">GLM (Z.ai)</option>
+                  <option value="claude">Claude (Anthropic)</option>
+                </select>
+              </div>
+              <div class="setrow" id="keyrow" style="display:none">
+                <div><span id="keylabel">API key</span><div class="hint" id="keyhint">not set</div></div>
+                <input type="password" id="apikey" placeholder="paste key&hellip;">
+              </div>
+              <button class="minibtn dangerbtn" id="clearKey" style="width:100%;display:none;margin-bottom:4px">Remove saved key</button>
+              <div class="setrow" id="modelfolderrow">
+                <div>Local models<div class="hint">drop .gguf + .mmproj files here</div></div>
+                <button class="minibtn" id="openmodels">Open folder</button>
+              </div>
+              <div class="setrow" id="modellibraryrow" style="display:block">
+                <div style="margin-bottom:6px">Model library<div class="hint">recommended local models</div></div>
+                <div class="model-library" id="modelLibrary"></div>
+              </div>
+              <div id="visionBox" style="display:none">
+                <div class="setrow">
+                  <div>Vision projector<div class="hint">.mmproj enables image input</div></div>
+                  <select id="mmprojSel"></select>
+                </div>
+                <div class="hint" id="visionStatus" style="margin:2px 0 6px"></div>
+                <button class="minibtn" id="visionTest" style="width:100%">Test image input</button>
+                <div class="hint" id="visionTestOut" style="margin-top:6px"></div>
+              </div>
             </div>
           </div>
-          <div class="setrow"><div>Save chat history<div class="hint">restore chats after restart</div></div><label class="switch"><input type="checkbox" id="autoSave"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Keep local model warm<div class="hint">faster reopen, uses RAM after close</div></div><label class="switch"><input type="checkbox" id="keepLocalWarm"><span class="slider"></span></label></div>
-          <div class="setrow" style="display:block;margin-top:2px">
-            <button class="minibtn usage-toggle" id="usageToggle"><span>Tokens used</span><span id="usageCaret">▶</span></button>
-            <div class="usage-fold" id="usageFold">
-              <div id="usageBody" class="usagebody" style="margin-top:4px">—</div>
-              <button class="minibtn dangerbtn" id="resetusage" style="width:100%;margin-top:4px">Reset token stats</button>
+
+          <!-- 3. Coding Agent -->
+          <div class="sec sec-pane" data-sec="coding" data-name="Coding Agent">
+            <div class="sechead">Coding Agent <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div>Default mode<div class="hint">starting mode for coding tasks</div></div>
+                <select id="agentModeSel"><option value="quick">Quick Fix</option><option value="build">Build Feature</option><option value="debug">Debug</option><option value="review">Review</option><option value="refactor">Refactor</option></select>
+              </div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Automatically run tests and builds after code changes">Auto-run tests &amp; builds</div><label class="switch"><input type="checkbox" id="agentAutoTest"><span class="slider"></span></label></div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Stop retrying after repeated failures to avoid infinite loops">Stop-loop protection</div><label class="switch"><input type="checkbox" id="agentStopLoop" checked><span class="slider"></span></label></div>
+              <div class="setrow"><div>Max retries<div class="hint">per task step</div></div><input type="number" id="agentMaxRetries" value="3" min="1" max="10" style="width:60px"></div>
+              <div class="setrow"><div>Token budget<div class="hint">per task (0 = unlimited)</div></div><input type="number" id="agentTokenBudget" value="0" min="0" style="width:80px"></div>
+              <div class="setrow"><div>Auto-commit on success</div><label class="switch"><input type="checkbox" id="agentAutoCommit"><span class="slider"></span></label></div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Ask before running commands that could modify files or system state">Confirm risky commands</div><label class="switch"><input type="checkbox" id="agentConfirmRisky" checked><span class="slider"></span></label></div>
+              <div class="settings-adv-toggle" id="agentAdvToggle"><span>Advanced</span><span class="caret">&#9654;</span></div>
+              <div class="adv-fields" id="agentAdvFields">
+                <div class="setrow" style="display:block"><div>Allowed directories<div class="hint">sandbox scope for file access</div></div><div id="agentDirs" style="font-size:12px;color:var(--dim);margin-top:2px">Project folder only</div></div>
+                <div class="setrow"><div>Terminal shell<div class="hint">default shell for commands</div></div><select id="agentShellSel"><option value="powershell">PowerShell</option><option value="cmd">Command Prompt</option></select></div>
+              </div>
             </div>
           </div>
-          <div class="hint" id="ctxHint" style="display:none">32,768 tokens</div>
-          <button class="minibtn dangerbtn" id="clearHistory" style="width:100%;margin-top:6px">Clear all saved chats</button>
-          <button class="minibtn dangerbtn" id="resetSettings" style="width:100%;margin-top:6px">Reset all settings</button>
+
+          <!-- 4. Browser & Research -->
+          <div class="sec sec-pane" data-sec="browser" data-name="Browser & Research">
+            <div class="sechead">Browser <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div>Let AI browse the web<div class="hint">forms &amp; downloads still ask first</div></div><label class="switch"><input type="checkbox" id="aiBrowser"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Search engine</div>
+                <select id="searchEngine">
+                  <option value="google">Google</option>
+                  <option value="bing">Bing</option>
+                  <option value="duckduckgo">DuckDuckGo</option>
+                </select>
+              </div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Open external links in the built-in browser or your system browser">Open links in</div>
+                <select id="browserTargetSel"><option value="embedded">Embedded browser</option><option value="system">System browser</option></select>
+              </div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Show a short summary when a page is opened">Auto-summarize pages</div><label class="switch"><input type="checkbox" id="autoSummarize"><span class="slider"></span></label></div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Allow Boolean to use the open browser page as context">Allow page context in chat</div><label class="switch"><input type="checkbox" id="pageContext" checked><span class="slider"></span></label></div>
+              <div class="setrow"><div>Citation style</div><select id="citationStyleSel"><option value="numbered">Numbered [1]</option><option value="links">Links</option><option value="none">None</option></select></div>
+              <div class="setrow"><div>Max pages per research</div><input type="number" id="maxResearchPages" value="6" min="1" max="20" style="width:60px"></div>
+              <div class="settings-adv-toggle" id="browserAdvToggle"><span>Advanced</span><span class="caret">&#9654;</span></div>
+              <div class="adv-fields" id="browserAdvFields">
+                <div class="setrow"><div>Safe-click rules<div class="hint">block ads, trackers</div></div><label class="switch"><input type="checkbox" id="safeClick" checked><span class="slider"></span></label></div>
+              </div>
+              <div class="setrow"><div>Allow downloads</div><label class="switch"><input type="checkbox" id="permDownloads"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Allow camera</div><label class="switch"><input type="checkbox" id="permCamera"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Allow microphone</div><label class="switch"><input type="checkbox" id="permMic"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Allow location</div><label class="switch"><input type="checkbox" id="permGeo"><span class="slider"></span></label></div>
+              <button class="minibtn dangerbtn" id="clearBrowseData" style="width:100%;margin-top:4px">Clear browsing data</button>
+            </div>
+          </div>
+
+          <!-- 5. Notepad & Memory -->
+          <div class="sec sec-pane" data-sec="memory" data-name="Notepad & Memory">
+            <div class="sechead">Memory <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div>Current chat memory<div class="hint">keeps up with this open chat</div></div><label class="switch"><input type="checkbox" id="referenceChatMemory"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Learn behavior<div class="hint">safe preferences and formats only</div></div><label class="switch"><input type="checkbox" id="learnedMemory"><span class="slider"></span></label></div>
+              <div class="setrow" style="display:block">
+                <div>Learned behavior<div class="hint">stored locally on this PC</div></div>
+                <div class="memory-list" id="memoryList"></div>
+                <button class="minibtn dangerbtn" id="clearMemory" style="width:100%;margin-top:6px">Clear learned behavior</button>
+              </div>
+              <div class="setrow" style="display:block"><div>Project notes &amp; global notes<div class="hint">use the notepad tab to take notes</div></div></div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Control what Boolean is allowed to remember across sessions">What Boolean can remember</div><label class="switch"><input type="checkbox" id="learnedMemory2"><span class="slider"></span></label></div>
+              <button class="minibtn" id="noteToRule" style="width:100%;margin-top:4px">Turn active note into project rule</button>
+            </div>
+          </div>
+
+          <!-- 6. Connectors -->
+          <div class="sec sec-pane" data-sec="connectors" data-name="Connectors">
+            <div class="sechead">Connectors <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="hint" style="margin-bottom:6px">Add remote MCP URLs or HTTP agents Boolean can use.</div>
+              <div class="setrow" style="display:block">
+                <div>Agent connectors<div class="hint">POST endpoint that accepts a task/message</div></div>
+                <div class="conn-list" id="agentConnectors"></div>
+                <button class="minibtn" id="addAgentConnector" style="width:100%">Add agent connector</button>
+              </div>
+              <div class="setrow" style="display:block">
+                <div>MCP servers<div class="hint">remote URL or local command server</div></div>
+                <div class="conn-list" id="mcpConnectors"></div>
+                <button class="minibtn" id="addMcpConnector" style="width:100%">Add MCP server</button>
+              </div>
+              <div class="setrow" style="display:block;margin-top:6px">
+                <div>Supported services<div class="hint">connect via MCP or agent endpoint</div></div>
+                <div style="font-size:11.5px;color:var(--dim);margin-top:2px">GitHub &middot; Gmail / Outlook &middot; Cloudflare / Vercel / Netlify &middot; Notion / Linear / Jira &middot; Postgres / Supabase &middot; Local file system</div>
+              </div>
+              <div class="settings-adv-toggle" id="connAdvToggle"><span>Advanced</span><span class="caret">&#9654;</span></div>
+              <div class="adv-fields" id="connAdvFields">
+                <div class="setrow"><div class="tooltip-label" data-tip="Toggle whether Boolean can write (vs read-only) per connector">Write access globally</div><label class="switch"><input type="checkbox" id="connWriteGlobal"><span class="slider"></span></label></div>
+                <div class="setrow" style="display:block"><div>Audit log<div class="hint">recent connector access</div></div><div id="connAudit" style="font-size:11px;color:var(--dim);margin-top:2px">No activity yet</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7. Privacy & Security -->
+          <div class="sec sec-pane" data-sec="legal" data-name="Privacy & Security">
+            <div class="sechead">Policy &amp; privacy <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div class="tooltip-label" data-tip="Local-only keeps everything on your PC; cloud/hybrid sends data when needed">Data retention</div><select id="dataRetentionSel"><option value="local">Local only</option><option value="hybrid">Hybrid</option><option value="cloud">Cloud</option></select></div>
+              <div class="setrow"><div>Telemetry</div><label class="switch"><input type="checkbox" id="telemetryToggle"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Sensitive data masking</div><label class="switch"><input type="checkbox" id="maskSensitive"><span class="slider"></span></label></div>
+              <div class="setrow" style="display:block">
+                <div>Legal documents<div class="hint">bundled with this app and stored locally</div></div>
+                <div class="legal-docs" id="legalDocs">
+                  <div class="legal-doc"><h4>Requirements</h4><pre id="legalRequirementsText">Loading...</pre></div>
+                  <div class="legal-doc"><h4>Policy</h4><pre id="legalPolicyText">Loading...</pre></div>
+                  <div class="legal-doc"><h4>Privacy</h4><pre id="legalPrivacyText">Loading...</pre></div>
+                </div>
+              </div>
+              <div class="settings-adv-toggle" id="privacyAdvToggle"><span>Advanced</span><span class="caret">&#9654;</span></div>
+              <div class="adv-fields" id="privacyAdvFields">
+                <div class="setrow"><div>Clipboard access</div><label class="switch"><input type="checkbox" id="clipAccess" checked><span class="slider"></span></label></div>
+                <div class="setrow"><div>File access</div><label class="switch"><input type="checkbox" id="fileAccess" checked><span class="slider"></span></label></div>
+                <button class="minibtn dangerbtn" id="deleteAllData" style="width:100%;margin-top:4px">Delete all data / reset</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 8. Appearance & UI -->
+          <div class="sec sec-pane" data-sec="appearance" data-name="Appearance & UI">
+            <div class="sechead">Appearance &amp; chat <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="seg" id="themeSeg"><button data-val="system">System</button><button data-val="light">Light</button><button data-val="dark">Dark</button></div>
+              <div class="seg settings-hidden" id="fontSeg" style="margin-top:6px"><button data-val="small">Small</button><button data-val="medium">Medium</button><button data-val="large">Large</button></div>
+              <div class="seg settings-hidden" id="densitySeg" style="margin-top:6px"><button data-val="comfortable">Comfortable</button><button data-val="compact">Compact</button></div>
+              <div class="setrow" style="display:block;margin-top:6px">
+                <div>Notepad color<div class="hint">paper style stays saved</div></div>
+                <div class="seg" id="noteColorSeg" style="margin-top:6px"><button data-val="yellow">Classic</button><button data-val="white">Paper</button><button data-val="charcoal">Slate</button><button data-val="obsidian">Obsidian</button></div>
+              </div>
+              <div class="setrow" style="margin-top:6px"><div>Show timestamps</div><label class="switch"><input type="checkbox" id="showTimestamps"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Show token counts</div><label class="switch"><input type="checkbox" id="showTokens"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Auto-collapse tool logs</div><label class="switch"><input type="checkbox" id="collapseLogs"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Export this chat</div>
+                <div style="display:flex;gap:6px"><button class="minibtn" id="exportTxt">TXT</button><button class="minibtn" id="exportMd">MD</button></div></div>
+              <div class="settings-adv-toggle" id="appearanceAdvToggle"><span>Advanced</span><span class="caret">&#9654;</span></div>
+              <div class="adv-fields" id="appearanceAdvFields">
+                <div class="setrow"><div>Chat bubble style</div><select id="bubbleStyleSel"><option value="compact">Compact</option><option value="expanded">Expanded</option></select></div>
+                <div class="setrow"><div>Code block theme</div><select id="codeThemeSel"><option value="auto">Auto</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
+                <div class="setrow" style="display:block"><div>Custom CSS<div class="hint">advanced overrides</div></div><textarea id="customCss" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px" placeholder="/* custom CSS */"></textarea></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 9. Keyboard Shortcuts -->
+          <div class="sec sec-pane" data-sec="shortcuts" data-name="Keyboard Shortcuts">
+            <div class="sechead">Keyboard Shortcuts <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow" style="display:block"><div>Shortcuts<div class="hint">common actions</div></div></div>
+              <div id="shortcutList" style="font-size:12px"></div>
+            </div>
+          </div>
+
+          <!-- 10. Voice & Input -->
+          <div class="sec sec-pane" data-sec="voice" data-name="Voice & Input">
+            <div class="sechead">Voice &amp; Input <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div class="tooltip-label" data-tip="Use your microphone to dictate messages">Voice input</div><label class="switch"><input type="checkbox" id="voiceInput"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Language / dialect</div><select id="voiceLangSel"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="es-ES">Spanish</option><option value="fr-FR">French</option><option value="de-DE">German</option><option value="zh-CN">Chinese</option></select></div>
+              <div class="setrow"><div class="tooltip-label" data-tip="Read AI responses aloud">Voice feedback (TTS)</div><label class="switch"><input type="checkbox" id="voiceTts"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Auto-punctuation<div class="hint">dictation</div></div><label class="switch"><input type="checkbox" id="voiceAutoPunct" checked><span class="slider"></span></label></div>
+            </div>
+          </div>
+
+          <!-- 11. Notifications & Alerts -->
+          <div class="sec sec-pane" data-sec="notifications" data-name="Notifications & Alerts">
+            <div class="sechead">Notifications <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div>In-app notifications</div><label class="switch"><input type="checkbox" id="notifInApp" checked><span class="slider"></span></label></div>
+              <div class="setrow"><div>Sound alerts</div><label class="switch"><input type="checkbox" id="notifSound"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Desktop notifications</div><label class="switch"><input type="checkbox" id="notifDesktop"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Token budget warnings</div><label class="switch"><input type="checkbox" id="notifBudget" checked><span class="slider"></span></label></div>
+              <div class="setrow"><div>Error alerts</div><label class="switch"><input type="checkbox" id="notifErrors" checked><span class="slider"></span></label></div>
+            </div>
+          </div>
+
+          <!-- 12. Advanced / Developer -->
+          <div class="sec sec-pane" data-sec="advanced" data-name="Advanced / Developer">
+            <div class="sechead">Advanced <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div>Context sent to model<div class="hint">less = fewer tokens</div></div></div>
+              <div class="seg" id="contextSeg"><button data-val="minimal">Minimal</button><button data-val="balanced">Balanced</button><button data-val="full">Full</button></div>
+              <div class="hint" id="ctxModeHelp" style="margin:6px 0"></div>
+              <div class="setrow" style="display:block">
+                <div>Context length<div class="hint">local model memory window</div></div>
+                <div class="ctx-slider">
+                  <input id="ctxLen" type="range" min="0" max="6" step="1">
+                  <div class="ctx-ticks"><span>4k</span><span>8k</span><span>16k</span><span>32k</span><span>64k</span><span>128k</span><span>256k</span></div>
+                  <div class="ctx-value" id="ctxLenLabel">32k tokens</div>
+                </div>
+              </div>
+              <div class="usagebody" id="ctxNow" style="margin-bottom:8px">&mdash;</div>
+              <div class="setrow" style="display:block">
+                <div>Projects folder<div class="hint" id="projdir">&hellip;</div></div>
+                <div style="display:flex;gap:6px;margin-top:6px">
+                  <button class="minibtn" id="openproj">Open</button>
+                  <button class="minibtn" id="changeproj">Change&hellip;</button>
+                </div>
+              </div>
+              <div class="setrow"><div>Save chat history<div class="hint">restore chats after restart</div></div><label class="switch"><input type="checkbox" id="autoSave"><span class="slider"></span></label></div>
+              <div class="setrow"><div>Keep local model warm<div class="hint">faster reopen, uses RAM after close</div></div><label class="switch"><input type="checkbox" id="keepLocalWarm"><span class="slider"></span></label></div>
+              <div class="setrow" style="display:block;margin-top:2px">
+                <button class="minibtn usage-toggle" id="usageToggle"><span>Tokens used</span><span id="usageCaret">&#9654;</span></button>
+                <div class="usage-fold" id="usageFold">
+                  <div id="usageBody" class="usagebody" style="margin-top:4px">&mdash;</div>
+                  <button class="minibtn dangerbtn" id="resetusage" style="width:100%;margin-top:4px">Reset token stats</button>
+                </div>
+              </div>
+              <div class="settings-adv-toggle" id="advDevToggle"><span>Developer</span><span class="caret">&#9654;</span></div>
+              <div class="adv-fields" id="advDevFields">
+                <div class="setrow"><div>Debug mode</div><label class="switch"><input type="checkbox" id="debugMode"><span class="slider"></span></label></div>
+                <div class="setrow"><div>Log level</div><select id="logLevelSel"><option value="normal">Normal</option><option value="verbose">Verbose</option><option value="silent">Silent</option></select></div>
+                <div class="setrow"><div>API endpoint override</div><input type="text" id="apiOverride" placeholder="https://&hellip;" style="width:140px;font-size:11px"></div>
+                <div class="setrow"><div>Proxy settings</div><input type="text" id="proxySetting" placeholder="http://&hellip;" style="width:140px;font-size:11px"></div>
+              </div>
+              <div class="hint" id="ctxHint" style="display:none">32,768 tokens</div>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button class="minibtn" id="exportSettings" style="flex:1">Export settings</button>
+                <button class="minibtn" id="importSettings" style="flex:1">Import settings</button>
+              </div>
+              <button class="minibtn dangerbtn" id="clearHistory" style="width:100%;margin-top:6px">Clear all saved chats</button>
+              <button class="minibtn dangerbtn" id="resetSettings" style="width:100%;margin-top:6px">Reset all settings</button>
+            </div>
+          </div>
+
+          <!-- 13. About & Updates -->
+          <div class="sec sec-pane" data-sec="about" data-name="About & Updates">
+            <div class="sechead">About <span class="caret"></span></div>
+            <div class="secbody">
+              <div class="setrow"><div>Current version<div class="hint" id="aboutVersion">-</div></div></div>
+              <div class="setrow"><div>Developed by<div class="hint">saz3 Labs</div></div></div>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <button class="minibtn" id="checkUpdates" style="flex:1">Check for updates</button>
+                <button class="minibtn" id="viewChangelog" style="flex:1">Changelog</button>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:4px">
+                <button class="minibtn" id="reportBug" style="flex:1">Report a bug</button>
+                <button class="minibtn" id="viewDocs" style="flex:1">Documentation</button>
+              </div>
+              <div class="hint" style="margin-top:6px">Local mode stays on your PC. Cloud sign-in/tokens are optional.</div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -2319,7 +2523,7 @@
     const opening=!$("settingsPanel").classList.contains("open");
     $("settingsPanel").classList.toggle("open");
     syncSidePanelWidth(); syncPanelButtons(); applyKeyRow();
-    if(opening){ applySections(); loadUsage(); loadMemory(); estimateContext(); }
+    if(opening){ applySections(); initSettingsSearch(); initAdvToggles(); loadUsage(); loadMemory(); estimateContext(); updateOverviewPane(); }
   }
   $("topSettings").onclick=toggleSettingsPanel;
   $("cloudSignIn").onclick=cloudAccountClick;
@@ -2456,9 +2660,9 @@ Optional bundled starter model:
   }
   function openSettings(sec){
     if(!$("settingsPanel").classList.contains("open")){
-      $("settingsPanel").classList.add("open"); syncSidePanelWidth(); syncPanelButtons(); applySections();
+      $("settingsPanel").classList.add("open"); syncSidePanelWidth(); syncPanelButtons(); applySections(); initSettingsSearch(); initAdvToggles();
     } else { syncSidePanelWidth(); syncPanelButtons(); }
-    if(sec){ document.querySelectorAll(".sec").forEach(s=>s.classList.toggle("open",s.dataset.sec===sec)); }
+    if(sec) switchSettingsSection(sec);
     if(sec==="legal") loadLegalDocs();
   }
   document.querySelectorAll("[data-open-legal]").forEach(b=>b.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); openSettings("legal"); });
@@ -2548,13 +2752,82 @@ Optional bundled starter model:
     $("permMic").checked=!!bp.mic;
     $("permGeo").checked=!!bp.geo;
   }
+  const SETTINGS_SECTIONS=[
+    {id:"overview",name:"Overview",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>'},
+    {id:"model",name:"AI Models",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg>'},
+    {id:"coding",name:"Coding Agent",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>'},
+    {id:"browser",name:"Browser & Research",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>'},
+    {id:"memory",name:"Notepad & Memory",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 4h16v16H4z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="14" y2="13"/></svg>'},
+    {id:"connectors",name:"Connectors",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>'},
+    {id:"legal",name:"Privacy & Security",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l9 4v6c0 5-4 9-9 10C7 21 3 17 3 12V6z"/></svg>'},
+    {id:"appearance",name:"Appearance & UI",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>'},
+    {id:"shortcuts",name:"Keyboard Shortcuts",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6" y2="10"/><line x1="10" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="14" y2="10"/><line x1="18" y1="10" x2="18" y2="10"/></svg>'},
+    {id:"voice",name:"Voice & Input",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg>'},
+    {id:"notifications",name:"Notifications",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>'},
+    {id:"advanced",name:"Advanced / Developer",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2z"/></svg>'},
+    {id:"about",name:"About & Updates",icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r=".5" fill="currentColor"/></svg>'}
+  ];
+  let settingsActiveSection="overview";
+  function buildSettingsNav(){
+    const nav=$("settingsNav"); if(!nav) return;
+    nav.innerHTML=SETTINGS_SECTIONS.map(s=>'<div class="nav-item'+(s.id===settingsActiveSection?' active':'')+'" data-sec="'+s.id+'">'+s.icon+'<span>'+s.name+'</span><span class="ni-dot" data-dot="'+s.id+'"></span></div>').join('');
+    nav.querySelectorAll(".nav-item").forEach(item=>{ item.onclick=()=>switchSettingsSection(item.dataset.sec); });
+  }
+  function switchSettingsSection(sec){
+    settingsActiveSection=sec;
+    document.querySelectorAll(".sec-pane").forEach(s=>s.classList.toggle("active",s.dataset.sec===sec));
+    document.querySelectorAll(".settings-nav .nav-item").forEach(n=>n.classList.toggle("active",n.dataset.sec===sec));
+    const secData=SETTINGS_SECTIONS.find(s=>s.id===sec);
+    const bc=$("settingsBreadcrumb"); if(bc&&secData) bc.innerHTML='Settings <span class="bc-sep">/</span> <b>'+secData.name+'</b>';
+    const content=$("settingsContent"); if(content) content.scrollTop=0;
+    if(sec==="overview") updateOverviewPane();
+    if(sec==="legal") loadLegalDocs();
+    if(sec==="shortcuts") renderShortcuts();
+    setUi({settingsSection:sec});
+  }
   function applySections(){
-    const open=(state.ui&&state.ui.expandedSections)||[];
-    document.querySelectorAll(".sec").forEach(s=>s.classList.toggle("open", open.includes(s.dataset.sec)));
+    const saved=state.ui&&state.ui.settingsSection;
+    if(saved&&document.querySelector('.sec-pane[data-sec="'+saved+'"]')) settingsActiveSection=saved;
+    buildSettingsNav();
+    switchSettingsSection(settingsActiveSection);
   }
   async function setUi(patch){ state.ui={...(state.ui||{}),...patch}; applyUi(state.ui); await fetch("/api/config",{method:"POST",body:JSON.stringify({ui:patch})}); }
 
-  document.querySelectorAll(".sechead").forEach(h=>{ h.onclick=()=>{ h.parentElement.classList.toggle("open"); if(h.parentElement.dataset.sec==="legal") loadLegalDocs(); setUi({expandedSections:[...document.querySelectorAll(".sec.open:not(.settings-hidden)")].map(s=>s.dataset.sec)}); }; });
+  function initSettingsSearch(){
+    const inp=$("settingsSearchInput"); if(!inp||inp.dataset.bound) return; inp.dataset.bound="1";
+    inp.addEventListener("input",()=>{
+      const q=inp.value.trim().toLowerCase();
+      if(!q){ document.querySelectorAll(".sec-pane").forEach(s=>s.classList.toggle("active",s.dataset.sec===settingsActiveSection)); document.querySelectorAll(".setrow").forEach(r=>r.style.display=""); return; }
+      document.querySelectorAll(".sec-pane").forEach(s=>s.classList.remove("active"));
+      document.querySelectorAll(".sec-pane").forEach(s=>{ const name=(s.dataset.name||"").toLowerCase(); const text=s.textContent.toLowerCase(); if(name.includes(q)||text.includes(q)){ s.classList.add("active"); } });
+      const bc=$("settingsBreadcrumb"); if(bc) bc.innerHTML='Settings <span class="bc-sep">/</span> <b>Search: "'+esc(inp.value)+'"</b>';
+    });
+  }
+  function initAdvToggles(){ document.querySelectorAll(".settings-adv-toggle").forEach(t=>{ if(t.dataset.bound) return; t.dataset.bound="1"; t.onclick=()=>{ const open=!t.classList.contains("open"); t.classList.toggle("open",open); const f=t.nextElementSibling; if(f&&f.classList.contains("adv-fields")) f.classList.toggle("open",open); }; }); }
+  function updateOverviewPane(){
+    const prov=state.provider||"local"; const label=PROVIDER_LABELS[prov]||prov;
+    if($("ovModel")) $("ovModel").textContent=(state.local&&state.local.modelName)?displayName(state.local.modelName):label;
+    if($("ovProvider")) $("ovProvider").textContent=label;
+    if($("ovProjdir")) $("ovProjdir").textContent=(state.ui&&state.ui.projectDir)||"Not set";
+    if($("ovPrivacy")) $("ovPrivacy").textContent=prov==="local"?"Local-only":("Cloud ("+label+")");
+    const dots={model:"green",connectors:"green",browser:"green"};
+    if(prov!=="local"&&!(state.keys&&state.keys[prov])) dots.model="warn";
+    const healthEl=$("ovHealth");
+    if(healthEl) healthEl.innerHTML=Object.entries(dots).map(([k,v])=>'<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><span style="width:7px;height:7px;border-radius:50%;display:inline-block;background:'+((v==="green")?"#22c55e":(v==="warn")?"#f0b429":"#f85149")+'"></span>'+k.charAt(0).toUpperCase()+k.slice(1)+'</span>').join("");
+    const issues=Object.entries(dots).filter(([,v])=>v!=="green");
+    const hb=$("healthBanner");
+    if(hb){ hb.classList.toggle("warn",issues.length>0); hb.querySelector(".hb-label").textContent=issues.length===0?"Everything OK":"Needs attention"; hb.querySelector(".hb-detail").textContent=issues.length>0?issues.map(([k])=>k).join(", ")+" need setup":""; }
+    const cl=$("ovChecklist"); if(!cl) return;
+    const items=[{label:"Model selected",ok:!!((state.local&&state.local.modelName)||prov!=="local")},{label:"API key set (cloud)",ok:prov==="local"||!!(state.keys&&state.keys[prov])},{label:"Project folder set",ok:!!(state.ui&&state.ui.projectDir)}];
+    cl.innerHTML=items.map(i=>'<div style="padding:3px 0"><span style="color:'+(i.ok?"#22c55e":"#f0b429")+'">'+(i.ok?"\u2713":"\u26A0")+'</span> '+i.label+'</div>').join("");
+  }
+  function renderShortcuts(){
+    const list=$("shortcutList"); if(!list||list.dataset.rendered) return; list.dataset.rendered="1";
+    const sc=[["Ctrl+N","New chat"],["Ctrl+B","Toggle sidebar"],["Ctrl+/","Toggle notepad"],["Ctrl+K","Focus search"],["Enter","Send message"],["Shift+Enter","New line"],["Esc","Stop / close"]];
+    list.innerHTML=sc.map(([k,d])=>'<div class="setrow"><div>'+d+'</div><kbd style="background:var(--bubble);border:1px solid var(--border);border-radius:5px;padding:2px 6px;font-family:var(--mono);font-size:11px">'+k+'</kbd></div>').join("");
+  }
+  document.querySelectorAll(".sechead").forEach(h=>{});
+
   ["themeSeg","fontSeg","densitySeg"].forEach(id=>$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{ const key=id==="themeSeg"?"theme":id==="fontSeg"?"fontSize":"density"; setUi({[key]:b.dataset.val}); }));
   $("noteColorSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>setUi({notepadTheme:b.dataset.val}));
   $("contextSeg").querySelectorAll("button").forEach(b=>b.onclick=async()=>{ await setUi({contextMode:b.dataset.val}); estimateContext(); });
@@ -2609,7 +2882,7 @@ Optional bundled starter model:
   $("exportTxt").onclick=()=>window.open("/api/export?id="+threadId+"&format=txt");
   $("exportMd").onclick=()=>window.open("/api/export?id="+threadId+"&format=md");
   $("clearHistory").onclick=async()=>{ if(await appConfirm("Delete all saved chats?","Every saved chat will be permanently deleted. This can't be undone.","Delete",true)){ const r=await (await fetch("/api/clear-history",{method:"POST"})).json(); threadId=r.activeThreadId; await refresh(); openThread(threadId); } };
-  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,contextMode:"balanced",expandedSections:["model"]}); applySections(); } };
+  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",showTimestamps:false,showTokens:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,contextMode:"balanced",settingsSection:"overview"}); applySections(); } };
 
   // ── in-app browser (real internet via the /browse proxy) ──
   const bframe=$("bframe"), bAddr=$("bAddr");

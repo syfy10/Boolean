@@ -268,10 +268,11 @@ function isDeployVerification(name, args, result, sourceOfTruth = {}) {
 export class AgentController {
   constructor(options = {}) {
     const saved = options.persisted && typeof options.persisted === "object" ? options.persisted : {};
+    const answerOnly = options.answerOnly === true;
     this.objective = cleanText(options.objective || saved.objective, 4000);
-    this.artifactRequired = !!(options.artifactRequired || saved.artifactRequired);
-    this.debugRequired = saved.debugRequired === true || (this.artifactRequired && DEBUG_REQUEST.test(this.objective));
-    this.actionRequired = !!(saved.actionRequired || options.actionRequired || this.artifactRequired || ACTION_REQUEST.test(this.objective));
+    this.artifactRequired = answerOnly ? false : !!(options.artifactRequired || saved.artifactRequired);
+    this.debugRequired = answerOnly ? false : saved.debugRequired === true || (this.artifactRequired && DEBUG_REQUEST.test(this.objective));
+    this.actionRequired = answerOnly ? false : !!(saved.actionRequired || options.actionRequired || this.artifactRequired || ACTION_REQUEST.test(this.objective));
     this.projectBound = !!(options.projectDir || saved.projectBound);
     this.taskContext = cleanText(options.taskContext || saved.taskContext, 12000);
     this.contract = inferContract(options, saved.contract || saved);

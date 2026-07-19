@@ -789,11 +789,12 @@ export async function runTurn(ctx, messages) {
   const checkpoint = () => { if (ctx.onCheckpoint) ctx.onCheckpoint(); };
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   ctx.latestUserText = plainMessageText(latestUser);
-  const artifactActionRequired = requiresArtifactAction(messages);
-  const connectorActionRequired = requiresConnectorContinuationAction(messages);
-  const connectorToolResultRequired = requiresConnectorToolResult(messages);
-  const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
-  const turnMode = classifyTurnMode(messages, {
+  const forceChat = ctx.forceTurnMode === "chat";
+  const artifactActionRequired = forceChat ? false : requiresArtifactAction(messages);
+  const connectorActionRequired = forceChat ? false : requiresConnectorContinuationAction(messages);
+  const connectorToolResultRequired = forceChat ? false : requiresConnectorToolResult(messages);
+  const directAction = forceChat ? null : detectWindowsSettingsRequest(plainMessageText(latestUser));
+  const turnMode = forceChat ? "chat" : classifyTurnMode(messages, {
     latestText: ctx.latestUserText,
     artifactActionRequired,
     connectorActionRequired,
@@ -803,6 +804,7 @@ export async function runTurn(ctx, messages) {
   const controller = createAgentController({
     objective: ctx.objective || ctx.latestUserText,
     taskContext: ctx.taskContext || "",
+    answerOnly: forceChat,
     artifactRequired: artifactActionRequired,
     actionRequired: connectorToolResultRequired,
     projectDir: ctx.projectDir,

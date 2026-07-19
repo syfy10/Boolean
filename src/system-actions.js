@@ -26,7 +26,7 @@ const SETTINGS = Object.freeze({
   accounts: "ms-settings:yourinfo"
 });
 
-const RESUME_OR_STATUS_ONLY = /^(?:continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it|check now|please continue|continue where you left off)\b/i;
+const RESUME_OR_STATUS_ONLY = /^(?:continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it|check now|please continue|continue where you left off|can you do (?:this|it)(?: now| or not| or now)?)\b/i;
 const STATUS_QUESTION = /\b(?:are you|r u|you)\s+(?:still\s+)?(?:checking|working|running|doing|stuck|stopped)\b|\b(?:what happened|why did (?:it|you) stop|did (?:it|you) stop|what are you doing|where are we|status update|give me status|can move forward)\b/i;
 const TRANSCRIPT_MARKER = /(?:^|\n)\s*(?:You|GPT|GLM|AI|Boolean|Qwen|Claude|Codex)\s*:/i;
 
@@ -77,7 +77,7 @@ export function detectWindowsSettingsRequest(input) {
     ["printers", /\b(printer|scanner)s?\b/],
     ["startup_apps", /\bstartup apps?\b/],
     ["apps", /\b(apps?|installed apps?|programs?) settings?\b/],
-    ["windows_update", /\b(windows )?updates?\b/],
+    ["windows_update", /\bwindows updates?\b|\bupdates? settings\b/],
     ["storage", /\b(storage|disk space)\b/],
     ["power", /\b(power|sleep|battery)\b/],
     ["privacy", /\bprivacy\b/],

@@ -496,7 +496,7 @@ else if(d.cmd==="fitZoom"){try{var de=document.documentElement,b=document.body||
 else if(d.cmd==="find"){try{window.find(d.q,false,!!d.back,true);}catch(err){}}
 else if(d.cmd==="getText"){var t="";try{t=d.what==="selection"?String(window.getSelection?window.getSelection():""):(document.body?document.body.innerText:"");}catch(err){}
 parent.postMessage({saz3:"text",what:d.what,text:t.slice(0,200000),url:BASE,title:document.title},"*");}
-else if(d.cmd==="control"){var out={saz3:"controlResult",id:d.id,ok:true,url:BASE,title:document.title};try{var q=String(d.text||d.target||"").toLowerCase().trim();
+else if(d.cmd==="safeClickAllow"){try{if(window.__sazAllowSafeClick)window.__sazAllowSafeClick();}catch(err){}}else if(d.cmd==="control"){var out={saz3:"controlResult",id:d.id,ok:true,url:BASE,title:document.title};try{var q=String(d.text||d.target||"").toLowerCase().trim();
 function shown(el){var r=el.getBoundingClientRect();var s=getComputedStyle(el);return r.width>0&&r.height>0&&s.visibility!=="hidden"&&s.display!=="none";}
 function label(el){return [el.innerText,el.value,el.getAttribute("aria-label"),el.getAttribute("title"),el.getAttribute("placeholder"),el.name,el.id].filter(Boolean).join(" ").toLowerCase();}
 function findEl(sel){if(!sel)return null;if(/^[.#\\[]/.test(sel)){try{var e=document.querySelector(sel);if(e&&shown(e))return e;}catch(err){}}var all=[].slice.call(document.querySelectorAll("button,a,input,textarea,select,[role=button],[onclick],[tabindex]"));return all.find(function(e){return shown(e)&&label(e).indexOf(sel)>=0;})||null;}
@@ -508,6 +508,44 @@ var lt=document.title;setInterval(function(){if(document.title!==lt){lt=document
 })();</` + `script>`;
 }
 
+// Injected when safe-click is enabled: intercepts user clicks on sensitive
+// form buttons (submit/login/payment/delete) and asks for confirmation via
+// a postMessage to the parent app. The parent shows a native dialog and
+// replies with allow/block.
+function safeClickScript() {
+  return `<script>(function(){
+var SENS=/\b(submit|sign[\s]*in|log[\s]*in|log[\s]*out|sign[\s]*up|register|checkout|pay|payment|buy|purchase|delete|remove|confirm|approve|authorize|send|transfer|deposit|withdraw|subscribe|unsubscribe|place[\s]*order|complete[\s]*order)\b/i;
+var pending=null,allowing=false;
+function btnLabel(el){return [el.innerText,el.value,el.getAttribute("aria-label"),el.getAttribute("title"),el.name,el.id].filter(Boolean).join(" ");}
+function isFormButton(el){
+  if(!el||!el.closest)return false;
+  var tag=el.tagName.toLowerCase();
+  if(tag==="button"&&el.type&&/submit/i.test(el.type))return true;
+  if(tag==="input"&&el.type&&/submit|image/i.test(el.type))return true;
+  var role=el.getAttribute("role");
+  if(role==="button"&&el.closest("form"))return true;
+  var lbl=btnLabel(el);
+  if(SENS.test(lbl)&&el.closest("form"))return true;
+  if(SENS.test(lbl)&&(tag==="button"||tag==="a"||role==="button"))return true;
+  return false;
+}
+document.addEventListener("click",function(e){
+  var el=e.target;
+  if(allowing)return;
+  if(!isFormButton(el))return;
+  var lbl=btnLabel(el).slice(0,100);
+  e.preventDefault();e.stopPropagation();
+  pending=el;
+  parent.postMessage({saz3:"safeClick",text:lbl,url:location.href,title:document.title},"*");
+},true);
+window.__sazAllowSafeClick=function(){
+  if(!pending)return;
+  var el=pending;pending=null;allowing=true;
+  try{el.click();}finally{allowing=false;}
+};
+})();</` + `script>`;
+}
+
 function rewriteHtml(html, realUrl, opts = {}) {
   // remove CSP metas (we serve the page ourselves) and reroute meta-refresh
   html = html.replace(/<meta[^>]+http-equiv\s*=\s*["']?content-security-policy[^>]*>/gi, "");
@@ -515,6 +553,7 @@ function rewriteHtml(html, realUrl, opts = {}) {
     (m, pre, u) => { try { return pre + "/browse?u=" + encodeURIComponent(new URL(u.trim(), realUrl).href); } catch { return m; } });
   let inject = injectedScript(realUrl);
   if (opts.dark) inject = darkPageCSS + inject;
+  if (opts.safeClick) inject = safeClickScript() + inject;
   if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + inject);
   if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, (m) => m + "<head>" + inject + "</head>");
   return inject + html;
@@ -551,6 +590,7 @@ export async function handleBrowse(req, res, urlObj, config) {
   const forceDl = urlObj.searchParams.get("dl") === "1";
   const darkMode = urlObj.searchParams.get("dark") === "1";
   const readerMode = urlObj.searchParams.get("reader") === "1";
+  const safeClick = urlObj.searchParams.get("safeclick") === "1";
   const cors = { "access-control-allow-origin": "*", "cache-control": "no-store" };
   if (!/^https?:\/\//i.test(target)) {
     res.writeHead(400, { "content-type": "text/html; charset=utf-8", ...cors });
@@ -593,7 +633,7 @@ export async function handleBrowse(req, res, urlObj, config) {
       let html;
       try { html = new TextDecoder(charset).decode(buf); } catch { html = buf.toString("utf8"); }
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", ...cors });
-      res.end(rewriteHtml(html, finalUrl, { dark: darkMode, reader: readerMode }));
+      res.end(rewriteHtml(html, finalUrl, { dark: darkMode, reader: readerMode, safeClick }));
       return;
     }
 

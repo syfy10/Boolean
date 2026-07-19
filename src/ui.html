@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -166,26 +166,40 @@
   .panel.open{ display:block; }
   body.settings-open #chat,
   body.settings-open .composer-wrap{ display:none; }
-  main > #settingsPanel{ flex:1; width:100%; min-height:0; overflow:auto; border:0; border-radius:0;
-    background:var(--bg); box-shadow:none; padding:0 clamp(12px,4vw,42px) 18px; }
-  main > #settingsPanel.open{ display:block; }
-  .settings-head{ position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:8px;
-    min-height:44px; margin:0 calc(clamp(12px,4vw,42px) * -1) 8px; padding:8px clamp(12px,4vw,42px); background:var(--glass-bg);
+  main > #settingsPanel{ flex:1; width:100%; min-height:0; overflow:hidden; border:0; border-radius:0;
+    background:var(--bg); box-shadow:none; }
+  main > #settingsPanel.open{ display:flex; flex-direction:column; }
+  .settings-head{ position:sticky; top:0; z-index:4; display:flex; align-items:center; gap:8px;
+    min-height:44px; padding:8px 14px; background:var(--glass-bg);
     backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur);
-    border-bottom:1px solid var(--border); box-shadow:0 -18px 0 18px var(--glass-bg); }
+    border-bottom:1px solid var(--border); flex-shrink:0; }
   .settings-head b{ font-size:14px; font-weight:600; letter-spacing:-.01em; }
   .settings-head .spacer{ flex:1; }
   .settings-head button{ width:28px; height:28px; border:0; border-radius:50%; background:transparent;
     color:var(--dim); cursor:pointer; display:grid; place-items:center; font:18px/1 var(--ui); }
   .settings-head button:hover{ background:var(--hover); color:var(--text); }
-  .settings-tabs{ position:sticky; top:44px; z-index:2; display:flex; align-items:center; gap:4px; overflow-x:auto;
-    margin:0 calc(clamp(12px,4vw,42px) * -1) 8px; padding:7px clamp(12px,4vw,42px); background:var(--bg);
-    border-bottom:1px solid var(--border); scrollbar-width:none; }
-  .settings-tabs::-webkit-scrollbar{ display:none; }
-  .settings-tab{ flex:0 0 auto; border:0; border-radius:999px; background:transparent; color:var(--dim);
-    padding:5px 10px; font:11.5px var(--ui); cursor:pointer; white-space:nowrap; }
+  /* Settings sidebar navigation */
+  .settings-tabs{ position:sticky; top:44px; z-index:2; display:flex; flex-direction:column; gap:1px; overflow-y:auto;
+    width:180px; min-width:180px; max-height:calc(100vh - 52px); padding:4px; background:var(--sidebar);
+    border-right:1px solid var(--border); scrollbar-width:thin; scrollbar-color:var(--border) transparent; flex-shrink:0; }
+  .settings-tabs::-webkit-scrollbar{ width:4px; }
+  .settings-tabs::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+  .settings-tab{ flex:0 0 auto; border:0; border-radius:8px; background:transparent; color:var(--dim);
+    padding:7px 10px; font:11.5px var(--ui); cursor:pointer; white-space:nowrap; text-align:left;
+    display:flex; align-items:center; gap:8px; transition:background var(--t-fast),color var(--t-fast); }
   .settings-tab:hover{ background:var(--hover); color:var(--text); }
-  .settings-tab.active{ background:var(--accent); color:var(--accent-text); }
+  .settings-tab.active{ background:var(--accent); color:var(--accent-text); font-weight:600; }
+  .settings-tab svg{ width:15px; height:15px; flex-shrink:0; opacity:.65; }
+  .settings-tab.active svg{ opacity:1; }
+  .settings-tabs-row{ display:flex; flex:1; min-height:0; overflow:hidden; }
+  .settings-tabs-row .settings-content{ flex:1; overflow-y:auto; padding:6px clamp(12px,4vw,42px) 18px; min-width:0; }
+  .settings-tabs-row .settings-content > .settings-dashboard,
+  .settings-tabs-row .settings-content > .sec{ max-width:760px; }
+  .settings-breadcrumb{ font-size:11px; color:var(--dim); margin-bottom:8px; display:flex; align-items:center; gap:4px; }
+  .settings-breadcrumb span{ cursor:pointer; }
+  .settings-breadcrumb span:hover{ color:var(--text); }
+  .settings-breadcrumb .bc-sep{ color:var(--border); cursor:default; }
+  .settings-breadcrumb .bc-current{ color:var(--text); font-weight:500; cursor:default; }
   .setrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; font-size:13.5px; }
   .setrow .hint{ font-size:11.5px; color:var(--dim); }
   .setrow select,.setrow input[type=password]{ border:1px solid var(--border); border-radius:8px;
@@ -245,7 +259,7 @@
   .agent-budget-card .badge{ flex-shrink:0; border-radius:999px; padding:3px 8px; color:var(--green); background:color-mix(in srgb,var(--green) 14%,transparent); font-size:10.5px; }
   .rules-card{ border:1px solid var(--border); border-radius:12px; background:var(--card); padding:10px; margin-top:8px; }
   .rules-card code{ font-family:var(--mono); font-size:11px; }
-  @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } .settings-tabs{ flex-direction:row; width:auto; min-width:0; max-height:none; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid var(--border); gap:2px; } .settings-tabs-row{ flex-direction:column; } .settings-tab svg{ display:none; } .settings-tab{ padding:5px 8px; } }
   .sec{ border-bottom:1px solid var(--border); }
   .sechead{ display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; font-size:13.5px; font-weight:500; color:var(--text); user-select:none; transition:background var(--t-fast); }
   .sechead:hover{ background:var(--hover); }
@@ -258,7 +272,8 @@
   #settingsPanel.settings-detail .sec.settings-page-active{ border:0; }
   #settingsPanel.settings-detail .sec.settings-page-active .sechead{ display:none; }
   #settingsPanel.settings-detail .sec.settings-page-active .secbody{ display:block; max-width:760px; margin:0 auto; padding:6px 4px 18px; }
-  #settingsPanel.settings-detail #savesettings{ max-width:760px; display:block; margin:10px auto 4px !important; width:100% !important; }
+  #settingsPanel.settings-detail #savesettings{ max-width:760px; display:block; margin:10px auto 4px; width:calc(100% - 32px) !important; }
+  #settingsPanel:not(.open) .settings-tabs-row{ display:none; }
   #settingsPanel.settings-detail .sec[data-sec="model"].settings-page-active .secbody{ max-width:720px; padding:12px 6px 18px; }
   #settingsPanel .sec[data-sec="model"] .setrow{ align-items:flex-start; min-height:42px; padding:10px 0; }
   #settingsPanel .sec[data-sec="model"] .setrow > div:first-child{ flex:1 1 auto; min-width:0; padding-right:14px; }
@@ -426,6 +441,10 @@
   .bm-item .bm-x{ opacity:0; font-size:12px; color:var(--dim); margin-left:2px; }
   .bm-item:hover .bm-x{ opacity:.7; }
   .bm-item .bm-x:hover{ opacity:1; color:var(--text); }
+  .bm-proj-bar{ background:color-mix(in srgb,var(--accent) 4%,var(--bg)); border-bottom-color:color-mix(in srgb,var(--accent) 15%,var(--border)); }
+  .bm-proj-label{ font-size:var(--fs-xxs); color:var(--accent); font-weight:600; flex-shrink:0; padding:4px 4px 4px 8px; }
+  .bm-item.proj{ color:var(--accent); }
+  .bm-item.proj:hover{ background:color-mix(in srgb,var(--accent) 12%,var(--hover)); }
   /* browser task buttons — modern pill design */
   .browser-tasks{ display:flex; align-items:center; gap:3px; padding:2px 8px; overflow-x:auto; scrollbar-width:none; }
   .browser-tasks::-webkit-scrollbar{ display:none; }
@@ -1164,8 +1183,11 @@
   .note-scheduled{ display:inline-flex; align-items:center; justify-content:center; margin-left:3px; color:var(--green); font-size:11px; cursor:pointer; user-select:none; }
 
   /* ── Workspace tabs ── */
-  .workspace-tabs{ display:flex; align-items:center; gap:1px; padding:0 8px 0 38px; height:34px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
+  .workspace-tabs{ position:relative; display:flex; align-items:center; gap:1px; padding:0 8px 0 38px; height:34px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
   .workspace-tabs::-webkit-scrollbar{ display:none; }
+  .side-chat-launch{ position:absolute; left:7px; top:3px; width:28px; height:28px; display:grid; place-items:center; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; }
+  .side-chat-launch:hover,.side-chat-launch.active{ color:var(--green); background:var(--hover); }
+  .side-chat-launch svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .ws-tab{ display:flex; align-items:center; gap:5px; padding:5px 11px; border:0; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; border-radius:7px 7px 0 0; border-bottom:2px solid transparent; white-space:nowrap; transition:color .12s; }
   .ws-tab:hover{ color:var(--text); background:var(--hover); }
   .ws-tab.active{ color:var(--text); border-bottom-color:var(--accent); font-weight:550; }
@@ -1396,6 +1418,29 @@
     body.zone-3 main{ min-width:0; }
   }
 
+  /* Compact independent AI conversation opened from the workspace row. */
+  .side-chat-panel{ position:fixed; z-index:86; top:76px; right:12px; bottom:12px; width:min(340px,calc(100vw - 24px)); display:none; flex-direction:column; overflow:hidden;
+    border:1px solid var(--border); border-radius:8px; background:var(--bg); box-shadow:0 12px 38px rgba(0,0,0,.2); }
+  .side-chat-panel.open{ display:flex; }
+  .side-chat-head{ height:38px; flex:0 0 38px; display:flex; align-items:center; gap:7px; padding:0 7px 0 11px; border-bottom:1px solid var(--border); }
+  .side-chat-title{ flex:1; min-width:0; font:600 12px var(--ui); color:var(--text); }
+  .side-chat-head button{ width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:var(--dim); cursor:pointer; font:15px/1 var(--ui); }
+  .side-chat-head button:hover{ color:var(--text); background:var(--hover); }
+  .side-chat-messages{ flex:1; min-height:0; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .side-chat-empty{ margin:auto; max-width:220px; color:var(--dim); text-align:center; font:11.5px/1.45 var(--ui); }
+  .side-chat-msg{ max-width:88%; padding:7px 9px; border-radius:8px; color:var(--text); font:12px/1.4 var(--ui); overflow-wrap:anywhere; }
+  .side-chat-msg.user{ align-self:flex-end; color:#fff; background:var(--accent); }
+  .side-chat-msg.ai{ align-self:flex-start; border:1px solid var(--border); background:var(--card); }
+  .side-chat-msg.ai p{ margin:0 0 5px; }
+  .side-chat-msg.ai p:last-child{ margin-bottom:0; }
+  .side-chat-msg.status{ color:var(--dim); font-style:italic; }
+  .side-chat-compose{ flex:0 0 auto; display:flex; align-items:flex-end; gap:6px; padding:8px; border-top:1px solid var(--border); background:var(--sidebar); }
+  .side-chat-input{ flex:1; min-width:0; max-height:92px; resize:none; border:1px solid var(--border); border-radius:8px; outline:0; background:var(--bg); color:var(--text); padding:8px 9px; font:12px/1.35 var(--ui); }
+  .side-chat-input:focus{ border-color:color-mix(in srgb,var(--green) 55%,var(--border)); }
+  .side-chat-send{ width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border:0; border-radius:50%; background:var(--accent); color:var(--accent-text); cursor:pointer; }
+  .side-chat-send:disabled{ opacity:.4; cursor:default; }
+  .side-chat-send svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
   /* ── Background agent panel ── */
   .bg-agent-panel{ position:fixed; right:16px; bottom:52px; width:320px; max-height:400px; z-index:45; background:var(--bg); border:1px solid var(--border); border-radius:13px; box-shadow:0 8px 30px rgba(0,0,0,.18); display:none; flex-direction:column; overflow:hidden; }
   .bg-agent-panel.open{ display:flex; }
@@ -1603,18 +1648,68 @@
         <button id="settingsClose" title="Close settings" aria-label="Close settings">×</button>
       </div>
 
-      <div class="settings-tabs" id="settingsTabs" aria-label="Settings sections">
-        <button class="settings-tab active" data-settings-tab="home">Home</button>
-        <button class="settings-tab" data-settings-tab="model">Models</button>
-        <button class="settings-tab" data-settings-tab="agent">Agent</button>
-        <button class="settings-tab" data-settings-tab="thirdparty">Connections</button>
-        <button class="settings-tab" data-settings-tab="browser">Browser</button>
-        <button class="settings-tab" data-settings-tab="memory">Notes</button>
-        <button class="settings-tab" data-settings-tab="scheduled">Tasks</button>
-        <button class="settings-tab" data-settings-tab="appearance">Look</button>
-        <button class="settings-tab" data-settings-tab="advanced">Advanced</button>
-      </div>
+      <div class="settings-tabs-row">
+        <div class="settings-tabs" id="settingsTabs" aria-label="Settings sections">
+          <button class="settings-tab active" data-settings-tab="home" title="Overview / Dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            Overview
+          </button>
+          <button class="settings-tab" data-settings-tab="model" title="AI Models">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M6 10v1a6 6 0 0 0 12 0v-1"/><path d="M12 17v4"/><path d="M8 21h8"/></svg>
+            AI Models
+          </button>
+          <button class="settings-tab" data-settings-tab="agent" title="Coding Agent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+            Agent
+          </button>
+          <button class="settings-tab" data-settings-tab="thirdparty" title="Connectors">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            Connectors
+          </button>
+          <button class="settings-tab" data-settings-tab="browser" title="Browser Research">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Browser
+          </button>
+          <button class="settings-tab" data-settings-tab="memory" title="Notepad Memory">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Notes
+          </button>
+          <button class="settings-tab" data-settings-tab="scheduled" title="Tasks Automations">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+            Tasks
+          </button>
+          <button class="settings-tab" data-settings-tab="legal" title="Privacy Security">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Privacy
+          </button>
+          <button class="settings-tab" data-settings-tab="appearance" title="Appearance UI">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            Appearance
+          </button>
+          <button class="settings-tab" data-settings-tab="shortcuts" title="Keyboard Shortcuts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+            Shortcuts
+          </button>
+          <button class="settings-tab" data-settings-tab="voice" title="Voice Input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            Voice
+          </button>
+          <button class="settings-tab" data-settings-tab="notifications" title="Notifications Alerts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Alerts
+          </button>
+          <button class="settings-tab" data-settings-tab="advanced" title="Advanced Developer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+            Advanced
+          </button>
+          <button class="settings-tab" data-settings-tab="about" title="About Updates">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            About
+          </button>
+        </div>
+        <div class="settings-content">
 
+      <div class="settings-breadcrumb" id="settingsBreadcrumb"><span>Settings</span></div>
       <div class="settings-dashboard" id="settingsDashboard">
         <div class="settings-search"><input type="search" id="settingsSearch" autocomplete="off" spellcheck="false" placeholder="Search settings, models, connectors, permissions…"></div>
         <div class="settings-overview" aria-label="Settings overview">
@@ -2130,6 +2225,7 @@
           <div class="setrow"><div>Windows system actions<div class="hint">PC info, Settings &amp; apps; admin changes always ask</div></div><label class="switch"><input type="checkbox" id="systemActions"><span class="slider"></span></label></div>
           <div class="setrow"><div>Let AI browse the web<div class="hint">forms &amp; downloads still ask first</div></div><label class="switch"><input type="checkbox" id="aiBrowser"><span class="slider"></span></label></div>
           <div class="setrow"><div>Research mode<div class="hint">Auto-summarize pages as you browse, extract key links, and save findings to notes. Adds cite/compare/source tools to research.</div></div><label class="switch"><input type="checkbox" id="researchMode"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Safe-click confirmation<div class="hint">Ask before clicking submit, login, payment, or delete buttons on pages.</div></div><label class="switch"><input type="checkbox" id="safeClickConfirm"><span class="slider"></span></label></div>
           <div class="setrow"><div>Search engine</div>
             <select id="searchEngine">
               <option value="google">Google</option>
@@ -2186,6 +2282,19 @@
         <div class="sechead">Privacy &amp; Safety <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow" style="display:block">
+            <div>Data retention<div class="hint">Where your data is stored and for how long.</div></div>
+            <select id="dataRetention" class="minibtn" style="text-align:left;padding:4px 8px;margin-top:4px">
+              <option value="local">Local only (stays on this PC)</option>
+              <option value="cloud">Cloud (synced to your account)</option>
+              <option value="hybrid">Hybrid (local chats + cloud account)</option>
+            </select>
+          </div>
+          <div class="setrow"><div>What goes to cloud models<div class="hint">When using a cloud provider, your chat text is sent to that API. Local models never leave your PC.</div></div><span style="font:11px var(--ui);color:var(--dim)">Provider-dependent</span></div>
+          <div class="setrow"><div>Clipboard / file access<div class="hint">Allow Boolean to read clipboard and local files when you ask.</div></div><label class="switch"><input type="checkbox" id="privacyClipboard"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Sensitive data masking<div class="hint">Mask API keys, passwords, and tokens in chat display.</div></div><label class="switch"><input type="checkbox" id="privacyMasking"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Telemetry<div class="hint">Anonymous usage data to improve Boolean. Nothing personal is collected.</div></div><label class="switch"><input type="checkbox" id="privacyTelemetry"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Local encryption<div class="hint">Encrypt saved chats and config at rest on this PC.</div></div><label class="switch"><input type="checkbox" id="privacyEncryption"><span class="slider"></span></label></div>
+          <div class="setrow" style="display:block;margin-top:6px">
             <div>Legal documents<div class="hint">bundled with this app and stored locally</div></div>
             <div class="legal-docs" id="legalDocs">
               <div class="legal-doc"><h4>Requirements</h4><pre id="legalRequirementsText">Loading...</pre></div>
@@ -2193,6 +2302,7 @@
               <div class="legal-doc"><h4>Privacy</h4><pre id="legalPrivacyText">Loading...</pre></div>
             </div>
           </div>
+          <button class="minibtn dangerbtn" id="deleteAllData" style="width:100%;margin-top:8px">Delete all data &amp; reset</button>
         </div>
       </div>
 
@@ -2243,12 +2353,110 @@
             <div style="display:flex;align-items:center;gap:4px"><span style="color:var(--dim)">$</span><input type="number" id="budgetLimitInput" min="0" step="0.50" style="width:70px" placeholder="0"></div>
           </div>
           <div class="hint" id="ctxHint" style="display:none">32,768 tokens</div>
+          <div class="setrow" style="display:block;margin-top:8px;border-top:1px solid var(--line);padding-top:10px">
+            <div>API endpoint overrides<div class="hint">Route cloud API calls through a custom base URL (useful for proxies or self-hosted endpoints).</div></div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <select id="apiOverrideProvider" class="minibtn" style="text-align:left;padding:4px 8px;max-width:120px">
+                <option value="">Provider…</option>
+                <option value="openai">OpenAI</option>
+                <option value="claude">Claude</option>
+                <option value="glm">GLM</option>
+              </select>
+              <input type="text" id="apiOverrideUrl" class="minibtn" style="flex:1;padding:4px 8px" placeholder="https://custom-endpoint.example.com/v1">
+              <button class="minibtn" id="apiOverrideSave">Save</button>
+            </div>
+          </div>
+          <div class="setrow" style="display:block">
+            <div>Proxy settings<div class="hint">Route all outbound HTTP through a proxy server.</div></div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <input type="text" id="proxyUrl" class="minibtn" style="flex:1;padding:4px 8px" placeholder="http://127.0.0.1:7890">
+              <button class="minibtn" id="proxySave">Save</button>
+              <button class="minibtn dangerbtn" id="proxyClear">Clear</button>
+            </div>
+          </div>
           <button class="minibtn dangerbtn" id="clearHistory" style="width:100%;margin-top:6px">Clear all saved chats</button>
           <button class="minibtn dangerbtn" id="resetSettings" style="width:100%;margin-top:6px">Reset all settings</button>
 
         </div>
       </div>
 
+      <div class="sec" data-sec="shortcuts" data-search="keyboard shortcuts hotkeys custom mapping conflicts ctrl alt shift enter esc tab">
+        <div class="sechead">Keyboard Shortcuts <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow" style="display:block">
+            <div>Shortcut list<div class="hint">All keyboard shortcuts currently in use.</div></div>
+            <div class="shortcut-list" id="shortcutList"></div>
+          </div>
+          <div class="setrow" style="display:block;margin-top:8px">
+            <div>Custom mapping<div class="hint">Remap a shortcut. Type the new keys in the box, then click Save.</div></div>
+            <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+              <select id="shortcutSelect" class="minibtn" style="flex:1;text-align:left;padding:4px 8px"></select>
+              <input type="text" id="shortcutInput" class="minibtn" style="flex:1;padding:4px 8px" placeholder="Press keys…" readonly>
+              <button class="minibtn" id="shortcutSave">Set</button>
+              <button class="minibtn dangerbtn" id="shortcutReset">Reset</button>
+            </div>
+            <div class="hint" id="shortcutConflict" style="margin-top:4px;color:var(--red)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="voice" data-search="voice input speech dictation tts feedback language dialect auto punctuation microphone mic">
+        <div class="sechead">Voice &amp; Input <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow"><div>Voice input<div class="hint">Dictate into the chat box using your microphone.</div></div><label class="switch"><input type="checkbox" id="voiceInput"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Voice feedback / TTS<div class="hint">Read AI responses aloud.</div></div><label class="switch"><input type="checkbox" id="voiceTTS"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Auto-punctuation<div class="hint">Automatically add punctuation while dictating.</div></div><label class="switch"><input type="checkbox" id="voiceAutoPunct"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Language / dialect<div class="hint">Recognition language for voice input.</div></div>
+            <select id="voiceLang" class="minibtn" style="text-align:left;padding:4px 8px;max-width:180px">
+              <option value="en-US">English (US)</option>
+              <option value="en-GB">English (UK)</option>
+              <option value="es-ES">Spanish</option>
+              <option value="fr-FR">French</option>
+              <option value="de-DE">German</option>
+              <option value="hi-IN">Hindi</option>
+              <option value="zh-CN">Chinese (Mandarin)</option>
+              <option value="ja-JP">Japanese</option>
+              <option value="ar-SA">Arabic</option>
+              <option value="pt-BR">Portuguese (Brazil)</option>
+            </select>
+          </div>
+          <div class="setrow"><div>TTS voice speed<div class="hint">Speaking rate for voice feedback.</div></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input id="voiceSpeed" type="range" min="0.5" max="2" step="0.1" style="width:120px">
+              <span id="voiceSpeedLabel" style="font:11px var(--ui);color:var(--dim)">1.0×</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="notifications" data-search="notifications alerts sound desktop in-app token budget warning error volume">
+        <div class="sechead">Notifications &amp; Alerts <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow"><div>In-app notifications<div class="hint">Show toast banners inside the app.</div></div><label class="switch"><input type="checkbox" id="notifInApp"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Desktop notifications<div class="hint">OS-level notifications when tasks finish or need approval.</div></div><label class="switch"><input type="checkbox" id="notifDesktop"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Sound alerts<div class="hint">Play a sound when a task completes or errors.</div></div><label class="switch"><input type="checkbox" id="notifSound"><span class="slider"></span></label></div>
+          <div class="setrow" id="notifVolumeRow"><div>Alert volume<div class="hint">Volume for sound alerts.</div></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input id="notifVolume" type="range" min="0" max="100" step="5" style="width:120px">
+              <span id="notifVolumeLabel" style="font:11px var(--ui);color:var(--dim)">50%</span>
+            </div>
+          </div>
+          <div class="setrow"><div>Token budget warnings<div class="hint">Alert when cloud spending reaches 80% of your monthly limit.</div></div><label class="switch"><input type="checkbox" id="notifBudgetWarn"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Error alerts<div class="hint">Notify on errors, crashes, or failed tool runs.</div></div><label class="switch"><input type="checkbox" id="notifErrors"><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="sec" data-sec="about" data-search="about version changelog updates feedback documentation license">
+        <div class="sechead">About &amp; Updates <span class="caret">▶</span></div>
+        <div class="secbody">
+          <div class="setrow"><div>Version<div class="hint">Current Boolean build</div></div><b id="aboutVersion">—</b></div>
+          <div class="setrow" style="display:block"><div>Changelog<div class="hint">Recent improvements and fixes</div></div><div class="about-line" id="aboutChangelog">Loading…</div></div>
+          <div class="setrow"><div>Documentation<div class="hint">Official Boolean help and guides</div></div><button class="minibtn" id="aboutDocs">Open docs</button></div>
+          <div class="setrow"><div>Feedback<div class="hint">Report a bug or suggest a feature</div></div><button class="minibtn" id="aboutFeedback">Send feedback</button></div>
+        </div>
+      </div>
+        </div>
+      </div>
       <button class="minibtn" id="savesettings" style="width:calc(100% - 32px);margin:10px 16px">Close</button>
     </div>
 
@@ -2303,6 +2511,9 @@
   </div>
 
   <div class="workspace-tabs" id="workspaceTabs">
+    <button class="side-chat-launch" id="sideChatToggle" title="Open side AI chat" aria-label="Open side AI chat">
+      <svg viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z"/><path d="M9 9h6M9 12h4"/></svg>
+    </button>
     <button class="ws-tab active" data-ws="chat" title="Chat workspace"><span class="ws-dot active"></span>Chat</button>
     <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
     <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span><span class="ws-label">Preview</span></button>
@@ -2535,6 +2746,21 @@
   </div>
 </section>
 
+<section class="side-chat-panel" id="sideChatPanel" aria-label="Side AI chat">
+  <div class="side-chat-head">
+    <span class="side-chat-title">Side chat</span>
+    <button id="sideChatNew" title="New side chat" aria-label="New side chat">+</button>
+    <button id="sideChatClose" title="Close side chat" aria-label="Close side chat">×</button>
+  </div>
+  <div class="side-chat-messages" id="sideChatMessages"><div class="side-chat-empty">Ask a quick question without leaving your main conversation.</div></div>
+  <div class="side-chat-compose">
+    <textarea class="side-chat-input" id="sideChatInput" rows="1" placeholder="Ask AI..." aria-label="Side chat message"></textarea>
+    <button class="side-chat-send" id="sideChatSend" title="Send" aria-label="Send side chat message">
+      <svg viewBox="0 0 24 24"><path d="m5 12 14-7-5 14-2-6z"/></svg>
+    </button>
+  </div>
+</section>
+
 <section id="notesPanel">
   <div class="notes-top">
     <div class="notes-tabs" id="noteTabs"></div>
@@ -2629,6 +2855,7 @@
     <button class="bbtn active" id="bClose" title="Hide browser">◎</button>
     </div>
     <div class="bm-bar" id="bmBar"></div>
+    <div class="bm-bar bm-proj-bar" id="bmProjBar" style="display:none"></div>
     <div class="browser-tasks">
       <button class="bt-task" data-btask="use" title="Send this page as context to Boolean">📄 Use page</button>
       <button class="bt-task" data-btask="docs" title="Extract documentation and code samples">📖 Extract docs</button>
@@ -2649,6 +2876,7 @@
     <div class="item" id="bmCloseOthers"><span>Close other tabs</span></div>
     <div class="sep"></div>
     <div class="item" id="bmBookmark"><span>Add to bookmarks</span></div>
+    <div class="item" id="bmProjectPage"><span>Save to project pages</span></div>
     <div class="item" id="bmReader"><span>Toggle reader mode</span></div>
     <div class="sep"></div>
     <div class="item" id="bmSendPage"><span>Send page to AI</span></div>
@@ -2930,6 +3158,7 @@
   const syncComposerPillHeight=()=>document.documentElement.style.setProperty("--composer-pill-h",`${Math.ceil(composerPill?.getBoundingClientRect().height||52)}px`);
   const syncComposerBaseHeight=()=>document.documentElement.style.setProperty("--composer-base-h",`${Math.ceil(composerBase?.getBoundingClientRect().height||56)}px`);
   const syncComposerRail=()=>document.documentElement.style.setProperty("--chat-scrollbar",`${Math.max(0,chat.offsetWidth-chat.clientWidth)}px`);
+  const syncChatScroll=()=>{ syncComposerRail(); pinChatAfterLayout(); };
   chat.addEventListener("scroll",()=>{
     chatPinnedToBottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<=chatBottomTolerance();
   },{passive:true});
@@ -6041,11 +6270,13 @@
     $("settingsTitle").textContent="Settings";
     $("settingsBack").title="Close settings";
     $("settingsBack").setAttribute("aria-label","Close settings");
+    const bc=$("settingsBreadcrumb"); if(bc) bc.innerHTML='<span>Settings</span>';
     syncSettingsTabs("home");
     updateSettingsDashboard();
     refreshGithubDashboard();
     applySettingsFilter();
-    panel.scrollTop=0;
+    const contentArea = panel.querySelector('.settings-content');
+    if (contentArea) contentArea.scrollTop = 0; else panel.scrollTop = 0;
   }
   function showSettingsSection(id,{remember=false}={}){
     const panel=$("settingsPanel");
@@ -6066,13 +6297,15 @@
     $("settingsTitle").textContent=settingSectionTitle(section);
     $("settingsBack").title="All settings";
     $("settingsBack").setAttribute("aria-label","Back to all settings");
+    const bc2=$("settingsBreadcrumb"); if(bc2) bc2.innerHTML='<span onclick="showSettingsHome()">Settings</span><span class="bc-sep">›</span><span class="bc-current">'+settingSectionTitle(section)+'</span>';
     if(section.dataset.sec==="legal") loadLegalDocs();
     if(section.dataset.sec==="thirdparty") showConnectorOverview();
     if(section.dataset.sec==="email") renderEmailSettings();
     if(section.dataset.sec==="scheduled") loadAutomations();
     if(section.dataset.sec==="github") loadGithubStatus();
     if(section.dataset.sec==="skills") loadSkillList();
-    panel.scrollTop=0;
+    const ca = panel.querySelector(".settings-content");
+    if (ca) ca.scrollTop = 0; else panel.scrollTop = 0;
   }
   function closeSettingsPanel(){
     $("apikey").value="";
@@ -6605,6 +6838,7 @@ Optional bundled starter model:
     $("systemActions").checked=ui.systemActions!==false;
     $("aiBrowser").checked=ui.aiBrowser!==false;
     if($("researchMode")) $("researchMode").checked=ui.researchMode===true;
+    if($("safeClickConfirm")) $("safeClickConfirm").checked=ui.safeClickConfirm===true;
     // tell the native shell to match the browser chrome to the current theme
     if(SHELL){ const dark=(ui.theme==="dark")||(ui.theme!=="light" && matchMedia("(prefers-color-scheme:dark)").matches); hostPost({type:"browser",cmd:"theme",dark}); }
     $("searchEngine").value=ui.searchEngine||"google";
@@ -6623,6 +6857,29 @@ Optional bundled starter model:
     $("permCamera").checked=!!bp.camera;
     $("permMic").checked=!!bp.mic;
     $("permGeo").checked=!!bp.geo;
+
+    // ── restore new section states ──
+    const voice=ui.voice||{};
+    if($("voiceInput")) $("voiceInput").checked=!!voice.enabled;
+    if($("voiceTTS")) $("voiceTTS").checked=!!voice.tts;
+    if($("voiceAutoPunct")) $("voiceAutoPunct").checked=voice.autoPunct!==false;
+    if($("voiceLang")) $("voiceLang").value=voice.lang||"en-US";
+    if($("voiceSpeed")){ $("voiceSpeed").value=voice.speed||1.0; $("voiceSpeedLabel").textContent=(parseFloat(voice.speed||1.0)).toFixed(1)+"\u00d7"; }
+    const notif=ui.notif||{};
+    if($("notifInApp")) $("notifInApp").checked=notif.inApp!==false;
+    if($("notifDesktop")) $("notifDesktop").checked=!!notif.desktop;
+    if($("notifSound")) $("notifSound").checked=!!notif.sound;
+    if($("notifVolume")){ $("notifVolume").value=notif.volume||50; $("notifVolumeLabel").textContent=(notif.volume||50)+"%"; }
+    if($("notifBudgetWarn")) $("notifBudgetWarn").checked=notif.budgetWarn!==false;
+    if($("notifErrors")) $("notifErrors").checked=notif.errors!==false;
+    const privacy=ui.privacy||{};
+    if($("dataRetention")) $("dataRetention").value=privacy.retention||"local";
+    if($("privacyClipboard")) $("privacyClipboard").checked=privacy.clipboard!==false;
+    if($("privacyMasking")) $("privacyMasking").checked=privacy.masking!==false;
+    if($("privacyTelemetry")) $("privacyTelemetry").checked=!!privacy.telemetry;
+    if($("privacyEncryption")) $("privacyEncryption").checked=!!privacy.encryption;
+    if($("proxyUrl")) $("proxyUrl").value=ui.proxy||"";
+    renderShortcutList();
   }
   function applySections(){
     const panel=$("settingsPanel");
@@ -6710,6 +6967,7 @@ Optional bundled starter model:
   $("systemActions").onchange=e=>setUi({systemActions:e.target.checked});
   $("aiBrowser").onchange=e=>setUi({aiBrowser:e.target.checked});
   if($("researchMode")) $("researchMode").onchange=e=>setUi({researchMode:e.target.checked});
+  if($("safeClickConfirm")) $("safeClickConfirm").onchange=e=>setUi({safeClickConfirm:e.target.checked});
   $("searchEngine").onchange=e=>setUi({searchEngine:e.target.value});
   $("reduceMotion").onchange=e=>{ setUi({reduceMotion:e.target.checked}); document.body.classList.toggle("reduce-motion",e.target.checked); };
   $("autoRouteModels").onchange=e=>setUi({autoRouteModels:e.target.checked});
@@ -6739,6 +6997,144 @@ Optional bundled starter model:
 
   $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,showOnboarding:false,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",cleanStartup:true,codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
 
+  // ── Keyboard Shortcuts ──
+  const DEFAULT_SHORTCUTS = [
+    { id:"new_chat", label:"New chat", keys:"Ctrl+N" },
+    { id:"toggle_sidebar", label:"Toggle sidebar", keys:"Ctrl+B" },
+    { id:"toggle_settings", label:"Open settings", keys:"Ctrl+," },
+    { id:"toggle_notepad", label:"Toggle notepad", keys:"Ctrl+Shift+N" },
+    { id:"toggle_browser", label:"Toggle browser", keys:"Ctrl+Shift+B" },
+    { id:"send_message", label:"Send message", keys:"Enter" },
+    { id:"newline", label:"New line", keys:"Shift+Enter" },
+    { id:"stop_generation", label:"Stop generation", keys:"Esc" },
+    { id:"copy_last", label:"Copy last reply", keys:"Ctrl+Shift+C" }
+  ];
+  function renderShortcutList(){
+    const el=$("shortcutList"); if(!el) return;
+    const custom=(state.ui&&state.ui.shortcuts&&state.ui.shortcuts.custom)||{};
+    el.innerHTML=DEFAULT_SHORTCUTS.map(s=>{
+      const keys=custom[s.id]||s.keys;
+      return '<div class="setrow" style="padding:4px 0;border:0"><span style="font:11.5px var(--ui)">'+s.label+'</span><span style="margin-left:auto;font:11px var(--ui-monospace);background:var(--bubble);border:1px solid var(--border);padding:2px 7px;border-radius:5px">'+keys+'</span></div>';
+    }).join('');
+    // populate select
+    const sel=$("shortcutSelect"); if(sel){
+      sel.innerHTML=DEFAULT_SHORTCUTS.map(s=>'<option value="'+s.id+'">'+s.label+'</option>').join('');
+    }
+  }
+  function checkShortcutConflict(keys,excludeId){
+    const custom=(state.ui&&state.ui.shortcuts&&state.ui.shortcuts.custom)||{};
+    const all={};
+    DEFAULT_SHORTCUTS.forEach(s=>{ all[s.id]=custom[s.id]||s.keys; });
+    for(const [id,k] of Object.entries(all)){
+      if(id!==excludeId && k===keys) return id;
+    }
+    return null;
+  }
+  if($("shortcutInput")){
+    $("shortcutInput").onkeydown=e=>{
+      e.preventDefault();
+      const parts=[];
+      if(e.ctrlKey) parts.push("Ctrl");
+      if(e.altKey) parts.push("Alt");
+      if(e.shiftKey) parts.push("Shift");
+      if(e.metaKey) parts.push("Win");
+      const key=e.key;
+      if(!["Control","Alt","Shift","Meta"].includes(key)){
+        let k=key.length===1?key.toUpperCase():key;
+        if(k===" ") k="Space";
+        parts.push(k);
+      }
+      if(parts.length>0){
+        const combo=parts.join("+");
+        $("shortcutInput").value=combo;
+        const selId=$("shortcutSelect").value;
+        const conflict=checkShortcutConflict(combo,selId);
+        $("shortcutConflict").textContent=conflict?'\u26a0 Conflict with "'+DEFAULT_SHORTCUTS.find(s=>s.id===conflict)?.label+'"' : "";
+      }
+    };
+  }
+  if($("shortcutSave")) $("shortcutSave").onclick=()=>{
+    const id=$("shortcutSelect").value;
+    const keys=$("shortcutInput").value;
+    if(!id||!keys) return;
+    const conflict=checkShortcutConflict(keys,id);
+    if(conflict){ $("shortcutConflict").textContent='\u26a0 Already used by "'+DEFAULT_SHORTCUTS.find(s=>s.id===conflict)?.label+'"'; return; }
+    const custom={...((state.ui&&state.ui.shortcuts&&state.ui.shortcuts.custom)||{}),[id]:keys};
+    setUi({shortcuts:{custom,conflicts:[]}});
+    $("shortcutInput").value=""; $("shortcutConflict").textContent="";
+    renderShortcutList();
+    tempToast("Shortcut saved",2000);
+  };
+  if($("shortcutReset")) $("shortcutReset").onclick=()=>{
+    const id=$("shortcutSelect").value;
+    const custom={...((state.ui&&state.ui.shortcuts&&state.ui.shortcuts.custom)||{})};
+    delete custom[id];
+    setUi({shortcuts:{custom,conflicts:[]}});
+    $("shortcutInput").value=""; $("shortcutConflict").textContent="";
+    renderShortcutList();
+    tempToast("Shortcut reset to default",2000);
+  };
+
+  // ── Voice & Input ──
+  function bindVoiceHandlers(){
+    if($("voiceInput")) $("voiceInput").onchange=e=>setUi({voice:{...((state.ui&&state.ui.voice)||{}),enabled:e.target.checked}});
+    if($("voiceTTS")) $("voiceTTS").onchange=e=>setUi({voice:{...((state.ui&&state.ui.voice)||{}),tts:e.target.checked}});
+    if($("voiceAutoPunct")) $("voiceAutoPunct").onchange=e=>setUi({voice:{...((state.ui&&state.ui.voice)||{}),autoPunct:e.target.checked}});
+    if($("voiceLang")) $("voiceLang").onchange=e=>setUi({voice:{...((state.ui&&state.ui.voice)||{}),lang:e.target.value}});
+    if($("voiceSpeed")) $("voiceSpeed").oninput=e=>{ $("voiceSpeedLabel").textContent=(parseFloat(e.target.value)).toFixed(1)+"\u00d7"; };
+    if($("voiceSpeed")) $("voiceSpeed").onchange=e=>setUi({voice:{...((state.ui&&state.ui.voice)||{}),speed:parseFloat(e.target.value)}});
+  }
+  bindVoiceHandlers();
+
+  // ── Notifications & Alerts ──
+  function bindNotifHandlers(){
+    if($("notifInApp")) $("notifInApp").onchange=e=>setUi({notif:{...((state.ui&&state.ui.notif)||{}),inApp:e.target.checked}});
+    if($("notifDesktop")) $("notifDesktop").onchange=e=>{ setUi({notif:{...((state.ui&&state.ui.notif)||{}),desktop:e.target.checked}}); if($("notificationsToggle")) $("notificationsToggle").checked=e.target.checked; };
+    if($("notifSound")) $("notifSound").onchange=e=>setUi({notif:{...((state.ui&&state.ui.notif)||{}),sound:e.target.checked}});
+    if($("notifVolume")) $("notifVolume").oninput=e=>{ $("notifVolumeLabel").textContent=e.target.value+"%"; };
+    if($("notifVolume")) $("notifVolume").onchange=e=>setUi({notif:{...((state.ui&&state.ui.notif)||{}),volume:parseInt(e.target.value)}});
+    if($("notifBudgetWarn")) $("notifBudgetWarn").onchange=e=>setUi({notif:{...((state.ui&&state.ui.notif)||{}),budgetWarn:e.target.checked}});
+    if($("notifErrors")) $("notifErrors").onchange=e=>setUi({notif:{...((state.ui&&state.ui.notif)||{}),errors:e.target.checked}});
+  }
+  bindNotifHandlers();
+
+  // ── Privacy extras ──
+  if($("dataRetention")) $("dataRetention").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),retention:e.target.value}});
+  if($("privacyClipboard")) $("privacyClipboard").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),clipboard:e.target.checked}});
+  if($("privacyMasking")) $("privacyMasking").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),masking:e.target.checked}});
+  if($("privacyTelemetry")) $("privacyTelemetry").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),telemetry:e.target.checked}});
+  if($("privacyEncryption")) $("privacyEncryption").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),encryption:e.target.checked}});
+  if($("deleteAllData")) $("deleteAllData").onclick=async()=>{
+    if(await appConfirm("Delete all data?","This permanently deletes all saved chats, learned behaviors, and settings. Boolean will restart fresh. This cannot be undone.","Delete all",true)){
+      await fetch("/api/clear-history",{method:"POST"});
+      await setUi({learnedMemory:true});
+      $("clearMemory")?.click();
+      $("resetSettings")?.click();
+      tempToast("All data deleted. Restart Boolean to complete.",5000);
+    }
+  };
+
+  // ── Advanced: proxy + API overrides ──
+  if($("proxySave")) $("proxySave").onclick=()=>{
+    const url=($("proxyUrl").value||"").trim();
+    if(url && !/^https?:\/\//i.test(url)){ tempToast("Proxy URL must start with http:// or https://",3000); return; }
+    setUi({proxy:url});
+    tempToast(url?"Proxy saved":"Proxy cleared",2000);
+  };
+  if($("proxyClear")) $("proxyClear").onclick=()=>{ $("proxyUrl").value=""; setUi({proxy:""}); tempToast("Proxy cleared",2000); };
+  if($("apiOverrideSave")) $("apiOverrideSave").onclick=()=>{
+    const prov=$("apiOverrideProvider").value;
+    const url=($("apiOverrideUrl").value||"").trim();
+    if(!prov){ tempToast("Select a provider first",3000); return; }
+    if(url && !/^https?:\/\//i.test(url)){ tempToast("URL must start with http:// or https://",3000); return; }
+    const overrides={...((state.ui&&state.ui.apiOverrides)||{}),[prov]:url};
+    setUi({apiOverrides:overrides});
+    tempToast("API override saved",2000);
+  };
+
+  // Render dynamic lists when sections open
+  if($("shortcutList")) renderShortcutList();
+
   // ── in-app browser (real internet via the /browse proxy) ──
   const bframe=$("bframe"), bAddr=$("bAddr");
   let btabs=[], bactive=-1, bhist=[], bbookmarks=[];
@@ -6747,7 +7143,7 @@ Optional bundled starter model:
   const curTab=()=>btabs[bactive];
   const isLocalUrl=(u)=>/^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0|192\.168\.|10\.)/i.test(u||"");
   const browseBase=()=>state.browseBase||"";
-  const frameSrc=(u)=>!u?"about:blank":(isLocalUrl(u)?u:browseBase()+"/browse?u="+encodeURIComponent(u)+(darkPageOn?"&dark=1":"")+(readerOn?"&reader=1":""));
+  const frameSrc=(u)=>!u?"about:blank":(isLocalUrl(u)?u:browseBase()+"/browse?u="+encodeURIComponent(u)+(darkPageOn?"&dark=1":"")+(readerOn?"&reader=1":"")+(state.ui&&state.ui.safeClickConfirm?"&safeclick=1":""));
   const SEARCH_URLS={ google:"https://www.google.com/search?q=", bing:"https://www.bing.com/search?q=", duckduckgo:"https://duckduckgo.com/?q=" };
   const searchUrl=(q)=>SEARCH_URLS[(state.ui&&state.ui.searchEngine)||"google"]+encodeURIComponent(q);
   function normUrl(v){ v=(v||"").trim(); if(!v) return "";
@@ -6815,6 +7211,42 @@ Optional bundled starter model:
     else{ bbookmarks.push({url:t.url,title:t.title||t.url}); tempToast("Added to bookmarks"); }
     renderBookmarks(); saveBrowser();
   }
+// project pages block to insert
+  // ── project-scoped page memory ──
+  function projectKey(){
+    const ts=threadSummary();
+    if(ts&&ts.projectDir){ try{ return ts.projectDir.split(/[\\/]/).pop()||"default"; }catch{ return "default"; } }
+    return "global";
+  }
+  function getProjectPages(){
+    const all=(state.ui&&state.ui.projectPages)||{};
+    return Array.isArray(all[projectKey()])?all[projectKey()]:[];
+  }
+  function saveProjectPage(){
+    const t=curTab(); if(!t||!t.url){ tempToast("Open a page first."); return; }
+    const key=projectKey();
+    const all=JSON.parse(JSON.stringify((state.ui&&state.ui.projectPages)||{}));
+    if(!Array.isArray(all[key])) all[key]=[];
+    const i=all[key].findIndex(p=>p.url===t.url);
+    if(i>=0){ all[key].splice(i,1); tempToast("Removed from project pages"); }
+    else{ all[key].push({url:t.url,title:t.title||t.url}); tempToast("Saved to project pages ("+key+")"); }
+    setUi({projectPages:all});
+    renderProjectPages();
+  }
+  function renderProjectPages(){
+    const el=$("bmProjBar"); if(!el) return; el.innerHTML="";
+    const pages=getProjectPages();
+    if(!pages.length){ el.style.display="none"; return; }
+    el.style.display="flex";
+    const lbl=document.createElement("span"); lbl.className="bm-proj-label"; lbl.textContent="\u25A0 "+projectKey()+":"; el.appendChild(lbl);
+    pages.forEach((p)=>{
+      const d=document.createElement("button"); d.className="bm-item proj"; d.title=p.title||p.url;
+      d.innerHTML='<img src="'+faviconURL(p.url)+'" onerror="this.style.display=\'none\'" />'+esc((p.title||p.url||"").replace(/^https?:\/\//,"").slice(0,18))+'<span class="bm-x">\u00D7</span>';
+      d.onclick=(e)=>{ if(e.target.classList.contains("bm-x")){ e.stopPropagation(); const all=JSON.parse(JSON.stringify((state.ui&&state.ui.projectPages)||{})); const key=projectKey(); if(Array.isArray(all[key])){ all[key]=all[key].filter(x=>x.url!==p.url); setUi({projectPages:all}); renderProjectPages(); } } else navigate(p.url); };
+      el.appendChild(d);
+    });
+  }
+
   // ── autocomplete ──
   let acIndex=-1, acItems=[];
   function buildAutocomplete(q){
@@ -6929,7 +7361,7 @@ Optional bundled starter model:
     if(target==="note"){ openNotes(true); insertPlainNoteText(text); }
     else appendToComposer(text);
   }
-  window.addEventListener("message",(e)=>{
+  window.addEventListener("message",async(e)=>{
     if(e.source!==bframe.contentWindow) return;
     const d=e.data||{};
     if(d.saz3==="nav"){ const t=curTab(); if(!t) return;
@@ -6946,6 +7378,13 @@ Optional bundled starter model:
       browserContextSelection=String(d.text).trim();
       const rect=bframe.getBoundingClientRect();
       positionSelectionMenu($("browserSelectionMenu"),rect.left+(Number(d.x)||0),rect.top+(Number(d.y)||0));
+    }
+    else if(d.saz3==="safeClick"&&d.text){
+      const ok=await appConfirm("Safe-click confirmation",
+        "The page wants to click \""+String(d.text).slice(0,100)+"\", which looks like a sensitive action (submit/login/payment). Allow this click?",
+        "Allow click",true);
+      if(ok) postFrame({cmd:"safeClickAllow",url:d.url});
+      else tempToast("Blocked by safe-click.");
     }
   });
   ["browserMenuCopy","browserMenuMessage","browserMenuNote"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
@@ -7037,15 +7476,27 @@ Optional bundled starter model:
       await postNotepadControlResult(id,{ok:false,error:"unknown notepad action: "+action});
     }catch(err){ await postNotepadControlResult(id,{ok:false,error:err.message||String(err)}); }
   }
+  // -- safe-click gate: confirm before clicking sensitive buttons --
+  const SENSITIVE_CLICK_RE=/\b(submit|sign\s*in|log\s*in|log\s*out|sign\s*up|register|checkout|pay|payment|buy|purchase|delete|remove|confirm|approve|authorize|send|transfer|deposit|withdraw|subscribe|unsubscribe|place\s*order|complete\s*order)\b/i;
+  function isSensitiveClick(text){ return SENSITIVE_CLICK_RE.test(text||""); }
+  async function safeClickGate(actionLabel, btnText){
+    if(!(state.ui&&state.ui.safeClickConfirm)) return true;
+    if(!isSensitiveClick(btnText)) return true;
+    return appConfirm("Safe-click confirmation","Boolean is about to click "+(btnText||"").slice(0,80)+""+" which looks like a sensitive action ("+actionLabel+"). Proceed?","Click it",true);
+  }
   async function executeBrowserControl(id, command){
     try{
       if(SHELL){ hostPost({type:"browser",cmd:"control",id,command}); return; }
       const action=command.action;
       if(action==="open"){ openBrowser(true); navigate(command.url); await new Promise(r=>setTimeout(r,900)); const r=await requestText("page"); const u=r?.url||curTab()?.url||command.url||""; await postBrowserControlResult(id,{ok:true,url:u,result:r?("URL: "+r.url+"\nTITLE: "+(r.title||"")+"\n\n"+r.text):("opened visible browser to "+u+"\n\nPage text is not readable yet.")}); return; }
       if(action==="read"){ const r=await requestText("page"); await postBrowserControlResult(id,{ok:!!r,url:r?.url||curTab()?.url||"",result:r?("URL: "+r.url+"\nTITLE: "+(r.title||"")+"\n\n"+r.text):"",error:r?undefined:"could not read visible page"}); return; }
-      if(action==="click"){ const r=await requestFrameControl({action:"click",text:command.text}); await new Promise(done=>setTimeout(done,500)); const page=await requestText("page"); await postBrowserControlResult(id,{ok:r.ok!==false,url:page?.url||r.url||curTab()?.url||"",result:(r.result||"clicked")+(page?.text?("\n\nAfter click:\nURL: "+page.url+"\nTITLE: "+(page.title||"")+"\n\n"+page.text.slice(0,12000)):""),error:r.error}); return; }
+      if(action==="click"){
+        if(!(await safeClickGate("click",command.text))){ await postBrowserControlResult(id,{ok:false,url:curTab()?.url||"",error:"User blocked the click (safe-click confirmation). The button "+(command.text||"").slice(0,60)+" looks like a submit/login/payment action."}); return; }
+        const r=await requestFrameControl({action:"click",text:command.text}); await new Promise(done=>setTimeout(done,500)); const page=await requestText("page"); await postBrowserControlResult(id,{ok:r.ok!==false,url:page?.url||r.url||curTab()?.url||"",result:(r.result||"clicked")+(page?.text?("\n\nAfter click:\nURL: "+page.url+"\nTITLE: "+(page.title||"")+"\n\n"+page.text.slice(0,12000)):""),error:r.error}); return;
+      }
       if(action==="type"){ const r=await requestFrameControl({action:"type",target:command.target,text:command.text,value:command.text,enter:!!command.enter}); await new Promise(done=>setTimeout(done,500)); const page=await requestText("page"); await postBrowserControlResult(id,{ok:r.ok!==false,url:page?.url||r.url||curTab()?.url||"",result:(r.result||"typed")+(page?.text?("\n\nAfter type:\nURL: "+page.url+"\nTITLE: "+(page.title||"")+"\n\n"+page.text.slice(0,12000)):""),error:r.error}); return; }
       if(action==="email_draft"){
+        if(!(await safeClickGate("email reply",command.text))){ await postBrowserControlResult(id,{ok:false,url:curTab()?.url||"",error:"User blocked the email draft (safe-click confirmation)."}); return; }
         await requestFrameControl({action:"click",text:"Reply"});
         await new Promise(done=>setTimeout(done,900));
         const r=await requestFrameControl({action:"type",target:"message body",text:command.text,value:command.text});
@@ -7067,6 +7518,7 @@ Optional bundled starter model:
   $("bDarkPage").onclick=toggleDarkPage;
   $("bStar").onclick=toggleBookmark;
   $("bmBookmark").onclick=()=>{ bmenu.classList.remove("open"); toggleBookmark(); };
+  $("bmProjectPage").onclick=()=>{ bmenu.classList.remove("open"); saveProjectPage(); };
   $("bmReader").onclick=()=>{ bmenu.classList.remove("open"); toggleReader(); };
   bAddr.addEventListener("keydown",(e)=>{
     if(e.key==="Enter"){ e.preventDefault(); if(acIndex>=0&&acItems[acIndex]){ bAddr.value=acItems[acIndex].url; hideAutocomplete(); navigate(acItems[acIndex].url); } else { hideAutocomplete(); navigate(bAddr.value); } return; }
@@ -7187,7 +7639,7 @@ Optional bundled starter model:
     btabs=[];
     bactive=-1;
     document.body.classList.remove("browser-on");
-    renderTabs(); renderBookmarks();
+    renderTabs(); renderBookmarks(); renderProjectPages();
   }
   function showReading(){ const b=$("bread"); b.classList.add("on"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("on"),2600); }
   // the AI opened a page — mirror it in a dedicated 🤖 tab
@@ -7744,6 +8196,107 @@ Optional bundled starter model:
   window.refreshProjectDashboard = refreshProjectDashboard;
   window.showDiffPreview = showDiffPreview;
   window.showNextEditSuggestion = showNextEditSuggestion;
+
+  // ══════════════════════════════════════════════════════════════
+  // SIDE CHAT — independent compact conversation popup
+  // ══════════════════════════════════════════════════════════════
+  let sideChatThreadId="";
+  let sideChatBusy=false;
+  try{ sideChatThreadId=localStorage.getItem("boolean_side_chat_thread")||""; }catch{}
+  function sideChatAdd(role,text,{status=false}={}){
+    const messages=$("sideChatMessages");
+    messages.querySelector(".side-chat-empty")?.remove();
+    const bubble=document.createElement("div");
+    bubble.className="side-chat-msg "+role+(status?" status":"");
+    if(role==="ai"&&!status) bubble.innerHTML=md(String(text||""));
+    else bubble.textContent=String(text||"");
+    messages.appendChild(bubble);
+    messages.scrollTop=messages.scrollHeight;
+    return bubble;
+  }
+  function renderSideChatLog(log=[]){
+    const messages=$("sideChatMessages");
+    messages.innerHTML="";
+    for(const entry of log){
+      if(entry.t==="user") sideChatAdd("user",entry.text||"");
+      else if(entry.t==="ai") sideChatAdd("ai",entry.text||"");
+      else if(entry.t==="error") sideChatAdd("ai",entry.text||"Could not answer.");
+    }
+    if(!messages.children.length) messages.innerHTML='<div class="side-chat-empty">Ask a quick question without leaving your main conversation.</div>';
+  }
+  async function createSideChat(){
+    const response=await fetch("/api/thread/new",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({side:true})});
+    if(!response.ok) throw new Error("Could not start side chat.");
+    const data=await response.json();
+    sideChatThreadId=data.id;
+    try{ localStorage.setItem("boolean_side_chat_thread",sideChatThreadId); }catch{}
+    renderSideChatLog([]);
+    refresh().catch(()=>{});
+    return sideChatThreadId;
+  }
+  async function loadSideChat(){
+    if(!sideChatThreadId) return createSideChat();
+    const response=await fetch("/api/thread?id="+encodeURIComponent(sideChatThreadId)+"&peek=1");
+    if(response.status===404) return createSideChat();
+    if(!response.ok) throw new Error("Could not load side chat.");
+    const data=await response.json();
+    renderSideChatLog(data.log||[]);
+    return sideChatThreadId;
+  }
+  async function setSideChatOpen(open){
+    $("sideChatPanel").classList.toggle("open",!!open);
+    $("sideChatToggle").classList.toggle("active",!!open);
+    $("sideChatToggle").setAttribute("aria-expanded",open?"true":"false");
+    if(!open) return;
+    try{ await loadSideChat(); $("sideChatInput").focus(); }
+    catch(error){ renderSideChatLog([]); sideChatAdd("ai",error.message||error); }
+  }
+  async function sendSideChat(){
+    const field=$("sideChatInput");
+    const message=field.value.trim();
+    if(!message||sideChatBusy) return;
+    sideChatBusy=true; $("sideChatSend").disabled=true; field.disabled=true;
+    let answer=null;
+    try{
+      const id=await loadSideChat();
+      field.value=""; sideChatAdd("user",message);
+      answer=sideChatAdd("ai","Thinking...",{status:true});
+      const response=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({threadId:id,message,sideChat:true})});
+      if(!response.ok) throw new Error("Side chat request failed.");
+      const reader=response.body.getReader(), decoder=new TextDecoder();
+      let buffer="", raw="", streamFinished=false;
+      const applyEvent=(event)=>{
+        if(event.type==="step") raw="";
+        else if(event.type==="token") raw+=event.text||"";
+        else if(event.type==="answer"){ raw=event.text||raw; streamFinished=true; }
+        else if(event.type==="done") streamFinished=true;
+        else if(event.type==="error") throw new Error(event.text||"Could not answer.");
+        if(raw){ answer.classList.remove("status"); answer.innerHTML=md(raw); $("sideChatMessages").scrollTop=$("sideChatMessages").scrollHeight; }
+      };
+      for(;;){
+        const {done,value}=await reader.read();
+        if(done) break;
+        buffer+=decoder.decode(value,{stream:true});
+        let newline;
+        while((newline=buffer.indexOf("\n"))>=0){
+          const line=buffer.slice(0,newline).trim(); buffer=buffer.slice(newline+1);
+          if(line) applyEvent(JSON.parse(line));
+        }
+        if(streamFinished){ try{ reader.cancel().catch(()=>{}); }catch{} break; }
+      }
+      if(buffer.trim()) applyEvent(JSON.parse(buffer.trim()));
+      if(!raw){ answer.classList.remove("status"); answer.textContent="No answer was returned."; }
+    }catch(error){
+      if(answer){ answer.classList.remove("status"); answer.textContent=String(error.message||error); }
+      else sideChatAdd("ai",String(error.message||error));
+    }
+    finally{ sideChatBusy=false; $("sideChatSend").disabled=false; field.disabled=false; field.focus(); refresh().catch(()=>{}); }
+  }
+  $("sideChatToggle").onclick=()=>setSideChatOpen(!$("sideChatPanel").classList.contains("open"));
+  $("sideChatClose").onclick=()=>setSideChatOpen(false);
+  $("sideChatNew").onclick=async()=>{ if(sideChatBusy)return; try{ await createSideChat(); $("sideChatInput").focus(); }catch(error){ tempToast(error.message||error); } };
+  $("sideChatSend").onclick=sendSideChat;
+  $("sideChatInput").onkeydown=(event)=>{ if(event.key==="Enter"&&!event.shiftKey){ event.preventDefault(); sendSideChat(); } };
 
   // ══════════════════════════════════════════════════════════════
   // THREE-ZONE LAYOUT — context panel toggle + render

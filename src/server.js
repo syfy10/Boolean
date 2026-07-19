@@ -416,7 +416,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   function isTaskResumeOrStatusText(text) {
     const s = String(text || "").trim().toLowerCase();
     if (!s) return false;
-    if (/^(continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it)\b/i.test(s)) return true;
+    if (/^(continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it|can you do (?:this|it)(?: now| or not| or now)?)\b/i.test(s)) return true;
     if (/\b(are you|r u|you)\s+(still\s+)?(checking|working|running|doing|stuck|stopped)\b/i.test(s)) return true;
     if (/\b(what happened|why did (it|you) stop|did (it|you) stop|what are you doing|where are we|status update|give me status|can move forward)\b/i.test(s)) return true;
     if (/^(check now|try again|please continue|continue where you left off)\b/i.test(s)) return true;
@@ -937,7 +937,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (req.method === "GET" && p === "/api/thread") {
         const t = threads.get(url.searchParams.get("id"));
         if (!t) return json({ error: "no such thread" }, 404);
-        activeThreadId = t.id;
+        if (url.searchParams.get("peek") !== "1") activeThreadId = t.id;
         json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat",
           projectDir: t.projectDir || "", log: renderThread(t),
           pendingTask: t.pendingTask ? {
@@ -948,7 +948,10 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       }
 
       if (req.method === "POST" && p === "/api/thread/new") {
-        const t = reuseOrNewThread();
+        const body = await readBody(req);
+        const previousActiveThreadId = activeThreadId;
+        const t = body.side === true ? newThread({ title: "Side chat" }) : reuseOrNewThread();
+        if (body.side === true && threads.has(previousActiveThreadId)) activeThreadId = previousActiveThreadId;
         persist();
         json({ id: t.id });
         return;
@@ -1951,7 +1954,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           savedTask.updatedAt = Date.now();
         } else {
           t.messages.push({ role: "user", content });
-          if (shouldTrackPendingTask(t.messages, visibleUserText)) beginPendingTask(t, content);
+          if (body.sideChat !== true && shouldTrackPendingTask(t.messages, visibleUserText)) beginPendingTask(t, content);
           else t.pendingTask = null;
         }
         t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now() });
@@ -1959,7 +1962,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (t.title === "New chat") t.title = shortThreadTitle(content).slice(0, 42);
         t.updatedAt = Date.now();
         persist();
-        return streamRun(t, res);
+        return streamRun(t, res, { forceTurnMode: body.sideChat === true ? "chat" : "" });
       }
 
       res.writeHead(404); res.end("not found");
@@ -1983,7 +1986,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     }
 
     // ── shared streaming runner for chat / retry / continue ──
-    async function streamRun(t, res) {
+    async function streamRun(t, res, options = {}) {
         res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
         const send = (o) => res.write(JSON.stringify(o) + "\n");
         const replyProvider = config.provider || "local";
@@ -2010,6 +2013,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           objective: t.pendingTask?.objective || "",
           taskContext: t.pendingTask?.context || "",
           controllerState: t.pendingTask?.controller || null,
+          forceTurnMode: options.forceTurnMode || "",
           onStatus: (text) => send({ type: "status", text }),
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {

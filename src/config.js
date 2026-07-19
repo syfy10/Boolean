@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.31";
-export const APP_DISPLAY_VERSION = "v0.09.31";
+export const APP_VERSION = "0.9.34";
+export const APP_DISPLAY_VERSION = "v0.09.34";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -139,7 +139,40 @@ const DEFAULTS = {
     researchPolicy: "authoritative",
     browserPerms: { downloads: true, camera: false, mic: false, geo: false },
     browserHistory: [],       // [{url,title,at}] capped at 100
-    expandedSections: ["model"] // which Settings sections are open
+    expandedSections: ["model"], // which Settings sections are open
+    // ── Keyboard Shortcuts ──
+    shortcuts: {
+      custom: {},             // { actionId: "Ctrl+Shift+K" }
+      conflicts: []           // detected conflicts
+    },
+    // ── Voice & Input ──
+    voice: {
+      enabled: false,
+      tts: false,
+      autoPunct: true,
+      lang: "en-US",
+      speed: 1.0
+    },
+    // ── Notifications & Alerts ──
+    notif: {
+      inApp: true,
+      desktop: false,
+      sound: false,
+      volume: 50,
+      budgetWarn: true,
+      errors: true
+    },
+    // ── Privacy extras ──
+    privacy: {
+      retention: "local",     // local | cloud | hybrid
+      clipboard: true,
+      masking: true,
+      telemetry: false,
+      encryption: false
+    },
+    // ── Advanced extras ──
+    apiOverrides: {},          // { openai: "https://...", claude: "..." }
+    proxy: ""                  // "http://127.0.0.1:7890" or ""
   }
 };
 

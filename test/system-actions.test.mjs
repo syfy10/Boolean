@@ -34,6 +34,25 @@ Add a guided local vs cloud setup flow, model recommendation by RAM, and a visib
 test("does not route resume/status messages into Windows Settings", () => {
   assert.equal(detectWindowsSettingsRequest("keep going"), null);
   assert.equal(detectWindowsSettingsRequest("why did it stop?"), null);
+  assert.equal(detectWindowsSettingsRequest("can you do this now?"), null);
+});
+
+test("does not confuse a project update question with Windows Update", () => {
+  assert.equal(
+    detectWindowsSettingsRequest("whats the last update file you have on this project and what was the last change?"),
+    null
+  );
+});
+
+test("still routes explicit Windows Update settings requests", () => {
+  assert.deepEqual(detectWindowsSettingsRequest("Open Windows Update"), {
+    name: "windows_settings_open",
+    args: { page: "windows_update" }
+  });
+  assert.deepEqual(detectWindowsSettingsRequest("Open update settings"), {
+    name: "windows_settings_open",
+    args: { page: "windows_update" }
+  });
 });
 
 test("still routes explicit display settings requests", () => {

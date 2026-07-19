@@ -256,7 +256,7 @@ sealed class MainForm : Form
         Text = "Boolean";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
-        MinimumSize = new Size(Math.Min(620, Math.Max(360, wa.Width - 16)), Math.Min(520, Math.Max(360, wa.Height - 16)));
+        MinimumSize = new Size(Math.Min(720, Math.Max(360, wa.Width - 16)), Math.Min(560, Math.Max(360, wa.Height - 16)));
         Width = Math.Min(Math.Max(720, (int)(wa.Width * 0.42)), Math.Min(820, wa.Width - 16)); // compact, but wide enough for first-run UI
         Height = Math.Min(Math.Min(720, wa.Height), (int)(wa.Height * 0.82));
         StartPosition = FormStartPosition.Manual;
