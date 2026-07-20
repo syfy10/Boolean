@@ -276,6 +276,7 @@ test("blocked means stop after repeated blocked actions", () => {
   const gate = controller.allowTool("write_file", { path: "app.js" });
   assert.equal(gate.allowed, false);
   assert.equal(controller.noteBlockedTool("write_file", { path: "app.js" }, gate.reason).stop, false);
+  assert.equal(controller.noteBlockedTool("write_file", { path: "app.js" }, gate.reason).stop, false);
   assert.equal(controller.noteBlockedTool("write_file", { path: "app.js" }, gate.reason).stop, true);
   assert.match(controller.handoffReport(), /Last failure: write_file blocked/);
 });

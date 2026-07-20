@@ -684,9 +684,19 @@ function focusConversation(messages) {
   }
 
   const currentDomain = conversationDomain(latestText);
-  if (currentDomain && previousUserIndex > 0) {
-    const previousDomain = conversationDomain(plainMessageText(messages[previousUserIndex]));
-    if (previousDomain && previousDomain !== currentDomain) return [system, ...messages.slice(latestIndex)];
+  if (currentDomain && userIndexes.length > 1) {
+    // Check a window of recent user messages (up to 3) for domain consistency.
+    // Only cut if the majority are a different domain, not just one outlier.
+    const windowSize = Math.min(3, userIndexes.length - 1);
+    let differentCount = 0;
+    for (let w = 0; w < windowSize; w++) {
+      const prevIdx = userIndexes[userIndexes.length - 2 - w];
+      if (prevIdx < 0) break;
+      const prevDomain = conversationDomain(plainMessageText(messages[prevIdx]));
+      if (prevDomain && prevDomain !== currentDomain) differentCount++;
+    }
+    // Only cut if at least half the window is a different domain (majority signal)
+    if (differentCount >= Math.ceil(windowSize / 2)) return [system, ...messages.slice(latestIndex)];
   }
 
   let start = Math.max(1, latestIndex - 11);
@@ -697,7 +707,28 @@ function focusConversation(messages) {
   return [system, ...recent];
 }
 
-// clip a tool result inside the SENT copy (minimal mode) without touching history
+function summarizeDropped(dropped) {
+  if (!Array.isArray(dropped) || dropped.length === 0) return '';
+  const keyPoints = [];
+  let lastUserCorrection = '';
+  for (const m of dropped) {
+    const text = plainMessageText(m);
+    if (!text) continue;
+    if (m.role === 'user' && /\\b(not what i asked|thats not|that'?s not|you misunderstood|no\\b.*(?:i said|i meant|i wanted)|correction|actually\\b)/i.test(text)) {
+      if (!lastUserCorrection) lastUserCorrection = text.slice(0, 200);
+    }
+  }
+  const lastUserMsg = [...dropped].reverse().find(m => m.role === 'user');
+  if (lastUserMsg) {
+    const t = plainMessageText(lastUserMsg);
+    if (t && !/^(ok|okay|yes|no|thanks|thank you|ready|continue|go ahead)[.!? ]*$/i.test(t.trim())) {
+      keyPoints.push('Last topic: ' + t.slice(0, 200));
+    }
+  }
+  if (lastUserCorrection) keyPoints.push('User correction: ' + lastUserCorrection);
+  if (!keyPoints.length) return '';
+  return 'CONTEXT SUMMARY (from earlier in this conversation):\\n' + keyPoints.join('\\n') + '\\n';
+}// clip a tool result inside the SENT copy (minimal mode) without touching history
 function clipMsg(m, maxChars) {
   if (m.role === "tool" && typeof m.content === "string" && m.content.length > maxChars) {
     return { ...m, content: m.content.slice(0, maxChars) + "\n...[trimmed by Context Optimizer]" };
@@ -732,8 +763,13 @@ function fitToContext(messages, budgetTokens, mode = "balanced") {
 
   const system = work[0];
   let rest = work.slice(1);
-  while (rest.length > 1 && approxTokens([system, ...rest]) > budget) rest.shift();
-  while (rest.length && rest[0].role !== "user") rest.shift();
+  const droppedMessages = [];
+  while (rest.length > 1 && approxTokens([system, ...rest]) > budget) {
+    droppedMessages.push(rest.shift());
+  }
+  while (rest.length && rest[0].role !== "user") {
+    droppedMessages.push(rest.shift());
+  }
 
   if (rest.length === 0) {
     const last = work[work.length - 1];
@@ -741,6 +777,13 @@ function fitToContext(messages, budgetTokens, mode = "balanced") {
       ? { ...last, content: last.content.slice(0, budget * 3) + "\n...[truncated to fit context]" }
       : last;
     return done([system, clipped]);
+  }
+
+  // Inject a rolling summary of dropped context so key decisions/corrections survive
+  const droppedSummary = summarizeDropped(droppedMessages);
+  if (droppedSummary) {
+    const summaryNote = { role: "system", content: droppedSummary };
+    return done([system, summaryNote, ...rest]);
   }
   return done([system, ...rest]);
 }

@@ -35,6 +35,7 @@ const CONSTRAINT_LINE = /\b(?:do not|don't|never|only|must|without|unless|keep|u
 const MAX_MEMORY_CHARS = 3200;
 
 const ACTION_REQUEST = /(?:^|\b(?:please|can you|could you|would you|i want you to|i need you to)\s+)(?:open|send|download|install|connect|schedule|change|set|create|build|make|edit|fix|update|delete|remove|move|rename|run|test|deploy|publish|commit|push|draft|reply)\b/i;
+const FEATURE_REQUEST = /\b(?:implement|add a |create|build new|make new|write a |code|develop|design|new feature|support for|enable)\b/i;
 const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing|ure)?|fix|repair|regression|not working|doesn['’]?t work|stuck|cut(?:s|ting)? off|overlap(?:s|ping)?|wrong|issue)\b/i;
 
 const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b/i;
@@ -271,7 +272,7 @@ export class AgentController {
     const answerOnly = options.answerOnly === true;
     this.objective = cleanText(options.objective || saved.objective, 4000);
     this.artifactRequired = answerOnly ? false : !!(options.artifactRequired || saved.artifactRequired);
-    this.debugRequired = answerOnly ? false : saved.debugRequired === true || (this.artifactRequired && DEBUG_REQUEST.test(this.objective));
+    this.debugRequired = answerOnly ? false : saved.debugRequired === true || (this.artifactRequired && DEBUG_REQUEST.test(this.objective) && !FEATURE_REQUEST.test(this.objective));
     this.actionRequired = answerOnly ? false : !!(saved.actionRequired || options.actionRequired || this.artifactRequired || ACTION_REQUEST.test(this.objective));
     this.projectBound = !!(options.projectDir || saved.projectBound);
     this.taskContext = cleanText(options.taskContext || saved.taskContext, 12000);
@@ -324,7 +325,14 @@ export class AgentController {
     this.startedAt = Number(saved.startedAt) || Date.now();
     this.cancelRequested = !!saved.cancelRequested;
     this.updatedAt = Date.now();
-  }
+
+    // Per-thread rolling digest: tracks answers given, corrections received,
+    // and active topics so workingMemory can surface them even when chat is trimmed.
+    this.conversationDigest = {
+      recentAnswers: Array.isArray(saved.conversationDigest?.recentAnswers) ? saved.conversationDigest.recentAnswers : [],
+      activeTopic: saved.conversationDigest?.activeTopic || "",
+      userCorrections: Array.isArray(saved.conversationDigest?.userCorrections) ? saved.conversationDigest.userCorrections : []
+    };  }
 
   snapshot() {
     return {
@@ -371,10 +379,36 @@ export class AgentController {
       timeBudgetMs: this.timeBudgetMs,
       startedAt: this.startedAt,
       cancelRequested: this.cancelRequested,
-      updatedAt: this.updatedAt
+      updatedAt: this.updatedAt,
+      conversationDigest: this.conversationDigest
     };
   }
 
+  /**
+   * Update the per-thread digest from the latest assistant + user messages.
+   * Called after each turn so workingMemory() always has fresh context.
+   */
+  updateDigest(assistantText, userText) {
+    // Track answers given (compact, last 8)
+    if (typeof assistantText === "string" && assistantText.length > 60) {
+      const entry = cleanText(assistantText, 300);
+      this.conversationDigest.recentAnswers.push(entry);
+      this.conversationDigest.recentAnswers = this.conversationDigest.recentAnswers.slice(-8);
+    }
+    // Detect corrections from user
+    if (typeof userText === "string") {
+      const isCorrection = /\b(not what i asked|thats not|that'?s not|you misunderstood|no\b.*(?:i said|i meant|i wanted)|correction|actually\b)/i.test(userText);
+      if (isCorrection) {
+        this.conversationDigest.userCorrections.push(cleanText(userText, 200));
+        this.conversationDigest.userCorrections = this.conversationDigest.userCorrections.slice(-4);
+      }
+      // Track active topic (last non-trivial user message)
+      if (!/^(ok|okay|yes|no|thanks|thank you|ready|continue|go ahead)[.!? ]*$/i.test(userText.trim())) {
+        this.conversationDigest.activeTopic = cleanText(userText, 200);
+      }
+    }
+    this.updatedAt = Date.now();
+  }
   workingMemory() {
     const next = this.plan.find((item) => item.status === "in_progress")?.step ||
       this.plan.find((item) => item.status === "pending")?.step || "Answer or report the completed result.";
@@ -388,6 +422,9 @@ export class AgentController {
       this.taskContext ? `Recent user intent: ${cleanText(this.taskContext.slice(-1000), 1000)}` : "",
       this.inspectedFiles.length ? `Inspected: ${this.inspectedFiles.slice(-6).join(" | ")}` : "",
       this.changedFiles.length ? `Changed: ${this.changedFiles.slice(-6).join(" | ")}` : "",
+      this.conversationDigest.activeTopic ? `Active topic: ${this.conversationDigest.activeTopic}` : "",
+      this.conversationDigest.userCorrections.length ? `User corrections: ${this.conversationDigest.userCorrections.slice(-2).join(" | ")}` : "",
+      this.conversationDigest.recentAnswers.length ? `Recent answers given: ${this.conversationDigest.recentAnswers.length}` : "",
       this.checks.length ? `Checks: ${this.checks.slice(-4).join(" | ")}` : "",
       this.openProcesses.length ? `Open temporary processes: ${this.openProcesses.join(" | ")}` : "",
       this.lastFailure ? `Unresolved failure: ${this.lastFailure}` : "",
@@ -507,6 +544,8 @@ export class AgentController {
       if (outside) return { allowed: false, reason: `Command references a path outside the allowed workspace: ${cleanText(outside, 260)}` };
     }
     const coarseFingerprint = coarseActionFingerprint(name, args);
+    // record_debug_evidence always allowed — it is the debug workflow own mechanism
+    if (name === "record_debug_evidence") return { allowed: true, reason: "" };
     if (this.loopStopEnabled && coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= 3) {
       return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Do not inspect again; use the evidence already collected and take a different progress step such as a targeted edit or known build/test command." };
     }
@@ -538,7 +577,7 @@ export class AgentController {
     return {
       count: this.blockedToolCount,
       repeated: this.blockedActionCounts[fingerprint],
-      stop: this.blockedToolCount >= 2 || this.blockedActionCounts[fingerprint] >= 2,
+      stop: this.blockedToolCount >= 3 || this.blockedActionCounts[fingerprint] >= 3,
       snapshot: this.snapshot()
     };
   }
