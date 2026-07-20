@@ -206,7 +206,7 @@ sealed class MainForm : Form
     readonly Button _startupClose = new() { Text = "Close", Width = 92, Height = 34, FlatStyle = FlatStyle.Flat, Visible = false };
     readonly Panel _browserTitleBar = new() { Dock = DockStyle.Top, Height = 0 };
     readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 36 };
-    readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 38, WrapContents = false, AutoScroll = false };
+    readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 42, WrapContents = false, AutoScroll = true };
     readonly Panel _content = new() { Dock = DockStyle.Fill };
     readonly TextBox _addr = new();
     readonly List<TabItem> _tabs = new();
@@ -216,8 +216,9 @@ sealed class MainForm : Form
     ContextMenuStrip _menu = null!;
     Button _menuBtn = null!;
     Button _addTabBtn = new();
+    readonly System.Windows.Forms.Timer _menuDismissTimer = new() { Interval = 35 };
     Button _browserCloseBtn = null!;
-    Panel _tabBar = new() { Dock = DockStyle.Top, Height = 38 };
+    Panel _tabBar = new() { Dock = DockStyle.Top, Height = 42 };
 
     // themeable chrome (follows the app's light/dark theme)
     readonly List<Button> _barBtns = new();
@@ -880,6 +881,16 @@ try {
         // ⋮ overflow menu — styled to match the flat in-app browser menu.
         _menu = new ContextMenuStrip { ShowImageMargin = false, Font = new Font("Segoe UI", 9f), Padding = new Padding(7) };
         _menu.Renderer = new BrowserMenuRenderer(() => _pal);
+        _menu.Closed += (_, __) => _menuDismissTimer.Stop();
+        _menuDismissTimer.Tick += (_, __) =>
+        {
+            if (!_menu.Visible) { _menuDismissTimer.Stop(); return; }
+            if ((Control.MouseButtons & (MouseButtons.Left | MouseButtons.Right | MouseButtons.Middle)) == 0) return;
+            var p = Cursor.Position;
+            var menuBounds = new Rectangle(_menu.PointToScreen(Point.Empty), _menu.Size);
+            var btnBounds = new Rectangle(_menuBtn.PointToScreen(Point.Empty), _menuBtn.Size);
+            if (!menuBounds.Contains(p) && !btnBounds.Contains(p)) _menu.Close();
+        };
         void Sep() { var s = new ToolStripSeparator { Margin = new Padding(0, 4, 0, 4) }; _menu.Items.Add(s); }
         ToolStripMenuItem Item(string text, EventHandler on)
         {
@@ -910,7 +921,11 @@ try {
         _menuBtn = Icon("\u22EE", "Menu", 32, (_, __) =>
         {
             if (_menu.Visible) _menu.Close();
-            else _menu.Show(_menuBtn, new Point(_menuBtn.Width - _menu.Width, _menuBtn.Height));
+            else
+            {
+                _menu.Show(_menuBtn, new Point(_menuBtn.Width - _menu.Width, _menuBtn.Height));
+                _menuDismissTimer.Start();
+            }
         });
         _menuBtn.Top = 4; _menuBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         _toolbar.Controls.Add(_menuBtn);
@@ -946,6 +961,10 @@ try {
         hideBrowser.FlatAppearance.MouseOverBackColor = Color.FromArgb(45, 45, 45);
 
         _tabStrip.Dock = DockStyle.Fill;
+        _tabStrip.HorizontalScroll.Enabled = true;
+        _tabStrip.HorizontalScroll.Visible = false;
+        _tabStrip.VerticalScroll.Enabled = false;
+        _tabStrip.VerticalScroll.Visible = false;
         _tabStrip.Resize += (_, __) => LayoutTabs();
         _tabBar.Controls.Add(_tabStrip);
         _tabBar.Controls.Add(tabRight);
@@ -1062,6 +1081,7 @@ try {
             t.Chip.Height = 28;
             t.Chip.Margin = new Padding(3, 5, 0, 0);
             t.Chip.TextAlign = ContentAlignment.MiddleLeft;
+            t.Chip.AutoEllipsis = true;
         }
     }
 
@@ -1089,13 +1109,13 @@ try {
         t.Chip.Click += (_, __) => Activate(_tabs.IndexOf(t));
         // middle-click / right-click closes
         t.Chip.MouseUp += (_, me) => { if (me.Button != MouseButtons.Left) CloseTab(_tabs.IndexOf(t)); };
+        try { t.View.DefaultBackgroundColor = _pal.PaneBg; } catch { } // no black flash before load
+        _tabs.Add(t);
         _tabStrip.Controls.Add(t.Chip);
         if (!_tabStrip.Controls.Contains(_addTabBtn)) _tabStrip.Controls.Add(_addTabBtn);
         _tabStrip.Controls.SetChildIndex(_addTabBtn, _tabStrip.Controls.Count - 1); // keep "+" last
         LayoutTabs();
 
-        try { t.View.DefaultBackgroundColor = _pal.PaneBg; } catch { } // no black flash before load
-        _tabs.Add(t);
         await t.View.EnsureCoreWebView2Async(_env);
         try { t.View.CoreWebView2.Profile.PreferredColorScheme =
             (_pal.PaneBg.R < 128) ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light; } catch { }
@@ -1164,6 +1184,7 @@ try {
         }
         _addr.Text = _tabs[i].Url;
         LayoutTabs();
+        _tabStrip.ScrollControlIntoView(_tabs[i].Chip);
         UpdateZoomLabel();
     }
 
