@@ -704,6 +704,14 @@ function focusConversation(messages) {
   const recent = messages.slice(start).filter((message) =>
     !(message?.role === "user" && /^SYSTEM PREFLIGHT:/i.test(plainMessageText(message)))
   );
+  // If we cut any messages, inject a summary so the dropped context survives
+  const droppedForFocus = messages.slice(1, start).filter((message) =>
+    !(message?.role === "user" && /^SYSTEM PREFLIGHT:/i.test(plainMessageText(message)))
+  );
+  const droppedSummary = summarizeDropped(droppedForFocus);
+  if (droppedSummary) {
+    return [system, { role: "system", content: droppedSummary }, ...recent];
+  }
   return [system, ...recent];
 }
 
@@ -711,23 +719,57 @@ function summarizeDropped(dropped) {
   if (!Array.isArray(dropped) || dropped.length === 0) return '';
   const keyPoints = [];
   let lastUserCorrection = '';
+  let lastUserTopic = '';
+  const decisions = [];  // user decisions/choices extracted from dropped messages
+  const fileChanges = []; // file names mentioned in dropped messages (tool results)
+
   for (const m of dropped) {
     const text = plainMessageText(m);
     if (!text) continue;
-    if (m.role === 'user' && /\\b(not what i asked|thats not|that'?s not|you misunderstood|no\\b.*(?:i said|i meant|i wanted)|correction|actually\\b)/i.test(text)) {
+
+    // Track user corrections
+    if (m.role === 'user' && /\b(not what i asked|thats not|that'?s not|you misunderstood|no\b.*(?:i said|i meant|i wanted)|correction|actually\b)/i.test(text)) {
       if (!lastUserCorrection) lastUserCorrection = text.slice(0, 200);
     }
-  }
-  const lastUserMsg = [...dropped].reverse().find(m => m.role === 'user');
-  if (lastUserMsg) {
-    const t = plainMessageText(lastUserMsg);
-    if (t && !/^(ok|okay|yes|no|thanks|thank you|ready|continue|go ahead)[.!? ]*$/i.test(t.trim())) {
-      keyPoints.push('Last topic: ' + t.slice(0, 200));
+
+    // Track user decisions/preferences (e.g., "use X not Y", "I prefer", "make it", "change to")
+    if (m.role === 'user') {
+      const trimmed = text.trim();
+      if (!/^(ok|okay|yes|no|thanks|thank you|ready|continue|go ahead|keep going|sure|right|cool|nice|great|good|perfect)[.!? ]*$/i.test(trimmed)) {
+        if (!lastUserTopic) lastUserTopic = trimmed.slice(0, 200);
+      }
+      // Extract explicit decisions
+      const decisionMatch = trimmed.match(/(?:i want|i'd like|use |choose |go with|let'?s (?:use|go|make)|prefer|switch to|change (?:it|this|to)|make (?:it|sure)|don'?t (?:use|do)|stop)(?: to)?\b(.{1,150})/i);
+      if (decisionMatch && decisions.length < 3) {
+        decisions.push(decisionMatch[0].slice(0, 200));
+      }
+    }
+
+    // Extract file names from tool calls/results in dropped messages
+    if (m.role === 'tool' && typeof m.content === 'string') {
+      const fileMentions = text.match(/\b(?:edited|changed|created|wrote|modified|saved|deleted|updated)\s+[\w./\\-]+\.\w+/gi);
+      if (fileMentions && fileChanges.length < 5) {
+        fileChanges.push(...fileMentions.slice(0, 5 - fileChanges.length));
+      }
+    }
+
+    // Extract key answers from assistant messages (first sentence of substantial replies)
+    if (m.role === 'assistant' && text.length > 80) {
+      const firstLine = text.split(/[.\n]/)[0]?.trim();
+      if (firstLine && firstLine.length > 30 && !firstLine.startsWith('{') && !firstLine.startsWith('I\'ll') && !firstLine.startsWith('Let me') && keyPoints.length < 2) {
+        keyPoints.push('Earlier answer: ' + firstLine.slice(0, 200));
+      }
     }
   }
+
+  // Build the summary
+  if (lastUserTopic) keyPoints.unshift('Last topic: ' + lastUserTopic);
   if (lastUserCorrection) keyPoints.push('User correction: ' + lastUserCorrection);
+  if (decisions.length) keyPoints.push('User decisions: ' + decisions.join('; '));
+  if (fileChanges.length) keyPoints.push('Files worked on: ' + fileChanges.slice(0, 4).join(', '));
+
   if (!keyPoints.length) return '';
-  return 'CONTEXT SUMMARY (from earlier in this conversation):\\n' + keyPoints.join('\\n') + '\\n';
+  return 'CONTEXT SUMMARY (from earlier in this conversation):\n' + keyPoints.join('\n') + '\n';
 }// clip a tool result inside the SENT copy (minimal mode) without touching history
 function clipMsg(m, maxChars) {
   if (m.role === "tool" && typeof m.content === "string" && m.content.length > maxChars) {
@@ -899,6 +941,7 @@ export async function runTurn(ctx, messages) {
       ? `${result} Tell me the exact ${pageLabel} setting you want changed.`
       : result;
     messages.push({ role: "assistant", content: answer });
+    controller.updateDigest(answer, ctx.latestUserText || "");
     controller.evaluateCompletion(answer);
     publishController();
     return answer;
@@ -1279,7 +1322,8 @@ export async function runTurn(ctx, messages) {
       throw new Error(`${completion.reason} Boolean checkpointed the task instead of marking unverified work complete.`);
     }
 
-    // Final answer
+    // Final answer — update conversation digest so it persists across turns
+    controller.updateDigest(assistantContent, ctx.latestUserText || "");
     messages.push({ role: "assistant", content: assistantContent });
     publishController();
     checkpoint();

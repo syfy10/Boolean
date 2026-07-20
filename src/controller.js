@@ -32,7 +32,7 @@ const DEPLOY_VERSION = /\b(?:version|deployment|deployed|worker|pages|release|ta
 const LIVE_VERIFIED = /\b(?:HTTP\/\d(?:\.\d)?\s+)?(?:200|2\d\d)\b|\b(?:ok|healthy|success|verified|live|deployed)\b/i;
 const SECRET_PATTERN = /\b(?:sk-[A-Za-z0-9_-]{8,}|cfut_[A-Za-z0-9_-]+|gh[opusr]_[A-Za-z0-9_-]+|GOCSPX-[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9._-]+)\b/gi;
 const CONSTRAINT_LINE = /\b(?:do not|don't|never|only|must|without|unless|keep|use this|no deploy|no browser|sandbox)\b/i;
-const MAX_MEMORY_CHARS = 3200;
+const MAX_MEMORY_CHARS = 4800;
 
 const ACTION_REQUEST = /(?:^|\b(?:please|can you|could you|would you|i want you to|i need you to)\s+)(?:open|send|download|install|connect|schedule|change|set|create|build|make|edit|fix|update|delete|remove|move|rename|run|test|deploy|publish|commit|push|draft|reply)\b/i;
 const FEATURE_REQUEST = /\b(?:implement|add a |create|build new|make new|write a |code|develop|design|new feature|support for|enable)\b/i;
@@ -331,7 +331,8 @@ export class AgentController {
     this.conversationDigest = {
       recentAnswers: Array.isArray(saved.conversationDigest?.recentAnswers) ? saved.conversationDigest.recentAnswers : [],
       activeTopic: saved.conversationDigest?.activeTopic || "",
-      userCorrections: Array.isArray(saved.conversationDigest?.userCorrections) ? saved.conversationDigest.userCorrections : []
+      userCorrections: Array.isArray(saved.conversationDigest?.userCorrections) ? saved.conversationDigest.userCorrections : [],
+      recentDecisions: Array.isArray(saved.conversationDigest?.recentDecisions) ? saved.conversationDigest.recentDecisions : []
     };  }
 
   snapshot() {
@@ -403,8 +404,14 @@ export class AgentController {
         this.conversationDigest.userCorrections = this.conversationDigest.userCorrections.slice(-4);
       }
       // Track active topic (last non-trivial user message)
-      if (!/^(ok|okay|yes|no|thanks|thank you|ready|continue|go ahead)[.!? ]*$/i.test(userText.trim())) {
+      if (!/^(ok|okay|yes|no|thanks|thank you|ready|continue|go ahead|keep going|sure|right|cool|nice|great|good|perfect)[.!? ]*$/i.test(userText.trim())) {
         this.conversationDigest.activeTopic = cleanText(userText, 200);
+      }
+      // Extract and store user decisions/preferences
+      const decisionMatch = userText.match(/(?:i want|i'd like|use |choose |go with|let's (?:use|go|make)|prefer|switch to|change (?:it|this|to)|make (?:it|sure)|don't (?:use|do))(?: to)?\b(.{1,150})/i);
+      if (decisionMatch) {
+        this.conversationDigest.recentDecisions.push(cleanText(decisionMatch[0], 200));
+        this.conversationDigest.recentDecisions = this.conversationDigest.recentDecisions.slice(-6);
       }
     }
     this.updatedAt = Date.now();
@@ -424,7 +431,8 @@ export class AgentController {
       this.changedFiles.length ? `Changed: ${this.changedFiles.slice(-6).join(" | ")}` : "",
       this.conversationDigest.activeTopic ? `Active topic: ${this.conversationDigest.activeTopic}` : "",
       this.conversationDigest.userCorrections.length ? `User corrections: ${this.conversationDigest.userCorrections.slice(-2).join(" | ")}` : "",
-      this.conversationDigest.recentAnswers.length ? `Recent answers given: ${this.conversationDigest.recentAnswers.length}` : "",
+      this.conversationDigest.recentAnswers.length ? `Recent answers: ${this.conversationDigest.recentAnswers.slice(-3).map(a => a.slice(0, 150)).join(" | ")}` : "",
+      this.conversationDigest.recentDecisions?.length ? `User decisions: ${this.conversationDigest.recentDecisions.slice(-3).join(" | ")}` : "",
       this.checks.length ? `Checks: ${this.checks.slice(-4).join(" | ")}` : "",
       this.openProcesses.length ? `Open temporary processes: ${this.openProcesses.join(" | ")}` : "",
       this.lastFailure ? `Unresolved failure: ${this.lastFailure}` : "",
