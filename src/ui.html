@@ -7735,6 +7735,7 @@ Optional bundled starter model:
         else if(d.kind==="file"){ attachments.push({kind:"file",name:d.name||"page.txt",text:d.text||""}); }
         renderChips(); input.focus();
       } else if(d.type==="browserSelection"){ sendBrowserText(d.text,d.target); }
+      else if(d.type==="browserTask"){ handleShellBrowserTask(d); }
       else if(d.type==="clipboard"&&d.id&&clipboardWaiters[d.id]){ const pending=clipboardWaiters[d.id]; delete clipboardWaiters[d.id]; d.ok?pending.resolve(d.text||""):pending.reject(new Error(d.error||"clipboard unavailable")); }
       else if(d.type==="folder"&&d.id&&folderWaiters[d.id]){ const resolve=folderWaiters[d.id]; delete folderWaiters[d.id]; resolve(d.ok&&d.path?{path:d.path}:{path:null,error:d.error||""}); }
       else if(d.type==="shellBrowser"){ document.body.classList.toggle("browser-on",!!d.open); syncPanelButtons(); }
@@ -8975,6 +8976,23 @@ Optional bundled starter model:
       $("send") && $("send").click();
     };
   });
+  function handleShellBrowserTask(d){
+    const task=d&&d.task;
+    const url=(d&&d.url)||"";
+    const title=(d&&d.title)||"";
+    const page=title&&url ? title+" ("+url+")" : (url||title||"the current browser page");
+    const prompts={
+      use: "Use the current browser page as context and tell me what's important. Current page: "+page,
+      docs: "Extract the documentation and code samples from the current browser page. Current page: "+page,
+      code: "Turn the content of the current browser page into working code. Current page: "+page,
+      summarize: "Summarize the current browser page and save the key findings to the notepad. Current page: "+page,
+      tech: "Detect the CMS, website builder, framework, analytics, and hosting stack for the current browser page. Current page: "+page,
+      monitor: "Monitor the current browser page for changes and alert me. Current page: "+page
+    };
+    $("input").value=prompts[task]||prompts.use;
+    setWorkspaceTab("chat");
+    $("send")&&$("send").click();
+  }
   async function detectCurrentSiteTech(){
     const panel=$("techReport");
     if(panel){ panel.classList.add("open"); panel.innerHTML='<div class="tech-head">Detecting stack...</div>'; }

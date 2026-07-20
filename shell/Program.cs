@@ -206,6 +206,7 @@ sealed class MainForm : Form
     readonly Button _startupClose = new() { Text = "Close", Width = 92, Height = 34, FlatStyle = FlatStyle.Flat, Visible = false };
     readonly Panel _browserTitleBar = new() { Dock = DockStyle.Top, Height = 0 };
     readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 36 };
+    readonly FlowLayoutPanel _taskBar = new() { Dock = DockStyle.Top, Height = 30, WrapContents = false, AutoScroll = true };
     readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 42, WrapContents = false, AutoScroll = true };
     readonly Panel _content = new() { Dock = DockStyle.Fill };
     readonly TextBox _addr = new();
@@ -843,6 +844,7 @@ try {
         _browserPane.BackColor = Color.FromArgb(28, 28, 28);
         _browserTitleBar.BackColor = Color.FromArgb(22, 22, 22);
         _toolbar.BackColor = Color.FromArgb(22, 22, 22);
+        _taskBar.BackColor = Color.FromArgb(22, 22, 22);
         _tabStrip.BackColor = Color.FromArgb(22, 22, 22);
 
         // modern flat, borderless icon button
@@ -939,6 +941,36 @@ try {
         _toolbar.Resize += (_, __) => LayoutBar();
 
         // ── tab row (on top): [tabs] [+] ......... [⤢ full width] [⧉ close] ──
+        Button TaskButton(string text, string tip, string task)
+        {
+            var b = new Button
+            {
+                Text = text,
+                Width = 104,
+                Height = 24,
+                FlatStyle = FlatStyle.Flat,
+                TabStop = false,
+                BackColor = Color.Transparent,
+                Font = new Font("Segoe UI", 8.2f),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Margin = new Padding(1, 3, 1, 0),
+                Padding = new Padding(3, 0, 3, 0)
+            };
+            b.FlatAppearance.BorderSize = 0;
+            b.Click += (_, __) => SendBrowserTask(task);
+            var tt = new ToolTip(); tt.SetToolTip(b, tip);
+            _taskBar.Controls.Add(b);
+            _barBtns.Add(b);
+            return b;
+        }
+        TaskButton("Use page", "Use the current page as context", "use");
+        TaskButton("Extract docs", "Extract documentation and code samples", "docs");
+        TaskButton("Turn into code", "Turn this page into working code", "code");
+        TaskButton("Summarize", "Summarize this page and save findings", "summarize");
+        TaskButton("Stack", "Detect CMS, framework, analytics, and hosting", "tech");
+        TaskButton("Monitor", "Watch this page for changes", "monitor");
+        _taskBar.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
+
         _addTabBtn = new Button { Text = "+", Width = 30, Height = 28, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f), Margin = new Padding(3, 5, 0, 0) };
         _addTabBtn.FlatAppearance.BorderSize = 0;
         _addTabBtn.Click += (_, __) => AddTab(_homeUrl, true, true);
@@ -971,6 +1003,7 @@ try {
 
         // assemble — add toolbar first, tab bar last so the tabs sit on TOP
         _browserPane.Controls.Add(_content);
+        _browserPane.Controls.Add(_taskBar);
         _browserPane.Controls.Add(_toolbar);
         _browserPane.Controls.Add(_tabBar);
         _browserPane.Controls.Add(_browserTitleBar);
@@ -1032,6 +1065,7 @@ try {
         _content.BackColor = p.PaneBg;
         _browserTitleBar.BackColor = p.BarBg;
         _toolbar.BackColor = p.BarBg;
+        _taskBar.BackColor = p.BarBg;
         _tabStrip.BackColor = p.BarBg;
         _tabBar.BackColor = p.BarBg;
         if (_rightPanel != null) _rightPanel.BackColor = p.BarBg;
@@ -1843,6 +1877,12 @@ try {
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         PostToChat(new { type = "browserSelection", target, text, url = tab.Url, title = tab.Title });
+    }
+
+    void SendBrowserTask(string task)
+    {
+        var t = Active();
+        PostToChat(new { type = "browserTask", task, url = t?.Url ?? "", title = t?.Title ?? "" });
     }
 
     async Task SendSelectedText(string target)
