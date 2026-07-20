@@ -1393,6 +1393,15 @@
   .diag-actions button{ padding:5px 14px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
   .diag-actions button:hover{ background:var(--hover); }
   .diag-actions button.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .tech-report{ display:none; border-top:1px solid var(--border); background:var(--bg); padding:8px 10px; max-height:220px; overflow:auto; }
+  .tech-report.open{ display:block; }
+  .tech-head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font:600 12px var(--ui); }
+  .tech-head small{ color:var(--dim); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tech-list{ display:grid; gap:4px; }
+  .tech-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start; border:1px solid var(--border); border-radius:8px; padding:6px 8px; background:var(--bubble); }
+  .tech-row b{ font:600 12px var(--ui); }
+  .tech-row small{ display:block; color:var(--dim); font:10.5px var(--ui); margin-top:2px; }
+  .tech-score{ font:11px var(--mono); color:var(--accent); }
 
   /* ── Three-zone layout (sidebar | main | context panel) ── */
   #ctxZone{ width:0; flex-shrink:0; display:none; flex-direction:column; min-width:0;
@@ -1751,8 +1760,12 @@
             <div class="diag-row"><span class="diag-status idle" id="diagWebViewDot"></span><div class="diag-label">WebView2 / shell<small>Desktop app runtime version</small></div><span class="diag-value" id="diagWebView">—</span></div>
             <div class="diag-row"><span class="diag-status idle" id="diagGitDot"></span><div class="diag-label">Git CLI<small>Version control commands</small></div><span class="diag-value" id="diagGit">—</span></div>
             <div class="diag-row"><span class="diag-status idle" id="diagNodeDot"></span><div class="diag-label">Node.js<small>Runtime for builds, tests, dev servers</small></div><span class="diag-value" id="diagNode">—</span></div>
+            <div class="diag-row"><span class="diag-status idle" id="diagDotnetDot"></span><div class="diag-label">.NET SDK<small>Native shell and installer builds</small></div><span class="diag-value" id="diagDotnet">—</span></div>
+            <div class="diag-row"><span class="diag-status idle" id="diagGithubDot"></span><div class="diag-label">GitHub CLI<small>Issues, PRs, checks, and release helpers</small></div><span class="diag-value" id="diagGithub">—</span></div>
+            <div class="diag-row"><span class="diag-status idle" id="diagWranglerDot"></span><div class="diag-label">Cloudflare Wrangler<small>Optional Workers/Pages deployment tool</small></div><span class="diag-value" id="diagWrangler">—</span></div>
             <div class="diag-row"><span class="diag-status idle" id="diagPermsDot"></span><div class="diag-label">Tool permissions<small>File, network, command access</small></div><span class="diag-value" id="diagPerms">—</span></div>
             <div class="diag-row"><span class="diag-status idle" id="diagCloudDot"></span><div class="diag-label">Cloud budget<small>Monthly spending limit</small></div><span class="diag-value" id="diagCloud">—</span></div>
+            <div class="diag-row"><span class="diag-status idle" id="diagUpdateDot"></span><div class="diag-label">Update manifest<small>Local installer metadata</small></div><span class="diag-value" id="diagUpdate">—</span></div>
           </div>
           <div class="diag-actions">
             <button id="diagRefresh" class="primary">Run diagnostics</button>
@@ -2642,7 +2655,10 @@
       <option value="github-pages">GitHub Pages</option>
     </select>
     <span class="dp-desc" id="deployDesc">Connect your repo and deploy with guided steps and rollback.</span>
+    <button id="deployVerify">Verify live URL</button>
+    <button id="deployRollback">Rollback plan</button>
     <button id="deployStart">Start deploy</button>
+    <button id="diffReviewBtn">Review diff</button>
     <button id="genCommitMsg" title="Generate a commit message from current changes" style="font:11px var(--ui);padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer;white-space:nowrap">✎ Generate commit message</button>
   </div>
 
@@ -2861,8 +2877,10 @@
       <button class="bt-task" data-btask="docs" title="Extract documentation and code samples">📖 Extract docs</button>
       <button class="bt-task" data-btask="code" title="Turn this page into code">⌗ Turn into code</button>
       <button class="bt-task" data-btask="summarize" title="Summarize this page and save to notes">✦ Summarize</button>
+      <button class="bt-task" data-btask="tech" title="Detect CMS, builder, framework, analytics, and hosting">Stack</button>
       <button class="bt-task" data-btask="monitor" title="Watch this page for changes">⏱ Monitor</button>
     </div>
+    <div class="tech-report" id="techReport"></div>
   </div>
   <div class="bfind" id="bfind">
     <input id="bFindInput" placeholder="Find on page…" spellcheck="false">
@@ -2961,6 +2979,7 @@
   <div class="bg-agent-head">
     <span class="ba-dot" id="bgAgentDot"></span>
     <span>Background Agent</span>
+    <button class="ba-close" id="bgAgentRefresh" title="Refresh background runs">Refresh</button>
     <button class="ba-close" id="bgAgentClose">✕</button>
   </div>
   <div class="bg-agent-body" id="bgAgentBody">
@@ -6343,7 +6362,7 @@
   $("settingsSearch").oninput=applySettingsFilter;
   // ── Diagnostics ──
   async function runDiagnostics(){
-    const dotIds={provider:"diagProviderDot",model:"diagModelDot",git:"diagGitDot",node:"diagNodeDot",webview:"diagWebViewDot",perms:"diagPermsDot",cloud:"diagCloudDot"};
+    const dotIds={provider:"diagProviderDot",model:"diagModelDot",git:"diagGitDot",node:"diagNodeDot",dotnet:"diagDotnetDot",github:"diagGithubDot",wrangler:"diagWranglerDot",webview:"diagWebViewDot",perms:"diagPermsDot",cloud:"diagCloudDot",update:"diagUpdateDot"};
     Object.values(dotIds).forEach(id=>{const el=$(id); if(el) el.className="diag-status idle";});
     try{
       const r=await (await _fetch("/api/diagnostics")).json();
@@ -6355,8 +6374,12 @@
         ["webview","diagWebViewDot","diagWebView",R.webview],
         ["git","diagGitDot","diagGit",R.git],
         ["node","diagNodeDot","diagNode",R.node],
+        ["dotnet","diagDotnetDot","diagDotnet",R.dotnet],
+        ["github","diagGithubDot","diagGithub",R.github],
+        ["wrangler","diagWranglerDot","diagWrangler",R.wrangler],
         ["perms","diagPermsDot","diagPerms",R.permissions],
         ["cloud","diagCloudDot","diagCloud",R.cloudBudget],
+        ["update","diagUpdateDot","diagUpdate",R.update],
       ];
       map.forEach(([key,dotId,valId,info])=>{
         if(!info) return;
@@ -7989,6 +8012,15 @@ Optional bundled starter model:
     $("diffFileCount").textContent = files.length + " file" + (files.length !== 1 ? "s" : "");
     renderDiffFile();
   }
+  async function reviewCurrentDiff() {
+    try {
+      const r = await (await fetch("/api/git/diff-files")).json();
+      if (!r.ok || !Array.isArray(r.files) || !r.files.length) { tempToast("No working-tree diff to review."); return; }
+      showDiffPreview(r.files);
+    } catch(e) {
+      tempToast("Could not load git diff.");
+    }
+  }
   function renderDiffFile() {
     const f = diffFiles[diffIndex];
     if (!f) return;
@@ -8030,18 +8062,29 @@ Optional bundled starter model:
     $("diffAccept").onclick = () => { diffDecisions[f.path] = "accept"; if (diffIndex < diffFiles.length - 1) { diffIndex++; renderDiffFile(); } else { finishDiffReview(); } updateDiffHeader(); };
     $("diffReject").onclick = () => { diffDecisions[f.path] = "reject"; if (diffIndex < diffFiles.length - 1) { diffIndex++; renderDiffFile(); } else { finishDiffReview(); } updateDiffHeader(); };
   }
-  function finishDiffReview() {
+  async function finishDiffReview() {
     const accepted = Object.keys(diffDecisions).filter(p => diffDecisions[p] === "accept");
     const rejected = Object.keys(diffDecisions).filter(p => diffDecisions[p] === "reject");
     $("diffOverlay").classList.remove("open");
     if (accepted.length) tempToast(accepted.length + " file(s) accepted. Changes kept.");
     if (rejected.length) {
-      tempToast(rejected.length + " file(s) rejected. Use undo to revert them.");
+      try {
+        const ok = await appConfirm("Reject selected files?", "This discards working-tree edits in " + rejected.length + " tracked file(s). Untracked files are left alone.", "Reject", true);
+        if (!ok) return;
+        const r = await (await fetch("/api/git/restore-files", { method:"POST", body:JSON.stringify({ files: rejected }) })).json();
+        if (!r.ok) throw new Error(r.error || "restore failed");
+        const skipped = Array.isArray(r.skipped) && r.skipped.length ? " Skipped untracked: " + r.skipped.length + "." : "";
+        tempToast((r.restored?.length || 0) + " file(s) rejected and restored." + skipped);
+        refreshProjectDashboard();
+      } catch(e) {
+        tempToast("Could not reject selected files.");
+      }
     }
     if (!accepted.length && !rejected.length) tempToast("No decisions made.");
   }
   if ($("diffNext")) $("diffNext").onclick = () => { if (diffIndex < diffFiles.length - 1) { diffIndex++; renderDiffFile(); } };
   if ($("diffPrev")) $("diffPrev").onclick = () => { if (diffIndex > 0) { diffIndex--; renderDiffFile(); } };
+  if ($("diffReviewBtn")) $("diffReviewBtn").onclick = reviewCurrentDiff;
   // Close diff on overlay click
   if ($("diffOverlay")) $("diffOverlay").onclick = (e) => { if (e.target === $("diffOverlay")) $("diffOverlay").classList.remove("open"); };
 
@@ -8871,8 +8914,9 @@ Optional bundled starter model:
   // BROWSER TASK BUTTONS
   // ══════════════════════════════════════════════════════════════
   document.querySelectorAll(".bt-task").forEach(btn => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       const task = btn.dataset.btask;
+      if (task === "tech") { await detectCurrentSiteTech(); return; }
       const prompts = {
         use: "Use the current browser page as context and tell me what's important.",
         docs: "Extract the documentation and code samples from the current browser page.",
@@ -8885,6 +8929,36 @@ Optional bundled starter model:
       $("send") && $("send").click();
     };
   });
+  async function detectCurrentSiteTech(){
+    const panel=$("techReport");
+    if(panel){ panel.classList.add("open"); panel.innerHTML='<div class="tech-head">Detecting stack...</div>'; }
+    const tab=curTab&&curTab();
+    const url=(tab&&tab.url)||($("bAddr")?.value||"");
+    try{
+      const r=await (await fetch("/api/browser/detect-tech",{method:"POST",body:JSON.stringify({url})})).json();
+      if(!r.ok) throw new Error(r.error||"detect failed");
+      renderTechReport(r.report||{});
+    }catch(e){
+      if(panel) panel.innerHTML='<div class="tech-head">Could not detect stack <small>'+esc(e.message||"")+'</small></div>';
+    }
+  }
+  function renderTechReport(report){
+    const panel=$("techReport"); if(!panel) return;
+    const items=Array.isArray(report.detected)?report.detected.slice(0,12):[];
+    const url=report.url||($("bAddr")?.value||"");
+    panel.classList.add("open");
+    if(!items.length){
+      panel.innerHTML='<div class="tech-head">No strong stack match <small>'+esc(url)+'</small></div><div class="hint">Boolean analyzed the page locally and did not find known CMS, builder, framework, analytics, or hosting markers.</div>';
+      return;
+    }
+    panel.innerHTML='<div class="tech-head">Detected stack <small>'+esc(url)+'</small><span style="flex:1"></span><button class="minibtn" id="techSaveNote" type="button">Save note</button></div>'
+      +'<div class="tech-list">'+items.map(item=>'<div class="tech-row"><div><b>'+esc(item.name)+'</b><small>'+esc(item.category)+' - '+esc((item.signals||[]).slice(0,3).join(", "))+'</small></div><span class="tech-score">'+esc(item.confidence)+'%</span></div>').join("")+'</div>';
+    const save=$("techSaveNote");
+    if(save) save.onclick=()=>{
+      const text="Website stack report for "+url+"\n\n"+items.map(item=>"- "+item.name+" ("+item.category+"): "+item.confidence+"% - "+(item.signals||[]).join(", ")).join("\n")+"\n\n"+(report.privacy||"Local analysis.");
+      openNotes(true); insertPlainNoteText(text); tempToast("Stack report saved to notes.");
+    };
+  }
 
   // ══════════════════════════════════════════════════════════════
   // NOTE CATEGORY TABS + AI NOTE ACTIONS
@@ -8934,6 +9008,17 @@ Optional bundled starter model:
       $("send") && $("send").click();
     };
   }
+  if ($("deployVerify")) $("deployVerify").onclick = () => {
+    $("input").value = "Verify the latest deployment for this project. Check the live URL, HTTP status, and any configured health endpoint. Do not deploy.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+  };
+  if ($("deployRollback")) $("deployRollback").onclick = () => {
+    const target = $("deployTarget").value || "the configured platform";
+    $("input").value = "Prepare a rollback plan for " + target + ". Show the current deployment/version, previous safe version, exact rollback command or dashboard path, and verification steps. Do not run rollback until I confirm.";
+    setWorkspaceTab("chat");
+    $("send") && $("send").click();
+  };
   // Show deploy bar on Git workspace tab
   const _origSetWsTab = window.setWorkspaceTab;
   if (typeof _origSetWsTab === "function") {
@@ -9082,28 +9167,51 @@ Optional bundled starter model:
     const dot = $("bgAgentDot");
     if (dot) dot.className = "ba-dot" + (bgAgentTasks.some(t => t.status === "running") ? " running" : "");
     body.innerHTML = bgAgentTasks.map((t, i) => {
-      return '<div class="ba-task"><div class="ba-task-head"><span>' + esc(t.desc.slice(0, 50)) + '</span><span class="ba-status ' + t.status + '">' + t.status + '</span></div>'
+      return '<div class="ba-task"><div class="ba-task-head"><span>' + esc((t.desc||t.task||"Background task").slice(0, 50)) + '</span><span class="ba-status ' + (t.status||t.state||"idle") + '">' + esc(t.status||t.state||"idle") + '</span></div>'
         + '<div class="ba-desc">Branch: ' + esc(t.branch || "worktree") + '</div>'
+        + (t.changeSummary ? '<div class="ba-desc">' + esc(t.changeSummary).slice(0, 240) + '</div>' : '')
         + '<div class="ba-actions">'
-        + (t.status === "done" ? '<button class="ba-apply" data-bgtask="' + i + '">Apply diff</button>' : '')
+        + ((t.status === "done" || t.state === "completed") ? '<button class="ba-apply" data-bgtask="' + i + '">Apply diff</button>' : '')
         + '<button data-bgdismiss="' + i + '">Dismiss</button>'
         + '</div></div>';
     }).join("");
-    body.querySelectorAll("[data-bgtask]").forEach(b => b.onclick = () => {
+    body.querySelectorAll("[data-bgtask]").forEach(b => b.onclick = async () => {
       const t = bgAgentTasks[parseInt(b.dataset.bgtask)];
       if (!t) return;
-      $("input").value = "Apply the background worktree changes for: " + t.desc;
-      $("input").focus();
-      tempToast("Review the diff in chat before applying.");
+      if(!t.id){ $("input").value = "Apply the background worktree changes for: " + (t.desc||t.task||"background task"); $("input").focus(); return; }
+      const ok=await appConfirm("Apply background result?", "This cherry-picks the completed isolated worktree result into the current project. The main tree must be clean.", "Apply");
+      if(!ok) return;
+      try{
+        const r=await (await fetch("/api/agent-runs/apply",{method:"POST",body:JSON.stringify({id:t.id})})).json();
+        if(!r.ok) throw new Error(r.error||"apply failed");
+        tempToast("Background result applied.");
+        await refreshBgAgentRuns();
+        refreshProjectDashboard();
+      }catch(e){ tempToast(e.message||"Could not apply result."); }
     });
-    body.querySelectorAll("[data-bgdismiss]").forEach(b => b.onclick = () => {
-      bgAgentTasks.splice(parseInt(b.dataset.bgdismiss), 1);
+    body.querySelectorAll("[data-bgdismiss]").forEach(b => b.onclick = async () => {
+      const index=parseInt(b.dataset.bgdismiss);
+      const t=bgAgentTasks[index];
+      if(t?.id){
+        const ok=await appConfirm("Discard background result?", "This removes the isolated worktree and branch for this background result.", "Discard", true);
+        if(!ok) return;
+        try{ await fetch("/api/agent-runs/discard",{method:"POST",body:JSON.stringify({id:t.id})}); }
+        catch(e){ tempToast("Could not discard result."); return; }
+      }
+      bgAgentTasks.splice(index, 1);
       renderBgAgentPanel();
     });
   }
+  async function refreshBgAgentRuns(){
+    try{
+      const r=await (await fetch("/api/agent-runs")).json();
+      if(r.ok) bgAgentTasks=(r.runs||[]).map(run=>({ ...run, desc:run.task, status:run.state }));
+    }catch(e){}
+    renderBgAgentPanel();
+  }
   function toggleBgAgent() {
     $("bgAgentPanel").classList.toggle("open");
-    if ($("bgAgentPanel").classList.contains("open")) $("bgAgentInput").focus();
+    if ($("bgAgentPanel").classList.contains("open")) { refreshBgAgentRuns(); $("bgAgentInput").focus(); }
   }
   if ($("cmdReview")) $("cmdReview").onclick = () => {
     $("input").value = "Review all code changes for bugs, security issues, style problems, and risky commands.";
@@ -9111,6 +9219,7 @@ Optional bundled starter model:
     tempToast("Code review request loaded into chat.");
   };
   if ($("cmdBgAgent")) $("cmdBgAgent").onclick = toggleBgAgent;
+  if ($("bgAgentRefresh")) $("bgAgentRefresh").onclick = refreshBgAgentRuns;
   if ($("bgAgentClose")) $("bgAgentClose").onclick = () => $("bgAgentPanel").classList.remove("open");
   if ($("bgAgentStart")) {
     $("bgAgentStart").onclick = () => {

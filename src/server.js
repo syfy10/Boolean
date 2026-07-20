@@ -38,6 +38,9 @@ import {
 } from "./email.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
+import { detectWebsiteTech } from "./tech-detector.js";
+import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
+import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
 
 function loadAsset(name, devPath) {
   if (sea.isSea && sea.isSea()) {
@@ -243,6 +246,10 @@ function publicImageGeneration(config) {
 
 function cleanConnectorName(s) {
   return String(s || "").replace(/[^\w .:-]/g, "").trim().slice(0, 80);
+}
+
+function activeProjectDir(threads, activeThreadId) {
+  return threads.get(activeThreadId)?.projectDir || process.cwd();
 }
 
 function mergeConnectors(current, incoming) {
@@ -1033,9 +1040,25 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const git = spawnCheck("git", ["--version"]);
         results.git = { status: git.ok ? "ok" : "err", label: git.ok ? git.out : "not installed", detail: git.ok ? "ready" : "install Git" };
 
+        // GitHub CLI/auth
+        const gh = spawnCheck("gh", ["auth", "status", "--hostname", "github.com"]);
+        results.github = {
+          status: gh.ok ? "ok" : "warn",
+          label: gh.ok ? "signed in" : "needs login",
+          detail: gh.ok ? "GitHub CLI authenticated" : "run gh auth login"
+        };
+
         // Node
         const node = spawnCheck("node", ["--version"]);
         results.node = { status: node.ok ? "ok" : "err", label: node.ok ? node.out : "not installed", detail: node.ok ? "ready" : "needs Node.js" };
+
+        // .NET / shell build toolchain
+        const dotnet = spawnCheck("dotnet", ["--version"]);
+        results.dotnet = { status: dotnet.ok ? "ok" : "warn", label: dotnet.ok ? dotnet.out : "not found", detail: dotnet.ok ? "shell builds ready" : "needed for packaging" };
+
+        // Wrangler / deployment toolchain
+        const wrangler = spawnCheck("npx.cmd", ["wrangler", "--version"]);
+        results.wrangler = { status: wrangler.ok ? "ok" : "idle", label: wrangler.ok ? wrangler.out : "not configured", detail: wrangler.ok ? "Cloudflare deploy tool ready" : "optional deploy tool" };
 
         // WebView2 / shell
         results.webview = { status: "ok", label: config.appVersion || "0.9.x", detail: "running" };
@@ -1053,6 +1076,13 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           status: budget > 0 ? "ok" : "idle",
           label: budget > 0 ? "$" + budget + "/mo" : "no limit",
           detail: budget > 0 ? "configured" : "unlimited"
+        };
+
+        const updateManifest = appPath("dist", "update.json");
+        results.update = {
+          status: fs.existsSync(updateManifest) ? "ok" : "idle",
+          label: fs.existsSync(updateManifest) ? "manifest found" : "local only",
+          detail: fs.existsSync(updateManifest) ? "installer metadata available" : "no local update manifest"
         };
 
         json({ ok: true, results });
@@ -1098,6 +1128,47 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         json({ ok: true, projectName: t?.title || "No project", branch, changedFiles,
           task: t?.task || null, taskState: t?.taskState || "idle", nextAction: t?.nextAction || null,
           serverRunning: !!(globalThis._bgServers?.size > 0), testStatus: null, testState: "idle" });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/git/diff-files") {
+        json({ ok: true, files: gitDiffFiles(activeProjectDir(threads, activeThreadId)) });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/restore-files") {
+        const body = await readBody(req);
+        json({ ok: true, ...gitRestoreFiles(activeProjectDir(threads, activeThreadId), body.files) });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/agent-runs") {
+        const projectDir = activeProjectDir(threads, activeThreadId);
+        json({ ok: true, runs: listAgentRuns(projectDir).map((run) => ({
+          id: run.id,
+          task: run.task,
+          state: run.state,
+          branch: run.branch,
+          commit: run.commit || "",
+          summary: run.summary || "",
+          changeSummary: run.changeSummary || "",
+          createdAt: run.createdAt,
+          updatedAt: run.updatedAt
+        })) });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/agent-runs/apply") {
+        const body = await readBody(req);
+        const run = await applyAgentRun(String(body.id || ""), activeProjectDir(threads, activeThreadId));
+        json({ ok: true, run });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/agent-runs/discard") {
+        const body = await readBody(req);
+        const run = await discardAgentRun(String(body.id || ""));
+        json({ ok: true, run });
         return;
       }
 
@@ -1664,6 +1735,31 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const body = await readBody(req);
         browserUrl = typeof body.url === "string" ? body.url : "";
         json({ ok: true });
+        return;
+      }
+      if (req.method === "POST" && p === "/api/browser/detect-tech") {
+        const body = await readBody(req);
+        let html = String(body.html || "");
+        let finalUrl = String(body.url || browserUrl || "").trim();
+        let headers = body.headers && typeof body.headers === "object" ? body.headers : {};
+        if (!html && finalUrl) {
+          const parsed = new URL(finalUrl);
+          if (!/^https?:$/.test(parsed.protocol)) throw new Error("Only http:// and https:// pages can be analyzed.");
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 8000);
+          try {
+            const response = await fetch(parsed.toString(), {
+              signal: controller.signal,
+              headers: { "user-agent": "Boolean Website Tech Detector" }
+            });
+            finalUrl = response.url || finalUrl;
+            headers = Object.fromEntries(response.headers.entries());
+            html = await response.text();
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+        json({ ok: true, report: detectWebsiteTech({ url: finalUrl, html, headers, cookies: body.cookies || "" }) });
         return;
       }
       if (req.method === "POST" && p === "/api/browser/control-result") {
