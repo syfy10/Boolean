@@ -40,8 +40,9 @@ sealed class RoundedPanel : Panel
 
     protected override void OnPaint(PaintEventArgs e)
     {
-        base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var bg = new SolidBrush(Parent?.BackColor ?? SystemColors.Control))
+            e.Graphics.FillRectangle(bg, ClientRectangle);
         using var path = RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Radius);
         using var brush = new SolidBrush(BackColor);
         e.Graphics.FillPath(brush, path);
@@ -55,8 +56,6 @@ sealed class RoundedPanel : Panel
     protected override void OnResize(EventArgs eventargs)
     {
         base.OnResize(eventargs);
-        using var path = RoundedRect(new Rectangle(0, 0, Width, Height), Radius);
-        Region = new Region(path);
         Invalidate();
     }
 
@@ -94,7 +93,8 @@ sealed class RoundedButton : Button
         FlatStyle = FlatStyle.Flat;
         FlatAppearance.BorderSize = 0;
         TabStop = false;
-        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
+        UseVisualStyleBackColor = false;
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
     }
 
     protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
@@ -106,19 +106,31 @@ sealed class RoundedButton : Button
     {
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var fill = _down ? DownFill : (_hover ? HoverFill : Fill);
+        using (var bg = new SolidBrush(Parent?.BackColor ?? SystemColors.Control))
+            e.Graphics.FillRectangle(bg, ClientRectangle);
+        if (fill.A == 0)
+        {
+            TextRenderer.DrawText(e.Graphics, Text, Font, TextBounds(), ForeColor, TextFlags());
+            return;
+        }
         using var path = RoundedPanel.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Radius);
-        using var brush = new SolidBrush(fill.A == 0 ? Parent?.BackColor ?? BackColor : fill);
+        using var brush = new SolidBrush(fill);
         e.Graphics.FillPath(brush, path);
         if (Border.A > 0)
         {
             using var pen = new Pen(Border);
             e.Graphics.DrawPath(pen, path);
         }
-        var textRect = new Rectangle(Padding.Left, Padding.Top,
-            Math.Max(1, Width - Padding.Horizontal), Math.Max(1, Height - Padding.Vertical));
+        TextRenderer.DrawText(e.Graphics, Text, Font, TextBounds(), ForeColor, TextFlags());
+    }
+
+    Rectangle TextBounds() => new(Padding.Left, Padding.Top,
+        Math.Max(1, Width - Padding.Horizontal), Math.Max(1, Height - Padding.Vertical));
+
+    TextFormatFlags TextFlags()
+    {
         var flags = TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
-        flags |= TextAlign == ContentAlignment.MiddleLeft ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter;
-        TextRenderer.DrawText(e.Graphics, Text, Font, textRect, ForeColor, flags);
+        return flags | (TextAlign == ContentAlignment.MiddleLeft ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter);
     }
 }
 
