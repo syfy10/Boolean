@@ -48,11 +48,30 @@ export function parseGitDiff(diffText = "") {
   return files;
 }
 
-export function gitDiffFiles(projectDir) {
+export function gitDiffFiles(projectDir, options = {}) {
   const cwd = path.resolve(String(projectDir || process.cwd()));
-  const diff = runGit(cwd, ["diff", "--no-ext-diff", "--"]);
+  const staged = options.staged === true;
+  const diff = runGit(cwd, ["diff", ...(staged ? ["--staged"] : []), "--no-ext-diff", "--"]);
   if (!diff.ok) throw new Error(diff.err || diff.out || "Could not read git diff");
-  return parseGitDiff(diff.out);
+  const files = parseGitDiff(diff.out);
+  if (!staged) {
+    const status = runGit(cwd, ["status", "--porcelain=v1"]);
+    if (status.ok) {
+      const known = new Set(files.map((file) => file.path));
+      for (const line of status.out.split(/\r?\n/)) {
+        if (!line.startsWith("?? ")) continue;
+        const file = line.slice(3).trim();
+        if (!file || known.has(file)) continue;
+        known.add(file);
+        files.push({
+          path: file,
+          status: "untracked",
+          lines: [{ type: "ctx", num: "", text: "Untracked file. Accept keeps it; Reject skips it so Boolean does not delete new files unexpectedly." }]
+        });
+      }
+    }
+  }
+  return { files, patch: diff.out, staged };
 }
 
 export function gitRestoreFiles(projectDir, files) {
@@ -78,4 +97,3 @@ export function gitRestoreFiles(projectDir, files) {
   }
   return { restored, skipped };
 }
-

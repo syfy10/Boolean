@@ -1132,7 +1132,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       }
 
       if (req.method === "GET" && p === "/api/git/diff-files") {
-        json({ ok: true, files: gitDiffFiles(activeProjectDir(threads, activeThreadId)) });
+        const review = gitDiffFiles(activeProjectDir(threads, activeThreadId), { staged: url.searchParams.get("staged") === "1" });
+        json({ ok: true, ...review });
         return;
       }
 

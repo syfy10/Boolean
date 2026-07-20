@@ -1393,6 +1393,9 @@
   .diag-actions button{ padding:5px 14px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
   .diag-actions button:hover{ background:var(--hover); }
   .diag-actions button.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .diag-summary{ margin-top:8px; padding:7px 9px; border:1px solid var(--border); border-radius:8px; background:var(--bubble); color:var(--dim); font:11.5px/1.4 var(--ui); }
+  .diag-fixes{ display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
+  .diag-fixes button{ padding:4px 9px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font:11px var(--ui); cursor:pointer; }
   .tech-report{ display:none; border-top:1px solid var(--border); background:var(--bg); padding:8px 10px; max-height:220px; overflow:auto; }
   .tech-report.open{ display:block; }
   .tech-head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font:600 12px var(--ui); }
@@ -1402,6 +1405,7 @@
   .tech-row b{ font:600 12px var(--ui); }
   .tech-row small{ display:block; color:var(--dim); font:10.5px var(--ui); margin-top:2px; }
   .tech-score{ font:11px var(--mono); color:var(--accent); }
+  .tech-group{ margin:8px 0 3px; color:var(--dim); font:700 10px var(--ui); text-transform:uppercase; letter-spacing:.04em; }
 
   /* ── Three-zone layout (sidebar | main | context panel) ── */
   #ctxZone{ width:0; flex-shrink:0; display:none; flex-direction:column; min-width:0;
@@ -1771,6 +1775,8 @@
             <button id="diagRefresh" class="primary">Run diagnostics</button>
             <button id="diagExportLogs">Export logs</button>
           </div>
+          <div class="diag-summary" id="diagSummary">Run diagnostics to see what is ready, what needs setup, and the quickest recovery action.</div>
+          <div class="diag-fixes" id="diagFixes"></div>
         </div>
       </div>
 
@@ -2658,6 +2664,7 @@
     <button id="deployVerify">Verify live URL</button>
     <button id="deployRollback">Rollback plan</button>
     <button id="deployStart">Start deploy</button>
+    <button id="deployHistory">History</button>
     <button id="diffReviewBtn">Review diff</button>
     <button id="genCommitMsg" title="Generate a commit message from current changes" style="font:11px var(--ui);padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);cursor:pointer;white-space:nowrap">✎ Generate commit message</button>
   </div>
@@ -3002,6 +3009,9 @@
         <button id="diffNext" title="Next file">›</button>
       </div>
       <span class="dc-spacer"></span>
+      <label class="dc-file" title="Review staged changes instead of working-tree changes"><input type="checkbox" id="diffStaged"> staged</label>
+      <button class="dc-accept" id="diffExplain">Explain</button>
+      <button class="dc-accept" id="diffCopy">Copy patch</button>
       <button class="dc-reject" id="diffReject">Reject</button>
       <button class="dc-accept" id="diffAccept">Accept</button>
     </div>
@@ -6385,8 +6395,22 @@
         if(!info) return;
         const dot=$(dotId), val=$(valId);
         if(dot) dot.className="diag-status "+(info.status||"idle");
-        if(val) val.textContent=info.label||"—";
+        if(val){ val.textContent=info.label||"—"; val.title=(info.detail||info.label||""); }
       });
+      const issues=map.filter(([, , ,info])=>info&&["warn","err"].includes(info.status));
+      const summary=$("diagSummary");
+      if(summary) summary.textContent=issues.length?issues.length+" item(s) need attention: "+issues.map(([, , ,info])=>info.detail||info.label).join(" | "):"Everything checked looks ready. Optional tools can still be configured when needed.";
+      const fixes=$("diagFixes");
+      if(fixes){
+        fixes.innerHTML="";
+        const actions=[
+          issues.some(([, , ,i])=>/GitHub|gh auth|login/i.test((i.detail||"")+" "+(i.label||"")))?["Connect GitHub","Walk me through gh auth login and verify GitHub CLI status."]:null,
+          issues.some(([, , ,i])=>/model|select/i.test((i.detail||"")+" "+(i.label||"")))?["Choose model","Open Settings > AI Models and help me choose the right local model."]:null,
+          issues.some(([, , ,i])=>/Node|Git|dotnet|Wrangler|install/i.test((i.detail||"")+" "+(i.label||"")))?["Fix tools","Review diagnostics and tell me exactly which local build tools need installation or configuration."]:null,
+          ["Open logs","Export and summarize local Boolean logs. Do not upload anything."]
+        ].filter(Boolean);
+        actions.forEach(([label,action])=>{ const b=document.createElement("button"); b.type="button"; b.textContent=label; b.onclick=()=>cmdSendChat(action); fixes.appendChild(b); });
+      }
     }catch(e){ /* silently skip */ }
   }
   if($("diagRefresh")) $("diagRefresh").onclick=()=>{ runDiagnostics(); tempToast("Diagnostics complete."); };
@@ -8001,6 +8025,7 @@ Optional bundled starter model:
   let diffFiles = [];
   let diffIndex = 0;
   let diffDecisions = {};
+  let diffPatchText = "";
 
   function showDiffPreview(files) {
     diffFiles = files;
@@ -8014,8 +8039,10 @@ Optional bundled starter model:
   }
   async function reviewCurrentDiff() {
     try {
-      const r = await (await fetch("/api/git/diff-files")).json();
+      const staged=$("diffStaged")?.checked;
+      const r = await (await fetch("/api/git/diff-files"+(staged?"?staged=1":""))).json();
       if (!r.ok || !Array.isArray(r.files) || !r.files.length) { tempToast("No working-tree diff to review."); return; }
+      diffPatchText=r.patch||"";
       showDiffPreview(r.files);
     } catch(e) {
       tempToast("Could not load git diff.");
@@ -8061,6 +8088,7 @@ Optional bundled starter model:
     $("diffReject").classList.toggle("confirmed", dec === "reject");
     $("diffAccept").onclick = () => { diffDecisions[f.path] = "accept"; if (diffIndex < diffFiles.length - 1) { diffIndex++; renderDiffFile(); } else { finishDiffReview(); } updateDiffHeader(); };
     $("diffReject").onclick = () => { diffDecisions[f.path] = "reject"; if (diffIndex < diffFiles.length - 1) { diffIndex++; renderDiffFile(); } else { finishDiffReview(); } updateDiffHeader(); };
+    if($("diffExplain")) $("diffExplain").onclick=()=>{ $("input").value="Explain this file diff and call out risks before I accept it:\n\n"+f.path+"\n\n"+(f.lines||[]).map(l=>(l.type==="add"?"+":l.type==="del"?"-":" ")+l.text).join("\n").slice(0,6000); setWorkspaceTab("chat"); $("send")&&$("send").click(); };
   }
   async function finishDiffReview() {
     const accepted = Object.keys(diffDecisions).filter(p => diffDecisions[p] === "accept");
@@ -8085,6 +8113,11 @@ Optional bundled starter model:
   if ($("diffNext")) $("diffNext").onclick = () => { if (diffIndex < diffFiles.length - 1) { diffIndex++; renderDiffFile(); } };
   if ($("diffPrev")) $("diffPrev").onclick = () => { if (diffIndex > 0) { diffIndex--; renderDiffFile(); } };
   if ($("diffReviewBtn")) $("diffReviewBtn").onclick = reviewCurrentDiff;
+  if ($("diffCopy")) $("diffCopy").onclick = async () => {
+    if(!diffPatchText) { await reviewCurrentDiff(); }
+    if(!diffPatchText) { tempToast("No patch to copy."); return; }
+    writeClipboardText(diffPatchText).then(()=>tempToast("Patch copied.")).catch(()=>tempToast("Could not copy patch."));
+  };
   // Close diff on overlay click
   if ($("diffOverlay")) $("diffOverlay").onclick = (e) => { if (e.target === $("diffOverlay")) $("diffOverlay").classList.remove("open"); };
 
@@ -8116,12 +8149,21 @@ Optional bundled starter model:
       choice: "local-small"
     },
     {
+      title: "Trust check",
+      desc: "See what is ready before your first serious task.",
+      render() {
+        return '<div class="onboard-choice selected" data-choice="diag"><div class="oc-icon">✓</div><div class="oc-text"><b>Run diagnostics</b><small>Check local model, Git, GitHub CLI, .NET, Wrangler, permissions, and update metadata.</small></div></div>'
+          + '<div class="onboard-choice" data-choice="privacy"><div class="oc-icon">◉</div><div class="oc-text"><b>Review privacy controls</b><small>Confirm local/cloud mode, browser access, memory, and approval rules.</small></div></div>';
+      },
+      choice: "diag"
+    },
+    {
       title: "You're ready!",
       desc: "Boolean is set up. Here's what you can do:",
       render() {
-        return '<div class="onboard-choice" data-final="1"><div class="oc-icon">📁</div><div class="oc-text"><b>Open a project folder</b><small>Boolean reads, edits, tests, and remembers rules per project.</small></div></div>'
-          + '<div class="onboard-choice" data-final="1"><div class="oc-icon">💬</div><div class="oc-text"><b>Ask anything</b><small>Chat, code, research, write — Boolean uses tools with your approval.</small></div></div>'
-          + '<div class="onboard-choice" data-final="1"><div class="oc-icon">🔧</div><div class="oc-text"><b>Explore Settings</b><small>Connect GitHub, set coding modes, configure privacy, and more.</small></div></div>';
+        return '<div class="onboard-choice" data-final="project"><div class="oc-icon">📁</div><div class="oc-text"><b>Open a project folder</b><small>Boolean reads, edits, tests, and remembers rules per project.</small></div></div>'
+          + '<div class="onboard-choice" data-final="diagnostics"><div class="oc-icon">✓</div><div class="oc-text"><b>Open diagnostics</b><small>View readiness and recovery actions before working.</small></div></div>'
+          + '<div class="onboard-choice" data-final="stack"><div class="oc-icon">⌕</div><div class="oc-text"><b>Detect a website stack</b><small>Open the browser and analyze CMS, builder, framework, analytics, and hosting.</small></div></div>';
       },
       choice: null
     }
@@ -8173,6 +8215,10 @@ Optional bundled starter model:
           openSettings("model");
           return;
         }
+      }
+      if (onboardStep === 2) {
+        if (step.choice === "diag") runDiagnostics();
+        if (step.choice === "privacy") showSettingsSection("legal",{remember:true});
       }
       onboardStep++;
       renderOnboardStep();
@@ -8951,13 +8997,17 @@ Optional bundled starter model:
       panel.innerHTML='<div class="tech-head">No strong stack match <small>'+esc(url)+'</small></div><div class="hint">Boolean analyzed the page locally and did not find known CMS, builder, framework, analytics, or hosting markers.</div>';
       return;
     }
-    panel.innerHTML='<div class="tech-head">Detected stack <small>'+esc(url)+'</small><span style="flex:1"></span><button class="minibtn" id="techSaveNote" type="button">Save note</button></div>'
-      +'<div class="tech-list">'+items.map(item=>'<div class="tech-row"><div><b>'+esc(item.name)+'</b><small>'+esc(item.category)+' - '+esc((item.signals||[]).slice(0,3).join(", "))+'</small></div><span class="tech-score">'+esc(item.confidence)+'%</span></div>').join("")+'</div>';
+    const groups={};
+    items.forEach(item=>{ (groups[item.category]=groups[item.category]||[]).push(item); });
+    panel.innerHTML='<div class="tech-head">Detected stack <small>'+esc(url)+'</small><span style="flex:1"></span><button class="minibtn" id="techCompare" type="button">Compare</button><button class="minibtn" id="techSaveNote" type="button">Save note</button></div>'
+      +'<div class="tech-list">'+Object.entries(groups).map(([cat,list])=>'<div class="tech-group">'+esc(cat)+'</div>'+list.map(item=>'<div class="tech-row"><div><b>'+esc(item.name)+'</b><small>'+esc((item.signals||[]).slice(0,3).join(", "))+'</small></div><span class="tech-score">'+esc(item.confidence)+'%</span></div>').join("")).join("")+'</div>';
     const save=$("techSaveNote");
     if(save) save.onclick=()=>{
       const text="Website stack report for "+url+"\n\n"+items.map(item=>"- "+item.name+" ("+item.category+"): "+item.confidence+"% - "+(item.signals||[]).join(", ")).join("\n")+"\n\n"+(report.privacy||"Local analysis.");
       openNotes(true); insertPlainNoteText(text); tempToast("Stack report saved to notes.");
     };
+    const compare=$("techCompare");
+    if(compare) compare.onclick=()=>cmdSendChat("Compare this website stack with another site I provide. Current stack report:\n\n"+items.map(item=>"- "+item.name+" ("+item.category+"): "+item.confidence+"%").join("\n"));
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -8993,6 +9043,15 @@ Optional bundled starter model:
   // ══════════════════════════════════════════════════════════════
   const deployBar = $("deployBar");
   const deployStartBtn = $("deployStart");
+  function deployHistoryItems(){
+    try{ return JSON.parse(localStorage.getItem("booleanDeployHistory")||"[]").filter(Boolean).slice(0,8); }catch{ return []; }
+  }
+  function addDeployHistory(item){
+    try{
+      const items=[{...item,at:Date.now()},...deployHistoryItems()].slice(0,8);
+      localStorage.setItem("booleanDeployHistory",JSON.stringify(items));
+    }catch{}
+  }
   if (deployStartBtn) {
     deployStartBtn.onclick = () => {
       const target = $("deployTarget").value;
@@ -9004,6 +9063,7 @@ Optional bundled starter model:
         "github-pages": "Deploy this project to GitHub Pages. Guide me step by step with commands and rollback steps."
       };
       $("input").value = platforms[target] || platforms.cloudflare;
+      addDeployHistory({target,status:"planned",note:"Deploy assistant opened"});
       setWorkspaceTab("chat");
       $("send") && $("send").click();
     };
@@ -9015,9 +9075,15 @@ Optional bundled starter model:
   };
   if ($("deployRollback")) $("deployRollback").onclick = () => {
     const target = $("deployTarget").value || "the configured platform";
-    $("input").value = "Prepare a rollback plan for " + target + ". Show the current deployment/version, previous safe version, exact rollback command or dashboard path, and verification steps. Do not run rollback until I confirm.";
+    const history=deployHistoryItems().map(x=>"- "+new Date(x.at).toLocaleString()+": "+(x.target||"deploy")+" - "+(x.status||"planned")+" - "+(x.note||"")).join("\n");
+    $("input").value = "Prepare a rollback plan for " + target + ". Show the current deployment/version, previous safe version, exact rollback command or dashboard path, and verification steps. Do not run rollback until I confirm."+(history?"\n\nRecent local deployment notes:\n"+history:"");
     setWorkspaceTab("chat");
     $("send") && $("send").click();
+  };
+  if ($("deployHistory")) $("deployHistory").onclick=()=>{
+    const history=deployHistoryItems();
+    if(!history.length){ tempToast("No local deployment history yet."); return; }
+    appAlert("Deployment history", history.map(x=>new Date(x.at).toLocaleString()+"\n"+(x.target||"deploy")+" - "+(x.status||"planned")+" - "+(x.note||"")).join("\n\n"));
   };
   // Show deploy bar on Git workspace tab
   const _origSetWsTab = window.setWorkspaceTab;
@@ -9160,8 +9226,9 @@ Optional bundled starter model:
     const body = $("bgAgentBody");
     if (!body) return;
     if (!bgAgentTasks.length) {
-      body.innerHTML = '<div class="ba-empty">No background tasks running.<br>Start one below or from the toolbar.</div>';
+      body.innerHTML = '<div class="ba-empty">No background tasks running.<br>Start one below or from the toolbar.<br><br><button type="button" id="baReviewIdea">Review current diff first</button></div>';
       const dot = $("bgAgentDot"); if (dot) dot.className = "ba-dot";
+      const idea=$("baReviewIdea"); if(idea) idea.onclick=reviewCurrentDiff;
       return;
     }
     const dot = $("bgAgentDot");
@@ -9170,8 +9237,10 @@ Optional bundled starter model:
       return '<div class="ba-task"><div class="ba-task-head"><span>' + esc((t.desc||t.task||"Background task").slice(0, 50)) + '</span><span class="ba-status ' + (t.status||t.state||"idle") + '">' + esc(t.status||t.state||"idle") + '</span></div>'
         + '<div class="ba-desc">Branch: ' + esc(t.branch || "worktree") + '</div>'
         + (t.changeSummary ? '<div class="ba-desc">' + esc(t.changeSummary).slice(0, 240) + '</div>' : '')
+        + (t.updatedAt ? '<div class="ba-desc">Updated ' + esc(relTime(t.updatedAt)) + '</div>' : '')
         + '<div class="ba-actions">'
         + ((t.status === "done" || t.state === "completed") ? '<button class="ba-apply" data-bgtask="' + i + '">Apply diff</button>' : '')
+        + '<button data-bgexplain="' + i + '">Explain</button>'
         + '<button data-bgdismiss="' + i + '">Dismiss</button>'
         + '</div></div>';
     }).join("");
@@ -9200,6 +9269,11 @@ Optional bundled starter model:
       }
       bgAgentTasks.splice(index, 1);
       renderBgAgentPanel();
+    });
+    body.querySelectorAll("[data-bgexplain]").forEach(b => b.onclick = () => {
+      const t=bgAgentTasks[parseInt(b.dataset.bgexplain)];
+      if(!t) return;
+      cmdSendChat("Explain this background agent result and whether it is safe to apply:\n\nTask: "+(t.task||t.desc||"")+"\nBranch: "+(t.branch||"")+"\nState: "+(t.state||t.status||"")+"\nChanges:\n"+(t.changeSummary||t.summary||""));
     });
   }
   async function refreshBgAgentRuns(){
@@ -9243,8 +9317,17 @@ Optional bundled starter model:
     if (!choice) return;
     const textEl = choice.querySelector(".oc-text b");
     const label = textEl ? textEl.textContent : "";
+    const action = choice.dataset.final || "";
     closeOnboarding();
-    if (label.includes("project") || label.includes("folder") || label.includes("Open")) {
+    if (action === "diagnostics") {
+      openSettings("diagnostics");
+      setTimeout(runDiagnostics, 250);
+      return;
+    } else if (action === "stack") {
+      openBrowser(true,{remember:true});
+      tempToast("Open a site, then click Stack.");
+      return;
+    } else if (label.includes("project") || label.includes("folder") || label.includes("Open")) {
       $("input").value = "Open a project folder and summarize what's here.";
     } else if (label.includes("Ask") || label.includes("anything")) {
       $("input").value = "What can you help me with?";
