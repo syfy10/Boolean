@@ -4,6 +4,8 @@
 // right. The Node backend runs as a child ("core") process; the window just
 // points a WebView2 at http://127.0.0.1:<port>.
 using System.Diagnostics;
+using System.ComponentModel;
+using System.Drawing.Drawing2D;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -29,12 +31,103 @@ static class Program
     }
 }
 
+sealed class RoundedPanel : Panel
+{
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int Radius { get; set; } = 12;
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Color BorderColor { get; set; } = Color.Transparent;
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var path = RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Radius);
+        using var brush = new SolidBrush(BackColor);
+        e.Graphics.FillPath(brush, path);
+        if (BorderColor.A > 0)
+        {
+            using var pen = new Pen(BorderColor);
+            e.Graphics.DrawPath(pen, path);
+        }
+    }
+
+    protected override void OnResize(EventArgs eventargs)
+    {
+        base.OnResize(eventargs);
+        using var path = RoundedRect(new Rectangle(0, 0, Width, Height), Radius);
+        Region = new Region(path);
+        Invalidate();
+    }
+
+    internal static GraphicsPath RoundedRect(Rectangle r, int radius)
+    {
+        var d = Math.Max(2, radius * 2);
+        var p = new GraphicsPath();
+        p.AddArc(r.Left, r.Top, d, d, 180, 90);
+        p.AddArc(r.Right - d, r.Top, d, d, 270, 90);
+        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+        p.AddArc(r.Left, r.Bottom - d, d, d, 90, 90);
+        p.CloseFigure();
+        return p;
+    }
+}
+
+sealed class RoundedButton : Button
+{
+    bool _hover;
+    bool _down;
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int Radius { get; set; } = 12;
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Color Fill { get; set; } = Color.Transparent;
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Color HoverFill { get; set; } = Color.FromArgb(242, 242, 242);
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Color DownFill { get; set; } = Color.FromArgb(232, 232, 232);
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Color Border { get; set; } = Color.Transparent;
+
+    public RoundedButton()
+    {
+        FlatStyle = FlatStyle.Flat;
+        FlatAppearance.BorderSize = 0;
+        TabStop = false;
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { _hover = false; _down = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnMouseDown(MouseEventArgs e) { if (e.Button == MouseButtons.Left) _down = true; Invalidate(); base.OnMouseDown(e); }
+    protected override void OnMouseUp(MouseEventArgs e) { _down = false; Invalidate(); base.OnMouseUp(e); }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        var fill = _down ? DownFill : (_hover ? HoverFill : Fill);
+        using var path = RoundedPanel.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Radius);
+        using var brush = new SolidBrush(fill.A == 0 ? Parent?.BackColor ?? BackColor : fill);
+        e.Graphics.FillPath(brush, path);
+        if (Border.A > 0)
+        {
+            using var pen = new Pen(Border);
+            e.Graphics.DrawPath(pen, path);
+        }
+        var textRect = new Rectangle(Padding.Left, Padding.Top,
+            Math.Max(1, Width - Padding.Horizontal), Math.Max(1, Height - Padding.Vertical));
+        var flags = TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
+        flags |= TextAlign == ContentAlignment.MiddleLeft ? TextFormatFlags.Left : TextFormatFlags.HorizontalCenter;
+        TextRenderer.DrawText(e.Graphics, Text, Font, textRect, ForeColor, flags);
+    }
+}
+
 sealed class TabItem
 {
     public WebView2 View = new();
     public string Url = "";
     public string Title = "New tab";
-    public Button Chip = new();
+    public Button Chip = new RoundedButton { Radius = 12 };
 }
 
 sealed class MainForm : Form
@@ -209,6 +302,7 @@ sealed class MainForm : Form
     readonly FlowLayoutPanel _taskBar = new() { Dock = DockStyle.Top, Height = 30, WrapContents = false, AutoScroll = true };
     readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 42, WrapContents = false, AutoScroll = true };
     readonly Panel _content = new() { Dock = DockStyle.Fill };
+    readonly RoundedPanel _addrBox = new() { Radius = 14 };
     readonly TextBox _addr = new();
     readonly List<TabItem> _tabs = new();
     int _active = -1;
@@ -847,15 +941,17 @@ try {
         _taskBar.BackColor = Color.FromArgb(22, 22, 22);
         _tabStrip.BackColor = Color.FromArgb(22, 22, 22);
 
-        // modern flat, borderless icon button
+        // modern rounded, borderless icon button
         Button Icon(string glyph, string tip, int w, EventHandler onClick)
         {
-            var b = new Button
+            var b = new RoundedButton
             {
                 Text = glyph, Width = w, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false,
                 ForeColor = Color.Gainsboro, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f),
-                Padding = new Padding(0), Margin = new Padding(0)
+                Padding = new Padding(0), Margin = new Padding(0), Radius = 11
             };
+            b.Fill = Color.Transparent;
+            b.Border = Color.Transparent;
             b.FlatAppearance.BorderSize = 0;
             b.Click += onClick;
             var tt = new ToolTip(); tt.SetToolTip(b, tip);
@@ -872,13 +968,16 @@ try {
         x += 6;
 
         // address — a clearly visible field (own background, left-aligned)
-        _addr.Top = 6; _addr.Height = 24; _addr.Left = x + 10;
+        _addrBox.Top = 5; _addrBox.Height = 28; _addrBox.Left = x + 8;
+        _addrBox.Padding = new Padding(12, 5, 10, 3);
         _addr.BorderStyle = BorderStyle.None;
+        _addr.Dock = DockStyle.Fill;
         _addr.TextAlign = HorizontalAlignment.Left;
         _addr.PlaceholderText = "Search or enter a URL";
         _addr.Font = new Font("Segoe UI", 10.5f);
         _addr.KeyDown += (_, ke) => { if (ke.KeyCode == Keys.Enter) { ke.SuppressKeyPress = true; Navigate(_addr.Text); } };
-        _toolbar.Controls.Add(_addr);
+        _addrBox.Controls.Add(_addr);
+        _toolbar.Controls.Add(_addrBox);
 
         // ⋮ overflow menu — styled to match the flat in-app browser menu.
         _menu = new ContextMenuStrip { ShowImageMargin = false, Font = new Font("Segoe UI", 9f), Padding = new Padding(7) };
@@ -935,7 +1034,7 @@ try {
         void LayoutBar()
         {
             _menuBtn.Left = _toolbar.Width - _menuBtn.Width - 4;
-            _addr.Width = Math.Max(96, _menuBtn.Left - _addr.Left - 12);
+            _addrBox.Width = Math.Max(116, _menuBtn.Left - _addrBox.Left - 12);
         }
         LayoutBar();
         _toolbar.Resize += (_, __) => LayoutBar();
@@ -943,19 +1042,22 @@ try {
         // ── tab row (on top): [tabs] [+] ......... [⤢ full width] [⧉ close] ──
         Button TaskButton(string text, string tip, string task)
         {
-            var b = new Button
+            var b = new RoundedButton
             {
                 Text = text,
-                Width = 104,
-                Height = 24,
+                Width = text.Length > 11 ? 122 : 106,
+                Height = 25,
                 FlatStyle = FlatStyle.Flat,
                 TabStop = false,
                 BackColor = Color.Transparent,
                 Font = new Font("Segoe UI", 8.2f),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Margin = new Padding(1, 3, 1, 0),
-                Padding = new Padding(3, 0, 3, 0)
+                Margin = new Padding(3, 2, 3, 0),
+                Padding = new Padding(8, 0, 8, 0),
+                Radius = 12
             };
+            b.Fill = Color.Transparent;
+            b.Border = Color.Transparent;
             b.FlatAppearance.BorderSize = 0;
             b.Click += (_, __) => SendBrowserTask(task);
             var tt = new ToolTip(); tt.SetToolTip(b, tip);
@@ -971,7 +1073,7 @@ try {
         TaskButton("Monitor", "Watch this page for changes", "monitor");
         _taskBar.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
 
-        _addTabBtn = new Button { Text = "+", Width = 30, Height = 28, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f), Margin = new Padding(3, 5, 0, 0) };
+        _addTabBtn = new RoundedButton { Text = "+", Width = 30, Height = 28, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f), Margin = new Padding(3, 5, 0, 0), Radius = 12 };
         _addTabBtn.FlatAppearance.BorderSize = 0;
         _addTabBtn.Click += (_, __) => AddTab(_homeUrl, true, true);
         _barBtns.Add(_addTabBtn);
@@ -980,7 +1082,7 @@ try {
         _rightPanel = tabRight;
         Button TabIcon(string g, string tip, EventHandler on)
         {
-            var b = new Button { Text = g, Width = 32, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 11f), Margin = new Padding(1, 0, 1, 0) };
+            var b = new RoundedButton { Text = g, Width = 32, Height = 30, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 11f), Margin = new Padding(1, 0, 1, 0), Radius = 11 };
             b.FlatAppearance.BorderSize = 0; b.Click += on;
             var tt = new ToolTip(); tt.SetToolTip(b, tip);
             tabRight.Controls.Add(b); _barBtns.Add(b); return b;
@@ -1069,14 +1171,24 @@ try {
         _tabStrip.BackColor = p.BarBg;
         _tabBar.BackColor = p.BarBg;
         if (_rightPanel != null) _rightPanel.BackColor = p.BarBg;
+        _addrBox.BackColor = p.AddrBg;
+        _addrBox.BorderColor = p.BtnBorder;
         _addr.BackColor = p.AddrBg; _addr.ForeColor = p.Text;
         if (_menu != null) { _menu.BackColor = p.BarBg; _menu.ForeColor = p.Text; }
         foreach (var b in _barBtns)
         {
-            b.BackColor = Color.Transparent; b.ForeColor = p.Text; // flat, blends into the bar
+            b.BackColor = Color.Transparent; b.ForeColor = p.Text;
             b.FlatAppearance.BorderSize = 0;
-            b.FlatAppearance.MouseOverBackColor = p.BarBg;
-            b.FlatAppearance.MouseDownBackColor = p.BarBg;
+            b.FlatAppearance.MouseOverBackColor = p.Hover;
+            b.FlatAppearance.MouseDownBackColor = p.ActiveTab;
+            if (b is RoundedButton rb)
+            {
+                rb.Fill = Color.Transparent;
+                rb.HoverFill = p.Hover;
+                rb.DownFill = p.ActiveTab;
+                rb.Border = Color.Transparent;
+                rb.Invalidate();
+            }
         }
         if (_browserCloseBtn != null)
         {
@@ -1086,12 +1198,7 @@ try {
             _browserCloseBtn.FlatAppearance.MouseOverBackColor = p.Hover;
             _browserCloseBtn.FlatAppearance.MouseDownBackColor = p.Hover;
         }
-        for (int i = 0; i < _tabs.Count; i++)
-        {
-            _tabs[i].Chip.ForeColor = p.Text;
-            _tabs[i].Chip.FlatAppearance.BorderSize = 0;
-            _tabs[i].Chip.BackColor = (i == _active) ? p.Hover : Color.Transparent;
-        }
+        RefreshTabChrome();
         foreach (var t in _tabs)
         {
             try { t.View.DefaultBackgroundColor = p.PaneBg; } catch { }
@@ -1102,6 +1209,23 @@ try {
     }
 
     TabItem? Active() => _active >= 0 && _active < _tabs.Count ? _tabs[_active] : null;
+
+    void RefreshTabChrome()
+    {
+        for (int i = 0; i < _tabs.Count; i++)
+        {
+            _tabs[i].Chip.ForeColor = _pal.Text;
+            _tabs[i].Chip.BackColor = Color.Transparent;
+            if (_tabs[i].Chip is RoundedButton rb)
+            {
+                rb.Fill = (i == _active) ? _pal.ActiveTab : Color.Transparent;
+                rb.HoverFill = _pal.Hover;
+                rb.DownFill = _pal.ActiveTab;
+                rb.Border = (i == _active) ? _pal.BtnBorder : Color.Transparent;
+                rb.Invalidate();
+            }
+        }
+    }
 
     void LayoutTabs()
     {
@@ -1117,6 +1241,7 @@ try {
             t.Chip.TextAlign = ContentAlignment.MiddleLeft;
             t.Chip.AutoEllipsis = true;
         }
+        RefreshTabChrome();
     }
 
     string TabLabel(TabItem t)
@@ -1140,6 +1265,14 @@ try {
         t.Chip.Font = new Font("Segoe UI", 8.5f); t.Chip.Margin = new Padding(3, 5, 0, 0); t.Chip.Text = "\u25CE New tab";
         t.Chip.TextAlign = ContentAlignment.MiddleLeft;
         t.Chip.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
+        if (t.Chip is RoundedButton chip)
+        {
+            chip.Radius = 12;
+            chip.Fill = Color.Transparent;
+            chip.HoverFill = _pal.Hover;
+            chip.DownFill = _pal.ActiveTab;
+            chip.Border = Color.Transparent;
+        }
         t.Chip.Click += (_, __) => Activate(_tabs.IndexOf(t));
         // middle-click / right-click closes
         t.Chip.MouseUp += (_, me) => { if (me.Button != MouseButtons.Left) CloseTab(_tabs.IndexOf(t)); };
