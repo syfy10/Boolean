@@ -382,7 +382,13 @@ export async function listProviderModels(config) {
 export async function backendUp(config) {
   try {
     if (config.provider === "local") {
-      return engine.listLocalModels().length > 0 && !!engine.findEngineBinary();
+      if (!engine.findEngineBinary()) return false;
+      const selected = String(config.local?.model || "").trim();
+      const installed = engine.listLocalModels();
+      if (!installed.length) return false;
+      if (!selected) return true;
+      if (!installed.includes(selected)) return false;
+      return engine.modelFileHealth(selected).ok;
     }
     if (CLOUD[config.provider]) {
       return !!config[config.provider].apiKey;
