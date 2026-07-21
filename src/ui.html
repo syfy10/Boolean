@@ -241,6 +241,7 @@
   .settings-checklist{ display:flex; flex-wrap:wrap; gap:5px; margin:0 0 8px; }
   .settings-check{ flex:1 1 0; min-width:150px; align-items:center; gap:6px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); padding:7px 9px; font-size:11px; cursor:pointer; transition:background var(--t-fast),border-color var(--t-fast); }
   .settings-check:hover{ background:var(--hover); border-color:color-mix(in srgb,var(--green) 20%,var(--border)); }
+  .settings-check.attention-flash{ border-color:color-mix(in srgb,var(--orange) 55%,var(--border)); background:color-mix(in srgb,var(--orange) 10%,var(--bg)); }
   .settings-check span:first-child{ width:15px; height:15px; border-radius:50%; display:grid; place-items:center; background:var(--bubble); color:var(--dim); flex-shrink:0; font-size:9px; }
   .settings-check.done span:first-child{ background:color-mix(in srgb,var(--green) 18%,transparent); color:var(--green); }
   .settings-check small{ display:block; color:var(--dim); font-size:9.5px; margin-top:1px; line-height:1.25; }
@@ -872,7 +873,7 @@
   body.composer-simple{ --chat-tail-gap:16px; }
   body.composer-simple.settings-open .composer-wrap,
   body.composer-simple.recipes-open .composer-wrap{ display:none !important; }
-  body.composer-simple .composer{ position:relative; width:100%; min-height:176px; border:0; border-top:1px solid color-mix(in srgb,var(--text) 72%,var(--bg)); border-radius:0; background:var(--bg); box-shadow:none; padding:8px var(--content-x) 6px; backdrop-filter:none; display:flex; flex-direction:column; }
+  body.composer-simple .composer{ position:relative; width:100%; min-height:136px; border:0; border-top:1px solid color-mix(in srgb,var(--text) 72%,var(--bg)); border-radius:0; background:var(--bg); box-shadow:none; padding:8px var(--content-x) 6px; backdrop-filter:none; display:flex; flex-direction:column; }
   body.composer-simple .composer:hover{ border-top-color:color-mix(in srgb,var(--text) 72%,var(--bg)); }
   body.composer-simple .composer::before{ content:none; }
   .composer-info,.composer-prompt{ display:none; }
@@ -885,14 +886,14 @@
   body.composer-simple .composer-token-total{ flex:0 0 auto; color:color-mix(in srgb,var(--text) 34%,var(--bg)); font:8px/1 var(--mono); }
   body.composer-simple .composer-info .composer-brand{ display:block; min-width:0; overflow:hidden; text-align:right; color:color-mix(in srgb,var(--text) 20%,var(--bg)); }
   body.composer-simple .composer-info .composer-brand span{ display:block; overflow:hidden; text-overflow:ellipsis; }
-  body.composer-simple .promptline{ width:100%; min-height:94px; margin:0; display:block; position:relative; --composer-prompt-indent:0px; }
+  body.composer-simple .promptline{ width:100%; min-height:58px; margin:0; display:block; position:relative; --composer-prompt-indent:0px; }
   body.composer-simple .promptline::before{ content:none; }
   body.composer-simple .composer-prompt{ display:inline-flex; position:absolute; left:0; top:0; z-index:1; align-items:flex-start; margin-top:0; color:var(--text); font:13px/1.35 var(--ui); white-space:nowrap; pointer-events:none; }
   body.composer-simple .composer.has-text .composer-prompt{ opacity:0; }
-  body.composer-simple .composer textarea{ display:block; width:100%; min-width:0; min-height:86px; max-height:220px; padding:0 58px 4px 0; text-indent:var(--composer-prompt-indent); font:14px/1.45 var(--mono); overflow-y:auto; box-sizing:border-box; }
+  body.composer-simple .composer textarea{ display:block; width:100%; min-width:0; min-height:54px; max-height:180px; padding:0 58px 4px 0; text-indent:var(--composer-prompt-indent); font:14px/1.45 var(--mono); overflow-y:auto; box-sizing:border-box; }
   body.composer-simple .composer textarea::placeholder{ color:transparent; }
   body.composer-simple .promptline #interruptEdit{ position:absolute; right:0; top:0; width:28px; height:28px; margin:4px 0 0 0; border-radius:8px; color:var(--dim); }
-  body.composer-simple .promptline #send{ position:absolute; right:0; bottom:24px; width:auto; min-width:0; height:24px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--text); font:14px/1.45 var(--mono); font-weight:400; box-shadow:none; outline:0; appearance:none; }
+  body.composer-simple .promptline #send{ position:absolute; right:0; bottom:8px; width:auto; min-width:0; height:24px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--text); font:14px/1.45 var(--mono); font-weight:400; box-shadow:none; outline:0; appearance:none; }
   body.composer-simple .promptline #send::before{ content:none; }
   body.composer-simple .promptline #send.stop::before{ content:none; }
   body.composer-simple .promptline #send svg{ display:none; }
@@ -2965,7 +2966,7 @@
       <div class="ctxbar" id="ctxbar"></div>
       <div class="attachments" id="attachments"></div>
       <div class="composer-info" id="composerInfo"></div>
-      <div class="promptline"><span class="composer-prompt" id="composerPrompt">Tell me what you want done, in plain language.</span><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
+      <div class="promptline"><span class="composer-prompt" id="composerPrompt">What do you want done?</span><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
       <div class="prompt-suggest" id="promptSuggest"></div>
       <div class="composer-chat-actions" id="composerChatActions"></div>
       <div class="recent-chats" id="recentChats"><span class="recent-chats-label">recent chats</span><span class="recent-chats-list" id="recentChatsList"></span></div>
@@ -4956,7 +4957,7 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.40"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.41"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -4965,7 +4966,7 @@
       +'<button class="composer-meta-action" data-chat-act="share" type="button" title="Share chat">⇪</button>'
       +'<span class="composer-token-total" title="Estimated total tokens in this chat">~'+shortNum(chatTotal)+' tok total</span>';
     if(info) info.innerHTML='<span class="composer-brand"><span>Boolean '+esc(version)+'</span><small>(c) saz3 Labs</small></span>';
-    if(prompt) prompt.textContent="Tell me what you want done, in plain language.";
+    if(prompt) prompt.textContent="What do you want done?";
     requestAnimationFrame(()=>{
       const line=$("composerPrompt")?.closest(".promptline");
       const p=$("composerPrompt");
@@ -7200,6 +7201,25 @@
     if (ca) ca.scrollTop = 0; else panel.scrollTop = 0;
     requestAnimationFrame(()=>perfMark("tabOpen",tabStarted));
   }
+  function openSettingsAttentionDetails(){
+    updateSettingsDashboard();
+    const pending=[...document.querySelectorAll(".settings-check[data-open-sec]:not(.done)")];
+    const target=pending[0];
+    if(!target){
+      showSettingsHome();
+      tempToast("Everything checked looks ready.");
+      return;
+    }
+    const sec=target.dataset.openSec;
+    const label=target.querySelector("div")?.childNodes?.[0]?.textContent?.trim()||"item";
+    if(sec) showSettingsSection(sec,{remember:true});
+    requestAnimationFrame(()=>{
+      target.classList.add("attention-flash");
+      target.scrollIntoView({block:"center",behavior:"smooth"});
+      setTimeout(()=>target.classList.remove("attention-flash"),1600);
+    });
+    tempToast("Needs attention: "+label);
+  }
   function closeSettingsPanel(){
     $("apikey").value="";
     emailRecipeReturn=null;
@@ -7977,7 +7997,7 @@ Optional bundled starter model:
     };
   }
   if($("healthDetails")){
-    $("healthDetails").onclick=()=>{ switchSettingsTab("agent"); };
+    $("healthDetails").onclick=openSettingsAttentionDetails;
   }
 
   // ── Keyboard Shortcuts ──
