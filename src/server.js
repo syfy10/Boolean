@@ -252,6 +252,78 @@ function activeProjectDir(threads, activeThreadId) {
   return threads.get(activeThreadId)?.projectDir || process.cwd();
 }
 
+function gitStatusSummary(projectDir) {
+  const out = { branch: null, upstream: "", ahead: 0, behind: 0, state: "none", changedFiles: [] };
+  if (!projectDir) return out;
+  const gitResult = spawnSync("git", ["status", "--porcelain=v1", "-b"], { cwd: projectDir, encoding: "utf8", timeout: 4000 });
+  if (gitResult.status !== 0) return out;
+  const lines = String(gitResult.stdout || "").split("\n");
+  const branchLine = lines.find((line) => line.startsWith("## ")) || "";
+  const branchMatch = branchLine.match(/^##\s+(.+?)(?:\.\.\.([^\s\[]+))?(?:\s+\[(.+)\])?$/);
+  if (branchMatch) {
+    out.branch = branchMatch[1] || null;
+    out.upstream = branchMatch[2] || "";
+    const flags = branchMatch[3] || "";
+    const ahead = flags.match(/ahead\s+(\d+)/);
+    const behind = flags.match(/behind\s+(\d+)/);
+    out.ahead = ahead ? Number(ahead[1]) : 0;
+    out.behind = behind ? Number(behind[1]) : 0;
+  }
+  for (const line of lines) {
+    if (!line || line.startsWith("##")) continue;
+    const status = line[0] === "A" || line[1] === "A" ? "added" : line[0] === "D" || line[1] === "D" ? "deleted" : "modified";
+    const file = line.slice(3).trim();
+    if (file) out.changedFiles.push({ path: file, status });
+  }
+  if (!out.branch) out.state = "none";
+  else if (!out.upstream) out.state = "local";
+  else if (out.behind) out.state = out.ahead ? "diverged" : "behind";
+  else if (out.ahead) out.state = "unpushed";
+  else out.state = "pushed";
+  return out;
+}
+
+function runGit(projectDir, args, timeout = 10000) {
+  const r = spawnSync("git", args, { cwd: projectDir, encoding: "utf8", timeout });
+  return { code: r.status ?? 1, stdout: String(r.stdout || "").trim(), stderr: String(r.stderr || "").trim() };
+}
+
+function undoLastPushedCommit(projectDir) {
+  const summary = gitStatusSummary(projectDir);
+  if (summary.state !== "pushed" || !summary.upstream) {
+    return { ok: false, error: "Current branch is not exactly synced with an upstream remote." };
+  }
+  if (summary.changedFiles.length) {
+    return { ok: false, error: "Working tree has local changes. Commit, stash, or discard them before undoing a pushed commit." };
+  }
+  const branch = runGit(projectDir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (branch.code !== 0 || !branch.stdout || branch.stdout === "HEAD") return { ok: false, error: "Could not identify the current branch." };
+  const current = runGit(projectDir, ["rev-parse", "HEAD"]);
+  const previous = runGit(projectDir, ["rev-parse", "HEAD~1"]);
+  const upstream = runGit(projectDir, ["rev-parse", "@{u}"]);
+  if (current.code !== 0 || previous.code !== 0 || upstream.code !== 0) {
+    return { ok: false, error: "Could not inspect local/upstream commits." };
+  }
+  if (upstream.stdout !== current.stdout) {
+    return { ok: false, error: "Remote moved since the last status check. Refresh before undoing push." };
+  }
+  const upstreamName = summary.upstream;
+  const slash = upstreamName.indexOf("/");
+  const remote = slash > 0 ? upstreamName.slice(0, slash) : "origin";
+  const remoteBranch = slash > 0 ? upstreamName.slice(slash + 1) : branch.stdout;
+  const remoteRef = `refs/heads/${remoteBranch}`;
+  const push = runGit(projectDir, [
+    "push",
+    `--force-with-lease=${remoteRef}:${current.stdout}`,
+    remote,
+    `${previous.stdout}:${remoteRef}`
+  ], 20000);
+  if (push.code !== 0) return { ok: false, error: push.stderr || "git push --force-with-lease failed." };
+  const reset = runGit(projectDir, ["reset", "--mixed", "HEAD~1"], 10000);
+  if (reset.code !== 0) return { ok: false, error: reset.stderr || "Remote was moved back, but local reset failed." };
+  return { ok: true, branch: branch.stdout, upstream: upstreamName, undoneCommit: current.stdout, resetTo: previous.stdout };
+}
+
 function mergeConnectors(current, incoming) {
   const prevApis = new Map((current?.apis || []).map((a) => [a.id, a]));
   const prevAgents = new Map((current?.agents || []).map((a) => [a.id, a]));
@@ -954,6 +1026,27 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return;
       }
 
+      if (req.method === "GET" && p === "/api/top-prompts") {
+        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLEAN CONTROLLER)/i;
+        const counts = new Map();
+        for (const t of threads.values()) {
+          for (const m of t.messages || []) {
+            if (m?.role !== "user") continue;
+            if (typeof m.content !== "string") continue;
+            const text = m.content.trim();
+            if (!text || internal.test(text)) continue;
+            const first = text.split(/\r?\n/)[0].replace(/\s+/g, " ").trim();
+            if (!first) continue;
+            const prompt = first.length > 80 ? first.slice(0, 80) + "..." : first;
+            const row = counts.get(prompt) || { prompt, count: 0 };
+            row.count++;
+            counts.set(prompt, row);
+          }
+        }
+        json({ prompts: [...counts.values()].sort((a, b) => b.count - a.count || a.prompt.localeCompare(b.prompt)).slice(0, 10) });
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/thread/new") {
         const body = await readBody(req);
         const previousActiveThreadId = activeThreadId;
@@ -1108,26 +1201,20 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (req.method === "GET" && p === "/api/project-status") {
         const t = threads.get(activeThreadId);
         const projectDir = t?.projectDir || "";
-        let branch = null, changedFiles = [];
-        if (projectDir) {
-          try {
-            const gitResult = spawnSync("git", ["status", "--porcelain=v1", "-b"], { cwd: projectDir, encoding: "utf8", timeout: 4000 });
-            if (gitResult.status === 0 && gitResult.stdout) {
-              const lines = gitResult.stdout.split("\n");
-              const branchLine = lines.find(l => l.startsWith("## "));
-              if (branchLine) { const m = branchLine.match(/## (.+?)(\.\.|$)/); branch = m ? m[1].trim() : null; }
-              for (const line of lines) {
-                if (!line || line.startsWith("##")) continue;
-                const status = line[0] === "A" ? "added" : line[0] === "D" ? "deleted" : "modified";
-                const file = line.slice(3).trim();
-                if (file) changedFiles.push({ path: file, status });
-              }
-            }
-          } catch(e) { /* no git */ }
-        }
-        json({ ok: true, projectName: t?.title || "No project", branch, changedFiles,
+        const git = gitStatusSummary(projectDir);
+        json({ ok: true, projectName: t?.title || "No project", branch: git.branch, changedFiles: git.changedFiles, git,
           task: t?.task || null, taskState: t?.taskState || "idle", nextAction: t?.nextAction || null,
           serverRunning: !!(globalThis._bgServers?.size > 0), testStatus: null, testState: "idle" });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/unpush-last") {
+        const body = await readBody(req);
+        if (body.confirm !== "undo last push") {
+          json({ ok: false, error: "Confirmation phrase required." }, 400);
+          return;
+        }
+        json(undoLastPushedCommit(activeProjectDir(threads, activeThreadId)));
         return;
       }
 
@@ -2059,7 +2146,9 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (t.title === "New chat") t.title = shortThreadTitle(content).slice(0, 42);
         t.updatedAt = Date.now();
         persist();
-        return streamRun(t, res, { forceTurnMode: body.sideChat === true ? "chat" : "" });
+        const sideProvider = body.sideChat === true && PROVIDERS.includes(String(body.sideProvider || "")) ? String(body.sideProvider) : "";
+        const sideModel = body.sideChat === true ? String(body.sideModel || "").trim() : "";
+        return streamRun(t, res, { forceTurnMode: body.sideChat === true ? "chat" : "", provider: sideProvider, model: sideModel });
       }
 
       res.writeHead(404); res.end("not found");
@@ -2086,8 +2175,10 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     async function streamRun(t, res, options = {}) {
         res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
         const send = (o) => res.write(JSON.stringify(o) + "\n");
-        const replyProvider = config.provider || "local";
-        const runConfig = t.projectDir ? { ...config, projectsDir: t.projectDir } : config;
+        const baseConfig = t.projectDir ? { ...config, projectsDir: t.projectDir } : config;
+        const runConfig = options.provider ? { ...baseConfig, provider: options.provider, [options.provider]: { ...(baseConfig[options.provider] || {}) } } : baseConfig;
+        if (options.provider && options.model && runConfig[options.provider]) runConfig[options.provider].model = options.model;
+        const replyProvider = runConfig.provider || "local";
         let replyModel = currentModel(runConfig);
 
         // keep the system prompt current — restored sessions may predate newer

@@ -695,8 +695,9 @@
   .msg-sender:after{ content:"·"; margin-left:4px; font-weight:400; }
   .usage-inline{ color:var(--dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
-  .msg-foot .actions{ margin:0; display:flex; gap:0; flex:0 0 auto; flex-wrap:nowrap; }
-  .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); }
+  .msg-foot .actions{ margin:0; display:flex; gap:1px; flex:0 0 auto; flex-wrap:nowrap; }
+  .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); cursor:pointer; }
+  .msg-foot .actbtn:hover,.msg-foot .actbtn:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
   .msg-copy{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; cursor:pointer; }
   .msg-copy:hover,.msg-copy:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
   .msg-copy svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
@@ -826,6 +827,50 @@
   /* pencil + send live inside the pill, hugging the input's last line */
   .promptline #interruptEdit, .promptline #send{ align-self:flex-end; margin-bottom:2px; }
   .promptline #interruptEdit{ margin-right:3px; }
+  body.composer-simple .composer-wrap{ --composer-x:0px; --composer-bottom:14px; width:calc(100% - var(--chat-scrollbar,0px)); left:0; right:auto; transform:none; padding-top:0; display:flex; flex-direction:column; }
+  body.composer-simple .composer{ position:relative; width:100%; min-height:176px; border:0; border-top:1px solid color-mix(in srgb,var(--text) 72%,var(--bg)); border-radius:0; background:var(--bg); box-shadow:none; padding:8px var(--content-x) 6px; backdrop-filter:none; display:flex; flex-direction:column; }
+  body.composer-simple .composer:hover{ border-top-color:color-mix(in srgb,var(--text) 72%,var(--bg)); }
+  body.composer-simple .composer::before{ content:none; }
+  .composer-info,.composer-prompt{ display:none; }
+  body.composer-simple .composer-info{ position:absolute; right:var(--content-x); bottom:6px; z-index:2; display:block; max-width:min(28%,210px); color:color-mix(in srgb,var(--text) 20%,var(--bg)); font:6px/1.05 var(--mono); font-weight:400; white-space:nowrap; overflow:hidden; text-align:right; }
+  body.composer-simple .composer-info small{ display:block; margin-top:0; color:color-mix(in srgb,var(--text) 16%,var(--bg)); font:4.8px/1 var(--mono); font-weight:400; }
+  body.composer-simple .composer-chat-actions{ display:flex; align-items:center; gap:6px; max-width:82%; margin-top:auto; padding-top:4px; color:color-mix(in srgb,var(--text) 42%,var(--bg)); font:9.5px/1 var(--ui); white-space:nowrap; overflow:hidden; }
+  body.composer-simple .composer-meta-action{ min-width:17px; height:17px; border:0; border-radius:50%; background:transparent; color:inherit; display:grid; place-items:center; padding:0 2px; font:9.5px/1 var(--ui); cursor:pointer; }
+  body.composer-simple .composer-meta-action[data-chat-act="paste"]{ width:auto; border-radius:6px; font-size:8.8px; }
+  body.composer-simple .composer-meta-action:hover{ background:var(--hover); color:var(--text); }
+  body.composer-simple .composer-token-total{ flex:0 0 auto; color:color-mix(in srgb,var(--text) 34%,var(--bg)); font:8px/1 var(--mono); }
+  body.composer-simple .composer-info .composer-brand{ display:block; min-width:0; overflow:hidden; text-align:right; color:color-mix(in srgb,var(--text) 20%,var(--bg)); }
+  body.composer-simple .composer-info .composer-brand span{ display:block; overflow:hidden; text-overflow:ellipsis; }
+  body.composer-simple .promptline{ width:100%; min-height:94px; margin:0; display:block; position:relative; --composer-prompt-indent:0px; }
+  body.composer-simple .promptline::before{ content:none; }
+  body.composer-simple .composer-prompt{ display:inline-flex; position:absolute; left:0; top:0; z-index:1; align-items:flex-start; margin-top:0; color:var(--text); font:14px/1.45 var(--mono); white-space:nowrap; pointer-events:none; }
+  body.composer-simple .composer textarea{ display:block; width:100%; min-width:0; min-height:86px; max-height:220px; padding:0 58px 4px 0; text-indent:var(--composer-prompt-indent); font:14px/1.45 var(--mono); overflow-y:auto; box-sizing:border-box; }
+  body.composer-simple .composer textarea::placeholder{ color:transparent; }
+  body.composer-simple .promptline #interruptEdit{ position:absolute; right:0; top:0; width:28px; height:28px; margin:4px 0 0 0; border-radius:8px; color:var(--dim); }
+  body.composer-simple .promptline #send{ position:absolute; right:0; bottom:24px; width:auto; min-width:0; height:24px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--text); font:400 11px var(--ui); box-shadow:none; outline:0; appearance:none; }
+  body.composer-simple .promptline #send::before{ content:none; }
+  body.composer-simple .promptline #send.stop::before{ content:none; }
+  body.composer-simple .promptline #send svg{ display:none; }
+  body.composer-simple .promptline #send.stop{ background:transparent; color:#dc3f42; }
+  body.composer-simple .promptline #send:hover:not(:disabled){ transform:none; box-shadow:none; background:transparent; text-decoration:underline; }
+  body.composer-simple .composer-base{ order:-1; margin:0; padding:3px var(--content-x) 5px; background:var(--bg); border:0; box-shadow:none; }
+  body.composer-simple .composer-tools{ width:100%; margin:0; gap:4px; }
+  body.composer-simple .composer-tools .iconbtn,body.composer-simple .composer-tools .modelbtn,body.composer-simple .composer-tools .modebtn{ height:24px; border-radius:7px; background:transparent; box-shadow:none; }
+  body.composer-simple .composer-tools .iconbtn:hover,body.composer-simple .composer-tools .modelbtn:hover,body.composer-simple .composer-tools .modebtn:hover{ background:var(--hover); }
+  .recent-chats,.prompt-suggest,.composer-chat-actions{ display:none; }
+  body:not(.composer-simple) .recent-chats,
+  body:not(.composer-simple) .prompt-suggest,
+  body:not(.composer-simple) .composer-chat-actions{ display:none !important; }
+  body.composer-simple .recent-chats{ display:flex; align-items:center; gap:8px; max-width:82%; margin-top:2px; padding-top:0; color:color-mix(in srgb,var(--text) 38%,var(--bg)); font:10px/1.3 var(--ui); white-space:nowrap; overflow:hidden; }
+  body.composer-simple .recent-chats-label{ flex:0 0 auto; color:color-mix(in srgb,var(--text) 34%,var(--bg)); }
+  body.composer-simple .recent-chats-list{ display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden; }
+  body.composer-simple .recent-chat-tab{ flex:0 1 auto; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:0; border-bottom:1px solid color-mix(in srgb,currentColor 24%,transparent); background:transparent; color:inherit; padding:0 0 1px; cursor:pointer; font:inherit; }
+  body.composer-simple .recent-chat-tab.active{ color:var(--text); font-weight:500; }
+  body.composer-simple .recent-chat-more{ flex:0 0 auto; color:color-mix(in srgb,var(--text) 34%,var(--bg)); }
+  body.composer-simple .recent-chat-tab:hover{ color:var(--text); text-decoration:underline; }
+  body.composer-simple .prompt-suggest.visible{ display:block; margin-top:2px; padding-left:0; color:color-mix(in srgb,var(--text) 36%,var(--bg)); font:10px/1.25 var(--ui); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body.composer-simple .prompt-suggest b{ color:color-mix(in srgb,var(--text) 48%,var(--bg)); font-weight:400; }
+  body.composer-simple .queued,body.composer-simple .ctxbar,body.composer-simple .attachments{ padding-left:10px; padding-right:10px; }
   .iconbtn{ width:25px; height:25px; flex:0 0 auto; border-radius:var(--radius-sm); border:0; background:transparent;
     color:var(--text); font-size:15px; font-weight:500; cursor:pointer; display:grid; place-items:center; position:relative; line-height:1; transition:background var(--t-fast); }
   .iconbtn:hover{ background:var(--hover); }
@@ -981,6 +1026,7 @@
   body.win-xs, body.chat-xs{ --content-x:8px; }
   body.win-xs .composer-wrap, body.chat-xs .composer-wrap{ --composer-bottom:12px; }
   body.win-xs .composer, body.chat-xs .composer{ border-radius:20px; padding:7px 8px; }
+  body.win-xs.composer-simple .composer, body.chat-xs.composer-simple .composer{ border:0; border-top:1px solid color-mix(in srgb,var(--text) 72%,var(--bg)); border-radius:0; box-shadow:none; padding:8px var(--content-x) 6px; }
   body.win-xs .composer textarea, body.chat-xs .composer textarea{ padding:7px 7px 3px 1px; }
   body.win-xs .cmdprompt, body.chat-xs .cmdprompt{ padding-top:7px; }
   body.win-xs .composer-tools, body.chat-xs .composer-tools{ gap:4px; padding:0 8px; }
@@ -1185,9 +1231,10 @@
   /* ── Workspace tabs ── */
   .workspace-tabs{ position:relative; display:flex; align-items:center; gap:1px; padding:0 8px 0 38px; height:34px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
   .workspace-tabs::-webkit-scrollbar{ display:none; }
-  .side-chat-launch{ position:absolute; left:7px; top:3px; width:28px; height:28px; display:grid; place-items:center; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; }
-  .side-chat-launch:hover,.side-chat-launch.active{ color:var(--green); background:var(--hover); }
-  .side-chat-launch svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .side-chat-launch{ position:absolute; left:6px; top:4px; width:28px; height:26px; display:grid; place-items:center; border:1px solid transparent; border-radius:9px; background:color-mix(in srgb,var(--bg) 72%,transparent); color:var(--dim); cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.04); transition:background .12s,color .12s,border-color .12s,transform .12s; }
+  .side-chat-launch:hover,.side-chat-launch.active{ color:var(--green); background:color-mix(in srgb,var(--green) 10%,var(--bg)); border-color:color-mix(in srgb,var(--green) 30%,var(--border)); transform:translateY(-1px); }
+  .side-chat-launch svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  .side-chat-launch:after{ content:""; position:absolute; right:5px; top:5px; width:4px; height:4px; border-radius:50%; background:var(--green); opacity:.75; }
   .ws-tab{ display:flex; align-items:center; gap:5px; padding:5px 11px; border:0; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; border-radius:7px 7px 0 0; border-bottom:2px solid transparent; white-space:nowrap; transition:color .12s; }
   .ws-tab:hover{ color:var(--text); background:var(--hover); }
   .ws-tab.active{ color:var(--text); border-bottom-color:var(--accent); font-weight:550; }
@@ -1196,15 +1243,21 @@
   .ws-tab .ws-dot.error{ background:#dc3f42; }
   .ws-tab .ws-badge{ font-size:9.5px; padding:1px 5px; border-radius:99px; background:color-mix(in srgb,var(--green) 16%,transparent); color:var(--green); }
   .workspace-tabs .cmd-status{ display:flex; align-items:center; gap:3px; flex:0 0 auto; margin-left:8px; }
-  .workspace-tabs .cmd-chip{ max-width:74px; height:24px; display:inline-flex; align-items:center; gap:4px; padding:0 7px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--dim); font:10.5px var(--ui); white-space:nowrap; overflow:hidden; }
+  .workspace-tabs .cmd-chip{ max-width:116px; height:24px; display:inline-flex; align-items:center; gap:4px; padding:0 8px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--dim); font:10.5px var(--ui); white-space:nowrap; overflow:hidden; cursor:pointer; }
   .workspace-tabs .cmd-chip.active{ color:var(--text); background:color-mix(in srgb,var(--accent) 5%,var(--bg)); }
   .workspace-tabs .cmd-chip.changed{ color:var(--green); border-color:color-mix(in srgb,var(--green) 38%,var(--border)); }
   .workspace-tabs .cmd-chip.err{ color:#dc3f42; border-color:color-mix(in srgb,#dc3f42 42%,var(--border)); }
+  .workspace-tabs .cmd-chip.warn{ color:var(--online); border-color:color-mix(in srgb,var(--online) 42%,var(--border)); }
+  .workspace-tabs .cmd-chip.ok,.workspace-tabs .cmd-chip.pushed{ color:var(--green); border-color:color-mix(in srgb,var(--green) 42%,var(--border)); }
+  .workspace-tabs .cmd-chip.clickable:hover{ background:var(--hover); color:var(--text); }
   .workspace-tabs .cmd-chip-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .workspace-tabs .cmd-chip-dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; background:var(--dim); }
   .workspace-tabs .cmd-chip-dot.running{ background:var(--online); animation:pulse 1.5s infinite; }
   .workspace-tabs .cmd-chip-dot.ok{ background:var(--green); }
   .workspace-tabs .cmd-chip-dot.err{ background:#dc3f42; }
+  .workspace-tabs .cmd-chip-dot.warn{ background:var(--online); }
+  .workspace-tabs #cmdProjectStatus .cmd-chip:nth-child(n+2){ display:none; }
+  .workspace-tabs #cmdTaskChip{ max-width:116px; }
   body.ws-terminal-open #chat{ padding-bottom:200px; scroll-padding-bottom:calc(var(--composer-h,106px) + 212px); }
 
   /* ── Terminal drawer ── */
@@ -1227,7 +1280,6 @@
   .terminal-line .fix-btn:hover{ background:#dc3f42; color:#fff; }
   .terminal-empty{ color:var(--dim); font-size:11.5px; text-align:center; padding:30px 10px; }
   .terminal-empty .te-hint{ margin-top:4px; font-size:10.5px; }
-
   /* ── Project dashboard ── */
   .proj-dashboard{ display:none; max-width:var(--content-max); margin:0 auto; padding:6px var(--content-x) 2px; transition:padding .2s; }
   .proj-dashboard-inner{ border:1px solid var(--border); border-radius:13px; background:var(--card); padding:7px 12px; transition:padding .2s; }
@@ -1235,6 +1287,8 @@
   .pd-head:hover .pd-title{ color:var(--accent,var(--online)); }
   .pd-head .pd-title{ font:600 12px var(--ui); color:var(--text); }
   .pd-head .pd-branch{ font:10.5px var(--mono); color:var(--green); padding:1px 7px; border-radius:99px; background:color-mix(in srgb,var(--green) 12%,transparent); }
+  .pd-head .pd-branch.clickable{ cursor:pointer; box-shadow:0 0 0 1px color-mix(in srgb,var(--green) 32%,transparent) inset; }
+  .pd-head .pd-branch.clickable:hover{ background:color-mix(in srgb,var(--green) 20%,transparent); }
   .pd-head .pd-spacer{ flex:1; }
   .pd-head .pd-next{ font:10.5px var(--ui); color:var(--dim); }
   .pd-head .pd-summary{ font:10.5px var(--ui); color:var(--dim); }
@@ -1329,22 +1383,84 @@
   .next-edit-bar button:hover{ opacity:.85; }
 
   /* ── Recipe quick-start cards ── */
-  .recipes-panel{ width:100%; margin:0; padding:9px var(--content-x) 10px; display:none; background:var(--bg); border-bottom:1px solid var(--border); }
-  body.recipes-open .recipes-panel{ display:block; }
-  .recipes-inner{ max-width:960px; margin:0 auto; display:grid; grid-template-columns:118px minmax(0,1fr) 26px; align-items:start; gap:10px; }
-  .recipes-head{ display:flex; flex-direction:column; gap:2px; padding-top:3px; min-width:0; }
-  .recipes-head b{ font:650 12px var(--ui); color:var(--text); white-space:nowrap; }
-  .recipes-head small{ display:block; color:var(--dim); font:10.5px/1.25 var(--ui); }
-  .recipes-head .spacer{ display:none; }
-  .recipes-close{ width:24px; height:24px; flex:0 0 auto; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; font:16px/1 var(--ui); display:grid; place-items:center; }
+  .recipes-panel{ width:100%; min-height:0; flex:1; margin:0; padding:10px var(--content-x) 12px; display:none; background:var(--bg); overflow:hidden; }
+  body.recipes-open .recipes-panel{ display:flex; }
+  body.recipes-open #chat,body.recipes-open .composer-wrap{ display:none; }
+  .recipes-shell{ width:min(1180px,100%); height:calc(100dvh - 178px); max-height:760px; min-height:0; margin:0 auto; display:grid; grid-template-columns:178px minmax(0,1fr) minmax(240px,300px); gap:10px; align-items:stretch; }
+  .recipes-shell.overview-mode{ grid-template-columns:178px minmax(0,1fr); }
+  .recipes-roles,.recipes-main,.recipes-detail{ min-width:0; min-height:0; border:1px solid var(--border); border-radius:8px; background:var(--card); }
+  .recipes-roles{ padding:8px; display:flex; flex-direction:column; gap:4px; overflow:auto; }
+  .recipes-title{ padding:8px 7px 10px; border-bottom:1px solid var(--border); margin-bottom:4px; }
+  .recipes-title b{ display:block; font:700 14px var(--ui); color:var(--text); }
+  .recipes-title small{ display:block; margin-top:2px; color:var(--dim); font:10.5px/1.35 var(--ui); }
+  .recipe-role{ width:100%; height:34px; border:0; border-radius:7px; background:transparent; color:var(--dim); display:flex; align-items:center; gap:8px; padding:0 8px; text-align:left; cursor:pointer; font:11.5px var(--ui); }
+  .recipe-role:hover,.recipe-role.on{ background:var(--hover); color:var(--text); }
+  .recipe-role .role-dot{ width:7px; height:7px; border-radius:50%; background:var(--role-color,var(--green)); flex:0 0 auto; }
+  .recipes-main{ padding:12px; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
+  .recipes-main-head{ display:flex; align-items:flex-start; gap:10px; }
+  .recipes-main-head div{ min-width:0; flex:1; }
+  .recipes-main-head h3{ margin:0; font:700 17px/1.15 var(--ui); color:var(--text); }
+  .recipes-main-head p{ margin:3px 0 0; color:var(--dim); font:11.5px/1.35 var(--ui); max-width:640px; }
+  .recipes-close{ width:26px; height:26px; flex:0 0 auto; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; font:18px/1 var(--ui); display:grid; place-items:center; }
   .recipes-close:hover{ background:var(--hover); color:var(--text); }
-  .recipe-grid{ display:flex; gap:7px; min-width:0; overflow-x:auto; overflow-y:hidden; padding:0 2px 4px 0; scrollbar-width:thin; }
-  .recipe-card{ flex:0 0 168px; height:76px; min-width:0; text-align:left; border:1px solid var(--border); border-radius:8px; background:var(--card); padding:7px 8px; cursor:pointer; color:var(--text); font:11px/1.25 var(--ui); transition:border-color .12s, background .12s, transform .12s; overflow:hidden; }
-  .recipe-card:hover{ border-color:color-mix(in srgb,var(--green) 38%,var(--border)); background:var(--hover); transform:translateY(-1px); }
-  .recipe-card b{ display:block; font:650 11.5px/1.2 var(--ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .recipe-card small{ display:block; color:var(--dim); font:10px/1.25 var(--ui); margin-top:2px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
-  .recipe-card .recipe-chip{ display:inline-flex; margin-top:5px; padding:1px 6px; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); font:9px/1.4 var(--ui); vertical-align:middle; }
-  @media(max-width:720px){ .recipes-inner{ grid-template-columns:1fr 26px; } .recipes-head{ grid-column:1; } .recipe-grid{ grid-column:1 / -1; grid-row:2; } }
+  .recipe-search{ height:31px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); padding:0 10px; font:12px var(--ui); outline:0; }
+  .recipe-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(172px,1fr)); gap:8px; overflow:auto; padding-right:2px; min-height:0; flex:1; align-content:start; }
+  .recipe-card{ min-height:104px; text-align:left; border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:9px; cursor:pointer; color:var(--text); font:11px/1.3 var(--ui); transition:border-color .12s, background .12s, transform .12s; }
+  .recipe-card:hover,.recipe-card.on{ border-color:color-mix(in srgb,var(--role-color,var(--green)) 48%,var(--border)); background:var(--hover); transform:translateY(-1px); }
+  .recipe-card b{ display:block; font:650 12.5px/1.2 var(--ui); overflow-wrap:anywhere; }
+  .recipe-card small{ display:block; color:var(--dim); font:10.5px/1.35 var(--ui); margin-top:5px; }
+  .recipe-card .recipe-chip{ display:inline-flex; margin-top:8px; padding:2px 7px; border-radius:999px; background:color-mix(in srgb,var(--role-color,var(--green)) 13%,transparent); color:var(--role-color,var(--green)); font:9.5px/1.4 var(--ui); }
+  .recipes-detail{ padding:12px; display:flex; flex-direction:column; gap:10px; overflow:auto; }
+  .recipes-detail h3{ margin:0; font:700 15px/1.2 var(--ui); color:var(--text); overflow-wrap:anywhere; }
+  .recipes-detail p{ margin:0; color:var(--dim); font:11.5px/1.4 var(--ui); }
+  .recipe-tools{ display:flex; flex-wrap:wrap; gap:4px; }
+  .recipe-tool{ padding:2px 7px; border-radius:999px; border:1px solid var(--border); color:var(--dim); font:10px var(--ui); }
+  .recipe-options{ display:flex; flex-direction:column; gap:7px; padding-top:2px; }
+  .recipe-option{ display:flex; align-items:center; gap:7px; color:var(--text); font:11.5px var(--ui); }
+  .recipe-option input{ margin:0; }
+  .recipe-custom{ min-height:72px; resize:vertical; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); padding:8px; font:11.5px/1.35 var(--ui); outline:0; }
+  .recipe-form{ display:flex; flex-direction:column; gap:8px; }
+  .recipe-field{ display:flex; flex-direction:column; gap:4px; }
+  .recipe-field label{ color:var(--dim); font:10.5px var(--ui); }
+  .recipe-field input,.recipe-field select{ height:30px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); padding:0 8px; font:11.5px var(--ui); outline:0; }
+  .recipe-check-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .recipe-upload{ min-height:62px; border:1px dashed color-mix(in srgb,var(--role-color,var(--green)) 45%,var(--border)); border-radius:8px; background:color-mix(in srgb,var(--role-color,var(--green)) 5%,var(--bg)); display:flex; flex-direction:column; justify-content:center; gap:3px; padding:9px; cursor:pointer; color:var(--text); font:11.5px var(--ui); }
+  .recipe-upload small{ color:var(--dim); font:10.5px var(--ui); }
+  .recipe-summary{ border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:8px; color:var(--dim); font:10.5px/1.45 var(--ui); }
+  .recipe-summary b{ color:var(--text); }
+  .recipe-warning{ border:1px solid color-mix(in srgb,#d97706 42%,var(--border)); border-radius:8px; background:color-mix(in srgb,#d97706 8%,var(--bg)); padding:8px; color:var(--dim); font:10.5px/1.4 var(--ui); }
+  .recipe-preset-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+  .recipe-preset{ min-height:30px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font:11px var(--ui); cursor:pointer; padding:5px 7px; }
+  .recipe-preset.on{ border-color:color-mix(in srgb,var(--role-color,var(--green)) 48%,var(--border)); background:color-mix(in srgb,var(--role-color,var(--green)) 8%,var(--bg)); }
+  .recipe-model-status{ display:flex; flex-wrap:wrap; gap:4px; color:var(--dim); font:10.5px var(--ui); }
+  .recipe-model-status span{ border:1px solid var(--border); border-radius:999px; padding:2px 7px; background:var(--bg); }
+  .recipe-subpanel{ display:none; border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:8px; }
+  .recipe-subpanel.open{ display:flex; flex-direction:column; gap:8px; }
+  .recipe-actions{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:auto; position:sticky; bottom:0; background:var(--card); padding-top:8px; box-shadow:0 -8px 14px color-mix(in srgb,var(--card) 92%,transparent); }
+  .recipe-actions button{ height:31px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
+  .recipe-actions button.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .recipe-actions button:hover{ opacity:.86; }
+  .recipes-map{ display:flex; flex-direction:column; gap:8px; padding:2px 0 8px; min-height:100%; overflow:hidden; }
+  .recipes-visual{ position:relative; width:100%; min-width:0; height:clamp(330px,48vw,500px); flex:1 1 auto; overflow:hidden; }
+  .recipes-core{ width:clamp(190px,32vw,320px); position:absolute; left:50%; top:0; transform:translateX(-50%); border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:clamp(8px,1.6vw,13px) clamp(10px,2vw,16px); text-align:center; box-shadow:var(--shadow-sm); z-index:2; }
+  .recipes-core small{ display:block; color:var(--green); font:700 10.5px var(--ui); text-transform:uppercase; letter-spacing:.08em; }
+  .recipes-core b{ display:block; margin-top:3px; font:750 clamp(14px,2vw,18px) var(--ui); color:var(--text); }
+  .recipes-core span{ display:block; margin-top:2px; color:var(--dim); font:clamp(9.5px,1.35vw,11px) var(--ui); }
+  .recipes-lines{ position:absolute; left:0; right:0; top:clamp(62px,10vw,86px); height:clamp(170px,27vw,285px); pointer-events:none; overflow:visible; }
+  .recipes-lines path{ fill:none; stroke:var(--line-color,var(--green)); stroke-width:clamp(1.3px,.25vw,2.2px); opacity:.78; }
+  .recipes-branches{ position:absolute; left:0; right:0; bottom:4px; display:grid; grid-template-columns:repeat(auto-fit,minmax(70px,1fr)); gap:clamp(1px,.55vw,6px); align-items:start; }
+  .recipe-map-card{ min-height:clamp(108px,14vw,142px); border:0; border-radius:8px; background:transparent; padding:clamp(4px,.8vw,7px) 2px; cursor:pointer; text-align:center; color:var(--text); transition:background .12s, transform .12s; position:relative; min-width:0; }
+  .recipe-map-card:hover{ background:var(--hover); transform:translateY(-1px); }
+  .recipe-map-icon{ width:clamp(30px,4.7vw,42px); height:clamp(30px,4.7vw,42px); border-radius:10px; display:grid; place-items:center; margin:0 auto clamp(4px,.8vw,7px); background:color-mix(in srgb,var(--role-color,var(--green)) 13%,var(--bg)); border:1px solid color-mix(in srgb,var(--role-color,var(--green)) 32%,var(--border)); color:var(--role-color,var(--green)); box-shadow:var(--shadow-sm); }
+  .recipe-map-icon svg{ width:clamp(16px,2.3vw,21px); height:clamp(16px,2.3vw,21px); stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .recipe-map-card b{ display:block; font:800 clamp(7.6px,1vw,9.6px) var(--ui); color:var(--role-color,var(--green)); text-transform:uppercase; overflow-wrap:anywhere; }
+  .recipe-map-card p{ margin:clamp(3px,.55vw,5px) auto 0; max-width:88px; color:var(--dim); font:clamp(7.5px,.95vw,9.2px)/1.24 var(--ui); overflow-wrap:anywhere; }
+  .recipes-overview-bar{ justify-self:center; width:min(520px,100%); display:flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:6px 10px; color:var(--dim); font:11.5px var(--ui); flex-wrap:wrap; }
+  .recipes-overview-bar b{ color:var(--text); }
+  .recipes-overview-bar button{ height:27px; border:1px solid var(--border); border-radius:7px; background:var(--card); color:var(--text); font:11px var(--ui); padding:0 10px; cursor:pointer; }
+  .recipes-shell.overview-mode .recipe-grid{ display:block; overflow:hidden; padding-right:0; }
+  .recipes-shell.overview-mode .recipes-main{ overflow:hidden; }
+  @media(max-width:900px){ .recipes-shell,.recipes-shell.overview-mode{ grid-template-columns:1fr; height:auto; max-height:none; overflow:auto; } .recipes-roles{ flex-direction:row; overflow:auto; } .recipes-title{ display:none; } .recipe-role{ flex:0 0 auto; width:auto; } .recipes-detail{ order:3; max-height:360px; } }
 
   /* ── MCP Connector Gallery ── */
   .mcp-gallery{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; margin-top:6px; }
@@ -1432,23 +1548,37 @@
   }
 
   /* Compact independent AI conversation opened from the workspace row. */
-  .side-chat-panel{ position:fixed; z-index:86; top:76px; right:12px; bottom:12px; width:min(340px,calc(100vw - 24px)); display:none; flex-direction:column; overflow:hidden;
-    border:1px solid var(--border); border-radius:8px; background:var(--bg); box-shadow:0 12px 38px rgba(0,0,0,.2); }
+  .side-chat-panel{ position:fixed; z-index:86; top:86px; right:16px; width:min(390px,calc(100vw - 24px)); height:min(520px,calc(100vh - 116px)); display:none; flex-direction:column; overflow:hidden;
+    border:1px solid color-mix(in srgb,var(--green) 22%,var(--border)); border-radius:16px; background:var(--glass-bg); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); box-shadow:0 18px 50px rgba(0,0,0,.22); }
   .side-chat-panel.open{ display:flex; }
-  .side-chat-head{ height:38px; flex:0 0 38px; display:flex; align-items:center; gap:7px; padding:0 7px 0 11px; border-bottom:1px solid var(--border); }
-  .side-chat-title{ flex:1; min-width:0; font:600 12px var(--ui); color:var(--text); }
-  .side-chat-head button{ width:26px; height:26px; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:var(--dim); cursor:pointer; font:15px/1 var(--ui); }
+  .side-chat-panel.moving{ backdrop-filter:none; -webkit-backdrop-filter:none; transition:none; will-change:left,top; }
+  .side-chat-head{ min-height:50px; flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:8px 8px 8px 12px; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--card) 68%,transparent); }
+  .side-chat-head{ cursor:grab; user-select:none; }
+  .side-chat-head.dragging{ cursor:grabbing; }
+  .side-chat-mark{ width:30px; height:30px; flex:0 0 30px; border-radius:10px; display:grid; place-items:center; color:var(--green); background:color-mix(in srgb,var(--green) 12%,var(--bg)); border:1px solid color-mix(in srgb,var(--green) 28%,var(--border)); }
+  .side-chat-mark svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  .side-chat-title{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; font:650 12.5px var(--ui); color:var(--text); }
+  .side-chat-model{ color:var(--dim); font:10.5px var(--ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .side-chat-ai{ max-width:132px; height:25px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:10.5px var(--ui); padding:0 6px; outline:0; cursor:pointer; }
+  .side-chat-ai:focus{ border-color:color-mix(in srgb,var(--green) 55%,var(--border)); }
+  .side-chat-head button{ width:27px; height:27px; display:grid; place-items:center; border:0; border-radius:8px; background:transparent; color:var(--dim); cursor:pointer; font:15px/1 var(--ui); }
   .side-chat-head button:hover{ color:var(--text); background:var(--hover); }
-  .side-chat-messages{ flex:1; min-height:0; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+  .side-chat-history{ flex:0 0 auto; display:flex; gap:6px; padding:8px 10px; overflow-x:auto; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--sidebar) 72%,transparent); scrollbar-width:none; }
+  .side-chat-history::-webkit-scrollbar{ display:none; }
+  .side-chat-history button{ flex:0 0 108px; min-width:0; height:42px; border:1px solid var(--border); border-radius:10px; background:var(--bg); color:var(--dim); cursor:pointer; padding:5px 7px; text-align:left; }
+  .side-chat-history button:hover,.side-chat-history button.active{ color:var(--text); border-color:color-mix(in srgb,var(--green) 34%,var(--border)); background:color-mix(in srgb,var(--green) 7%,var(--bg)); }
+  .side-chat-history b{ display:block; font:600 10.5px var(--ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .side-chat-history small{ display:block; margin-top:2px; font:9.5px var(--ui); color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .side-chat-messages{ flex:1; min-height:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
   .side-chat-empty{ margin:auto; max-width:220px; color:var(--dim); text-align:center; font:11.5px/1.45 var(--ui); }
-  .side-chat-msg{ max-width:88%; padding:7px 9px; border-radius:8px; color:var(--text); font:12px/1.4 var(--ui); overflow-wrap:anywhere; }
-  .side-chat-msg.user{ align-self:flex-end; color:#fff; background:var(--accent); }
-  .side-chat-msg.ai{ align-self:flex-start; border:1px solid var(--border); background:var(--card); }
+  .side-chat-msg{ max-width:88%; padding:8px 10px; border-radius:12px; color:var(--text); font:12px/1.4 var(--ui); overflow-wrap:anywhere; box-shadow:0 1px 4px rgba(0,0,0,.04); }
+  .side-chat-msg.user{ align-self:flex-end; color:#fff; background:var(--accent); border-bottom-right-radius:5px; }
+  .side-chat-msg.ai{ align-self:flex-start; border:1px solid var(--border); background:var(--card); border-bottom-left-radius:5px; }
   .side-chat-msg.ai p{ margin:0 0 5px; }
   .side-chat-msg.ai p:last-child{ margin-bottom:0; }
   .side-chat-msg.status{ color:var(--dim); font-style:italic; }
-  .side-chat-compose{ flex:0 0 auto; display:flex; align-items:flex-end; gap:6px; padding:8px; border-top:1px solid var(--border); background:var(--sidebar); }
-  .side-chat-input{ flex:1; min-width:0; max-height:92px; resize:none; border:1px solid var(--border); border-radius:8px; outline:0; background:var(--bg); color:var(--text); padding:8px 9px; font:12px/1.35 var(--ui); }
+  .side-chat-compose{ flex:0 0 auto; display:flex; align-items:flex-end; gap:7px; padding:10px; border-top:1px solid var(--border); background:color-mix(in srgb,var(--sidebar) 82%,transparent); }
+  .side-chat-input{ flex:1; min-width:0; max-height:92px; resize:none; border:1px solid var(--border); border-radius:12px; outline:0; background:var(--bg); color:var(--text); padding:9px 10px; font:12px/1.35 var(--ui); }
   .side-chat-input:focus{ border-color:color-mix(in srgb,var(--green) 55%,var(--border)); }
   .side-chat-send{ width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center; border:0; border-radius:50%; background:var(--accent); color:var(--accent-text); cursor:pointer; }
   .side-chat-send:disabled{ opacity:.4; cursor:default; }
@@ -1523,11 +1653,19 @@
   .cmd-bar .cmd-chip.active{ color:var(--text); background:color-mix(in srgb,var(--accent) 5%,var(--bg)); }
   .cmd-bar .cmd-chip.changed{ color:var(--green); border-color:color-mix(in srgb,var(--green) 38%,var(--border)); }
   .cmd-bar .cmd-chip.err{ color:#dc3f42; border-color:color-mix(in srgb,#dc3f42 42%,var(--border)); }
+  .cmd-bar .cmd-chip.clickable{ cursor:pointer; }
+  .cmd-bar .cmd-chip.clickable:hover{ background:var(--hover); color:var(--text); }
+  .cmd-bar .cmd-chip.pushed{ color:var(--green); border-color:color-mix(in srgb,var(--green) 42%,var(--border)); }
+  .cmd-bar .cmd-chip.unpushed{ color:var(--online); border-color:color-mix(in srgb,var(--online) 42%,var(--border)); }
   .cmd-bar .cmd-chip-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .cmd-bar .cmd-chip-dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; background:var(--dim); }
   .cmd-bar .cmd-chip-dot.running{ background:var(--online); animation:pulse 1.5s infinite; }
   .cmd-bar .cmd-chip-dot.ok{ background:var(--green); }
   .cmd-bar .cmd-chip-dot.err{ background:#dc3f42; }
+  .cmd-bar .cmd-chip-dot.warn{ background:var(--online); }
+  .cmd-bar #cmdProjectStatus{ margin:0 2px; }
+  .cmd-bar #cmdProjectStatus .cmd-chip:nth-child(n+2){ display:none; }
+  .cmd-bar #cmdTaskChip{ max-width:122px; cursor:pointer; }
   .cmd-bar .cmd-hint{ font:10px var(--mono); color:var(--dim); opacity:.35; flex-shrink:0; padding-right:2px; }
   .cmd-bar .cmd-shortcut{ display:inline-flex; align-items:center; gap:2px; font:9.5px var(--mono); color:var(--dim); opacity:.4; background:var(--hover); border:1px solid var(--border); border-radius:4px; padding:1px 5px; flex-shrink:0; margin-left:4px; }
   .cmd-bar .cmd-shortcut kbd{ font:inherit; }
@@ -2208,6 +2346,13 @@
             <button class="theme-choice" data-val="dark"><span class="theme-ico">☾</span><span><b>Dark Mode</b><small>Use the dark theme.</small></span><span class="theme-check">✓</span></button>
             <button class="theme-choice" data-val="system"><span class="theme-ico">▣</span><span><b>System</b><small>Match this device setting.</small></span><span class="theme-check">✓</span></button>
           </div>
+          <div class="setrow" style="display:block;margin-top:8px">
+            <div><b>Chat input style</b><div class="hint">Choose the current rounded input or a simpler line-style typing area.</div></div>
+            <div class="theme-list" id="composerStyleSeg" style="margin-top:6px">
+              <button class="theme-choice" data-val="pill"><span class="theme-ico">●</span><span><b>Current rounded</b><small>Keep the normal Boolean chat box.</small></span><span class="theme-check">✓</span></button>
+              <button class="theme-choice" data-val="simple"><span class="theme-ico">▁</span><span><b>Simple line</b><small>Use a clean line above the typing cursor.</small></span><span class="theme-check">✓</span></button>
+            </div>
+          </div>
           <div class="seg settings-hidden" id="fontSeg" style="margin-top:6px"><button data-val="small">Small</button><button data-val="medium">Medium</button><button data-val="large">Large</button></div>
           <div class="seg settings-hidden" id="densitySeg" style="margin-top:6px"><button data-val="comfortable">Comfortable</button><button data-val="compact">Compact</button></div>
           <div class="setrow" style="margin-top:6px"><div>Show timestamps</div><label class="switch"><input type="checkbox" id="showTimestamps"><span class="slider"></span></label></div>
@@ -2266,6 +2411,7 @@
           <div class="setrow"><div>Auto-save notes<div class="hint">Save while you type.</div></div><label class="switch"><input type="checkbox" id="noteAutoSave"><span class="slider"></span></label></div>
           <div class="setrow"><div>Saved on this PC<div class="hint" id="noteSaveLocation">Local browser storage</div></div><span class="hint">local</span></div>
           <div class="setrow"><div>Auto-name notes<div class="hint">Use the first words you type as the note title. Rename a tab anytime.</div></div><label class="switch"><input type="checkbox" id="noteAutoName"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Save browser summaries<div class="hint">When you press Summarize in the browser, save the AI summary as a note.</div></div><label class="switch"><input type="checkbox" id="browserSummaryAutoSave"><span class="slider"></span></label></div>
           <div class="setrow" style="display:block;margin-top:4px">
             <div>Notepad color<div class="hint">Paper style stays saved with your notes.</div></div>
             <div class="seg" id="noteColorSeg" style="margin-top:6px"><button data-val="yellow">Classic</button><button data-val="white">Paper</button><button data-val="charcoal">Slate</button><button data-val="obsidian">Obsidian</button></div>
@@ -2531,7 +2677,7 @@
 
   <div class="workspace-tabs" id="workspaceTabs">
     <button class="side-chat-launch" id="sideChatToggle" title="Open side AI chat" aria-label="Open side AI chat">
-      <svg viewBox="0 0 24 24"><path d="M5 5h14v10H9l-4 4z"/><path d="M9 9h6M9 12h4"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M5 6.5h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-7l-4.5 3v-3H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z"/><path d="M12 9l.8 1.8 1.9.7-1.9.7L12 14l-.8-1.8-1.9-.7 1.9-.7z"/></svg>
     </button>
     <button class="ws-tab active" data-ws="chat" title="Chat workspace"><span class="ws-dot active"></span>Chat</button>
     <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
@@ -2540,8 +2686,9 @@
     <button class="ws-tab" data-ws="recipes" title="Recipe quick-starts"><span class="ws-dot"></span>Recipes</button>
     <button class="ws-tab" data-ws="automations" title="Automations workspace"><span class="ws-dot"></span>Automations</button>
     <div class="cmd-status" id="cmdProjectStatus" aria-label="Project status">
-      <div class="cmd-chip" id="cmdTaskChip" title="Current task"><span class="cmd-chip-dot" id="cmdTaskDot"></span><span class="cmd-chip-label" id="cmdTaskText">Idle</span></div>
+      <div class="cmd-chip" id="cmdTaskChip" title="Project status: Project idle"><span class="cmd-chip-dot" id="cmdTaskDot"></span><span class="cmd-chip-label" id="cmdTaskText">Project idle</span></div>
       <div class="cmd-chip" id="cmdFilesChip" title="Changed files"><span class="cmd-chip-dot" id="cmdFilesDot"></span><span class="cmd-chip-label" id="cmdFilesText">0</span></div>
+      <div class="cmd-chip" id="cmdGitChip" title="Git sync"><span class="cmd-chip-dot" id="cmdGitDot"></span><span class="cmd-chip-label" id="cmdGitText">Git</span></div>
       <div class="cmd-chip" id="cmdServerChip" title="Dev server"><span class="cmd-chip-dot" id="cmdServerDot"></span><span class="cmd-chip-label" id="cmdServerText">Off</span></div>
       <div class="cmd-chip" id="cmdTestsChip" title="Tests"><span class="cmd-chip-dot" id="cmdTestsDot"></span><span class="cmd-chip-label" id="cmdTestsText">—</span></div>
     </div>
@@ -2694,7 +2841,11 @@
       <div class="queued" id="queued"></div>
       <div class="ctxbar" id="ctxbar"></div>
       <div class="attachments" id="attachments"></div>
-      <div class="promptline"><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
+      <div class="composer-info" id="composerInfo"></div>
+      <div class="promptline"><span class="composer-prompt" id="composerPrompt">C:\Users\S10&gt;</span><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
+      <div class="prompt-suggest" id="promptSuggest"></div>
+      <div class="composer-chat-actions" id="composerChatActions"></div>
+      <div class="recent-chats" id="recentChats"><span class="recent-chats-label">recent chats</span><span class="recent-chats-list" id="recentChatsList"></span></div>
     </div>
     <div class="composer-base">
       <div class="composer-tools">
@@ -2739,6 +2890,7 @@
           <div id="modellist"></div>
         </div>
       </div>
+      <button class="iconbtn" id="composerSettings" title="Composer settings" aria-label="Composer settings">&#9881;</button>
       </div>
     </div>
   </div>
@@ -2771,10 +2923,13 @@
 
 <section class="side-chat-panel" id="sideChatPanel" aria-label="Side AI chat">
   <div class="side-chat-head">
-    <span class="side-chat-title">Side chat</span>
+    <span class="side-chat-mark"><svg viewBox="0 0 24 24"><path d="M5 6.5h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-7l-4.5 3v-3H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z"/><path d="M12 9l.8 1.8 1.9.7-1.9.7L12 14l-.8-1.8-1.9-.7 1.9-.7z"/></svg></span>
+    <span class="side-chat-title">Side chat<span class="side-chat-model" id="sideChatModel">Using main AI</span></span>
+    <select class="side-chat-ai" id="sideChatAi" title="Side chat AI"></select>
     <button id="sideChatNew" title="New side chat" aria-label="New side chat">+</button>
     <button id="sideChatClose" title="Close side chat" aria-label="Close side chat">×</button>
   </div>
+  <div class="side-chat-history" id="sideChatHistory" aria-label="Side chat history"></div>
   <div class="side-chat-messages" id="sideChatMessages"><div class="side-chat-empty">Ask a quick question without leaving your main conversation.</div></div>
   <div class="side-chat-compose">
     <textarea class="side-chat-input" id="sideChatInput" rows="1" placeholder="Ask AI..." aria-label="Side chat message"></textarea>
@@ -3046,6 +3201,11 @@
   const _fetch = window.fetch.bind(window);
   const fetch = (u, o = {}) => _fetch(u, (typeof u === "string" && u.startsWith("/api"))
     ? { ...o, headers: { ...(o.headers || {}), "x-saz": "1" } } : o);
+  function placeProjectStatusChip(){
+    const status=$("cmdProjectStatus"), commit=$("cmdCommit");
+    if(status&&commit&&status.parentElement!==$("cmdBar")) commit.insertAdjacentElement("afterend",status);
+  }
+  placeProjectStatusChip();
   function appModal({title="Confirm", body="", okText="OK", cancelText="", danger=false}={}){
     const modal=$("appModal"), ok=$("appModalOk"), cancel=$("appModalCancel");
     $("appModalTitle").textContent=title;
@@ -3182,10 +3342,15 @@
   };
   const syncComposerHeight=()=>{
     document.documentElement.style.setProperty("--composer-h",`${Math.ceil(composerWrap?.getBoundingClientRect().height||106)}px`);
+    syncDockHeight();
     pinChatAfterLayout();
   };
   const syncComposerPillHeight=()=>document.documentElement.style.setProperty("--composer-pill-h",`${Math.ceil(composerPill?.getBoundingClientRect().height||52)}px`);
   const syncComposerBaseHeight=()=>document.documentElement.style.setProperty("--composer-base-h",`${Math.ceil(composerBase?.getBoundingClientRect().height||56)}px`);
+  const syncDockHeight=()=>{
+    const h=Math.ceil((composerWrap?.getBoundingClientRect().height||106)+16);
+    document.documentElement.style.setProperty("--dock-h",`${h}px`);
+  };
   const syncComposerRail=()=>document.documentElement.style.setProperty("--chat-scrollbar",`${Math.max(0,chat.offsetWidth-chat.clientWidth)}px`);
   const syncChatScroll=()=>{ syncComposerRail(); pinChatAfterLayout(); };
   chat.addEventListener("scroll",()=>{
@@ -3198,6 +3363,7 @@
   syncComposerHeight();
   syncComposerPillHeight();
   syncComposerBaseHeight();
+  syncDockHeight();
   syncComposerRail();
   let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
   let cleanStartupApplied=false;
@@ -3232,6 +3398,7 @@
   scheduleResponsiveClasses();
   setTimeout(scheduleResponsiveClasses,250);
   let currentAbort=null, threadId=null;
+  let pendingBrowserTask=null;
   let automationState={automations:[],recentRuns:[]};
   let editingAutomationId="";
   let editingAutomationSnapshot=null;
@@ -3583,6 +3750,8 @@
   const timeHtml=(at)=>at?'<div class="msg-time">'+timeStr(at)+'</div>':'<div class="msg-time">'+timeStr(Date.now())+'</div>';
   const inlineTimeHtml=(at)=>'<span class="msg-time">'+timeStr(at||Date.now())+'</span>';
   const shortNum=(n)=>n>=1000000?(Math.round(n/100000)/10)+"m":n>=1000?(Math.round(n/100)/10)+"k":String(n);
+  const estimateTextTokens=(text)=>Math.max(1,Math.ceil(String(text||"").length/4));
+  const estimatedTokenHtml=(text)=>'<span class="usage-inline" title="Estimated from message text">~'+shortNum(estimateTextTokens(text))+' tok</span>';
   function usageText(input, output, estimated, calls){
     const total=(input||0)+(output||0);
     const callText=calls>1?(" · "+calls+" calls"):"";
@@ -3607,6 +3776,16 @@
   const uCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
   const uRewindIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8a4 4 0 1 1 1.2 2.85"/><path d="M4 5.2V8h2.8"/></svg>';
   const uSearchIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4"/><path d="M10 10l3.5 3.5"/></svg>';
+  function chatActionButtons(kind){
+    const retryTitle=kind==="ai"?"Retry last response":"Retry this message";
+    return '<span class="actions">'
+      +'<button class="actbtn msg-act" data-act="copy" type="button" title="Copy" aria-label="Copy">⧉</button>'
+      +'<button class="actbtn msg-act" data-act="paste" type="button" title="Paste into composer" aria-label="Paste into composer">↧</button>'
+      +'<button class="actbtn msg-act" data-act="print" type="button" title="Print" aria-label="Print">⌘</button>'
+      +'<button class="actbtn msg-act" data-act="share" type="button" title="Share" aria-label="Share">⇪</button>'
+      +'<button class="actbtn msg-act" data-act="retry" type="button" title="'+retryTitle+'" aria-label="'+retryTitle+'">↻</button>'
+      +'</span>';
+  }
   function addUser(text, images, at){
     const d=document.createElement("div"); d.className="msg-user";
     d._raw=text||"";
@@ -3615,12 +3794,14 @@
       +'<button class="uact usearch" type="button" title="Search this in the browser" aria-label="Search this in the browser">'+uSearchIcon+'</button>'
       +'<button class="uact urewind" type="button" title="Rewind to here and edit" aria-label="Rewind to here and edit">'+uRewindIcon+'</button>'
       +'<span class="msg-when" title="'+esc(at?new Date(at).toLocaleString():"")+'">'+esc(relTime(at||Date.now()))+'</span>'
+      +estimatedTokenHtml(text)
+      +chatActionButtons("user")
       +'</div>';
     d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div>'+foot;
-    col.appendChild(d); updateCopyButton(); scrollDown(true); return d;
+    col.appendChild(d); updateCopyButton(); updateComposerConsoleInfo(); scrollDown(true); return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+'<span class="usage-inline"></span><button class="msg-copy" type="button" title="Copy response" aria-label="Copy response">'+responseCopyIcon+'</button></div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'</div>'; return d; }
   // a screenshot / image the AI produced, shown inline in the transcript
   function makeShot(src, caption){
     const d=document.createElement("div"); d.className="shotcard";
@@ -4377,7 +4558,11 @@
     applyNetMode();
     applyCloudAccount();
     if(!threadId) threadId=state.activeThreadId;
-    renderThreads(); renderModelList(""); renderModelLibrary();
+    renderThreads();
+    renderRecentChats();
+    refreshTopPrompts();
+    if($("sideChatPanel")?.classList.contains("open")){ renderSideChatAiSelect(); updateSideChatModelBadge(); renderSideChatHistory(); }
+    renderModelList(""); renderModelLibrary();
   }
 
   function applyCloudAccount(){
@@ -4398,6 +4583,133 @@
     }
     refreshNoteCloudSettingsStatus();
   }
+
+  function signedInDisplayName(){
+    const cloud=state.cloudBackend||{};
+    const user=cloud.user||{};
+    if(!cloud.signedIn) return "You";
+    const raw=String(user.name||user.displayName||user.email||user.id||"You").trim();
+    if(!raw) return "You";
+    const first=raw.includes("@") ? raw.split("@")[0] : raw.split(/\s+/)[0];
+    return first || "You";
+  }
+  function windowsUserHomePath(){
+    const candidates=[];
+    const active=(state.threads||[]).find(t=>t.id===(threadId||state.activeThreadId));
+    if(active?.projectDir) candidates.push(active.projectDir);
+    if(state.projectsDir) candidates.push(state.projectsDir);
+    for(const item of candidates){
+      const text=String(item||"").trim();
+      const match=text.match(/^([A-Za-z]:\\Users\\[^\\\/]+)/i);
+      if(match) return match[1];
+    }
+    const signed=signedInDisplayName();
+    if(signed&&signed!=="You") return "C:\\Users\\"+signed;
+    return "C:\\Users\\User";
+  }
+  function windowsPromptPath(){
+    const active=(state.threads||[]).find(t=>t.id===(threadId||state.activeThreadId));
+    if(active?.kind==="project"&&active.projectDir) return String(active.projectDir).trim().replace(/[\\/]+$/,"");
+    return windowsUserHomePath();
+  }
+  function sazDataPath(...parts){
+    return [windowsUserHomePath(),".saz",...parts].join("\\");
+  }
+  function currentWorkSavePath(){
+    const active=(state.threads||[]).find(t=>t.id===(threadId||state.activeThreadId));
+    if(document.body.classList.contains("settings-open")) return sazDataPath("config.json");
+    if(document.body.classList.contains("notes-on")) return "localStorage:sazNotes";
+    if(active?.kind==="project"&&active.projectDir) return String(active.projectDir).trim().replace(/[\\/]+$/,"");
+    return sazDataPath("threads.json");
+  }
+  function displayPromptPath(){
+    const path=currentWorkSavePath();
+    if(path.length<=56) return path;
+    const parts=path.split(/[\\/]/).filter(Boolean);
+    if(/^[A-Za-z]:/.test(parts[0]||"")&&parts.length>3){
+      return parts[0]+"\\"+parts[1]+"\\...\\"+parts.slice(-2).join("\\");
+    }
+    return "..."+path.slice(-52);
+  }
+  function updateComposerConsoleInfo(){
+    const info=$("composerInfo");
+    const actions=$("composerChatActions");
+    const prompt=$("composerPrompt");
+    const version=state.displayVersion||("v"+(state.version||"0.9.34"));
+    const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
+      .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
+    if(actions) actions.innerHTML=''
+      +'<button class="composer-meta-action" data-chat-act="copy" type="button" title="Copy chat">⧉</button>'
+      +'<button class="composer-meta-action" data-chat-act="paste" type="button" title="Paste clipboard">Paste</button>'
+      +'<button class="composer-meta-action" data-chat-act="print" type="button" title="Print chat">⌘</button>'
+      +'<button class="composer-meta-action" data-chat-act="share" type="button" title="Share chat">⇪</button>'
+      +'<button class="composer-meta-action" data-chat-act="retry" type="button" title="Retry last response">↻</button>'
+      +'<span class="composer-token-total" title="Estimated total tokens in this chat">~'+shortNum(chatTotal)+' tok total</span>';
+    if(info) info.innerHTML='<span class="composer-brand"><span>Boolean '+esc(version)+'</span><small>(c) saz3 Labs</small></span>';
+    if(prompt) prompt.textContent=displayPromptPath()+">";
+    requestAnimationFrame(()=>{
+      const line=$("composerPrompt")?.closest(".promptline");
+      const p=$("composerPrompt");
+      if(line&&p) line.style.setProperty("--composer-prompt-indent", Math.ceil(p.getBoundingClientRect().width+4)+"px");
+    });
+  }
+  let topPromptCache=[];
+  let activePromptSuggestion="";
+  function renderRecentChats(){
+    const host=$("recentChatsList");
+    const wrap=$("recentChats");
+    if(!host||!wrap) return;
+    host.innerHTML="";
+    const rows=(state.threads||[])
+      .filter(t=>t&&t.id&&String(t.title||"").trim())
+      .sort((a,b)=>Number(b.updatedAt||0)-Number(a.updatedAt||0))
+      .slice(0,10);
+    wrap.style.display=rows.length?"flex":"none";
+    rows.slice(0,5).forEach((t)=>{
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.className="recent-chat-tab"+(t.id===threadId?" active":"");
+      btn.textContent=t.title||"Chat";
+      btn.title="Open recent chat: "+(t.title||"Chat");
+      btn.onclick=()=>openThread(t.id);
+      host.appendChild(btn);
+    });
+  }
+  function renderTopPrompts(prompts=[]){
+    topPromptCache=prompts.slice(0,10).filter(row=>row&&row.prompt).map(row=>String(row.prompt));
+    updatePromptSuggestion();
+  }
+  function updatePromptSuggestion(){
+    const el=$("promptSuggest");
+    if(!el) return;
+    const draft=String(input?.value||"").trimStart();
+    activePromptSuggestion="";
+    el.classList.remove("visible");
+    el.textContent="";
+    if(draft.length<2) return;
+    const lower=draft.toLowerCase();
+    const match=topPromptCache.find(prompt=>prompt.toLowerCase().startsWith(lower)&&prompt.length>draft.length);
+    if(!match) return;
+    activePromptSuggestion=match;
+    el.innerHTML='suggestion: <b>'+esc(match)+'</b>  press Tab';
+    el.classList.add("visible");
+  }
+  function acceptPromptSuggestion(){
+    if(!activePromptSuggestion) return false;
+    input.value=activePromptSuggestion;
+    input.focus();
+    autosize();
+    updateSendButton();
+    updatePromptSuggestion();
+    return true;
+  }
+  async function refreshTopPrompts(){
+    try{
+      const data=await (await fetch("/api/top-prompts")).json();
+      renderTopPrompts(data.prompts||[]);
+    }catch{ renderTopPrompts([]); }
+  }
+  window.refreshTopPrompts=refreshTopPrompts;
 
   function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
@@ -4665,14 +4977,15 @@
     // if this thread has a run in flight, rebuild its live status + partial answer
     if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); renderPendingApprovals(); }
     else if(log.length) renderEndActions();
-    updateCopyButton(); updateSendButton(); renderQueue(); estimateContext();
+    updateCopyButton(); updateSendButton(); updateComposerConsoleInfo(); renderQueue(); estimateContext();
     renderThreads(); scrollDown(true);
+    renderRecentChats();
   }
   async function newChat(){
     rememberCurrentView();
     closeConversationPanels();
     const r=await (await fetch("/api/thread/new",{method:"POST"})).json();
-    threadId=r.id; col.innerHTML=""; clearFileChips(); showEmpty(); updateSendButton(); await refresh();
+    threadId=r.id; col.innerHTML=""; clearFileChips(); showEmpty(); updateSendButton(); updateComposerConsoleInfo(); renderRecentChats(); await refresh();
   }
   async function createProject(){
     const name=await appPrompt("New project","Name your project. Boolean will create a folder and a dedicated project chat.","Project name");
@@ -4836,7 +5149,7 @@
     save.onclick=(e)=>{ e.stopPropagation(); submit(); };
     paste.onclick=async(e)=>{
       e.stopPropagation();
-      try{ input.value=(await readClipboardText()).trim(); input.focus(); }
+      try{ if(!await pasteTextIntoField(input,{trim:true})) tempToast("Press Ctrl+V to paste."); }
       catch{ tempToast("Clipboard access was blocked."); }
     };
     if(del) del.onclick=async(e)=>{
@@ -5191,7 +5504,7 @@
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
   function safeCloudUiPayload(ui=state.ui||{}){
-    const allowed=["theme","notepadTheme","noteAutoSave","noteAutoName","showTimestamps","showTokens","showOnboarding","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
+    const allowed=["theme","composerStyle","notepadTheme","noteAutoSave","noteAutoName","browserSummaryAutoSave","showTimestamps","showTokens","showOnboarding","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
     const data={};
     allowed.forEach(key=>{
       const value=ui[key];
@@ -5516,6 +5829,7 @@
     if(remember && !!on!==document.body.classList.contains("notes-on")) rememberCurrentView();
     document.body.classList.toggle("notes-on",!!on);
     $("notesToggle").classList.toggle("active",!!on);
+    updateComposerConsoleInfo();
     if(on && SHELL) hostPost({type:"window",action:"growContext"});
     if(document.body.classList.contains("browser-on")) requestAnimationFrame(fitBrowserSplit);
     if(on){
@@ -5556,6 +5870,37 @@
       const sel=getSelection(); sel.removeAllRanges(); sel.addRange(range);
       insertHtmlAtCursor(html);
     } else insertHtmlAtCursor(html);
+  }
+  function addBrowserSummaryNote(text, meta={}){
+    if((state.ui||{}).browserSummaryAutoSave===false) return false;
+    text=String(text||"").trim();
+    if(!text) return false;
+    saveNotes();
+    const sourceTitle=String(meta.title||"Browser page").trim();
+    const sourceUrl=String(meta.url||"").trim();
+    const titleBase=(sourceTitle&&sourceTitle!=="Browser page"?sourceTitle:(sourceUrl||"Browser page")).replace(/^https?:\/\//,"");
+    const title=("Summary - "+titleBase).slice(0,40);
+    const rows=[
+      "<div><b>Browser summary</b></div>",
+      sourceTitle ? "<div>Page: "+esc(sourceTitle)+"</div>" : "",
+      sourceUrl ? "<div>Source: "+esc(sourceUrl)+"</div>" : "",
+      "<div>Date: "+esc(new Date().toLocaleString())+"</div>",
+      "<div><br></div>",
+      ...text.split(/\r?\n/).map(line=>"<div>"+(esc(line)||"<br>")+"</div>")
+    ].filter(Boolean);
+    const note={id:crypto.randomUUID(),title,html:rows.join(""),autoNamed:false,createdAt:Date.now(),updatedAt:Date.now()};
+    notes.push(note);
+    noteId=note.id;
+    loadNote();
+    saveNotes();
+    openNotes(true,{remember:true,focus:false});
+    tempToast("Browser summary saved to Notes.");
+    return true;
+  }
+  function maybeAutoSaveBrowserSummary(finishedRun){
+    const meta=finishedRun?.request?.browserTask;
+    if(meta?.task!=="summarize") return;
+    addBrowserSummaryNote(finishedRun.raw||"",meta);
   }
   $("notesToggle").onclick=()=>openNotes(!document.body.classList.contains("notes-on"),{remember:true});
   $("noteClose").onclick=()=>openNotes(false,{remember:true});
@@ -5652,6 +5997,41 @@
     autosize(); input.focus();
     return true;
   }
+  async function pasteTextIntoField(field,{trim=true,select=true}={}){
+    if(!field) return false;
+    if(SHELL){
+      const clip=await readClipboardText();
+      const text=trim?String(clip||"").trim():String(clip||"");
+      field.value=text;
+      field.focus();
+      field.dispatchEvent(new Event("input",{bubbles:true}));
+      field.dispatchEvent(new Event("change",{bubbles:true}));
+      return !!text;
+    }
+    field.focus();
+    if(select && typeof field.select==="function") field.select();
+    const before=field.value;
+    let pasted=false;
+    try{ pasted=document.execCommand("paste"); }catch{}
+    if(pasted && field.value!==before){
+      field.dispatchEvent(new Event("input",{bubbles:true}));
+      field.dispatchEvent(new Event("change",{bubbles:true}));
+      return true;
+    }
+    return false;
+  }
+  async function pasteClipboardToComposer(){
+    if(SHELL){
+      const clip=await readClipboardText();
+      return appendToComposer(clip||"");
+    }
+    input.focus();
+    const before=input.value;
+    let pasted=false;
+    try{ pasted=document.execCommand("paste"); }catch{}
+    if(pasted && input.value!==before){ autosize(); return true; }
+    return false;
+  }
   $("noteSend").onclick=()=>{
     const p=selectedNotePayload();
     appendToComposer(p.text);
@@ -5706,9 +6086,77 @@
   function saveChatMessageToNote(btn){
     saveChatNodeToNote(btn.closest(".msg-user,.msg-ai"));
   }
+  function chatNodeText(msg){
+    if(!msg) return "";
+    return String(msg._raw||msg.innerText||"").trim();
+  }
+  function chatTranscriptText(){
+    const rows=[];
+    col.querySelectorAll(".msg-user,.msg-ai,.model-error").forEach(n=>{
+      if(n.classList.contains("msg-user")) rows.push("You: "+chatNodeText(n));
+      else if(n.classList.contains("msg-ai")) rows.push((n.dataset.aiLabel||shortAiName(n.dataset.provider,n.dataset.model))+": "+chatNodeText(n));
+      else rows.push("Error: "+String(n.innerText||"").trim());
+    });
+    return rows.filter(Boolean).join("\n\n");
+  }
+  function markActionDone(btn,label="✓"){
+    const old=btn.innerHTML;
+    btn.textContent=label;
+    btn.classList.add("copied");
+    setTimeout(()=>{ btn.classList.remove("copied"); btn.innerHTML=old; },900);
+  }
+  function printChatText(text){
+    text=String(text||"").trim();
+    if(!text) return;
+    const w=window.open("","_blank","width=720,height=720");
+    if(!w){ tempToast("Pop-up blocked. Could not print."); return; }
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Print chat</title><pre style="white-space:pre-wrap;font:14px/1.5 system-ui;margin:24px">'+esc(text)+'</pre>');
+    w.document.close();
+    w.focus();
+    setTimeout(()=>w.print(),150);
+  }
+  async function shareChatText(text){
+    text=String(text||"").trim();
+    if(!text) return;
+    if(navigator.share){
+      try{ await navigator.share({text}); return; }catch(e){ if(e?.name==="AbortError") return; }
+    }
+    await writeClipboardText(text);
+    tempToast("Copied for sharing.");
+  }
+  function retryChatNode(msg){
+    if(!msg) return;
+    if(msg.classList.contains("msg-ai")){ retry(); return; }
+    const text=chatNodeText(msg);
+    if(!text) return;
+    if(busy()){ tempToast("Wait for the current answer to finish."); return; }
+    input.value=text;
+    autosize();
+    sendMessage();
+  }
   col.addEventListener("click",(e)=>{
     const noteBtn=e.target.closest(".note-save");
     if(noteBtn){ e.preventDefault(); saveChatMessageToNote(noteBtn); return; }
+    const actionBtn=e.target.closest(".msg-act");
+    if(actionBtn){
+      e.preventDefault();
+      const msg=actionBtn.closest(".msg-user,.msg-ai");
+      const text=chatNodeText(msg);
+      const action=actionBtn.dataset.act||"";
+      if(action==="copy"){
+        if(!text) return;
+        writeClipboardText(text).then(()=>markActionDone(actionBtn)).catch(()=>tempToast("Could not copy this entry."));
+      } else if(action==="paste"){
+        appendToComposer(text);
+      } else if(action==="print"){
+        printChatText(text);
+      } else if(action==="share"){
+        shareChatText(text).then(()=>markActionDone(actionBtn,"✓")).catch(()=>tempToast("Could not share this entry."));
+      } else if(action==="retry"){
+        retryChatNode(msg);
+      }
+      return;
+    }
     // sent-message actions
     const uBtn=e.target.closest(".uact");
     if(uBtn){
@@ -5832,22 +6280,25 @@
 
   // ── send / stop (thread-aware live run) ──
   const SEND_GLYPH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg>';
+  function composerIsSimple(){ return document.body.classList.contains("composer-simple"); }
+  function sendLabel(text,fallback=SEND_GLYPH){ send.innerHTML=composerIsSimple()?text:fallback; }
   function updateSendButton(){
     const edit=$("interruptEdit");
+    const idlePlaceholder=composerIsSimple()?"":"Ask anything...";
     if(viewingRun()){
       const canEdit=run?.request&&["chat","compare"].includes(run.request.mode||"chat")&&run.request.display;
       const hasContent=input.value.trim()||attachments.length;
-      if(hasContent){ send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Queue follow-up (sent when this finishes)"; }
-      else { send.classList.add("stop"); send.innerHTML="■"; send.title="Stop and pause queue"; }
+      if(hasContent){ send.classList.remove("stop"); sendLabel("Enter"); send.title="Queue follow-up (sent when this finishes)"; }
+      else { send.classList.add("stop"); sendLabel("Stop","■"); send.title="Stop and pause queue"; }
       send.disabled=false;
       edit.classList.toggle("visible",!!canEdit);
-      input.placeholder="Queue a follow-up…"; }
-    else if(busy()){ send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Another chat is working…"; send.disabled=true;
+      input.placeholder=composerIsSimple()?"":"Queue a follow-up…"; }
+    else if(busy()){ send.classList.remove("stop"); sendLabel("Enter"); send.title="Another chat is working…"; send.disabled=true;
       edit.classList.remove("visible");
-      input.placeholder="Ask anything..."; }
-    else { send.classList.remove("stop"); send.innerHTML=SEND_GLYPH; send.title="Send"; send.disabled=false;
+      input.placeholder=idlePlaceholder; }
+    else { send.classList.remove("stop"); sendLabel("Enter"); send.title="Send"; send.disabled=false;
       edit.classList.remove("visible");
-      input.placeholder="Ask anything..."; }
+      input.placeholder=idlePlaceholder; }
   }
   function insertAbove(node){
     const s=(run&&run.statusEl&&run.statusEl.isConnected)?run.statusEl:null;
@@ -5899,7 +6350,7 @@
   function makeUsage(u){
     const usage=usageText(u.input||0,u.output||0,u.estimated,u.calls||0);
     const foot=[...col.querySelectorAll(".msg-ai .msg-foot")].pop();
-    if(foot){ const slot=foot.querySelector(".usage-inline"); if(slot){ slot.textContent=usage.text; slot.title=usage.title; return null; } }
+    if(foot){ const slot=foot.querySelector(".live-usage")||foot.querySelector(".usage-inline"); if(slot){ slot.textContent=usage.text; slot.title=usage.title; return null; } }
     const d=document.createElement("div"); d.className="usage-line";
     d.textContent=usage.text;
     d.title=usage.title;
@@ -6033,6 +6484,8 @@
       const appContext=await collectAppContext();
       msg=(msg?msg+"\n\n":"")+contextBlock(appContext);
     }
+    const browserTask=pendingBrowserTask && pendingBrowserTask.prompt===text ? pendingBrowserTask : null;
+    if(browserTask) pendingBrowserTask=null;
     input.value=""; autosize(); attachments=[]; renderChips();
     if(busy()) updateSendButton(); // composer just emptied — show Stop again while running
 
@@ -6040,12 +6493,12 @@
       // a run is in flight — queue it (only possible while viewing the running thread)
       if(!viewingRun()) return;
       const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
-      enqueueFollowup({display,text,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined});
+      enqueueFollowup({display,text,msg,images,mode:comparing?"compare":"chat",targets:comparing?compareState.targets:undefined,browserTask});
       return;
     }
     const comparing=document.body.classList.contains("online-mode")&&compareState.active&&compareState.targets.length===2;
     queuePaused[threadId]=false;
-    startRun(threadId, {mode:comparing?"compare":"chat", display, text, msg, images, targets:comparing?compareState.targets:undefined});
+    startRun(threadId, {mode:comparing?"compare":"chat", display, text, msg, images, targets:comparing?compareState.targets:undefined,browserTask});
   }
 
   function removeEndActions(){ col.querySelector(".end-actions")?.remove(); }
@@ -6126,11 +6579,14 @@
     try{
       if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
         notify("Boolean finished its task", (finishedRun.raw||"").slice(0,120) || "Task complete.");
+      if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
+        maybeAutoSaveBrowserSummary(finishedRun);
       if(threadId===tid && finishedRun && (finishedRun.steps||finishedRun.outcome&&finishedRun.outcome!=="completed")) col.appendChild(makeRunResult(finishedRun));
       if(threadId===tid && finishedRun && finishedRun.raw && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
         maybeShowNextEdit(finishedRun);
     }catch(err){ console.warn("Completion UI failed",err); }
     await refresh().catch(err=>console.warn("Completion refresh failed",err));
+    if(threadId===tid) updateComposerConsoleInfo();
     // auto-send the next queued message for this thread
     const q=queues[tid];
     if(q&&q.length&&!holdQueue&&!queuePaused[tid]){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
@@ -6205,7 +6661,7 @@
     }
     else if(ev.type==="compareUsage"){
       const item=run.slots[ev.slot];
-      const foot=item?.liveAI?.querySelector(".usage-inline");
+      const foot=item?.liveAI?.querySelector(".live-usage")||item?.liveAI?.querySelector(".usage-inline");
       if(foot){ const total=(ev.input||0)+(ev.output||0); foot.textContent="tokens: "+shortNum(total)+" / "+shortNum(ev.output||0)+" out"+(ev.estimated?" est":""); }
     }
     else if(ev.type==="compareError"){
@@ -6267,9 +6723,12 @@
   }
   $("interruptEdit").onclick=()=>stopRun(true);
   send.onclick=()=>{ if(viewingRun()){ (input.value.trim()||attachments.length)?sendMessage():stopRun(); } else sendMessage(); };
-  input.addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMessage(); } });
+  input.addEventListener("keydown",(e)=>{
+    if(e.key==="Tab"&&acceptPromptSuggestion()){ e.preventDefault(); return; }
+    if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); sendMessage(); }
+  });
   function autosize(){ input.style.height="auto"; input.style.height=Math.min(input.scrollHeight,180)+"px"; }
-  input.addEventListener("input",()=>{ autosize(); scheduleEstimate(); if(busy()) updateSendButton(); });
+  input.addEventListener("input",()=>{ autosize(); scheduleEstimate(); updatePromptSuggestion(); if(busy()) updateSendButton(); });
 
   // ── nav / panels / sidebar ──
   $("appBack").onclick=goBackInApp;
@@ -6281,6 +6740,32 @@
     $("browserToggle").classList.toggle("active",document.body.classList.contains("browser-on"));
   }
   $("panelToggle").onclick=()=>{ rememberCurrentView(); document.body.classList.toggle("collapsed"); syncPanelButtons(); };
+  $("composerSettings").onclick=()=>openSettings("appearance");
+  $("composerChatActions").addEventListener("click",async(e)=>{
+    const btn=e.target.closest(".composer-meta-action");
+    if(!btn) return;
+    e.preventDefault();
+    const action=btn.dataset.chatAct||"";
+    const text=chatTranscriptText();
+    try{
+      if(action==="copy"){
+        if(!text) return tempToast("No chat to copy.");
+        await writeClipboardText(text); markActionDone(btn);
+      } else if(action==="paste"){
+        if(!await pasteClipboardToComposer()) tempToast("Press Ctrl+V to paste.");
+      } else if(action==="print"){
+        if(!text) return tempToast("No chat to print.");
+        printChatText(text);
+      } else if(action==="share"){
+        if(!text) return tempToast("No chat to share.");
+        await shareChatText(text); markActionDone(btn);
+      } else if(action==="retry"){
+        retry();
+      }
+    }catch{
+      tempToast("Could not run that chat action.");
+    }
+  });
   function syncSidePanelWidth(){
     document.body.classList.toggle("settings-open", $("settingsPanel").classList.contains("open"));
     document.body.classList.remove("about-open");
@@ -6346,6 +6831,7 @@
     showSettingsHome();
     syncSidePanelWidth();
     syncPanelButtons();
+    updateComposerConsoleInfo();
     discardCurrentHistory();
   }
   function closeConversationPanels(){
@@ -6353,6 +6839,7 @@
     $("settingsPanel").classList.remove("open");
     syncSidePanelWidth();
     syncPanelButtons();
+    updateComposerConsoleInfo();
   }
   function toggleSettingsPanel(){
     $("apikey").value="";
@@ -6362,6 +6849,7 @@
     syncSidePanelWidth(); syncPanelButtons(); applyKeyRow();
     if(opening){ showSettingsHome(); loadUsage(); loadMemory(); estimateContext(); }
     else discardCurrentHistory();
+    updateComposerConsoleInfo();
   }
   $("topSettings").onclick=toggleSettingsPanel;
   document.querySelectorAll(".settings-tab").forEach(tab=>tab.onclick=()=>{
@@ -6654,6 +7142,7 @@ Optional bundled starter model:
     } else { syncSidePanelWidth(); syncPanelButtons(); }
     if(sec) showSettingsSection(sec); else showSettingsHome();
     loadUsage(); loadMemory(); estimateContext();
+    updateComposerConsoleInfo();
   }
   document.querySelectorAll("[data-open-legal]").forEach(b=>b.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); openSettings("legal"); });
   async function selectNet(net){
@@ -6749,29 +7238,29 @@ Optional bundled starter model:
   $("apiConnectionUrl").oninput=()=>{
   };
   $("apiConnectionPaste").onclick=async()=>{
-    try{ $("apiConnectionKey").value=(await readClipboardText()).trim(); $("apiConnectionKey").focus(); }
+    try{ if(!await pasteTextIntoField($("apiConnectionKey"),{trim:true})) tempToast("Press Ctrl+V to paste."); }
     catch{ tempToast("Could not read the clipboard."); }
   };
   $("apiConnectionSave").onclick=saveApiConnection;
   $("apiConnectionRemove").onclick=removeEditingApi;
   $("agentPaste").onclick=async()=>{
-    try{ $("agentKey").value=(await readClipboardText()).trim(); $("agentKey").focus(); }
+    try{ if(!await pasteTextIntoField($("agentKey"),{trim:true})) tempToast("Press Ctrl+V to paste."); }
     catch{ tempToast("Could not read the clipboard."); }
   };
   $("agentSave").onclick=saveAgentConnection;
   $("agentRemove").onclick=removeEditingAgent;
   $("zaiCodingPaste").onclick=async()=>{
-    try{ $("zaiCodingKey").value=(await readClipboardText()).trim(); $("zaiCodingKey").focus(); }
+    try{ if(!await pasteTextIntoField($("zaiCodingKey"),{trim:true})) tempToast("Press Ctrl+V to paste."); }
     catch{ tempToast("Could not read the clipboard."); }
   };
   $("mcpPaste").onclick=async()=>{
-    try{ $("mcpToken").value=(await readClipboardText()).trim(); $("mcpToken").focus(); }
+    try{ if(!await pasteTextIntoField($("mcpToken"),{trim:true})) tempToast("Press Ctrl+V to paste."); }
     catch{ tempToast("Could not read the clipboard."); }
   };
   ["gmail","outlook"].forEach(provider=>{
     $(provider+"EmailAction").onclick=()=>connectEmail(provider);
     $(provider+"ClientPaste").onclick=async()=>{
-      try{ $(provider+"ClientId").value=(await readClipboardText()).trim(); $(provider+"ClientId").focus(); }
+      try{ if(!await pasteTextIntoField($(provider+"ClientId"),{trim:true})) tempToast("Press Ctrl+V to paste."); }
       catch{ tempToast("Could not read the clipboard."); }
     };
   });
@@ -6854,6 +7343,9 @@ Optional bundled starter model:
     else root.removeAttribute("data-theme");
     document.body.classList.remove("fs-small","fs-large");
     document.body.classList.add("compact");
+    document.body.classList.toggle("composer-simple", ui.composerStyle!=="pill");
+    updateComposerConsoleInfo();
+    if(input&&send) updateSendButton();
     if(!cleanStartupApplied){
       document.body.classList.toggle("collapsed", ui.cleanStartup !== false);
       cleanStartupApplied=true;
@@ -6863,6 +7355,7 @@ Optional bundled starter model:
     const noteTheme=ui.notepadTheme==="warm"?"obsidian":ui.notepadTheme;
     document.body.dataset.notePaper=["white","charcoal","obsidian"].includes(noteTheme)?noteTheme:"yellow";
     segState("themeSeg", ui.theme||"system");
+    segState("composerStyleSeg", ui.composerStyle==="pill"?"pill":"simple");
     segState("fontSeg", "medium");
     segState("densitySeg", "compact");
     segState("noteColorSeg", document.body.dataset.notePaper);
@@ -6881,6 +7374,7 @@ Optional bundled starter model:
     if(routeGrid){ const mr=ui.modelRouting||{}; routeGrid.querySelectorAll(".agent-mode").forEach(btn=>btn.classList.toggle("on",false)); const sel=routeGrid.querySelector('[data-route="'+(mr.selected||"chat")+'"]'); if(sel) sel.classList.add("on"); }
     $("noteAutoSave").checked=ui.noteAutoSave!==false;
     $("noteAutoName").checked=ui.noteAutoName!==false;
+    if($("browserSummaryAutoSave")) $("browserSummaryAutoSave").checked=ui.browserSummaryAutoSave!==false;
     refreshNoteCloudSettingsStatus();
     $("autoSave").checked=ui.autoSave!==false;
     $("keepLocalWarm").checked=ui.keepLocalWarm!==false;
@@ -6892,6 +7386,7 @@ Optional bundled starter model:
     if($("safeClickConfirm")) $("safeClickConfirm").checked=ui.safeClickConfirm===true;
     // tell the native shell to match the browser chrome to the current theme
     if(SHELL){ const dark=(ui.theme==="dark")||(ui.theme!=="light" && matchMedia("(prefers-color-scheme:dark)").matches); hostPost({type:"browser",cmd:"theme",dark}); }
+    syncDockHeight();
     $("searchEngine").value=ui.searchEngine||"google";
     const agent=ui.codingAgent||{};
     const mode=agent.mode||"quick";
@@ -6953,6 +7448,7 @@ Optional bundled starter model:
     h.onkeydown=(event)=>{ if(event.key==="Enter"||event.key===" "){ event.preventDefault(); open(); } };
   });
   ["themeSeg","fontSeg","densitySeg"].forEach(id=>$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{ const key=id==="themeSeg"?"theme":id==="fontSeg"?"fontSize":"density"; setUi({[key]:b.dataset.val}); }));
+  $("composerStyleSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>setUi({composerStyle:b.dataset.val==="simple"?"simple":"pill"}));
   $("noteColorSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>setUi({notepadTheme:b.dataset.val}));
   async function saveImageSettings(){
     if(!$("imageProvider").value) return;
@@ -6992,7 +7488,7 @@ Optional bundled starter model:
       const r=await (await fetch("/api/estimate",{method:"POST",body:JSON.stringify({threadId,draft:input.value})})).json();
       lastEst=r;
       const bar=$("ctxbar");
-      let h="~"+kfmt(r.sent)+" tokens will be sent";
+      let h="estimate: ~"+kfmt(r.sent)+" tokens used if sent";
       const pct=r.budget?Math.round(r.sent/r.budget*100):0;
       if(pct>=85) h+=' · <span class="warn">'+pct+"% of window</span>";
       if(r.saved>0) h+=' · <span class="save">saves ~'+kfmt(r.saved)+"</span>";
@@ -7011,6 +7507,7 @@ Optional bundled starter model:
   };
   $("noteAutoSave").onchange=e=>setUi({noteAutoSave:e.target.checked});
   $("noteAutoName").onchange=e=>setUi({noteAutoName:e.target.checked});
+  if($("browserSummaryAutoSave")) $("browserSummaryAutoSave").onchange=e=>setUi({browserSummaryAutoSave:e.target.checked});
   $("autoSave").onchange=e=>setUi({autoSave:e.target.checked});
   $("keepLocalWarm").onchange=e=>setUi({keepLocalWarm:e.target.checked});
   $("referenceChatMemory").onchange=e=>setUi({referenceChatMemory:e.target.checked});
@@ -7046,7 +7543,7 @@ Optional bundled starter model:
     tempToast("To install a skill, use the chat command: manage_skill install from a local folder path.",5000);
   };
 
-  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,showTimestamps:false,showTokens:true,showOnboarding:false,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",cleanStartup:true,codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
+  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",composerStyle:"simple",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,browserSummaryAutoSave:true,showTimestamps:false,showTokens:true,showOnboarding:false,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",cleanStartup:true,codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
 
   // ── Keyboard Shortcuts ──
   const DEFAULT_SHORTCUTS = [
@@ -7824,13 +8321,31 @@ Optional bundled starter model:
       const dot = tab.querySelector(".ws-dot");
       if (dot) dot.classList.toggle("active", active);
     });
+    updateComposerConsoleInfo();
+  }
+  function mostRecentMainThreadId(){
+    const threads=(state.threads||[])
+      .filter(t=>String(t.title||"").trim().toLowerCase()!=="side chat")
+      .sort((a,b)=>Number(b.updatedAt||0)-Number(a.updatedAt||0));
+    return threads[0]?.id||threadId||state.activeThreadId||null;
+  }
+  async function openMostRecentChat(){
+    closeWorkspaceTab(activeWsTab);
+    closeConversationPanels();
+    document.body.classList.remove("recipes-open");
+    markWorkspaceTab("chat");
+    const latest=mostRecentMainThreadId();
+    if(latest&&latest!==threadId) await openThread(latest);
+    else if(!threadId&&latest) await openThread(latest);
+    else scrollDown(true);
   }
   function activateWorkspaceTab(ws) {
     if (!ws) return;
     if (ws !== activeWsTab) previousWsTab = activeWsTab || "chat";
     markWorkspaceTab(ws);
     document.body.classList.toggle("recipes-open", ws === "recipes");
-    if (ws === "browser") { if (SHELL) { document.body.classList.add("browser-on"); syncPanelButtons(); hostPost({type:"browser",cmd:"show"}); } else openBrowser(true); }
+    if (ws === "chat") { openMostRecentChat(); }
+    else if (ws === "browser") { if (SHELL) { document.body.classList.add("browser-on"); syncPanelButtons(); hostPost({type:"browser",cmd:"show"}); } else openBrowser(true); }
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { toggleTerminal(true); tempToast("Terminal opened for code work."); }
     else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
@@ -7840,6 +8355,7 @@ Optional bundled starter model:
   function setWorkspaceTab(ws) {
     if (!ws) return;
     const currentWs = document.querySelector(".ws-tab.active")?.dataset.ws || activeWsTab;
+    if (ws === "chat" && currentWs !== "chat") closeWorkspaceTab(currentWs);
     if (ws === currentWs && ws !== "chat") {
       closeWorkspaceTab(ws);
       previousWsTab = "chat";
@@ -7857,16 +8373,378 @@ Optional bundled starter model:
     e.stopImmediatePropagation();
     setWorkspaceTab(tab.dataset.ws);
   },true);
-  if ($("recipesClose")) $("recipesClose").onclick = () => setWorkspaceTab("chat");
-  document.querySelectorAll(".recipe-card").forEach(card => {
-    card.onclick = () => {
-      const text = card.dataset.recipe || "Start this recipe.";
-      $("input").value = text;
-      setWorkspaceTab("chat");
-      $("input").focus();
-      tempToast("Recipe loaded into chat.");
+  const recipeRoles=[
+    {id:"overview",label:"Overview",color:"#111827",desc:"Boolean as one AI workspace for every role."},
+    {id:"start",label:"Start",color:"#16a34a",desc:"Choose a model, preset, tools, and task before launching a session."},
+    {id:"build",label:"Build",color:"#16815f",desc:"Create, debug, refactor, test, and explain project work."},
+    {id:"design",label:"Design",color:"#2563eb",desc:"Improve UI, layout, screenshots, copy, and polish."},
+    {id:"research",label:"Research",color:"#8b5cf6",desc:"Use browser pages, sources, notes, and comparisons."},
+    {id:"marketing",label:"Marketing",color:"#ea580c",desc:"Write campaigns, positioning, launch copy, and growth ideas."},
+    {id:"social",label:"Social",color:"#c026d3",desc:"Create posts, threads, hooks, calendars, and engagement ideas."},
+    {id:"finance",label:"Finance",color:"#0f766e",desc:"Analyze numbers, models, forecasts, reports, and tradeoffs."},
+    {id:"business",label:"Business",color:"#d97706",desc:"Draft copy, emails, support, strategy, and customer work."},
+    {id:"legal",label:"Legal",color:"#7c2d12",desc:"Understand policies, contracts, compliance, and risk notes."},
+    {id:"automation",label:"Automation",color:"#0891b2",desc:"Schedule reminders, monitors, recurring tasks, and reports."},
+    {id:"deploy",label:"Deploy",color:"#dc3f42",desc:"Prepare release, verify live sites, and plan rollback safely."},
+    {id:"memory",label:"Memory",color:"#64748b",desc:"Summarize what changed, what is left, and what to remember."}
+  ];
+  const recipeItems=[
+    {id:"start-building",role:"start",title:"Start Building",tag:"Session",desc:"Choose an AI, configure workspace tools, describe the task, and launch.",tools:["Chat","Files","Browser","Notes"],guide:"startBuild",prompt:"Start a configured Boolean building session."},
+    {id:"fix-bug",role:"build",title:"Fix a bug",tag:"Debug",desc:"Reproduce the issue, find root cause, patch it, and verify the scenario.",tools:["Files","Tests","Terminal"],prompt:"Fix this bug in the current project. Reproduce it first if possible, identify the root cause, make the smallest safe change, and verify the original scenario after the fix."},
+    {id:"add-feature",role:"build",title:"Add a feature",tag:"Feature",desc:"Inspect the app, implement the requested behavior, and verify it.",tools:["Files","Tests"],prompt:"Add this feature to the current project. Inspect the existing patterns first, implement it with focused changes, and verify the behavior before reporting back."},
+    {id:"review-code",role:"build",title:"Review code",tag:"Quality",desc:"Find bugs, regressions, security issues, and missing tests.",tools:["Git","Files"],prompt:"Review the current code changes. Focus on bugs, regressions, security issues, risky commands, and missing tests. Give file and line references before summaries."},
+    {id:"commit-message",role:"build",title:"Commit message",tag:"Git",desc:"Summarize the current diff into a clean commit message.",tools:["Git"],prompt:"Read the current git diff and generate a clear concise commit message. Do not commit."},
+    {id:"ui-polish",role:"design",title:"Polish screen",tag:"UI",desc:"Improve spacing, states, responsive behavior, and visual hierarchy.",tools:["Files","Preview"],prompt:"Polish the current UI screen. Check layout, spacing, states, mobile sizing, text overflow, and visual hierarchy. Make focused improvements and verify the screen."},
+    {id:"screenshot-review",role:"design",title:"Review screenshot",tag:"Design",desc:"Use an attached screenshot to identify concrete UI fixes.",tools:["Image","Files"],prompt:"Review the attached screenshot for UI problems. Point out concrete fixes, then implement the focused layout and styling changes that solve them."},
+    {id:"browser-summary",role:"research",title:"Summarize page",tag:"Browser",desc:"Summarize the visible browser page and save useful findings.",tools:["Browser","Notes"],prompt:"Summarize the current browser page. Include key claims, useful links, and action items. Save the result to Notes."},
+    {id:"extract-docs",role:"research",title:"Extract docs",tag:"Docs",desc:"Turn a documentation page into usable implementation notes.",tools:["Browser","Notes"],prompt:"Extract the documentation and code samples from the current browser page. Summarize the important APIs, constraints, examples, and next implementation steps. Save useful findings to Notes."},
+    {id:"compare-sources",role:"research",title:"Compare sources",tag:"Research",desc:"Compare sources and rank the most trustworthy answer.",tools:["Browser","Notes"],prompt:"Research this topic across authoritative sources. Compare the sources, cite direct URLs, explain conflicts, and save the useful findings to Notes."},
+    {id:"email-draft",role:"business",title:"Draft email",tag:"Writing",desc:"Write a professional email or response with a clear ask.",tools:["Chat"],prompt:"Draft a professional email. Ask any missing context first if needed, then provide a concise subject and body."},
+    {id:"landing-copy",role:"business",title:"Landing copy",tag:"Copy",desc:"Create product copy from the actual app behavior.",tools:["Files","Browser"],prompt:"Write landing-page copy for this product based on the real project behavior. Avoid claims not supported by the app. Keep it clear, specific, and practical."},
+    {id:"campaign-plan",role:"marketing",title:"Campaign plan",tag:"Launch",desc:"Turn a product or feature into a campaign plan.",tools:["Files","Browser","Notes"],prompt:"Create a marketing campaign plan for this product or feature. Include audience, positioning, channels, copy angles, launch checklist, and success metrics."},
+    {id:"seo-brief",role:"marketing",title:"SEO brief",tag:"SEO",desc:"Create a search-focused content brief with keywords and outline.",tools:["Browser","Notes"],prompt:"Create an SEO content brief. Include target audience, search intent, keyword clusters, outline, internal links, and source-backed claims."},
+    {id:"social-thread",role:"social",title:"Social thread",tag:"Content",desc:"Create a polished post/thread from notes, page, or feature.",tools:["Notes","Browser"],prompt:"Create a social post thread from the current context. Include a strong hook, concise body, practical takeaways, and a final call to action."},
+    {id:"content-calendar",role:"social",title:"Content calendar",tag:"Plan",desc:"Plan repeatable posts for a week or month.",tools:["Notes"],prompt:"Create a social content calendar. Include topics, hooks, formats, posting cadence, and reusable prompts for each post."},
+    {id:"finance-model",role:"finance",title:"Finance model",tag:"Model",desc:"Build assumptions, scenarios, and a clear analysis.",tools:["Files","Notes"],prompt:"Build a simple finance model from the available numbers or assumptions. Show inputs, formulas, scenarios, risks, and a plain-English conclusion."},
+    {id:"report-summary",role:"finance",title:"Report summary",tag:"Report",desc:"Summarize numbers into decisions and next actions.",tools:["Files","Notes"],prompt:"Summarize this financial or metrics report. Highlight trends, anomalies, risks, opportunities, and recommended next actions."},
+    {id:"ops-checklist",role:"business",title:"Small business ops",tag:"Ops",desc:"Create a lean checklist for operations and delegation.",tools:["Notes"],prompt:"Create a small-business operations checklist for this goal. Include steps, owner roles, tools, automation opportunities, and risks to watch."},
+    {id:"customer-reply",role:"business",title:"Customer reply",tag:"Support",desc:"Draft a helpful, clear customer response.",tools:["Notes"],prompt:"Draft a customer support reply. Be clear, empathetic, concise, and specific. Include next steps and any needed clarification questions."},
+    {id:"legal-review",role:"legal",title:"Review legal document",tag:"Document",desc:"Upload or describe a legal document, choose jurisdiction, and pick review actions.",tools:["Files","Notes"],guide:"legalDoc",prompt:"Review this legal document in plain language. Do not present this as legal advice."},
+    {id:"contract-review",role:"legal",title:"Review contract",tag:"Contract",desc:"Summarize terms, risks, dates, obligations, and response options.",tools:["Files","Notes"],guide:"legalDoc",defaultDocType:"contract",prompt:"Review this contract in plain language. Do not present this as legal advice."},
+    {id:"lease-review",role:"legal",title:"Review lease",tag:"Lease",desc:"Find rent terms, dates, obligations, fees, renewal, and risk clauses.",tools:["Files","Notes"],guide:"legalDoc",defaultDocType:"lease",prompt:"Review this lease in plain language. Do not present this as legal advice."},
+    {id:"nda-review",role:"legal",title:"Review NDA",tag:"NDA",desc:"Check confidentiality terms, exclusions, duration, parties, and risk.",tools:["Files","Notes"],guide:"legalDoc",defaultDocType:"nda",prompt:"Review this NDA in plain language. Do not present this as legal advice."},
+    {id:"privacy-policy-review",role:"legal",title:"Privacy policy",tag:"Privacy",desc:"Summarize data practices, user rights, obligations, and compliance questions.",tools:["Files","Notes"],guide:"legalDoc",defaultDocType:"privacy policy",prompt:"Review this privacy policy in plain language. Do not present this as legal advice."},
+    {id:"policy-review",role:"legal",title:"Policy review",tag:"Risk",desc:"Summarize policy or contract risks in plain language.",tools:["Files","Notes"],guide:"legalDoc",defaultDocType:"policy",prompt:"Review this policy, legal text, or contract excerpt in plain language. Do not present this as legal advice."},
+    {id:"compliance-checklist",role:"legal",title:"Compliance checklist",tag:"Checklist",desc:"Create a practical checklist from requirements.",tools:["Files","Notes"],guide:"legalDoc",defaultDocType:"compliance document",prompt:"Create a compliance checklist from the current requirements. Do not present this as legal advice."},
+    {id:"schedule-task",role:"automation",title:"Schedule task",tag:"Task",desc:"Create a recurring reminder, monitor, or scheduled AI task.",tools:["Automations","Notes"],prompt:"Set up a scheduled task. Ask for the cadence if missing, then create a clear reminder or recurring AI task with the right context."},
+    {id:"monitor-page",role:"automation",title:"Monitor page",tag:"Browser",desc:"Watch a page for changes and report important updates.",tools:["Browser","Automations"],prompt:"Monitor the current browser page for important changes. Tell me what will be checked, how often, and how I will be alerted before creating the automation."},
+    {id:"deploy-plan",role:"deploy",title:"Deploy plan",tag:"Release",desc:"Prepare deploy steps without running them.",tools:["Git","Terminal"],prompt:"Prepare a deployment plan for this project. Show exact commands, required environment settings, verification steps, and rollback plan. Do not deploy until I explicitly confirm."},
+    {id:"verify-deploy",role:"deploy",title:"Verify live site",tag:"Check",desc:"Check the current deployment status and health.",tools:["Browser","Terminal"],prompt:"Verify the latest deployment for this project. Check the live URL, HTTP status, and any configured health endpoint. Do not deploy."},
+    {id:"rollback-plan",role:"deploy",title:"Rollback plan",tag:"Safety",desc:"Prepare rollback instructions without running them.",tools:["Git","Browser"],prompt:"Prepare a rollback plan for the current deployment. Show the current version, previous safe version, exact rollback command or dashboard path, and verification steps. Do not run rollback until I confirm."},
+    {id:"what-changed",role:"memory",title:"What changed",tag:"History",desc:"Summarize recent local changes and current state.",tools:["Git","Files"],prompt:"Tell me what changed in this project recently. Separate committed, uncommitted, untracked, built, pushed, and deployed work. Do not build, commit, push, or deploy."},
+    {id:"roadmap-left",role:"memory",title:"What is left",tag:"Roadmap",desc:"Compare current project state against the roadmap.",tools:["Files","Notes"],prompt:"Review the current project roadmap and local state. Tell me what is done, what is partial, and what is left. Do not change files."}
+  ];
+  let activeRecipeRole="overview", activeRecipeId="fix-bug";
+  function currentRole(){ return recipeRoles.find(r=>r.id===activeRecipeRole)||recipeRoles[0]; }
+  function currentRecipe(){ return recipeItems.find(r=>r.id===activeRecipeId)||recipeItems[0]; }
+  const legalDocTypes=["contract","lease","NDA","privacy policy","terms of service","employment agreement","purchase agreement","service agreement","policy","compliance document","other"];
+  const legalActions=[
+    ["summarize","Summarize"],
+    ["compare","Compare"],
+    ["clauses","Flag clauses"],
+    ["dates","Important dates"],
+    ["response","Draft response"]
+  ];
+  const startPresets=["Windows App","Website","Mobile App","AI Agent","Dashboard","API","Legal Document"];
+  const startCapabilities=[
+    ["plan","Plan architecture"],
+    ["code","Write or edit code"],
+    ["debug","Debug errors"],
+    ["summarize","Summarize"],
+    ["compare","Compare"],
+    ["draft","Draft response"]
+  ];
+  const startTools=[
+    ["files","Files"],
+    ["browser","Browser"],
+    ["notes","Notes"],
+    ["git","Git"],
+    ["terminal","Terminal"],
+    ["automations","Automations"]
+  ];
+  function selectedLegalActions(){
+    return [...document.querySelectorAll(".recipe-legal-action:checked")].map(input=>input.value);
+  }
+  function legalRecipePrompt(recipe){
+    const docType=$("recipeDocType")?.value||recipe.defaultDocType||"legal document";
+    const jurisdiction=$("recipeJurisdiction")?.value.trim()||"not specified";
+    const detail=$("recipeCustom")?.value.trim();
+    const actions=selectedLegalActions();
+    const actionText=actions.length?actions.map(id=>legalActions.find(a=>a[0]===id)?.[1]||id).join(", "):"summarize";
+    return [
+      recipe.prompt,
+      "Document type: "+docType,
+      "Jurisdiction: "+jurisdiction,
+      "Requested actions: "+actionText,
+      detail?("User details:\n"+detail):"",
+      "Important: This is for organization, plain-language review, and issue spotting only. Do not present the result as legal advice. Surface questions the user should take to a qualified professional.",
+      $("recipeSaveNotes")?.checked?"Save useful findings to Notes.":""
+    ].filter(Boolean).join("\n\n");
+  }
+  function selectedStartValues(selector){
+    return [...document.querySelectorAll(selector+":checked")].map(input=>input.value);
+  }
+  function startBuildPrompt(){
+    const model=$("startModel")?.value||"current model";
+    const preset=document.querySelector(".recipe-preset.on")?.dataset.preset||"Manual";
+    const task=$("startTask")?.value.trim()||"";
+    const caps=selectedStartValues(".start-capability");
+    const tools=selectedStartValues(".start-tool");
+    const parts=[
+      "Start a Boolean building session.",
+      "AI model: "+model,
+      "Quick start preset: "+preset,
+      caps.length?"Capabilities: "+caps.join(", "):"",
+      tools.length?"Workspace tools: "+tools.join(", "):"",
+      task?("Task:\n"+task):""
+    ];
+    if(preset==="Legal Document"){
+      const docType=$("startDocType")?.value||"contract";
+      const jurisdiction=$("startJurisdiction")?.value.trim()||"not specified";
+      const actions=selectedStartValues(".start-legal-action");
+      parts.push("Legal document configuration:");
+      parts.push("Document type: "+docType);
+      parts.push("Jurisdiction: "+jurisdiction);
+      parts.push("Document actions: "+(actions.length?actions.join(", "):"summarize"));
+      parts.push("Important: Organize, summarize, compare, and help draft documents only. Do not provide legal advice. Important documents should be reviewed by a qualified attorney.");
+      if($("startLegalDetails")?.value.trim()) parts.push("Legal details:\n"+$("startLegalDetails").value.trim());
+    }
+    parts.push("Do not build, deploy, commit, push, install, delete, or run risky actions unless I explicitly confirm.");
+    return parts.filter(Boolean).join("\n\n");
+  }
+  function updateStartSummary(){
+    const el=$("startSessionSummary"); if(!el) return;
+    const preset=document.querySelector(".recipe-preset.on")?.dataset.preset||"Manual";
+    const task=$("startTask")?.value.trim();
+    const caps=selectedStartValues(".start-capability");
+    const tools=selectedStartValues(".start-tool");
+    const fileNames=attachments.filter(a=>a.kind==="file").map(a=>a.name).slice(-3);
+    const legal=preset==="Legal Document";
+    el.innerHTML="<b>Session summary</b><br>"
+      +"Preset: "+esc(preset)+"<br>"
+      +"Model: "+esc($("startModel")?.value||"current")+"<br>"
+      +"Capabilities: "+esc(caps.join(", ")||"none selected")+"<br>"
+      +"Tools: "+esc(tools.join(", ")||"none selected")+"<br>"
+      +(legal?"Legal: "+esc(($("startDocType")?.value||"contract")+" / "+($("startJurisdiction")?.value.trim()||"missing jurisdiction"))+"<br>":"")
+      +"Documents: "+esc(fileNames.length?fileNames.join(", "):"none attached")+"<br>"
+      +"Task: "+esc(task?"ready":"missing");
+  }
+  function setStartPreset(preset){
+    document.querySelectorAll(".recipe-preset").forEach(btn=>btn.classList.toggle("on",btn.dataset.preset===preset));
+    $("startLegalPanel")?.classList.toggle("open",preset==="Legal Document");
+    if(preset==="Legal Document"){
+      document.querySelectorAll(".start-capability").forEach(input=>{ if(["summarize","compare","draft"].includes(input.value)) input.checked=true; });
+      document.querySelectorAll(".start-tool").forEach(input=>{ if(["files","notes"].includes(input.value)) input.checked=true; });
+    }
+    updateStartSummary();
+  }
+  function validateStartBuild(){
+    const preset=document.querySelector(".recipe-preset.on")?.dataset.preset||"";
+    const task=$("startTask")?.value.trim()||"";
+    if(!preset){ tempToast("Choose a quick start preset first."); return false; }
+    if(!selectedStartValues(".start-capability").length){ tempToast("Choose at least one capability."); return false; }
+    if(!selectedStartValues(".start-tool").length){ tempToast("Choose at least one workspace tool."); return false; }
+    if(preset==="Legal Document"){
+      if(!$("startJurisdiction")?.value.trim()){ tempToast("Add the jurisdiction first."); $("startJurisdiction")?.focus(); return false; }
+      if(!selectedStartValues(".start-legal-action").length){ tempToast("Pick at least one legal document option."); return false; }
+      if(!attachments.some(a=>a.kind==="file") && !$("startLegalDetails")?.value.trim() && !task){ tempToast("Add or drop a document, paste details, or describe the legal task."); return false; }
+    } else if(!task){
+      tempToast("Describe what you want to build first.");
+      $("startTask")?.focus();
+      return false;
+    }
+    return true;
+  }
+  function sendStartBuild(startNow=false){
+    if(!validateStartBuild()) return;
+    $("input").value=startBuildPrompt();
+    setWorkspaceTab("chat");
+    $("input").focus();
+    autosize();
+    if(startNow) $("send")&&$("send").click();
+    else tempToast("Start Building loaded into chat.");
+  }
+  function recipePrompt(recipe){
+    if(recipe.guide==="startBuild") return startBuildPrompt();
+    if(recipe.guide==="legalDoc") return legalRecipePrompt(recipe);
+    const detail=$("recipeCustom")?.value.trim();
+    const flags=[];
+    if($("recipeUseBrowser")?.checked) flags.push("Use the current browser page when relevant.");
+    if($("recipeSaveNotes")?.checked) flags.push("Save useful findings to Notes.");
+    if($("recipeUseGit")?.checked) flags.push("Use current git status/diff when relevant.");
+    if($("recipeSafeMode")?.checked) flags.push("Do not build, deploy, commit, push, install, delete, or run risky changes unless I explicitly confirm.");
+    return [recipe.prompt, detail?("User details:\n"+detail):"", flags.length?("Options:\n- "+flags.join("\n- ")):""].filter(Boolean).join("\n\n");
+  }
+  function sendRecipe(startNow=false){
+    const recipe=currentRecipe();
+    if(recipe.guide==="startBuild"){ sendStartBuild(startNow); return; }
+    if(recipe.guide==="legalDoc"&&!validateLegalRecipe()) return;
+    $("input").value=recipePrompt(recipe);
+    setWorkspaceTab("chat");
+    $("input").focus();
+    autosize();
+    if(startNow) $("send")&&$("send").click();
+    else tempToast("Recipe loaded into chat.");
+  }
+  function validateLegalRecipe(){
+    const docType=$("recipeDocType")?.value||"";
+    const jurisdiction=$("recipeJurisdiction")?.value.trim()||"";
+    const hasAction=selectedLegalActions().length>0;
+    const hasContext=attachments.some(a=>a.kind==="file") || !!$("recipeCustom")?.value.trim();
+    if(!docType){ tempToast("Choose a document type first."); return false; }
+    if(!jurisdiction){ tempToast("Add the jurisdiction first."); $("recipeJurisdiction")?.focus(); return false; }
+    if(!hasAction){ tempToast("Pick at least one review option."); return false; }
+    if(!hasContext){ tempToast("Upload a document or add document context/details first."); return false; }
+    return true;
+  }
+  function readRecipeTextFile(file){
+    return new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(String(r.result||""));
+      r.onerror=()=>reject(r.error||new Error("Could not read file."));
+      r.readAsText(file);
+    });
+  }
+  async function addRecipeFiles(files){
+    for(const file of [...(files||[])]){
+      if(file.type.startsWith("image/")) addImageFile(file);
+      else {
+        try{ attachments.push({kind:"file",name:file.name,text:await readRecipeTextFile(file)}); }
+        catch{ tempToast("Could not read "+file.name); }
+      }
+    }
+    renderChips();
+    updateLegalRecipeSummary();
+  }
+  function updateLegalRecipeSummary(){
+    const el=$("recipeSessionSummary"); if(!el) return;
+    const recipe=currentRecipe();
+    const docType=$("recipeDocType")?.value||recipe.defaultDocType||"not selected";
+    const jurisdiction=$("recipeJurisdiction")?.value.trim()||"missing";
+    const actions=selectedLegalActions().map(id=>legalActions.find(a=>a[0]===id)?.[1]||id);
+    const fileNames=attachments.filter(a=>a.kind==="file").map(a=>a.name).slice(-3);
+    const detail=!!$("recipeCustom")?.value.trim();
+    el.innerHTML="<b>Session summary</b><br>"
+      +"Document: "+esc(docType)+"<br>"
+      +"Jurisdiction: "+esc(jurisdiction)+"<br>"
+      +"Actions: "+esc(actions.join(", ")||"none selected")+"<br>"
+      +"Context: "+esc(fileNames.length?fileNames.join(", "):(detail?"typed details":"needs upload or details"));
+  }
+  function renderLegalRecipeDetail(recipe){
+    const docDefault=recipe.defaultDocType||"contract";
+    $("recipeDetail").innerHTML='<h3>'+esc(recipe.title)+'</h3><p>'+esc(recipe.desc)+'</p>'
+      +'<div class="recipe-tools">'+recipe.tools.map(t=>'<span class="recipe-tool">'+esc(t)+'</span>').join("")+'</div>'
+      +'<div class="recipe-warning">Not legal advice. Boolean can organize issues, summarize terms, and draft questions for a qualified professional.</div>'
+      +'<div class="recipe-form">'
+      +'<div class="recipe-field"><label for="recipeDocType">Document type</label><select id="recipeDocType">'+legalDocTypes.map(t=>'<option value="'+esc(t)+'" '+(t.toLowerCase()===docDefault.toLowerCase()?'selected':'')+'>'+esc(t)+'</option>').join("")+'</select></div>'
+      +'<div class="recipe-field"><label for="recipeJurisdiction">Jurisdiction</label><input id="recipeJurisdiction" placeholder="State/country, e.g. California, US"></div>'
+      +'<div class="recipe-check-grid">'+legalActions.map((a,i)=>'<label class="recipe-option"><input type="checkbox" class="recipe-legal-action" value="'+esc(a[0])+'" '+(i===0||a[0]==="clauses"||a[0]==="dates"?'checked':'')+'>'+esc(a[1])+'</label>').join("")+'</div>'
+      +'<label class="recipe-upload" id="recipeUpload"><span>Upload document</span><small>TXT, MD, pasted text exports, or readable files. Attached files appear in chat.</small><input id="recipeFileInput" type="file" multiple style="display:none"></label>'
+      +'<textarea class="recipe-custom" id="recipeCustom" placeholder="Paste key text, add opposing party, deadline, questions, or response goal..."></textarea>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeSaveNotes" checked>Save useful result to Notes</label>'
+      +'</div><div class="recipe-summary" id="recipeSessionSummary"></div>'
+      +'<div class="recipe-actions"><button type="button" id="recipeFill">Fill chat</button><button type="button" class="primary" id="recipeStart">Start Review</button></div>';
+    $("recipeUpload").onclick=(e)=>{ if(e.target.id!=="recipeFileInput") $("recipeFileInput").click(); };
+    $("recipeFileInput").onchange=e=>{ addRecipeFiles(e.target.files); e.target.value=""; };
+    ["recipeDocType","recipeJurisdiction","recipeCustom"].forEach(id=>$(id)?.addEventListener("input",updateLegalRecipeSummary));
+    document.querySelectorAll(".recipe-legal-action").forEach(input=>input.onchange=updateLegalRecipeSummary);
+    $("recipeFill").onclick=()=>sendRecipe(false);
+    $("recipeStart").onclick=()=>sendRecipe(true);
+    updateLegalRecipeSummary();
+  }
+  function renderStartBuildDetail(recipe){
+    const modelChoices=["GLM 5.2 Local - Coding","Qwen Local - General","GPT Cloud","Claude Cloud"];
+    $("recipeDetail").innerHTML='<h3>Start Building</h3><p>Choose an AI, configure the workspace, and describe the task.</p>'
+      +'<div class="recipe-tools"><span class="recipe-tool">Manage Models</span><span class="recipe-tool">Quick Start</span><span class="recipe-tool">Workspace</span></div>'
+      +'<div class="recipe-form">'
+      +'<div class="recipe-field"><label for="startModel">AI model</label><select id="startModel">'+modelChoices.map((m,i)=>'<option value="'+esc(m)+'" '+(i===0?'selected':'')+'>'+esc(m)+'</option>').join("")+'</select></div>'
+      +'<div class="recipe-model-status"><span>Ready</span><span>GLM 5.2 Local - Coding OK</span><span>Qwen Local - General OK</span><span>GPT Cloud OK</span><span>Claude Cloud OK</span></div>'
+      +'<div class="recipe-field"><label>Quick start</label><div class="recipe-preset-grid">'+startPresets.map((p,i)=>'<button type="button" class="recipe-preset'+(i===0?' on':'')+'" data-preset="'+esc(p)+'">'+esc(p)+'</button>').join("")+'</div></div>'
+      +'<div class="recipe-field"><label>Capabilities</label><div class="recipe-check-grid">'+startCapabilities.map((c,i)=>'<label class="recipe-option"><input type="checkbox" class="start-capability" value="'+esc(c[0])+'" '+(i<3?'checked':'')+'>'+esc(c[1])+'</label>').join("")+'</div></div>'
+      +'<div class="recipe-field"><label>Workspace tools</label><div class="recipe-check-grid">'+startTools.map((t,i)=>'<label class="recipe-option"><input type="checkbox" class="start-tool" value="'+esc(t[0])+'" '+(i<4?'checked':'')+'>'+esc(t[1])+'</label>').join("")+'</div></div>'
+      +'<div class="recipe-subpanel" id="startLegalPanel"><div class="recipe-warning">Boolean can organize, summarize, compare, and help draft documents. It does not provide legal advice. Important documents should be reviewed by a qualified attorney.</div>'
+      +'<div class="recipe-field"><label for="startDocType">Document type</label><select id="startDocType">'+["Contract","Lease","Employment Agreement","NDA","Terms of Service","Privacy Policy","Business Agreement","Demand Letter","Permission Letter","Other"].map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join("")+'</select></div>'
+      +'<div class="recipe-field"><label for="startJurisdiction">Jurisdiction</label><input id="startJurisdiction" placeholder="State/country, e.g. California, US"></div>'
+      +'<div class="recipe-check-grid">'+[["summarize","Summarize"],["plain","Explain in plain English"],["dates","Find important dates"],["compare","Compare documents"],["response","Draft a response"],["clauses","Flag unusual clauses"]].map((a,i)=>'<label class="recipe-option"><input type="checkbox" class="start-legal-action" value="'+esc(a[0])+'" '+(i<3?'checked':'')+'>'+esc(a[1])+'</label>').join("")+'</div>'
+      +'<label class="recipe-upload" id="startUpload"><span>Add or drop documents</span><small>PDF, DOCX, TXT, or image files. Readable text files attach directly.</small><input id="startFileInput" type="file" multiple style="display:none"></label>'
+      +'<textarea class="recipe-custom" id="startLegalDetails" placeholder="Paste document text, questions, deadlines, or response goal..."></textarea></div>'
+      +'<div class="recipe-field"><label for="startTask">What do you want to build?</label><textarea class="recipe-custom" id="startTask" placeholder="Describe the app, workflow, review, document, or task..."></textarea></div>'
+      +'</div><div class="recipe-summary" id="startSessionSummary"></div>'
+      +'<div class="recipe-actions"><button type="button" id="startFill">Fill chat</button><button type="button" class="primary" id="startRun">Start Building</button></div>';
+    document.querySelectorAll(".recipe-preset").forEach(btn=>btn.onclick=()=>setStartPreset(btn.dataset.preset));
+    document.querySelectorAll(".start-capability,.start-tool,.start-legal-action").forEach(input=>input.onchange=updateStartSummary);
+    ["startModel","startDocType","startJurisdiction","startTask","startLegalDetails"].forEach(id=>$(id)?.addEventListener("input",updateStartSummary));
+    $("startUpload").onclick=(e)=>{ if(e.target.id!=="startFileInput") $("startFileInput").click(); };
+    $("startFileInput").onchange=e=>{ addRecipeFiles(e.target.files); e.target.value=""; updateStartSummary(); };
+    $("startFill").onclick=()=>sendStartBuild(false);
+    $("startRun").onclick=()=>sendStartBuild(true);
+    updateStartSummary();
+  }
+  function renderRecipeDetail(){
+    const recipe=currentRecipe();
+    if(recipe.guide==="startBuild"){ renderStartBuildDetail(recipe); return; }
+    if(recipe.guide==="legalDoc"){ renderLegalRecipeDetail(recipe); return; }
+    const needsBrowser=recipe.tools.includes("Browser"), needsNotes=recipe.tools.includes("Notes"), needsGit=recipe.tools.includes("Git");
+    $("recipeDetail").innerHTML='<h3>'+esc(recipe.title)+'</h3><p>'+esc(recipe.desc)+'</p>'
+      +'<div class="recipe-tools">'+recipe.tools.map(t=>'<span class="recipe-tool">'+esc(t)+'</span>').join("")+'</div>'
+      +'<div class="recipe-options">'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeUseBrowser" '+(needsBrowser?'checked':'')+'>Use browser context</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeSaveNotes" '+(needsNotes?'checked':'')+'>Save useful result to Notes</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeUseGit" '+(needsGit?'checked':'')+'>Include Git status/diff</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeSafeMode" checked>Ask before risky actions</label>'
+      +'</div><textarea class="recipe-custom" id="recipeCustom" placeholder="Add details, goal, URL, file name, tone, or constraints..."></textarea>'
+      +'<div class="recipe-actions"><button type="button" id="recipeFill">Fill chat</button><button type="button" class="primary" id="recipeStart">Start</button></div>';
+    $("recipeFill").onclick=()=>sendRecipe(false);
+    $("recipeStart").onclick=()=>sendRecipe(true);
+  }
+  function recipeRoleIcon(id){
+    const icons={
+      start:'<path d="M8 5l10 7-10 7z"/>',
+      build:'<path d="M8 18l-6-6 6-6"/><path d="M16 6l6 6-6 6"/><path d="M14 3l-4 18"/>',
+      design:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+      research:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/><path d="M8 11h6"/><path d="M11 8v6"/>',
+      marketing:'<path d="M4 13v5a2 2 0 0 0 2 2h2"/><path d="M8 13l10-5v11z"/><path d="M8 13H4V8h4z"/>',
+      social:'<circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.7l6.6-3.4"/><path d="M8.7 13.3l6.6 3.4"/>',
+      finance:'<path d="M12 2v20"/><path d="M17 6.5c-1.1-1-3-1.5-5-1.1-2.3.4-3.8 1.6-3.8 3.2 0 4.2 8.8 1.9 8.8 6.4 0 1.8-1.8 3.2-4.4 3.4-2 .1-4-.5-5.2-1.7"/>',
+      business:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/>',
+      legal:'<path d="M12 3v18"/><path d="M5 7h14"/><path d="M7 7l-4 7h8z"/><path d="M17 7l-4 7h8z"/>',
+      automation:'<path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18 2v5h-5"/><path d="M6 22v-5h5"/>',
+      deploy:'<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/><path d="M5 19h14"/>',
+      memory:'<rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 4v16"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>'
     };
-  });
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">'+(icons[id]||'<circle cx="12" cy="12" r="8"/>')+'</svg>';
+  }
+  function renderRecipesOverview(){
+    const visibleRoles=recipeRoles.filter(role=>role.id!=="overview");
+    $("recipeRoleTitle").textContent="Boolean Recipes";
+    $("recipeRoleDesc").textContent="One workspace for building, researching, marketing, operating, and remembering project work.";
+    if($("recipeSearch")) $("recipeSearch").value="";
+    $("recipeSearch").style.display="none";
+    const targets=visibleRoles.map((_,i)=>Math.round(55+(890*i)/Math.max(1,visibleRoles.length-1)));
+    const paths=visibleRoles.map((role,i)=>'<path style="--line-color:'+esc(role.color)+'" d="M500 0 C 500 92 '+targets[i]+' 136 '+targets[i]+' 282"/>').join("");
+    $("recipeGrid").innerHTML='<div class="recipes-map"><div class="recipes-visual"><div class="recipes-core"><small>CEO</small><b>'+esc(signedInDisplayName())+'</b><span>Essential Boolean workflows, organized like a real company.</span></div><svg class="recipes-lines" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">'+paths+'</svg><div class="recipes-branches">'
+      +visibleRoles.map(role=>'<button type="button" class="recipe-map-card" data-role="'+esc(role.id)+'" style="--role-color:'+esc(role.color)+'"><span class="recipe-map-icon">'+recipeRoleIcon(role.id)+'</span><b>'+esc(role.label)+'</b><p>'+esc(role.desc)+'</p></button>').join("")
+      +'</div></div><div class="recipes-overview-bar"><b>One AI.</b><span>Every role. Local-first workflows.</span><button type="button" id="recipeOpenStart">Start Building</button><button type="button" id="recipeOpenLegal">Legal</button></div></div>';
+    $("recipeGrid").querySelectorAll(".recipe-map-card").forEach(btn=>btn.onclick=()=>{ activeRecipeRole=btn.dataset.role; const first=recipeItems.find(item=>item.role===activeRecipeRole); if(first) activeRecipeId=first.id; renderRecipes(); });
+    $("recipeDetail").style.display="none";
+    $("recipeOpenStart").onclick=()=>{ activeRecipeRole="start"; activeRecipeId="start-building"; renderRecipes(); };
+    $("recipeOpenLegal").onclick=()=>{ activeRecipeRole="legal"; activeRecipeId="legal-review"; renderRecipes(); };
+  }
+  function renderRecipes(){
+    const panel=$("recipesPanel"); if(!panel) return;
+    if(!panel.querySelector(".recipes-shell")){
+      panel.innerHTML='<div class="recipes-shell"><div class="recipes-roles"><div class="recipes-title"><b>Recipes</b><small>Pick a role, choose a workflow, then start with the right context.</small></div><div id="recipeRoles"></div></div><div class="recipes-main"><div class="recipes-main-head"><div><h3 id="recipeRoleTitle">Recipes</h3><p id="recipeRoleDesc">Start common work with structured prompts and tool choices.</p></div><button class="recipes-close" id="recipesClose" title="Close recipes" aria-label="Close recipes">x</button></div><input class="recipe-search" id="recipeSearch" placeholder="Search recipes..." spellcheck="false" autocomplete="off"><div class="recipe-grid" id="recipeGrid"></div></div><div class="recipes-detail" id="recipeDetail"></div></div>';
+    }
+    const role=currentRole();
+    panel.style.setProperty("--role-color",role.color);
+    panel.querySelector(".recipes-shell")?.classList.toggle("overview-mode",activeRecipeRole==="overview");
+    $("recipeRoles").innerHTML=recipeRoles.map(r=>'<button type="button" class="recipe-role'+(r.id===activeRecipeRole?' on':'')+'" data-role="'+esc(r.id)+'" style="--role-color:'+esc(r.color)+'"><span class="role-dot"></span><span>'+esc(r.label)+'</span></button>').join("");
+    $("recipeRoles").querySelectorAll(".recipe-role").forEach(btn=>btn.onclick=()=>{ activeRecipeRole=btn.dataset.role; const first=recipeItems.find(item=>item.role===activeRecipeRole); if(first) activeRecipeId=first.id; if($("recipeSearch")) $("recipeSearch").value=""; renderRecipes(); });
+    if(activeRecipeRole==="overview"){ renderRecipesOverview(); return; }
+    $("recipeDetail").style.display="";
+    $("recipeSearch").style.display="";
+    $("recipeRoleTitle").textContent=role.label+" recipes";
+    $("recipeRoleDesc").textContent=role.desc;
+    const query=String($("recipeSearch")?.value||"").toLowerCase().trim();
+    const items=recipeItems.filter(item=>item.role===activeRecipeRole).filter(item=>!query||(item.title+" "+item.desc+" "+item.tag+" "+item.tools.join(" ")).toLowerCase().includes(query));
+    if(!items.some(item=>item.id===activeRecipeId)) activeRecipeId=(items[0]||recipeItems.find(item=>item.role===activeRecipeRole)||recipeItems[0]).id;
+    $("recipeGrid").innerHTML=items.map(item=>'<button type="button" class="recipe-card'+(item.id===activeRecipeId?' on':'')+'" data-recipe-id="'+esc(item.id)+'"><b>'+esc(item.title)+'</b><small>'+esc(item.desc)+'</small><span class="recipe-chip">'+esc(item.tag)+'</span></button>').join("");
+    $("recipeGrid").querySelectorAll(".recipe-card").forEach(btn=>btn.onclick=()=>{ activeRecipeId=btn.dataset.recipeId; renderRecipes(); });
+    $("recipeSearch").oninput=()=>renderRecipes();
+    $("recipesClose").onclick=()=>setWorkspaceTab("chat");
+    renderRecipeDetail();
+  }
+  renderRecipes();
 
   // ══════════════════════════════════════════════════════════════
   // TERMINAL DRAWER
@@ -7936,13 +8814,50 @@ Optional bundled starter model:
   // ══════════════════════════════════════════════════════════════
   // PROJECT DASHBOARD
   // ══════════════════════════════════════════════════════════════
+  function compactProjectStatus(r){
+    const git=r?.git||{};
+    const changed=(r?.changedFiles||[]).length;
+    const testState=r?.testState||"idle";
+    const taskState=r?.taskState||"idle";
+    const testStatus=r?.testStatus&&r.testStatus!=="â€”"?String(r.testStatus):"";
+    const gitLabel=gitSyncLabel(git);
+    if(testState==="err") return {label:testStatus||"Tests failing",state:"err",dot:"err"};
+    if(git.state==="diverged") return {label:"Git diverged",state:"err",dot:"err"};
+    if(git.state==="behind") return {label:gitLabel,state:"warn",dot:"warn"};
+    if(git.state==="unpushed") return {label:gitLabel,state:"warn",dot:"warn"};
+    if(changed) return {label:changed+" changed",state:"warn",dot:"warn"};
+    if(taskState==="running") return {label:"Working",state:"active",dot:"running"};
+    if(r?.serverRunning) return {label:"Server running",state:"active",dot:"running"};
+    if(git.state==="pushed") return {label:"Pushed",state:"ok pushed",dot:"ok",gitState:"pushed"};
+    if(testState==="ok") return {label:"Tests passing",state:"ok",dot:"ok"};
+    if(git.state&&git.state!=="none") return {label:"Project ready",state:"ok",dot:"ok"};
+    return {label:"Project idle",state:"idle",dot:"idle"};
+  }
+  function updateCompactProjectStatus(r){
+    const chip=$("cmdTaskChip"), dot=$("cmdTaskDot"), text=$("cmdTaskText");
+    if(!chip||!dot||!text) return;
+    const status=compactProjectStatus(r||{});
+    text.textContent=status.label;
+    chip.dataset.gitState=status.gitState||"";
+    chip.className="cmd-chip "+(status.state||"idle")+(status.gitState==="pushed"?" clickable":"");
+    dot.className="cmd-chip-dot "+(status.dot||"idle");
+    const changed=(r?.changedFiles||[]).length;
+    const details=[
+      "Task: "+(r?.task||"Idle"),
+      "Files: "+changed,
+      "Git: "+gitSyncLabel(r?.git||{}),
+      "Server: "+(r?.serverRunning?"Running":"Off"),
+      "Tests: "+(r?.testStatus||"none")
+    ];
+    chip.title=(status.gitState==="pushed"?"Pushed. Click to undo the last pushed commit.\n":"Project status: "+status.label+"\n")+details.join("\n");
+  }
   async function refreshProjectDashboard() {
     try {
       const r = await (await _fetch("/api/project-status")).json();
       if (!r || !r.ok) { document.body.classList.add("pd-hidden"); return; }
       document.body.classList.remove("pd-hidden");
       if ($("pdTitle")) $("pdTitle").textContent = r.projectName || "Project";
-      if ($("pdBranch")) $("pdBranch").textContent = r.branch || "no git";
+      updateGitSyncUi(r.git || {}, r.branch || "");
       const taskText = r.task || "Idle";
       const fileCount = r.changedFiles?.length || 0;
       const serverText = r.serverRunning ? "Running" : "Off";
@@ -7977,6 +8892,7 @@ Optional bundled starter model:
       setDot("pdTestsDot", r.testState || "idle");
       setDot("cmdTestsDot", r.testState || "idle", "cmd-chip-dot");
       setChip("cmdTestsChip", r.testState || "idle");
+      updateCompactProjectStatus(r);
       // changed file chips
       const changedEl = $("pdChanged");
       if (changedEl) {
@@ -8006,8 +8922,55 @@ Optional bundled starter model:
     } catch(e) { /* silently skip if endpoint not ready */ }
   }
 
+  function gitSyncLabel(git){
+    if(!git || !git.state || git.state==="none") return "no git";
+    if(git.state==="pushed") return "pushed";
+    if(git.state==="unpushed") return "unpushed " + (git.ahead||"");
+    if(git.state==="behind") return "behind " + (git.behind||"");
+    if(git.state==="diverged") return "diverged";
+    return "local";
+  }
+  function updateGitSyncUi(git, branch){
+    const label=gitSyncLabel(git);
+    const title=branch ? branch + (git?.upstream ? " -> " + git.upstream : "") : label;
+    const branchEl=$("pdBranch");
+    if(branchEl){
+      branchEl.textContent=branch ? branch + " · " + label : label;
+      branchEl.title=git?.state==="pushed" ? "Click to undo the last pushed commit." : title;
+      branchEl.dataset.gitState=git?.state||"none";
+      branchEl.classList.toggle("clickable", git?.state==="pushed");
+    }
+    const chip=$("cmdGitChip"), dot=$("cmdGitDot"), text=$("cmdGitText");
+    if(text) text.textContent=label;
+    if(chip){
+      chip.title=git?.state==="pushed" ? "Pushed. Click to undo the last pushed commit." : title;
+      chip.dataset.gitState=git?.state||"none";
+      chip.className="cmd-chip " + (git?.state||"") + (git?.state==="pushed" ? " clickable" : "");
+    }
+    if(dot){
+      const state=git?.state;
+      dot.className="cmd-chip-dot " + (state==="pushed" ? "ok" : state==="unpushed" || state==="behind" || state==="diverged" ? "warn" : "");
+    }
+  }
+  async function requestUnpushLast(){
+    const ok=await appConfirm("Undo last push?",
+      "This moves the remote branch back one commit using --force-with-lease, then resets your local last commit back into uncommitted changes. It only runs when the branch is clean and exactly synced with its upstream.",
+      "Undo push", true);
+    if(!ok) return;
+    try{
+      const r=await (await fetch("/api/git/unpush-last",{method:"POST",body:JSON.stringify({confirm:"undo last push"})})).json();
+      if(!r.ok) throw new Error(r.error||"Could not undo push.");
+      tempToast("Last push undone. Changes are back in your working tree.",5000);
+      refreshProjectDashboard();
+    }catch(e){
+      appAlert("Could not undo push", e.message||String(e));
+    }
+  }
+
   // Toggle dashboard on header click (pin state so auto-expand doesn't override)
   document.addEventListener("click", function(e) {
+    const gitClick=e.target.closest("#pdBranch,#cmdGitChip,#cmdTaskChip");
+    if(gitClick && gitClick.dataset.gitState==="pushed"){ e.preventDefault(); e.stopPropagation(); requestUnpushLast(); return; }
     const toggle = e.target.closest("#pdHeadToggle");
     if (!toggle) return;
     const pd = $("projDashboard");
@@ -8296,7 +9259,64 @@ Optional bundled starter model:
   // ══════════════════════════════════════════════════════════════
   let sideChatThreadId="";
   let sideChatBusy=false;
+  let sideChatDragging=null;
+  let sideChatDragFrame=0;
   try{ sideChatThreadId=localStorage.getItem("boolean_side_chat_thread")||""; }catch{}
+  function sideChatAiChoice(){
+    try{ return localStorage.getItem("boolean_side_chat_ai")||"main"; }catch{ return "main"; }
+  }
+  function sideChatProviders(){
+    const rows=[{id:"main",label:"Main AI"},{id:"local",label:"Local"}];
+    for(const provider of Object.keys(PROVIDER_LABELS)){
+      if(provider==="local") continue;
+      if(state.keys?.[provider]||(provider==="customApi"&&state.userApi?.hasKey)){
+        rows.push({id:provider,label:shortProviderLabel(provider,(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider)});
+      }
+    }
+    return rows;
+  }
+  function resolveSideChatAi(){
+    const available=sideChatProviders();
+    const saved=sideChatAiChoice();
+    const choice=available.some(row=>row.id===saved)?saved:"main";
+    const provider=choice==="main"?state.provider:choice;
+    const label=choice==="main"?"Main AI":shortProviderLabel(provider,(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider);
+    const model=provider==="local"?displayName(state.model):providerModelName(provider);
+    return {choice,provider,label,model};
+  }
+  function renderSideChatAiSelect(){
+    const select=$("sideChatAi");
+    if(!select) return;
+    const rows=sideChatProviders();
+    const choice=rows.some(row=>row.id===sideChatAiChoice())?sideChatAiChoice():"main";
+    select.innerHTML=rows.map(row=>'<option value="'+esc(row.id)+'">'+esc(row.label)+'</option>').join("");
+    select.value=choice;
+  }
+  function sideChatThreads(){
+    return (state.threads||[])
+      .filter(t=>String(t.title||"").trim().toLowerCase()==="side chat")
+      .sort((a,b)=>Number(b.updatedAt||0)-Number(a.updatedAt||0));
+  }
+  function updateSideChatModelBadge(){
+    const el=$("sideChatModel");
+    if(!el) return;
+    const ai=resolveSideChatAi();
+    el.textContent=(ai.choice==="main"?"Using ":"Side AI: ")+ai.label+(ai.model?" - "+ai.model.slice(0,24):"");
+  }
+  function renderSideChatHistory(){
+    const box=$("sideChatHistory");
+    if(!box) return;
+    const items=sideChatThreads().slice(0,8);
+    if(!items.length){ box.innerHTML='<button type="button" class="active"><b>New side chat</b><small>Quick answers</small></button>'; return; }
+    box.innerHTML=items.map((t,i)=>'<button type="button" class="'+(t.id===sideChatThreadId?'active':'')+'" data-id="'+esc(t.id)+'"><b>'+(i===0?'Latest side chat':'Side chat')+'</b><small>'+esc(relTime(t.updatedAt||Date.now()))+'</small></button>').join("");
+    box.querySelectorAll("button[data-id]").forEach(btn=>btn.onclick=async()=>{
+      if(sideChatBusy) return;
+      sideChatThreadId=btn.dataset.id||"";
+      try{ localStorage.setItem("boolean_side_chat_thread",sideChatThreadId); }catch{}
+      renderSideChatHistory();
+      try{ await loadSideChat(); $("sideChatInput").focus(); }catch(error){ renderSideChatLog([]); sideChatAdd("ai",error.message||error); }
+    });
+  }
   function sideChatAdd(role,text,{status=false}={}){
     const messages=$("sideChatMessages");
     messages.querySelector(".side-chat-empty")?.remove();
@@ -8325,6 +9345,7 @@ Optional bundled starter model:
     sideChatThreadId=data.id;
     try{ localStorage.setItem("boolean_side_chat_thread",sideChatThreadId); }catch{}
     renderSideChatLog([]);
+    renderSideChatHistory();
     refresh().catch(()=>{});
     return sideChatThreadId;
   }
@@ -8335,13 +9356,61 @@ Optional bundled starter model:
     if(!response.ok) throw new Error("Could not load side chat.");
     const data=await response.json();
     renderSideChatLog(data.log||[]);
+    renderSideChatHistory();
     return sideChatThreadId;
+  }
+  function clampSideChatPosition(left,top){
+    const panel=$("sideChatPanel");
+    const rect=panel.getBoundingClientRect();
+    const width=rect.width||390;
+    const height=rect.height||520;
+    return {
+      left:Math.max(8,Math.min(window.innerWidth-width-8,left)),
+      top:Math.max(48,Math.min(window.innerHeight-height-8,top))
+    };
+  }
+  function applySideChatPosition(){
+    const panel=$("sideChatPanel");
+    if(!panel) return;
+    let saved=null;
+    try{ saved=JSON.parse(localStorage.getItem("boolean_side_chat_pos")||"null"); }catch{}
+    if(saved&&Number.isFinite(saved.left)&&Number.isFinite(saved.top)){
+      const pos=clampSideChatPosition(saved.left,saved.top);
+      panel.style.left=pos.left+"px";
+      panel.style.top=pos.top+"px";
+      panel.style.right="auto";
+    }
+  }
+  function saveSideChatPosition(){
+    const panel=$("sideChatPanel");
+    if(!panel) return;
+    const rect=panel.getBoundingClientRect();
+    try{ localStorage.setItem("boolean_side_chat_pos",JSON.stringify({left:rect.left,top:rect.top})); }catch{}
+  }
+  function paintSideChatDrag(){
+    sideChatDragFrame=0;
+    if(!sideChatDragging) return;
+    const panel=$("sideChatPanel");
+    panel.style.left=sideChatDragging.left+"px";
+    panel.style.top=sideChatDragging.top+"px";
+    panel.style.right="auto";
+  }
+  function scheduleSideChatDrag(left,top){
+    if(!sideChatDragging) return;
+    const pos=clampSideChatPosition(left,top);
+    sideChatDragging.left=pos.left;
+    sideChatDragging.top=pos.top;
+    if(!sideChatDragFrame) sideChatDragFrame=requestAnimationFrame(paintSideChatDrag);
   }
   async function setSideChatOpen(open){
     $("sideChatPanel").classList.toggle("open",!!open);
     $("sideChatToggle").classList.toggle("active",!!open);
     $("sideChatToggle").setAttribute("aria-expanded",open?"true":"false");
     if(!open) return;
+    renderSideChatAiSelect();
+    applySideChatPosition();
+    updateSideChatModelBadge();
+    renderSideChatHistory();
     try{ await loadSideChat(); $("sideChatInput").focus(); }
     catch(error){ renderSideChatLog([]); sideChatAdd("ai",error.message||error); }
   }
@@ -8355,7 +9424,13 @@ Optional bundled starter model:
       const id=await loadSideChat();
       field.value=""; sideChatAdd("user",message);
       answer=sideChatAdd("ai","Thinking...",{status:true});
-      const response=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({threadId:id,message,sideChat:true})});
+      const ai=resolveSideChatAi();
+      const payload={threadId:id,message,sideChat:true};
+      if(ai.choice!=="main"){
+        payload.sideProvider=ai.provider;
+        if(ai.model) payload.sideModel=ai.model;
+      }
+      const response=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
       if(!response.ok) throw new Error("Side chat request failed.");
       const reader=response.body.getReader(), decoder=new TextDecoder();
       let buffer="", raw="", streamFinished=false;
@@ -8384,13 +9459,46 @@ Optional bundled starter model:
       if(answer){ answer.classList.remove("status"); answer.textContent=String(error.message||error); }
       else sideChatAdd("ai",String(error.message||error));
     }
-    finally{ sideChatBusy=false; $("sideChatSend").disabled=false; field.disabled=false; field.focus(); refresh().catch(()=>{}); }
+    finally{ sideChatBusy=false; $("sideChatSend").disabled=false; field.disabled=false; field.focus(); await refresh().catch(()=>{}); renderSideChatHistory(); updateSideChatModelBadge(); }
   }
   $("sideChatToggle").onclick=()=>setSideChatOpen(!$("sideChatPanel").classList.contains("open"));
   $("sideChatClose").onclick=()=>setSideChatOpen(false);
   $("sideChatNew").onclick=async()=>{ if(sideChatBusy)return; try{ await createSideChat(); $("sideChatInput").focus(); }catch(error){ tempToast(error.message||error); } };
+  $("sideChatAi").onchange=()=>{
+    try{ localStorage.setItem("boolean_side_chat_ai",$("sideChatAi").value||"main"); }catch{}
+    updateSideChatModelBadge();
+  };
   $("sideChatSend").onclick=sendSideChat;
   $("sideChatInput").onkeydown=(event)=>{ if(event.key==="Enter"&&!event.shiftKey){ event.preventDefault(); sendSideChat(); } };
+  $("sideChatPanel").querySelector(".side-chat-head").addEventListener("pointerdown",(event)=>{
+    if(event.button!==0||event.target.closest("button,select,input,textarea")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const panel=$("sideChatPanel");
+    const rect=panel.getBoundingClientRect();
+    sideChatDragging={dx:event.clientX-rect.left,dy:event.clientY-rect.top,left:rect.left,top:rect.top};
+    panel.style.left=rect.left+"px";
+    panel.style.top=rect.top+"px";
+    panel.style.right="auto";
+    panel.classList.add("moving");
+    event.currentTarget.classList.add("dragging");
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  });
+  window.addEventListener("pointermove",(event)=>{
+    if(!sideChatDragging) return;
+    event.preventDefault();
+    scheduleSideChatDrag(event.clientX-sideChatDragging.dx,event.clientY-sideChatDragging.dy);
+  });
+  window.addEventListener("pointerup",()=>{
+    if(!sideChatDragging) return;
+    if(sideChatDragFrame){ cancelAnimationFrame(sideChatDragFrame); paintSideChatDrag(); }
+    sideChatDragging=null;
+    const panel=$("sideChatPanel");
+    panel?.classList.remove("moving");
+    panel?.querySelector(".side-chat-head")?.classList.remove("dragging");
+    saveSideChatPosition();
+  });
+  window.addEventListener("resize",()=>{ if($("sideChatPanel")?.classList.contains("open")) applySideChatPosition(); });
 
   // ══════════════════════════════════════════════════════════════
   // THREE-ZONE LAYOUT — context panel toggle + render
@@ -8960,20 +10068,31 @@ Optional bundled starter model:
   // ══════════════════════════════════════════════════════════════
   // BROWSER TASK BUTTONS
   // ══════════════════════════════════════════════════════════════
+  function browserTaskPrompt(task,page=""){
+    const suffix=page ? " Current page: "+page : "";
+    const prompts={
+      use: "Use the current browser page as context and tell me what's important."+suffix,
+      docs: "Extract the documentation and code samples from the current browser page."+suffix,
+      code: "Turn the content of the current browser page into working code."+suffix,
+      summarize: "Summarize the current browser page and save the key findings to the notepad."+suffix,
+      tech: "Detect the CMS, website builder, framework, analytics, and hosting stack for the current browser page."+suffix,
+      monitor: "Monitor the current browser page for changes and alert me."+suffix
+    };
+    return prompts[task]||prompts.use;
+  }
+  function sendBrowserTask(task,meta={}){
+    const prompt=browserTaskPrompt(task,meta.page||"");
+    pendingBrowserTask={task,prompt,url:meta.url||"",title:meta.title||"",at:Date.now()};
+    $("input").value=prompt;
+    setWorkspaceTab("chat");
+    $("send")&&$("send").click();
+  }
   document.querySelectorAll(".bt-task").forEach(btn => {
     btn.onclick = async () => {
       const task = btn.dataset.btask;
       if (task === "tech") { await detectCurrentSiteTech(); return; }
-      const prompts = {
-        use: "Use the current browser page as context and tell me what's important.",
-        docs: "Extract the documentation and code samples from the current browser page.",
-        code: "Turn the content of the current browser page into working code.",
-        summarize: "Summarize the current browser page and save the key findings to the notepad.",
-        monitor: "Monitor the current browser page for changes and alert me."
-      };
-      $("input").value = prompts[task] || prompts.use;
-      setWorkspaceTab("chat");
-      $("send") && $("send").click();
+      const tab=curTab&&curTab();
+      sendBrowserTask(task,{url:tab?.url||$("bAddr")?.value||"",title:tab?.title||""});
     };
   });
   function handleShellBrowserTask(d){
@@ -8981,17 +10100,7 @@ Optional bundled starter model:
     const url=(d&&d.url)||"";
     const title=(d&&d.title)||"";
     const page=title&&url ? title+" ("+url+")" : (url||title||"the current browser page");
-    const prompts={
-      use: "Use the current browser page as context and tell me what's important. Current page: "+page,
-      docs: "Extract the documentation and code samples from the current browser page. Current page: "+page,
-      code: "Turn the content of the current browser page into working code. Current page: "+page,
-      summarize: "Summarize the current browser page and save the key findings to the notepad. Current page: "+page,
-      tech: "Detect the CMS, website builder, framework, analytics, and hosting stack for the current browser page. Current page: "+page,
-      monitor: "Monitor the current browser page for changes and alert me. Current page: "+page
-    };
-    $("input").value=prompts[task]||prompts.use;
-    setWorkspaceTab("chat");
-    $("send")&&$("send").click();
+    sendBrowserTask(task,{url,title,page});
   }
   async function detectCurrentSiteTech(){
     const panel=$("techReport");

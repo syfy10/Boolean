@@ -108,9 +108,11 @@ const DEFAULTS = {
   // UI/behavior preferences (surfaced in the organized Settings page)
   ui: {
     theme: "system",          // system | light | dark
+    composerStyle: "simple",  // pill | simple
     fontSize: "medium",       // small | medium | large
     density: "compact",       // compact is the fixed UI density
     notepadTheme: "yellow",    // Classic | Paper | Slate | Obsidian
+    browserSummaryAutoSave: true, // save browser Summarize answers into Notes
     showTimestamps: false,
     showTokens: true,
     showOnboarding: false,    // Settings can show the first-run setup once again
