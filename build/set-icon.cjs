@@ -1,4 +1,4 @@
-// Sets the icon + version info on the standalone core exe (run before SEA injection).
+﻿// Sets the icon + version info on the standalone core exe (run before SEA injection).
 // Usage: node build/set-icon.cjs <exe> <ico>
 const { rcedit } = require("rcedit");
 
@@ -11,8 +11,8 @@ rcedit(process.argv[2], {
     LegalCopyright: "Copyright 2026 Boolean",
     OriginalFilename: "Boolean-core.exe"
   },
-  "file-version": "0.9.41",
-  "product-version": "0.9.41"
+  "file-version": "0.9.42",
+  "product-version": "0.9.42"
 })
   .then(() => console.log("icon + version info set"))
   .catch((err) => {

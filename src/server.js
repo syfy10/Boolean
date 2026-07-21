@@ -843,7 +843,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   const oauthResultPage = (title, message, ok) => `<!doctype html><meta charset="utf-8"><title>${title}</title>
     <style>body{font:15px Segoe UI,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f7f7f6;color:#171918}.box{width:min(380px,calc(100vw - 48px));padding:28px;border:1px solid #ddd;border-radius:8px;background:#fff}h1{font-size:22px;margin:0 0 10px}.ok{color:#13a84a}.bad{color:#cf3e3e}</style>
     <div class="box"><h1 class="${ok ? "ok" : "bad"}">${title}</h1><div>${message}</div></div>
-    <script>try{if(window.opener)window.opener.postMessage({type:"boolean-mcp-oauth",ok:${ok}},location.origin);setTimeout(()=>window.close(),900)}catch{}</script>`;
+    <script>try{if(window.opener)window.opener.postMessage({type:"boolean-mcp-oauth",ok:${ok}},location.origin);${ok ? "setTimeout(()=>window.close(),900)" : ""}}catch{}</script>`;
   function shutdown() {
     if (activeChats > 0) return;
     if (config.ui?.keepLocalWarm !== false) {
@@ -1905,7 +1905,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect email", "Return to Boolean and check the OAuth client settings.", false));
+          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boolean and check the OAuth client settings.`, false));
         }
         return;
       }

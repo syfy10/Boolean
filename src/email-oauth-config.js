@@ -36,6 +36,6 @@ export function emailOAuthRedirectUri(provider, requestHost) {
   if (!Object.hasOwn(ENV_KEYS, provider)) throw new Error("unsupported email provider");
   let port = "";
   try { port = new URL(`http://${requestHost || "127.0.0.1"}`).port; } catch { /* use default port */ }
-  const callbackHost = provider === "gmail" ? "127.0.0.1" : "localhost";
-  return `http://${callbackHost}${port ? `:${port}` : ""}/`;
+  if (provider === "gmail") return `http://127.0.0.1${port ? `:${port}` : ""}/email/oauth/callback`;
+  return `http://localhost${port ? `:${port}` : ""}/`;
 }

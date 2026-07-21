@@ -21,7 +21,7 @@ test("managed email OAuth clients load from a public config with environment ove
 });
 
 test("email OAuth loopback redirects match desktop provider requirements", () => {
-  assert.equal(emailOAuthRedirectUri("gmail", "127.0.0.1:8765"), "http://127.0.0.1:8765/");
+  assert.equal(emailOAuthRedirectUri("gmail", "127.0.0.1:8765"), "http://127.0.0.1:8765/email/oauth/callback");
   assert.equal(emailOAuthRedirectUri("outlook", "127.0.0.1:8765"), "http://localhost:8765/");
   assert.throws(() => emailOAuthRedirectUri("other", "127.0.0.1:8765"), /unsupported/);
 });

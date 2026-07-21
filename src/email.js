@@ -261,6 +261,7 @@ export async function scanEmailMetadata(providerName, connection, save, query = 
   nextUrl.searchParams.set("$top", String(Math.min(250, limit)));
   nextUrl.searchParams.set("$select", "id,subject,from,toRecipients,receivedDateTime,bodyPreview,isRead,conversationId,internetMessageId,importance,hasAttachments,categories,parentFolderId,isDraft,flag");
   nextUrl.searchParams.set("$orderby", "receivedDateTime desc");
+  if (!query && options.receivedBefore) nextUrl.searchParams.set("$filter", `receivedDateTime lt ${new Date(options.receivedBefore).toISOString()}`);
   if (query) nextUrl.searchParams.set("$search", `\"${query.replace(/\"/g, "")}\"`);
   while (nextUrl && rows.length < limit) {
     const page = await api(providerName, connection, save, nextUrl.toString(), query ? { headers: { ConsistencyLevel: "eventual" } } : {});
@@ -428,7 +429,7 @@ export function publicEmailConnections(config, managedClients = {}) {
       health: ready ? "ready" : (connection.connected ? "attention" : "disconnected"),
       lastCheck: connection.lastCheckStatus || "",
       lastCheckedAt: Number(connection.lastCheckedAt || 0),
-      supportsCleanup: name === "gmail"
+      supportsCleanup: name === "gmail" || name === "outlook"
     };
   };
   return { draftOnly: email.draftOnly !== false, confirmBeforeSend: true, gmail: one("gmail"), outlook: one("outlook") };

@@ -1521,7 +1521,49 @@
   .recipes-overview-bar button{ height:27px; border:1px solid var(--border); border-radius:7px; background:var(--card); color:var(--text); font:11px var(--ui); padding:0 10px; cursor:pointer; }
   .recipes-shell.overview-mode .recipe-grid{ display:block; overflow:hidden; padding-right:0; }
   .recipes-shell.overview-mode .recipes-main{ overflow:hidden; }
-  @media(max-width:900px){ .recipes-shell,.recipes-shell.overview-mode{ grid-template-columns:1fr; height:auto; max-height:none; overflow:auto; } .recipes-roles{ flex-direction:row; overflow:auto; } .recipes-title{ display:none; } .recipe-role{ flex:0 0 auto; width:auto; } .recipes-detail{ order:3; max-height:360px; } }
+  body.recipes-compact.recipes-open .recipes-panel,
+  body.browser-on.recipes-open .recipes-panel{ padding:6px 8px 8px; }
+  body.recipes-compact.recipes-open .recipes-shell,
+  body.browser-on.recipes-open .recipes-shell{ height:calc(100dvh - 132px); max-height:none; grid-template-columns:minmax(0,1fr) minmax(220px,280px); grid-template-rows:auto minmax(0,1fr); gap:8px; }
+  body.recipes-compact.recipes-open .recipes-shell.overview-mode,
+  body.browser-on.recipes-open .recipes-shell.overview-mode{ grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }
+  body.recipes-compact.recipes-open .recipes-roles,
+  body.browser-on.recipes-open .recipes-roles{ grid-column:1/-1; padding:5px; display:flex; flex-direction:row; align-items:center; gap:3px; overflow-x:auto; overflow-y:hidden; }
+  body.recipes-compact.recipes-open .recipes-title,
+  body.browser-on.recipes-open .recipes-title{ display:none; }
+  body.recipes-compact.recipes-open #recipeRoles,
+  body.browser-on.recipes-open #recipeRoles{ display:flex; gap:3px; min-width:0; }
+  body.recipes-compact.recipes-open .recipe-role,
+  body.browser-on.recipes-open .recipe-role{ flex:0 0 auto; width:auto; height:28px; padding:0 8px; font-size:11px; }
+  body.recipes-compact.recipes-open .recipes-main,
+  body.browser-on.recipes-open .recipes-main{ padding:9px; gap:7px; }
+  body.recipes-compact.recipes-open .recipes-main-head h3,
+  body.browser-on.recipes-open .recipes-main-head h3{ font-size:15px; }
+  body.recipes-compact.recipes-open .recipes-main-head p,
+  body.browser-on.recipes-open .recipes-main-head p{ font-size:10.5px; }
+  body.recipes-compact.recipes-open .recipe-search,
+  body.browser-on.recipes-open .recipe-search{ height:28px; }
+  body.recipes-compact.recipes-open .recipe-grid,
+  body.browser-on.recipes-open .recipe-grid{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:6px; }
+  body.recipes-compact.recipes-open .recipe-card,
+  body.browser-on.recipes-open .recipe-card{ min-height:86px; padding:8px; }
+  body.recipes-compact.recipes-open .recipes-detail,
+  body.browser-on.recipes-open .recipes-detail{ padding:9px; gap:8px; }
+  body.recipes-compact.recipes-open .recipes-visual,
+  body.browser-on.recipes-open .recipes-visual{ height:clamp(260px,42vw,390px); }
+  body.recipes-compact.recipes-open .recipes-core,
+  body.browser-on.recipes-open .recipes-core{ width:min(260px,62%); }
+  body.recipes-compact.recipes-open .recipes-lines,
+  body.browser-on.recipes-open .recipes-lines{ top:clamp(58px,9vw,76px); height:clamp(150px,24vw,220px); }
+  body.recipes-compact.recipes-open .recipes-branches,
+  body.browser-on.recipes-open .recipes-branches{ grid-template-columns:repeat(auto-fit,minmax(58px,1fr)); }
+  body.recipes-compact.recipes-open .recipe-map-card,
+  body.browser-on.recipes-open .recipe-map-card{ min-height:86px; }
+  body.recipes-compact.recipes-open .recipe-map-card p,
+  body.browser-on.recipes-open .recipe-map-card p{ display:none; }
+  body.recipes-compact.recipes-open .recipes-overview-bar,
+  body.browser-on.recipes-open .recipes-overview-bar{ padding:5px 7px; font-size:10.5px; }
+  @media(max-width:900px){ .recipes-shell,.recipes-shell.overview-mode{ grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr) auto; height:calc(100dvh - 132px); max-height:none; overflow:hidden; } .recipes-roles{ flex-direction:row; overflow:auto; } .recipes-title{ display:none; } .recipe-role{ flex:0 0 auto; width:auto; } .recipes-main{ min-height:0; } .recipes-detail{ order:3; max-height:min(280px,32dvh); } }
 
   /* ── MCP Connector Gallery ── */
   .mcp-gallery{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:8px; margin-top:6px; }
@@ -3535,6 +3577,7 @@
     document.body.classList.toggle("win-sm",w>=520&&w<900);
     const mainW=document.querySelector("main")?.getBoundingClientRect().width||w;
     document.body.classList.toggle("win-lg",mainW>=980||w>=1280);
+    document.body.classList.toggle("recipes-compact",mainW<860);
     document.body.classList.toggle("chat-xs",mainW<430);
     document.body.classList.toggle("chat-xxs",mainW<260);
   }
@@ -4957,7 +5000,7 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.41"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.42"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -8883,7 +8926,7 @@ Optional bundled starter model:
     {id:"email-important",role:"email",title:"Find important mail",tag:"Protect",desc:"Locate financial, legal, travel, security, medical, and saved messages.",tools:["Email","Notes"],guide:"email",emailAction:"important",prompt:"Find important email that should be protected from cleanup."},
     {id:"email-attachments",role:"email",title:"Find attachments",tag:"Files",desc:"Locate receipts, contracts, PDFs, and other attachment-bearing messages.",tools:["Email"],guide:"email",emailAction:"attachments",prompt:"Find useful email attachments and organize the results by type and sender."},
     {id:"email-clean-sender",role:"email",title:"Clean this sender",tag:"Preview",desc:"Preview older bulk mail from the sender open in the browser, with protection rules.",tools:["Email","Browser"],guide:"email",emailAction:"cleanSender",prompt:"Create a safe, read-only cleanup preview for older mail from the sender currently open in the browser."},
-    {id:"email-cleanup",role:"email",title:"Clean old email",tag:"Cleanup",desc:"Review old promotions, social mail, updates, and newsletters before moving batches to Trash.",tools:["Email"],guide:"email",emailAction:"cleanup",prompt:"Create a safe, read-only cleanup preview for the connected Gmail account."},
+    {id:"email-cleanup",role:"email",title:"Clean old email",tag:"Cleanup",desc:"Review old promotions, social mail, updates, and newsletters before moving batches to Trash.",tools:["Email"],guide:"email",emailAction:"cleanup",prompt:"Create a safe, read-only cleanup preview for the connected Gmail or Outlook account."},
     {id:"landing-copy",role:"business",title:"Landing copy",tag:"Copy",desc:"Create product copy from the actual app behavior.",tools:["Files","Browser"],prompt:"Write landing-page copy for this product based on the real project behavior. Avoid claims not supported by the app. Keep it clear, specific, and practical."},
     {id:"campaign-plan",role:"marketing",title:"Campaign plan",tag:"Launch",desc:"Turn a product or feature into a campaign plan.",tools:["Files","Browser","Notes"],prompt:"Create a marketing campaign plan for this product or feature. Include audience, positioning, channels, copy angles, launch checklist, and success metrics."},
     {id:"seo-brief",role:"marketing",title:"SEO brief",tag:"SEO",desc:"Create a search-focused content brief with keywords and outline.",tools:["Browser","Notes"],prompt:"Create an SEO content brief. Include target audience, search intent, keyword clusters, outline, internal links, and source-backed claims."},
@@ -8983,8 +9026,8 @@ Optional bundled starter model:
       tasks:"Extract tasks, owners, dates, decisions, and commitments from the open email or recent connected-account context. Save useful results to Notes and do not change messages.",
       important:"Find messages that should be protected from cleanup, including starred, important, replied-to, labeled, financial, legal, medical, travel, account-security, receipt, and attachment-bearing mail. Return grouped results without changing anything.",
       attachments:"Find attachment-bearing messages in the connected account. Group receipts, contracts, travel documents, PDFs, and other files by sender and date. Do not download or change anything unless I ask.",
-      cleanSender:"Use the sender and subject from the email open in Boolean's browser to call email_cleanup_preview for connected Gmail. Add a narrow sender query, keep all protection rules on, and return the plan id, counts, reasons, and samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch.",
-      cleanup:"Call email_cleanup_preview for connected Gmail using the configuration below. Return the plan id, exact search query, counts, reasons, and representative samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch. Never permanently delete email."
+      cleanSender:"Use the sender and subject from the email open in Boolean's browser to call email_cleanup_preview for the connected Gmail or Outlook account. Add a narrow sender query, keep all protection rules on, and return the plan id, counts, reasons, and samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch.",
+      cleanup:"Call email_cleanup_preview for the connected Gmail or Outlook account using the configuration below. Return the plan id, exact search query, counts, reasons, and representative samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch. Never permanently delete email."
     };
     const parts=[prompts[recipe.emailAction]||recipe.prompt,accountLine,useBrowser?browserLine:"",verify];
     if(recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender"){
@@ -9001,9 +9044,6 @@ Optional bundled starter model:
   function validateEmailRecipe(recipe){
     const account=selectedEmailAccount();
     if(!account){ tempToast("Connect a ready email account first."); return false; }
-    if((recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender")&&account.provider!=="gmail"){
-      tempToast("Safe cleanup currently supports Gmail. Choose a connected Gmail account."); return false;
-    }
     if((recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender")&&!selectedEmailCategories().length){
       tempToast("Choose at least one email group to scan."); return false;
     }
@@ -9222,8 +9262,8 @@ Optional bundled starter model:
     const accountOptions=accounts.map(account=>'<option value="'+esc(account.provider)+'">'+esc((account.provider==="gmail"?"Gmail":"Outlook")+" - "+(account.account||"connected"))+'</option>').join("");
     const tools='<div class="recipe-tools">'+recipe.tools.map(tool=>'<span class="recipe-tool">'+esc(tool)+'</span>').join("")+'</div>';
     if(!accounts.length){
-      const reason=cleanup&&allAccounts.length?"Safe cleanup currently supports Gmail. Connect Gmail to use this recipe.":"Connect Gmail or Outlook in Settings before running email recipes.";
-      const providers=cleanup?["gmail"]:["gmail","outlook"];
+      const reason=cleanup&&allAccounts.length?"Connect a Gmail or Outlook account with cleanup support to use this recipe.":"Connect Gmail or Outlook in Settings before running email recipes.";
+      const providers=["gmail","outlook"];
       const connectButtons=providers.map(provider=>'<button type="button" data-connect-email="'+provider+'">Connect '+(provider==="gmail"?"Gmail":"Outlook")+'</button>').join("");
       $("recipeDetail").innerHTML='<h3>'+esc(recipe.title)+'</h3><p>'+esc(recipe.desc)+'</p>'+tools
         +'<div class="email-recipe-empty"><p>'+esc(reason)+'</p><div class="email-recipe-connect-actions">'+connectButtons+'</div></div>'
@@ -10809,7 +10849,7 @@ Optional bundled starter model:
       email_reply: "Read the email open in Boolean's browser and create a concise reply draft. Use the connected account when it matches; otherwise insert a draft into the visible reply box. Save a draft only and never send it."+suffix+" "+accountHint,
       email_tasks: "Extract tasks, owners, dates, decisions, and commitments from the email open in Boolean's browser. Save useful results to Notes. Do not change the email."+suffix+" "+accountHint,
       email_save: "Save a concise summary, participants, decisions, and action items from the email open in Boolean's browser to Notes for the current project. Do not change the email."+suffix+" "+accountHint,
-      email_clean: "Identify the sender of the email open in Boolean's browser, then use email_cleanup_preview on the matching connected Gmail account with a narrow sender query. Keep every protection rule on. Return counts, reasons, samples, and the plan id. This is read-only; do not move anything to Trash until I explicitly confirm a batch."+suffix+" "+accountHint
+      email_clean: "Identify the sender of the email open in Boolean's browser, then use email_cleanup_preview on the matching connected Gmail or Outlook account with a narrow sender query. Keep every protection rule on. Return counts, reasons, samples, and the plan id. This is read-only; do not move anything to Trash until I explicitly confirm a batch."+suffix+" "+accountHint
     };
     return prompts[task]||prompts.use;
   }

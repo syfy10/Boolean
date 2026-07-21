@@ -761,10 +761,10 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "email_cleanup_preview",
-      description: "Create a read-only, locally stored cleanup preview for connected Gmail. It protects starred, important, primary, labeled, attachment, sensitive, sent, and draft mail. It changes nothing and returns a plan id, counts, reasons, and samples.",
+      description: "Create a read-only, locally stored cleanup preview for connected Gmail or Outlook. It protects starred, important, flagged, primary, labeled/categorized, attachment, sensitive, sent, and draft mail. It changes nothing and returns a plan id, counts, reasons, and samples.",
       parameters: { type: "object", properties: {
-        provider: { type: "string", enum: ["gmail"] },
-        query: { type: "string", description: "Optional extra Gmail search criteria, such as from:sender@example.com" },
+        provider: { type: "string", enum: ["gmail", "outlook"] },
+        query: { type: "string", description: "Optional extra provider search criteria, such as from:sender@example.com or a sender/domain keyword" },
         older_than: { type: "string", description: "Retention age such as 6m, 1y, or 2y; default 2y" },
         categories: { type: "array", items: { type: "string", enum: ["promotions", "social", "updates", "forums", "spam"] } },
         limit: { type: "integer", description: "Maximum messages to scan, 1-5000; default 500" },
@@ -779,7 +779,7 @@ export const TOOL_DEFINITIONS = [
       name: "email_cleanup_trash",
       description: "Move one confirmed batch from a saved cleanup preview to Trash. It re-checks every message and conversation immediately before acting, skips anything protected or uncertain, never permanently deletes, and always asks for explicit confirmation.",
       parameters: { type: "object", properties: {
-        provider: { type: "string", enum: ["gmail"] },
+        provider: { type: "string", enum: ["gmail", "outlook"] },
         plan_id: { type: "string" },
         batch_size: { type: "integer", description: "1-250 messages; default 100" }
       }, required: ["provider", "plan_id"] }
@@ -791,7 +791,7 @@ export const TOOL_DEFINITIONS = [
       name: "email_cleanup_undo",
       description: "Undo a Boolean cleanup run by moving its messages out of Trash. Requires the run id returned by email_cleanup_trash.",
       parameters: { type: "object", properties: {
-        provider: { type: "string", enum: ["gmail"] },
+        provider: { type: "string", enum: ["gmail", "outlook"] },
         run_id: { type: "string" }
       }, required: ["provider", "run_id"] }
     }
@@ -1113,6 +1113,22 @@ function emailConnection(args, ctx) {
   return { provider, connection, save: () => saveConfig(ctx.config) };
 }
 
+function cleanupCutoffMs(value) {
+  const match = String(value || "2y").trim().toLowerCase().match(/^(\d{1,3})([dmy])$/);
+  const amount = match ? Math.max(1, Number(match[1])) : 2;
+  const unit = match ? match[2] : "y";
+  const days = unit === "d" ? amount : unit === "m" ? amount * 30 : amount * 365;
+  return Date.now() - days * 24 * 60 * 60 * 1000;
+}
+
+function cleanupOlderRows(rows, olderThan) {
+  const cutoff = cleanupCutoffMs(olderThan);
+  return rows.filter((row) => {
+    const when = row.internalDate ? Number(row.internalDate) : Date.parse(row.date || "");
+    return Number.isFinite(when) ? when < cutoff : true;
+  });
+}
+
 async function executeEmailTool(name, args, ctx) {
   const { provider, connection, save } = emailConnection(args, ctx);
   if (name === "email_list") {
@@ -1129,7 +1145,6 @@ async function executeEmailTool(name, args, ctx) {
     return `Reply draft created in ${provider === "gmail" ? "Gmail" : "Outlook"}. Draft id: ${draft.id}. It was not sent.`;
   }
   if (name === "email_cleanup_preview") {
-    if (provider !== "gmail") return "Safe bulk cleanup currently supports connected Gmail accounts. Outlook can still use inbox, summary, task, and draft recipes.";
     const options = {
       query: String(args.query || ""),
       olderThan: String(args.older_than || "2y"),
@@ -1139,16 +1154,15 @@ async function executeEmailTool(name, args, ctx) {
       protectLabeled: args.protect_labeled !== false,
       minimumConfidence: 0.75
     };
-    const query = buildGmailCleanupQuery(options);
+    const query = provider === "gmail" ? buildGmailCleanupQuery(options) : String(options.query || "").trim();
     const labels = await listEmailLabels(provider, connection, save);
     const userLabelIds = labels.filter((label) => label.type === "user").map((label) => label.id);
-    const rows = await scanEmailMetadata(provider, connection, save, query, { limit: options.limit });
-    const plan = createCleanupPlan({ provider, account: connection.account || "Gmail account", query, options, rows, userLabelIds });
+    const rows = cleanupOlderRows(await scanEmailMetadata(provider, connection, save, query, { limit: options.limit, receivedBefore: provider === "outlook" && !query ? cleanupCutoffMs(options.olderThan) : 0 }), options.olderThan);
+    const plan = createCleanupPlan({ provider, account: connection.account || (provider === "gmail" ? "Gmail account" : "Outlook account"), query, options: { ...options, protectAnyLabel: provider === "outlook" }, rows, userLabelIds });
     saveCleanupPlan(plan);
     return truncate(JSON.stringify(publicCleanupPlan(plan), null, 2));
   }
   if (name === "email_cleanup_trash") {
-    if (provider !== "gmail") return "Safe bulk cleanup currently supports connected Gmail accounts.";
     const plan = loadCleanupPlan(String(args.plan_id || ""));
     if (plan.provider !== provider || (plan.account && connection.account && plan.account !== connection.account)) {
       throw new Error("The cleanup preview belongs to a different email account. Run a new preview for this account.");
@@ -1158,7 +1172,7 @@ async function executeEmailTool(name, args, ctx) {
     const pending = plan.candidates.filter((item) => !alreadyProcessed.has(item.id)).slice(0, batchSize);
     if (!pending.length) return `Cleanup plan ${plan.id} has no remaining candidates. Nothing was changed.`;
     const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
-    const ok = await approve(`Move up to ${pending.length} reviewed messages from ${plan.account || "Gmail"} to Trash now? This does not permanently delete them and Boolean will create an Undo record.`);
+    const ok = await approve(`Move up to ${pending.length} reviewed messages from ${plan.account || (provider === "gmail" ? "Gmail" : "Outlook")} to Trash now? This does not permanently delete them and Boolean will create an Undo record.`);
     if (!ok) return "No email was moved because the user declined confirmation.";
 
     const labels = await listEmailLabels(provider, connection, save);

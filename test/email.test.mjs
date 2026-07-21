@@ -65,6 +65,14 @@ test("managed email setup exposes availability without exposing public client id
   assert.doesNotMatch(JSON.stringify(state), /google-public|microsoft-public/);
 });
 
+test("Outlook advertises safe cleanup support when connected", () => {
+  const state = publicEmailConnections({ connectors: { email: {
+    outlook: { connected: true, account: "person@outlook.com", oauth: { accessToken: "ok", refreshToken: "refresh" } }
+  } } });
+  assert.equal(state.outlook.ready, true);
+  assert.equal(state.outlook.supportsCleanup, true);
+});
+
 test("Gmail metadata scan follows pages without loading message bodies", async () => {
   const originalFetch = globalThis.fetch;
   const calls = [];

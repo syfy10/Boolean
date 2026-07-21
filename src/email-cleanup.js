@@ -77,9 +77,13 @@ export function classifyCleanupMessage(row, options = {}) {
   if (labels.has("IMPORTANT")) protectedReasons.push("marked important");
   if (labels.has("SENT")) protectedReasons.push("sent by you");
   if (labels.has("DRAFT")) protectedReasons.push("draft");
+  if (row?.isDraft) protectedReasons.push("draft");
+  if (String(row?.importance || "").toLowerCase() === "high") protectedReasons.push("high importance");
+  if (row?.flagStatus && String(row.flagStatus).toLowerCase() !== "notflagged") protectedReasons.push("flagged");
   if (labels.has("CATEGORY_PRIMARY") || labels.has("CATEGORY_PERSONAL")) protectedReasons.push("personal or primary mail");
   if (options.protectAttachments !== false && row?.hasAttachment) protectedReasons.push("has an attachment");
   if (options.protectLabeled !== false && (row?.labelIds || []).some((label) => userLabels.has(String(label)))) protectedReasons.push("saved under a personal label");
+  if (options.protectLabeled !== false && options.protectAnyLabel && (row?.labelIds || []).length) protectedReasons.push("categorized or labeled");
   if (SENSITIVE_RE.test(text)) protectedReasons.push("may contain important personal or account information");
 
   const [category, confidence] = categoryFor(labels, text);
