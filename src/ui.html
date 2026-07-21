@@ -615,6 +615,8 @@
   body.browser-on main{ min-width:270px; flex-shrink:0; }
   body.browser-on.notes-on main{ min-width:260px; }
   .topbar{ height:38px; flex-shrink:0; display:flex; align-items:center; gap:5px; padding:0 10px; background:var(--bg); border-bottom:1px solid var(--border); }
+  body.shell .topbar,body.shell .workspace-tabs,body.shell .cmd-bar,body.shell .sidehead{ cursor:grab; }
+  body.shell .topbar button,body.shell .workspace-tabs button,body.shell .cmd-bar button,body.shell .cmd-bar input,body.shell .cmd-bar .cmd-chip{ cursor:pointer; }
   #appBack{ display:none; }
   #appBack.available{ display:grid; }
   .topbar #panelToggle{ width:28px; height:28px; flex:0 0 28px; border-radius:7px; margin-right:4px; }
@@ -835,7 +837,7 @@
   .promptline #interruptEdit, .promptline #send{ align-self:flex-end; margin-bottom:2px; }
   .promptline #interruptEdit{ margin-right:3px; }
   body.composer-simple .composer-wrap{ --composer-x:0px; --composer-bottom:14px; width:calc(100% - var(--chat-scrollbar,0px)); left:0; right:auto; transform:none; padding-top:0; display:flex; flex-direction:column; }
-  body.composer-simple{ --chat-tail-gap:48px; }
+  body.composer-simple{ --chat-tail-gap:16px; }
   body.composer-simple.settings-open .composer-wrap,
   body.composer-simple.recipes-open .composer-wrap{ display:none !important; }
   body.composer-simple .composer{ position:relative; width:100%; min-height:176px; border:0; border-top:1px solid color-mix(in srgb,var(--text) 72%,var(--bg)); border-radius:0; background:var(--bg); box-shadow:none; padding:8px var(--content-x) 6px; backdrop-filter:none; display:flex; flex-direction:column; }
@@ -854,10 +856,11 @@
   body.composer-simple .composer-info .composer-brand span{ display:block; overflow:hidden; text-overflow:ellipsis; }
   body.composer-simple .promptline{ width:100%; min-height:94px; margin:0; display:block; position:relative; --composer-prompt-indent:0px; }
   body.composer-simple .promptline::before{ content:none; }
-  body.composer-simple .composer-prompt{ display:inline-flex; position:absolute; left:0; top:0; z-index:1; align-items:flex-start; margin-top:0; color:var(--text); font:14px/1.45 var(--mono); white-space:nowrap; pointer-events:none; }
+  body.composer-simple .composer-prompt{ display:inline-flex; position:absolute; left:0; top:0; z-index:1; align-items:flex-start; margin-top:0; color:var(--text); font:13px/1.35 var(--ui); white-space:nowrap; pointer-events:none; }
+  body.composer-simple .composer.has-text .composer-prompt{ opacity:0; }
   body.composer-simple .composer textarea{ display:block; width:100%; min-width:0; min-height:86px; max-height:220px; padding:0 58px 4px 0; text-indent:var(--composer-prompt-indent); font:14px/1.45 var(--mono); overflow-y:auto; box-sizing:border-box; }
   body.composer-simple .composer textarea::placeholder{ color:transparent; }
-  body.composer-simple .composer-language-hint{ display:block; position:absolute; left:var(--content-x); top:32px; max-width:min(520px,calc(100% - 132px)); color:color-mix(in srgb,var(--text) 24%,var(--bg)); font:10px/1.25 var(--ui); pointer-events:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body.composer-simple .composer-language-hint{ display:block; position:absolute; left:var(--content-x); top:24px; max-width:min(620px,calc(100% - 132px)); color:color-mix(in srgb,var(--text) 34%,var(--bg)); font:11px/1.25 var(--mono); pointer-events:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   body.composer-simple .composer:focus-within .composer-language-hint,
   body.composer-simple .composer.has-text .composer-language-hint{ opacity:0; }
   body.composer-simple .promptline #interruptEdit{ position:absolute; right:0; top:0; width:28px; height:28px; margin:4px 0 0 0; border-radius:8px; color:var(--dim); }
@@ -2904,7 +2907,7 @@
       <div class="attachments" id="attachments"></div>
       <div class="composer-info" id="composerInfo"></div>
       <div class="promptline"><span class="composer-prompt" id="composerPrompt">C:\Users\S10&gt;</span><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
-      <div class="composer-language-hint">Tell me what you want done, in plain language.</div>
+      <div class="composer-language-hint" id="composerLanguageHint">C:\Users\S10&gt;</div>
       <div class="prompt-suggest" id="promptSuggest"></div>
       <div class="composer-chat-actions" id="composerChatActions"></div>
       <div class="recent-chats" id="recentChats"><span class="recent-chats-label">recent chats</span><span class="recent-chats-list" id="recentChatsList"></span></div>
@@ -4766,7 +4769,8 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.36"));
+    const hint=$("composerLanguageHint");
+    const version=state.displayVersion||("v"+(state.version||"0.9.37"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -4776,11 +4780,12 @@
       +'<button class="composer-meta-action" data-chat-act="retry" type="button" title="Retry last response">↻</button>'
       +'<span class="composer-token-total" title="Estimated total tokens in this chat">~'+shortNum(chatTotal)+' tok total</span>';
     if(info) info.innerHTML='<span class="composer-brand"><span>Boolean '+esc(version)+'</span><small>(c) saz3 Labs</small></span>';
-    if(prompt) prompt.textContent=displayPromptPath()+">";
+    if(prompt) prompt.textContent="Tell me what you want done, in plain language.";
+    if(hint) hint.textContent=displayPromptPath()+">";
     requestAnimationFrame(()=>{
       const line=$("composerPrompt")?.closest(".promptline");
       const p=$("composerPrompt");
-      if(line&&p) line.style.setProperty("--composer-prompt-indent", Math.ceil(p.getBoundingClientRect().width+4)+"px");
+      if(line&&p) line.style.setProperty("--composer-prompt-indent", document.body.classList.contains("composer-simple")?"0px":Math.ceil(p.getBoundingClientRect().width+4)+"px");
     });
   }
   let topPromptCache=[];
@@ -8406,7 +8411,7 @@ Optional bundled starter model:
     $("winMax").onclick=()=>winCmd("maxtoggle");
     $("winClose").onclick=()=>winCmd("close");
     const _dragOk=(t)=>!t.closest("button, .netseg, input, textarea, select, a, .menu, .winctl, .thread, .acts, .showmore, .foldable, .panel, .sidefoot");
-    const _dragZone=(e)=>e.target.matches(".topbar,.topbar > .spacer,.workspace-tabs,.cmd-bar,.sidehead");
+    const _dragZone=(e)=>e.target.closest(".topbar,.workspace-tabs,.cmd-bar,.sidehead");
     document.addEventListener("pointerdown",(e)=>{ if(e.button===0 && _dragZone(e) && _dragOk(e.target)) winCmd("drag"); });
     document.addEventListener("dblclick",(e)=>{ if(_dragZone(e) && _dragOk(e.target)) winCmd("maxtoggle"); });
     window.chrome.webview.addEventListener("message",(e)=>{

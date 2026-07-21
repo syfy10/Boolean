@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.36";
-export const APP_DISPLAY_VERSION = "v0.09.36";
+export const APP_VERSION = "0.9.37";
+export const APP_DISPLAY_VERSION = "v0.09.37";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -11,6 +11,7 @@ export const AI_BEHAVIOR_VERSION = 2;
 
 export const SAZ_DIR = path.join(os.homedir(), ".saz");
 const CONFIG_FILE = path.join(SAZ_DIR, "config.json");
+const CONFIG_BACKUP_FILE = path.join(SAZ_DIR, "config.json.bak");
 // pre-rename location (app used to be called sazcode)
 const LEGACY_CONFIG_FILE = path.join(os.homedir(), ".sazcode", "config.json");
 
@@ -187,10 +188,58 @@ function deepMerge(base, extra) {
   return out;
 }
 
+function readJsonFile(file) {
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function nonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function preserveApiKey(next, previous, provider) {
+  if (!next?.[provider] || !previous?.[provider]) return;
+  if (!nonEmptyString(next[provider].apiKey) && nonEmptyString(previous[provider].apiKey)) {
+    next[provider].apiKey = previous[provider].apiKey;
+  }
+}
+
+function preserveKeyedApiKeys(nextItems, previousItems) {
+  if (!Array.isArray(nextItems) || !Array.isArray(previousItems)) return;
+  const previousById = new Map(previousItems.map((item) => [item?.id, item]).filter(([id]) => id));
+  for (const item of nextItems) {
+    if (!item?.id) continue;
+    const previous = previousById.get(item.id);
+    if (!nonEmptyString(item.apiKey) && nonEmptyString(previous?.apiKey)) item.apiKey = previous.apiKey;
+  }
+}
+
+export function preserveSavedApiKeys(next, previous) {
+  if (!next || !previous) return next;
+  for (const provider of ["openai", "glm", "zaiCoding", "claude", "customApi"]) {
+    preserveApiKey(next, previous, provider);
+  }
+  preserveKeyedApiKeys(next.connectors?.apis, previous.connectors?.apis);
+  preserveKeyedApiKeys(next.connectors?.agents, previous.connectors?.agents);
+  return next;
+}
+
+function atomicWriteJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + ".tmp";
+  const backup = file + ".bak";
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2));
+  try {
+    if (fs.existsSync(file)) fs.copyFileSync(file, backup);
+  } catch {
+    /* backup is best-effort; never block saving config */
+  }
+  fs.renameSync(tmp, file);
+}
+
 export function loadConfig() {
-  for (const file of [CONFIG_FILE, LEGACY_CONFIG_FILE]) {
+  for (const file of [CONFIG_FILE, CONFIG_BACKUP_FILE, LEGACY_CONFIG_FILE]) {
     try {
-      const raw = JSON.parse(fs.readFileSync(file, "utf8"));
+      const raw = readJsonFile(file);
       const cfg = deepMerge(DEFAULTS, raw);
       // Coding Plan traffic must always use Z.AI's dedicated endpoint.
       cfg.zaiCoding.baseUrl = DEFAULTS.zaiCoding.baseUrl;
@@ -218,11 +267,10 @@ export function loadConfig() {
         migrated = true;
       }
       if (migrated) {
-        fs.mkdirSync(SAZ_DIR, { recursive: true });
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+        saveConfig(cfg);
       }
       if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
-        fs.writeFileSync(path.join(SAZ_DIR, "preferences.json"), JSON.stringify({ rules: [] }, null, 2));
+        atomicWriteJson(path.join(SAZ_DIR, "preferences.json"), { rules: [] });
       }
       return cfg;
     } catch {
@@ -232,9 +280,17 @@ export function loadConfig() {
   return structuredClone(DEFAULTS);
 }
 
-export function saveConfig(config) {
-  fs.mkdirSync(SAZ_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+export function saveConfig(config, options = {}) {
+  const preserveSecrets = options.preserveSecrets !== false;
+  let next = config;
+  if (preserveSecrets) {
+    try {
+      next = preserveSavedApiKeys(config, readJsonFile(CONFIG_FILE));
+    } catch {
+      next = config;
+    }
+  }
+  atomicWriteJson(CONFIG_FILE, next);
 }
 
 // the model name active for the current provider

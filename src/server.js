@@ -1434,6 +1434,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
 
       if (req.method === "POST" && p === "/api/config") {
         const body = await readBody(req);
+        let explicitSecretRemoval = false;
         if (typeof body.provider === "string" && PROVIDERS.includes(body.provider)) config.provider = body.provider;
         if (typeof body.model === "string" && body.model) setCurrentModel(config, body.model);
         if (typeof body.autoApprove === "boolean") config.autoApprove = body.autoApprove;
@@ -1471,6 +1472,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
         // remove a saved API key: { clearKey: "openai" }
         if (typeof body.clearKey === "string" && CLOUD[body.clearKey]) {
+          explicitSecretRemoval = true;
           config[body.clearKey].apiKey = "";
           if (config.provider === body.clearKey) config.provider = "local";
           if (config.cloudFallback?.provider === body.clearKey) config.cloudFallback = { enabled: false, provider: "", model: "" };
@@ -1508,13 +1510,14 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (typeof body.removeApiConnector === "string") {
           config.connectors.apis = (config.connectors?.apis || []).filter((x) => x.id !== body.removeApiConnector);
           if (config.customApi?.connectionId === body.removeApiConnector) {
+            explicitSecretRemoval = true;
             config.customApi = { connectionId: "", name: "Custom API", baseUrl: "", model: "", apiKey: "", approvedUse: false };
             if (config.provider === "customApi") config.provider = "local";
           }
         }
         if (body.ui && typeof body.ui === "object") { config.ui = { ...config.ui, ...body.ui }; syncWarmEnv(); }
         if (body.acceptEula === true) config.eulaAccepted = "1.0";
-        saveConfig(config);
+        saveConfig(config, { preserveSecrets: !explicitSecretRemoval });
         json({ ok: true });
         return;
       }
