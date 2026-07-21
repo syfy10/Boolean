@@ -8,7 +8,30 @@ import { saveConfig, SAZ_DIR } from "./config.js";
 import { providerImageSupport } from "./providers.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
-import { listEmail, readEmail, createEmailDraft, createReplyDraft, sendEmailDraft } from "./email.js";
+import {
+  listEmail,
+  readEmail,
+  createEmailDraft,
+  createReplyDraft,
+  sendEmailDraft,
+  scanEmailMetadata,
+  getEmailMetadata,
+  listEmailLabels,
+  getEmailThreadSafety,
+  trashEmail,
+  untrashEmail
+} from "./email.js";
+import {
+  buildGmailCleanupQuery,
+  classifyCleanupMessage,
+  createCleanupPlan,
+  saveCleanupPlan,
+  loadCleanupPlan,
+  publicCleanupPlan,
+  saveCleanupRun,
+  loadCleanupRun,
+  newCleanupRun
+} from "./email-cleanup.js";
 import { PLATFORM_TOOL_DEFINITIONS, PLATFORM_TOOL_NAMES, executePlatformTool, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
 import {
@@ -737,6 +760,45 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "email_cleanup_preview",
+      description: "Create a read-only, locally stored cleanup preview for connected Gmail. It protects starred, important, primary, labeled, attachment, sensitive, sent, and draft mail. It changes nothing and returns a plan id, counts, reasons, and samples.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail"] },
+        query: { type: "string", description: "Optional extra Gmail search criteria, such as from:sender@example.com" },
+        older_than: { type: "string", description: "Retention age such as 6m, 1y, or 2y; default 2y" },
+        categories: { type: "array", items: { type: "string", enum: ["promotions", "social", "updates", "forums", "spam"] } },
+        limit: { type: "integer", description: "Maximum messages to scan, 1-5000; default 500" },
+        protect_attachments: { type: "boolean", description: "Keep messages with attachments; defaults true" },
+        protect_labeled: { type: "boolean", description: "Keep messages under user-created labels; defaults true" }
+      }, required: ["provider"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "email_cleanup_trash",
+      description: "Move one confirmed batch from a saved cleanup preview to Trash. It re-checks every message and conversation immediately before acting, skips anything protected or uncertain, never permanently deletes, and always asks for explicit confirmation.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail"] },
+        plan_id: { type: "string" },
+        batch_size: { type: "integer", description: "1-250 messages; default 100" }
+      }, required: ["provider", "plan_id"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "email_cleanup_undo",
+      description: "Undo a Boolean cleanup run by moving its messages out of Trash. Requires the run id returned by email_cleanup_trash.",
+      parameters: { type: "object", properties: {
+        provider: { type: "string", enum: ["gmail"] },
+        run_id: { type: "string" }
+      }, required: ["provider", "run_id"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "mcp_list_tools",
       description: "List the tools exposed by an enabled MCP server. Use this before calling an MCP tool so you have its exact name and input schema.",
       parameters: {
@@ -1065,6 +1127,93 @@ async function executeEmailTool(name, args, ctx) {
   if (name === "email_reply_draft") {
     const draft = await createReplyDraft(provider, connection, save, args.message_id, args.text);
     return `Reply draft created in ${provider === "gmail" ? "Gmail" : "Outlook"}. Draft id: ${draft.id}. It was not sent.`;
+  }
+  if (name === "email_cleanup_preview") {
+    if (provider !== "gmail") return "Safe bulk cleanup currently supports connected Gmail accounts. Outlook can still use inbox, summary, task, and draft recipes.";
+    const options = {
+      query: String(args.query || ""),
+      olderThan: String(args.older_than || "2y"),
+      categories: Array.isArray(args.categories) && args.categories.length ? args.categories : ["promotions", "social", "updates", "forums"],
+      limit: Math.max(1, Math.min(5000, Number(args.limit || 500))),
+      protectAttachments: args.protect_attachments !== false,
+      protectLabeled: args.protect_labeled !== false,
+      minimumConfidence: 0.75
+    };
+    const query = buildGmailCleanupQuery(options);
+    const labels = await listEmailLabels(provider, connection, save);
+    const userLabelIds = labels.filter((label) => label.type === "user").map((label) => label.id);
+    const rows = await scanEmailMetadata(provider, connection, save, query, { limit: options.limit });
+    const plan = createCleanupPlan({ provider, account: connection.account || "Gmail account", query, options, rows, userLabelIds });
+    saveCleanupPlan(plan);
+    return truncate(JSON.stringify(publicCleanupPlan(plan), null, 2));
+  }
+  if (name === "email_cleanup_trash") {
+    if (provider !== "gmail") return "Safe bulk cleanup currently supports connected Gmail accounts.";
+    const plan = loadCleanupPlan(String(args.plan_id || ""));
+    if (plan.provider !== provider || (plan.account && connection.account && plan.account !== connection.account)) {
+      throw new Error("The cleanup preview belongs to a different email account. Run a new preview for this account.");
+    }
+    const batchSize = Math.max(1, Math.min(250, Number(args.batch_size || 100)));
+    const alreadyProcessed = new Set(plan.processedIds || []);
+    const pending = plan.candidates.filter((item) => !alreadyProcessed.has(item.id)).slice(0, batchSize);
+    if (!pending.length) return `Cleanup plan ${plan.id} has no remaining candidates. Nothing was changed.`;
+    const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
+    const ok = await approve(`Move up to ${pending.length} reviewed messages from ${plan.account || "Gmail"} to Trash now? This does not permanently delete them and Boolean will create an Undo record.`);
+    if (!ok) return "No email was moved because the user declined confirmation.";
+
+    const labels = await listEmailLabels(provider, connection, save);
+    const userLabelIds = labels.filter((label) => label.type === "user").map((label) => label.id);
+    const operations = [];
+    const skipped = [];
+    for (const candidate of pending) {
+      try {
+        const current = await getEmailMetadata(provider, connection, save, candidate.id);
+        const safety = classifyCleanupMessage(current, { ...plan.options, userLabelIds });
+        const thread = await getEmailThreadSafety(provider, connection, save, current.threadId, userLabelIds);
+        if (safety.status !== "candidate" || thread.protected) {
+          skipped.push({ id: candidate.id, reason: [...safety.protectedReasons, ...thread.reasons, ...(safety.status === "review" ? ["confidence is now too low"] : [])].join("; ") || "message is no longer a safe candidate" });
+        } else {
+          const operation = await trashEmail(provider, connection, save, candidate.id);
+          operations.push({ ...operation, subject: candidate.subject, from: candidate.from });
+        }
+      } catch (error) {
+        skipped.push({ id: candidate.id, reason: error.message || "could not re-check this message" });
+      }
+      alreadyProcessed.add(candidate.id);
+    }
+    plan.processedIds = [...alreadyProcessed];
+    plan.trashedIds = [...new Set([...(plan.trashedIds || []), ...operations.map((item) => item.id)])];
+    saveCleanupPlan(plan);
+    const run = newCleanupRun(plan.id, provider, plan.account, operations, skipped);
+    saveCleanupRun(run);
+    const remaining = plan.candidates.filter((item) => !alreadyProcessed.has(item.id)).length;
+    return truncate(JSON.stringify({
+      runId: run.id,
+      planId: plan.id,
+      movedToTrash: operations.length,
+      skipped: skipped.length,
+      remainingCandidates: remaining,
+      skippedSamples: skipped.slice(0, 10),
+      undo: operations.length ? `Use email_cleanup_undo with run_id ${run.id} to restore this batch.` : "Nothing moved, so no undo is needed.",
+      permanentDeletion: false
+    }, null, 2));
+  }
+  if (name === "email_cleanup_undo") {
+    const run = loadCleanupRun(String(args.run_id || ""));
+    if (run.provider !== provider || (run.account && connection.account && run.account !== connection.account)) {
+      throw new Error("The cleanup run belongs to a different email account.");
+    }
+    if (run.undoneAt) return `Cleanup run ${run.id} was already undone.`;
+    const restored = [];
+    const failed = [];
+    for (const operation of run.operations || []) {
+      try { restored.push(await untrashEmail(provider, connection, save, operation)); }
+      catch (error) { failed.push({ id: operation.id, reason: error.message || "restore failed" }); }
+    }
+    if (!failed.length) run.undoneAt = Date.now();
+    run.undoFailures = failed;
+    saveCleanupRun(run);
+    return truncate(JSON.stringify({ runId: run.id, restored: restored.length, failed: failed.length, failedSamples: failed.slice(0, 10) }, null, 2));
   }
   if (ctx.config?.connectors?.email?.draftOnly !== false) {
     return "Email was not sent because Draft-only is on in Settings > Email.";
@@ -1757,6 +1906,9 @@ export async function executeTool(name, args, ctx) {
       case "email_create_draft":
       case "email_reply_draft":
       case "email_send_draft":
+      case "email_cleanup_preview":
+      case "email_cleanup_trash":
+      case "email_cleanup_undo":
         return await executeEmailTool(name, args, ctx);
       case "mcp_list_tools":
         return await listMcpTools(args, ctx);

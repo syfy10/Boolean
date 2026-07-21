@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.39";
-export const APP_DISPLAY_VERSION = "v0.09.39";
+export const APP_VERSION = "0.9.40";
+export const APP_DISPLAY_VERSION = "v0.09.40";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -92,8 +92,8 @@ const DEFAULTS = {
     email: {
       draftOnly: true,
       confirmBeforeSend: true,
-      gmail: { clientId: "", connected: false, account: "", oauth: null },
-      outlook: { clientId: "", connected: false, account: "", oauth: null }
+      gmail: { clientId: "", manualClientId: "", clientSource: "", connected: false, account: "", oauth: null },
+      outlook: { clientId: "", manualClientId: "", clientSource: "", connected: false, account: "", oauth: null }
     }
   },
   cloudBackend: {

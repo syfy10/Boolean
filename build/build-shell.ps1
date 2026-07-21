@@ -39,6 +39,19 @@ Get-ChildItem "$out\engine" -Recurse -File | Where-Object { $deadEngineDlls -con
 Copy-Item "$root\templates" "$out\templates" -Recurse -Force
 Copy-Item "$root\assets\saz.ico" "$out\saz.ico" -Force
 
+# OAuth desktop client IDs are public identifiers, not client secrets. Release
+# builds can provide them through the source JSON or environment overrides.
+$oauthClients = [ordered]@{ gmail = ""; outlook = "" }
+$oauthSource = "$root\assets\oauth-clients.json"
+if (Test-Path $oauthSource) {
+  $configured = Get-Content $oauthSource -Raw | ConvertFrom-Json
+  $oauthClients.gmail = [string]$configured.gmail
+  $oauthClients.outlook = [string]$configured.outlook
+}
+if ($env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID) { $oauthClients.gmail = $env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID.Trim() }
+if ($env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID) { $oauthClients.outlook = $env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID.Trim() }
+$oauthClients | ConvertTo-Json | Set-Content "$out\oauth-clients.json" -Encoding ASCII
+
 Write-Host "[5/5] copying docs..."
 foreach ($f in "LICENSE.txt", "PRIVACY.txt") { Copy-Item "$root\assets\$f" "$out\$f" -Force }
 Copy-Item "$root\README.md" "$out\README.md" -Force

@@ -20,6 +20,10 @@ const PROVIDERS = {
 
 const b64url = (value) => Buffer.from(value).toString("base64url");
 const cleanHeader = (value) => String(value || "").replace(/[\r\n]+/g, " ").trim();
+const clamp = (value, min, max) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(min, Math.min(max, Math.trunc(parsed))) : min;
+};
 const requireProvider = (name) => {
   const provider = PROVIDERS[name];
   if (!provider) throw new Error("unsupported email provider");
@@ -41,7 +45,10 @@ export function createEmailOAuth(providerName, clientId, redirectUri) {
   url.searchParams.set("code_challenge_method", "S256");
   if (providerName === "gmail") {
     url.searchParams.set("access_type", "offline");
+    url.searchParams.set("include_granted_scopes", "true");
     url.searchParams.set("prompt", "consent");
+  } else {
+    url.searchParams.set("prompt", "select_account");
   }
   return { state, verifier, authorizationUrl: url.toString(), provider: providerName, redirectUri, createdAt: Date.now() };
 }
@@ -124,6 +131,72 @@ async function api(providerName, connection, save, url, options = {}) {
   return data;
 }
 
+async function mapLimit(items, concurrency, worker) {
+  const rows = new Array(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      rows[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return rows;
+}
+
+function headerMap(row) {
+  return Object.fromEntries((row?.payload?.headers || []).map((header) => [String(header.name || "").toLowerCase(), header.value]));
+}
+
+function partHasAttachment(part) {
+  if (!part) return false;
+  if (String(part.filename || "").trim()) return true;
+  return (part.parts || []).some(partHasAttachment);
+}
+
+function gmailMetadataUrl(id) {
+  const url = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}`);
+  url.searchParams.set("format", "metadata");
+  for (const name of ["From", "To", "Subject", "Date", "List-Unsubscribe"]) url.searchParams.append("metadataHeaders", name);
+  return url.toString();
+}
+
+function normalizeGmailMetadata(row) {
+  const headers = headerMap(row);
+  return {
+    id: row.id,
+    threadId: row.threadId,
+    from: headers.from || "",
+    to: headers.to || "",
+    subject: headers.subject || "(no subject)",
+    date: headers.date || "",
+    preview: row.snippet || "",
+    labelIds: Array.isArray(row.labelIds) ? row.labelIds : [],
+    internalDate: Number(row.internalDate || 0),
+    sizeEstimate: Number(row.sizeEstimate || 0),
+    hasAttachment: partHasAttachment(row.payload),
+    listUnsubscribe: headers["list-unsubscribe"] || ""
+  };
+}
+
+function normalizeOutlookMetadata(row) {
+  return {
+    id: row.id,
+    threadId: row.conversationId,
+    from: row.from?.emailAddress?.address || "",
+    to: (row.toRecipients || []).map((item) => item.emailAddress?.address).filter(Boolean).join(", "),
+    subject: row.subject || "(no subject)",
+    date: row.receivedDateTime || "",
+    preview: row.bodyPreview || "",
+    labelIds: Array.isArray(row.categories) ? row.categories : [],
+    importance: row.importance || "normal",
+    hasAttachment: !!row.hasAttachments,
+    isDraft: !!row.isDraft,
+    parentFolderId: row.parentFolderId || "",
+    flagStatus: row.flag?.flagStatus || "notFlagged"
+  };
+}
+
 export async function getEmailAccount(providerName, connection, save) {
   if (providerName === "gmail") {
     const data = await api(providerName, connection, save, "https://gmail.googleapis.com/gmail/v1/users/me/profile");
@@ -154,6 +227,79 @@ export async function listEmail(providerName, connection, save, query = "", limi
   if (query) url.searchParams.set("$search", `\"${query.replace(/\"/g, "")}\"`);
   const data = await api(providerName, connection, save, url.toString(), query ? { headers: { ConsistencyLevel: "eventual" } } : {});
   return (data.value || []).map((row) => ({ id: row.id, threadId: row.conversationId, from: row.from?.emailAddress?.address || "", subject: row.subject || "(no subject)", date: row.receivedDateTime || "", preview: row.bodyPreview || "" }));
+}
+
+export async function scanEmailMetadata(providerName, connection, save, query = "", options = {}) {
+  const limit = clamp(options.limit || 250, 1, 5000);
+  const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
+  if (providerName === "gmail") {
+    const ids = [];
+    let pageToken = "";
+    do {
+      const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+      listUrl.searchParams.set("maxResults", String(Math.min(500, limit - ids.length)));
+      if (query) listUrl.searchParams.set("q", query);
+      if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
+      const page = await api(providerName, connection, save, listUrl.toString());
+      ids.push(...(page.messages || []).map((item) => item.id).filter(Boolean));
+      pageToken = page.nextPageToken || "";
+      onProgress({ phase: "listing", found: ids.length, limit });
+    } while (pageToken && ids.length < limit);
+    const selected = ids.slice(0, limit);
+    let read = 0;
+    const rows = await mapLimit(selected, clamp(options.concurrency || 8, 1, 16), async (id) => {
+      const row = await api(providerName, connection, save, gmailMetadataUrl(id));
+      read += 1;
+      if (read === selected.length || read % 25 === 0) onProgress({ phase: "metadata", found: selected.length, read, limit });
+      return normalizeGmailMetadata(row);
+    });
+    return rows;
+  }
+
+  const rows = [];
+  let nextUrl = new URL("https://graph.microsoft.com/v1.0/me/messages");
+  nextUrl.searchParams.set("$top", String(Math.min(250, limit)));
+  nextUrl.searchParams.set("$select", "id,subject,from,toRecipients,receivedDateTime,bodyPreview,isRead,conversationId,internetMessageId,importance,hasAttachments,categories,parentFolderId,isDraft,flag");
+  nextUrl.searchParams.set("$orderby", "receivedDateTime desc");
+  if (query) nextUrl.searchParams.set("$search", `\"${query.replace(/\"/g, "")}\"`);
+  while (nextUrl && rows.length < limit) {
+    const page = await api(providerName, connection, save, nextUrl.toString(), query ? { headers: { ConsistencyLevel: "eventual" } } : {});
+    rows.push(...(page.value || []).map(normalizeOutlookMetadata));
+    onProgress({ phase: "metadata", found: rows.length, read: rows.length, limit });
+    nextUrl = page["@odata.nextLink"] ? new URL(page["@odata.nextLink"]) : null;
+  }
+  return rows.slice(0, limit);
+}
+
+export async function getEmailMetadata(providerName, connection, save, id) {
+  if (providerName === "gmail") {
+    return normalizeGmailMetadata(await api(providerName, connection, save, gmailMetadataUrl(id)));
+  }
+  const row = await api(providerName, connection, save,
+    `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(id)}?$select=id,subject,from,toRecipients,receivedDateTime,bodyPreview,conversationId,importance,hasAttachments,categories,parentFolderId,isDraft,flag`);
+  return normalizeOutlookMetadata(row);
+}
+
+export async function listEmailLabels(providerName, connection, save) {
+  if (providerName !== "gmail") return [];
+  const data = await api(providerName, connection, save, "https://gmail.googleapis.com/gmail/v1/users/me/labels");
+  return (data.labels || []).map((label) => ({ id: label.id, name: label.name, type: label.type || "user" }));
+}
+
+export async function getEmailThreadSafety(providerName, connection, save, threadId, userLabelIds = []) {
+  if (providerName !== "gmail" || !threadId) return { protected: false, reasons: [] };
+  const url = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/threads/${encodeURIComponent(threadId)}`);
+  url.searchParams.set("format", "metadata");
+  url.searchParams.append("metadataHeaders", "From");
+  const thread = await api(providerName, connection, save, url.toString());
+  const labels = new Set((thread.messages || []).flatMap((message) => message.labelIds || []));
+  const userLabels = new Set(userLabelIds.map(String));
+  const reasons = [];
+  if (labels.has("SENT")) reasons.push("you replied in this conversation");
+  if (labels.has("STARRED")) reasons.push("this conversation contains a starred message");
+  if (labels.has("IMPORTANT")) reasons.push("this conversation contains an important message");
+  if ([...labels].some((label) => userLabels.has(String(label)))) reasons.push("this conversation uses a personal label");
+  return { protected: reasons.length > 0, reasons };
 }
 
 export async function readEmail(providerName, connection, save, id) {
@@ -225,13 +371,65 @@ export async function sendEmailDraft(providerName, connection, save, draftId) {
   return { sent: true, id: draftId, provider: providerName };
 }
 
-export function publicEmailConnections(config) {
-  const email = config.connectors?.email || {};
-  const one = (name) => ({
-    provider: name,
-    connected: !!email[name]?.connected,
-    account: email[name]?.account || "",
-    hasClientId: !!email[name]?.clientId
+export async function trashEmail(providerName, connection, save, id) {
+  if (providerName === "gmail") {
+    const row = await api(providerName, connection, save, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}/trash`, { method: "POST" });
+    return { id: row?.id || id, originalId: id, provider: providerName };
+  }
+  const original = await getEmailMetadata(providerName, connection, save, id);
+  const row = await api(providerName, connection, save, `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(id)}/move`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ destinationId: "deleteditems" })
   });
+  return { id: row?.id || id, originalId: id, originalFolderId: original.parentFolderId || "inbox", provider: providerName };
+}
+
+export async function untrashEmail(providerName, connection, save, operation) {
+  const id = typeof operation === "string" ? operation : operation?.id;
+  if (!id) throw new Error("missing trashed message id");
+  if (providerName === "gmail") {
+    const row = await api(providerName, connection, save, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}/untrash`, { method: "POST" });
+    return { id: row?.id || id, provider: providerName };
+  }
+  const destinationId = operation?.originalFolderId || "inbox";
+  const row = await api(providerName, connection, save, `https://graph.microsoft.com/v1.0/me/messages/${encodeURIComponent(id)}/move`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ destinationId })
+  });
+  return { id: row?.id || id, provider: providerName };
+}
+
+export function publicEmailConnections(config, managedClients = {}) {
+  const email = config.connectors?.email || {};
+  const one = (name) => {
+    const connection = email[name] || {};
+    const oauth = connection.oauth || {};
+    const accessReady = !!oauth.accessToken && (!oauth.expiresAt || Number(oauth.expiresAt) > Date.now());
+    const credentialReady = !!oauth.refreshToken || accessReady;
+    const savedManagedId = connection.clientSource === "managed" ? connection.clientId : "";
+    const managedAvailable = !!String(managedClients[name] || savedManagedId || "").trim();
+    const legacyManualId = connection.clientSource === "managed" ? "" : connection.clientId;
+    const manualAvailable = !!String(connection.manualClientId || legacyManualId || "").trim();
+    const connectionMode = connection.clientSource === "managed"
+      ? "managed"
+      : (connection.clientSource === "manual" || legacyManualId ? "manual" : (managedAvailable ? "managed" : "none"));
+    const ready = !!connection.connected && credentialReady && !connection.needsReconnect;
+    return {
+      provider: name,
+      connected: !!connection.connected,
+      ready,
+      account: connection.account || "",
+      hasClientId: managedAvailable || manualAvailable || !!connection.clientId,
+      managedAvailable,
+      manualAvailable,
+      connectionMode,
+      health: ready ? "ready" : (connection.connected ? "attention" : "disconnected"),
+      lastCheck: connection.lastCheckStatus || "",
+      lastCheckedAt: Number(connection.lastCheckedAt || 0),
+      supportsCleanup: name === "gmail"
+    };
+  };
   return { draftOnly: email.draftOnly !== false, confirmBeforeSend: true, gmail: one("gmail"), outlook: one("outlook") };
 }

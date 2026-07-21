@@ -37,6 +37,7 @@ import {
   getEmailAccount,
   publicEmailConnections
 } from "./email.js";
+import { emailOAuthRedirectUri, loadManagedEmailOAuthClients } from "./email-oauth-config.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
 import { detectWebsiteTech } from "./tech-detector.js";
@@ -235,7 +236,7 @@ function firstTopic(s, max = 3) {
   return words.slice(0, max).map(w => /^\$?\d/.test(w) ? w : cap(w)).join(" ").slice(0, 36);
 }
 
-function publicConnectors(config) {
+function publicConnectors(config, managedEmailOAuthClients = {}) {
   const c = config.connectors || {};
   return {
     apis: Array.isArray(c.apis) ? c.apis.map((x) => ({
@@ -253,7 +254,7 @@ function publicConnectors(config) {
     agents: Array.isArray(c.agents) ? c.agents.map((x) => ({
       id: x.id, name: x.name, url: x.url, enabled: x.enabled !== false, hasKey: !!x.apiKey
     })) : [],
-    email: publicEmailConnections(config)
+    email: publicEmailConnections(config, managedEmailOAuthClients)
   };
 }
 
@@ -483,6 +484,9 @@ function stepSummary(name, args) {
   if (name === "browser_click") return `click link ▸ ${args.link || args.number || ""}`;
   if (name === "browser_form") return `submit form`;
   if (name === "visible_browser_draft_email") return `insert email draft`;
+  if (name === "email_cleanup_preview") return `preview email cleanup`;
+  if (name === "email_cleanup_trash") return `move reviewed email to Trash`;
+  if (name === "email_cleanup_undo") return `undo email cleanup`;
   if (name === "notepad_read") return `read notepad`;
   if (name === "notepad_write") return `write notepad`;
   if (name === "browser_download") return `download ▸ ${args.url || ""}`;
@@ -511,8 +515,9 @@ function shortAiName(provider, model = "") {
 // 1x1 red PNG used by the vision self-test
 const TEST_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
-export function startServer(config, { port = 0, autoExit = false } = {}) {
+export function startServer(config, { port = 0, autoExit = false, emailOAuthClients = null } = {}) {
   const uiHtml = loadUiHtml();
+  const managedEmailOAuthClients = emailOAuthClients || loadManagedEmailOAuthClients();
   const icon32 = loadAsset("icon-32.png", "../assets/saz-32.png");
   const icon256 = loadAsset("icon-256.png", "../assets/saz-256.png");
   let favicon;
@@ -855,6 +860,9 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
     const p = url.pathname;
+    const emailOAuthCallbackRequest = req.method === "GET" && p === "/"
+      && url.searchParams.has("state")
+      && (url.searchParams.has("code") || url.searchParams.has("error"));
     const json = (obj, code = 200) => {
       res.writeHead(code, { "content-type": "application/json" });
       res.end(JSON.stringify(obj));
@@ -875,7 +883,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         json({ ok: true });
         return;
       }
-      if (req.method === "GET" && p === "/") {
+      if (req.method === "GET" && p === "/" && !emailOAuthCallbackRequest) {
         // in dev (running from source) re-read the file each load, so editing
         // ui.html + refreshing the browser shows changes with no restart
         const html = IS_SEA ? uiHtml : loadUiHtml();
@@ -984,7 +992,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           projectsDir: config.projectsDir,
           referenceModel: config.referenceModel,
           budgetLimit: config.budgetLimit || 0,
-          connectors: publicConnectors(config),
+          connectors: publicConnectors(config, managedEmailOAuthClients),
           imageGeneration: publicImageGeneration(config),
           cloudBackend: publicCloudBackend(config),
           browseBase,
@@ -1805,19 +1813,37 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const body = await readBody(req);
         const provider = String(body.provider || "").trim().toLowerCase();
         if (!['gmail', 'outlook'].includes(provider)) return json({ error: "unsupported email provider" }, 400);
-        const clientId = String(body.clientId || config.connectors?.email?.[provider]?.clientId || "").trim();
-        if (!clientId) return json({ error: `Enter the ${provider === 'gmail' ? 'Google' : 'Microsoft'} OAuth client ID first.` }, 400);
-        const requestOrigin = `http://${req.headers.host}`;
-        const redirectUri = `${requestOrigin}/email/oauth/callback`;
+        const mode = body.mode === "manual" ? "manual" : "managed";
+        const saved = config.connectors?.email?.[provider] || {};
+        const savedManualClientId = String(saved.manualClientId || (saved.clientSource !== "managed" ? saved.clientId : "") || "").trim();
+        const submittedClientId = String(body.clientId || "").trim();
+        const clientId = mode === "managed"
+          ? String(managedEmailOAuthClients[provider] || (saved.clientSource === "managed" ? saved.clientId : "") || "").trim()
+          : (submittedClientId || savedManualClientId);
+        if (!clientId) {
+          const label = provider === "gmail" ? "Google" : "Microsoft";
+          return json({
+            error: mode === "managed"
+              ? `${label} sign-in is not provisioned in this Boolean build. Open Advanced setup to add a public client ID.`
+              : `Enter the ${label} OAuth public client ID first.`,
+            code: "email_oauth_setup_required",
+            provider,
+            managedAvailable: !!(managedEmailOAuthClients[provider] || (saved.clientSource === "managed" && saved.clientId))
+          }, 400);
+        }
+        const redirectUri = emailOAuthRedirectUri(provider, req.headers.host);
         const transaction = createEmailOAuth(provider, clientId, redirectUri);
-        pendingEmailOAuth.set(transaction.state, { ...transaction, clientId, status: "pending" });
+        const manualClientId = mode === "manual" ? clientId : savedManualClientId;
+        pendingEmailOAuth.set(transaction.state, {
+          ...transaction, clientId, clientSource: mode, manualClientId, status: "pending"
+        });
         for (const [key, value] of pendingEmailOAuth) {
           if (Date.now() - value.createdAt > 10 * 60 * 1000) pendingEmailOAuth.delete(key);
         }
         config.connectors = config.connectors || {};
         config.connectors.email = config.connectors.email || {};
         config.connectors.email[provider] = {
-          ...(config.connectors.email[provider] || {}), clientId
+          ...saved, clientId, manualClientId, clientSource: mode
         };
         saveConfig(config);
         return json({ ok: true, state: transaction.state, authorizationUrl: transaction.authorizationUrl, redirectUri });
@@ -1830,7 +1856,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return json({ status: transaction.status, provider: transaction.provider, account: transaction.account || "", error: transaction.error || "" });
       }
 
-      if (req.method === "GET" && p === "/email/oauth/callback") {
+      if (req.method === "GET" && (p === "/email/oauth/callback" || emailOAuthCallbackRequest)) {
         const state = url.searchParams.get("state") || "";
         const code = url.searchParams.get("code") || "";
         const oauthError = url.searchParams.get("error") || "";
@@ -1851,12 +1877,25 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           const oauth = await exchangeEmailCode(transaction, code, transaction.clientId);
           config.connectors = config.connectors || {};
           config.connectors.email = config.connectors.email || {};
+          const previousConnection = config.connectors.email[transaction.provider] || {};
           const connection = {
-            ...(config.connectors.email[transaction.provider] || {}),
-            clientId: transaction.clientId, connected: true, oauth
+            ...previousConnection,
+            clientId: transaction.clientId,
+            manualClientId: transaction.manualClientId || previousConnection.manualClientId || "",
+            clientSource: transaction.clientSource || "manual",
+            connected: true,
+            oauth,
+            needsReconnect: false,
+            lastCheckStatus: "ok",
+            lastCheckedAt: Date.now()
           };
           config.connectors.email[transaction.provider] = connection;
-          connection.account = await getEmailAccount(transaction.provider, connection, () => saveConfig(config));
+          try {
+            connection.account = await getEmailAccount(transaction.provider, connection, () => saveConfig(config));
+          } catch (err) {
+            config.connectors.email[transaction.provider] = previousConnection;
+            throw err;
+          }
           saveConfig(config);
           transaction.status = "complete";
           transaction.account = connection.account;
@@ -1877,10 +1916,49 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (!['gmail', 'outlook'].includes(provider)) return json({ error: "unsupported email provider" }, 400);
         config.connectors = config.connectors || {};
         config.connectors.email = config.connectors.email || {};
-        const clientId = config.connectors.email[provider]?.clientId || "";
-        config.connectors.email[provider] = { clientId, connected: false, account: "", oauth: null };
+        const previous = config.connectors.email[provider] || {};
+        const manualClientId = String(previous.manualClientId || (previous.clientSource !== "managed" ? previous.clientId : "") || "").trim();
+        config.connectors.email[provider] = {
+          clientId: previous.clientSource === "manual" ? manualClientId : "",
+          manualClientId,
+          clientSource: previous.clientSource === "manual" ? "manual" : "",
+          connected: false,
+          account: "",
+          oauth: null,
+          needsReconnect: false,
+          lastCheckStatus: "",
+          lastCheckedAt: 0
+        };
         saveConfig(config);
-        return json({ ok: true, email: publicEmailConnections(config) });
+        return json({ ok: true, email: publicEmailConnections(config, managedEmailOAuthClients) });
+      }
+
+      if (req.method === "POST" && p === "/api/email/test") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim().toLowerCase();
+        if (!['gmail', 'outlook'].includes(provider)) return json({ error: "unsupported email provider" }, 400);
+        const connection = config.connectors?.email?.[provider];
+        if (!connection?.connected || !connection.oauth) {
+          return json({ error: "Connect this email account first.", code: "email_not_connected" }, 400);
+        }
+        try {
+          connection.account = await getEmailAccount(provider, connection, () => saveConfig(config));
+          connection.needsReconnect = false;
+          connection.lastCheckStatus = "ok";
+          connection.lastCheckedAt = Date.now();
+          saveConfig(config);
+          return json({ ok: true, account: connection.account, email: publicEmailConnections(config, managedEmailOAuthClients) });
+        } catch (err) {
+          const message = String(err?.message || "Email connection test failed.").slice(0, 240);
+          connection.lastCheckStatus = "error";
+          connection.lastCheckedAt = Date.now();
+          connection.needsReconnect = /(?:401|403|unauthori[sz]ed|forbidden|invalid_grant|insufficient_scope|expired|reconnect|access token|authorization)/i.test(message);
+          saveConfig(config);
+          return json({
+            error: connection.needsReconnect ? "This email connection needs to be reconnected." : message,
+            code: connection.needsReconnect ? "email_reconnect_required" : "email_test_failed"
+          }, 400);
+        }
       }
 
       if (req.method === "POST" && p === "/api/email/settings") {
@@ -1890,7 +1968,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         config.connectors.email.draftOnly = body.draftOnly !== false;
         config.connectors.email.confirmBeforeSend = true;
         saveConfig(config);
-        return json({ ok: true, email: publicEmailConnections(config) });
+        return json({ ok: true, email: publicEmailConnections(config, managedEmailOAuthClients) });
       }
 
       if (req.method === "POST" && p === "/api/mcp/test") {

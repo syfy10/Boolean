@@ -27,6 +27,24 @@ saved API models and send one prompt to both. Replies stream
 into separate labeled bubbles; one provider can fail without cancelling the
 other. Compare is answer-only and never duplicates tools or computer actions.
 
+### Email accounts
+
+Settings > Email connects Gmail and Microsoft 365/Outlook.com with desktop
+OAuth and PKCE. Email Recipes can summarize mail, prepare drafts, find tasks,
+and run preview-first cleanup. Mailbox tokens stay in the local Boolean profile;
+sending always requires confirmation, and cleanup moves reviewed messages to
+Trash so the user can undo it.
+
+Release builds should include product-owned public OAuth client IDs in
+`assets/oauth-clients.json`, or set `BOOLEAN_GOOGLE_OAUTH_CLIENT_ID` and
+`BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID` while running `build/build-shell.ps1`.
+These IDs are public application identifiers, not client secrets. Google builds
+must enable the Gmail API and complete any verification required for the
+restricted `gmail.modify` scope. Microsoft builds must enable public client
+flows and delegated `User.Read`, `Mail.ReadWrite`, and `Mail.Send` permissions.
+Source builds without packaged IDs keep manual client-ID setup under Settings >
+Email > Advanced OAuth setup.
+
 It can control **PowerShell, cmd, winget, git, npm, and dotnet**, inspect and
 edit project files, search a project, maintain a task plan, capture a running
 project preview, and use the embedded browser and notepad. With a compatible

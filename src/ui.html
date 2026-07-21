@@ -335,6 +335,37 @@
   .conn-card .actions{ margin-left:auto; display:flex; gap:4px; }
   .conn-card .actions button{ border:0; background:transparent; color:var(--dim); border-radius:50%; width:24px; height:24px; cursor:pointer; }
   .conn-card .actions button:hover{ background:var(--hover); color:var(--text); }
+  .email-account-list{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:6px 0 10px; }
+  .email-connection{ display:flex; align-items:center; gap:9px; min-width:0; padding:10px; border:1px solid var(--border); background:var(--bg); }
+  .email-provider-icon{ width:31px; height:31px; flex:0 0 31px; display:grid; place-items:center; border:1px solid var(--border); border-radius:7px; background:var(--bubble); color:var(--text); font:700 13px var(--ui); }
+  .email-provider-icon.gmail{ color:#b83a31; }
+  .email-provider-icon.outlook{ color:#1674c4; }
+  .email-provider-copy{ min-width:0; flex:1; }
+  .email-provider-title{ display:flex; align-items:center; gap:6px; min-width:0; }
+  .email-provider-title b{ font-size:12px; }
+  .email-health{ display:inline-flex; align-items:center; gap:4px; color:var(--dim); font-size:9.5px; white-space:nowrap; }
+  .email-health:before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--muted); }
+  .email-health.ready:before{ background:var(--green); }
+  .email-health.attention:before{ background:#d9822b; }
+  .email-provider-account{ display:block; margin-top:2px; color:var(--dim); font:10px/1.3 var(--ui); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .email-provider-actions{ display:flex; align-items:center; gap:2px; flex-shrink:0; }
+  #settingsPanel .minibtn.email-primary-action{ background:var(--accent); color:var(--accent-text); }
+  #settingsPanel .minibtn.email-primary-action:hover{ background:var(--accent); opacity:.88; }
+  .email-disconnect-action{ color:var(--dim); padding-inline:6px; }
+  .email-advanced{ margin-top:4px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .email-advanced summary{ cursor:pointer; list-style:none; padding:9px 0; color:var(--text); font:11px var(--ui); }
+  .email-advanced summary::-webkit-details-marker{ display:none; }
+  .email-advanced summary:after{ content:"+"; float:right; color:var(--dim); }
+  .email-advanced[open] summary:after{ content:"-"; }
+  .email-advanced-body{ padding:0 0 10px; }
+  .email-manual-provider{ display:grid; grid-template-columns:minmax(130px,.75fr) minmax(210px,1.25fr); align-items:end; gap:10px; padding:9px 0; }
+  .email-manual-provider + .email-manual-provider{ border-top:1px solid var(--line); }
+  .email-manual-provider code{ display:block; margin-top:3px; color:var(--dim); font:9.5px/1.35 var(--mono); overflow-wrap:anywhere; }
+  .email-manual-controls{ display:flex; align-items:flex-end; gap:6px; min-width:0; }
+  .email-manual-controls .zai-key-control{ flex:1; margin:0; min-width:0; }
+  #settingsPanel .email-manual-controls input[type=text]{ width:100%; min-width:0; height:30px; border:1px solid var(--border); border-radius:7px; background:var(--bubble); color:var(--text); padding:0 34px 0 9px; font:10.5px var(--ui); }
+  .email-setup-note{ margin:2px 0 8px; }
+  @media (max-width:760px){ .email-account-list{ grid-template-columns:1fr; } .email-manual-provider{ grid-template-columns:1fr; gap:6px; } }
   .projline{ max-width:760px; margin:10px auto 0; font-size:12.5px; color:var(--dim); display:flex; gap:8px; align-items:center; justify-content:center; }
   .projline a{ color:var(--green); cursor:pointer; text-decoration:none; }
   .projline a:hover{ text-decoration:underline; }
@@ -845,7 +876,6 @@
   body.composer-simple .composer:hover{ border-top-color:color-mix(in srgb,var(--text) 72%,var(--bg)); }
   body.composer-simple .composer::before{ content:none; }
   .composer-info,.composer-prompt{ display:none; }
-  .composer-language-hint{ display:none; }
   body.composer-simple .composer-info{ position:absolute; right:var(--content-x); bottom:6px; z-index:2; display:block; max-width:min(28%,210px); color:color-mix(in srgb,var(--text) 20%,var(--bg)); font:6px/1.05 var(--mono); font-weight:400; white-space:nowrap; overflow:hidden; text-align:right; }
   body.composer-simple .composer-info small{ display:block; margin-top:0; color:color-mix(in srgb,var(--text) 16%,var(--bg)); font:4.8px/1 var(--mono); font-weight:400; }
   body.composer-simple .composer-chat-actions{ display:flex; align-items:center; gap:6px; max-width:82%; margin-top:auto; padding-top:4px; color:color-mix(in srgb,var(--text) 42%,var(--bg)); font:9.5px/1 var(--ui); white-space:nowrap; overflow:hidden; }
@@ -861,9 +891,6 @@
   body.composer-simple .composer.has-text .composer-prompt{ opacity:0; }
   body.composer-simple .composer textarea{ display:block; width:100%; min-width:0; min-height:86px; max-height:220px; padding:0 58px 4px 0; text-indent:var(--composer-prompt-indent); font:14px/1.45 var(--mono); overflow-y:auto; box-sizing:border-box; }
   body.composer-simple .composer textarea::placeholder{ color:transparent; }
-  body.composer-simple .composer-language-hint{ display:block; position:absolute; left:var(--content-x); top:24px; max-width:min(620px,calc(100% - 132px)); color:color-mix(in srgb,var(--text) 34%,var(--bg)); font:11px/1.25 var(--mono); pointer-events:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  body.composer-simple .composer:focus-within .composer-language-hint,
-  body.composer-simple .composer.has-text .composer-language-hint{ opacity:0; }
   body.composer-simple .promptline #interruptEdit{ position:absolute; right:0; top:0; width:28px; height:28px; margin:4px 0 0 0; border-radius:8px; color:var(--dim); }
   body.composer-simple .promptline #send{ position:absolute; right:0; bottom:24px; width:auto; min-width:0; height:24px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--text); font:14px/1.45 var(--mono); font-weight:400; box-shadow:none; outline:0; appearance:none; }
   body.composer-simple .promptline #send::before{ content:none; }
@@ -1455,6 +1482,20 @@
   .recipe-model-status span{ border:1px solid var(--border); border-radius:999px; padding:2px 7px; background:var(--bg); }
   .recipe-subpanel{ display:none; border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:8px; }
   .recipe-subpanel.open{ display:flex; flex-direction:column; gap:8px; }
+  .email-recipe-account{ display:flex; align-items:center; gap:7px; padding:7px 0 9px; border-bottom:1px solid var(--border); }
+  .email-recipe-account .email-provider-mark{ width:28px; height:28px; display:grid; place-items:center; flex:0 0 auto; border:1px solid color-mix(in srgb,var(--role-color) 36%,var(--border)); border-radius:7px; color:var(--role-color); font:700 11px var(--ui); }
+  .email-recipe-account select{ min-width:0; flex:1; }
+  .email-recipe-account small{ color:var(--green); font:10px var(--ui); white-space:nowrap; }
+  .email-recipe-section{ display:flex; flex-direction:column; gap:6px; padding-top:8px; border-top:1px solid var(--border); }
+  .email-recipe-section:first-child{ border-top:0; padding-top:0; }
+  .email-recipe-section-title{ color:var(--dim); font:700 9.5px var(--ui); text-transform:uppercase; }
+  .email-safety-copy{ margin:0; color:var(--dim); font:10.5px/1.4 var(--ui); }
+  .email-safety-copy b{ color:var(--text); }
+  .email-recipe-empty{ display:flex; flex-direction:column; gap:8px; padding:10px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .email-recipe-connect-actions{ display:flex; flex-wrap:wrap; gap:6px; }
+  .email-recipe-empty button{ align-self:flex-start; height:30px; padding:0 10px; border:1px solid var(--border); border-radius:7px; background:var(--accent); color:var(--accent-text); cursor:pointer; }
+  .email-recipe-summary{ border-left:2px solid var(--role-color); padding:2px 0 2px 8px; color:var(--dim); font:10.5px/1.45 var(--ui); }
+  .email-recipe-summary b{ color:var(--text); }
   .recipe-actions{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:auto; position:sticky; bottom:0; background:var(--card); padding-top:8px; box-shadow:0 -8px 14px color-mix(in srgb,var(--card) 92%,transparent); }
   .recipe-actions button{ height:31px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
   .recipe-actions button.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
@@ -1850,6 +1891,10 @@
           <button class="settings-tab" data-settings-tab="thirdparty" title="Connectors">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             Connectors
+          </button>
+          <button class="settings-tab" data-settings-tab="email" title="Email Accounts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+            Email
           </button>
           <button class="settings-tab" data-settings-tab="browser" title="Browser Research">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -2350,23 +2395,35 @@
         <div class="sechead">Email <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow" style="display:block">
-            <div><b>Your email accounts</b><div class="hint">Optional inbox access stays on this PC. Use an OAuth Desktop app client ID; never paste a client secret.</div></div>
+            <div><b>Your email accounts</b><div class="hint">Connect once with Google or Microsoft. Boolean keeps mailbox access on this PC and asks before sending.</div></div>
           </div>
-          <div class="conn-card email-connection" data-email-provider="gmail">
-            <div class="top"><span class="kind">Gmail</span><b id="gmailEmailAccount">Not connected</b><button class="minibtn" id="gmailEmailAction">Connect</button></div>
-            <div class="zai-key-control email-client-control" id="gmailClientControl">
-              <input type="text" id="gmailClientId" autocomplete="off" spellcheck="false" placeholder="Google OAuth desktop client ID">
-              <button class="zai-key-paste" id="gmailClientPaste" type="button" title="Paste client ID" aria-label="Paste client ID"><span class="paste-ico" aria-hidden="true"></span></button>
+          <div class="email-account-list">
+            <div class="conn-card email-connection" data-email-provider="gmail">
+              <span class="email-provider-icon gmail" aria-hidden="true">G</span>
+              <div class="email-provider-copy"><div class="email-provider-title"><b>Gmail</b><span class="email-health" id="gmailEmailState">Not connected</span></div><small class="email-provider-account" id="gmailEmailAccount">Google Workspace or Gmail</small></div>
+              <div class="email-provider-actions"><button class="minibtn email-disconnect-action" id="gmailEmailDisconnect" type="button">Disconnect</button><button class="minibtn email-primary-action" id="gmailEmailAction" type="button">Connect</button></div>
+            </div>
+            <div class="conn-card email-connection" data-email-provider="outlook">
+              <span class="email-provider-icon outlook" aria-hidden="true">O</span>
+              <div class="email-provider-copy"><div class="email-provider-title"><b>Outlook</b><span class="email-health" id="outlookEmailState">Not connected</span></div><small class="email-provider-account" id="outlookEmailAccount">Microsoft 365 or Outlook.com</small></div>
+              <div class="email-provider-actions"><button class="minibtn email-disconnect-action" id="outlookEmailDisconnect" type="button">Disconnect</button><button class="minibtn email-primary-action" id="outlookEmailAction" type="button">Connect</button></div>
             </div>
           </div>
-          <div class="conn-card email-connection" data-email-provider="outlook">
-            <div class="top"><span class="kind">Outlook</span><b id="outlookEmailAccount">Not connected</b><button class="minibtn" id="outlookEmailAction">Connect</button></div>
-            <div class="zai-key-control email-client-control" id="outlookClientControl">
-              <input type="text" id="outlookClientId" autocomplete="off" spellcheck="false" placeholder="Microsoft Entra public client ID">
-              <button class="zai-key-paste" id="outlookClientPaste" type="button" title="Paste client ID" aria-label="Paste client ID"><span class="paste-ico" aria-hidden="true"></span></button>
+          <div class="hint email-setup-note" id="emailSetupNote"></div>
+          <details class="email-advanced" id="emailAdvanced">
+            <summary>Advanced OAuth setup</summary>
+            <div class="email-advanced-body">
+              <div class="hint">Only developer builds without Boolean-managed sign-in need this. Add a public desktop client ID, never a client secret.</div>
+              <div class="email-manual-provider">
+                <div><b>Google desktop client</b><div class="hint">Enable Gmail API and register this loopback return:</div><code id="gmailCallbackUri"></code></div>
+                <div class="email-manual-controls"><div class="zai-key-control"><input type="text" id="gmailClientId" autocomplete="off" spellcheck="false" placeholder="Google OAuth client ID"><button class="zai-key-paste" id="gmailClientPaste" type="button" title="Paste client ID" aria-label="Paste Google client ID"><span class="paste-ico" aria-hidden="true"></span></button></div><button class="minibtn" id="gmailManualConnect" type="button">Use ID</button></div>
+              </div>
+              <div class="email-manual-provider">
+                <div><b>Microsoft public client</b><div class="hint">Allow public client flows and delegated Mail permissions:</div><code id="outlookCallbackUri"></code></div>
+                <div class="email-manual-controls"><div class="zai-key-control"><input type="text" id="outlookClientId" autocomplete="off" spellcheck="false" placeholder="Microsoft application client ID"><button class="zai-key-paste" id="outlookClientPaste" type="button" title="Paste client ID" aria-label="Paste Microsoft client ID"><span class="paste-ico" aria-hidden="true"></span></button></div><button class="minibtn" id="outlookManualConnect" type="button">Use ID</button></div>
+              </div>
             </div>
-          </div>
-          <div class="hint" style="margin:7px 0;overflow-wrap:anywhere">OAuth returns to <span id="emailCallbackUri"></span>. Gmail needs Gmail API access; Outlook needs Mail.ReadWrite and Mail.Send delegated permissions.</div>
+          </details>
           <label class="setrow" style="cursor:pointer">
             <span>Draft-only<div class="hint">Create drafts but disable the send tool</div></span>
             <span class="switch"><input type="checkbox" id="emailDraftOnly" checked><span class="slider"></span></span>
@@ -2908,8 +2965,7 @@
       <div class="ctxbar" id="ctxbar"></div>
       <div class="attachments" id="attachments"></div>
       <div class="composer-info" id="composerInfo"></div>
-      <div class="promptline"><span class="composer-prompt" id="composerPrompt">C:\Users\S10&gt;</span><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
-      <div class="composer-language-hint" id="composerLanguageHint">C:\Users\S10&gt;</div>
+      <div class="promptline"><span class="composer-prompt" id="composerPrompt">Tell me what you want done, in plain language.</span><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
       <div class="prompt-suggest" id="promptSuggest"></div>
       <div class="composer-chat-actions" id="composerChatActions"></div>
       <div class="recent-chats" id="recentChats"><span class="recent-chats-label">recent chats</span><span class="recent-chats-list" id="recentChatsList"></span></div>
@@ -4413,38 +4469,87 @@
     state.connectors.email=state.connectors.email||{};
     return state.connectors;
   }
+  const emailConnectionBusy={gmail:false,outlook:false};
+  let emailRecipeReturn=null;
+  function emailCallbackUriFor(provider){
+    const port=location.port?":"+location.port:"";
+    return "http://"+(provider==="gmail"?"127.0.0.1":"localhost")+port+"/";
+  }
+  function openEmailAdvanced(provider,message){
+    const advanced=$("emailAdvanced");
+    if(advanced) advanced.open=true;
+    if(message) emailStatus(message,"var(--danger,#d14343)");
+    requestAnimationFrame(()=>$(provider+"ClientId")?.focus());
+  }
   function renderEmailSettings(){
     const email=connectorsState().email||{};
     ["gmail","outlook"].forEach(provider=>{
       const connection=email[provider]||{};
-      const account=$(provider+"EmailAccount"), action=$(provider+"EmailAction"), control=$(provider+"ClientControl");
-      if(account) account.textContent=connection.connected?(connection.account||"Connected"):"Not connected";
-      if(action){ action.textContent=connection.connected?"Disconnect":"Connect"; action.classList.toggle("dangerbtn",!!connection.connected); }
-      if(control) control.style.display=connection.connected?"none":"flex";
+      const account=$(provider+"EmailAccount"), health=$(provider+"EmailState"), action=$(provider+"EmailAction");
+      const disconnect=$(provider+"EmailDisconnect"), manual=$(provider+"ManualConnect");
+      const ready=connection.connected&&connection.ready!==false;
+      if(account) account.textContent=connection.connected
+        ? (connection.account||"Connected account")
+        : (connection.managedAvailable?"One-click sign-in ready":(connection.manualAvailable?"Developer client ID saved":"Setup needed in this build"));
+      if(health){
+        health.textContent=ready?"Ready":(connection.connected?"Needs attention":"Not connected");
+        health.className="email-health "+(ready?"ready":(connection.connected?"attention":"disconnected"));
+      }
+      if(action){
+        action.textContent=ready?"Test":(connection.connected?"Reconnect":"Connect");
+        action.disabled=!!emailConnectionBusy[provider];
+      }
+      if(disconnect){ disconnect.style.display=connection.connected?"":"none"; disconnect.disabled=!!emailConnectionBusy[provider]; }
+      if(manual){ manual.textContent=connection.manualAvailable?"Use saved ID":"Use ID"; manual.disabled=!!emailConnectionBusy[provider]; }
     });
     if($("emailDraftOnly")) $("emailDraftOnly").checked=email.draftOnly!==false;
-    if($("emailCallbackUri")) $("emailCallbackUri").textContent=location.origin+"/email/oauth/callback";
+    if($("gmailCallbackUri")) $("gmailCallbackUri").textContent=emailCallbackUriFor("gmail");
+    if($("outlookCallbackUri")) $("outlookCallbackUri").textContent=emailCallbackUriFor("outlook");
+    const managed=["gmail","outlook"].filter(provider=>email[provider]?.managedAvailable);
+    if($("emailSetupNote")) $("emailSetupNote").textContent=managed.length===2
+      ? "One-click sign-in is ready for Gmail and Outlook."
+      : (managed.length===1
+        ? "One-click sign-in is ready for "+(managed[0]==="gmail"?"Gmail":"Outlook")+". The other provider needs Advanced setup in this build."
+        : "This development build needs public provider IDs under Advanced setup before sign-in can open.");
   }
   function emailStatus(message,color){
     const el=$("emailConnectionStatus"); if(!el) return;
     el.textContent=message||""; el.style.color=color||"var(--dim)";
   }
-  async function connectEmail(provider){
+  function returnToEmailRecipeAfterConnect(){
+    const target=emailRecipeReturn;
+    emailRecipeReturn=null;
+    if(!target) return;
+    closeSettingsPanel();
+    activeRecipeRole="email";
+    activeRecipeId=target.recipeId;
+    setWorkspaceTab("recipes");
+    renderRecipes();
+  }
+  async function connectEmail(provider,{mode=""}={}){
+    if(emailConnectionBusy[provider]) return;
     const email=connectorsState().email||{};
     const connection=email[provider]||{};
-    if(connection.connected){
-      if(!await appConfirm("Disconnect email?",`Remove Boolean's local access to ${connection.account||provider}?`,"Disconnect",true)) return;
-      const response=await fetch("/api/email/disconnect",{method:"POST",body:JSON.stringify({provider})});
-      if(!response.ok){ emailStatus("Could not disconnect the account.","var(--danger,#d14343)"); return; }
-      await refresh(); emailStatus("Email account disconnected."); return;
+    const selectedMode=mode||(connection.connectionMode==="manual"&&connection.manualAvailable?"manual":(connection.managedAvailable?"managed":(connection.manualAvailable?"manual":"managed")));
+    const clientId=selectedMode==="manual"?$(provider+"ClientId").value.trim():"";
+    if(selectedMode==="managed"&&!connection.managedAvailable){
+      openEmailAdvanced(provider,(provider==="gmail"?"Google":"Microsoft")+" sign-in needs a public client ID in this development build.");
+      return;
     }
-    const clientId=$(provider+"ClientId").value.trim();
-    if(!clientId&&!connection.hasClientId){ emailStatus("Enter the OAuth public client ID first.","var(--danger,#d14343)"); $(provider+"ClientId").focus(); return; }
-    emailStatus("Opening secure sign-in…");
+    if(selectedMode==="manual"&&!clientId&&!connection.manualAvailable){
+      openEmailAdvanced(provider,"Enter the OAuth public client ID first.");
+      return;
+    }
+    emailConnectionBusy[provider]=true;
+    renderEmailSettings();
+    emailStatus("Opening secure sign-in...");
     try{
-      const response=await fetch("/api/email/oauth/start",{method:"POST",body:JSON.stringify({provider,clientId})});
+      const response=await fetch("/api/email/oauth/start",{method:"POST",body:JSON.stringify({provider,mode:selectedMode,clientId})});
       const result=await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(result.error||"Could not start email sign-in.");
+      if(!response.ok){
+        if(result.code==="email_oauth_setup_required") openEmailAdvanced(provider,result.error||"OAuth setup is required.");
+        throw new Error(result.error||"Could not start email sign-in.");
+      }
       let popup=null;
       try{ popup=window.open(result.authorizationUrl,"booleanEmailSignIn","popup,width=520,height=680"); popup?.focus(); }catch{}
       if(!popup) await fetch("/api/open-url",{method:"POST",body:JSON.stringify({url:result.authorizationUrl})});
@@ -4454,12 +4559,49 @@
         const status=await (await fetch("/api/email/oauth/status?state="+encodeURIComponent(result.state))).json().catch(()=>({status:"pending"}));
         if(status.status==="complete"){
           try{ popup?.close(); }catch{}
-          await refresh(); emailStatus((status.account||"Email account")+" connected.","var(--green)"); return;
+          await refresh();
+          emailStatus((status.account||"Email account")+" connected.","var(--green)");
+          returnToEmailRecipeAfterConnect();
+          return;
         }
         if(status.status==="error"||status.status==="expired") throw new Error(status.error||"Authorization expired. Try again.");
       }
       throw new Error("Authorization timed out. Try again.");
     }catch(error){ emailStatus(error.message||"Could not connect email.","var(--danger,#d14343)"); }
+    finally{ emailConnectionBusy[provider]=false; renderEmailSettings(); }
+  }
+  async function testEmail(provider){
+    if(emailConnectionBusy[provider]) return;
+    emailConnectionBusy[provider]=true;
+    renderEmailSettings();
+    emailStatus("Checking the "+(provider==="gmail"?"Gmail":"Outlook")+" connection...");
+    try{
+      const response=await fetch("/api/email/test",{method:"POST",body:JSON.stringify({provider})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error||"Connection test failed.");
+      state.connectors=state.connectors||{};
+      state.connectors.email=result.email||state.connectors.email;
+      emailStatus((result.account||"Email account")+" is ready.","var(--green)");
+    }catch(error){
+      await refresh();
+      emailStatus(error.message||"Connection test failed.","var(--danger,#d14343)");
+    }finally{ emailConnectionBusy[provider]=false; renderEmailSettings(); }
+  }
+  async function disconnectEmail(provider){
+    if(emailConnectionBusy[provider]) return;
+    const connection=connectorsState().email?.[provider]||{};
+    if(!await appConfirm("Disconnect email?",`Remove Boolean's local access to ${connection.account||provider}?`,"Disconnect",true)) return;
+    emailConnectionBusy[provider]=true;
+    renderEmailSettings();
+    try{
+      const response=await fetch("/api/email/disconnect",{method:"POST",body:JSON.stringify({provider})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error||"Could not disconnect the account.");
+      state.connectors=state.connectors||{};
+      state.connectors.email=result.email||{};
+      emailStatus("Email account disconnected.");
+    }catch(error){ emailStatus(error.message||"Could not disconnect the account.","var(--danger,#d14343)"); }
+    finally{ emailConnectionBusy[provider]=false; renderEmailSettings(); }
   }
   function renderConnectors(){
     const c=connectorsState();
@@ -4810,50 +4952,11 @@
     const first=raw.includes("@") ? raw.split("@")[0] : raw.split(/\s+/)[0];
     return first || "You";
   }
-  function windowsUserHomePath(){
-    const candidates=[];
-    const active=(state.threads||[]).find(t=>t.id===(threadId||state.activeThreadId));
-    if(active?.projectDir) candidates.push(active.projectDir);
-    if(state.projectsDir) candidates.push(state.projectsDir);
-    for(const item of candidates){
-      const text=String(item||"").trim();
-      const match=text.match(/^([A-Za-z]:\\Users\\[^\\\/]+)/i);
-      if(match) return match[1];
-    }
-    const signed=signedInDisplayName();
-    if(signed&&signed!=="You") return "C:\\Users\\"+signed;
-    return "C:\\Users\\User";
-  }
-  function windowsPromptPath(){
-    const active=(state.threads||[]).find(t=>t.id===(threadId||state.activeThreadId));
-    if(active?.kind==="project"&&active.projectDir) return String(active.projectDir).trim().replace(/[\\/]+$/,"");
-    return windowsUserHomePath();
-  }
-  function sazDataPath(...parts){
-    return [windowsUserHomePath(),".saz",...parts].join("\\");
-  }
-  function currentWorkSavePath(){
-    const active=(state.threads||[]).find(t=>t.id===(threadId||state.activeThreadId));
-    if(document.body.classList.contains("settings-open")) return sazDataPath("config.json");
-    if(document.body.classList.contains("notes-on")) return "localStorage:sazNotes";
-    if(active?.kind==="project"&&active.projectDir) return String(active.projectDir).trim().replace(/[\\/]+$/,"");
-    return sazDataPath("threads.json");
-  }
-  function displayPromptPath(){
-    const path=currentWorkSavePath();
-    if(path.length<=56) return path;
-    const parts=path.split(/[\\/]/).filter(Boolean);
-    if(/^[A-Za-z]:/.test(parts[0]||"")&&parts.length>3){
-      return parts[0]+"\\"+parts[1]+"\\...\\"+parts.slice(-2).join("\\");
-    }
-    return "..."+path.slice(-52);
-  }
   function updateComposerConsoleInfo(){
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const hint=$("composerLanguageHint");
-    const version=state.displayVersion||("v"+(state.version||"0.9.39"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.40"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -4863,7 +4966,6 @@
       +'<span class="composer-token-total" title="Estimated total tokens in this chat">~'+shortNum(chatTotal)+' tok total</span>';
     if(info) info.innerHTML='<span class="composer-brand"><span>Boolean '+esc(version)+'</span><small>(c) saz3 Labs</small></span>';
     if(prompt) prompt.textContent="Tell me what you want done, in plain language.";
-    if(hint) hint.textContent=displayPromptPath()+">";
     requestAnimationFrame(()=>{
       const line=$("composerPrompt")?.closest(".promptline");
       const p=$("composerPrompt");
@@ -7100,6 +7202,7 @@
   }
   function closeSettingsPanel(){
     $("apikey").value="";
+    emailRecipeReturn=null;
     $("settingsPanel").classList.remove("open");
     showSettingsHome();
     syncSidePanelWidth();
@@ -7109,6 +7212,7 @@
   }
   function closeConversationPanels(){
     $("apikey").value="";
+    emailRecipeReturn=null;
     $("settingsPanel").classList.remove("open");
     syncSidePanelWidth();
     syncPanelButtons();
@@ -7530,7 +7634,13 @@ Optional bundled starter model:
     catch{ tempToast("Could not read the clipboard."); }
   };
   ["gmail","outlook"].forEach(provider=>{
-    $(provider+"EmailAction").onclick=()=>connectEmail(provider);
+    $(provider+"EmailAction").onclick=()=>{
+      const connection=connectorsState().email?.[provider]||{};
+      if(connection.connected&&connection.ready!==false) testEmail(provider);
+      else connectEmail(provider);
+    };
+    $(provider+"EmailDisconnect").onclick=()=>disconnectEmail(provider);
+    $(provider+"ManualConnect").onclick=()=>connectEmail(provider,{mode:"manual"});
     $(provider+"ClientPaste").onclick=async()=>{
       try{ if(!await pasteTextIntoField($(provider+"ClientId"),{trim:true})) tempToast("Press Ctrl+V to paste."); }
       catch{ tempToast("Could not read the clipboard."); }
@@ -8190,7 +8300,7 @@ Optional bundled starter model:
   function showFrame(t){
     applyFrameSecurity(t.url);
     bframe.src=frameSrc(t.url); bAddr.value=t.url||""; showBlank(!t.url);
-    reportUrl(t.url); updateNav(); renderTabs(); updateStar();
+    reportUrl(t.url); updateNav(); renderTabs(); updateStar(); syncBrowserTaskMode(t.url);
   }
   function loadUrl(url){
     const t=curTab(); if(!t) return;
@@ -8240,7 +8350,7 @@ Optional bundled starter model:
     if(d.saz3==="nav"){ const t=curTab(); if(!t) return;
       if(t.url!==d.url){ if(t.hist[t.hi]!==d.url){ t.hist=t.hist.slice(0,t.hi+1); t.hist.push(d.url); t.hi=t.hist.length-1; } t.url=d.url; }
       if(d.title) t.title=d.title;
-      bAddr.value=d.url; pushHist(d.url,d.title); reportUrl(d.url); updateNav(); renderTabs(); updateStar(); saveBrowser();
+      bAddr.value=d.url; pushHist(d.url,d.title); reportUrl(d.url); updateNav(); renderTabs(); updateStar(); syncBrowserTaskMode(d.url); saveBrowser();
       postFrame({cmd:"zoom",z:t.zoom||1});
     }
     else if(d.saz3==="newtab"&&d.url){ newTab(d.url); }
@@ -8728,6 +8838,7 @@ Optional bundled starter model:
     {id:"social",label:"Social",color:"#c026d3",desc:"Create posts, threads, hooks, calendars, and engagement ideas."},
     {id:"finance",label:"Finance",color:"#0f766e",desc:"Analyze numbers, models, forecasts, reports, and tradeoffs."},
     {id:"business",label:"Business",color:"#d97706",desc:"Draft copy, emails, support, strategy, and customer work."},
+    {id:"email",label:"Email",color:"#0284c7",desc:"Summarize, reply, organize, and safely clean connected email."},
     {id:"legal",label:"Legal",color:"#7c2d12",desc:"Understand policies, contracts, compliance, and risk notes."},
     {id:"automation",label:"Automation",color:"#0891b2",desc:"Schedule reminders, monitors, recurring tasks, and reports."},
     {id:"deploy",label:"Deploy",color:"#dc3f42",desc:"Prepare release, verify live sites, and plan rollback safely."},
@@ -8744,7 +8855,15 @@ Optional bundled starter model:
     {id:"browser-summary",role:"research",title:"Summarize page",tag:"Browser",desc:"Summarize the visible browser page and save useful findings.",tools:["Browser","Notes"],prompt:"Summarize the current browser page. Include key claims, useful links, and action items. Save the result to Notes."},
     {id:"extract-docs",role:"research",title:"Extract docs",tag:"Docs",desc:"Turn a documentation page into usable implementation notes.",tools:["Browser","Notes"],prompt:"Extract the documentation and code samples from the current browser page. Summarize the important APIs, constraints, examples, and next implementation steps. Save useful findings to Notes."},
     {id:"compare-sources",role:"research",title:"Compare sources",tag:"Research",desc:"Compare sources and rank the most trustworthy answer.",tools:["Browser","Notes"],prompt:"Research this topic across authoritative sources. Compare the sources, cite direct URLs, explain conflicts, and save the useful findings to Notes."},
-    {id:"email-draft",role:"business",title:"Draft email",tag:"Writing",desc:"Write a professional email or response with a clear ask.",tools:["Chat"],prompt:"Draft a professional email. Ask any missing context first if needed, then provide a concise subject and body."},
+    {id:"email-briefing",role:"email",title:"Inbox briefing",tag:"Summary",desc:"Review recent mail and surface what matters, what can wait, and what needs action.",tools:["Email","Notes"],guide:"email",emailAction:"briefing",prompt:"Create a concise inbox briefing from the connected email account."},
+    {id:"email-current",role:"email",title:"Summarize open email",tag:"Browser",desc:"Use the email open in Boolean's browser and summarize the full conversation.",tools:["Email","Browser","Notes"],guide:"email",emailAction:"summary",prompt:"Summarize the email currently open in Boolean's browser."},
+    {id:"email-needs-reply",role:"email",title:"Needs reply",tag:"Action",desc:"Find conversations that appear to be waiting for your response.",tools:["Email","Notes"],guide:"email",emailAction:"needsReply",prompt:"Find connected-account conversations that appear to need my reply."},
+    {id:"email-draft",role:"email",title:"Draft reply",tag:"Draft",desc:"Draft a response for the open or selected conversation without sending it.",tools:["Email","Browser"],guide:"email",emailAction:"reply",prompt:"Draft a reply to the selected email. Save a draft only and do not send it."},
+    {id:"email-tasks",role:"email",title:"Extract tasks",tag:"Tasks",desc:"Find decisions, dates, commitments, and action items in email.",tools:["Email","Browser","Notes"],guide:"email",emailAction:"tasks",prompt:"Extract tasks, dates, decisions, and commitments from the selected email context."},
+    {id:"email-important",role:"email",title:"Find important mail",tag:"Protect",desc:"Locate financial, legal, travel, security, medical, and saved messages.",tools:["Email","Notes"],guide:"email",emailAction:"important",prompt:"Find important email that should be protected from cleanup."},
+    {id:"email-attachments",role:"email",title:"Find attachments",tag:"Files",desc:"Locate receipts, contracts, PDFs, and other attachment-bearing messages.",tools:["Email"],guide:"email",emailAction:"attachments",prompt:"Find useful email attachments and organize the results by type and sender."},
+    {id:"email-clean-sender",role:"email",title:"Clean this sender",tag:"Preview",desc:"Preview older bulk mail from the sender open in the browser, with protection rules.",tools:["Email","Browser"],guide:"email",emailAction:"cleanSender",prompt:"Create a safe, read-only cleanup preview for older mail from the sender currently open in the browser."},
+    {id:"email-cleanup",role:"email",title:"Clean old email",tag:"Cleanup",desc:"Review old promotions, social mail, updates, and newsletters before moving batches to Trash.",tools:["Email"],guide:"email",emailAction:"cleanup",prompt:"Create a safe, read-only cleanup preview for the connected Gmail account."},
     {id:"landing-copy",role:"business",title:"Landing copy",tag:"Copy",desc:"Create product copy from the actual app behavior.",tools:["Files","Browser"],prompt:"Write landing-page copy for this product based on the real project behavior. Avoid claims not supported by the app. Keep it clear, specific, and practical."},
     {id:"campaign-plan",role:"marketing",title:"Campaign plan",tag:"Launch",desc:"Turn a product or feature into a campaign plan.",tools:["Files","Browser","Notes"],prompt:"Create a marketing campaign plan for this product or feature. Include audience, positioning, channels, copy angles, launch checklist, and success metrics."},
     {id:"seo-brief",role:"marketing",title:"SEO brief",tag:"SEO",desc:"Create a search-focused content brief with keywords and outline.",tools:["Browser","Notes"],prompt:"Create an SEO content brief. Include target audience, search intent, keyword clusters, outline, internal links, and source-backed claims."},
@@ -8799,6 +8918,92 @@ Optional bundled starter model:
   ];
   function selectedLegalActions(){
     return [...document.querySelectorAll(".recipe-legal-action:checked")].map(input=>input.value);
+  }
+  function connectedEmailAccounts({cleanup=false}={}){
+    const email=connectorsState().email||{};
+    return ["gmail","outlook"].map(provider=>({provider,...(email[provider]||{})}))
+      .filter(account=>account.connected&&account.ready!==false&&(!cleanup||account.supportsCleanup));
+  }
+  function selectedEmailAccount(){
+    const provider=$("emailRecipeAccount")?.value||"";
+    return connectedEmailAccounts().find(account=>account.provider===provider)||null;
+  }
+  function selectedEmailCategories(){
+    return [...document.querySelectorAll(".email-clean-category:checked")].map(input=>input.value);
+  }
+  function updateEmailRecipeSummary(){
+    const el=$("emailRecipeSummary"), recipe=currentRecipe(); if(!el) return;
+    const account=selectedEmailAccount();
+    const browser=$("emailUseBrowser")?.checked?"current email page":"connected account only";
+    if(recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender"){
+      const categories=selectedEmailCategories();
+      el.innerHTML="<b>Read-only cleanup preview</b><br>"
+        +"Account: "+esc(account?.account||"not connected")+"<br>"
+        +"Age: older than "+esc($("emailCleanupAge")?.value||"2y")+"<br>"
+        +"Groups: "+esc(categories.join(", ")||"none selected")+"<br>"
+        +"Scan limit: "+esc($("emailCleanupLimit")?.value||"500")+" messages<br>"
+        +"Context: "+esc(browser)+"<br>Nothing moves until you confirm a reviewed batch.";
+      return;
+    }
+    el.innerHTML="<b>Recipe ready</b><br>Account: "+esc(account?.account||"not connected")+"<br>Context: "+esc(browser)+"<br>AI: "+esc($("emailLocalOnly")?.checked?"local":"current selected model");
+  }
+  async function emailRecipePrompt(recipe){
+    const account=selectedEmailAccount();
+    const useBrowser=$("emailUseBrowser")?.checked;
+    const browser=useBrowser?await visibleBrowserContext():null;
+    const browserLine=browser?.url?`Email open in Boolean browser: ${browser.title||"email"} (${browser.url})`:"No open email page was detected.";
+    const details=$("recipeCustom")?.value.trim()||"";
+    const accountLine=`Connected account: ${account?.account||"unknown"} (${account?.provider||"email"}).`;
+    const verify="Before any write action, verify that the browser email belongs to the connected account. If that is uncertain, stop and ask me.";
+    const prompts={
+      briefing:"Use email_list and email_read on the connected account to create a concise inbox briefing. Separate urgent, needs reply, useful records, and low-priority mail. Do not change messages.",
+      summary:"Summarize the email or conversation open in Boolean's browser. Include participants, decisions, dates, commitments, and unanswered questions. Use the connected account to find the canonical message when possible. Do not change or send anything.",
+      needsReply:"Inspect recent connected-account mail and identify conversations that appear to need my reply. Explain why each one needs action and do not draft or send unless I ask next.",
+      reply:"Read the open or selected email and create a concise reply draft in the connected account. Save a draft only. Never send it.",
+      tasks:"Extract tasks, owners, dates, decisions, and commitments from the open email or recent connected-account context. Save useful results to Notes and do not change messages.",
+      important:"Find messages that should be protected from cleanup, including starred, important, replied-to, labeled, financial, legal, medical, travel, account-security, receipt, and attachment-bearing mail. Return grouped results without changing anything.",
+      attachments:"Find attachment-bearing messages in the connected account. Group receipts, contracts, travel documents, PDFs, and other files by sender and date. Do not download or change anything unless I ask.",
+      cleanSender:"Use the sender and subject from the email open in Boolean's browser to call email_cleanup_preview for connected Gmail. Add a narrow sender query, keep all protection rules on, and return the plan id, counts, reasons, and samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch.",
+      cleanup:"Call email_cleanup_preview for connected Gmail using the configuration below. Return the plan id, exact search query, counts, reasons, and representative samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch. Never permanently delete email."
+    };
+    const parts=[prompts[recipe.emailAction]||recipe.prompt,accountLine,useBrowser?browserLine:"",verify];
+    if(recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender"){
+      parts.push("Cleanup configuration:");
+      parts.push("older_than: "+($("emailCleanupAge")?.value||"2y"));
+      parts.push("categories: "+(selectedEmailCategories().join(", ")||"none"));
+      parts.push("limit: "+($("emailCleanupLimit")?.value||"500"));
+      parts.push("protect_attachments: "+($("emailProtectAttachments")?.checked!==false));
+      parts.push("protect_labeled: "+($("emailProtectLabels")?.checked!==false));
+    }
+    if(details) parts.push("User details or search guidance:\n"+details);
+    return parts.filter(Boolean).join("\n\n");
+  }
+  function validateEmailRecipe(recipe){
+    const account=selectedEmailAccount();
+    if(!account){ tempToast("Connect a ready email account first."); return false; }
+    if((recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender")&&account.provider!=="gmail"){
+      tempToast("Safe cleanup currently supports Gmail. Choose a connected Gmail account."); return false;
+    }
+    if((recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender")&&!selectedEmailCategories().length){
+      tempToast("Choose at least one email group to scan."); return false;
+    }
+    return true;
+  }
+  async function sendEmailRecipe(startNow=false){
+    const recipe=currentRecipe();
+    if(!validateEmailRecipe(recipe)) return;
+    if($("emailLocalOnly")?.checked&&state.provider!=="local"){
+      if(state.providerReady?.local!==true){ tempToast("A ready local model is required for local-only email analysis."); return; }
+      const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local"})});
+      if(!response.ok){ tempToast("Could not switch to local AI."); return; }
+      await refresh();
+    }
+    $("input").value=await emailRecipePrompt(recipe);
+    setWorkspaceTab("chat");
+    $("input").focus();
+    autosize();
+    if(startNow) $("send")&&$("send").click();
+    else tempToast("Email recipe loaded into chat.");
   }
   function legalRecipePrompt(recipe){
     const docType=$("recipeDocType")?.value||recipe.defaultDocType||"legal document";
@@ -8913,6 +9118,7 @@ Optional bundled starter model:
   function sendRecipe(startNow=false){
     const recipe=currentRecipe();
     if(recipe.guide==="startBuild"){ sendStartBuild(startNow); return; }
+    if(recipe.guide==="email"){ sendEmailRecipe(startNow); return; }
     if(recipe.guide==="legalDoc"&&!validateLegalRecipe()) return;
     $("input").value=recipePrompt(recipe);
     setWorkspaceTab("chat");
@@ -8987,6 +9193,62 @@ Optional bundled starter model:
     $("recipeStart").onclick=()=>sendRecipe(true);
     updateLegalRecipeSummary();
   }
+  function renderEmailRecipeDetail(recipe){
+    const cleanup=recipe.emailAction==="cleanup"||recipe.emailAction==="cleanSender";
+    const accounts=connectedEmailAccounts({cleanup});
+    const allAccounts=connectedEmailAccounts();
+    const localReady=state.providerReady?.local===true;
+    const useBrowserDefault=["summary","reply","tasks","cleanSender"].includes(recipe.emailAction);
+    const accountOptions=accounts.map(account=>'<option value="'+esc(account.provider)+'">'+esc((account.provider==="gmail"?"Gmail":"Outlook")+" - "+(account.account||"connected"))+'</option>').join("");
+    const tools='<div class="recipe-tools">'+recipe.tools.map(tool=>'<span class="recipe-tool">'+esc(tool)+'</span>').join("")+'</div>';
+    if(!accounts.length){
+      const reason=cleanup&&allAccounts.length?"Safe cleanup currently supports Gmail. Connect Gmail to use this recipe.":"Connect Gmail or Outlook in Settings before running email recipes.";
+      const providers=cleanup?["gmail"]:["gmail","outlook"];
+      const connectButtons=providers.map(provider=>'<button type="button" data-connect-email="'+provider+'">Connect '+(provider==="gmail"?"Gmail":"Outlook")+'</button>').join("");
+      $("recipeDetail").innerHTML='<h3>'+esc(recipe.title)+'</h3><p>'+esc(recipe.desc)+'</p>'+tools
+        +'<div class="email-recipe-empty"><p>'+esc(reason)+'</p><div class="email-recipe-connect-actions">'+connectButtons+'</div></div>'
+        +'<div class="recipe-warning">Opening webmail in the browser provides page context, but mailbox actions still require a connected account.</div>';
+      $("recipeDetail").querySelectorAll("[data-connect-email]").forEach(button=>button.onclick=()=>{
+        emailRecipeReturn={recipeId:activeRecipeId};
+        openSettings("email");
+        connectEmail(button.dataset.connectEmail);
+      });
+      return;
+    }
+    const cleanupFields=cleanup?'<div class="email-recipe-section"><span class="email-recipe-section-title">Cleanup scope</span>'
+      +'<div class="recipe-field"><label for="emailCleanupAge">Older than</label><select id="emailCleanupAge"><option value="6m">6 months</option><option value="1y">1 year</option><option value="2y" selected>2 years</option><option value="3y">3 years</option><option value="5y">5 years</option></select></div>'
+      +'<div class="recipe-field"><label>Groups to scan</label><div class="recipe-check-grid">'
+      +[["promotions","Promotions"],["social","Social"],["updates","Updates"],["forums","Forums"],["spam","Gmail Spam"]].map((item,index)=>'<label class="recipe-option"><input type="checkbox" class="email-clean-category" value="'+item[0]+'" '+(index<4?'checked':'')+'>'+item[1]+'</label>').join("")
+      +'</div></div><div class="recipe-field"><label for="emailCleanupLimit">Maximum to scan</label><select id="emailCleanupLimit"><option value="250">250</option><option value="500" selected>500</option><option value="1000">1,000</option><option value="2500">2,500</option><option value="5000">5,000</option></select></div></div>'
+      +'<div class="email-recipe-section"><span class="email-recipe-section-title">Protection</span>'
+      +'<p class="email-safety-copy"><b>Always protected:</b> starred, important, primary, sent, draft, sensitive account mail, and conversations you replied to.</p>'
+      +'<label class="recipe-option"><input type="checkbox" id="emailProtectAttachments" checked>Protect messages with attachments</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="emailProtectLabels" checked>Protect personal labels</label></div>':"";
+    const actionLabel=cleanup?"Scan safely":recipe.emailAction==="reply"?"Create draft":"Start";
+    $("recipeDetail").innerHTML='<h3>'+esc(recipe.title)+'</h3><p>'+esc(recipe.desc)+'</p>'+tools
+      +'<div class="recipe-form"><div class="email-recipe-account"><span class="email-provider-mark">'+(accounts[0].provider==="gmail"?"G":"O")+'</span><select id="emailRecipeAccount" aria-label="Connected email account">'+accountOptions+'</select><small>Ready</small></div>'
+      +'<div class="email-recipe-section"><span class="email-recipe-section-title">Context and privacy</span>'
+      +'<label class="recipe-option"><input type="checkbox" id="emailUseBrowser" '+(useBrowserDefault?'checked':'')+'>Use email open in Boolean browser</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="emailLocalOnly" '+(localReady?'checked':'disabled')+'>Use local AI for email content'+(localReady?'':' (local model unavailable)')+'</label></div>'
+      +cleanupFields
+      +'<textarea class="recipe-custom" id="recipeCustom" placeholder="'+(cleanup?'Optional sender, domain, or Gmail search guidance...':'Add sender, date range, tone, question, or other details...')+'"></textarea></div>'
+      +'<div class="email-recipe-summary" id="emailRecipeSummary"></div>'
+      +'<div class="recipe-warning">Boolean uses the connected account for reliable mailbox actions. Cleanup is preview-first, moves only to Trash, and always keeps an Undo record.</div>'
+      +'<div class="recipe-actions"><button type="button" id="recipeFill">Fill chat</button><button type="button" class="primary" id="recipeStart">'+actionLabel+'</button></div>';
+    $("emailRecipeAccount").onchange=()=>{
+      const account=selectedEmailAccount();
+      const mark=$("recipeDetail").querySelector(".email-provider-mark");
+      if(mark) mark.textContent=account?.provider==="outlook"?"O":"G";
+      updateEmailRecipeSummary();
+    };
+    $("recipeDetail").querySelectorAll("input,select,textarea").forEach(control=>{
+      control.addEventListener(control.tagName==="SELECT"?"change":"input",updateEmailRecipeSummary);
+      if(control.type==="checkbox") control.addEventListener("change",updateEmailRecipeSummary);
+    });
+    $("recipeFill").onclick=()=>sendEmailRecipe(false);
+    $("recipeStart").onclick=()=>sendEmailRecipe(true);
+    updateEmailRecipeSummary();
+  }
   function renderStartBuildDetail(recipe){
     const modelChoices=["GLM 5.2 Local - Coding","Qwen Local - General","GPT Cloud","Claude Cloud"];
     $("recipeDetail").innerHTML='<h3>Start Building</h3><p>Choose an AI, configure the workspace, and describe the task.</p>'
@@ -9018,6 +9280,7 @@ Optional bundled starter model:
   function renderRecipeDetail(){
     const recipe=currentRecipe();
     if(recipe.guide==="startBuild"){ renderStartBuildDetail(recipe); return; }
+    if(recipe.guide==="email"){ renderEmailRecipeDetail(recipe); return; }
     if(recipe.guide==="legalDoc"){ renderLegalRecipeDetail(recipe); return; }
     const needsBrowser=recipe.tools.includes("Browser"), needsNotes=recipe.tools.includes("Notes"), needsGit=recipe.tools.includes("Git");
     $("recipeDetail").innerHTML='<h3>'+esc(recipe.title)+'</h3><p>'+esc(recipe.desc)+'</p>'
@@ -9042,6 +9305,7 @@ Optional bundled starter model:
       social:'<circle cx="6" cy="12" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.7 10.7l6.6-3.4"/><path d="M8.7 13.3l6.6 3.4"/>',
       finance:'<path d="M12 2v20"/><path d="M17 6.5c-1.1-1-3-1.5-5-1.1-2.3.4-3.8 1.6-3.8 3.2 0 4.2 8.8 1.9 8.8 6.4 0 1.8-1.8 3.2-4.4 3.4-2 .1-4-.5-5.2-1.7"/>',
       business:'<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/>',
+      email:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
       legal:'<path d="M12 3v18"/><path d="M5 7h14"/><path d="M7 7l-4 7h8z"/><path d="M17 7l-4 7h8z"/>',
       automation:'<path d="M21 12a9 9 0 0 1-15.5 6.2"/><path d="M3 12A9 9 0 0 1 18.5 5.8"/><path d="M18 2v5h-5"/><path d="M6 22v-5h5"/>',
       deploy:'<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/><path d="M5 19h14"/>',
@@ -10467,20 +10731,71 @@ Optional bundled starter model:
   // ══════════════════════════════════════════════════════════════
   // BROWSER TASK BUTTONS
   // ══════════════════════════════════════════════════════════════
-  function browserTaskPrompt(task,page=""){
+  function emailProviderForUrl(url){
+    try{
+      const host=new URL(url||"").hostname.toLowerCase();
+      if(host==="mail.google.com"||host.endsWith(".mail.google.com")) return "gmail";
+      if(host.includes("outlook.live.com")||host.includes("outlook.office.com")||host.includes("outlook.office365.com")) return "outlook";
+    }catch{}
+    return "";
+  }
+  function emailBrowserAccountHint(url){
+    const provider=emailProviderForUrl(url);
+    const account=provider?(connectorsState().email?.[provider]||{}):{};
+    if(account.connected&&account.ready!==false) return `Connected ${provider==="gmail"?"Gmail":"Outlook"} account: ${account.account||"ready"}. Verify that it matches the browser account before any write.`;
+    return provider?`No ready ${provider==="gmail"?"Gmail":"Outlook"} connector is available. Use the visible page for read-only help or open Email Recipes to connect it.`:"";
+  }
+  function openEmailRecipes(recipeId="email-briefing"){
+    activeRecipeRole="email";
+    activeRecipeId=recipeItems.some(item=>item.id===recipeId)?recipeId:"email-briefing";
+    setWorkspaceTab("recipes");
+    renderRecipes();
+  }
+  function syncBrowserTaskMode(url){
+    const email=!!emailProviderForUrl(url);
+    const normal=[
+      ["Use page","use","Send this page as context to Boolean"],
+      ["Extract docs","docs","Extract documentation and code samples"],
+      ["Turn into code","code","Turn this page into code"],
+      ["Summarize","summarize","Summarize this page and save to Notes"],
+      ["Stack","tech","Detect this website's technology stack"],
+      ["Monitor","monitor","Watch this page for changes"]
+    ];
+    const mail=[
+      ["Summarize","email_summary","Summarize this email conversation"],
+      ["Draft reply","email_reply","Create a reply draft without sending"],
+      ["Tasks","email_tasks","Extract dates, decisions, and action items"],
+      ["Save","email_save","Save useful email context to a project or Notes"],
+      ["Clean sender","email_clean","Preview older mail from this sender"],
+      ["Email recipes","email_more","Open all Email Recipes"]
+    ];
+    document.querySelectorAll(".browser-tasks .bt-task").forEach((button,index)=>{
+      const spec=(email?mail:normal)[index]; if(!spec) return;
+      button.textContent=spec[0]; button.dataset.btask=spec[1]; button.title=spec[2];
+    });
+    document.body.classList.toggle("browser-email-page",email);
+  }
+  function browserTaskPrompt(task,page="",url=""){
     const suffix=page ? " Current page: "+page : "";
+    const accountHint=emailBrowserAccountHint(url);
     const prompts={
       use: "Use the current browser page as context and tell me what's important."+suffix,
       docs: "Extract the documentation and code samples from the current browser page."+suffix,
       code: "Turn the content of the current browser page into working code."+suffix,
       summarize: "Summarize the current browser page and save the key findings to the notepad."+suffix,
       tech: "Detect the CMS, website builder, framework, analytics, and hosting stack for the current browser page."+suffix,
-      monitor: "Monitor the current browser page for changes and alert me."+suffix
+      monitor: "Monitor the current browser page for changes and alert me."+suffix,
+      email_summary: "Summarize the email conversation open in Boolean's browser. Include participants, decisions, dates, commitments, and unanswered questions. Do not change anything."+suffix+" "+accountHint,
+      email_reply: "Read the email open in Boolean's browser and create a concise reply draft. Use the connected account when it matches; otherwise insert a draft into the visible reply box. Save a draft only and never send it."+suffix+" "+accountHint,
+      email_tasks: "Extract tasks, owners, dates, decisions, and commitments from the email open in Boolean's browser. Save useful results to Notes. Do not change the email."+suffix+" "+accountHint,
+      email_save: "Save a concise summary, participants, decisions, and action items from the email open in Boolean's browser to Notes for the current project. Do not change the email."+suffix+" "+accountHint,
+      email_clean: "Identify the sender of the email open in Boolean's browser, then use email_cleanup_preview on the matching connected Gmail account with a narrow sender query. Keep every protection rule on. Return counts, reasons, samples, and the plan id. This is read-only; do not move anything to Trash until I explicitly confirm a batch."+suffix+" "+accountHint
     };
     return prompts[task]||prompts.use;
   }
   function sendBrowserTask(task,meta={}){
-    const prompt=browserTaskPrompt(task,meta.page||"");
+    if(task==="email_more"){ openEmailRecipes("email-briefing"); return; }
+    const prompt=browserTaskPrompt(task,meta.page||"",meta.url||"");
     pendingBrowserTask={task,prompt,url:meta.url||"",title:meta.title||"",at:Date.now()};
     $("input").value=prompt;
     setWorkspaceTab("chat");
@@ -10496,6 +10811,7 @@ Optional bundled starter model:
   });
   function handleShellBrowserTask(d){
     const task=d&&d.task;
+    if(task==="email_more"){ openEmailRecipes("email-briefing"); return; }
     const url=(d&&d.url)||"";
     const title=(d&&d.title)||"";
     const page=title&&url ? title+" ("+url+")" : (url||title||"the current browser page");

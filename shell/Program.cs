@@ -317,6 +317,8 @@ sealed class MainForm : Form
     readonly RoundedPanel _addrBox = new() { Radius = 14 };
     readonly TextBox _addr = new();
     readonly List<TabItem> _tabs = new();
+    readonly List<Button> _browserTaskButtons = new();
+    readonly ToolTip _browserTaskToolTip = new();
     int _active = -1;
     bool _full = false;
     bool _windowSizing;
@@ -1070,10 +1072,12 @@ try {
             b.Fill = Color.Transparent;
             b.Border = Color.Transparent;
             b.FlatAppearance.BorderSize = 0;
-            b.Click += (_, __) => SendBrowserTask(task);
-            var tt = new ToolTip(); tt.SetToolTip(b, tip);
+            b.Tag = task;
+            b.Click += (_, __) => SendBrowserTask(Convert.ToString(b.Tag) ?? task);
+            _browserTaskToolTip.SetToolTip(b, tip);
             _taskBar.Controls.Add(b);
             _barBtns.Add(b);
+            _browserTaskButtons.Add(b);
             return b;
         }
         TaskButton("Use page", "Use the current page as context", "use");
@@ -1082,6 +1086,7 @@ try {
         TaskButton("Summarize", "Summarize this page and save findings", "summarize");
         TaskButton("Stack", "Detect CMS, framework, analytics, and hosting", "tech");
         TaskButton("Monitor", "Watch this page for changes", "monitor");
+        UpdateBrowserTasks(_homeUrl);
         _taskBar.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
 
         _addTabBtn = new RoundedButton { Text = "+", Width = 30, Height = 28, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 12f), Margin = new Padding(3, 5, 0, 0), Radius = 12 };
@@ -1308,7 +1313,7 @@ try {
         t.View.Enter += (_, __) => { if (_menu.Visible) _menu.Close(); };
         t.View.GotFocus += (_, __) => { if (_menu.Visible) _menu.Close(); };
         t.View.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
-        c.SourceChanged += (_, __) => { t.Url = c.Source; if (t == Active()) _addr.Text = t.Url; t.Chip.Text = TabLabel(t); LayoutTabs(); SyncTabs(); };
+        c.SourceChanged += (_, __) => { t.Url = c.Source; if (t == Active()) { _addr.Text = t.Url; UpdateBrowserTasks(t.Url); } t.Chip.Text = TabLabel(t); LayoutTabs(); SyncTabs(); };
         c.DocumentTitleChanged += (_, __) =>
         {
             t.Title = string.IsNullOrWhiteSpace(c.DocumentTitle) ? t.Url : c.DocumentTitle;
@@ -1361,6 +1366,7 @@ try {
             _tabs[k].Chip.BackColor = (k == i) ? _pal.Hover : Color.Transparent;
         }
         _addr.Text = _tabs[i].Url;
+        UpdateBrowserTasks(_tabs[i].Url);
         LayoutTabs();
         _tabStrip.ScrollControlIntoView(_tabs[i].Chip);
         UpdateZoomLabel();
@@ -2027,6 +2033,46 @@ try {
     {
         var t = Active();
         PostToChat(new { type = "browserTask", task, url = t?.Url ?? "", title = t?.Title ?? "" });
+    }
+
+    static bool IsEmailPage(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+        var host = uri.Host.ToLowerInvariant();
+        return host == "mail.google.com" || host.EndsWith(".mail.google.com", StringComparison.Ordinal) ||
+               host == "outlook.live.com" || host.EndsWith(".outlook.live.com", StringComparison.Ordinal) ||
+               host == "outlook.office.com" || host.EndsWith(".outlook.office.com", StringComparison.Ordinal) ||
+               host == "outlook.office365.com" || host.EndsWith(".outlook.office365.com", StringComparison.Ordinal);
+    }
+
+    void UpdateBrowserTasks(string? url)
+    {
+        if (_browserTaskButtons.Count == 0) return;
+        (string Text, string Tip, string Task)[] specs = IsEmailPage(url)
+            ? new[] {
+                ("Summarize", "Summarize this email conversation", "email_summary"),
+                ("Draft reply", "Create a reply draft without sending", "email_reply"),
+                ("Tasks", "Extract dates, decisions, and action items", "email_tasks"),
+                ("Save", "Save useful email context to the project", "email_save"),
+                ("Clean sender", "Preview older mail from this sender", "email_clean"),
+                ("Email recipes", "Open all Email Recipes", "email_more")
+            }
+            : new[] {
+                ("Use page", "Use the current page as context", "use"),
+                ("Extract docs", "Extract documentation and code samples", "docs"),
+                ("Turn into code", "Turn this page into working code", "code"),
+                ("Summarize", "Summarize this page and save findings", "summarize"),
+                ("Stack", "Detect CMS, framework, analytics, and hosting", "tech"),
+                ("Monitor", "Watch this page for changes", "monitor")
+            };
+        for (var i = 0; i < _browserTaskButtons.Count && i < specs.Length; i++)
+        {
+            var button = _browserTaskButtons[i];
+            button.Text = specs[i].Text;
+            button.Tag = specs[i].Task;
+            button.Width = specs[i].Text.Length > 11 ? 122 : 106;
+            _browserTaskToolTip.SetToolTip(button, specs[i].Tip);
+        }
     }
 
     async Task SendSelectedText(string target)
