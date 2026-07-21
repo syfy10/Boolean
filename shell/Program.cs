@@ -791,7 +791,6 @@ try {
             };
             _chat.CoreWebView2.Navigate($"http://127.0.0.1:{_port}");
 
-            AddTab(_homeUrl, activate: true, navigate: false); // ready but hidden
             _ = CheckForUpdatesAsync();
             // long-lived windows re-check on the same cadence as the feed throttle
             var updateTimer = new System.Windows.Forms.Timer { Interval = (int)TimeSpan.FromHours(6).TotalMilliseconds };
@@ -1547,7 +1546,7 @@ try {
         Width = target;
     }
 
-    void ToggleBrowser(bool? force = null)
+    void ToggleBrowser(bool? force = null, bool ensureTab = true)
     {
         _browserOpen = force ?? !_browserOpen;
         if (_browserOpen)
@@ -1555,7 +1554,7 @@ try {
             GrowForBrowser();
             if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
             _split.Panel2Collapsed = false;
-            // Navigate the initial tab if it was created at startup but never loaded
+            if (ensureTab && _tabs.Count == 0) AddTab(_homeUrl, activate: true, navigate: true);
             var t = Active();
             if (t != null && t.View.CoreWebView2 != null)
             {
@@ -1630,7 +1629,7 @@ try {
                 case "navigate":
                     if (root.TryGetProperty("url", out var up) && up.GetString() is { } u)
                     {
-                        if (!_browserOpen) ToggleBrowser(true);
+                        if (!_browserOpen) ToggleBrowser(true, ensureTab: false);
                         // AI-opened pages get their own tab
                         AddTab(u, activate: true, navigate: true);
                     }

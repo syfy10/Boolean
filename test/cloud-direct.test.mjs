@@ -426,7 +426,9 @@ test("the model receives topic changes without deterministic routing", async (t)
 
 test("ordinary chat turns send no tools and use a compact prompt", async (t) => {
   let requestBody = null;
+  let requestCount = 0;
   const server = http.createServer(async (req, res) => {
+    requestCount++;
     let raw = "";
     for await (const chunk of req) raw += chunk;
     requestBody = JSON.parse(raw);
@@ -458,6 +460,7 @@ test("ordinary chat turns send no tools and use a compact prompt", async (t) => 
   }, messages);
 
   assert.equal(answer, "Hi. How can I help?");
+  assert.equal(requestCount, 1, "plain chat should complete in one model call");
   assert.equal(requestBody.tools, undefined, "plain chat should not send tool schemas");
   assert.match(requestBody.messages[0].content, /concise AI workspace/);
   assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
@@ -509,6 +512,20 @@ test("turn classifier chooses the smallest useful mode", () => {
   assert.equal(classifyTurnMode([{ role: "user", content: "are you checking it?" }], { connectorActionRequired: true }), "agent");
   assert.equal(toolDefinitionsForTurnMode("chat").length, 0);
   assert.deepEqual(toolDefinitionsForTurnMode("research").map((tool) => tool.function.name).sort(), ["research_web", "web_search"]);
+});
+
+test("explicit no-change project questions do not require artifact edits", () => {
+  const messages = [
+    { role: "system", content: systemPrompt("C:\\Users\\S10\\Documents\\Boolean", true, { ui: { learnedMemory: false } }) },
+    { role: "user", content: "dont make any changes just tell me about this project" }
+  ];
+
+  assert.equal(requiresArtifactAction(messages), false);
+  assert.equal(classifyTurnMode(messages, {
+    latestText: "dont make any changes just tell me about this project",
+    artifactActionRequired: requiresArtifactAction(messages),
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
+  }), "agent", "project overview can still inspect read-only");
 });
 
 test("connector progress follow-ups stay in tool mode", () => {

@@ -1675,7 +1675,7 @@
   .cmd-bar .cmd-chip.clickable{ cursor:pointer; }
   .cmd-bar .cmd-chip.clickable:hover{ background:var(--hover); color:var(--text); }
   .cmd-bar .cmd-chip.pushed{ color:var(--green); border-color:color-mix(in srgb,var(--green) 42%,var(--border)); }
-  .cmd-bar .cmd-chip.unpushed{ color:var(--online); border-color:color-mix(in srgb,var(--online) 42%,var(--border)); }
+  .cmd-bar .cmd-chip.unpushed,.cmd-bar .cmd-chip.warn{ color:var(--dim); border-color:var(--border); }
   .cmd-bar .cmd-chip-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .cmd-bar .cmd-chip-dot{ width:6px; height:6px; border-radius:50%; flex:0 0 auto; background:var(--dim); }
   .cmd-bar .cmd-chip-dot.running{ background:var(--online); animation:pulse 1.5s infinite; }
@@ -1949,6 +1949,7 @@
             <div class="diag-row"><span class="diag-status idle" id="diagPermsDot"></span><div class="diag-label">Tool permissions<small>File, network, command access</small></div><span class="diag-value" id="diagPerms">—</span></div>
             <div class="diag-row"><span class="diag-status idle" id="diagCloudDot"></span><div class="diag-label">Cloud budget<small>Monthly spending limit</small></div><span class="diag-value" id="diagCloud">—</span></div>
             <div class="diag-row"><span class="diag-status idle" id="diagUpdateDot"></span><div class="diag-label">Update manifest<small>Local installer metadata</small></div><span class="diag-value" id="diagUpdate">—</span></div>
+            <div class="diag-row"><span class="diag-status ok"></span><div class="diag-label">Interface timings<small>Current launch, chat, tab, and first-token timing</small></div><span class="diag-value" id="diagPerformance">Waiting...</span></div>
           </div>
           <div class="diag-actions">
             <button id="diagRefresh" class="primary">Run diagnostics</button>
@@ -3267,6 +3268,28 @@
   const _fetch = window.fetch.bind(window);
   const fetch = (u, o = {}) => _fetch(u, (typeof u === "string" && u.startsWith("/api"))
     ? { ...o, headers: { ...(o.headers || {}), "x-saz": "1" } } : o);
+  const perfStartedAt=performance.now();
+  const perfTimings={};
+  function renderPerfTimings(){
+    const el=$("diagPerformance");
+    if(!el) return;
+    const labels={appVisible:"visible",stateReady:"state",chatVisible:"chat",tabOpen:"tab",firstToken:"token"};
+    el.textContent=Object.entries(labels)
+      .filter(([key])=>Number.isFinite(perfTimings[key]))
+      .map(([key,label])=>label+" "+Math.round(perfTimings[key])+"ms")
+      .join(" | ")||"Waiting...";
+    el.title=el.textContent;
+  }
+  function perfMark(name,start=perfStartedAt){
+    perfTimings[name]=Math.max(0,performance.now()-start);
+    window.__booleanPerf={...perfTimings};
+    renderPerfTimings();
+  }
+  function whenIdle(fn,timeout=1800){
+    if("requestIdleCallback" in window) return requestIdleCallback(fn,{timeout});
+    return setTimeout(fn,Math.min(timeout,250));
+  }
+  requestAnimationFrame(()=>perfMark("appVisible"));
   function placeProjectStatusChip(){
     const status=$("cmdProjectStatus"), commit=$("cmdCommit");
     if(status&&commit&&status.parentElement!==$("cmdBar")) commit.insertAdjacentElement("afterend",status);
@@ -3421,6 +3444,7 @@
   const syncChatScroll=()=>{ syncComposerRail(); pinChatAfterLayout(); };
   chat.addEventListener("scroll",()=>{
     chatPinnedToBottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<=chatBottomTolerance();
+    if(chat.scrollTop<90) loadOlderMessages();
   },{passive:true});
   if(composerWrap) new ResizeObserver(syncComposerHeight).observe(composerWrap);
   if(composerPill) new ResizeObserver(syncComposerPillHeight).observe(composerPill);
@@ -3432,6 +3456,9 @@
   syncDockHeight();
   syncComposerRail();
   let state={ provider:"local", models:[], providerModels:{}, providerReady:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
+  let deferredStateReady=false;
+  let statusRefreshInFlight=null;
+  let lastThreadSignature="";
   let cleanStartupApplied=false;
   let compareState={ active:false, targets:[] };
   try{ compareState={...compareState,...JSON.parse(localStorage.getItem("booleanCompare")||"{}")}; }catch{}
@@ -3648,6 +3675,10 @@
   // an in-flight run belongs to a specific thread; its live view is rebuilt
   // whenever that thread is on screen, so switching chats never loses progress
   let run=null; // { threadId, status, raw, liveAI, statusEl, request, holdQueue }
+  const THREAD_PAGE_SIZE=80;
+  let threadLogStart=0;
+  let threadLogHasMore=false;
+  let threadLogLoading=false;
   const queues={}; // threadId -> [{display,text,msg,images}] follow-ups sent when the run ends
   const queuePaused={}; // threadId -> true when Stop/Interrupt should hold waiting work
   const THREAD_GROUP_LIMIT=5;
@@ -3854,18 +3885,17 @@
   const uRewindIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8a4 4 0 1 1 1.2 2.85"/><path d="M4 5.2V8h2.8"/></svg>';
   const uSearchIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4"/><path d="M10 10l3.5 3.5"/></svg>';
   function chatActionButtons(kind){
-    const retryTitle=kind==="ai"?"Retry last response":"Retry this message";
+    void kind;
     return '<span class="actions">'
       +'<button class="actbtn msg-act" data-act="copy" type="button" title="Copy" aria-label="Copy">⧉</button>'
       +'<button class="actbtn msg-act" data-act="paste" type="button" title="Paste into composer" aria-label="Paste into composer">↧</button>'
       +'<button class="actbtn msg-act" data-act="share" type="button" title="Share" aria-label="Share">⇪</button>'
-      +'<button class="actbtn msg-act" data-act="retry" type="button" title="'+retryTitle+'" aria-label="'+retryTitle+'">↻</button>'
       +'</span>';
   }
-  function addUser(text, images, at){
+  function addUser(text, images, at, {parent=col,userIndex=null,quiet=false}={}){
     const d=document.createElement("div"); d.className="msg-user";
     d._raw=text||"";
-    d.dataset.uindex=String(col.querySelectorAll(".msg-user").length);
+    d.dataset.uindex=String(userIndex===null?col.querySelectorAll(".msg-user").length:userIndex);
     const foot='<div class="msg-foot">'
       +'<button class="uact usearch" type="button" title="Search this in the browser" aria-label="Search this in the browser">'+uSearchIcon+'</button>'
       +'<button class="uact urewind" type="button" title="Rewind to here and edit" aria-label="Rewind to here and edit">'+uRewindIcon+'</button>'
@@ -3874,7 +3904,9 @@
       +chatActionButtons("user")
       +'</div>';
     d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div>'+foot;
-    col.appendChild(d); updateCopyButton(); updateComposerConsoleInfo(); scrollDown(true); return d;
+    parent.appendChild(d);
+    if(!quiet){ updateCopyButton(); updateComposerConsoleInfo(); scrollDown(true); }
+    return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
   function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'</div>'; return d; }
@@ -3987,8 +4019,10 @@
     const detail=toolDetailText(entry);
     card._toolDetails=(card._toolDetails||card.querySelector(".toolout")?.textContent||"")+"\n\n---\n"+detail;
     const label=card.dataset.toolLabel||toolDisplayLabel(entry);
-    card.querySelector(".sum").textContent=label+(count>1?" x"+count:"");
-    card.querySelector(".toolout").textContent=card._toolDetails;
+    const sum=card.querySelector(".sum");
+    const out=card.querySelector(".toolout");
+    if(sum) sum.textContent=label+(count>1?" x"+count:"");
+    if(out) out.textContent=card._toolDetails;
     card.title=toolRawSummary(entry);
     return card;
   }
@@ -4667,14 +4701,28 @@
       ? "Ready. Ask Boolean to create or edit an image; it will save the result and show a preview."
       : "Add an OpenAI-compatible image API under Third-party connections to enable image creation.";
   }
-  async function refresh(){
-    try{ state=await (await fetch("/api/state")).json(); }catch{ state.backendUp=false; }
+  function hydrateDeferredState({force=false}={}){
+    if(deferredStateReady&&!force) return;
+    deferredStateReady=true;
+    applyKeyRow(); applyThirdParty(); applyContextLength(); applyCreationSettings();
+    renderCloudFallbackSettings();
+    renderConnectors();
+    renderEmailSettings();
+    updateSettingsDashboard();
+    applyVisionUI();
+    if($("sideChatPanel")?.classList.contains("open")){ renderSideChatAiSelect(); updateSideChatModelBadge(); renderSideChatHistory(); }
+    if($("modelmenu")?.classList.contains("open")) renderModelList("");
+    if($("settingsPanel")?.dataset.page==="model") renderModelLibrary();
+  }
+  async function refresh({includeThread=false,fast=false}={}){
+    const query=includeThread?"?thread=1&tail=80":"";
+    try{ state=await (await fetch("/api/state"+query)).json(); }catch{ state.backendUp=false; }
+    if(!Number.isFinite(perfTimings.stateReady)) perfMark("stateReady");
     if($("aboutVersion")) $("aboutVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.25"));
     { const nm=displayName(state.model); $("modelname").textContent=nm?nm.slice(0,5):"Model"; $("modelbtn").title=nm||"Select a model"; }
     updateCompareButton();
     $("providersel").value=state.provider;
-    applyKeyRow(); applyThirdParty(); applyMode(); applyContextLength(); applyCreationSettings();
-    renderCloudFallbackSettings();
+    applyMode();
     const label=(state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider;
     const shortLabel=shortProviderLabel(state.provider,label);
     $("statusdot").className="dot"+(state.backendUp?"":" down");
@@ -4685,19 +4733,53 @@
     $("projdir").textContent=state.projectsDir||"";
     if($("budgetLimitInput")) $("budgetLimitInput").value=state.budgetLimit||0;
     applyUi(state.ui);
-    renderConnectors();
-    renderEmailSettings();
-    updateSettingsDashboard();
     updateProjLine();
-    applyVisionUI();
     applyNetMode();
     applyCloudAccount();
     if(!threadId) threadId=state.activeThreadId;
+    lastThreadSignature=JSON.stringify((state.threads||[]).map(t=>[t.id,t.title,t.updatedAt,t.pinned,t.pendingTask?.state]));
     renderThreads();
     renderRecentChats();
-    refreshTopPrompts();
-    if($("sideChatPanel")?.classList.contains("open")){ renderSideChatAiSelect(); updateSideChatModelBadge(); renderSideChatHistory(); }
-    renderModelList(""); renderModelLibrary();
+    if(fast){
+      deferredStateReady=false;
+      whenIdle(()=>{ hydrateDeferredState(); refreshTopPrompts(); });
+    } else {
+      hydrateDeferredState({force:true});
+      refreshTopPrompts();
+    }
+    return state.activeThread||null;
+  }
+
+  async function refreshStatus({forceThreads=false}={}){
+    if(statusRefreshInFlight) return statusRefreshInFlight;
+    statusRefreshInFlight=(async()=>{
+      try{
+        const next=await (await fetch("/api/status")).json();
+        const nextSignature=JSON.stringify((next.threads||[]).map(t=>[t.id,t.title,t.updatedAt,t.pinned,t.pendingTask?.state]));
+        state={...state,...next};
+        const nm=displayName(state.model);
+        $("modelname").textContent=nm?nm.slice(0,5):"Model";
+        $("modelbtn").title=nm||"Select a model";
+        const label=(state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider;
+        const shortLabel=shortProviderLabel(state.provider,label);
+        $("statusdot").className="dot"+(state.backendUp?"":" down");
+        $("statustext").textContent=shortLabel+" "+(state.backendUp?"ready":"not ready");
+        $("footStatus").title=label+(state.backendUp?" - ready":" - not ready");
+        $("banner").style.display=state.backendUp?"none":"";
+        $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.";
+        applyMode();
+        updateCompareButton();
+        if(forceThreads||nextSignature!==lastThreadSignature){
+          lastThreadSignature=nextSignature;
+          renderThreads();
+          renderRecentChats();
+        }
+        updateComposerConsoleInfo();
+        return state;
+      }catch{ return state; }
+      finally{ statusRefreshInFlight=null; }
+    })();
+    return statusRefreshInFlight;
   }
 
   function applyCloudAccount(){
@@ -4771,14 +4853,13 @@
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
     const hint=$("composerLanguageHint");
-    const version=state.displayVersion||("v"+(state.version||"0.9.38"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.39"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
       +'<button class="composer-meta-action" data-chat-act="copy" type="button" title="Copy chat">⧉</button>'
       +'<button class="composer-meta-action" data-chat-act="paste" type="button" title="Paste clipboard">Paste</button>'
       +'<button class="composer-meta-action" data-chat-act="share" type="button" title="Share chat">⇪</button>'
-      +'<button class="composer-meta-action" data-chat-act="retry" type="button" title="Retry last response">↻</button>'
       +'<span class="composer-token-total" title="Estimated total tokens in this chat">~'+shortNum(chatTotal)+' tok total</span>';
     if(info) info.innerHTML='<span class="composer-brand"><span>Boolean '+esc(version)+'</span><small>(c) saz3 Labs</small></span>';
     if(prompt) prompt.textContent="Tell me what you want done, in plain language.";
@@ -5087,36 +5168,66 @@
       }
     }
   }
-  async function openThread(id,{remember=true}={}){
-    if(remember&&(id!==threadId||$("settingsPanel").classList.contains("open"))) rememberCurrentView();
-    closeConversationPanels();
-    threadId=id;
-    const t=await (await fetch("/api/thread?id="+id)).json();
-    const known=threadSummary(id);
-    if(known) known.pendingTask=t.pendingTask||null;
-    col.innerHTML="";
-    clearFileChips();
-    const log=t.log||[];
-    if(!log.length && !(run&&run.threadId===id)) showEmpty();
-    log.forEach(e=>{
+  function renderLogEntries(log,parent=col){
+    (log||[]).forEach(e=>{
       try{
-        if(e.t==="user") addUser(e.text,e.images,e.at);
-        else if(e.t==="ai" && String(e.text||"").trim()) col.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
-        else if(e.t==="tool"){ addToolCard(col,e); if(e.name==="read_file"||e.name==="write_file"||e.name==="edit_file") updateFileChip(e); }
-        else if(e.t==="image") col.appendChild(makeShot(e.src,e.caption));
-        else if(e.t==="usage"){ const u=makeUsage(e); if(u) col.appendChild(u); }
-        else if(e.t==="error") col.appendChild(makeErr(e));
+        if(e.t==="user") addUser(e.text,e.images,e.at,{parent,userIndex:Number.isFinite(e.userIndex)?e.userIndex:null,quiet:true});
+        else if(e.t==="ai" && String(e.text||"").trim()) parent.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
+        else if(e.t==="tool"){ addToolCard(parent,e); if(e.name==="read_file"||e.name==="write_file"||e.name==="edit_file") updateFileChip(e); }
+        else if(e.t==="image") parent.appendChild(makeShot(e.src,e.caption));
+        else if(e.t==="usage"){ const u=makeUsage(e); if(u) parent.appendChild(u); }
+        else if(e.t==="error") parent.appendChild(makeErr(e));
       }catch(err){
         console.warn("Skipped saved log entry", err);
       }
     });
+  }
+  function renderThreadPayload(t){
+    const id=t.id||threadId;
+    const known=threadSummary(id);
+    if(known) known.pendingTask=t.pendingTask||null;
+    threadLogStart=Number(t.logStart||0);
+    threadLogHasMore=t.hasMore===true;
+    col.innerHTML="";
+    clearFileChips();
+    const log=t.log||[];
+    if(!log.length && !(run&&run.threadId===id)) showEmpty();
+    renderLogEntries(log);
     if(!viewingRun()) compactCompletedToolCards(col);
     // if this thread has a run in flight, rebuild its live status + partial answer
     if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); renderPendingApprovals(); }
     else if(log.length) renderEndActions();
-    updateCopyButton(); updateSendButton(); updateComposerConsoleInfo(); renderQueue(); estimateContext();
+    updateCopyButton(); updateSendButton(); updateComposerConsoleInfo(); renderQueue();
+    whenIdle(()=>estimateContext());
     renderThreads(); scrollDown(true);
     renderRecentChats();
+    if(!Number.isFinite(perfTimings.chatVisible)) perfMark("chatVisible");
+  }
+  async function openThread(id,{remember=true}={}){
+    if(remember&&(id!==threadId||$("settingsPanel").classList.contains("open"))) rememberCurrentView();
+    closeConversationPanels();
+    threadId=id;
+    const t=await (await fetch("/api/thread?id="+encodeURIComponent(id)+"&tail="+THREAD_PAGE_SIZE)).json();
+    renderThreadPayload(t);
+  }
+  async function loadOlderMessages(){
+    if(threadLogLoading||!threadLogHasMore||!threadId) return;
+    threadLogLoading=true;
+    const oldHeight=chat.scrollHeight;
+    const oldTop=chat.scrollTop;
+    try{
+      const url="/api/thread?id="+encodeURIComponent(threadId)+"&peek=1&before="+threadLogStart+"&limit="+THREAD_PAGE_SIZE;
+      const page=await (await fetch(url)).json();
+      if(page.error) throw new Error(page.error);
+      const fragment=document.createDocumentFragment();
+      renderLogEntries(page.log||[],fragment);
+      col.insertBefore(fragment,col.firstChild);
+      threadLogStart=Number(page.logStart||0);
+      threadLogHasMore=page.hasMore===true;
+      if(!viewingRun()) compactCompletedToolCards(col);
+      chat.scrollTop=oldTop+(chat.scrollHeight-oldHeight);
+    }catch(err){ console.warn("Could not load older messages",err); }
+    finally{ threadLogLoading=false; }
   }
   async function newChat(){
     rememberCurrentView();
@@ -6528,6 +6639,18 @@
     item.liveAI.dataset.aiLabel=item.aiLabel||shortAiName(item.provider,item.model);
     item.liveAI.querySelector(".body").innerHTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(item.raw);
   }
+  let streamPaintFrame=0;
+  function paintPendingStream(){
+    streamPaintFrame=0;
+    if(!run||!viewingRun()) return;
+    if(run.compare) (run.slots||[]).forEach((_,slot)=>ensureCompareAI(slot));
+    else ensureLiveAI();
+    scrollDown();
+  }
+  function scheduleStreamPaint(){
+    if(streamPaintFrame) return;
+    streamPaintFrame=requestAnimationFrame(paintPendingStream);
+  }
 
   // pending follow-up messages per thread, sent automatically when the run ends
   function replaceRequestText(item,nextText){
@@ -6644,11 +6767,9 @@
   }
   function renderEndActions(){
     removeEndActions();
-    if(busy() || !col.querySelector(".msg-user")) return;
+    if(busy() || !col.querySelector(".msg-user") || !canContinueThread()) return;
     const bar=document.createElement("div"); bar.className="actions end-actions";
-    bar.innerHTML='<button class="actbtn" data-a="retry" title="Retry" aria-label="Retry response">&#8635;</button>'
-      +(canContinueThread()?'<button class="actbtn" data-a="continue" title="Continue paused task" aria-label="Continue paused task">&#8594;</button>':'');
-    bar.querySelector('[data-a="retry"]').onclick=retry;
+    bar.innerHTML='<button class="actbtn" data-a="continue" title="Continue paused task" aria-label="Continue paused task">&#8594;</button>';
     const cont=bar.querySelector('[data-a="continue"]');
     if(cont) cont.onclick=continueRun;
     const foot=[...col.querySelectorAll(".msg-ai .msg-foot")].pop();
@@ -6663,7 +6784,7 @@
       if(mode==="chat"||mode==="compare"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now()); }
       else if(mode==="retry"||mode==="compare-retry"){ removeLastTurnDom(); }
     }
-    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), steps:0, provider:state.provider||"local", pendingApprovals:[],
+    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), perfStart:performance.now(), steps:0, provider:state.provider||"local", pendingApprovals:[],
       request:{...opts,images:[...(opts.images||[])]}, holdQueue:false };
     const isCompare=mode==="compare"||mode==="compare-retry";
     if(isCompare) Object.assign(run,{status:"comparing...",compare:true,targets:opts.targets||compareState.targets,slots:[{},{}]});
@@ -6721,7 +6842,7 @@
       if(threadId===tid && finishedRun && finishedRun.raw && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
         maybeShowNextEdit(finishedRun);
     }catch(err){ console.warn("Completion UI failed",err); }
-    await refresh().catch(err=>console.warn("Completion refresh failed",err));
+    await refreshStatus({forceThreads:true}).catch(err=>console.warn("Completion refresh failed",err));
     if(threadId===tid) updateComposerConsoleInfo();
     // auto-send the next queued message for this thread
     const q=queues[tid];
@@ -6770,7 +6891,11 @@
         renderThreads(); if(showing) ensureStatusEl();
       }
     }
-    else if(ev.type==="token"){ run.raw+=ev.text; if(showing) ensureLiveAI(); }
+    else if(ev.type==="token"){
+      run.raw+=ev.text;
+      if(!run.firstTokenSeen){ run.firstTokenSeen=true; perfMark("firstToken",run.perfStart||performance.now()); }
+      if(showing) scheduleStreamPaint();
+    }
     else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertToolAbove(ev.entry); updateFileChip(ev.entry); captureTerminalFromStep(ev.entry); run.status="working…"; ensureStatusEl(); } }
     else if(ev.type==="approval"){
       run.status="waiting for approval...";
@@ -6779,7 +6904,7 @@
       if(showing) renderPendingApprovals();
       else { tempToast("Boolean is waiting for approval in that task."); notify("Boolean needs approval", ev.summary||"Click to review the pending action."); }
     }
-    else if(ev.type==="answer"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(showing && run.raw.trim()){ ensureLiveAI(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
+    else if(ev.type==="answer"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(showing && run.raw.trim()){ if(streamPaintFrame){ cancelAnimationFrame(streamPaintFrame); streamPaintFrame=0; } ensureLiveAI(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
     else if(ev.type==="compareStart"){
       const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
       Object.assign(item,{raw:"",provider:ev.provider,model:ev.model,aiLabel:ev.aiLabel});
@@ -6788,7 +6913,8 @@
     else if(ev.type==="compareToken"){
       const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
       item.raw=(item.raw||"")+ev.text;
-      if(showing) ensureCompareAI(ev.slot);
+      if(!run.firstTokenSeen){ run.firstTokenSeen=true; perfMark("firstToken",run.perfStart||performance.now()); }
+      if(showing) scheduleStreamPaint();
     }
     else if(ev.type==="compareAnswer"){
       const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
@@ -6820,7 +6946,7 @@
       else if(ev.level==="warning") tempToast("Approaching monthly budget: "+(ev.pct||0)+"% of $"+(ev.limit||0).toFixed(2)+" used.");
     }
     else if(ev.type==="error"){ run.outcome="error"; if(showing) insertAbove(makeErr(ev)); if(!showing) notify("Boolean encountered an error", ev.text||"The task failed unexpectedly."); }
-    if(showing) scrollDown();
+    if(showing && ev.type!=="token" && ev.type!=="compareToken") scrollDown();
   }
   async function stopRun(edit=false){
     if(!run||!viewingRun()) return;
@@ -6851,7 +6977,7 @@
       run=null; currentAbort=null;
       updateSendButton();
       renderQueue();
-      refresh().catch(()=>{});
+      refreshStatus({forceThreads:true}).catch(()=>{});
       renderEndActions();
       input.focus();
     },1800);
@@ -6917,6 +7043,7 @@
     });
   }
   function showSettingsHome(){
+    const tabStarted=performance.now();
     const panel=$("settingsPanel");
     panel.classList.add("settings-home");
     panel.classList.remove("settings-detail");
@@ -6927,13 +7054,16 @@
     $("settingsBack").setAttribute("aria-label","Close settings");
     const bc=$("settingsBreadcrumb"); if(bc) bc.innerHTML='<span>Settings</span>';
     syncSettingsTabs("home");
+    hydrateDeferredState();
     updateSettingsDashboard();
-    refreshGithubDashboard();
+    whenIdle(()=>refreshGithubDashboard());
     applySettingsFilter();
     const contentArea = panel.querySelector('.settings-content');
     if (contentArea) contentArea.scrollTop = 0; else panel.scrollTop = 0;
+    requestAnimationFrame(()=>perfMark("tabOpen",tabStarted));
   }
   function showSettingsSection(id,{remember=false}={}){
+    const tabStarted=performance.now();
     const panel=$("settingsPanel");
     if(remember&&!navRestoring) rememberCurrentView();
     const section=panel.querySelector(`.sec[data-sec="${CSS.escape(String(id||""))}"]:not(.settings-hidden)`);
@@ -6953,14 +7083,20 @@
     $("settingsBack").title="All settings";
     $("settingsBack").setAttribute("aria-label","Back to all settings");
     const bc2=$("settingsBreadcrumb"); if(bc2) bc2.innerHTML='<span onclick="showSettingsHome()">Settings</span><span class="bc-sep">›</span><span class="bc-current">'+settingSectionTitle(section)+'</span>';
+    hydrateDeferredState();
     if(section.dataset.sec==="legal") loadLegalDocs();
     if(section.dataset.sec==="thirdparty") showConnectorOverview();
     if(section.dataset.sec==="email") renderEmailSettings();
     if(section.dataset.sec==="scheduled") loadAutomations();
     if(section.dataset.sec==="github") loadGithubStatus();
     if(section.dataset.sec==="skills") loadSkillList();
+    if(section.dataset.sec==="model") renderModelLibrary();
+    if(section.dataset.sec==="diagnostics") runDiagnostics();
+    if(section.dataset.sec==="memory") loadMemory();
+    if(section.dataset.sec==="advanced"){ loadUsage(); estimateContext(); }
     const ca = panel.querySelector(".settings-content");
     if (ca) ca.scrollTop = 0; else panel.scrollTop = 0;
+    requestAnimationFrame(()=>perfMark("tabOpen",tabStarted));
   }
   function closeSettingsPanel(){
     $("apikey").value="";
@@ -6984,7 +7120,7 @@
     if(opening) rememberCurrentView();
     $("settingsPanel").classList.toggle("open");
     syncSidePanelWidth(); syncPanelButtons(); applyKeyRow();
-    if(opening){ showSettingsHome(); loadUsage(); loadMemory(); estimateContext(); }
+    if(opening) showSettingsHome();
     else discardCurrentHistory();
     updateComposerConsoleInfo();
   }
@@ -7278,7 +7414,6 @@ Optional bundled starter model:
       $("settingsPanel").classList.add("open"); syncSidePanelWidth(); syncPanelButtons();
     } else { syncSidePanelWidth(); syncPanelButtons(); }
     if(sec) showSettingsSection(sec); else showSettingsHome();
-    loadUsage(); loadMemory(); estimateContext();
     updateComposerConsoleInfo();
   }
   document.querySelectorAll("[data-open-legal]").forEach(b=>b.onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); openSettings("legal"); });
@@ -8463,28 +8598,31 @@ Optional bundled starter model:
   });
 
   (async()=>{
-    await refresh();
-    if(state.cloudBackend?.signedIn){
-      try{
-        const cloudRefresh=await fetch("/api/cloud/me");
-        if(cloudRefresh.ok) await refresh();
-      }catch{}
-    }
-    await pullCloudNotes({force:true}).catch(()=>{});
+    const initialThread=await refresh({includeThread:true,fast:true});
     document.body.classList.remove("notes-on","browser-on","settings-open","about-open","zone-3","ws-tabs-hidden");
     document.body.classList.toggle("collapsed", state.ui?.cleanStartup !== false);
     try { if (state.ui?.cleanStartup !== false) localStorage.removeItem("boolean_ctx_zone"); } catch(e) {}
     $("settingsPanel").classList.remove("open");
-    if(threadId) await openThread(threadId,{remember:false}); else showEmpty();
-    estimateContext();
+    if(initialThread){ threadId=initialThread.id; renderThreadPayload(initialThread); }
+    else if(threadId) await openThread(threadId,{remember:false});
+    else showEmpty();
     if(!SHELL) applyBrowser(state.ui);
     syncPanelButtons();
     updateAppBack();
-    await loadAutomations({notify:true});
     if(!state.eulaAccepted) $("eula").showModal();
+    whenIdle(async()=>{
+      if(state.provider==="local"&&state.ui?.keepLocalWarm!==false){
+        fetch("/api/model/warm",{method:"POST",body:"{}"}).catch(()=>{});
+      }
+      if(state.cloudBackend?.signedIn){
+        try{ const cloudRefresh=await fetch("/api/cloud/me"); if(cloudRefresh.ok) await refreshStatus(); }catch{}
+      }
+      pullCloudNotes({force:true}).catch(()=>{});
+      loadAutomations({notify:true}).catch(()=>{});
+    },2500);
   })();
-  setInterval(()=>{ if(!busy()) refresh(); },15000);
-  setInterval(()=>{ loadAutomations({notify:true}); pullCloudNotes().catch(()=>{}); },30000);
+  setInterval(()=>{ if(!busy()&&document.visibilityState==="visible") refreshStatus(); },15000);
+  setInterval(()=>{ if(document.visibilityState==="visible"){ loadAutomations({notify:true}); pullCloudNotes().catch(()=>{}); } },30000);
   setInterval(updateStatusMeta,1000); // live elapsed timer while a run is active
   document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") pullCloudNotes().catch(()=>{}); });
   window.addEventListener("pagehide",()=>navigator.sendBeacon("/api/bye"));
@@ -8545,6 +8683,7 @@ Optional bundled starter model:
   }
   function activateWorkspaceTab(ws) {
     if (!ws) return;
+    const tabStarted=performance.now();
     if (ws !== activeWsTab) previousWsTab = activeWsTab || "chat";
     markWorkspaceTab(ws);
     document.body.classList.toggle("recipes-open", ws === "recipes");
@@ -8553,8 +8692,10 @@ Optional bundled starter model:
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { toggleTerminal(true); tempToast("Terminal opened for code work."); }
     else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
+    else if (ws === "recipes") { ensureRecipes(); }
     else if (ws === "git") { openSettings("github"); }
     else if (ws === "automations") { openSettings("scheduled"); }
+    requestAnimationFrame(()=>perfMark("tabOpen",tabStarted));
   }
   function setWorkspaceTab(ws) {
     if (!ws) return;
@@ -8924,6 +9065,12 @@ Optional bundled starter model:
     $("recipeOpenStart").onclick=()=>{ activeRecipeRole="start"; activeRecipeId="start-building"; renderRecipes(); };
     $("recipeOpenLegal").onclick=()=>{ activeRecipeRole="legal"; activeRecipeId="legal-review"; renderRecipes(); };
   }
+  let recipesReady=false;
+  function ensureRecipes(){
+    if(recipesReady) return;
+    recipesReady=true;
+    renderRecipes();
+  }
   function renderRecipes(){
     const panel=$("recipesPanel"); if(!panel) return;
     if(!panel.querySelector(".recipes-shell")){
@@ -8948,8 +9095,6 @@ Optional bundled starter model:
     $("recipesClose").onclick=()=>setWorkspaceTab("chat");
     renderRecipeDetail();
   }
-  renderRecipes();
-
   // ══════════════════════════════════════════════════════════════
   // TERMINAL DRAWER
   // ══════════════════════════════════════════════════════════════
@@ -9071,9 +9216,15 @@ Optional bundled starter model:
     foot.insertAdjacentHTML("afterbegin",changeSummaryHtml(stat));
     lastCompletionDiffText=s.text;
   }
-  async function refreshProjectDashboard() {
+  let projectDashboardInFlight=null;
+  let projectDashboardUpdatedAt=0;
+  async function refreshProjectDashboard(options={}) {
+    const force=options===true||options?.force===true;
+    if(projectDashboardInFlight) return projectDashboardInFlight;
+    if(!force&&Date.now()-projectDashboardUpdatedAt<2500) return;
+    projectDashboardInFlight=(async()=>{
     try {
-      const r = await (await _fetch("/api/project-status")).json();
+      const r = await (await _fetch("/api/project-status"+(force?"?force=1":""))).json();
       if (!r || !r.ok) { document.body.classList.add("pd-hidden"); return; }
       document.body.classList.remove("pd-hidden");
       if ($("pdTitle")) $("pdTitle").textContent = r.projectName || "Project";
@@ -9141,7 +9292,11 @@ Optional bundled starter model:
       if (r.testStatus && r.testStatus !== "—") parts.push("Tests: " + r.testStatus);
       if (r.task && r.task !== "Idle") parts.push(r.task);
       if ($("pdSummary")) $("pdSummary").textContent = parts.length ? parts.join(" · ") : "Idle";
+      projectDashboardUpdatedAt=Date.now();
     } catch(e) { /* silently skip if endpoint not ready */ }
+    finally{ projectDashboardInFlight=null; }
+    })();
+    return projectDashboardInFlight;
   }
 
   function gitSyncLabel(git){
@@ -9183,7 +9338,7 @@ Optional bundled starter model:
       const r=await (await fetch("/api/git/unpush-last",{method:"POST",body:JSON.stringify({confirm:"undo last push"})})).json();
       if(!r.ok) throw new Error(r.error||"Could not undo push.");
       tempToast("Last push undone. Changes are back in your working tree.",5000);
-      refreshProjectDashboard();
+      refreshProjectDashboard({force:true});
     }catch(e){
       appAlert("Could not undo push", e.message||String(e));
     }
@@ -9202,8 +9357,8 @@ Optional bundled starter model:
   });
 
   // Refresh dashboard periodically and after messages
-  setInterval(refreshProjectDashboard, 15000);
-  setTimeout(refreshProjectDashboard, 2000);
+  setInterval(()=>{ if(document.visibilityState==="visible") refreshProjectDashboard(); },15000);
+  setTimeout(()=>refreshProjectDashboard(),2000);
 
   // ══════════════════════════════════════════════════════════════
   // DIFF PREVIEW (side-by-side with Accept/Reject)
@@ -9289,7 +9444,7 @@ Optional bundled starter model:
         if (!r.ok) throw new Error(r.error || "restore failed");
         const skipped = Array.isArray(r.skipped) && r.skipped.length ? " Skipped untracked: " + r.skipped.length + "." : "";
         tempToast((r.restored?.length || 0) + " file(s) rejected and restored." + skipped);
-        refreshProjectDashboard();
+        refreshProjectDashboard({force:true});
       } catch(e) {
         tempToast("Could not reject selected files.");
       }
@@ -9589,7 +9744,7 @@ Optional bundled starter model:
     try{ localStorage.setItem("boolean_side_chat_thread",sideChatThreadId); }catch{}
     renderSideChatLog([]);
     renderSideChatHistory();
-    refresh().catch(()=>{});
+    refreshStatus({forceThreads:true}).catch(()=>{});
     return sideChatThreadId;
   }
   async function loadSideChat(){
@@ -9703,7 +9858,7 @@ Optional bundled starter model:
       if(answer){ answer.classList.remove("status"); answer.textContent=String(error.message||error); }
       else sideChatAdd("ai",String(error.message||error));
     }
-    finally{ sideChatBusy=false; $("sideChatSend").disabled=false; field.disabled=false; field.focus(); await refresh().catch(()=>{}); renderSideChatHistory(); updateSideChatModelBadge(); }
+    finally{ sideChatBusy=false; $("sideChatSend").disabled=false; field.disabled=false; field.focus(); await refreshStatus({forceThreads:true}).catch(()=>{}); renderSideChatHistory(); updateSideChatModelBadge(); }
   }
   $("sideChatToggle").onclick=()=>setSideChatOpen(!$("sideChatPanel").classList.contains("open"));
   $("sideChatClose").onclick=()=>setSideChatOpen(false);
@@ -9797,7 +9952,7 @@ Optional bundled starter model:
   try { if (localStorage.getItem("boolean_ctx_zone") === "1") document.body.classList.add("zone-3"); } catch(e) {}
   // Update context panel when dashboard refreshes
   const _origRefreshPd = window.refreshProjectDashboard;
-  window.refreshProjectDashboard = async function() { await _origRefreshPd.call(this); if (document.body.classList.contains("zone-3")) refreshCtxZone(); };
+  window.refreshProjectDashboard = async function(options) { await _origRefreshPd.call(this,options); if (document.body.classList.contains("zone-3")) refreshCtxZone(); };
 
   // ══════════════════════════════════════════════════════════════
   // NEXT-EDIT SUGGESTIONS — auto-wire into agent message completion
@@ -10626,7 +10781,7 @@ Optional bundled starter model:
         if(!r.ok) throw new Error(r.error||"apply failed");
         tempToast("Background result applied.");
         await refreshBgAgentRuns();
-        refreshProjectDashboard();
+        refreshProjectDashboard({force:true});
       }catch(e){ tempToast(e.message||"Could not apply result."); }
     });
     body.querySelectorAll("[data-bgdismiss]").forEach(b => b.onclick = async () => {

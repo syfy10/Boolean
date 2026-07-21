@@ -895,6 +895,8 @@ function listFilesRec(dir, out = []) {
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "out", ".next",
   "__pycache__", ".venv", "venv", "bin", "obj", "coverage", ".idea", ".vscode", ".cache"]);
 const MAX_WALK_FILES = 5000;
+const PROJECT_FILE_CACHE_TTL_MS = 5000;
+const projectFileCache = new Map();
 
 // Collect files under root (relative paths), skipping heavy dirs and capping work.
 function walkProject(root, onFile, budget = { n: 0 }) {
@@ -911,6 +913,20 @@ function walkProject(root, onFile, budget = { n: 0 }) {
       onFile(path.join(root, e.name));
     }
   }
+}
+
+function projectFiles(root) {
+  const key = path.resolve(root).toLowerCase();
+  const cached = projectFileCache.get(key);
+  if (cached && Date.now() - cached.at < PROJECT_FILE_CACHE_TTL_MS) return cached.files;
+  const files = [];
+  walkProject(root, (file) => files.push(file));
+  projectFileCache.set(key, { at: Date.now(), files });
+  return files;
+}
+
+function invalidateProjectFiles() {
+  projectFileCache.clear();
 }
 
 // Translate a glob (supports **, *, ?) to a RegExp matched against a forward-slash relative path.
@@ -1291,6 +1307,7 @@ async function editFile(args, ctx, resolve) {
   if (!ok) return "user declined this file edit";
   snapshotBeforeWrite(target);
   fs.writeFileSync(target, updated);
+  invalidateProjectFiles();
   return `edited ${target} — ${args.replace_all ? count + " replacements" : "1 replacement"} made`;
 }
 
@@ -1301,10 +1318,10 @@ function findFiles(args, resolve) {
   let rx;
   try { rx = globToRegExp(args.pattern); } catch { return "error: invalid glob pattern"; }
   const hits = [];
-  walkProject(root, (file) => {
+  for (const file of projectFiles(root)) {
     const rel = path.relative(root, file).replace(/\\/g, "/");
     if (rx.test(rel)) hits.push(rel);
-  });
+  }
   if (!hits.length) return `no files match '${args.pattern}' under ${root}`;
   const shown = hits.slice(0, 300);
   return truncate(shown.join("\n") + (hits.length > shown.length ? `\n... and ${hits.length - shown.length} more` : ""));
@@ -1321,24 +1338,24 @@ function searchFiles(args, resolve) {
   const out = [];
   let filesMatched = 0;
   let truncatedEarly = false;
-  walkProject(root, (file) => {
-    if (out.length >= MAX_MATCHES) { truncatedEarly = true; return; }
-    if (BINARY_EXT.has(path.extname(file).toLowerCase())) return;
+  for (const file of projectFiles(root)) {
+    if (out.length >= MAX_MATCHES) { truncatedEarly = true; break; }
+    if (BINARY_EXT.has(path.extname(file).toLowerCase())) continue;
     const rel = path.relative(root, file).replace(/\\/g, "/");
-    if (globRx && !globRx.test(rel)) return;
+    if (globRx && !globRx.test(rel)) continue;
     let text;
     try {
-      if (fs.statSync(file).size > 2_000_000) return; // skip very large files
+      if (fs.statSync(file).size > 2_000_000) continue; // skip very large files
       text = fs.readFileSync(file, "utf8");
-    } catch { return; }
-    if (text.includes("\0")) return; // binary guard
+    } catch { continue; }
+    if (text.includes("\0")) continue; // binary guard
     const lines = text.split(/\r?\n/);
     let fileHit = false;
     for (let i = 0; i < lines.length && out.length < MAX_MATCHES; i++) {
       if (rx.test(lines[i])) { out.push(`${rel}:${i + 1}: ${lines[i].trim().slice(0, 200)}`); fileHit = true; }
     }
     if (fileHit) filesMatched++;
-  });
+  }
   if (!out.length) return `no matches for /${args.pattern}/ under ${root}`;
   const header = `${out.length} match${out.length === 1 ? "" : "es"} in ${filesMatched} file${filesMatched === 1 ? "" : "s"}${truncatedEarly ? " (stopped at " + MAX_MATCHES + ")" : ""}:\n`;
   return truncate(header + out.join("\n"));
@@ -1380,12 +1397,12 @@ function findSymbol(args, resolve) {
   );
   const defs = [], refs = [];
   const wantRefs = args.refs !== false;
-  walkProject(root, (file) => {
-    if (defs.length >= 40 && refs.length >= 80) return;
-    if (BINARY_EXT.has(path.extname(file).toLowerCase())) return;
+  for (const file of projectFiles(root)) {
+    if (defs.length >= 40 && refs.length >= 80) break;
+    if (BINARY_EXT.has(path.extname(file).toLowerCase())) continue;
     let text;
-    try { if (fs.statSync(file).size > 2_000_000) return; text = fs.readFileSync(file, "utf8"); } catch { return; }
-    if (text.includes("\0")) return;
+    try { if (fs.statSync(file).size > 2_000_000) continue; text = fs.readFileSync(file, "utf8"); } catch { continue; }
+    if (text.includes("\0")) continue;
     const rel = path.relative(root, file).replace(/\\/g, "/");
     const lines = text.split(/\r?\n/);
     for (let i = 0; i < lines.length; i++) {
@@ -1394,7 +1411,7 @@ function findSymbol(args, resolve) {
       if (isDef.test(lines[i])) { if (defs.length < 40) defs.push(rec); }
       else if (wantRefs && refs.length < 80) refs.push(rec);
     }
-  });
+  }
   if (!defs.length && !refs.length) return `No definitions or references found for '${sym}' under ${root}.`;
   const out = [];
   out.push(defs.length ? `Definitions of ${sym} (${defs.length}):\n${defs.join("\n")}` : `No definitions found for ${sym}.`);
@@ -1690,6 +1707,7 @@ export async function executeTool(name, args, ctx) {
         snapshotBeforeWrite(target);
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, args.content ?? "");
+        invalidateProjectFiles();
         return `wrote ${bytes} bytes to ${target}`;
       }
       case "list_dir": {

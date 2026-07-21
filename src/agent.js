@@ -474,6 +474,7 @@ const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setu
 const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|project|program|script|code|file|folder|desktop tool|server)\b/i;
 const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:it|that|all that)(?:\s+for me)?\b/i;
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
+const ANSWER_ONLY_REQUEST = /\b(?:do\s*not|don't|dont|no)\s+(?:make\s+)?(?:changes?|edits?|updates?|modify|write|touch|code)\b|\b(?:just|only)\s+(?:tell|explain|describe|summari[sz]e|review|show|list|answer)\b|\b(?:tell|explain|describe|summari[sz]e|review|show|list)\s+(?:me\s+)?(?:about|what|where|how|everything|the current|this project)\b/i;
 const RESEARCH_REQUEST = /\b(?:current|latest|today|tonight|tomorrow|yesterday|right now|live|news|headline|weather|forecast|score|won|winner|match|game|fixture|schedule|stock|stocks|market|price|earnings|dividend|available|availability|search|look up|lookup|web|internet|source|sources|cite)\b/i;
 const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
 const CONNECTOR_CONTEXT = /\b(?:mcp|connector|stocksignal|stockunc|robinhood|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
@@ -486,6 +487,9 @@ const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|ha
 
 export function classifyTurnMode(messages, options = {}) {
   const latest = options.latestText ?? plainMessageText([...(messages || [])].reverse().find((message) => message?.role === "user"));
+  if (ANSWER_ONLY_REQUEST.test(latest) && !AGENT_REQUEST.test(latest) && !options.directAction && !options.connectorActionRequired) {
+    return RESEARCH_REQUEST.test(latest) ? "research" : "chat";
+  }
   if (options.directAction || options.artifactActionRequired || options.connectorActionRequired) return "agent";
   if (RESEARCH_REQUEST.test(latest)) return "research";
   if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "agent";
@@ -564,6 +568,7 @@ export function requiresArtifactAction(messages) {
     .map(plainMessageText)
     .filter(Boolean);
   const latest = users.at(-1) || "";
+  if (ANSWER_ONLY_REQUEST.test(latest)) return false;
   if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return true;
   if (!ACTION_ONLY_FOLLOWUP.test(latest)) return false;
   return users.slice(-4, -1).some((text) => ARTIFACT_TARGET.test(text));
@@ -1053,6 +1058,73 @@ export async function runTurn(ctx, messages) {
       ...imgs.map((url) => ({ type: "image_url", image_url: { url } }))
     ] });
   };
+
+  // Plain conversation does not need the coding-agent loop. Keep it to one
+  // model call, with only the two recovery cases that can improve a retry.
+  if (turnMode === "chat") {
+    let contextRecoveryAttempted = false;
+    let transportRecoveryAttempted = false;
+    let textFallbackAttempted = false;
+    let emptyRetryAttempted = false;
+    for (;;) {
+      if (signal?.aborted) return stopped();
+      try {
+        const originalFull = approxTokens(messages);
+        const fit = fitToContext(focusedMessagesForTurn(messages, turnMode), ctxBudget, contextMode);
+        if (!optimizeSent && onOptimize) {
+          optimizeSent = true;
+          onOptimize({ mode: contextMode, sent: fit.sentTokens, full: originalFull,
+            saved: Math.max(0, originalFull - fit.sentTokens), budget: fit.budget });
+        }
+        let modelMessages = withController(withTurnModeSystem(fit.msgs, turnMode, config));
+        if (emptyRetryAttempted) {
+          modelMessages = [...modelMessages, {
+            role: "user",
+            content: "Reply to the original request in plain text. Do not emit a tool call and do not return an empty response."
+          }];
+        }
+        const completion = await chatCompletionWithFallback(
+          config, target, modelMessages, undefined, signal, onToken, onStatus
+        );
+        const msg = completion.message;
+        emitUsage(msg, completion.target);
+        const answer = String(msg?.content || "").trim();
+        if (!answer && !emptyRetryAttempted) {
+          emptyRetryAttempted = true;
+          onStatus("the model returned no text - retrying once in plain-text mode...");
+          continue;
+        }
+        if (!answer) throw new Error("The selected model returned an empty response.");
+        controller.updateDigest(answer, ctx.latestUserText || "");
+        controller.evaluateCompletion(answer);
+        messages.push({ role: "assistant", content: answer });
+        publishController();
+        checkpoint();
+        return answer;
+      } catch (err) {
+        if (err?.name === "AbortError" || signal?.aborted) return stopped();
+        if (!contextRecoveryAttempted && looksLikeContextOverflow(err) && ctxBudget > 4096) {
+          contextRecoveryAttempted = true;
+          ctxBudget = Math.max(3072, Math.floor(ctxBudget * 0.65));
+          onStatus("conversation too long for the model - trimming older history and retrying...");
+          continue;
+        }
+        if (!transportRecoveryAttempted && config.provider === "local" && err?.code === "local_transport_error" && !err.partial) {
+          transportRecoveryAttempted = true;
+          onStatus("local model disconnected - restarting the engine and retrying...");
+          target = await resolveTarget(config, onStatus);
+          continue;
+        }
+        if (!textFallbackAttempted && looksLikeUnsupportedImageContent(err)) {
+          textFallbackAttempted = true;
+          persistScreenshotTextFallback(messages);
+          onStatus("this model accepts text only - continuing with the screenshot's page text...");
+          continue;
+        }
+        throw err;
+      }
+    }
+  }
 
   // Keep working until the model produces a final answer or the user stops it.
   // The old fixed ceiling stranded longer coding tasks after only 12 tool calls.

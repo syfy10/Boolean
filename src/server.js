@@ -5,6 +5,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { spawn, spawnSync } from "node:child_process";
 import * as sea from "node:sea";
 import {
@@ -12,7 +13,7 @@ import {
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
 } from "./config.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction } from "./agent.js";
-import { resolveTarget, chatCompletion, listProviderModels, backendUp } from "./providers.js";
+import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
@@ -54,7 +55,23 @@ function loadAsset(name, devPath) {
 }
 
 const IS_SEA = !!(sea.isSea && sea.isSea());
-const loadUiHtml = () => loadAsset("ui.html", "./ui.html").toString("utf8");
+let devUiCache = { mtimeMs: -1, html: "" };
+let uiGzipCache = { html: "", gzip: null };
+const loadUiHtml = () => {
+  if (IS_SEA) return loadAsset("ui.html", "./ui.html").toString("utf8");
+  const file = appPath("src", "ui.html");
+  const mtimeMs = fs.statSync(file).mtimeMs;
+  if (devUiCache.mtimeMs !== mtimeMs) {
+    devUiCache = { mtimeMs, html: fs.readFileSync(file, "utf8") };
+  }
+  return devUiCache.html;
+};
+function compressedUiHtml(html) {
+  if (uiGzipCache.html !== html || !uiGzipCache.gzip) {
+    uiGzipCache = { html, gzip: gzipSync(Buffer.from(html, "utf8"), { level: 6 }) };
+  }
+  return uiGzipCache.gzip;
+}
 function loadLegalText(file) {
   if (IS_SEA) return fs.readFileSync(path.join(path.dirname(process.execPath), file), "utf8");
   return fs.readFileSync(appPath("assets", file), "utf8");
@@ -326,6 +343,28 @@ function gitDiffStat(projectDir, changedFiles = []) {
     } catch {}
   }
   return out;
+}
+
+const PROJECT_STATUS_CACHE_TTL_MS = 2500;
+const projectStatusCache = new Map();
+
+function projectGitSnapshot(projectDir, { force = false } = {}) {
+  if (!projectDir) return { git: gitStatusSummary(""), diffStat: { files: 0, additions: 0, deletions: 0 } };
+  const key = path.resolve(projectDir).toLowerCase();
+  const cached = projectStatusCache.get(key);
+  if (!force && cached && Date.now() - cached.at < PROJECT_STATUS_CACHE_TTL_MS) return cached.value;
+  const git = gitStatusSummary(projectDir);
+  const value = { git, diffStat: gitDiffStat(projectDir, git.changedFiles) };
+  projectStatusCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+function invalidateProjectStatus(projectDir = "") {
+  if (!projectDir) {
+    projectStatusCache.clear();
+    return;
+  }
+  projectStatusCache.delete(path.resolve(projectDir).toLowerCase());
 }
 
 function runGit(projectDir, args, timeout = 10000) {
@@ -614,6 +653,20 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         } : null }));
   }
   const renderThread = (t) => t.log; // display log = full history incl. tool steps
+  function threadPage(t, { tail = 0, before = null, limit = 0 } = {}) {
+    const log = Array.isArray(renderThread(t)) ? renderThread(t) : [];
+    const end = before === null ? log.length : Math.max(0, Math.min(log.length, Number(before) || 0));
+    const requested = Math.max(0, Math.min(250, Number(tail || limit) || 0));
+    const start = requested ? Math.max(0, end - requested) : 0;
+    let userIndex = -1;
+    for (let i = 0; i < start; i++) if (log[i]?.t === "user") userIndex++;
+    const page = log.slice(start, end).map((entry) => {
+      if (entry?.t !== "user") return entry;
+      userIndex++;
+      return { ...entry, userIndex };
+    });
+    return { log: page, logStart: start, logTotal: log.length, hasMore: start > 0 };
+  }
   let activeThreadId = null;
 
   function currentAppContext(t, latestText = "") {
@@ -823,10 +876,23 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         return;
       }
       if (req.method === "GET" && p === "/") {
-        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
         // in dev (running from source) re-read the file each load, so editing
         // ui.html + refreshing the browser shows changes with no restart
-        res.end(IS_SEA ? uiHtml : loadUiHtml());
+        const html = IS_SEA ? uiHtml : loadUiHtml();
+        const acceptsGzip = /(?:^|,)\s*gzip\s*(?:,|$)/i.test(String(req.headers["accept-encoding"] || ""));
+        if (acceptsGzip) {
+          const body = compressedUiHtml(html);
+          res.writeHead(200, {
+            "content-type": "text/html; charset=utf-8",
+            "content-encoding": "gzip",
+            "content-length": body.length,
+            vary: "Accept-Encoding"
+          });
+          res.end(body);
+        } else {
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8", vary: "Accept-Encoding" });
+          res.end(html);
+        }
         return;
       }
       if (req.method === "GET" && p === "/favicon.ico") {
@@ -877,12 +943,16 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         lastPing = Date.now();
         if (byeTimer) { clearTimeout(byeTimer); byeTimer = null; }
         let models = [];
-        try { models = await listProviderModels(config); } catch { /* backend down */ }
+        try { models = await listProviderModels(config, { remote: false }); } catch { /* backend down */ }
         const providerReady = {};
-        for (const p of PROVIDERS) {
-          try { providerReady[p] = await backendUp({ ...config, provider: p }); }
-          catch { providerReady[p] = false; }
-        }
+        await Promise.all(PROVIDERS.map(async (provider) => {
+          try { providerReady[provider] = await backendUp({ ...config, provider }); }
+          catch { providerReady[provider] = false; }
+        }));
+        const activeThread = url.searchParams.get("thread") === "1" ? threads.get(activeThreadId) : null;
+        const activeThreadPage = activeThread
+          ? threadPage(activeThread, { tail: url.searchParams.get("tail") || 80 })
+          : null;
         json({
           appName: APP_NAME, version: APP_VERSION, displayVersion: APP_DISPLAY_VERSION, tagline: APP_TAGLINE,
           provider: config.provider, providers: PROVIDERS, models,
@@ -923,7 +993,41 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
             : { supported: true, cloud: true },
           ui: config.ui,
           eulaAccepted: !!config.eulaAccepted,
-          threads: threadList(), activeThreadId
+          threads: threadList(), activeThreadId,
+          activeThread: activeThread ? {
+            id: activeThread.id,
+            title: activeThread.title,
+            kind: isProjectThread(activeThread) ? "project" : "chat",
+            side: activeThread.side === true,
+            projectDir: activeThread.projectDir || "",
+            pendingTask: activeThread.pendingTask ? {
+              state: activeThread.pendingTask.state || "",
+              updatedAt: activeThread.pendingTask.updatedAt || 0
+            } : null,
+            ...activeThreadPage
+          } : null
+        });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/status") {
+        lastPing = Date.now();
+        if (byeTimer) { clearTimeout(byeTimer); byeTimer = null; }
+        const providerReady = {};
+        await Promise.all(PROVIDERS.map(async (provider) => {
+          try { providerReady[provider] = await backendUp({ ...config, provider }); }
+          catch { providerReady[provider] = false; }
+        }));
+        json({
+          version: APP_VERSION,
+          displayVersion: APP_DISPLAY_VERSION,
+          provider: config.provider,
+          model: currentModel(config),
+          autoApprove: config.autoApprove,
+          backendUp: providerReady[config.provider] === true,
+          providerReady,
+          threads: threadList(),
+          activeThreadId
         });
         return;
       }
@@ -935,6 +1039,15 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const providerConfig = { ...config, provider };
         const models = await listProviderModels(providerConfig);
         json({ ok: true, provider, models });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/model/warm") {
+        if (config.provider !== "local" || config.ui?.keepLocalWarm === false) {
+          return json({ ok: true, skipped: true });
+        }
+        setImmediate(() => engine.ensureRunning(config, () => {}).catch(() => {}));
+        json({ ok: true, warming: true });
         return;
       }
 
@@ -1100,8 +1213,13 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const t = threads.get(url.searchParams.get("id"));
         if (!t) return json({ error: "no such thread" }, 404);
         if (url.searchParams.get("peek") !== "1") activeThreadId = t.id;
+        const page = threadPage(t, {
+          tail: url.searchParams.get("tail"),
+          before: url.searchParams.has("before") ? url.searchParams.get("before") : null,
+          limit: url.searchParams.get("limit")
+        });
         json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat", side: t.side === true,
-          projectDir: t.projectDir || "", log: renderThread(t),
+          projectDir: t.projectDir || "", ...page,
           pendingTask: t.pendingTask ? {
             state: t.pendingTask.state || "",
             updatedAt: t.pendingTask.updatedAt || 0
@@ -1284,8 +1402,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (req.method === "GET" && p === "/api/project-status") {
         const t = threads.get(activeThreadId);
         const projectDir = t?.projectDir || "";
-        const git = gitStatusSummary(projectDir);
-        const diffStat = gitDiffStat(projectDir, git.changedFiles);
+        const { git, diffStat } = projectGitSnapshot(projectDir, { force: url.searchParams.get("force") === "1" });
         json({ ok: true, projectName: t?.title || "No project", branch: git.branch, changedFiles: git.changedFiles, diffStat, git,
           task: t?.task || null, taskState: t?.taskState || "idle", nextAction: t?.nextAction || null,
           serverRunning: !!(globalThis._bgServers?.size > 0), testStatus: null, testState: "idle" });
@@ -1298,7 +1415,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           json({ ok: false, error: "Confirmation phrase required." }, 400);
           return;
         }
-        json(undoLastPushedCommit(activeProjectDir(threads, activeThreadId)));
+        const projectDir = activeProjectDir(threads, activeThreadId);
+        invalidateProjectStatus(projectDir);
+        const result = undoLastPushedCommit(projectDir);
+        invalidateProjectStatus(projectDir);
+        json(result);
         return;
       }
 
@@ -1531,6 +1652,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
         if (body.ui && typeof body.ui === "object") { config.ui = { ...config.ui, ...body.ui }; syncWarmEnv(); }
         if (body.acceptEula === true) config.eulaAccepted = "1.0";
+        clearProviderModelCache();
         saveConfig(config, { preserveSecrets: !explicitSecretRemoval });
         json({ ok: true });
         return;

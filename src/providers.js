@@ -318,6 +318,25 @@ const STATIC_MODELS = {
   customApi: []
 };
 
+const PROVIDER_MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
+const providerModelCache = new Map();
+
+function providerModelCacheKey(config) {
+  const provider = config.provider || "local";
+  const settings = config[provider] || {};
+  return `${provider}|${providerBaseUrl(settings.baseUrl || "")}|${settings.model || ""}|${settings.apiKey ? "key" : "none"}`;
+}
+
+export function clearProviderModelCache(provider = "") {
+  if (!provider) {
+    providerModelCache.clear();
+    return;
+  }
+  for (const key of providerModelCache.keys()) {
+    if (key.startsWith(`${provider}|`)) providerModelCache.delete(key);
+  }
+}
+
 function usableProviderModels(provider, ids, selected = "") {
   let models = [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
   if (provider === "zaiCoding") {
@@ -343,7 +362,7 @@ function usableProviderModels(provider, ids, selected = "") {
 }
 
 /** List models for the ACTIVE provider. Local also returns downloadable catalog. */
-export async function listProviderModels(config) {
+export async function listProviderModels(config, options = {}) {
   if (config.provider === "local") {
     const installed = engine.listLocalModels();
     const mmprojs = engine.listMmprojFiles();
@@ -360,6 +379,15 @@ export async function listProviderModels(config) {
   }
   if (CLOUD[config.provider]) {
     const p = config[config.provider];
+    const fallback = STATIC_MODELS[config.provider] || [];
+    const fallbackIds = fallback.length ? fallback : (p.model ? [p.model] : []);
+    const key = providerModelCacheKey(config);
+    const cached = providerModelCache.get(key);
+    const now = Date.now();
+    if (cached && !options.force && now - cached.at < PROVIDER_MODEL_CACHE_TTL_MS) return cached.models;
+    if (options.remote === false) {
+      return cached?.models || fallbackIds.map((id) => ({ name: id, installed: true }));
+    }
     try {
       const res = await fetch(`${providerBaseUrl(p.baseUrl)}/models`, {
         headers: { authorization: `Bearer ${p.apiKey}` },
@@ -368,12 +396,16 @@ export async function listProviderModels(config) {
       if (res.ok) {
         const data = await res.json();
         const ids = usableProviderModels(config.provider, (data.data || []).map((m) => m.id), p.model);
-        if (ids.length) return ids.map((id) => ({ name: id, installed: true }));
+        if (ids.length) {
+          const models = ids.map((id) => ({ name: id, installed: true }));
+          providerModelCache.set(key, { at: now, models });
+          return models;
+        }
       }
     } catch { /* fall back to static list */ }
-    const fallback = STATIC_MODELS[config.provider] || [];
-    const ids = fallback.length ? fallback : (p.model ? [p.model] : []);
-    return ids.map((id) => ({ name: id, installed: true }));
+    const models = fallbackIds.map((id) => ({ name: id, installed: true }));
+    providerModelCache.set(key, { at: now, models });
+    return models;
   }
   return [];
 }
