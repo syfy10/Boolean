@@ -25,7 +25,7 @@
     --mono:"Cascadia Code","JetBrains Mono","Consolas","Segoe UI",monospace;
     --app-fs:15px; --chat-fs:13.5px; --msg-pad:9px 13px; --col-gap:6px;
     --fs-xxs:10.5px; --fs-xs:11.5px; --fs-sm:12.5px; --fs-md:13.5px; --fs-lg:15px; --fs-xl:26px;
-    --content-max:760px; --content-x:20px;
+    --content-max:clamp(760px,68vw,1120px); --content-x:20px;
   }
   /* dark palette, shared by system-dark and explicit dark */
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
@@ -41,7 +41,7 @@
   }
   body.win-xs{ --app-fs:13px; --chat-fs:13px; --fs-xxs:9.5px; --fs-xs:10.5px; --fs-sm:11.5px; --fs-md:12.5px; --fs-lg:13px; --fs-xl:22px; }
   body.win-sm{ --app-fs:14px; --chat-fs:14px; --fs-xxs:10px; --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:14px; --fs-xl:24px; }
-  body.win-lg{ --app-fs:16px; --chat-fs:16px; --fs-xxs:11px; --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:16px; --fs-xl:28px; }
+  body.win-lg{ --app-fs:16px; --chat-fs:16px; --fs-xxs:11px; --fs-xs:12px; --fs-sm:13px; --fs-md:14px; --fs-lg:16px; --fs-xl:28px; --content-max:clamp(1040px,86vw,1560px); --content-x:26px; }
   body.fs-small{ --chat-fs:calc(var(--app-fs) - 2px); } body.fs-large{ --chat-fs:calc(var(--app-fs) + 2px); }
   body.compact{ --msg-pad:5px 10px; --col-gap:5px; }
   *{ box-sizing:border-box; margin:0; }
@@ -165,7 +165,8 @@
   .panel{ display:none; padding:6px 16px 12px; border-top:1px solid var(--border); background:var(--card); }
   .panel.open{ display:block; }
   body.settings-open #chat,
-  body.settings-open .composer-wrap{ display:none; }
+  body.settings-open .composer-wrap,
+  body:not(.workspace-chat) .composer-wrap{ display:none !important; }
   main > #settingsPanel{ flex:1; width:100%; min-height:0; overflow:hidden; border:0; border-radius:0;
     background:var(--bg); box-shadow:none; }
   main > #settingsPanel.open{ display:flex; flex-direction:column; }
@@ -659,8 +660,10 @@
 
   .msg-user,.msg-ai{ width:fit-content; word-break:break-word; position:relative; line-height:1.4; animation:msgIn var(--t-slow); }
   @keyframes msgIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
-  .msg-user{ align-self:flex-end; max-width:min(74%,520px); }
-  .msg-ai{ align-self:flex-start; max-width:min(74%,560px); }
+  .msg-user{ align-self:flex-end; max-width:min(76%,720px); }
+  .msg-ai{ align-self:flex-start; max-width:min(78%,780px); }
+  body.win-lg .msg-user{ max-width:min(86%,1180px); }
+  body.win-lg .msg-ai{ max-width:min(90%,1280px); }
   .msg-user .body,.msg-ai .body{ --msg-fill:var(--ai-bubble); position:relative; padding:var(--msg-pad); background:var(--msg-fill); box-shadow:var(--shadow-sm); }
   .msg-user .body{ --msg-fill:var(--user-bubble); color:var(--user-bubble-text); border-radius:18px 18px 4px 18px; }
   .msg-ai .body{ border-radius:18px 18px 18px 4px; }
@@ -698,6 +701,10 @@
   .msg-foot .actions{ margin:0; display:flex; gap:1px; flex:0 0 auto; flex-wrap:nowrap; }
   .msg-foot .actbtn{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:10px/1 var(--ui); cursor:pointer; }
   .msg-foot .actbtn:hover,.msg-foot .actbtn:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
+  .change-summary{ display:inline-flex; align-items:center; gap:5px; min-width:0; color:var(--dim); font:11px/1.2 var(--ui); white-space:nowrap; }
+  .change-summary b{ color:var(--text); font-weight:550; }
+  .change-summary .add{ color:var(--green); font-weight:600; }
+  .change-summary .del{ color:#dc3f42; font-weight:600; }
   .msg-copy{ width:17px; height:17px; padding:0; border:0; border-radius:50%; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; cursor:pointer; }
   .msg-copy:hover,.msg-copy:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
   .msg-copy svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
@@ -828,10 +835,13 @@
   .promptline #interruptEdit, .promptline #send{ align-self:flex-end; margin-bottom:2px; }
   .promptline #interruptEdit{ margin-right:3px; }
   body.composer-simple .composer-wrap{ --composer-x:0px; --composer-bottom:14px; width:calc(100% - var(--chat-scrollbar,0px)); left:0; right:auto; transform:none; padding-top:0; display:flex; flex-direction:column; }
+  body.composer-simple.settings-open .composer-wrap,
+  body.composer-simple.recipes-open .composer-wrap{ display:none !important; }
   body.composer-simple .composer{ position:relative; width:100%; min-height:176px; border:0; border-top:1px solid color-mix(in srgb,var(--text) 72%,var(--bg)); border-radius:0; background:var(--bg); box-shadow:none; padding:8px var(--content-x) 6px; backdrop-filter:none; display:flex; flex-direction:column; }
   body.composer-simple .composer:hover{ border-top-color:color-mix(in srgb,var(--text) 72%,var(--bg)); }
   body.composer-simple .composer::before{ content:none; }
   .composer-info,.composer-prompt{ display:none; }
+  .composer-language-hint{ display:none; }
   body.composer-simple .composer-info{ position:absolute; right:var(--content-x); bottom:6px; z-index:2; display:block; max-width:min(28%,210px); color:color-mix(in srgb,var(--text) 20%,var(--bg)); font:6px/1.05 var(--mono); font-weight:400; white-space:nowrap; overflow:hidden; text-align:right; }
   body.composer-simple .composer-info small{ display:block; margin-top:0; color:color-mix(in srgb,var(--text) 16%,var(--bg)); font:4.8px/1 var(--mono); font-weight:400; }
   body.composer-simple .composer-chat-actions{ display:flex; align-items:center; gap:6px; max-width:82%; margin-top:auto; padding-top:4px; color:color-mix(in srgb,var(--text) 42%,var(--bg)); font:9.5px/1 var(--ui); white-space:nowrap; overflow:hidden; }
@@ -846,14 +856,17 @@
   body.composer-simple .composer-prompt{ display:inline-flex; position:absolute; left:0; top:0; z-index:1; align-items:flex-start; margin-top:0; color:var(--text); font:14px/1.45 var(--mono); white-space:nowrap; pointer-events:none; }
   body.composer-simple .composer textarea{ display:block; width:100%; min-width:0; min-height:86px; max-height:220px; padding:0 58px 4px 0; text-indent:var(--composer-prompt-indent); font:14px/1.45 var(--mono); overflow-y:auto; box-sizing:border-box; }
   body.composer-simple .composer textarea::placeholder{ color:transparent; }
+  body.composer-simple .composer-language-hint{ display:block; position:absolute; left:var(--content-x); top:32px; max-width:min(520px,calc(100% - 132px)); color:color-mix(in srgb,var(--text) 24%,var(--bg)); font:10px/1.25 var(--ui); pointer-events:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  body.composer-simple .composer:focus-within .composer-language-hint,
+  body.composer-simple .composer.has-text .composer-language-hint{ opacity:0; }
   body.composer-simple .promptline #interruptEdit{ position:absolute; right:0; top:0; width:28px; height:28px; margin:4px 0 0 0; border-radius:8px; color:var(--dim); }
-  body.composer-simple .promptline #send{ position:absolute; right:0; bottom:24px; width:auto; min-width:0; height:24px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--text); font:400 11px var(--ui); box-shadow:none; outline:0; appearance:none; }
+  body.composer-simple .promptline #send{ position:absolute; right:0; bottom:24px; width:auto; min-width:0; height:24px; margin:0; padding:0; border:0; border-radius:0; background:transparent; color:var(--text); font:14px/1.45 var(--mono); font-weight:400; box-shadow:none; outline:0; appearance:none; }
   body.composer-simple .promptline #send::before{ content:none; }
   body.composer-simple .promptline #send.stop::before{ content:none; }
   body.composer-simple .promptline #send svg{ display:none; }
   body.composer-simple .promptline #send.stop{ background:transparent; color:#dc3f42; }
   body.composer-simple .promptline #send:hover:not(:disabled){ transform:none; box-shadow:none; background:transparent; text-decoration:underline; }
-  body.composer-simple .composer-base{ order:-1; margin:0; padding:3px var(--content-x) 5px; background:var(--bg); border:0; box-shadow:none; }
+  body.composer-simple .composer-base{ order:-1; margin:0; padding:3px var(--content-x) 5px; background:transparent; border:0; box-shadow:none; }
   body.composer-simple .composer-tools{ width:100%; margin:0; gap:4px; }
   body.composer-simple .composer-tools .iconbtn,body.composer-simple .composer-tools .modelbtn,body.composer-simple .composer-tools .modebtn{ height:24px; border-radius:7px; background:transparent; box-shadow:none; }
   body.composer-simple .composer-tools .iconbtn:hover,body.composer-simple .composer-tools .modelbtn:hover,body.composer-simple .composer-tools .modebtn:hover{ background:var(--hover); }
@@ -1024,6 +1037,7 @@
 
   /* narrow composer: stay on ONE row, collapse labels to icons instead of stacking */
   body.win-xs, body.chat-xs{ --content-x:8px; }
+  body.win-xs, body.chat-xs{ --content-max:760px; }
   body.win-xs .composer-wrap, body.chat-xs .composer-wrap{ --composer-bottom:12px; }
   body.win-xs .composer, body.chat-xs .composer{ border-radius:20px; padding:7px 8px; }
   body.win-xs.composer-simple .composer, body.chat-xs.composer-simple .composer{ border:0; border-top:1px solid color-mix(in srgb,var(--text) 72%,var(--bg)); border-radius:0; box-shadow:none; padding:8px var(--content-x) 6px; }
@@ -1257,7 +1271,7 @@
   .workspace-tabs .cmd-chip-dot.err{ background:#dc3f42; }
   .workspace-tabs .cmd-chip-dot.warn{ background:var(--online); }
   .workspace-tabs #cmdProjectStatus .cmd-chip:nth-child(n+2){ display:none; }
-  .workspace-tabs #cmdTaskChip{ max-width:116px; }
+  .workspace-tabs #cmdTaskChip{ max-width:min(280px,30vw); }
   body.ws-terminal-open #chat{ padding-bottom:200px; scroll-padding-bottom:calc(var(--composer-h,106px) + 212px); }
 
   /* ── Terminal drawer ── */
@@ -1385,7 +1399,7 @@
   /* ── Recipe quick-start cards ── */
   .recipes-panel{ width:100%; min-height:0; flex:1; margin:0; padding:10px var(--content-x) 12px; display:none; background:var(--bg); overflow:hidden; }
   body.recipes-open .recipes-panel{ display:flex; }
-  body.recipes-open #chat,body.recipes-open .composer-wrap{ display:none; }
+  body.recipes-open #chat,body.recipes-open .composer-wrap{ display:none !important; }
   .recipes-shell{ width:min(1180px,100%); height:calc(100dvh - 178px); max-height:760px; min-height:0; margin:0 auto; display:grid; grid-template-columns:178px minmax(0,1fr) minmax(240px,300px); gap:10px; align-items:stretch; }
   .recipes-shell.overview-mode{ grid-template-columns:178px minmax(0,1fr); }
   .recipes-roles,.recipes-main,.recipes-detail{ min-width:0; min-height:0; border:1px solid var(--border); border-radius:8px; background:var(--card); }
@@ -1665,7 +1679,7 @@
   .cmd-bar .cmd-chip-dot.warn{ background:var(--online); }
   .cmd-bar #cmdProjectStatus{ margin:0 2px; }
   .cmd-bar #cmdProjectStatus .cmd-chip:nth-child(n+2){ display:none; }
-  .cmd-bar #cmdTaskChip{ max-width:122px; cursor:pointer; }
+  .cmd-bar #cmdTaskChip{ max-width:min(280px,30vw); cursor:pointer; }
   .cmd-bar .cmd-hint{ font:10px var(--mono); color:var(--dim); opacity:.35; flex-shrink:0; padding-right:2px; }
   .cmd-bar .cmd-shortcut{ display:inline-flex; align-items:center; gap:2px; font:9.5px var(--mono); color:var(--dim); opacity:.4; background:var(--hover); border:1px solid var(--border); border-radius:4px; padding:1px 5px; flex-shrink:0; margin-left:4px; }
   .cmd-bar .cmd-shortcut kbd{ font:inherit; }
@@ -1770,9 +1784,24 @@
   .deploy-bar select{ border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); font:11px var(--ui); padding:3px 6px; }
   .deploy-bar button{ padding:4px 12px; border:0; border-radius:6px; background:var(--accent); color:var(--accent-text); font:11.5px var(--ui); cursor:pointer; }
   .deploy-bar button:hover{ filter:brightness(1.08); }
+
+  .settings-health-banner{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;font:12.5px/1 var(--ui)}
+  .health-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--dim)}
+  .health-dot.ok{background:var(--green)}
+  .health-dot.warn{background:var(--online)}
+  .health-dot.err{background:var(--red,#e5534b)}
+  .diagnostics-results{font:11.5px var(--mono);padding:8px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius-sm);white-space:pre-wrap}
+  .diagnostics-results .diag-ok{color:var(--green)}
+  .diagnostics-results .diag-warn{color:var(--online)}
+  .diagnostics-results .diag-err{color:var(--red,#e5534b)}
+
+  .tool-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--dim);margin-right:4px;vertical-align:middle}
+  .tool-dot.ok{background:var(--green)}
+  .tool-dot.warn{background:var(--online)}
+  .tool-dot.err{background:var(--red,#e5534b)}
 </style>
 </head>
-<body>
+<body class="workspace-chat">
 <div class="temp-toast" id="tempToast" role="status" aria-live="polite"></div>
 
 <aside id="sidebar">
@@ -1864,10 +1893,17 @@
       <div class="settings-dashboard" id="settingsDashboard">
         <div class="settings-search"><input type="search" id="settingsSearch" autocomplete="off" spellcheck="false" placeholder="Search settings, models, connectors, permissions…"></div>
         <div class="settings-overview" aria-label="Settings overview">
-          <div class="settings-card"><small>Current model</small><b id="settingsCurrentModel">Local</b><span class="badge" id="settingsModelBadge">Ready</span></div>
-          <div class="settings-card"><small>Token budget</small><b id="settingsTokenBudget">Per task</b><span class="badge">Visible</span></div>
-          <div class="settings-card"><small>Connected tools</small><b id="settingsToolsStatus">Checking…</b><span class="badge">Status</span></div>
-          <div class="settings-card"><small>Project folder</small><b id="settingsProjectFolder">Projects</b><span class="badge">Local</span></div>
+<div class="settings-health-banner" id="settingsHealthBanner">
+          <span class="health-dot" id="healthDot"></span>
+          <span id="healthLabel">Checking…</span>
+          <span class="spacer"></span>
+          <button class="minibtn" id="healthDetails" style="font-size:10.5px">Details</button>
+        </div>
+
+          <div class="settings-card"><small>Current model</small><b id="settingsCurrentModel" title="Currently selected AI model (local or cloud)">Local</b><span class="badge" id="settingsModelBadge"><span class="tool-dot" id="modelDot"></span>Ready</span></div>
+          <div class="settings-card"><small>Token budget</small><b id="settingsTokenBudget" title="Per-task token budget and retry count">Per task</b><span class="badge">Visible</span></div>
+          <div class="settings-card"><small>Connected tools</small><b id="settingsToolsStatus">Checking…</b><span class="badge" id="toolsStatusBadge"><span class="tool-dot" id="toolsDot"></span>Status</span></div>
+          <div class="settings-card"><small>Project folder</small><b id="settingsProjectFolder" title="Active project folder for file operations">Projects</b><span class="badge">Local</span></div>
         </div>
         <div class="settings-checklist" aria-label="Setup checklist">
           <div class="settings-check done" data-open-sec="model"><span>✓</span><div>Choose default AI model<small>Local, cloud, or auto routing.</small></div></div>
@@ -2008,11 +2044,11 @@
             </div>
           </div>
           <div class="agent-budget-card" id="agentBudgetSummary"><div><b>Task budget: Normal</b><small>Warns about loops but keeps working by default.</small></div><span class="badge">Visible</span></div>
-          <label class="setrow" style="cursor:pointer"><span>Auto-run tests/builds<div class="hint">Boolean looks for package scripts and verifies before saying done.</div></span><span class="switch"><input type="checkbox" id="agentAutoTest" checked><span class="slider"></span></span></label>
-          <label class="setrow" style="cursor:pointer"><span>Strict stop-loop protection<div class="hint">When enabled, Boolean pauses after repeated inspections instead of continuing with warnings.</div></span><span class="switch"><input type="checkbox" id="agentStopLoop"><span class="slider"></span></span></label>
+          <label class="setrow" style="cursor:pointer"><span>Auto-run tests/builds<div class="hint">Boolean looks for package scripts and verifies before saying done.</div></span><span class="switch"><input type="checkbox" id="agentAutoTest" title="Automatically run test/build commands after code changes" checked><span class="slider"></span></span></label>
+          <label class="setrow" style="cursor:pointer"><span>Strict stop-loop protection<div class="hint">When enabled, Boolean pauses after repeated inspections instead of continuing with warnings.</div></span><span class="switch"><input type="checkbox" id="agentStopLoop" title="Pause when repeated inspections are detected"><span class="slider"></span></span></label>
           <div class="setrow"><div>Max retries<div class="hint">Stops and asks when confidence is low.</div></div><select id="agentRetries"><option>1</option><option selected>2</option><option>3</option></select></div>
           <div class="setrow"><div>Token/time budget<div class="hint">Visible cap per task; older context is compressed into project memory.</div></div><select id="agentBudget"><option>Small</option><option selected>Normal</option><option>Large</option></select></div>
-          <label class="setrow" style="cursor:pointer"><span>Auto-commit option<div class="hint">When enabled, Boolean can save verified progress to git after approval.</div></span><span class="switch"><input type="checkbox" id="agentAutoCommit"><span class="slider"></span></span></label>
+          <label class="setrow" style="cursor:pointer"><span>Auto-commit option<div class="hint">When enabled, Boolean can save verified progress to git after approval.</div></span><span class="switch"><input type="checkbox" id="agentAutoCommit" title="Allow Boolean to commit verified changes to git"><span class="slider"></span></span></label>
           <label class="setrow" style="cursor:pointer"><span>Confirm before risky commands<div class="hint">Commands that delete, elevate, purchase, or submit sensitive forms require confirmation.</div></span><span class="switch"><input type="checkbox" checked disabled><span class="slider"></span></span></label>
           <div class="rules-card"><b>Project rules</b><div class="hint">Add <code>BOOLEAN.md</code> or <code>.boolean/rules.md</code> so each project teaches Boolean style, commands, architecture, and “never do this” rules.</div></div>
         </div>
@@ -2355,12 +2391,12 @@
           </div>
           <div class="seg settings-hidden" id="fontSeg" style="margin-top:6px"><button data-val="small">Small</button><button data-val="medium">Medium</button><button data-val="large">Large</button></div>
           <div class="seg settings-hidden" id="densitySeg" style="margin-top:6px"><button data-val="comfortable">Comfortable</button><button data-val="compact">Compact</button></div>
-          <div class="setrow" style="margin-top:6px"><div>Show timestamps</div><label class="switch"><input type="checkbox" id="showTimestamps"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Show token counts</div><label class="switch"><input type="checkbox" id="showTokens"><span class="slider"></span></label></div>
+          <div class="setrow" style="margin-top:6px"><div>Show timestamps</div><label class="switch"><input type="checkbox" id="showTimestamps" title="Show time on each message in the chat"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Show token counts</div><label class="switch"><input type="checkbox" id="showTokens" title="Display token count after each AI response"><span class="slider"></span></label></div>
           <div class="setrow"><div>Auto-collapse tool logs</div><label class="switch"><input type="checkbox" id="collapseLogs"><span class="slider"></span></label></div>
           <div class="setrow"><div>Show welcome setup on next launch<div class="hint">Reopens the first-run setup once, then hides again by default.</div></div><label class="switch"><input type="checkbox" id="showOnboarding"><span class="slider"></span></label></div>
           <div class="setrow"><div>Desktop notifications<div class="hint">Alert when tasks finish, error, or need approval while the window is in the background.</div></div><label class="switch"><input type="checkbox" id="notificationsToggle"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Reduce motion<div class="hint">Minimizes animations and transitions across the interface for better focus and accessibility.</div></div><label class="switch"><input type="checkbox" id="reduceMotion"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Reduce motion<div class="hint">Minimizes animations and transitions across the interface for better focus and accessibility.</div></div><label class="switch"><input type="checkbox" id="reduceMotion" title="Reduce animations for accessibility"><span class="slider"></span></label></div>
           <div class="setrow"><div>Export this chat</div>
             <div style="display:flex;gap:6px"><button class="minibtn" id="exportTxt">TXT</button><button class="minibtn" id="exportMd">MD</button></div></div>
         </div>
@@ -2456,7 +2492,7 @@
           </div>
           <div class="setrow"><div>What goes to cloud models<div class="hint">When using a cloud provider, your chat text is sent to that API. Local models never leave your PC.</div></div><span style="font:11px var(--ui);color:var(--dim)">Provider-dependent</span></div>
           <div class="setrow"><div>Clipboard / file access<div class="hint">Allow Boolean to read clipboard and local files when you ask.</div></div><label class="switch"><input type="checkbox" id="privacyClipboard"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Sensitive data masking<div class="hint">Mask API keys, passwords, and tokens in chat display.</div></div><label class="switch"><input type="checkbox" id="privacyMasking"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Sensitive data masking<div class="hint">Mask API keys, passwords, and tokens in chat display.</div></div><label class="switch"><input type="checkbox" id="privacyMasking" title="Hide API keys and sensitive values in the chat display"><span class="slider"></span></label></div>
           <div class="setrow"><div>Telemetry<div class="hint">Anonymous usage data to improve Boolean. Nothing personal is collected.</div></div><label class="switch"><input type="checkbox" id="privacyTelemetry"><span class="slider"></span></label></div>
           <div class="setrow"><div>Local encryption<div class="hint">Encrypt saved chats and config at rest on this PC.</div></div><label class="switch"><input type="checkbox" id="privacyEncryption"><span class="slider"></span></label></div>
           <div class="setrow" style="display:block;margin-top:6px">
@@ -2539,7 +2575,31 @@
               <button class="minibtn dangerbtn" id="proxyClear">Clear</button>
             </div>
           </div>
-          <button class="minibtn dangerbtn" id="clearHistory" style="width:100%;margin-top:6px">Clear all saved chats</button>
+                    <div class="setrow" style="display:block;margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+            <div>Debug mode<div class="hint">Show verbose tool call details, timing, and internal state in the chat log.</div></div>
+            <label class="switch"><input type="checkbox" id="debugModeToggle"><span class="slider"></span></label>
+          </div>
+          <div class="setrow" style="display:block;margin-top:4px">
+            <div>Log level<div class="hint">Controls how much is written to the internal log.</div></div>
+            <select id="logLevelSelect" class="minibtn" style="text-align:left;padding:4px 8px;margin-top:4px">
+              <option value="silent">Silent</option>
+              <option value="normal" selected>Normal</option>
+              <option value="verbose">Verbose</option>
+            </select>
+          </div>
+          <div class="setrow" style="display:block;margin-top:4px">
+            <div>Diagnostics<div class="hint">Run a quick health check on providers, model engine, tools, and storage.</div></div>
+            <button class="minibtn" id="diagnosticsRun" style="width:100%;margin-top:4px">Run diagnostics</button>
+            <div class="diagnostics-results" id="diagnosticsResults" style="margin-top:6px"></div>
+          </div>
+          <div class="setrow" style="display:block;margin-top:4px;border-top:1px solid var(--line);padding-top:10px">
+            <div>Export / Import settings<div class="hint">Save all Boolean settings to a JSON file or restore from a backup.</div></div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <button class="minibtn" id="exportSettings" style="flex:1">Export</button>
+              <button class="minibtn" id="importSettings" style="flex:1">Import</button>
+            </div>
+          </div>
+<button class="minibtn dangerbtn" id="clearHistory" style="width:100%;margin-top:6px">Clear all saved chats</button>
           <button class="minibtn dangerbtn" id="resetSettings" style="width:100%;margin-top:6px">Reset all settings</button>
 
         </div>
@@ -2568,8 +2628,8 @@
       <div class="sec" data-sec="voice" data-search="voice input speech dictation tts feedback language dialect auto punctuation microphone mic">
         <div class="sechead">Voice &amp; Input <span class="caret">▶</span></div>
         <div class="secbody">
-          <div class="setrow"><div>Voice input<div class="hint">Dictate into the chat box using your microphone.</div></div><label class="switch"><input type="checkbox" id="voiceInput"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Voice feedback / TTS<div class="hint">Read AI responses aloud.</div></div><label class="switch"><input type="checkbox" id="voiceTTS"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Voice input<div class="hint">Dictate into the chat box using your microphone.</div></div><label class="switch"><input type="checkbox" id="voiceInput" title="Enable speech-to-text for the chat input"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Voice feedback / TTS<div class="hint">Read AI responses aloud.</div></div><label class="switch"><input type="checkbox" id="voiceTTS" title="Read AI responses aloud using text-to-speech"><span class="slider"></span></label></div>
           <div class="setrow"><div>Auto-punctuation<div class="hint">Automatically add punctuation while dictating.</div></div><label class="switch"><input type="checkbox" id="voiceAutoPunct"><span class="slider"></span></label></div>
           <div class="setrow"><div>Language / dialect<div class="hint">Recognition language for voice input.</div></div>
             <select id="voiceLang" class="minibtn" style="text-align:left;padding:4px 8px;max-width:180px">
@@ -2597,16 +2657,16 @@
       <div class="sec" data-sec="notifications" data-search="notifications alerts sound desktop in-app token budget warning error volume">
         <div class="sechead">Notifications &amp; Alerts <span class="caret">▶</span></div>
         <div class="secbody">
-          <div class="setrow"><div>In-app notifications<div class="hint">Show toast banners inside the app.</div></div><label class="switch"><input type="checkbox" id="notifInApp"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Desktop notifications<div class="hint">OS-level notifications when tasks finish or need approval.</div></div><label class="switch"><input type="checkbox" id="notifDesktop"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Sound alerts<div class="hint">Play a sound when a task completes or errors.</div></div><label class="switch"><input type="checkbox" id="notifSound"><span class="slider"></span></label></div>
+          <div class="setrow"><div>In-app notifications<div class="hint">Show toast banners inside the app.</div></div><label class="switch"><input type="checkbox" id="notifInApp" title="Show notification banners inside the Boolean app"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Desktop notifications<div class="hint">OS-level notifications when tasks finish or need approval.</div></div><label class="switch"><input type="checkbox" id="notifDesktop" title="Send OS-level notifications when tasks complete"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Sound alerts<div class="hint">Play a sound when a task completes or errors.</div></div><label class="switch"><input type="checkbox" id="notifSound" title="Play a sound when tasks finish or error"><span class="slider"></span></label></div>
           <div class="setrow" id="notifVolumeRow"><div>Alert volume<div class="hint">Volume for sound alerts.</div></div>
             <div style="display:flex;align-items:center;gap:8px">
               <input id="notifVolume" type="range" min="0" max="100" step="5" style="width:120px">
               <span id="notifVolumeLabel" style="font:11px var(--ui);color:var(--dim)">50%</span>
             </div>
           </div>
-          <div class="setrow"><div>Token budget warnings<div class="hint">Alert when cloud spending reaches 80% of your monthly limit.</div></div><label class="switch"><input type="checkbox" id="notifBudgetWarn"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Token budget warnings<div class="hint">Alert when cloud spending reaches 80% of your monthly limit.</div></div><label class="switch"><input type="checkbox" id="notifBudgetWarn" title="Warn when cloud spending reaches 80% of the monthly limit"><span class="slider"></span></label></div>
           <div class="setrow"><div>Error alerts<div class="hint">Notify on errors, crashes, or failed tool runs.</div></div><label class="switch"><input type="checkbox" id="notifErrors"><span class="slider"></span></label></div>
         </div>
       </div>
@@ -2755,7 +2815,7 @@
   </div>
 
   <!-- Command palette dropdown (moved to end of body for z-index) -->
-  
+
 
   <!-- Task stepper: Plan → Edit → Run → Verify → Commit -->
   <div class="task-stepper hidden" id="taskStepper">
@@ -2843,6 +2903,7 @@
       <div class="attachments" id="attachments"></div>
       <div class="composer-info" id="composerInfo"></div>
       <div class="promptline"><span class="composer-prompt" id="composerPrompt">C:\Users\S10&gt;</span><textarea id="input" rows="1" placeholder="Ask anything..."></textarea><button class="iconbtn" id="interruptEdit" title="Interrupt and edit question" aria-label="Interrupt and edit question">&#9998;</button><button id="send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6v6a2 2 0 0 1-2 2H7"/><path d="M10 10.5L6.5 14l3.5 3.5"/></svg></button></div>
+      <div class="composer-language-hint">Tell me what you want done, in plain language.</div>
       <div class="prompt-suggest" id="promptSuggest"></div>
       <div class="composer-chat-actions" id="composerChatActions"></div>
       <div class="recent-chats" id="recentChats"><span class="recent-chats-label">recent chats</span><span class="recent-chats-list" id="recentChatsList"></span></div>
@@ -3365,7 +3426,7 @@
   syncComposerBaseHeight();
   syncDockHeight();
   syncComposerRail();
-  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
+  let state={ provider:"local", models:[], providerModels:{}, providerReady:{}, cloudFallback:{enabled:false,provider:"",model:""}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
   let cleanStartupApplied=false;
   let compareState={ active:false, targets:[] };
   try{ compareState={...compareState,...JSON.parse(localStorage.getItem("booleanCompare")||"{}")}; }catch{}
@@ -3383,8 +3444,8 @@
     const w=window.innerWidth;
     document.body.classList.toggle("win-xs",w<520);
     document.body.classList.toggle("win-sm",w>=520&&w<900);
-    document.body.classList.toggle("win-lg",w>=1280);
     const mainW=document.querySelector("main")?.getBoundingClientRect().width||w;
+    document.body.classList.toggle("win-lg",mainW>=980||w>=1280);
     document.body.classList.toggle("chat-xs",mainW<430);
     document.body.classList.toggle("chat-xxs",mainW<260);
   }
@@ -3764,6 +3825,17 @@
     if(n>=1000000) return "heavy token use"+callText+(estimated?" (est)":"");
     return n.toLocaleString()+" tokens"+callText+(estimated?" (est)":"");
   }
+  function changeSummaryParts(stat){
+    const files=Number(stat?.files||0), add=Number(stat?.additions||0), del=Number(stat?.deletions||0);
+    if(!files) return null;
+    const label="Work complete: "+files+" file"+(files===1?"":"s")+" changed";
+    return {files,add,del,label,text:label+"   +"+add+"   -"+del};
+  }
+  function changeSummaryHtml(stat){
+    const s=changeSummaryParts(stat);
+    if(!s) return "";
+    return '<span class="change-summary" title="'+esc(s.text)+'"><b>'+esc(s.label)+'</b><span class="add">+'+s.add+'</span><span class="del">-'+s.del+'</span></span>';
+  }
   function relTime(at){
     if(!at) return "";
     const s=Math.floor((Date.now()-at)/1000);
@@ -3853,7 +3925,11 @@
       if(/\b(npm|node|dotnet|wrangler|git)\b/.test(cmd)&&/\b(test|tests|build|lint|check|compile|typecheck|status|diff|log)\b/.test(cmd)) return "run:check";
       return "run:command";
     }
-    if(["read_file","list_dir","find_files","search_files","find_symbol","git_status","git_diff"].includes(name)) return "inspect:files";
+    if(name==="read_file") return "inspect:read_file";
+    if(name==="list_dir") return "inspect:list_dir";
+    if(["find_files","search_files"].includes(name)) return "inspect:search_project";
+    if(name==="find_symbol") return "inspect:search_code";
+    if(["git_status","git_diff"].includes(name)) return "inspect:git";
     if(["read_page","visible_browser_read","screenshot_page","inspect_page_layout"].includes(name)) return "inspect:browser";
     if(["write_file","edit_file","create_artifact","create_project"].includes(name)) return "change:files";
     return name;
@@ -3890,6 +3966,7 @@
     const detailText=toolDetailText(entry);
     d.dataset.toolKey=toolGroupKey(entry);
     d.dataset.toolCount="1";
+    d.dataset.toolLabel=summary;
     d._toolDetails=detailText;
     d.innerHTML='<div class="toolhead" title="'+esc(fullSummary)+'"><span class="tk">'+(open?"&#9662;":"&#9656;")+'</span><span class="sum">'+esc(summary)+'</span><span class="caret">'+(open?"hide &#9652;":"details &#9662;")+'</span></div><pre class="toolout">'+esc(detailText)+'</pre>';
     const head=d.querySelector(".toolhead");
@@ -3905,10 +3982,48 @@
     card.dataset.toolCount=String(count);
     const detail=toolDetailText(entry);
     card._toolDetails=(card._toolDetails||card.querySelector(".toolout")?.textContent||"")+"\n\n---\n"+detail;
-    card.querySelector(".sum").textContent=toolDisplayLabel(entry)+" x"+count;
+    const label=card.dataset.toolLabel||toolDisplayLabel(entry);
+    card.querySelector(".sum").textContent=label+(count>1?" x"+count:"");
     card.querySelector(".toolout").textContent=card._toolDetails;
     card.title=toolRawSummary(entry);
     return card;
+  }
+  function mergeExistingToolCards(target,source){
+    const count=Math.min(99,Number(target.dataset.toolCount||"1")+Number(source.dataset.toolCount||"1"));
+    target.dataset.toolCount=String(count);
+    const label=target.dataset.toolLabel||source.dataset.toolLabel||target.querySelector(".sum")?.textContent?.replace(/\s+x\d+$/,"")||"Tool";
+    target.dataset.toolLabel=label;
+    const targetOut=target.querySelector(".toolout");
+    const sourceOut=source.querySelector(".toolout");
+    const targetDetail=target._toolDetails||targetOut?.textContent||"";
+    const sourceDetail=source._toolDetails||sourceOut?.textContent||"";
+    target._toolDetails=targetDetail+(targetDetail&&sourceDetail?"\n\n---\n":"")+sourceDetail;
+    const sum=target.querySelector(".sum");
+    if(sum) sum.textContent=label+(count>1?" x"+count:"");
+    if(targetOut) targetOut.textContent=target._toolDetails;
+    source.remove();
+    return target;
+  }
+  function compactToolCardBlock(cards){
+    const seen=new Map();
+    cards.forEach(card=>{
+      if(!card?.classList?.contains("toolcard")||card.classList.contains("webstatus")) return;
+      const label=card.dataset.toolLabel||card.querySelector(".sum")?.textContent?.replace(/\s+x\d+$/,"")||"Tool";
+      card.dataset.toolLabel=label;
+      const key=(card.dataset.toolKey||label)+"::"+label;
+      const existing=seen.get(key);
+      if(existing) mergeExistingToolCards(existing,card);
+      else seen.set(key,card);
+    });
+  }
+  function compactCompletedToolCards(root=col){
+    let block=[];
+    const flush=()=>{ if(block.length>1) compactToolCardBlock(block); block=[]; };
+    Array.from(root.children).forEach(node=>{
+      if(node.classList?.contains("toolcard")&&!node.classList.contains("webstatus")) block.push(node);
+      else flush();
+    });
+    flush();
   }
   function addToolCard(parent,entry,before){
     const key=toolGroupKey(entry);
@@ -4030,8 +4145,24 @@
       else if(sec==="browser") done=!!(state.ui&&state.ui.aiBrowser!==false);
       else if(sec==="memory") done=!!(state.ui&&(state.ui.referenceChatMemory!==false||state.ui.learnedMemory!==false));
       check.classList.toggle("done",done);
-      const mark=check.querySelector("span:first-child"); if(mark) mark.textContent=done?"✓":"•";
+      const mark=check.querySelector("span:first-child"); if(mark) mark.textContent=done?"\u2713":"\u2022";
     });
+    // Update health indicator banner
+    const allChecks = document.querySelectorAll(".settings-check");
+    let okCount=0, totalCount=allChecks.length;
+    allChecks.forEach(ch=>{ if(ch.classList.contains("done")) okCount++; });
+    const needsAttention = totalCount - okCount;
+    const healthDot=$("healthDot"), healthLabel=$("healthLabel");
+    if(healthDot && healthLabel){
+      healthDot.className="health-dot";
+      if(needsAttention===0){ healthDot.classList.add("ok"); healthLabel.textContent="Everything OK \u2014 all checks passed"; }
+      else if(needsAttention<=2){ healthDot.classList.add("warn"); healthLabel.textContent=needsAttention+" item"+(needsAttention>1?"s":"")+" needs attention"; }
+      else{ healthDot.classList.add("err"); healthLabel.textContent=needsAttention+" items need setup"; }
+    }
+    // Update tool dots on overview cards
+    const modelDot=$("modelDot"), toolsDot=$("toolsDot");
+    if(modelDot){ modelDot.className="tool-dot"; modelDot.classList.add(ready?"ok":"warn"); }
+    if(toolsDot){ toolsDot.className="tool-dot"; toolsDot.classList.add(connectedToolCount>0?"ok":"warn"); }
   }
   function applySettingsFilter(){
     const panel=$("settingsPanel"), input=$("settingsSearch"); if(!panel||!input) return;
@@ -4635,7 +4766,7 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.34"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.35"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -4974,6 +5105,7 @@
         console.warn("Skipped saved log entry", err);
       }
     });
+    if(!viewingRun()) compactCompletedToolCards(col);
     // if this thread has a run in flight, rebuild its live status + partial answer
     if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); renderPendingApprovals(); }
     else if(log.length) renderEndActions();
@@ -5504,7 +5636,7 @@
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
   function safeCloudUiPayload(ui=state.ui||{}){
-    const allowed=["theme","composerStyle","notepadTheme","noteAutoSave","noteAutoName","browserSummaryAutoSave","showTimestamps","showTokens","showOnboarding","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
+    const allowed=["theme","composerStyle","notepadTheme","noteAutoSave","noteAutoName","browserSummaryAutoSave","showTimestamps","showTokens","showOnboarding","onboarded","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections"];
     const data={};
     allowed.forEach(key=>{
       const value=ui[key];
@@ -6577,6 +6709,7 @@
     // suggestion, or refresh failure must never strand chat in Stop mode.
     run=null; currentAbort=null; updateSendButton();
     try{
+      if(threadId===tid) compactCompletedToolCards(col);
       if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
         notify("Boolean finished its task", (finishedRun.raw||"").slice(0,120) || "Task complete.");
       if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
@@ -6727,7 +6860,11 @@
     if(e.key==="Tab"&&acceptPromptSuggestion()){ e.preventDefault(); return; }
     if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){ e.preventDefault(); sendMessage(); }
   });
-  function autosize(){ input.style.height="auto"; input.style.height=Math.min(input.scrollHeight,180)+"px"; }
+  function autosize(){
+    input.style.height="auto";
+    input.style.height=Math.min(input.scrollHeight,180)+"px";
+    composerPill?.classList.toggle("has-text",!!input.value.trim());
+  }
   input.addEventListener("input",()=>{ autosize(); scheduleEstimate(); updatePromptSuggestion(); if(busy()) updateSendButton(); });
 
   // ── nav / panels / sidebar ──
@@ -7500,7 +7637,7 @@ Optional bundled starter model:
   $("showTimestamps").onchange=e=>setUi({showTimestamps:e.target.checked});
   $("showTokens").onchange=e=>setUi({showTokens:e.target.checked});
   $("collapseLogs").onchange=e=>setUi({collapseLogs:e.target.checked});
-  if($("showOnboarding")) $("showOnboarding").onchange=e=>{ try{ if(e.target.checked) localStorage.removeItem("boolean_onboarded"); else localStorage.setItem("boolean_onboarded","1"); }catch{} setUi({showOnboarding:e.target.checked}); };
+  if($("showOnboarding")) $("showOnboarding").onchange=e=>{ try{ if(e.target.checked) localStorage.removeItem("boolean_onboarded"); else localStorage.setItem("boolean_onboarded","1"); }catch{} setUi({showOnboarding:e.target.checked,onboarded:!e.target.checked}); };
   $("notificationsToggle").onchange=e=>{
     if(e.target.checked && "Notification" in window && Notification.permission!=="granted" && !SHELL) Notification.requestPermission();
     setUi({notifications:e.target.checked});
@@ -7543,7 +7680,60 @@ Optional bundled starter model:
     tempToast("To install a skill, use the chat command: manage_skill install from a local folder path.",5000);
   };
 
-  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",composerStyle:"simple",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,browserSummaryAutoSave:true,showTimestamps:false,showTokens:true,showOnboarding:false,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",cleanStartup:true,codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
+  $("resetSettings").onclick=async()=>{ if(await appConfirm("Reset settings?","Restore Boolean settings to their defaults.","Reset",true)){ await setUi({theme:"system",composerStyle:"simple",fontSize:"medium",density:"compact",notepadTheme:"yellow",noteAutoSave:true,noteAutoName:true,browserSummaryAutoSave:true,showTimestamps:false,showTokens:true,showOnboarding:false,onboarded:true,autoSave:true,keepLocalWarm:true,collapseLogs:true,referenceChatMemory:true,learnedMemory:true,systemActions:true,contextMode:"balanced",cleanStartup:true,codingAgent:{mode:"quick",autoTest:true,stopLoop:false,maxRetries:2,budget:"normal",autoCommit:false},expandedSections:["model"]}); applySections(); } };
+
+  // ── Diagnostics, Export/Import ──
+  if($("diagnosticsRun")){
+    $("diagnosticsRun").onclick=async()=>{
+      const box=$("diagnosticsResults"); if(!box) return;
+      box.innerHTML="<span class='diag-warn'>Running…</span>";
+      try{
+        const checks=[];
+        // Model
+        checks.push({label:"Model engine", ok:!!(state.providers&&Object.keys(state.providers).length>0||state.engine)});
+        // Provider
+        checks.push({label:"Cloud provider", ok:!!(state.ui&&state.ui.cloudProvider&&state.ui.cloudKey)});
+        // GitHub
+        checks.push({label:"GitHub CLI", ok:!!state.githubConnected});
+        // Connectors
+        checks.push({label:"Connectors", ok:!!(state.connectors&&Object.keys(state.connectors).length>0)});
+        // Storage
+        checks.push({label:"Projects folder", ok:!!(state.ui&&state.ui.projectsDir)});
+        // WebView
+        checks.push({label:"WebView2", ok:!!window.chrome?.webView2Element||true}); // always true in shell
+        const allOk=checks.every(c=>c.ok);
+        const anyWarn=checks.some(c=>!c.ok);
+        box.innerHTML=checks.map(c=>`<div class="${c.ok?'diag-ok':'diag-warn'}">  ${c.ok?'✓':'⚠'} ${c.label}: ${c.ok?'OK':'Not configured'}</div>`).join('');
+        if(allOk) box.innerHTML+='<div class="diag-ok">All checks passed ✓</div>';
+        else box.innerHTML+='<div class="diag-warn">Some items need setup</div>';
+      }catch(e){ box.innerHTML='<div class="diag-err">Error: '+e.message+'</div>'; }
+    };
+  }
+  if($("exportSettings")){
+    $("exportSettings").onclick=()=>{
+      const blob=new Blob([JSON.stringify(state.ui||{},null,2)],{type:"application/json"});
+      const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+      a.download="boolean-settings.json"; a.click(); URL.revokeObjectURL(a.href);
+    };
+  }
+  if($("importSettings")){
+    $("importSettings").onclick=()=>{
+      const inp=document.createElement("input"); inp.type="file"; inp.accept=".json";
+      inp.onchange=async(e)=>{
+        const file=e.target.files[0]; if(!file) return;
+        try{
+          const text=await file.text(); const parsed=JSON.parse(text);
+          if(await appConfirm("Import settings?","This will overwrite your current Boolean settings with the imported file.","Import",true)){
+            await setUi(parsed); applySections();
+          }
+        }catch(err){ showToast("Import failed: "+err.message); }
+      };
+      inp.click();
+    };
+  }
+  if($("healthDetails")){
+    $("healthDetails").onclick=()=>{ switchSettingsTab("agent"); };
+  }
 
   // ── Keyboard Shortcuts ──
   const DEFAULT_SHORTCUTS = [
@@ -8315,6 +8505,7 @@ Optional bundled starter model:
   }
   function markWorkspaceTab(ws) {
     activeWsTab = ws || "chat";
+    document.body.classList.toggle("workspace-chat", activeWsTab === "chat");
     document.querySelectorAll(".ws-tab").forEach(tab => {
       const active = tab.dataset.ws === activeWsTab;
       tab.classList.toggle("active", active);
@@ -8817,16 +9008,19 @@ Optional bundled starter model:
   function compactProjectStatus(r){
     const git=r?.git||{};
     const changed=(r?.changedFiles||[]).length;
+    const diffSummary=changeSummaryParts(r?.diffStat);
     const testState=r?.testState||"idle";
     const taskState=r?.taskState||"idle";
-    const testStatus=r?.testStatus&&r.testStatus!=="â€”"?String(r.testStatus):"";
+    const testStatus=r?.testStatus&&r.testStatus!=="—"?String(r.testStatus):"";
     const gitLabel=gitSyncLabel(git);
     if(testState==="err") return {label:testStatus||"Tests failing",state:"err",dot:"err"};
     if(git.state==="diverged") return {label:"Git diverged",state:"err",dot:"err"};
     if(git.state==="behind") return {label:gitLabel,state:"warn",dot:"warn"};
     if(git.state==="unpushed") return {label:gitLabel,state:"warn",dot:"warn"};
-    if(changed) return {label:changed+" changed",state:"warn",dot:"warn"};
+    if(taskState==="running" && diffSummary) return {label:diffSummary.text.replace("Work complete:","Editing:"),state:"active",dot:"running"};
     if(taskState==="running") return {label:"Working",state:"active",dot:"running"};
+    if(diffSummary) return {label:diffSummary.text,state:"warn",dot:"warn"};
+    if(changed) return {label:changed+" changed",state:"warn",dot:"warn"};
     if(r?.serverRunning) return {label:"Server running",state:"active",dot:"running"};
     if(git.state==="pushed") return {label:"Pushed",state:"ok pushed",dot:"ok",gitState:"pushed"};
     if(testState==="ok") return {label:"Tests passing",state:"ok",dot:"ok"};
@@ -8851,12 +9045,27 @@ Optional bundled starter model:
     ];
     chip.title=(status.gitState==="pushed"?"Pushed. Click to undo the last pushed commit.\n":"Project status: "+status.label+"\n")+details.join("\n");
   }
+  let lastCompletionDiffText="";
+  function renderLatestChangeFooter(stat){
+    const s=changeSummaryParts(stat);
+    if(!s) return;
+    const last=[...col.querySelectorAll(".msg-ai")].pop();
+    if(!last) return;
+    const foot=last.querySelector(".msg-foot");
+    if(!foot) return;
+    const existing=foot.querySelector(".change-summary");
+    if(existing) existing.remove();
+    foot.insertAdjacentHTML("afterbegin",changeSummaryHtml(stat));
+    lastCompletionDiffText=s.text;
+  }
   async function refreshProjectDashboard() {
     try {
       const r = await (await _fetch("/api/project-status")).json();
       if (!r || !r.ok) { document.body.classList.add("pd-hidden"); return; }
       document.body.classList.remove("pd-hidden");
       if ($("pdTitle")) $("pdTitle").textContent = r.projectName || "Project";
+      const completionSummary=changeSummaryParts(r.diffStat);
+      if((r.taskState||"idle")!=="running" && completionSummary && completionSummary.text!==lastCompletionDiffText) renderLatestChangeFooter(r.diffStat);
       updateGitSyncUi(r.git || {}, r.branch || "");
       const taskText = r.task || "Idle";
       const fileCount = r.changedFiles?.length || 0;
@@ -9160,7 +9369,7 @@ Optional bundled starter model:
     $("onboardOverlay").classList.remove("open");
     const hideNext = $("onboardDontShow") ? $("onboardDontShow").checked : true;
     try { if(hideNext) localStorage.setItem("boolean_onboarded", "1"); else localStorage.removeItem("boolean_onboarded"); } catch(e) {}
-    setUi({showOnboarding:!hideNext});
+    setUi({showOnboarding:!hideNext,onboarded:hideNext});
   }
   if ($("onboardNext")) $("onboardNext").onclick = () => {
     if (onboardStep < onboardSteps.length - 1) {
@@ -9195,9 +9404,12 @@ Optional bundled starter model:
 
   // Show onboarding on first run
   setTimeout(() => {
-    let onboarded = false;
-    try { onboarded = localStorage.getItem("boolean_onboarded") === "1"; } catch(e) {}
-    if (state.eulaAccepted && (state.ui?.showOnboarding===true || !onboarded)) openOnboarding();
+    let legacyOnboarded = false;
+    try { legacyOnboarded = localStorage.getItem("boolean_onboarded") === "1"; } catch(e) {}
+    const durableOnboarded = state.ui?.onboarded === true;
+    const forceOnboarding = state.ui?.showOnboarding === true;
+    if(legacyOnboarded && !durableOnboarded && !forceOnboarding) setUi({onboarded:true,showOnboarding:false});
+    if (state.eulaAccepted && (forceOnboarding || (!durableOnboarded && !legacyOnboarded))) openOnboarding();
   }, 1500);
 
   // ══════════════════════════════════════════════════════════════
@@ -9266,49 +9478,54 @@ Optional bundled starter model:
     try{ return localStorage.getItem("boolean_side_chat_ai")||"main"; }catch{ return "main"; }
   }
   function sideChatProviders(){
-    const rows=[{id:"main",label:"Main AI"},{id:"local",label:"Local"}];
+    const ready=state.providerReady||{};
+    const rows=[];
+    if(state.backendUp) rows.push({id:"main",label:"Main AI"});
+    if(ready.local===true) rows.push({id:"local",label:"Local"});
     for(const provider of Object.keys(PROVIDER_LABELS)){
       if(provider==="local") continue;
-      if(state.keys?.[provider]||(provider==="customApi"&&state.userApi?.hasKey)){
+      if(ready[provider]===true && (state.keys?.[provider]||(provider==="customApi"&&state.userApi?.hasKey))){
         rows.push({id:provider,label:shortProviderLabel(provider,(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider)});
       }
     }
+    if(!rows.length) rows.push({id:"",label:"No AI ready"});
     return rows;
   }
   function resolveSideChatAi(){
     const available=sideChatProviders();
     const saved=sideChatAiChoice();
-    const choice=available.some(row=>row.id===saved)?saved:"main";
+    const choice=available.some(row=>row.id===saved)?saved:(available[0]?.id||"");
     const provider=choice==="main"?state.provider:choice;
     const label=choice==="main"?"Main AI":shortProviderLabel(provider,(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider);
     const model=provider==="local"?displayName(state.model):providerModelName(provider);
-    return {choice,provider,label,model};
+    return {choice,provider,label,model,ready:!!choice};
   }
   function renderSideChatAiSelect(){
     const select=$("sideChatAi");
     if(!select) return;
     const rows=sideChatProviders();
-    const choice=rows.some(row=>row.id===sideChatAiChoice())?sideChatAiChoice():"main";
+    const choice=rows.some(row=>row.id===sideChatAiChoice())?sideChatAiChoice():(rows[0]?.id||"");
     select.innerHTML=rows.map(row=>'<option value="'+esc(row.id)+'">'+esc(row.label)+'</option>').join("");
     select.value=choice;
+    select.disabled=!choice;
   }
   function sideChatThreads(){
     return (state.threads||[])
-      .filter(t=>String(t.title||"").trim().toLowerCase()==="side chat")
+      .filter(t=>t.side===true||String(t.title||"").trim().toLowerCase()==="side chat")
       .sort((a,b)=>Number(b.updatedAt||0)-Number(a.updatedAt||0));
   }
   function updateSideChatModelBadge(){
     const el=$("sideChatModel");
     if(!el) return;
     const ai=resolveSideChatAi();
-    el.textContent=(ai.choice==="main"?"Using ":"Side AI: ")+ai.label+(ai.model?" - "+ai.model.slice(0,24):"");
+    el.textContent=ai.ready?((ai.choice==="main"?"Using ":"Side AI: ")+ai.label+(ai.model?" - "+ai.model.slice(0,24):"")):"No AI ready";
   }
   function renderSideChatHistory(){
     const box=$("sideChatHistory");
     if(!box) return;
     const items=sideChatThreads().slice(0,8);
     if(!items.length){ box.innerHTML='<button type="button" class="active"><b>New side chat</b><small>Quick answers</small></button>'; return; }
-    box.innerHTML=items.map((t,i)=>'<button type="button" class="'+(t.id===sideChatThreadId?'active':'')+'" data-id="'+esc(t.id)+'"><b>'+(i===0?'Latest side chat':'Side chat')+'</b><small>'+esc(relTime(t.updatedAt||Date.now()))+'</small></button>').join("");
+    box.innerHTML=items.map((t)=>'<button type="button" class="'+(t.id===sideChatThreadId?'active':'')+'" data-id="'+esc(t.id)+'"><b>'+esc(t.title&&t.title!=="Side chat"?t.title:"New side chat")+'</b><small>'+esc(relTime(t.updatedAt||Date.now()))+'</small></button>').join("");
     box.querySelectorAll("button[data-id]").forEach(btn=>btn.onclick=async()=>{
       if(sideChatBusy) return;
       sideChatThreadId=btn.dataset.id||"";
@@ -9421,10 +9638,11 @@ Optional bundled starter model:
     sideChatBusy=true; $("sideChatSend").disabled=true; field.disabled=true;
     let answer=null;
     try{
+      const ai=resolveSideChatAi();
+      if(!ai.ready) throw new Error("No AI is ready. Open Settings to set up Local or an API provider.");
       const id=await loadSideChat();
       field.value=""; sideChatAdd("user",message);
       answer=sideChatAdd("ai","Thinking...",{status:true});
-      const ai=resolveSideChatAi();
       const payload={threadId:id,message,sideChat:true};
       if(ai.choice!=="main"){
         payload.sideProvider=ai.provider;

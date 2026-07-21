@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.34";
-export const APP_DISPLAY_VERSION = "v0.09.34";
+export const APP_VERSION = "0.9.35";
+export const APP_DISPLAY_VERSION = "v0.09.35";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -116,6 +116,7 @@ const DEFAULTS = {
     showTimestamps: false,
     showTokens: true,
     showOnboarding: false,    // Settings can show the first-run setup once again
+    onboarded: false,         // durable first-run welcome completion
     autoSave: true,           // persist chats to disk (workspace recovery)
     keepLocalWarm: true,      // keep llama-server running after the window closes
     collapseLogs: true,       // auto-collapse tool cards
@@ -198,18 +199,29 @@ export function loadConfig() {
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
       // migrate configs saved before the context-window increase (8192 â†’ 32768)
       if (!cfg.local.ctx) cfg.local.ctx = 32768;
+      let migrated = false;
+      if (raw.ui && raw.ui.onboarded === undefined && (raw.eulaAccepted || raw.ui.showOnboarding === false)) {
+        cfg.ui.onboarded = true;
+        cfg.ui.showOnboarding = false;
+        migrated = true;
+      }
       const oldProjects = path.join(os.homedir(), "Documents", "SAZ3 Projects");
       const loxaProjects = path.join(os.homedir(), "Documents", "Loxa Projects");
       const booleanProjects = path.join(os.homedir(), "Documents", "Boolean Projects");
       const newProjects = path.join(os.homedir(), "Documents", "Boolean");
-      if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects) cfg.projectsDir = newProjects;
+      if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects) { cfg.projectsDir = newProjects; migrated = true; }
       if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
         cfg.aiBehaviorVersion = AI_BEHAVIOR_VERSION;
         cfg.ui.contextMode = "balanced";
         cfg.ui.referenceChatMemory = true;
         cfg.ui.learnedMemory = true;
+        migrated = true;
+      }
+      if (migrated) {
         fs.mkdirSync(SAZ_DIR, { recursive: true });
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2));
+      }
+      if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
         fs.writeFileSync(path.join(SAZ_DIR, "preferences.json"), JSON.stringify({ rules: [] }, null, 2));
       }
       return cfg;

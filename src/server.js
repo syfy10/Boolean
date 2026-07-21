@@ -194,6 +194,19 @@ function repairAutoNotepadTitle(t) {
   return true;
 }
 
+function shouldAutoTitleThread(t) {
+  const title = String(t?.title || "").trim();
+  return !title || ["New chat", "Side chat", "New project", "Untitled project", "Project"].includes(title);
+}
+
+function autoTitleThread(t, content) {
+  if (!t || !shouldAutoTitleThread(t)) return false;
+  const next = shortThreadTitle(content).slice(0, 42);
+  if (!next || next === "New chat") return false;
+  t.title = next;
+  return true;
+}
+
 function cap(s) {
   s = String(s || "");
   return s.toUpperCase() === "TV" ? "TV" : s.slice(0, 1).toUpperCase() + s.slice(1).toLowerCase();
@@ -271,7 +284,7 @@ function gitStatusSummary(projectDir) {
   }
   for (const line of lines) {
     if (!line || line.startsWith("##")) continue;
-    const status = line[0] === "A" || line[1] === "A" ? "added" : line[0] === "D" || line[1] === "D" ? "deleted" : "modified";
+    const status = line.startsWith("?? ") ? "untracked" : line[0] === "A" || line[1] === "A" ? "added" : line[0] === "D" || line[1] === "D" ? "deleted" : "modified";
     const file = line.slice(3).trim();
     if (file) out.changedFiles.push({ path: file, status });
   }
@@ -280,6 +293,38 @@ function gitStatusSummary(projectDir) {
   else if (out.behind) out.state = out.ahead ? "diverged" : "behind";
   else if (out.ahead) out.state = "unpushed";
   else out.state = "pushed";
+  return out;
+}
+
+function gitDiffStat(projectDir, changedFiles = []) {
+  const out = { files: 0, additions: 0, deletions: 0 };
+  if (!projectDir) return out;
+  const seen = new Set();
+  const r = spawnSync("git", ["diff", "--numstat", "HEAD"], { cwd: projectDir, encoding: "utf8", timeout: 4000 });
+  if (r.status !== 0) return out;
+  for (const line of String(r.stdout || "").split("\n")) {
+    if (!line.trim()) continue;
+    const [add, del, file] = line.split(/\t/);
+    out.files++;
+    if (file) seen.add(file.trim());
+    out.additions += /^\d+$/.test(add || "") ? Number(add) : 0;
+    out.deletions += /^\d+$/.test(del || "") ? Number(del) : 0;
+  }
+  for (const row of changedFiles || []) {
+    const file = String(row?.path || "").trim();
+    if (row?.status !== "untracked" || !file || seen.has(file)) continue;
+    seen.add(file);
+    out.files++;
+    try {
+      const full = path.resolve(projectDir, file);
+      const root = path.resolve(projectDir);
+      if (!full.startsWith(root + path.sep)) continue;
+      const st = fs.statSync(full);
+      if (!st.isFile() || st.size > 1024 * 1024) continue;
+      const text = fs.readFileSync(full, "utf8");
+      out.additions += text ? text.split(/\r?\n/).length : 0;
+    } catch {}
+  }
   return out;
 }
 
@@ -444,11 +489,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
 
   // ── thread store ───────────────────────────────────────────────
   const threads = new Map(); // id -> { id, title, messages, createdAt, updatedAt, abort }
-  function newThread({ kind = "chat", title = "New chat", projectDir = "" } = {}) {
+  function newThread({ kind = "chat", title = "New chat", projectDir = "", side = false } = {}) {
     const id = crypto.randomUUID();
     const workDir = kind === "project" && projectDir ? projectDir : config.projectsDir;
     const t = {
-      id, title, kind, projectDir,
+      id, title, kind, projectDir, side: side === true,
       messages: [{ role: "system", content: systemPrompt(workDir, config.autoApprove, config) }],
       log: [], // display entries: {t:'user'|'ai'|'tool', ...}
       createdAt: Date.now(), updatedAt: Date.now(), abort: null, pendingTask: null
@@ -521,10 +566,26 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     return lines.join("\n");
   }
   function isBlankNewThread(t) {
-    if (!t || t.kind === "project" || t.title !== "New chat" || t.pinned) return false;
+    if (!t || t.kind === "project" || t.pinned) return false;
+    if (!["New chat", "Side chat"].includes(t.title || "")) return false;
     if (Array.isArray(t.log) && t.log.length) return false;
     const messages = Array.isArray(t.messages) ? t.messages : [];
     return messages.every((m) => m?.role === "system");
+  }
+  const BLANK_THREAD_TTL_MS = 30 * 60 * 1000;
+  function cleanupBlankThreads({ force = false } = {}) {
+    const now = Date.now();
+    let removed = false;
+    for (const [id, t] of threads) {
+      if (!isBlankNewThread(t)) continue;
+      if (!force && id === activeThreadId) continue;
+      if (!force && now - Number(t.updatedAt || t.createdAt || 0) < BLANK_THREAD_TTL_MS) continue;
+      threads.delete(id);
+      removed = true;
+    }
+    if (!threads.size) newThread();
+    if (!threads.has(activeThreadId)) activeThreadId = [...threads.values()].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id || null;
+    return removed;
   }
   function reuseOrNewThread() {
     const existing = [...threads.values()]
@@ -542,10 +603,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     /^Build\b/i.test(t?.title || "") ||
     /\b(build|create|make)\b.*\b(app|project|website|api|desktop|window|windows)\b/i.test(userTextOnly(firstUserContent(t)));
   function threadList() {
+    cleanupBlankThreads();
     return [...threads.values()]
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
       .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, pinned: !!t.pinned,
-        kind: isProjectThread(t) ? "project" : "chat", projectDir: t.projectDir || "",
+        kind: isProjectThread(t) ? "project" : "chat", side: t.side === true, projectDir: t.projectDir || "",
         pendingTask: t.pendingTask ? {
           state: t.pendingTask.state || "",
           updatedAt: t.pendingTask.updatedAt || 0
@@ -557,7 +619,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   // persist chats to disk (workspace recovery), unless privacy mode is on
   const persist = () => {
     if (config.ui?.autoSave === false) return;
-    saveThreads([...threads.values()]);
+    saveThreads([...threads.values()].filter((t) => !isBlankNewThread(t)));
   };
 
   // restore previous session's chats on startup
@@ -565,6 +627,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   if (restored.length) {
     let repairedTitles = false;
     for (const t of restored) {
+      if (t.side !== true && t.title === "Side chat") { t.side = true; repairedTitles = true; }
       if (repairAutoNotepadTitle(t)) repairedTitles = true;
       if (!t.kind && isProjectThread(t)) { t.kind = "project"; repairedTitles = true; }
       if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; }
@@ -602,7 +665,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     t.messages.push({ role: "user", content });
     t.log.push({ t: "user", text: content, at: Date.now(), scheduled: true });
     beginPendingTask(t, content);
-    if (t.title === "New chat") t.title = String(item.name || shortThreadTitle(text)).slice(0, 42);
+    if (shouldAutoTitleThread(t)) t.title = String(item.name || shortThreadTitle(text)).slice(0, 42);
     t.updatedAt = Date.now();
     persist();
 
@@ -801,6 +864,11 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         if (byeTimer) { clearTimeout(byeTimer); byeTimer = null; }
         let models = [];
         try { models = await listProviderModels(config); } catch { /* backend down */ }
+        const providerReady = {};
+        for (const p of PROVIDERS) {
+          try { providerReady[p] = await backendUp({ ...config, provider: p }); }
+          catch { providerReady[p] = false; }
+        }
         json({
           appName: APP_NAME, version: APP_VERSION, displayVersion: APP_DISPLAY_VERSION, tagline: APP_TAGLINE,
           provider: config.provider, providers: PROVIDERS, models,
@@ -812,7 +880,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
           },
           model: currentModel(config), autoApprove: config.autoApprove,
           local: { ctx: config.local.ctx },
-          backendUp: await backendUp(config),
+          backendUp: providerReady[config.provider] === true,
+          providerReady,
           cloud: { ...CLOUD, customApi: config.customApi?.name || CLOUD.customApi },
           keys: Object.fromEntries(Object.keys(CLOUD).map((k) => [k, !!config[k]?.apiKey])),
           userApi: {
@@ -1017,7 +1086,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const t = threads.get(url.searchParams.get("id"));
         if (!t) return json({ error: "no such thread" }, 404);
         if (url.searchParams.get("peek") !== "1") activeThreadId = t.id;
-        json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat",
+        json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat", side: t.side === true,
           projectDir: t.projectDir || "", log: renderThread(t),
           pendingTask: t.pendingTask ? {
             state: t.pendingTask.state || "",
@@ -1050,7 +1119,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
       if (req.method === "POST" && p === "/api/thread/new") {
         const body = await readBody(req);
         const previousActiveThreadId = activeThreadId;
-        const t = body.side === true ? newThread({ title: "Side chat" }) : reuseOrNewThread();
+        const t = body.side === true ? newThread({ title: "Side chat", side: true }) : reuseOrNewThread();
         if (body.side === true && threads.has(previousActiveThreadId)) activeThreadId = previousActiveThreadId;
         persist();
         json({ id: t.id });
@@ -1202,7 +1271,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         const t = threads.get(activeThreadId);
         const projectDir = t?.projectDir || "";
         const git = gitStatusSummary(projectDir);
-        json({ ok: true, projectName: t?.title || "No project", branch: git.branch, changedFiles: git.changedFiles, git,
+        const diffStat = gitDiffStat(projectDir, git.changedFiles);
+        json({ ok: true, projectName: t?.title || "No project", branch: git.branch, changedFiles: git.changedFiles, diffStat, git,
           task: t?.task || null, taskState: t?.taskState || "idle", nextAction: t?.nextAction || null,
           serverRunning: !!(globalThis._bgServers?.size > 0), testStatus: null, testState: "idle" });
         return;
@@ -2099,7 +2169,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         t.messages.push({ role: "user", content });
         t.log.push({ t: "user", text: userTextOnly(content), images: imagesOf(content), at: Date.now(), compareTargets: targets });
         if (config.ui?.learnedMemory !== false) learnFromUserText(userTextOnly(content));
-        if (t.title === "New chat") t.title = shortThreadTitle(content).slice(0, 42);
+        autoTitleThread(t, content);
         t.updatedAt = Date.now();
         persist();
         return streamCompare(t, targets, res);
@@ -2143,7 +2213,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         }
         t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now() });
         if (config.ui?.learnedMemory !== false) learnFromUserText(visibleUserText);
-        if (t.title === "New chat") t.title = shortThreadTitle(content).slice(0, 42);
+        autoTitleThread(t, content);
         t.updatedAt = Date.now();
         persist();
         const sideProvider = body.sideChat === true && PROVIDERS.includes(String(body.sideProvider || "")) ? String(body.sideProvider) : "";
