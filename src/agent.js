@@ -243,12 +243,24 @@ function compactResearchPrompt(config = null) {
   ].filter(Boolean).join("\n");
 }
 
+function preservedAppContext(content) {
+  const text = String(content || "");
+  const marker = "\n\nCURRENT APP CONTEXT:\n";
+  const idx = text.indexOf(marker);
+  if (idx >= 0) return text.slice(idx).trim();
+  if (text.startsWith("CURRENT APP CONTEXT:\n")) return text.trim();
+  return "";
+}
+
 function withTurnModeSystem(messages, mode, config) {
   if (mode === "agent") return messages;
   const prompt = mode === "research" ? compactResearchPrompt(config) : compactChatPrompt(config);
   const copy = messages.map((message) => ({ ...message }));
   const systemIndex = copy.findIndex((message) => message?.role === "system");
-  if (systemIndex >= 0) copy[systemIndex].content = prompt;
+  if (systemIndex >= 0) {
+    const context = preservedAppContext(copy[systemIndex].content);
+    copy[systemIndex].content = prompt + (context ? `\n\n${context}` : "");
+  }
   else copy.unshift({ role: "system", content: prompt });
   return copy;
 }

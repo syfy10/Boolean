@@ -15,7 +15,7 @@ import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, clas
 import { resolveTarget, chatCompletion, listProviderModels, backendUp } from "./providers.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
-import { saveThreads, loadThreads, clearThreads } from "./store.js";
+import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
 import { handleBrowse, clearCookies } from "./browse.js";
 import { learnFromUserText, publicPreferences, deletePreference, clearPreferences } from "./preferences.js";
 import {
@@ -616,6 +616,22 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
   const renderThread = (t) => t.log; // display log = full history incl. tool steps
   let activeThreadId = null;
 
+  function currentAppContext(t, latestText = "") {
+    const parts = [];
+    const taskPrompt = activeTaskPrompt(t.pendingTask);
+    const brief = t.kind === "project" && t.projectDir ? projectBrief(t.projectDir) : "";
+    const memory = config.ui?.autoSave === false ? "" : buildLocalChatMemory([...threads.values()], {
+      currentThreadId: t.id,
+      latestText,
+      projectDir: t.kind === "project" ? t.projectDir || "" : "",
+      maxThreads: 4
+    });
+    if (brief) parts.push(brief);
+    if (taskPrompt) parts.push(taskPrompt);
+    if (memory) parts.push(memory);
+    return parts.length ? `\n\nCURRENT APP CONTEXT:\n${parts.join("\n\n")}` : "";
+  }
+
   // persist chats to disk (workspace recovery), unless privacy mode is on
   const persist = () => {
     if (config.ui?.autoSave === false) return;
@@ -672,10 +688,8 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
     try {
       if (item.actionType === "agent") {
         if (!item.autoApprove) throw new Error("This scheduled AI task needs Auto-approve. Edit the task while Auto-approve is enabled, or use Ask AI (answer only).");
-        const taskPrompt = activeTaskPrompt(t.pendingTask);
-        const brief = t.kind === "project" && t.projectDir ? projectBrief(t.projectDir) : "";
         if (t.messages[0]?.role === "system") {
-          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, true, runConfig) + brief + (taskPrompt ? `\n\n${taskPrompt}` : "") };
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, true, runConfig) + currentAppContext(t, content) };
         }
         const abort = new AbortController();
         let replyModel = currentModel(runConfig);
@@ -2257,10 +2271,7 @@ export function startServer(config, { port = 0, autoExit = false } = {}) {
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
         if (t.messages[0]?.role === "system") {
-          const taskPrompt = activeTaskPrompt(t.pendingTask);
-          // project chats also get a fresh file map so the model starts oriented
-          const brief = t.kind === "project" && t.projectDir ? projectBrief(t.projectDir) : "";
-          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + brief + (taskPrompt ? `\n\n${taskPrompt}` : "") };
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + currentAppContext(t, userTextOnly(t.messages.at(-1)?.content || "")) };
         }
 
         const abort = new AbortController();
