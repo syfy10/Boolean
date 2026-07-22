@@ -1,0 +1,8 @@
+{
+  "type": "website",
+  "title": "Static website",
+  "run": "node serve.js",
+  "port": 3210,
+  "entry": "index.html",
+  "deps": "none (pure HTML/CSS/JS)"
+}

@@ -1,0 +1,9 @@
+Boolean Email Recipes demo script
+
+1. Boolean connects Gmail or Outlook once using provider OAuth.
+2. Mailbox access stays on the user's PC. Boolean cloud does not store Gmail or Outlook tokens.
+3. Boolean asks before sending email or changing mailbox contents.
+4. Cleanup recipes preview counts and sample messages before action.
+5. Important mail is protected: starred, labeled, attachment, legal, financial, personal, and receipt-like messages are excluded.
+6. Cleanup moves approved messages to Trash first, not permanent delete.
+7. Undo remains available while messages are in Trash.

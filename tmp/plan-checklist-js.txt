@@ -1,0 +1,63 @@
+  // -- plan checklist --
+  let planEl = null;
+  function ensurePlanChecklist(snapshot) {
+    if (!snapshot || !snapshot.plan || !snapshot.plan.length || !run || !viewingRun()) {
+      if (planEl && planEl.isConnected) planEl.remove();
+      planEl = null;
+      return;
+    }
+    const phase = snapshot.phase || "executing";
+    const plan = snapshot.plan;
+    const doneCount = plan.filter(s => s.status === "done").length;
+    const totalCount = plan.length;
+    const allDone = doneCount === totalCount;
+    const phaseLabels = {planning:"Planning",executing:"Working",verifying:"Verifying",recovering:"Recovering",completed:"Completed",blocked:"Blocked",diagnosing:"Diagnosing"};
+    const phaseLabel = phaseLabels[phase] || phase;
+    const phaseClass = allDone ? "done" : phase;
+    if (!planEl || !planEl.isConnected) {
+      planEl = document.createElement("div");
+      planEl.className = "plan-checklist";
+      planEl.innerHTML = buildPlanHTML(phaseClass, phaseLabel, plan, allDone);
+      insertAbove(planEl);
+      planEl.querySelector(".plan-checklist-header").onclick = () => {
+        const list = planEl.querySelector(".plan-step-list");
+        const caret = planEl.querySelector(".plan-checklist-caret");
+        list.classList.toggle("collapsed");
+        caret.classList.toggle("open");
+      };
+    } else {
+      const badge = planEl.querySelector(".plan-phase-badge");
+      if (badge) { badge.className = "plan-phase-badge " + phaseClass; badge.textContent = phaseLabel; }
+      const bodyEl = planEl.querySelector(".plan-step-list");
+      if (bodyEl) bodyEl.innerHTML = buildStepListHTML(plan);
+      if (allDone) {
+        const list = planEl.querySelector(".plan-step-list");
+        const caret = planEl.querySelector(".plan-checklist-caret");
+        if (list) list.classList.add("collapsed");
+        if (caret) caret.classList.add("open");
+      }
+    }
+  }
+  function buildPlanHTML(phaseClass, phaseLabel, plan, allDone) {
+    const doneCount = plan.filter(s => s.status === "done").length;
+    const summary = allDone ? "done - " + doneCount + "/" + plan.length + " steps" : doneCount + "/" + plan.length + " steps";
+    return '<div class="plan-checklist-header">'
+      + '<span class="plan-phase-badge ' + esc(phaseClass) + '">' + esc(phaseLabel) + '</span>'
+      + '<span>' + esc(summary) + '</span>'
+      + '<span class="plan-checklist-caret">&#9662;</span>'
+      + '</div>'
+      + '<ul class="plan-step-list' + (allDone ? ' collapsed' : '') + '">'
+      + buildStepListHTML(plan)
+      + '</ul>';
+  }
+  function buildStepListHTML(plan) {
+    return plan.map(function(step) {
+      const cls = step.status === "done" ? "done" : step.status === "in_progress" ? "active" : "";
+      const icon = step.status === "done" ? "\u2713" : step.status === "in_progress" ? "\u25D0" : "\u25CB";
+      return '<li class="plan-step-item ' + cls + '">'
+        + '<span class="step-icon">' + icon + '</span>'
+        + '<span class="step-text">' + esc(step.step || "") + '</span>'
+        + '</li>';
+    }).join("");
+  }
+

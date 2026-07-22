@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boolean Email Demo</title>
+<style>
+  :root{
+    --bg:#f7f7f4; --panel:#fff; --text:#171717; --muted:#767676; --line:#dfdfd8;
+    --green:#39a660; --orange:#d9822b; --black:#222; --blue:#1a73e8;
+    font-family:Inter,Segoe UI,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);overflow:hidden}
+  .stage{width:1280px;height:720px;position:relative;margin:0 auto;background:linear-gradient(180deg,#fbfbf9,#f3f3ef)}
+  .top{height:56px;border-bottom:1px solid var(--line);background:#fff;display:flex;align-items:center;padding:0 28px;gap:18px}
+  .brand{font-weight:750;font-size:24px;letter-spacing:-.02em}.ready{font-size:13px;color:var(--green)}.tabs{margin-left:30px;display:flex;gap:22px;color:#777;font-size:14px}.tabs b{color:#111;border-bottom:2px solid #111;padding-bottom:15px}
+  .work{display:grid;grid-template-columns:210px 1fr;height:664px}.side{border-right:1px solid var(--line);background:#fff;padding:26px 22px}.side h3{margin:0 0 18px;font-size:14px;color:#666;text-transform:uppercase}.side p{margin:12px 0;font-size:15px}.side .on{background:#f1f1ed;border-radius:8px;padding:10px 12px;color:#111;font-weight:650}
+  .main{position:relative;padding:36px 46px}.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.05)}
+  .title{font-size:34px;letter-spacing:-.035em;margin:0}.sub{font-size:17px;color:var(--muted);margin:8px 0 28px;line-height:1.45}
+  .email-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.email-card{padding:22px;display:flex;align-items:center;gap:18px}.logo{width:58px;height:58px;border-radius:14px;display:grid;place-items:center;background:#f6f6f3;font-size:27px;font-weight:800}.g{color:#d93025}.o{color:#0f6cbd}
+  .email-card b{font-size:23px}.email-card small{display:block;color:var(--muted);font-size:14px;margin-top:4px}.btn{margin-left:auto;background:#222;color:#fff;border:0;border-radius:999px;padding:13px 24px;font-weight:750;font-size:15px}.pill{display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:#eaf7ef;color:#237c48;padding:8px 13px;font-weight:700;font-size:14px}
+  .browser{position:absolute;left:140px;right:140px;top:92px;height:520px;background:#fff;border:1px solid #ccc;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.16);overflow:hidden}
+  .bar{height:44px;background:#f6f7f8;border-bottom:1px solid #ddd;display:flex;align-items:center;padding:0 14px;gap:10px;color:#666;font-size:13px}.addr{flex:1;background:#fff;border:1px solid #ddd;border-radius:999px;padding:7px 13px;color:#333}
+  .google{padding:38px 52px}.google-head{display:flex;align-items:center;gap:13px;font-size:20px}.google-logo{font-size:30px;font-weight:800;color:#4285f4}.google h1{font-size:30px;margin:34px 0 10px}.scope{border:1px solid #ddd;border-radius:10px;padding:14px 16px;margin:10px 0;font-size:16px;display:flex;justify-content:space-between}.scope span{color:#555}.consent-actions{display:flex;justify-content:flex-end;gap:14px;margin-top:24px}.consent-actions button{padding:10px 20px;border-radius:999px;border:1px solid #ddd;background:#fff;font-weight:650}.consent-actions .allow{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .recipe{display:grid;grid-template-columns:1fr 340px;gap:22px}.panel{padding:24px}.recipe h2{font-size:27px;margin:0 0 8px}.search{border:1px solid var(--line);border-radius:10px;padding:14px;color:#999;margin:18px 0}.row{display:flex;align-items:center;gap:12px;border-bottom:1px solid #eee;padding:13px 0}.check{width:18px;height:18px;border:1px solid #bbb;border-radius:4px;background:#f8f8f5}.sender{font-weight:700;width:160px}.desc{color:#666;flex:1}.safe{color:var(--green);font-weight:800}.warn{color:var(--orange);font-weight:800}
+  .sidepanel{padding:24px}.sidepanel h3{margin:0 0 8px;font-size:22px}.stat{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #eee}.danger{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px;margin:16px 0;color:#8a4a0a;line-height:1.45}.action{width:100%;border:0;border-radius:10px;padding:14px;background:#222;color:#fff;font-weight:800}.undo{margin-top:10px;background:#fff;color:#222;border:1px solid #ddd}
+  .caption{position:absolute;left:70px;right:70px;bottom:28px;background:rgba(20,20,20,.88);color:#fff;border-radius:999px;padding:17px 28px;font-size:22px;text-align:center;box-shadow:0 10px 28px rgba(0,0,0,.18)}
+  .scene{position:absolute;inset:0;opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease;pointer-events:none}.scene.on{opacity:1;transform:none}
+  .hidden{display:none}.privacy{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:28px}.privacy .card{padding:24px}.privacy b{font-size:20px}.privacy p{color:#666;font-size:15px;line-height:1.45}.bigcheck{font-size:42px;color:var(--green)}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="scene on" data-scene="0">
+    <div class="top"><div class="brand">Boolean</div><div class="ready">Z.AI ready</div><div class="tabs"><b>Chat</b><span>Code</span><span>Preview</span><span>Git</span><span>Recipes</span><span>Settings</span></div></div>
+    <div class="work"><aside class="side"><h3>Projects</h3><p class="on">Boolean</p><h3 style="margin-top:34px">Chats</h3><p>Email cleanup</p><p>Side chat</p></aside>
+    <main class="main"><h1 class="title">Boolean Email Recipes</h1><p class="sub">Connect Gmail or Outlook once, then preview, summarize, draft, and clean email from a local-first Windows workspace.</p>
+      <div class="email-grid">
+        <div class="card email-card"><div class="logo g">G</div><div><b>Gmail</b><small>One-click OAuth sign-in</small></div><button class="btn">Connect</button></div>
+        <div class="card email-card"><div class="logo o">O</div><div><b>Outlook</b><small>Microsoft Graph sign-in</small></div><button class="btn">Connect</button></div>
+      </div>
+      <div class="privacy"><div class="card"><div class="bigcheck">✓</div><b>Local tokens</b><p>OAuth tokens are kept on this PC, not in Boolean cloud.</p></div><div class="card"><div class="bigcheck">✓</div><b>Ask before sending</b><p>Boolean drafts first and asks before sending email.</p></div><div class="card"><div class="bigcheck">✓</div><b>Preview cleanup</b><p>Email cleanup shows counts and samples before changes.</p></div></div>
+    </main></div>
+  </div>
+  <div class="scene" data-scene="1">
+    <div class="browser"><div class="bar"><span>←</span><span>↻</span><div class="addr">https://accounts.google.com/o/oauth2/v2/auth</div></div>
+      <div class="google"><div class="google-head"><div class="google-logo">G</div><span>Sign in with Google</span></div><h1>Boolean wants access to Gmail</h1><p class="sub">The user signs in with their Google account. Boolean requests only the Gmail permissions needed for selected email recipes.</p>
+        <div class="scope"><b>Read Gmail metadata and messages</b><span>Used for summaries and cleanup previews</span></div>
+        <div class="scope"><b>Modify Gmail labels / move to Trash</b><span>Used only after user approval</span></div>
+        <div class="scope"><b>Create/send drafts</b><span>Used only when the user asks</span></div>
+        <div class="consent-actions"><button>Cancel</button><button class="allow">Allow</button></div>
+      </div></div>
+  </div>
+  <div class="scene" data-scene="2">
+    <div class="top"><div class="brand">Boolean</div><div class="ready">Gmail connected</div><div class="tabs"><b>Recipes</b><span>Chat</span><span>Browser</span><span>Notes</span></div></div>
+    <main class="main"><h1 class="title">Run an Email Recipe</h1><p class="sub">Example request: “Find old spam and promotions, protect important mail, and show me what would be deleted.”</p>
+      <div class="card recipe"><div class="panel"><h2>Spam cleanup preview</h2><div class="search">older than 10 years · spam/promotions · exclude starred, labeled, attachments, receipts, legal, financial</div>
+        <div class="row"><div class="check"></div><div class="sender">promo@example.com</div><div class="desc">Old promotional email, no labels, no attachments</div><div class="warn">trash</div></div>
+        <div class="row"><div class="check"></div><div class="sender">bank@example.com</div><div class="desc">Financial sender detected</div><div class="safe">keep</div></div>
+        <div class="row"><div class="check"></div><div class="sender">family@gmail.com</div><div class="desc">Personal sender and starred</div><div class="safe">keep</div></div>
+        <div class="row"><div class="check"></div><div class="sender">store@example.com</div><div class="desc">Old receipt with attachment</div><div class="safe">keep</div></div>
+      </div><div class="sidepanel"><h3>Preview first</h3><div class="stat"><span>Scanned</span><b>5,248</b></div><div class="stat"><span>Safe to trash</span><b>1,932</b></div><div class="stat"><span>Protected</span><b>3,316</b></div><div class="danger">Boolean never permanently deletes in the first pass. It moves selected mail to Trash so the user can review and undo.</div><button class="action">Move selected to Trash</button><button class="action undo">Undo last cleanup</button></div></div>
+    </main>
+  </div>
+  <div class="scene" data-scene="3">
+    <div class="top"><div class="brand">Boolean</div><div class="ready">Cleanup complete</div><div class="tabs"><b>Chat</b><span>Notes</span><span>Email</span></div></div>
+    <main class="main"><div class="card panel" style="max-width:880px;margin:60px auto 0"><h1 class="title">User remains in control</h1><p class="sub">Boolean summarizes the action, saves a local note if enabled, and provides undo while messages remain in Trash.</p>
+      <div class="privacy"><div class="card"><div class="bigcheck">✓</div><b>1,932 moved to Trash</b><p>No permanent deletion was performed.</p></div><div class="card"><div class="bigcheck">✓</div><b>3,316 protected</b><p>Important, labeled, starred, attachment, legal, and financial mail was excluded.</p></div><div class="card"><div class="bigcheck">✓</div><b>Undo available</b><p>The user can restore messages from Trash.</p></div></div></div></main>
+  </div>
+  <div class="caption" id="caption">Boolean connects email with OAuth, keeps access on the user’s PC, and asks before changing mail.</div>
+</div>
+<script>
+const captions=[
+  "Boolean connects Gmail or Outlook once, keeps mailbox access on this PC, and asks before sending or changing mail.",
+  "The user signs in through Google OAuth. Boolean requests Gmail permissions only for email recipes the user chooses.",
+  "For cleanup, Boolean previews counts and examples first, protecting important, labeled, starred, financial, legal, and attachment mail.",
+  "When approved, Boolean moves selected mail to Trash, not permanent delete, and keeps an undo path for the user."
+];
+let i=0;
+setInterval(()=>{
+  document.querySelector(`[data-scene="${i}"]`).classList.remove("on");
+  i=(i+1)%4;
+  document.querySelector(`[data-scene="${i}"]`).classList.add("on");
+  document.getElementById("caption").textContent=captions[i];
+},8500);
+</script>
+</body>
+</html>

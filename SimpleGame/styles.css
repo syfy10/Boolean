@@ -1,0 +1,80 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #1a1a2e;
+  color: #eee;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  user-select: none;
+}
+
+#game-container {
+  text-align: center;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #0f0;
+  text-shadow: 0 0 10px #0f04;
+}
+
+#score-board {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  color: #aaa;
+}
+
+#score-board span span {
+  color: #fff;
+  font-weight: bold;
+}
+
+#game-canvas {
+  border: 2px solid #333;
+  border-radius: 4px;
+  background: #16213e;
+  display: block;
+  margin: 0 auto;
+  touch-action: none;
+}
+
+#message {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  color: #888;
+}
+
+#controls {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ctrl-row { display: flex; gap: 4px; }
+
+.ctrl-btn {
+  width: 50px;
+  height: 50px;
+  font-size: 1.3rem;
+  border: none;
+  border-radius: 8px;
+  background: #333;
+  color: #eee;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ctrl-btn:active { background: #555; }
+
+@media (hover: hover) {
+  #controls { display: none; }
+}

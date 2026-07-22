@@ -48,7 +48,8 @@ test("collapsed sidebar hides the compact app rail", () => {
   assert.doesNotMatch(ui, /id="railGuide"/);
   assert.doesNotMatch(ui, /function toggleRailGuide/);
   assert.doesNotMatch(ui, /if\(action==="toggle"\)/);
-  assert.match(ui, /\$\("panelToggle"\)\.onclick=\(\)=>\{\s*rememberCurrentView\(\);\s*document\.body\.classList\.remove\("rail-expanded"\);\s*document\.body\.classList\.toggle\("collapsed"\);\s*syncPanelButtons\(\);\s*\};/);
+  assert.match(ui, /\$\("panelToggle"\)\.onclick=\(\)=>\{/);
+  assert.match(ui, /document\.body\.classList\.toggle\("collapsed"\);\s*if\(!document\.body\.classList\.contains\("collapsed"\) && SHELL\) hostPost\(\{type:"window",action:"growContext"\}\);\s*scheduleResponsiveClasses\(\);\s*syncPanelButtons\(\);/);
   assert.match(ui, /if\(action==="projects"\)\{ document\.body\.classList\.remove\("collapsed"\); syncPanelButtons\(\); return; \}/);
   assert.match(ui, /else if\(action==="git"\)\{ setWorkspaceTab\("git"\); \}/);
   assert.doesNotMatch(ui, /class="ws-tab" data-ws="git"/);
@@ -67,18 +68,22 @@ test("compact rail uses the matching notepad icon and Boolean search", () => {
   assert.match(ui, /id: "chat:" \+ t\.id/);
 });
 
-test("compact recipes layout stacks instead of clipping detail panes", () => {
+test("compact recipes layout keeps details bounded instead of making a giant lower panel", () => {
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipes-shell,\s*body\.browser-on\.recipes-open \.recipes-shell\{[^}]*grid-template-columns:1fr;[^}]*overflow:auto;/s
+    /body\.recipes-compact\.recipes-open \.recipes-shell,\s*body\.browser-on\.recipes-open \.recipes-shell\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(220px,280px\);[^}]*overflow:hidden;/s
   );
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipes-detail,\s*body\.browser-on\.recipes-open \.recipes-detail\{[^}]*overflow:visible;[^}]*max-height:none;/s
+    /body\.recipes-compact\.recipes-open \.recipe-grid,\s*body\.browser-on\.recipes-open \.recipe-grid\{[^}]*max-height:none;[^}]*overflow:auto;/s
   );
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipe-actions,\s*body\.browser-on\.recipes-open \.recipe-actions\{[^}]*position:static;/s
+    /body\.recipes-compact\.recipes-open \.recipes-detail,\s*body\.browser-on\.recipes-open \.recipes-detail\{[^}]*overflow:auto;[^}]*max-height:none;/s
+  );
+  assert.match(
+    ui,
+    /@media\(max-width:760px\)\{[\s\S]*?\.recipes-shell\{[^}]*grid-template-rows:minmax\(0,1fr\) minmax\(150px,220px\);[^}]*overflow:hidden;/s
   );
 });
 
@@ -106,6 +111,19 @@ test("settings and account stay inside the main footer controls", () => {
   assert.match(ui, /#cloudSignInText\{ display:none; \}/);
 });
 
+test("narrow settings tabs do not leave a spacer under the header", () => {
+  assert.match(ui, /@media \(max-width:720px\)\{[\s\S]*?\.settings-tabs\{ top:0; flex-direction:row;/);
+});
+
+test("readiness dots keep green ready and red down states", () => {
+  assert.match(ui, /\.dot\{[^}]*background:var\(--green\);/s);
+  assert.match(ui, /\.dot:not\(\.down\)\{ background:var\(--green\); \}/);
+  assert.match(ui, /\.dot\.down\{ background:#dc3f42; \}/);
+  assert.match(ui, /if\(\$\("statusdot"\)\) \$\("statusdot"\)\.className="dot"\+\(ready\?"":" down"\);/);
+  assert.match(ui, /if\(\$\("railBrandDot"\)\) \$\("railBrandDot"\)\.className="dot"\+\(ready\?"":" down"\);/);
+  assert.match(ui, /\.app-footer \.cmd-chip-dot\.ok\{ background:var\(--green\); \}/);
+});
+
 test("project status stays in the compact footer without a gray pill", () => {
   assert.match(ui, /<div class="app-footer" aria-label="App footer">[\s\S]*id="cmdProjectStatus"/);
   assert.match(ui, /\.workspace-tabs \.cmd-status\{ display:none; \}/);
@@ -117,7 +135,11 @@ test("project status stays in the compact footer without a gray pill", () => {
 
 test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /id="modelmenu"[\s\S]*id="modelsearch"[\s\S]*id="modelNetMode"[\s\S]*data-net="local"[\s\S]*data-net="online"[\s\S]*id="modellist"/);
-  assert.match(ui, /\.model-netseg\{[^}]*grid-template-columns:1fr 1fr;/s);
+  assert.match(ui, /#modelmenu \.model-netseg\{ position:absolute; top:10px; right:10px; z-index:1; \}/);
+  assert.match(ui, /\.model-netseg\{[^}]*width:109px;[^}]*grid-template-columns:1fr 1fr;/s);
+  assert.match(ui, /#modelmenu input\{[^}]*padding:7px 124px 9px 9px;/s);
+  assert.match(ui, /function placeModelNetSeg\(\)\{/);
+  assert.match(ui, /if\(menu&&seg&&list&&seg\.parentElement!==menu\) menu\.insertBefore\(seg,list\);/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.classList\.toggle\("on"/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.onclick=\(\)=>selectNet\(b\.dataset\.net\)\)/);
 });
@@ -196,7 +218,14 @@ test("side chat popup scales smaller with the main window", () => {
   assert.match(ui, /function sideChatLeftEdge\(\)\{/);
   assert.match(ui, /const pos=clampSideChatPosition\(sideChatLeftEdge\(\),top\);/);
   assert.match(ui, /const pos=clampSideChatPosition\(sideChatLeftEdge\(\),top\);[\s\S]*sideChatDragging\.left=pos\.left;/);
-  assert.match(ui, /\.side-chat-history \.new-side-chat\{[^}]*min-height:25px;/);
+  assert.match(ui, /\.side-chat-history\{[^}]*max-height:84px;/);
+  assert.doesNotMatch(ui, /class="new-side-chat/);
+  assert.doesNotMatch(ui, /data-new="1"/);
+  assert.match(ui, /id="sideChatNew" title="New side chat" aria-label="New side chat">/);
+  assert.match(ui, /else if\(event\.type==="answer"\) raw=event\.text\|\|raw;\s*else if\(event\.type==="done"\) streamDone=true;/);
+  assert.match(ui, /if\(streamDone\) break;/);
+  assert.doesNotMatch(ui, /reader\.cancel\(\)\.catch/);
+  assert.match(ui, /if\(sideChatThreadId\) await loadSideChat\(\)\.catch\(\(\)=>\{\}\); renderSideChatHistory\(\); updateSideChatModelBadge\(\);/);
 });
 
 test("native shell places the window inside the monitor work area", () => {

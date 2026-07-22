@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory Match</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <h1>🧠 Memory Match</h1>
+    <div class="difficulty">
+      <button class="diff-btn active" data-level="easy">😊 Easy (4×4)</button>
+      <button class="diff-btn" data-level="medium">🔥 Medium (4×6)</button>
+      <button class="diff-btn" data-level="hard">💀 Hard (6×6)</button>
+    </div>
+    <div class="hud">
+      <div class="stat">⏱️ <span id="timer">0</span>s</div>
+      <div class="stat">👆 Moves: <span id="moves">0</span></div>
+      <div class="stat">🏆 Pairs: <span id="pairs">0</span>/<span id="totalPairs">8</span></div>
+    </div>
+    <div id="board" class="board easy"></div>
+    <button id="restart" class="btn">🔄 New Game</button>
+    <div id="winBanner" class="win-banner hidden">
+      <h2>🎉 You Won!</h2>
+      <p id="winStats"></p>
+      <button class="btn" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

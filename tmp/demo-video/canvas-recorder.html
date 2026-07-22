@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Boolean Demo Recorder</title>
+<style>
+  body{margin:0;background:#111;display:grid;place-items:center;height:100vh}
+  canvas{width:1280px;height:720px;background:#f7f7f4}
+  #status{position:fixed;left:12px;bottom:12px;color:#ddd;font:14px Segoe UI,Arial}
+</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="720"></canvas>
+<div id="status">Recording...</div>
+<script>
+const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+const W=1280,H=720,total=34_000,start=performance.now();
+const scenes=[
+  {t:0,cap:"Boolean connects Gmail or Outlook once, keeps mailbox access on this PC, and asks before sending or changing mail."},
+  {t:8500,cap:"The user signs in through Google OAuth. Boolean requests Gmail permissions only for email recipes the user chooses."},
+  {t:17000,cap:"Cleanup recipes preview counts and sample messages first, protecting important, labeled, starred, financial, legal, and attachment mail."},
+  {t:25500,cap:"When approved, Boolean moves selected mail to Trash, not permanent delete, and keeps an undo path for the user."}
+];
+function rr(x,y,w,h,r,fill,stroke){
+  ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill(); if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
+}
+function text(s,x,y,size=24,color="#171717",weight=400,max=1000,line=1.25){
+  ctx.fillStyle=color;ctx.font=`${weight} ${size}px Segoe UI, Arial`;
+  const words=String(s).split(" "),lines=[];let cur="";
+  for(const w of words){const n=cur?cur+" "+w:w;if(ctx.measureText(n).width>max&&cur){lines.push(cur);cur=w}else cur=n}
+  if(cur)lines.push(cur);
+  lines.forEach((l,i)=>ctx.fillText(l,x,y+i*size*line));
+}
+function top(active="Chat",ready="Z.AI ready"){
+  ctx.fillStyle="#fff";ctx.fillRect(0,0,W,56);ctx.strokeStyle="#dfdfd8";ctx.beginPath();ctx.moveTo(0,56);ctx.lineTo(W,56);ctx.stroke();
+  text("Boolean",28,36,24,"#171717",750);text(ready,132,35,13,"#39a660",600);
+  ["Chat","Code","Preview","Git","Recipes","Settings"].forEach((t,i)=>{const x=250+i*92;text(t,x,35,14,t===active?"#111":"#777",t===active?750:400);if(t===active){ctx.strokeStyle="#111";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(x,54);ctx.lineTo(x+ctx.measureText(t).width,54);ctx.stroke();ctx.lineWidth=1;}});
+}
+function caption(s){rr(70,650,1140,44,22,"rgba(20,20,20,.9)");text(s,96,680,19,"#fff",500,1080,1.12)}
+function emailSettings(){
+  top("Settings","Z.AI ready");ctx.fillStyle="#fff";ctx.fillRect(0,56,210,H-56);ctx.strokeStyle="#dfdfd8";ctx.beginPath();ctx.moveTo(210,56);ctx.lineTo(210,H);ctx.stroke();
+  text("PROJECTS",22,102,14,"#666",800);rr(18,122,170,38,8,"#f1f1ed");text("Boolean",34,148,15,"#111",650);text("EMAIL ACCOUNTS",22,208,14,"#666",800);
+  text("Boolean Email Recipes",256,128,34,"#171717",750);text("Connect Gmail or Outlook once, then preview, summarize, draft, and clean email from a local-first Windows workspace.",256,164,17,"#767676",400,850);
+  [["G","Gmail","One-click OAuth sign-in",256],["O","Outlook","Microsoft Graph sign-in",694]].forEach(([l,n,d,x])=>{rr(x,238,400,112,14,"#fff","#dfdfd8");rr(x+22,264,58,58,14,"#f6f6f3");text(l,x+41,305,28,l==="G"?"#d93025":"#0f6cbd",800);text(n,x+100,290,23,"#171717",750);text(d,x+100,318,14,"#767676",400);rr(x+282,270,88,48,24,"#222");text("Connect",x+300,301,15,"#fff",750)});
+  [["Local tokens","OAuth tokens are kept on this PC, not in Boolean cloud."],["Ask before sending","Boolean drafts first and asks before sending email."],["Preview cleanup","Email cleanup shows counts and samples before changes."]].forEach(([h,p],i)=>{const x=256+i*286;rr(x,405,260,150,14,"#fff","#dfdfd8");text("✓",x+22,462,42,"#39a660",700);text(h,x+22,492,20,"#171717",750);text(p,x+22,520,15,"#666",400,215)});
+}
+function googleConsent(){
+  ctx.fillStyle="#f7f7f4";ctx.fillRect(0,0,W,H);rr(140,92,1000,520,12,"#fff","#ccc");ctx.fillStyle="#f6f7f8";ctx.fillRect(140,92,1000,44);ctx.strokeStyle="#ddd";ctx.beginPath();ctx.moveTo(140,136);ctx.lineTo(1140,136);ctx.stroke();text("←   ↻",158,121,16,"#666");rr(245,102,820,24,12,"#fff","#ddd");text("https://accounts.google.com/o/oauth2/v2/auth",262,120,13,"#333");
+  text("G",194,194,30,"#4285f4",800);text("Sign in with Google",238,190,20,"#171717",500);text("Boolean wants access to Gmail",192,252,30,"#171717",650);text("The user signs in with their Google account. Boolean requests only the Gmail permissions needed for selected email recipes.",192,286,17,"#767676",400,850);
+  [["Read Gmail metadata and messages","Used for summaries and cleanup previews"],["Modify Gmail labels / move to Trash","Used only after user approval"],["Create/send drafts","Used only when the user asks"]].forEach(([h,p],i)=>{const y=348+i*62;rr(192,y,860,46,10,"#fff","#ddd");text(h,210,y+29,16,"#171717",750);text(p,720,y+29,14,"#555",400)});
+  rr(865,548,86,38,19,"#fff","#ddd");text("Cancel",885,573,14,"#333",650);rr(966,548,86,38,19,"#1a73e8");text("Allow",993,573,14,"#fff",700);
+}
+function cleanup(){
+  top("Recipes","Gmail connected");text("Run an Email Recipe",256,118,34,"#171717",750);text("Example request: “Find old spam and promotions, protect important mail, and show me what would be deleted.”",256,154,17,"#767676",400,850);
+  rr(240,200,800,405,14,"#fff","#dfdfd8");rr(720,200,320,405,0,"#fbfbf8");text("Spam cleanup preview",264,250,27,"#171717",750);rr(264,272,410,44,10,"#fafafa","#dfdfd8");text("older than 10 years · spam/promotions · protect important mail",280,300,14,"#999",400,370);
+  const rows=[["promo@example.com","Old promotional email, no labels, no attachments","trash","#d9822b"],["bank@example.com","Financial sender detected","keep","#39a660"],["family@gmail.com","Personal sender and starred","keep","#39a660"],["store@example.com","Old receipt with attachment","keep","#39a660"]];
+  rows.forEach((r,i)=>{const y=346+i*52;ctx.strokeStyle="#eee";ctx.beginPath();ctx.moveTo(264,y+26);ctx.lineTo(704,y+26);ctx.stroke();rr(266,y,18,18,4,"#f8f8f5","#bbb");text(r[0],302,y+15,14,"#171717",750);text(r[1],450,y+15,13,"#666",400,215);text(r[2],650,y+15,14,r[3],800)});
+  text("Preview first",748,252,22,"#171717",750);[["Scanned","5,248"],["Safe to trash","1,932"],["Protected","3,316"]].forEach(([a,b],i)=>{text(a,748,304+i*45,15,"#666");text(b,970,304+i*45,16,"#111",750)});
+  rr(748,430,248,76,10,"#fff7ed","#fed7aa");text("Boolean never permanently deletes in the first pass. It moves selected mail to Trash so the user can review and undo.",764,456,14,"#8a4a0a",400,220);
+  rr(748,528,248,42,10,"#222");text("Move selected to Trash",797,555,15,"#fff",800);
+}
+function complete(){
+  top("Chat","Cleanup complete");rr(200,140,880,430,14,"#fff","#dfdfd8");text("User remains in control",250,210,34,"#171717",750);text("Boolean summarizes the action, saves a local note if enabled, and provides undo while messages remain in Trash.",250,250,17,"#767676",400,780);
+  [["1,932 moved to Trash","No permanent deletion was performed."],["3,316 protected","Important, labeled, starred, attachment, legal, and financial mail was excluded."],["Undo available","The user can restore messages from Trash."]].forEach(([h,p],i)=>{const x=250+i*260;rr(x,330,230,150,14,"#fff","#dfdfd8");text("✓",x+20,385,42,"#39a660",700);text(h,x+20,416,19,"#171717",750,190);text(p,x+20,454,14,"#666",400,185)});
+}
+function draw(){
+  const t=performance.now()-start;ctx.clearRect(0,0,W,H);ctx.fillStyle="#f7f7f4";ctx.fillRect(0,0,W,H);
+  const idx=t<8500?0:t<17000?1:t<25500?2:3;
+  [emailSettings,googleConsent,cleanup,complete][idx]();
+  caption(scenes[idx].cap);
+  if(t<total) requestAnimationFrame(draw);
+}
+async function record(){
+  const stream=canvas.captureStream(30);
+  const rec=new MediaRecorder(stream,{mimeType:"video/webm;codecs=vp9"});
+  const chunks=[];
+  rec.ondataavailable=e=>{if(e.data.size) chunks.push(e.data)};
+  rec.onstop=()=>{
+    const blob=new Blob(chunks,{type:"video/webm"});
+    fetch("/save",{method:"POST",headers:{"content-type":"video/webm"},body:blob})
+      .then(()=>{ document.getElementById("status").textContent="Saved boolean-email-demo.webm"; })
+      .catch((err)=>{ document.getElementById("status").textContent="Save failed: "+err.message; })
+      .finally(()=>setTimeout(()=>window.close(),2000));
+  };
+  rec.start();
+  draw();
+  setTimeout(()=>rec.stop(),total+500);
+}
+record();
+</script>
+</body>
+</html>
