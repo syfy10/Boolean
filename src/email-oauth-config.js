@@ -2,14 +2,39 @@ import fs from "node:fs";
 import { appPath } from "./paths.js";
 
 const ENV_KEYS = {
-  gmail: "BOOLEAN_GOOGLE_OAUTH_CLIENT_ID",
-  outlook: "BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID"
+  gmail: {
+    clientId: "BOOLEAN_GOOGLE_OAUTH_CLIENT_ID",
+    clientSecret: "BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET"
+  },
+  outlook: {
+    clientId: "BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID",
+    clientSecret: "BOOLEAN_MICROSOFT_OAUTH_CLIENT_SECRET"
+  }
 };
 
-const cleanClientId = (value) => String(value || "").trim();
+const clean = (value) => String(value || "").trim();
+
+const parsedCredential = (value, fallbackSecret = "") => {
+  if (value && typeof value === "object") {
+    return {
+      clientId: clean(value.clientId || value.client_id || value.id),
+      clientSecret: clean(value.clientSecret || value.client_secret || value.secret)
+    };
+  }
+  return { clientId: clean(value), clientSecret: clean(fallbackSecret) };
+};
+
+export function managedEmailOAuthCredential(clients, provider) {
+  const value = clients?.[provider];
+  const suffix = provider === "gmail" ? "Gmail" : "Outlook";
+  return parsedCredential(value, clients?.[`${provider}ClientSecret`] || clients?.[`${suffix}ClientSecret`]);
+}
 
 export function loadManagedEmailOAuthClients({ env = process.env, filePaths } = {}) {
-  const clients = { gmail: "", outlook: "" };
+  const clients = {
+    gmail: { clientId: "", clientSecret: "" },
+    outlook: { clientId: "", clientSecret: "" }
+  };
   const candidates = Array.isArray(filePaths)
     ? filePaths
     : [appPath("oauth-clients.json"), appPath("assets", "oauth-clients.json")];
@@ -18,16 +43,22 @@ export function loadManagedEmailOAuthClients({ env = process.env, filePaths } = 
     try {
       if (!file || !fs.existsSync(file)) continue;
       const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-      clients.gmail ||= cleanClientId(parsed.gmail || parsed.google);
-      clients.outlook ||= cleanClientId(parsed.outlook || parsed.microsoft);
+      const gmail = parsedCredential(parsed.gmail || parsed.google, parsed.gmailClientSecret || parsed.googleClientSecret);
+      const outlook = parsedCredential(parsed.outlook || parsed.microsoft, parsed.outlookClientSecret || parsed.microsoftClientSecret);
+      clients.gmail.clientId ||= gmail.clientId;
+      clients.gmail.clientSecret ||= gmail.clientSecret;
+      clients.outlook.clientId ||= outlook.clientId;
+      clients.outlook.clientSecret ||= outlook.clientSecret;
     } catch {
       // A missing or malformed optional file should not prevent Boolean starting.
     }
   }
 
-  for (const [provider, key] of Object.entries(ENV_KEYS)) {
-    const value = cleanClientId(env?.[key]);
-    if (value) clients[provider] = value;
+  for (const [provider, keys] of Object.entries(ENV_KEYS)) {
+    const clientId = clean(env?.[keys.clientId]);
+    const clientSecret = clean(env?.[keys.clientSecret]);
+    if (clientId) clients[provider].clientId = clientId;
+    if (clientSecret) clients[provider].clientSecret = clientSecret;
   }
   return clients;
 }

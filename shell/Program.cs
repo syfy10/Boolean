@@ -265,6 +265,9 @@ sealed class MainForm : Form
                 if (_browserOpen && !_full) BeginInvoke(new Action(FitBrowserSplit));
                 break;
             case "min": WindowState = FormWindowState.Minimized; break;
+            case "max": MaximizeWindow(); break;
+            case "snapleft": SnapWindow(false); break;
+            case "snapright": SnapWindow(true); break;
             case "maxtoggle": ToggleMaximize(); break;
             case "close": Close(); break;
         }
@@ -297,8 +300,27 @@ sealed class MainForm : Form
 
     void ToggleMaximize()
     {
+        if (WindowState != FormWindowState.Maximized)
+        {
+            MaximizeWindow();
+            return;
+        }
+        WindowState = FormWindowState.Normal;
+    }
+
+    void MaximizeWindow()
+    {
         MaximizedBounds = Screen.FromHandle(Handle).WorkingArea; // don't cover the taskbar
-        WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
+        WindowState = FormWindowState.Maximized;
+    }
+
+    void SnapWindow(bool right)
+    {
+        var work = Screen.FromHandle(Handle).WorkingArea;
+        WindowState = FormWindowState.Normal;
+        var width = Math.Min(work.Width, Math.Max(MinimumSize.Width, work.Width / 2));
+        Bounds = new Rectangle(right ? work.Right - width : work.Left, work.Top, width, work.Height);
+        Activate();
     }
 
     // layout
@@ -310,8 +332,9 @@ sealed class MainForm : Form
     readonly Label _startupText = new() { AutoSize = false, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(96, 100, 96) };
     readonly Button _startupClose = new() { Text = "Close", Width = 92, Height = 34, FlatStyle = FlatStyle.Flat, Visible = false };
     readonly Panel _browserTitleBar = new() { Dock = DockStyle.Top, Height = 0 };
+    readonly Panel _browserChrome = new() { Dock = DockStyle.Top, Height = 112 };
     readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 36 };
-    readonly FlowLayoutPanel _taskBar = new() { Dock = DockStyle.Top, Height = 30, WrapContents = false, AutoScroll = true };
+    readonly FlowLayoutPanel _taskBar = new() { Dock = DockStyle.Top, Height = 34, WrapContents = false, AutoScroll = false, Padding = new Padding(6, 3, 4, 3) };
     readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 42, WrapContents = false, AutoScroll = true };
     readonly Panel _content = new() { Dock = DockStyle.Fill };
     readonly RoundedPanel _addrBox = new() { Radius = 14 };
@@ -1058,14 +1081,14 @@ try {
             var b = new RoundedButton
             {
                 Text = text,
-                Width = text.Length > 11 ? 122 : 106,
-                Height = 25,
+                Width = text.Length > 11 ? 112 : 92,
+                Height = 27,
                 FlatStyle = FlatStyle.Flat,
                 TabStop = false,
                 BackColor = Color.Transparent,
                 Font = new Font("Segoe UI", 8.2f),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Margin = new Padding(3, 2, 3, 0),
+                Margin = new Padding(2, 1, 2, 0),
                 Padding = new Padding(8, 0, 8, 0),
                 Radius = 12
             };
@@ -1120,10 +1143,11 @@ try {
         _tabBar.Controls.Add(tabRight);
 
         // assemble — add toolbar first, tab bar last so the tabs sit on TOP
+        _browserChrome.Controls.Add(_taskBar);
+        _browserChrome.Controls.Add(_toolbar);
+        _browserChrome.Controls.Add(_tabBar);
         _browserPane.Controls.Add(_content);
-        _browserPane.Controls.Add(_taskBar);
-        _browserPane.Controls.Add(_toolbar);
-        _browserPane.Controls.Add(_tabBar);
+        _browserPane.Controls.Add(_browserChrome);
         _browserPane.Controls.Add(_browserTitleBar);
         _toolbar.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
         _tabBar.MouseDown += (_, me) =>
@@ -1182,6 +1206,7 @@ try {
         _browserPane.BackColor = p.PaneBg;
         _content.BackColor = p.PaneBg;
         _browserTitleBar.BackColor = p.BarBg;
+        _browserChrome.BackColor = p.BarBg;
         _toolbar.BackColor = p.BarBg;
         _taskBar.BackColor = p.BarBg;
         _tabStrip.BackColor = p.BarBg;
@@ -1246,7 +1271,8 @@ try {
     void LayoutTabs()
     {
         if (_tabs.Count == 0 || _tabStrip.Width <= 0) return;
-        var available = Math.Max(80, _tabStrip.ClientSize.Width - _addTabBtn.Width - 12);
+        var rightWidth = _rightPanel?.Width ?? 0;
+        var available = Math.Max(80, _tabStrip.ClientSize.Width - rightWidth - _addTabBtn.Width - 18);
         var chipW = Math.Clamp(available / Math.Max(1, _tabs.Count) - 4, 54, 142);
         foreach (var t in _tabs)
         {
@@ -1314,6 +1340,7 @@ try {
         t.View.GotFocus += (_, __) => { if (_menu.Visible) _menu.Close(); };
         t.View.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
         c.SourceChanged += (_, __) => { t.Url = c.Source; if (t == Active()) { _addr.Text = t.Url; UpdateBrowserTasks(t.Url); } t.Chip.Text = TabLabel(t); LayoutTabs(); SyncTabs(); };
+        t.View.NavigationCompleted += (_, __) => AutoFitActiveBrowserIfNarrow();
         c.DocumentTitleChanged += (_, __) =>
         {
             t.Title = string.IsNullOrWhiteSpace(c.DocumentTitle) ? t.Url : c.DocumentTitle;
@@ -1451,7 +1478,7 @@ try {
         t.View.ZoomFactor = 1.0;
         UpdateZoomLabel();
     }
-    async Task AutoFitZoom()
+    async Task AutoFitZoom(bool allowZoomIn = true)
     {
         var t = Active();
         if (t?.View.CoreWebView2 == null) return;
@@ -1462,11 +1489,19 @@ try {
                 "return Math.max(de.scrollWidth,b.scrollWidth,de.offsetWidth,b.offsetWidth,1);})()");
             var pageWidth = JsonSerializer.Deserialize<double>(json);
             var viewWidth = Math.Max(1, t.View.ClientSize.Width);
-            var zoom = Math.Clamp(Math.Floor((viewWidth / Math.Max(1, pageWidth)) * 100) / 100, 0.3, 1.5);
+            var maxZoom = allowZoomIn ? 1.5 : 1.0;
+            var zoom = Math.Clamp(Math.Floor((viewWidth / Math.Max(1, pageWidth)) * 100) / 100, 0.3, maxZoom);
             t.View.ZoomFactor = zoom;
             UpdateZoomLabel();
         }
         catch { }
+    }
+    async void AutoFitActiveBrowserIfNarrow()
+    {
+        var t = Active();
+        if (!_browserOpen || t?.View.CoreWebView2 == null) return;
+        if (t.View.ClientSize.Width >= 560) return;
+        await AutoFitZoom(allowZoomIn: false);
     }
     void UpdateZoomLabel()
     {
@@ -1515,7 +1550,8 @@ try {
     {
         if (_split.Width <= 0) return;
         const int chatMin = 320;
-        const int browserMin = 260;
+        const int browserMin = 420;
+        const int preferredBrowserW = 520;
         int panelWidth = Math.Max(0, _split.Width - _split.SplitterWidth);
         if (panelWidth <= chatMin + browserMin)
         {
@@ -1531,10 +1567,11 @@ try {
         _split.Panel1MinSize = chatMin;
         _split.Panel2MinSize = browserMin;
         int available = panelWidth;
-        const int preferredChatW = 760; // enough for sidebar + chat + notepad without clipping the composer/topbar
-        int chatW = Math.Min(preferredChatW, available - browserMin);
+        int browserW = Math.Clamp((int)(available * 0.42), browserMin, Math.Min(preferredBrowserW, available - chatMin));
+        int chatW = available - browserW;
         chatW = Math.Max(chatMin, chatW);
         _split.SplitterDistance = Math.Min(chatW, _split.Width - browserMin);
+        BeginInvoke(new Action(AutoFitActiveBrowserIfNarrow));
     }
 
     // When the browser opens in a small window, grow it so the chat side keeps room

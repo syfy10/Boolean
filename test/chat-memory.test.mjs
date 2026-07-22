@@ -61,3 +61,42 @@ test("local chat memory skips blank starter chats", () => {
 
   assert.equal(memory, "");
 });
+
+test("local chat memory summarizes chat log entries when messages are trimmed", () => {
+  const now = Date.now();
+  const memory = buildLocalChatMemory([
+    {
+      id: "active",
+      title: "Email draft",
+      kind: "chat",
+      updatedAt: now,
+      messages: [{ role: "system", content: "system" }],
+      log: [
+        { t: "user", text: "continue exactly where it left off" },
+        { t: "ai", text: "I can't read local files from this limited session." }
+      ]
+    },
+    {
+      id: "browser",
+      title: "Boolean browser layout",
+      kind: "project",
+      projectDir: "C:\\Users\\S10\\Documents\\Boolean",
+      updatedAt: now - 1000,
+      messages: [{ role: "system", content: "system" }],
+      log: [
+        { t: "user", text: "how would you improve browser layout and how it works" },
+        { t: "ai", text: "Use a research workspace with a page actions bar, smart context, navigation history, and multi-tab extract summaries." }
+      ]
+    }
+  ], {
+    currentThreadId: "active",
+    latestText: "check open chats and remember the browser layout work",
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
+  });
+
+  assert.match(memory, /RECENT SAVED CHATS/);
+  assert.match(memory, /active chat "Email draft"/);
+  assert.match(memory, /Thread "Boolean browser layout"/);
+  assert.match(memory, /page actions bar/i);
+  assert.match(memory, /multi-tab extract/i);
+});

@@ -371,6 +371,43 @@ test("working memory tracks temporary processes and exposes a handoff report", (
   assert.doesNotMatch(controller.handoffReport(), /Open processes: preview/);
 });
 
+test("optional visual inspection failure after successful verification does not trap completion", () => {
+  const controller = new AgentController({
+    objective: "Improve the browser layout",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+
+  controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
+  controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+  controller.noteTool("inspect_page_layout", { selector: "#browser" }, "visible browser error: The JSON value could not be converted to System.String.");
+
+  const result = controller.evaluateCompletion("Updated and checked.");
+  assert.equal(result.complete, true, result.reason);
+  assert.match(controller.handoffReport(), /optional visual verification failed/i);
+});
+
+test("artifact tasks must close temporary background processes before completion", () => {
+  const controller = new AgentController({
+    objective: "Preview the app",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+
+  controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
+  controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
+  controller.noteTool("run_background", { name: "preview", command: "npm run dev" }, "Started background process 'preview' - running (pid 42).");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+
+  const blocked = controller.evaluateCompletion("Done.");
+  assert.equal(blocked.complete, false);
+  assert.match(blocked.reason, /Temporary process still running: preview/);
+
+  controller.noteTool("stop_process", { name: "preview" }, "stopped 'preview'");
+  assert.equal(controller.evaluateCompletion("Done.").complete, true);
+});
+
 test("project rules load from BOOLEAN.md and inject into project brief", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-rules-"));
   try {

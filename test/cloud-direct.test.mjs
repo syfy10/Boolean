@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, estimateContext, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -512,6 +512,87 @@ test("turn classifier chooses the smallest useful mode", () => {
   assert.equal(classifyTurnMode([{ role: "user", content: "are you checking it?" }], { connectorActionRequired: true }), "agent");
   assert.equal(toolDefinitionsForTurnMode("chat").length, 0);
   assert.deepEqual(toolDefinitionsForTurnMode("research").map((tool) => tool.function.name).sort(), ["research_web", "web_search"]);
+});
+
+test("explicit email cleanup tool requests outrank web-research wording", () => {
+  const prompt = [
+    "Call email_cleanup_preview for the connected Gmail or Outlook account.",
+    "Return the plan id, exact search query, counts, reasons, and representative samples.",
+    "This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch.",
+    "Connected account: syfy10@gmail.com (gmail).",
+    "older_than: 5y",
+    "limit: 500",
+    "protect_attachments: true",
+    "protect_labeled: true"
+  ].join("\n");
+
+  const mode = classifyTurnMode([{ role: "user", content: prompt }]);
+  const names = toolDefinitionsForTurnMode(mode).map((tool) => tool.function.name);
+  assert.equal(mode, "agent");
+  assert.equal(requiresExplicitActionToolResult([{ role: "user", content: prompt }]), true);
+  assert.equal(requiresExplicitActionToolResult([{ role: "user", content: "What does email_cleanup_preview do?" }]), false);
+  assert.equal(requiresExplicitActionToolResult([{ role: "user", content: "Do not call email_cleanup_trash yet." }]), false);
+  assert.ok(names.includes("email_cleanup_preview"));
+  assert.ok(names.includes("email_cleanup_trash"));
+});
+
+test("email cleanup confirmations retain the saved plan across every batch", () => {
+  const planId = "8acb25eb-c711-41fb-9446-1b6382703659";
+  const preview = [
+    { role: "system", content: "system" },
+    { role: "user", content: "Call email_cleanup_preview for syfy10@gmail.com." },
+    {
+      role: "assistant",
+      content: "",
+      tool_calls: [{ id: "preview_1", type: "function", function: { name: "email_cleanup_preview", arguments: "{}" } }]
+    },
+    {
+      role: "tool",
+      tool_call_id: "preview_1",
+      content: JSON.stringify({ planId, provider: "gmail", account: "syfy10@gmail.com", candidateCount: 490, remainingCount: 490 })
+    },
+    { role: "assistant", content: "490 messages are candidates to move to Trash. Let me know if you want to proceed with a batch." }
+  ];
+
+  const firstConfirmation = [...preview, { role: "user", content: "yes do it" }];
+  assert.deepEqual(emailCleanupContinuationAction(firstConfirmation), {
+    name: "email_cleanup_trash",
+    args: { provider: "gmail", plan_id: planId, batch_size: 250 },
+    remaining: 490
+  });
+  assert.equal(classifyTurnMode(firstConfirmation), "agent");
+  assert.equal(requiresExplicitActionToolResult(firstConfirmation), true);
+
+  const secondConfirmation = [
+    ...preview,
+    { role: "user", content: "yes do it" },
+    {
+      role: "assistant",
+      content: "",
+      tool_calls: [{ id: "trash_1", type: "function", function: { name: "email_cleanup_trash", arguments: JSON.stringify({ provider: "gmail", plan_id: planId, batch_size: 250 }) } }]
+    },
+    {
+      role: "tool",
+      tool_call_id: "trash_1",
+      content: JSON.stringify({ planId, runId: "run-1", movedToTrash: 250, remainingCandidates: 240 })
+    },
+    { role: "assistant", content: "Done. 250 moved to Trash. There are 240 remaining candidates. Say go ahead to run the next batch." },
+    { role: "user", content: "go ahead" }
+  ];
+  assert.deepEqual(emailCleanupContinuationAction(secondConfirmation), {
+    name: "email_cleanup_trash",
+    args: { provider: "gmail", plan_id: planId, batch_size: 240 },
+    remaining: 240
+  });
+  assert.equal(classifyTurnMode(secondConfirmation), "agent");
+  assert.match(systemPrompt("", true), /click the Move to Trash button or type `move next batch to trash`/);
+
+  assert.equal(emailCleanupContinuationAction([
+    { role: "system", content: "system" },
+    { role: "assistant", content: "Ready when you are." },
+    { role: "user", content: "go ahead" }
+  ]), null);
+  assert.equal(emailCleanupContinuationAction([...preview, { role: "user", content: "no, cancel" }]), null);
 });
 
 test("explicit no-change project questions do not require artifact edits", () => {

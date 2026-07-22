@@ -64,7 +64,8 @@ export const TOOL_DEFINITIONS = [
       description:
         "Run a shell command on the user's Windows machine and return stdout/stderr. " +
         "Use PowerShell syntax by default (shell='powershell'), or shell='cmd' for cmd.exe syntax. " +
-        "Can run anything: winget, git, npm, dotnet, msbuild, etc.",
+        "Can run checks and builds: winget, git, npm test, dotnet build, msbuild, etc. " +
+        "Do not use for long-running dev servers or watchers; use run_background for those.",
       parameters: {
         type: "object",
         properties: {
@@ -944,6 +945,17 @@ function runCommand(command, shell, timeoutMs, cwd) {
   });
 }
 
+function isLikelyLongRunningCommand(command) {
+  const text = String(command || "")
+    .replace(/`[\s\S]*?`/g, " ")
+    .replace(/["'][^"']*["']/g, (m) => m)
+    .toLowerCase();
+  return /\b(?:npm|pnpm|yarn)\s+(?:run\s+)?(?:dev|serve|watch|start)\b/.test(text)
+    || /\b(?:vite|next\s+dev|astro\s+dev|webpack(?:-dev-server)?|wrangler\s+dev)\b/.test(text)
+    || /\bpython(?:3|\.exe)?\s+-m\s+http\.server\b/.test(text)
+    || /\b(?:node|bun|deno)\s+(?:serve|server|dev)\b/.test(text);
+}
+
 function listFilesRec(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
@@ -1171,8 +1183,7 @@ async function executeEmailTool(name, args, ctx) {
     const alreadyProcessed = new Set(plan.processedIds || []);
     const pending = plan.candidates.filter((item) => !alreadyProcessed.has(item.id)).slice(0, batchSize);
     if (!pending.length) return `Cleanup plan ${plan.id} has no remaining candidates. Nothing was changed.`;
-    const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
-    const ok = await approve(`Move up to ${pending.length} reviewed messages from ${plan.account || (provider === "gmail" ? "Gmail" : "Outlook")} to Trash now? This does not permanently delete them and Boolean will create an Undo record.`);
+    const ok = await ctx.approve(`Move up to ${pending.length} reviewed messages from ${plan.account || (provider === "gmail" ? "Gmail" : "Outlook")} to Trash now? This does not permanently delete them and Boolean will create an Undo record.`);
     if (!ok) return "No email was moved because the user declined confirmation.";
 
     const labels = await listEmailLabels(provider, connection, save);
@@ -1783,6 +1794,9 @@ export async function executeTool(name, args, ctx) {
           const status = await ghStatus(ctx);
           if (status.authenticated) return `GitHub CLI is already authenticated${status.user ? ` as ${status.user}` : ""}. No login is needed.`;
           return "GitHub login needs an interactive browser or terminal. Open GitHub settings and start the visible sign-in flow; Boolean will not run this command hidden.";
+        }
+        if (isLikelyLongRunningCommand(normalizedCommand)) {
+          return "This looks like a long-running dev server or watcher. Do not run it with run_command because it keeps the chat in Stop/running mode. Use run_background for this command, then read_process to check status, or run_project for Boolean project previews.";
         }
         const shell = args.shell === "cmd" ? "cmd" : "powershell";
         const ok = await ctx.approve(`run [${shell}]: ${args.command}`);

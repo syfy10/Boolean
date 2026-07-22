@@ -39,17 +39,30 @@ Get-ChildItem "$out\engine" -Recurse -File | Where-Object { $deadEngineDlls -con
 Copy-Item "$root\templates" "$out\templates" -Recurse -Force
 Copy-Item "$root\assets\saz.ico" "$out\saz.ico" -Force
 
-# OAuth desktop client IDs are public identifiers, not client secrets. Release
-# builds can provide them through the source JSON or environment overrides.
-$oauthClients = [ordered]@{ gmail = ""; outlook = "" }
+# Release builds can provide managed OAuth credentials through a local source
+# JSON file or environment overrides. Do not commit production secrets.
+$oauthClients = [ordered]@{
+  gmail = [ordered]@{ clientId = ""; clientSecret = "" }
+  outlook = [ordered]@{ clientId = ""; clientSecret = "" }
+}
 $oauthSource = "$root\assets\oauth-clients.json"
 if (Test-Path $oauthSource) {
   $configured = Get-Content $oauthSource -Raw | ConvertFrom-Json
-  $oauthClients.gmail = [string]$configured.gmail
-  $oauthClients.outlook = [string]$configured.outlook
+  if ($configured.gmail -is [string]) { $oauthClients.gmail.clientId = [string]$configured.gmail }
+  else {
+    $oauthClients.gmail.clientId = [string]$configured.gmail.clientId
+    $oauthClients.gmail.clientSecret = [string]$configured.gmail.clientSecret
+  }
+  if ($configured.outlook -is [string]) { $oauthClients.outlook.clientId = [string]$configured.outlook }
+  else {
+    $oauthClients.outlook.clientId = [string]$configured.outlook.clientId
+    $oauthClients.outlook.clientSecret = [string]$configured.outlook.clientSecret
+  }
 }
-if ($env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID) { $oauthClients.gmail = $env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID.Trim() }
-if ($env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID) { $oauthClients.outlook = $env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID.Trim() }
+if ($env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID) { $oauthClients.gmail.clientId = $env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID.Trim() }
+if ($env:BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET) { $oauthClients.gmail.clientSecret = $env:BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET.Trim() }
+if ($env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID) { $oauthClients.outlook.clientId = $env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID.Trim() }
+if ($env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_SECRET) { $oauthClients.outlook.clientSecret = $env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_SECRET.Trim() }
 $oauthClients | ConvertTo-Json | Set-Content "$out\oauth-clients.json" -Encoding ASCII
 
 Write-Host "[5/5] copying docs..."

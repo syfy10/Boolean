@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.42";
-export const APP_DISPLAY_VERSION = "v0.09.42";
+export const APP_VERSION = "0.9.44";
+export const APP_DISPLAY_VERSION = "v0.09.44";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -92,8 +92,8 @@ const DEFAULTS = {
     email: {
       draftOnly: true,
       confirmBeforeSend: true,
-      gmail: { clientId: "", manualClientId: "", clientSource: "", connected: false, account: "", oauth: null },
-      outlook: { clientId: "", manualClientId: "", clientSource: "", connected: false, account: "", oauth: null }
+      gmail: { clientId: "", manualClientId: "", manualClientSecret: "", clientSource: "", connected: false, account: "", oauth: null },
+      outlook: { clientId: "", manualClientId: "", manualClientSecret: "", clientSource: "", connected: false, account: "", oauth: null }
     }
   },
   cloudBackend: {
@@ -213,10 +213,43 @@ function preserveKeyedApiKeys(nextItems, previousItems) {
   }
 }
 
+function hasSavedEmailCredential(connection) {
+  return !!connection?.oauth
+    || nonEmptyString(connection?.clientId)
+    || nonEmptyString(connection?.manualClientId)
+    || nonEmptyString(connection?.manualClientSecret)
+    || nonEmptyString(connection?.account)
+    || connection?.connected === true;
+}
+
+function restoreEmailConnection(nextEmail, prevEmail) {
+  if (!nextEmail || !prevEmail || !hasSavedEmailCredential(prevEmail)) return;
+  const nextHasCredential = hasSavedEmailCredential(nextEmail);
+  if (!nextHasCredential) {
+    Object.assign(nextEmail, structuredClone(prevEmail));
+    return;
+  }
+  if (!nonEmptyString(nextEmail.clientId) && nonEmptyString(prevEmail.clientId)) nextEmail.clientId = prevEmail.clientId;
+  if (!nonEmptyString(nextEmail.manualClientId) && nonEmptyString(prevEmail.manualClientId)) nextEmail.manualClientId = prevEmail.manualClientId;
+  if (!nonEmptyString(nextEmail.manualClientSecret) && nonEmptyString(prevEmail.manualClientSecret)) nextEmail.manualClientSecret = prevEmail.manualClientSecret;
+  if (!nonEmptyString(nextEmail.clientSource) && nonEmptyString(prevEmail.clientSource)) nextEmail.clientSource = prevEmail.clientSource;
+  if (!nonEmptyString(nextEmail.account) && nonEmptyString(prevEmail.account)) nextEmail.account = prevEmail.account;
+  if (!nextEmail.oauth && prevEmail.oauth && nextEmail.connected !== false) {
+    nextEmail.oauth = prevEmail.oauth;
+    nextEmail.connected = true;
+  }
+  if (nextEmail.connected !== true && prevEmail.connected === true && nextEmail.oauth) nextEmail.connected = true;
+}
+
 export function preserveSavedApiKeys(next, previous) {
   if (!next || !previous) return next;
   for (const provider of ["openai", "glm", "zaiCoding", "claude", "customApi"]) {
     preserveApiKey(next, previous, provider);
+  }
+  for (const provider of ["gmail", "outlook"]) {
+    const nextEmail = next.connectors?.email?.[provider];
+    const prevEmail = previous.connectors?.email?.[provider];
+    restoreEmailConnection(nextEmail, prevEmail);
   }
   preserveKeyedApiKeys(next.connectors?.apis, previous.connectors?.apis);
   preserveKeyedApiKeys(next.connectors?.agents, previous.connectors?.agents);

@@ -5,16 +5,22 @@ import os from "node:os";
 import path from "node:path";
 import { emailOAuthRedirectUri, loadManagedEmailOAuthClients } from "../src/email-oauth-config.js";
 
-test("managed email OAuth clients load from a public config with environment overrides", () => {
+test("managed email OAuth clients load paired credentials with environment overrides", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-email-oauth-"));
   const file = path.join(dir, "oauth-clients.json");
-  fs.writeFileSync(file, JSON.stringify({ gmail: "file-google", outlook: "file-microsoft" }));
+  fs.writeFileSync(file, JSON.stringify({
+    gmail: { clientId: "file-google", clientSecret: "file-google-secret" },
+    outlook: "file-microsoft"
+  }));
   try {
     const clients = loadManagedEmailOAuthClients({
       filePaths: [file],
-      env: { BOOLEAN_GOOGLE_OAUTH_CLIENT_ID: "env-google" }
+      env: { BOOLEAN_GOOGLE_OAUTH_CLIENT_ID: "env-google", BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET: "env-google-secret" }
     });
-    assert.deepEqual(clients, { gmail: "env-google", outlook: "file-microsoft" });
+    assert.deepEqual(clients, {
+      gmail: { clientId: "env-google", clientSecret: "env-google-secret" },
+      outlook: { clientId: "file-microsoft", clientSecret: "" }
+    });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -37,7 +37,7 @@ import {
   getEmailAccount,
   publicEmailConnections
 } from "./email.js";
-import { emailOAuthRedirectUri, loadManagedEmailOAuthClients } from "./email-oauth-config.js";
+import { emailOAuthRedirectUri, loadManagedEmailOAuthClients, managedEmailOAuthCredential } from "./email-oauth-config.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
 import { detectWebsiteTech } from "./tech-detector.js";
@@ -515,6 +515,18 @@ function shortAiName(provider, model = "") {
 // 1x1 red PNG used by the vision self-test
 const TEST_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
+function readSystemClipboardText() {
+  if (process.platform !== "win32") return "";
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-Command", "Get-Clipboard -Raw"], {
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 3000
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error((result.stderr || "Clipboard read failed.").trim());
+  return String(result.stdout || "").replace(/\r?\n$/, "");
+}
+
 export function startServer(config, { port = 0, autoExit = false, emailOAuthClients = null } = {}) {
   const uiHtml = loadUiHtml();
   const managedEmailOAuthClients = emailOAuthClients || loadManagedEmailOAuthClients();
@@ -881,6 +893,14 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       if (req.method === "POST" && p === "/api/browse/clear") {
         clearCookies();
         json({ ok: true });
+        return;
+      }
+      if (req.method === "POST" && p === "/api/clipboard/read") {
+        try {
+          json({ ok: true, text: readSystemClipboardText() });
+        } catch (err) {
+          json({ ok: false, error: err?.message || "Could not read clipboard." }, 500);
+        }
         return;
       }
       if (req.method === "GET" && p === "/" && !emailOAuthCallbackRequest) {
@@ -1259,7 +1279,10 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       if (req.method === "POST" && p === "/api/thread/new") {
         const body = await readBody(req);
         const previousActiveThreadId = activeThreadId;
-        const t = body.side === true ? newThread({ title: "Side chat", side: true }) : reuseOrNewThread();
+        const title = String(body.title || "").trim().slice(0, 80);
+        const t = body.side === true
+          ? newThread({ title: title || "Side chat", side: true })
+          : (body.forceNew === true ? newThread({ title: title || "New chat" }) : reuseOrNewThread());
         if (body.side === true && threads.has(previousActiveThreadId)) activeThreadId = previousActiveThreadId;
         persist();
         json({ id: t.id });
@@ -1816,10 +1839,17 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         const mode = body.mode === "manual" ? "manual" : "managed";
         const saved = config.connectors?.email?.[provider] || {};
         const savedManualClientId = String(saved.manualClientId || (saved.clientSource !== "managed" ? saved.clientId : "") || "").trim();
+        const savedClientId = String(saved.clientId || "").trim();
         const submittedClientId = String(body.clientId || "").trim();
+        const savedManualClientSecret = String(saved.manualClientSecret || "").trim();
+        const submittedClientSecret = String(body.clientSecret || "").trim();
+        const managedCredential = managedEmailOAuthCredential(managedEmailOAuthClients, provider);
         const clientId = mode === "managed"
-          ? String(managedEmailOAuthClients[provider] || (saved.clientSource === "managed" ? saved.clientId : "") || "").trim()
-          : (submittedClientId || savedManualClientId);
+          ? String(managedCredential.clientId || (saved.clientSource === "managed" ? saved.clientId : "") || "").trim()
+          : (submittedClientId || savedManualClientId || savedClientId);
+        const clientSecret = mode === "managed"
+          ? String(managedCredential.clientSecret || saved.oauth?.clientSecret || "").trim()
+          : (submittedClientSecret || savedManualClientSecret);
         if (!clientId) {
           const label = provider === "gmail" ? "Google" : "Microsoft";
           return json({
@@ -1828,14 +1858,25 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
               : `Enter the ${label} OAuth public client ID first.`,
             code: "email_oauth_setup_required",
             provider,
-            managedAvailable: !!(managedEmailOAuthClients[provider] || (saved.clientSource === "managed" && saved.clientId))
+            managedAvailable: !!managedCredential.clientId && (provider !== "gmail" || !!managedCredential.clientSecret)
+          }, 400);
+        }
+        if (provider === "gmail" && !clientSecret) {
+          return json({
+            error: mode === "managed"
+              ? "Google sign-in is missing its paired Desktop OAuth client secret. Open Advanced setup and add the client ID and client secret."
+              : "Enter the Google Desktop OAuth client secret paired with this client ID.",
+            code: "email_oauth_setup_required",
+            provider,
+            managedAvailable: false
           }, 400);
         }
         const redirectUri = emailOAuthRedirectUri(provider, req.headers.host);
-        const transaction = createEmailOAuth(provider, clientId, redirectUri);
+        const transaction = createEmailOAuth(provider, clientId, redirectUri, { clientSecret });
         const manualClientId = mode === "manual" ? clientId : savedManualClientId;
+        const manualClientSecret = mode === "manual" ? clientSecret : savedManualClientSecret;
         pendingEmailOAuth.set(transaction.state, {
-          ...transaction, clientId, clientSource: mode, manualClientId, status: "pending"
+          ...transaction, clientId, clientSource: mode, manualClientId, manualClientSecret, status: "pending"
         });
         for (const [key, value] of pendingEmailOAuth) {
           if (Date.now() - value.createdAt > 10 * 60 * 1000) pendingEmailOAuth.delete(key);
@@ -1843,7 +1884,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         config.connectors = config.connectors || {};
         config.connectors.email = config.connectors.email || {};
         config.connectors.email[provider] = {
-          ...saved, clientId, manualClientId, clientSource: mode
+          ...saved, clientId, manualClientId, manualClientSecret, clientSource: mode
         };
         saveConfig(config);
         return json({ ok: true, state: transaction.state, authorizationUrl: transaction.authorizationUrl, redirectUri });
@@ -1875,6 +1916,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         }
         try {
           const oauth = await exchangeEmailCode(transaction, code, transaction.clientId);
+          if (transaction.clientSecret) oauth.clientSecret = transaction.clientSecret;
           config.connectors = config.connectors || {};
           config.connectors.email = config.connectors.email || {};
           const previousConnection = config.connectors.email[transaction.provider] || {};
@@ -1882,6 +1924,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             ...previousConnection,
             clientId: transaction.clientId,
             manualClientId: transaction.manualClientId || previousConnection.manualClientId || "",
+            manualClientSecret: transaction.manualClientSecret || previousConnection.manualClientSecret || "",
             clientSource: transaction.clientSource || "manual",
             connected: true,
             oauth,
@@ -1921,6 +1964,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         config.connectors.email[provider] = {
           clientId: previous.clientSource === "manual" ? manualClientId : "",
           manualClientId,
+          manualClientSecret: "",
           clientSource: previous.clientSource === "manual" ? "manual" : "",
           connected: false,
           account: "",
@@ -1929,7 +1973,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
           lastCheckStatus: "",
           lastCheckedAt: 0
         };
-        saveConfig(config);
+        saveConfig(config, { preserveSecrets: false });
         return json({ ok: true, email: publicEmailConnections(config, managedEmailOAuthClients) });
       }
 
@@ -2395,9 +2439,12 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       if (req.method === "POST" && p === "/api/chat") {
         const body = await readBody(req);
         const t = threads.get(body.threadId) || threads.get(activeThreadId);
+        const requestedProvider = PROVIDERS.includes(String(body.provider || "")) ? String(body.provider || "") : "";
+        const requestedModel = String(body.model || "").trim();
+        const effectiveProvider = requestedProvider || config.provider;
 
         // block image sends when the local model has no vision projector
-        if (Array.isArray(body.images) && body.images.length && config.provider === "local") {
+        if (Array.isArray(body.images) && body.images.length && effectiveProvider === "local") {
           let v; try { v = engine.visionState(config); } catch { v = { supported: false }; }
           if (!v.supported) {
             res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8" });
@@ -2435,7 +2482,11 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         persist();
         const sideProvider = body.sideChat === true && PROVIDERS.includes(String(body.sideProvider || "")) ? String(body.sideProvider) : "";
         const sideModel = body.sideChat === true ? String(body.sideModel || "").trim() : "";
-        return streamRun(t, res, { forceTurnMode: body.sideChat === true ? "chat" : "", provider: sideProvider, model: sideModel });
+        return streamRun(t, res, {
+          forceTurnMode: body.sideChat === true ? "chat" : "",
+          provider: sideProvider || requestedProvider,
+          model: sideProvider ? sideModel : requestedModel
+        });
       }
 
       res.writeHead(404); res.end("not found");

@@ -5,7 +5,7 @@ import path from "node:path";
 import { SAZ_DIR } from "./config.js";
 
 const THREADS_FILE = path.join(SAZ_DIR, "threads.json");
-const MEMORY_MAX_CHARS = 4200;
+const MEMORY_MAX_CHARS = 5600;
 const MEMORY_THREAD_CHARS = 900;
 const STOPWORDS = new Set([
   "about", "after", "again", "also", "because", "before", "being", "between", "could", "does",
@@ -89,6 +89,12 @@ function threadSearchText(t) {
   return parts.join("\n").toLowerCase();
 }
 
+function threadKindLabel(t) {
+  if (t?.side === true) return "side chat";
+  if (t?.kind === "project") return "project";
+  return "chat";
+}
+
 function scoreThread(t, opts, queryTerms) {
   let score = 0;
   if (t?.id && t.id === opts.currentThreadId) score += 80;
@@ -104,33 +110,68 @@ function scoreThread(t, opts, queryTerms) {
   return score;
 }
 
+function threadTurns(t) {
+  const turns = [];
+  for (const message of (Array.isArray(t?.messages) ? t.messages : [])) {
+    if (message?.role !== "user" && message?.role !== "assistant") continue;
+    const text = cleanSnippet(textOf(message.content), 600);
+    if (text) turns.push({ role: message.role === "assistant" ? "AI" : "User", text });
+  }
+  for (const entry of (Array.isArray(t?.log) ? t.log : [])) {
+    if (entry?.t !== "user" && entry?.t !== "ai") continue;
+    const text = cleanSnippet(entry.text || entry.content || "", 600);
+    if (text) turns.push({ role: entry.t === "ai" ? "AI" : "User", text });
+  }
+  const seen = new Set();
+  return turns.filter((turn) => {
+    const key = `${turn.role}:${cleanSnippet(turn.text, 100)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function relevantMessages(t, queryTerms) {
-  const messages = (Array.isArray(t?.messages) ? t.messages : [])
-    .filter((m) => m?.role === "user" || m?.role === "assistant");
-  const recent = messages.slice(-6);
-  const matched = messages.filter((m) => {
-    const text = textOf(m.content).toLowerCase();
+  const turns = threadTurns(t);
+  const recent = turns.slice(-6);
+  const matched = turns.filter((turn) => {
+    const text = turn.text.toLowerCase();
     return queryTerms.some((term) => text.includes(term));
   }).slice(-4);
   const seen = new Set();
-  return [...matched, ...recent].filter((m) => {
-    const key = `${m.role}:${cleanSnippet(textOf(m.content), 80)}`;
+  return [...matched, ...recent].filter((turn) => {
+    const key = `${turn.role}:${cleanSnippet(turn.text, 80)}`;
     if (seen.has(key)) return false;
     seen.add(key);
-    return cleanSnippet(textOf(m.content), 12);
+    return cleanSnippet(turn.text, 12);
   }).slice(-8);
 }
 
 function summarizeThreadForMemory(t, queryTerms) {
   const title = cleanSnippet(t?.title || "Untitled chat", 70);
   const where = t?.kind === "project" && t?.projectDir ? ` project=${t.projectDir}` : "";
-  const lines = [`Thread "${title}"${where}:`];
+  const pending = t?.pendingTask?.state ? ` pending=${t.pendingTask.state}` : "";
+  const lines = [`Thread "${title}" (${threadKindLabel(t)})${where}${pending}:`];
   for (const message of relevantMessages(t, queryTerms)) {
-    const role = message.role === "assistant" ? "AI" : "User";
-    const snippet = cleanSnippet(textOf(message.content), 300);
+    const role = message.role;
+    const snippet = cleanSnippet(message.text, 300);
     if (snippet) lines.push(`- ${role}: ${snippet}`);
   }
   return lines.join("\n").slice(0, MEMORY_THREAD_CHARS);
+}
+
+function recentChatIndex(threads, currentThreadId) {
+  const items = (Array.isArray(threads) ? threads : [])
+    .filter((t) => t && !isBlankThread(t))
+    .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
+    .slice(0, 8)
+    .map((t) => {
+      const active = t.id === currentThreadId ? "active " : "";
+      const pending = t.pendingTask?.state ? `, pending ${t.pendingTask.state}` : "";
+      const project = t.kind === "project" && t.projectDir ? `, ${path.basename(t.projectDir) || t.projectDir}` : "";
+      return `- ${active}${threadKindLabel(t)} "${cleanSnippet(t.title || "Untitled", 54)}"${project}${pending}`;
+    });
+  return items.length ? ["RECENT SAVED CHATS:", ...items].join("\n") : "";
 }
 
 export function buildLocalChatMemory(threads, opts = {}) {
@@ -150,6 +191,7 @@ export function buildLocalChatMemory(threads, opts = {}) {
   return [
     "CURRENT THREAD MEMORY:",
     "Saved local chat excerpts from ~/.saz/threads.json. Use them to answer follow-ups about prior chat/project work before saying the history is unavailable.",
+    recentChatIndex(threads, opts.currentThreadId),
     ...blocks
-  ].join("\n\n").slice(0, MEMORY_MAX_CHARS);
+  ].filter(Boolean).join("\n\n").slice(0, MEMORY_MAX_CHARS);
 }

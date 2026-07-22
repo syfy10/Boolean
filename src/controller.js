@@ -216,7 +216,7 @@ function isFailure(result) {
 }
 
 function isVerification(name, args) {
-  if (VERIFICATION_TOOLS.has(name)) return true;
+  if (VERIFICATION_TOOLS.has(name) || name === "read_page" || name === "visible_browser_read") return true;
   return name === "run_command" && CHECK_COMMAND.test(String(args?.command || ""));
 }
 
@@ -233,6 +233,11 @@ function isInspectionCommand(name, args = {}) {
 
 function isLoopBlock(reason = "") {
   return LOOP_BLOCK_REASON.test(String(reason || ""));
+}
+
+function isOptionalVisualVerificationFailure(name, result = "") {
+  if (!["inspect_page_layout", "screenshot_page", "visible_browser_read"].includes(name)) return false;
+  return /(?:visible browser error|timed out|unsupported image|text-only|json value could not be converted|capture failed|could not inspect)/i.test(String(result || ""));
 }
 
 function commandSubject(command = "") {
@@ -483,7 +488,7 @@ export class AgentController {
     if (this.contract.deployAllowed) {
       lines.push("DEPLOY PROOF RULE: after deploying, capture the deploy version/id or release output, then verify the live or verification URL. Do not say deployed until both pieces of evidence are recorded.");
     }
-    lines.push("WEB/BROWSER RULE: use background research_web/web_search for facts, docs, APIs, and quick checks. Open the visible built-in browser only for visual preview, OAuth/sign-in, user-facing browsing, screenshots, or page testing.");
+    lines.push("WEB/BROWSER RULE: use background research_web/web_search for facts, docs, APIs, and quick checks. Open the visible built-in browser only for visual preview, local app/site development previews, OAuth/sign-in, user-facing browsing, screenshots, or page testing.");
     lines.push("BLOCKED MEANS STOP: if Boolean blocks the same tool/action twice, stop and explain the blocker plainly instead of trying equivalent actions.");
     if (this.debugRequired) {
       lines.push("DEBUG WORKFLOW (required): inspect -> reproduce -> identify root cause -> edit -> repeat the same check -> regressions.");
@@ -679,6 +684,17 @@ export class AgentController {
     if (this.debugRequired && this.mutationCount === 0 && verification) {
       this.baselineCheckCount++;
     }
+    if (isOptionalVisualVerificationFailure(name, result) && this.mutationCount > 0 && this.lastVerification >= this.lastMutation) {
+      const warning = `${name}: optional visual verification failed after a successful post-change check; do not keep retrying this helper. ${cleanText(result, 160)}`;
+      this.checks.push(warning);
+      this.verificationEvidence.push(warning);
+      this.checks = this.checks.slice(-8);
+      this.verificationEvidence = this.verificationEvidence.slice(-6);
+      this.consecutiveFailures = 0;
+      this.lastFailure = "";
+      this.phase = "verifying";
+      return this.snapshot();
+    }
     if (failed) {
       if (this.debugRequired && this.mutationCount === 0 && verification) {
         this.lastFailure = "";
@@ -796,6 +812,9 @@ export class AgentController {
     }
     if (this.lastVerification < this.lastMutation) {
       return { complete: false, reason: "The latest change has not been checked yet." };
+    }
+    if (this.openProcesses.length) {
+      return { complete: false, reason: `Temporary process still running: ${this.openProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
     }
     if (this.consecutiveFailures > 0) {
       return { complete: false, reason: "The latest tool result failed and still needs recovery." };

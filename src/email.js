@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { managedEmailOAuthCredential } from "./email-oauth-config.js";
 
 const PROVIDERS = {
   gmail: {
@@ -30,7 +31,7 @@ const requireProvider = (name) => {
   return provider;
 };
 
-export function createEmailOAuth(providerName, clientId, redirectUri) {
+export function createEmailOAuth(providerName, clientId, redirectUri, options = {}) {
   const provider = requireProvider(providerName);
   const verifier = crypto.randomBytes(48).toString("base64url");
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
@@ -50,7 +51,8 @@ export function createEmailOAuth(providerName, clientId, redirectUri) {
   } else {
     url.searchParams.set("prompt", "select_account");
   }
-  return { state, verifier, authorizationUrl: url.toString(), provider: providerName, redirectUri, createdAt: Date.now() };
+  const clientSecret = String(options.clientSecret || "").trim();
+  return { state, verifier, authorizationUrl: url.toString(), provider: providerName, redirectUri, createdAt: Date.now(), ...(clientSecret ? { clientSecret } : {}) };
 }
 
 export async function exchangeEmailCode(transaction, code, clientId) {
@@ -62,6 +64,7 @@ export async function exchangeEmailCode(transaction, code, clientId) {
     grant_type: "authorization_code",
     redirect_uri: transaction.redirectUri
   });
+  if (transaction.clientSecret) form.set("client_secret", transaction.clientSecret);
   const response = await fetch(provider.token, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -87,6 +90,8 @@ async function refreshOAuth(providerName, connection) {
     refresh_token: oauth.refreshToken,
     grant_type: "refresh_token"
   });
+  const clientSecret = String(oauth.clientSecret || connection.manualClientSecret || "").trim();
+  if (clientSecret) form.set("client_secret", clientSecret);
   if (providerName === "outlook") form.set("scope", provider.scopes.join(" "));
   const response = await fetch(provider.token, {
     method: "POST",
@@ -375,6 +380,9 @@ export async function sendEmailDraft(providerName, connection, save, draftId) {
 export async function trashEmail(providerName, connection, save, id) {
   if (providerName === "gmail") {
     const row = await api(providerName, connection, save, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(id)}/trash`, { method: "POST" });
+    if (Array.isArray(row?.labelIds) && !row.labelIds.includes("TRASH")) {
+      throw new Error("Gmail did not confirm this message moved to Trash");
+    }
     return { id: row?.id || id, originalId: id, provider: providerName };
   }
   const original = await getEmailMetadata(providerName, connection, save, id);
@@ -409,8 +417,11 @@ export function publicEmailConnections(config, managedClients = {}) {
     const oauth = connection.oauth || {};
     const accessReady = !!oauth.accessToken && (!oauth.expiresAt || Number(oauth.expiresAt) > Date.now());
     const credentialReady = !!oauth.refreshToken || accessReady;
+    const managed = managedEmailOAuthCredential(managedClients, name);
     const savedManagedId = connection.clientSource === "managed" ? connection.clientId : "";
-    const managedAvailable = !!String(managedClients[name] || savedManagedId || "").trim();
+    const managedId = managed.clientId || savedManagedId;
+    const managedSecret = managed.clientSecret || (connection.clientSource === "managed" ? oauth.clientSecret : "");
+    const managedAvailable = !!managedId && (name !== "gmail" || !!managedSecret);
     const legacyManualId = connection.clientSource === "managed" ? "" : connection.clientId;
     const manualAvailable = !!String(connection.manualClientId || legacyManualId || "").trim();
     const connectionMode = connection.clientSource === "managed"
@@ -423,6 +434,7 @@ export function publicEmailConnections(config, managedClients = {}) {
       ready,
       account: connection.account || "",
       hasClientId: managedAvailable || manualAvailable || !!connection.clientId,
+      hasClientSecret: !!connection.manualClientSecret,
       managedAvailable,
       manualAvailable,
       connectionMode,
