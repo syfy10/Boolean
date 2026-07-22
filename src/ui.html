@@ -880,6 +880,14 @@
   .ctxbar:empty{ display:none; }
   .ctxbar .save{ color:var(--green); }
   .ctxbar .warn{ color:#e3a008; }
+
+  .thread-summarize-banner{ position:relative; padding:8px 14px; background:color-mix(in srgb, var(--accent) 8%, transparent); border:1px solid color-mix(in srgb, var(--accent) 20%, transparent); border-radius:10px; margin:6px 0; font-size:var(--fs-xs); display:flex; align-items:center; gap:8px; }
+  .thread-summarize-banner.hidden{ display:none; }
+  .thread-summarize-banner .tsb-text{ flex:1; color:var(--dim); }
+  .thread-summarize-banner .tsb-text b{ color:var(--text); }
+  .thread-summarize-banner button{ padding:4px 10px; border:none; border-radius:6px; background:var(--accent); color:var(--accent-text); font-size:var(--fs-xxs); cursor:pointer; }
+  .thread-summarize-banner .tsb-dismiss{ background:var(--bubble); color:var(--dim); }
+  .ctxbar-fill{ height:3px; border-radius:2px; margin-top:3px; transition:width .3s ease,background .3s ease; }
   .opt-line{ font:11px var(--mono); color:var(--green); margin-top:1px; }
   .empty{ margin-top:20vh; text-align:center; color:var(--dim); }
   .empty h1{ font-size:26px; font-weight:600; color:var(--text); margin-bottom:8px; letter-spacing:-.02em; }
@@ -901,6 +909,18 @@
   .msg-ai:not(.cloud) .body:after{ left:-4px; bottom:2px; width:8px; height:8px; background:var(--bg);
     border-left:1px solid color-mix(in srgb,var(--text) 13%,transparent);
     border-bottom:1px solid color-mix(in srgb,var(--text) 13%,transparent); clip-path:none; transform:rotate(45deg); }
+
+  /* ── Collapsible message pairs ── */
+  .col{ position:relative; }
+  .msg-collapse-btn{ position:absolute; left:-6px; width:18px; height:18px; border:none; background:var(--bubble); color:var(--dim); cursor:pointer; border-radius:50%; font-size:9px; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .15s; z-index:2; }
+  .col:hover .msg-collapse-btn{ opacity:.7; }
+  .msg-collapse-btn:hover{ opacity:1 !important; background:var(--hover); }
+  .msg-collapsed .msg-ai .body, .msg-collapsed .msg-user .body{ max-height:26px !important; overflow:hidden !important; }
+  .msg-collapsed .msg-ai .body *, .msg-collapsed .msg-user .body *{ visibility:hidden; }
+  .msg-collapsed .msg-ai .body::after, .msg-collapsed .msg-user .body::after{ content:'⋮'; visibility:visible; position:absolute; bottom:2px; left:50%; transform:translateX(-50%); font-size:13px; color:var(--dim); background:var(--msg-fill); padding:0 6px; border-radius:8px; }
+  .msg-collapsed .msg-toolout, .msg-collapsed .msg-ai .msg-foot, .msg-collapsed .msg-user .msg-foot{ display:none !important; }
+  .msg-collapsed .msg-ai .usage-line, .msg-collapsed .msg-ai .usage-inline{ display:none !important; }
+  .msg-collapsed .msg-ai pre, .msg-collapsed .msg-ai code{ display:none !important; }
   .msg-user .body{ white-space:pre-wrap; }
   .msg-user img{ max-width:220px; border-radius:8px; margin-top:5px; display:block; }
   .msg-ai p{ margin:0 0 3px; }
@@ -3255,7 +3275,12 @@
     <span class="db-status" id="designStatus" style="font:11px var(--ui);color:var(--dim);flex:1"></span>
   </div>
 
-  <div id="chat"><div class="col" id="col"></div></div>
+  <div id="chat"><div class="col" id="col"></div>
+    <div class="thread-summarize-banner hidden" id="threadSummarizeBanner">
+      <span class="tsb-text">Thread is getting long (<b id="tsbCount">0</b> messages). <b>Summarize</b> to free context.</span>
+      <button id="tsbSummarize">Summarize</button>
+      <button class="tsb-dismiss" id="tsbDismiss">Dismiss</button>
+    </div></div>
 
   <div class="composer-wrap">
     <div class="composer-top-strip">
@@ -4356,11 +4381,11 @@
       +'</div>';
     d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad">↘</button>'+esc(text)+(images||[]).map(u=>'<img src="'+u+'">').join("")+'</div>'+foot;
     parent.appendChild(d);
-    if(!quiet){ updateCopyButton(); updateComposerConsoleInfo(); scrollDown(true); }
+    if(!quiet){ updateCopyButton(); updateComposerConsoleInfo(); detectLongThread(); scrollDown(true); }
     return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'</div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span><button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">'▾'</button>'+chatActionButtons("ai")+'</div>'; return d; }
   // a screenshot / image the AI produced, shown inline in the transcript
   function makeShot(src, caption){
     const d=document.createElement("div"); d.className="shotcard";
@@ -6983,6 +7008,20 @@
   col.addEventListener("click",(e)=>{
     const noteBtn=e.target.closest(".note-save");
     if(noteBtn){ e.preventDefault(); saveChatMessageToNote(noteBtn); return; }
+
+    const collapseBtn=e.target.closest(".msg-collapse-btn");
+    if(collapseBtn){
+      e.preventDefault();
+      const aiMsg=collapseBtn.closest(".msg-ai");
+      if(!aiMsg) return;
+      const isCollapsed=aiMsg.classList.toggle("msg-collapsed");
+      collapseBtn.innerHTML=isCollapsed?'&#9652;':'&#9662;';
+      collapseBtn.title=isCollapsed?"Expand this exchange":"Collapse this exchange";
+      let prev=aiMsg.previousElementSibling;
+      while(prev && !prev.classList.contains("msg-user")) prev=prev.previousElementSibling;
+      if(prev) prev.classList.toggle("msg-collapsed",isCollapsed);
+      return;
+    }
     const actionBtn=e.target.closest(".msg-act");
     if(actionBtn){
       e.preventDefault();
@@ -8562,10 +8601,31 @@ Optional bundled starter model:
       if(pct>=85) h+=' · <span class="warn">'+pct+"% of window</span>";
       if(r.saved>0) h+=' · <span class="save">saves ~'+kfmt(r.saved)+"</span>";
       bar.innerHTML=h;
+      const oldFill=bar.querySelector(".ctxbar-fill"); if(oldFill) oldFill.remove();
+      if(r.budget>0){ const fill=document.createElement("div"); fill.className="ctxbar-fill"; const pctColor=pct>=85?"#ef4444":pct>=60?"#eab308":"#22c55e"; fill.style.cssText="width:"+Math.min(pct,100)+"%;background:"+pctColor; bar.appendChild(fill); }
       if($("ctxNow")) $("ctxNow").innerHTML='<div class="u-row"><span class="u-dim">current context</span><span>'+r.sent.toLocaleString()+" / "+r.budget.toLocaleString()+" tok</span></div>"+(r.saved>0?'<div class="u-row"><span class="u-dim">optimized away</span><span class="save">~'+r.saved.toLocaleString()+"</span></div>":"");
     }catch{ $("ctxbar").innerHTML=""; }
   }
   const scheduleEstimate=()=>{ clearTimeout(estTimer); estTimer=setTimeout(estimateContext,350); };
+  function detectLongThread(){
+    const count=col.querySelectorAll(".msg-user").length;
+    const banner=$("threadSummarizeBanner");
+    if(!banner) return;
+    if(count>15){
+      banner.classList.remove("hidden");
+      $("tsbCount").textContent=count;
+    }else{
+      banner.classList.add("hidden");
+    }
+  }
+  if($("tsbSummarize")) $("tsbSummarize").onclick=()=>{
+    $("input").value="Summarize the current chat conversation and save key points to the notepad.";
+    setWorkspaceTab("chat");
+    $("send")&&$("send").click();
+    $("threadSummarizeBanner").classList.add("hidden");
+  };
+  if($("tsbDismiss")) $("tsbDismiss").onclick=()=>$("threadSummarizeBanner").classList.add("hidden");
+
   $("showTimestamps").onchange=e=>setUi({showTimestamps:e.target.checked});
   $("showTokens").onchange=e=>setUi({showTokens:e.target.checked});
   $("collapseLogs").onchange=e=>setUi({collapseLogs:e.target.checked});
