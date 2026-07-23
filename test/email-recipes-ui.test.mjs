@@ -68,6 +68,20 @@ test("email connection UI supports one-click managed setup and manual fallback",
   assert.match(server, /emailOAuthCallbackRequest/);
 });
 
+test("connection failures remain visible and offer reconnect actions", () => {
+  const html = read("../src/ui.html");
+  const server = read("../src/server.js");
+  assert.match(html, /connectorConnectionNotice/);
+  assert.match(html, /needs-attention/);
+  assert.match(html, /Reconnect required/);
+  assert.match(html, /Try again/);
+  assert.match(html, /connectorNotice\(.*"error"/s);
+  assert.match(server, /lastTestStatus:\s*"error"/);
+  assert.match(server, /needsReconnect:\s*true/);
+  assert.match(server, /lastTestStatus:\s*"ok"/);
+  assert.match(server, /needsReconnect:\s*false/);
+});
+
 test("email recipes keep the selected AI and start in a fresh chat", () => {
   const html = read("../src/ui.html");
   assert.doesNotMatch(html, /id="emailLocalOnly"/);

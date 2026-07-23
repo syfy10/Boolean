@@ -200,6 +200,22 @@ test("visible browser is blocked by default while background research remains av
 
   const builder = new AgentController({ objective: "Build a small website", artifactRequired: true });
   assert.equal(builder.allowTool("screenshot_page", { url: "http://localhost:3210" }).allowed, true);
+
+  const email = new AgentController({ objective: "Clean up old Gmail promotions", actionRequired: true });
+  assert.equal(email.allowTool("visible_browser_open", { url: "https://mail.google.com/" }).allowed, true);
+  assert.match(email.snapshot().plan[0].step, /mailbox/i);
+});
+
+test("task-specific plans advance from email and preview tools", () => {
+  const email = new AgentController({ objective: "Clean up old Outlook email", actionRequired: true });
+  email.noteTool("email_cleanup_preview", { provider: "outlook" }, "Plan ready with 20 candidates");
+  assert.equal(email.snapshot().plan.find((item) => /cleanup plan/i.test(item.step)).status, "done");
+  assert.equal(email.snapshot().plan.find((item) => /confirmation/i.test(item.step)).status, "in_progress");
+
+  const app = new AgentController({ objective: "Build a small website", artifactRequired: true });
+  app.noteTool("run_project", {}, "Preview ready at http://localhost:3210");
+  assert.equal(app.snapshot().plan.find((item) => /run the project locally/i.test(item.step)).status, "done");
+  assert.equal(app.snapshot().plan.find((item) => /open the result/i.test(item.step)).status, "in_progress");
 });
 
 test("task contract discovers an explicit sandbox root from continued chat context", () => {

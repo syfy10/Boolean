@@ -41,7 +41,8 @@ export async function resolveProviderTarget(config, provider = config.provider, 
     if (!p.apiKey) {
       throw new Error(`no ${CLOUD[provider]} API key set - add it in Settings or run: /key ${provider} <key>`);
     }
-    const base = providerBaseUrl(p.baseUrl);
+    const override = config.ui?.apiOverrides?.[provider];
+    const base = providerBaseUrl(override || p.baseUrl);
     if (!base || !p.model) {
       throw new Error(`${CLOUD[provider]} needs an endpoint and model in Settings.`);
     }
@@ -52,7 +53,14 @@ export async function resolveProviderTarget(config, provider = config.provider, 
         "Local models remain available — switch to a local model in Settings to continue working."
       );
     }
-    return { base, apiKey: p.apiKey, model: p.model, provider, maxRetries: config.cloudRetries || 3 };
+    const configuredRetries = Number(config.ui?.codingAgent?.maxRetries);
+    // The request loop historically names this value maxRetries even though it
+    // counts total attempts. Settings exposes retries, so include the initial
+    // request when translating that preference for the provider client.
+    const maxRetries = Number.isFinite(configuredRetries)
+      ? 1 + Math.max(0, Math.min(5, Math.round(configuredRetries)))
+      : 3;
+    return { base, apiKey: p.apiKey, model: p.model, provider, maxRetries };
   }
   throw new Error(`unknown provider: ${provider}`);
 }

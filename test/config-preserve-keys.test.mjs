@@ -46,6 +46,48 @@ test("config key preservation does not restore deleted connector rows", () => {
   assert.deepEqual(next.connectors.agents, []);
 });
 
+test("config saves preserve MCP tokens, OAuth, and connection health", () => {
+  const previous = {
+    connectors: {
+      mcp: [{
+        id: "mcp-1",
+        url: "https://example.test/mcp",
+        token: "mcp-secret",
+        oauth: { accessToken: "access", refreshToken: "refresh" },
+        toolCount: 4,
+        tools: ["search", "read"],
+        lastTestStatus: "ok",
+        needsReconnect: false
+      }]
+    }
+  };
+  const next = {
+    connectors: {
+      mcp: [{ id: "mcp-1", url: "https://example.test/mcp", token: "", oauth: null }]
+    }
+  };
+
+  preserveSavedApiKeys(next, previous);
+
+  assert.equal(next.connectors.mcp[0].token, "mcp-secret");
+  assert.deepEqual(next.connectors.mcp[0].oauth, previous.connectors.mcp[0].oauth);
+  assert.equal(next.connectors.mcp[0].toolCount, 4);
+  assert.deepEqual(next.connectors.mcp[0].tools, ["search", "read"]);
+  assert.equal(next.connectors.mcp[0].lastTestStatus, "ok");
+  assert.equal(next.connectors.mcp[0].needsReconnect, false);
+});
+
+test("config MCP preservation does not restore deleted connector rows", () => {
+  const previous = {
+    connectors: { mcp: [{ id: "mcp-1", token: "secret", oauth: { refreshToken: "refresh" } }] }
+  };
+  const next = { connectors: { mcp: [] } };
+
+  preserveSavedApiKeys(next, previous);
+
+  assert.deepEqual(next.connectors.mcp, []);
+});
+
 test("config saves preserve email OAuth and local client secrets", () => {
   const previous = {
     connectors: {

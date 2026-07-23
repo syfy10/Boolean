@@ -155,7 +155,7 @@ function inferContract(options, saved) {
 
   const browserPolicy = /\b(?:do not|don't|never|no)\s+(?:use|open|start)?\s*(?:the\s+)?browser\b/i.test(source)
     ? "blocked"
-    : /\b(?:browser|visual|screenshot|rendered page|live site)\b/i.test(options.objective || "") ? "allowed" : "on_demand";
+    : /\b(?:browser|visual|screenshot|rendered page|live site|website|web app|localhost|gmail|outlook|mailbox|inbox|oauth|email cleanup)\b/i.test(options.objective || "") ? "allowed" : "on_demand";
   const allowedRoots = [...new Set([
     ...(Array.isArray(saved.allowedRoots) ? saved.allowedRoots : []),
     ...extractExplicitRoots(source),
@@ -177,7 +177,8 @@ function fileArgument(args = {}) {
   return args.path || args.file || args.cwd || "";
 }
 
-function defaultPlan(projectBound, debugRequired = false) {
+function defaultPlan(projectBound, debugRequired = false, objective = "") {
+  const task = String(objective || "").toLowerCase();
   if (debugRequired) {
     return [
       { step: "Inspect the relevant code and current project state", status: "in_progress" },
@@ -185,6 +186,56 @@ function defaultPlan(projectBound, debugRequired = false) {
       { step: "Identify the root cause and apply a targeted fix", status: "pending" },
       { step: "Repeat the reproduction and run regression checks", status: "pending" },
       { step: "Report the verified before-and-after result", status: "pending" }
+    ];
+  }
+  if (/\b(?:email|gmail|outlook|mailbox|inbox)\b/.test(task)) {
+    if (/\b(?:clean|cleanup|trash|spam|old mail|old email)\b/.test(task)) {
+      return [
+        { step: "Verify the connected mailbox", status: "in_progress" },
+        { step: "Open the mailbox in Boolean browser", status: "pending" },
+        { step: "Apply protection rules", status: "pending" },
+        { step: "Scan and group cleanup candidates", status: "pending" },
+        { step: "Review the read-only cleanup plan", status: "pending" },
+        { step: "Request confirmation before moving mail", status: "pending" },
+        { step: "Report results and Undo details", status: "pending" }
+      ];
+    }
+    return [
+      { step: "Verify the connected mailbox", status: "in_progress" },
+      { step: "Open the relevant email in Boolean browser", status: "pending" },
+      { step: "Read the requested conversation or messages", status: "pending" },
+      { step: "Prepare the requested email result", status: "pending" },
+      { step: "Report the verified outcome", status: "pending" }
+    ];
+  }
+  if (/\b(?:website|web app|landing page|dashboard|game|application|frontend|html|css)\b/.test(task)) {
+    return [
+      { step: projectBound ? "Inspect the current project" : "Prepare the project workspace", status: "in_progress" },
+      { step: "Create the implementation plan", status: "pending" },
+      { step: "Build the requested experience", status: "pending" },
+      { step: "Run the project locally", status: "pending" },
+      { step: "Open the result in Boolean browser", status: "pending" },
+      { step: "Run checks and inspect the result", status: "pending" },
+      { step: "Report the verified outcome", status: "pending" }
+    ];
+  }
+  if (/\b(?:deploy|publish|release|installer|package)\b/.test(task)) {
+    return [
+      { step: "Inspect the project and release state", status: "in_progress" },
+      { step: "Run required checks", status: "pending" },
+      { step: "Build the release artifacts", status: "pending" },
+      { step: "Deploy to the requested targets", status: "pending" },
+      { step: "Verify the deployed result", status: "pending" },
+      { step: "Report links, versions, and checksums", status: "pending" }
+    ];
+  }
+  if (/\b(?:browser|web page|page|site|research|search the web|look up)\b/.test(task)) {
+    return [
+      { step: "Confirm the requested page or research target", status: "in_progress" },
+      { step: "Open the target in Boolean browser", status: "pending" },
+      { step: "Inspect the relevant content", status: "pending" },
+      { step: "Complete the requested browser task", status: "pending" },
+      { step: "Report the verified result", status: "pending" }
     ];
   }
   return [
@@ -195,8 +246,8 @@ function defaultPlan(projectBound, debugRequired = false) {
   ];
 }
 
-function normalizePlan(plan, projectBound, debugRequired = false) {
-  const source = Array.isArray(plan) && plan.length ? plan : defaultPlan(projectBound, debugRequired);
+function normalizePlan(plan, projectBound, debugRequired = false, objective = "") {
+  const source = Array.isArray(plan) && plan.length ? plan : defaultPlan(projectBound, debugRequired, objective);
   return source.slice(0, 20).map((item) => ({
     step: cleanText(item?.step, 180) || "Task step",
     status: ["pending", "in_progress", "done"].includes(item?.status) ? item.status : "pending"
@@ -208,6 +259,54 @@ function setPlanProgress(plan, index, status) {
   plan[index].status = status;
   if (status === "in_progress") {
     for (let i = 0; i < index; i++) if (plan[i].status !== "done") plan[i].status = "done";
+  }
+}
+
+function advanceMatchingPlanStep(plan, matcher, { activateNext = true } = {}) {
+  const index = plan.findIndex((item) => matcher.test(String(item?.step || "")));
+  if (index < 0) return false;
+  setPlanProgress(plan, index, "done");
+  if (activateNext && plan[index + 1]?.status === "pending") plan[index + 1].status = "in_progress";
+  return true;
+}
+
+function advanceTaskPlanForTool(plan, name) {
+  if (!Array.isArray(plan) || !plan.length) return;
+  if (name === "visible_browser_open") {
+    advanceMatchingPlanStep(plan, /\bopen\b.*\b(?:browser|mailbox|email|target|result)\b/i);
+    return;
+  }
+  if (name === "email_cleanup_preview") {
+    for (const matcher of [
+      /\bverify\b.*\bmailbox\b/i,
+      /\bopen\b.*\bmailbox\b/i,
+      /\bprotection rules\b/i,
+      /\bscan\b.*\bcandidates\b/i,
+      /\breview\b.*\bcleanup plan\b/i
+    ]) advanceMatchingPlanStep(plan, matcher, { activateNext: false });
+    const confirmation = plan.findIndex((item) => /\bconfirmation\b/i.test(String(item?.step || "")));
+    if (confirmation >= 0) setPlanProgress(plan, confirmation, "in_progress");
+    return;
+  }
+  if (name === "email_cleanup_trash" || name === "email_cleanup_undo") {
+    const report = plan.findIndex((item) => /\breport\b/i.test(String(item?.step || "")));
+    if (report >= 0) setPlanProgress(plan, report, "in_progress");
+    return;
+  }
+  if (/^email_/.test(name)) {
+    advanceMatchingPlanStep(plan, /\bverify\b.*\bmailbox\b/i, { activateNext: false });
+    advanceMatchingPlanStep(plan, /\bopen\b.*\b(?:mailbox|email)\b/i, { activateNext: false });
+    if (!advanceMatchingPlanStep(plan, /\b(?:read|scan)\b/i)) {
+      advanceMatchingPlanStep(plan, /\bprepare\b/i);
+    }
+    return;
+  }
+  if (name === "run_project") {
+    advanceMatchingPlanStep(plan, /\brun\b.*\b(?:project|locally)\b/i);
+    return;
+  }
+  if (name === "read_page" || name === "screenshot_page" || name === "inspect_page_layout") {
+    advanceMatchingPlanStep(plan, /\b(?:inspect|checks)\b/i);
   }
 }
 
@@ -291,7 +390,9 @@ export class AgentController {
       ...extractConstraints(options.taskContext || "")
     ])].filter(Boolean).slice(-10);
     this.phase = saved.phase || (this.artifactRequired ? "planning" : "executing");
-    this.plan = this.artifactRequired ? normalizePlan(saved.plan, this.projectBound, this.debugRequired) : [];
+    this.plan = (this.artifactRequired || this.actionRequired)
+      ? normalizePlan(saved.plan, this.projectBound, this.debugRequired, this.objective)
+      : [];
     this.toolCount = Number(saved.toolCount) || 0;
     this.preparationCount = Number(saved.preparationCount) || 0;
     this.inspectionCount = Number(saved.inspectionCount) || 0;
@@ -615,7 +716,7 @@ export class AgentController {
     }
 
     if (name === "update_plan" && Array.isArray(args.steps) && args.steps.length) {
-      this.plan = normalizePlan(args.steps, this.projectBound, this.debugRequired);
+      this.plan = normalizePlan(args.steps, this.projectBound, this.debugRequired, this.objective);
       this.phase = "executing";
       return this.snapshot();
     }
@@ -758,6 +859,7 @@ export class AgentController {
         if (this.plan[verificationIndex + 1]) this.plan[verificationIndex + 1].status = "in_progress";
       }
     }
+    advanceTaskPlanForTool(this.plan, name);
     return this.snapshot();
   }
 

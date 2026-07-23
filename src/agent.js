@@ -115,6 +115,7 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
     "- Use notepad_read/notepad_write when the user asks to read or save notes. Save the exact requested content, not an older reply.",
     "- For connected Gmail or Outlook, use email_list/email_read to inspect mail and email_create_draft/email_reply_draft to save a draft. Do not claim inbox access is unavailable when these connectors are configured.",
     "- For email cleanup, always call email_cleanup_preview first. It is read-only and returns a saved plan for a connected Gmail or Outlook account. Only call email_cleanup_trash after the user explicitly confirms a batch; it re-checks protection rules and moves mail to Trash. Use email_cleanup_undo to restore a batch. Boolean has no permanent-delete email tool. When asking for cleanup confirmation, say the user can click the Move to Trash button or type `move next batch to trash`; do not keep asking them to type `go ahead`.",
+    "- Keep applicable work visible. For connected email tasks, open the matching Gmail or Outlook mailbox in Boolean's browser. For websites, apps, games, OAuth, page interaction, and visual verification, open the relevant page or local preview in the visible browser so the user can watch. Do not open the browser for unrelated file-only work.",
     "- When webmail is open in Boolean's browser, use that visible message as context and the connected account for reliable mailbox actions. Verify the connected account before any write; if the browser account may differ, ask the user instead of guessing.",
     "- Sending a connected-account draft requires email_send_draft and an explicit confirmation. If Draft-only is on, create the draft and stop.",
     "- For other visible webmail, read the visible page once when needed and use visible_browser_draft_email to insert a draft; never press its Send button.",
@@ -137,7 +138,22 @@ function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
 export function systemPrompt(projectsDir = "", fullAccess = false, config = null) {
   const connectors = connectorSummary(config);
   const learned = config?.ui?.learnedMemory === false ? "" : summarizeLearnedPreferences();
-  return cleanSystemPrompt(projectsDir, fullAccess, connectors, learned);
+  const agent = config?.ui?.codingAgent || {};
+  const policy = [
+    "",
+    "USER-SELECTED CODING POLICY:",
+    `- Mode: ${String(agent.mode || "quick")}.`,
+    agent.autoTest === false
+      ? "- Do not run tests automatically; tell the user which checks remain."
+      : "- Run the smallest relevant build/tests automatically before claiming completion.",
+    agent.autoCommit === true
+      ? "- A commit is allowed after verification, but never push without an explicit user request."
+      : "- Do not create a git commit unless the user explicitly requests one.",
+    config?.ui?.autoRouteModels === true
+      ? "- Automatic task profiling is enabled. It may adjust task strategy, but must never change provider, plan, or API key without the user's explicit selection."
+      : "- Keep the currently selected model/provider for this task."
+  ].join("\n");
+  return cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) + policy;
 }
 
 // Load per-project rules from BOOLEAN.md or .boolean/rules.md. These teach

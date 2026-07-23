@@ -10,7 +10,8 @@ import { spawn, spawnSync } from "node:child_process";
 import * as sea from "node:sea";
 import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
-  APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
+  APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
+  defaultConfig, defaultUiSettings
 } from "./config.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
@@ -76,6 +77,86 @@ function compressedUiHtml(html) {
 function loadLegalText(file) {
   if (IS_SEA) return fs.readFileSync(path.join(path.dirname(process.execPath), file), "utf8");
   return fs.readFileSync(appPath("assets", file), "utf8");
+}
+
+const ABOUT_RELEASES = [
+  {
+    version: "0.9.46",
+    date: "2026-07-23",
+    title: "Reliable settings and safer preferences",
+    details: [
+      "Connected model routing, retries, notifications, privacy, shortcuts, diagnostics, and agent preferences to real runtime behavior.",
+      "Separated preference reset from a guarded full-data deletion, while preserving saved keys, accounts, OAuth connections, and chats during updates.",
+      "Removed or clearly marked unsupported controls so Settings no longer promises unavailable voice, telemetry, encryption, proxy, or connector behavior."
+    ]
+  },
+  {
+    version: "0.9.45",
+    date: "2026-07-23",
+    title: "Task progress and workspace reliability",
+    details: [
+      "Added a persistent coding-task checklist with live planning, working, and verification states.",
+      "Improved native window layout, browser split sizing, and readiness status colors."
+    ]
+  },
+  {
+    version: "0.9.44",
+    date: "2026-07-22",
+    title: "Smarter context and compact UI",
+    details: [
+      "Added context usage controls and automatic summaries for longer conversations.",
+      "Refined Settings spacing, Side chat scaling, and narrow-window behavior."
+    ]
+  },
+  {
+    version: "0.9.42",
+    date: "2026-07-21",
+    title: "Browser, email, and workflow polish",
+    details: [
+      "Improved embedded-browser controls and responsive workspace layouts.",
+      "Expanded email recipes and safer connected-account workflows."
+    ]
+  }
+];
+
+function gitText(args) {
+  try {
+    const result = spawnSync("git", args, {
+      cwd: appPath(),
+      encoding: "utf8",
+      timeout: 1800,
+      windowsHide: true
+    });
+    if (result.status !== 0) return "";
+    return String(result.stdout || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function aboutPayload() {
+  const branch = gitText(["branch", "--show-current"]);
+  const lines = gitText([
+    "log", "-6", "--date=short",
+    "--pretty=format:%h%x09%ad%x09%s"
+  ]).split(/\r?\n/).filter(Boolean);
+  const recentCommits = lines.map((line) => {
+    const [hash = "", date = "", ...subjectParts] = line.split("\t");
+    return { hash, date, subject: subjectParts.join("\t") };
+  }).filter((entry) => entry.hash && entry.subject);
+  const latest = recentCommits[0] || null;
+  return {
+    appName: APP_NAME,
+    version: APP_VERSION,
+    displayVersion: APP_DISPLAY_VERSION,
+    channel: "Stable",
+    repository: "https://github.com/syfy10/Boolean",
+    branch: branch || "release",
+    sourceAvailable: !!branch,
+    commit: latest,
+    recentCommits,
+    releases: ABOUT_RELEASES
+  };
 }
 
 async function readBody(req) {
@@ -249,7 +330,11 @@ function publicConnectors(config, managedEmailOAuthClients = {}) {
       url: x.url, command: x.command, args: x.args, enabled: x.enabled !== false,
       hasKey: !!(x.token || x.oauth?.accessToken), auth: x.oauth ? "oauth" : (x.token ? "bearer" : "none"),
       toolCount: Number.isFinite(Number(x.toolCount)) ? Number(x.toolCount) : undefined,
-      tools: Array.isArray(x.tools) ? x.tools.slice(0, 20) : []
+      tools: Array.isArray(x.tools) ? x.tools.slice(0, 20) : [],
+      lastTestedAt: Number(x.lastTestedAt || 0),
+      lastTestStatus: x.lastTestStatus || "",
+      lastError: x.lastError || "",
+      needsReconnect: x.needsReconnect === true
     })) : [],
     agents: Array.isArray(c.agents) ? c.agents.map((x) => ({
       id: x.id, name: x.name, url: x.url, enabled: x.enabled !== false, hasKey: !!x.apiKey
@@ -413,7 +498,12 @@ function mergeConnectors(current, incoming) {
   const prevApis = new Map((current?.apis || []).map((a) => [a.id, a]));
   const prevAgents = new Map((current?.agents || []).map((a) => [a.id, a]));
   const prevMcp = new Map((current?.mcp || []).map((m) => [m.id, m]));
-  const next = { apis: Array.isArray(current?.apis) ? current.apis : [], mcp: [], agents: [], email: current?.email || {} };
+  const next = {
+    apis: Array.isArray(current?.apis) ? current.apis : [],
+    mcp: Array.isArray(current?.mcp) ? current.mcp : [],
+    agents: Array.isArray(current?.agents) ? current.agents : [],
+    email: current?.email || {}
+  };
   if (Array.isArray(incoming?.apis)) {
     next.apis = incoming.apis.slice(0, 30).map((x) => {
       const id = String(x.id || crypto.randomUUID());
@@ -448,7 +538,13 @@ function mergeConnectors(current, incoming) {
         args: type === "local" ? String(x.args || "").trim().slice(0, 1000) : "",
         token: type === "remote" ? token : "",
         oauth: type === "remote" ? (old?.oauth || null) : null,
-        enabled: x.enabled !== false
+        enabled: x.enabled !== false,
+        toolCount: x.toolCount ?? old?.toolCount,
+        tools: Array.isArray(x.tools) ? x.tools : (old?.tools || []),
+        lastTestedAt: x.lastTestedAt ?? old?.lastTestedAt,
+        lastTestStatus: x.lastTestStatus ?? old?.lastTestStatus,
+        lastError: x.lastError ?? old?.lastError,
+        needsReconnect: x.needsReconnect ?? old?.needsReconnect
       };
     }).filter((x) => x.type === "remote" ? /^https?:\/\//i.test(x.url) : x.command);
   }
@@ -727,7 +823,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
           t.pendingTask.controller?.checks?.length ? `Checks: ${t.pendingTask.controller.checks.join("; ")}` : ""
         ].filter(Boolean).join("\n")
       : activeTaskPrompt(t.pendingTask);
-    const digest = t.memoryDigest && typeof t.memoryDigest === "object" ? [
+    const useChatMemory = config.ui?.referenceChatMemory !== false;
+    const digest = useChatMemory && t.memoryDigest && typeof t.memoryDigest === "object" ? [
       "DURABLE CHAT MEMORY:",
       t.memoryDigest.activeTopic ? `Active topic: ${t.memoryDigest.activeTopic}` : "",
       t.memoryDigest.userCorrections?.length ? `User corrections: ${t.memoryDigest.userCorrections.slice(-2).join(" | ")}` : "",
@@ -735,7 +832,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       t.memoryDigest.recentAnswers?.length ? `Recent answers: ${t.memoryDigest.recentAnswers.slice(-2).join(" | ")}` : ""
     ].filter(Boolean).join("\n") : "";
     const brief = t.kind === "project" && t.projectDir ? projectBrief(t.projectDir) : "";
-    const memory = config.ui?.autoSave === false ? "" : buildLocalChatMemory([...threads.values()], {
+    const memory = !useChatMemory || config.ui?.autoSave === false ? "" : buildLocalChatMemory([...threads.values()], {
       currentThreadId: t.id,
       latestText,
       projectDir: t.kind === "project" ? t.projectDir || "" : "",
@@ -1004,6 +1101,11 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         const text = loadLegalText(file);
         res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
         res.end(text);
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/about") {
+        json(aboutPayload());
         return;
       }
 
@@ -1399,7 +1501,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
 
         // Local model
         const modelFile = config.model || "";
-        results.localModel = { status: modelFile ? "ok" : "warn", label: modelFile || "No model selected", detail: modelFile ? "available" : "select a model" };
+        const configuredLocalModel = config.local?.model || modelFile;
+        results.localModel = { status: configuredLocalModel ? "ok" : "warn", label: configuredLocalModel || "No model selected", detail: configuredLocalModel ? "available" : "select a model" };
 
         // Git
         const git = spawnCheck("git", ["--version"]);
@@ -1431,12 +1534,12 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         // Tool permissions
         results.permissions = {
           status: "ok",
-          label: (config.fullAccess ? "Full access" : "Standard"),
-          detail: config.fullAccess ? "file + network + commands" : "ask before risky actions"
+          label: (config.autoApprove ? "Auto" : "Manual"),
+          detail: config.autoApprove ? "approved workspace actions run automatically" : "ask before risky actions"
         };
 
         // Cloud budget
-        const budget = config.cloud?.monthlyBudget || 0;
+        const budget = config.budgetLimit || 0;
         results.cloudBudget = {
           status: budget > 0 ? "ok" : "idle",
           label: budget > 0 ? "$" + budget + "/mo" : "no limit",
@@ -1729,6 +1832,35 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         return;
       }
 
+      if (req.method === "POST" && p === "/api/settings/reset") {
+        config.ui = defaultUiSettings();
+        saveConfig(config);
+        json({ ok: true, ui: config.ui });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/delete-all-data") {
+        const body = await readBody(req);
+        if (body.confirm !== "DELETE ALL BOOLEAN DATA") {
+          json({ ok: false, error: "Type DELETE ALL BOOLEAN DATA to confirm." }, 400);
+          return;
+        }
+        for (const thread of threads.values()) {
+          try { thread.abort?.abort(); } catch {}
+        }
+        threads.clear();
+        clearThreads();
+        clearPreferences();
+        clearCookies();
+        const fresh = defaultConfig();
+        for (const key of Object.keys(config)) delete config[key];
+        Object.assign(config, fresh);
+        saveConfig(config, { preserveSecrets: false });
+        newThread();
+        json({ ok: true, activeThreadId });
+        return;
+      }
+
       // read a file for the "open in notepad" chat-link action; scoped to the
       // projects folder and any project chat's own folder for safety
       if (req.method === "GET" && p === "/api/file-content") {
@@ -1755,21 +1887,44 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         const name = cleanConnectorName(body.name) || (mcpUrl.includes("robinhood.com") ? "Robinhood Trading" : "MCP server");
         const token = typeof body.token === "string" ? body.token.trim() : "";
         if (!/^https?:\/\//i.test(mcpUrl)) return json({ ok: false, error: "Enter a valid http(s) MCP URL" }, 400);
-        const connector = { id: crypto.randomUUID(), name, type: "remote", url: mcpUrl, token, oauth: null, enabled: true };
+        const existing = (config.connectors?.mcp || []).find((item) => item.id === body.id || item.url === mcpUrl);
+        const connector = {
+          ...(existing || {}),
+          id: existing?.id || String(body.id || crypto.randomUUID()),
+          name,
+          type: "remote",
+          url: mcpUrl,
+          token: token || existing?.token || "",
+          oauth: existing?.oauth || null,
+          enabled: true
+        };
         try {
           const result = await testMcpConnector(connector);
           saveMcpConnector({
             ...connector,
             toolCount: result.toolCount,
             tools: result.tools.map((tool) => tool.name).filter(Boolean).slice(0, 50),
-            lastTestedAt: Date.now()
+            lastTestedAt: Date.now(),
+            lastTestStatus: "ok",
+            lastError: "",
+            needsReconnect: false
           });
           return json({ ok: true, connected: true, connectorId: connector.id, ...result,
             tools: result.tools.map((tool) => tool.name).filter(Boolean) });
         } catch (err) {
           if (!(err instanceof McpHttpError) || err.status !== 401 || token) {
+            const status = err?.mcpStatus || classifyMcpError(err, connector);
+            saveMcpConnector({
+              ...connector,
+              toolCount: 0,
+              tools: [],
+              lastTestedAt: Date.now(),
+              lastTestStatus: "error",
+              lastError: err.message || "connection failed",
+              needsReconnect: true
+            });
             return json({ ok: false, error: err.message || "connection failed",
-              ...mcpStatusPayload(err?.mcpStatus || classifyMcpError(err, connector)) });
+              connectorId: connector.id, ...mcpStatusPayload(status) });
           }
           try {
             const metadata = await discoverMcpOAuth(mcpUrl, err.authHeader);
@@ -1795,8 +1950,17 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
               authorizationUrl: buildMcpAuthorizationUrl(metadata, client, redirectUri, state, pkce.challenge)
             });
           } catch (oauthError) {
+            saveMcpConnector({
+              ...connector,
+              toolCount: 0,
+              tools: [],
+              lastTestedAt: Date.now(),
+              lastTestStatus: "error",
+              lastError: oauthError.message || "could not start authorization",
+              needsReconnect: true
+            });
             return json({ ok: false, error: oauthError.message || "could not start authorization",
-              ...mcpStatusPayload(classifyMcpError(oauthError, connector)) });
+              connectorId: connector.id, ...mcpStatusPayload(classifyMcpError(oauthError, connector)) });
           }
         }
       }
@@ -1828,6 +1992,13 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         if (oauthError || !code) {
           transaction.status = "error";
           transaction.error = oauthError || "Robinhood did not return an authorization code.";
+          saveMcpConnector({
+            ...transaction.connector,
+            lastTestedAt: Date.now(),
+            lastTestStatus: "error",
+            lastError: transaction.error,
+            needsReconnect: true
+          });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
           res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boolean.", false));
           return;
@@ -1854,7 +2025,10 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             ...connector,
             toolCount: result.toolCount,
             tools: result.tools.map((tool) => tool.name).filter(Boolean).slice(0, 50),
-            lastTestedAt: Date.now()
+            lastTestedAt: Date.now(),
+            lastTestStatus: "ok",
+            lastError: "",
+            needsReconnect: false
           });
           transaction.status = "complete";
           transaction.connectorId = connector.id;
@@ -1866,6 +2040,13 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
+          saveMcpConnector({
+            ...transaction.connector,
+            lastTestedAt: Date.now(),
+            lastTestStatus: "error",
+            lastError: transaction.error,
+            needsReconnect: true
+          });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
           res.end(oauthResultPage("Could not connect", "Return to Boolean and try again.", false));
         }
@@ -2060,17 +2241,41 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         let url = String(body.url || "").trim();
         let token = typeof body.token === "string" ? body.token.trim() : "";
         let connector = { url, token };
+        let saved = null;
         // testing a saved server by id: fall back to its stored url/token
         if (body.id) {
-          const saved = (config.connectors?.mcp || []).find((x) => x.id === body.id);
+          saved = (config.connectors?.mcp || []).find((x) => x.id === body.id) || null;
           if (saved) connector = saved;
         }
         try {
           const result = await testMcpConnector(connector, { onRefresh: () => saveConfig(config) });
+          if (saved) {
+            Object.assign(saved, {
+              toolCount: result.toolCount,
+              tools: result.tools.map((tool) => tool.name).filter(Boolean).slice(0, 50),
+              lastTestedAt: Date.now(),
+              lastTestStatus: "ok",
+              lastError: "",
+              needsReconnect: false
+            });
+            saveConfig(config);
+          }
           json({ ok: true, ...result, tools: result.tools.map((tool) => tool.name).filter(Boolean) });
         } catch (err) {
+          const status = err?.mcpStatus || classifyMcpError(err, connector);
+          if (saved) {
+            Object.assign(saved, {
+              toolCount: 0,
+              tools: [],
+              lastTestedAt: Date.now(),
+              lastTestStatus: "error",
+              lastError: err.message || "connection failed",
+              needsReconnect: true
+            });
+            saveConfig(config);
+          }
           json({ ok: false, error: err.message || "connection failed",
-            ...mcpStatusPayload(err?.mcpStatus || classifyMcpError(err, connector)) });
+            ...mcpStatusPayload(status) });
         }
         return;
       }
@@ -2608,6 +2813,17 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             t.log.push(entry);
             send({ type: "step", entry });
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
+            if (/^email_/.test(step.name || "")) {
+              const provider = String(step.args?.provider || "").toLowerCase();
+              const emailUrl = provider === "gmail"
+                ? "https://mail.google.com/"
+                : provider === "outlook" ? "https://outlook.live.com/mail/" : "";
+              if (emailUrl) send({ type: "browser", action: "open", url: emailUrl });
+            }
+            if (step.name === "run_project") {
+              const previewUrl = String(step.result || "").match(/https?:\/\/(?:localhost|127\.0\.0\.1):\d+[^\s"'<>]*/i)?.[0];
+              if (previewUrl) send({ type: "browser", action: "open", url: previewUrl });
+            }
           },
           onOptimize: (o) => send({ type: "optimized", ...o }),
           onController: (controller) => {

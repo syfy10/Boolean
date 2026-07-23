@@ -71,7 +71,7 @@ test("compact rail uses the matching notepad icon and Boolean search", () => {
 test("compact recipes layout keeps details bounded instead of making a giant lower panel", () => {
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipes-shell,\s*body\.browser-on\.recipes-open \.recipes-shell\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(220px,280px\);[^}]*overflow:hidden;/s
+    /body\.recipes-compact\.recipes-open \.recipes-shell,\s*body\.browser-on\.recipes-open \.recipes-shell\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(200px,240px\);[^}]*overflow:hidden;/s
   );
   assert.match(
     ui,
@@ -83,7 +83,12 @@ test("compact recipes layout keeps details bounded instead of making a giant low
   );
   assert.match(
     ui,
-    /@media\(max-width:760px\)\{[\s\S]*?\.recipes-shell\{[^}]*grid-template-rows:minmax\(0,1fr\) minmax\(150px,220px\);[^}]*overflow:hidden;/s
+    /@media\(max-width:760px\)\{[\s\S]*?\.recipes-shell\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(180px,210px\);[^}]*overflow:hidden;/s
+  );
+  assert.match(ui, /\.recipe-card\{[^}]*min-height:64px;/s);
+  assert.match(
+    ui,
+    /body\.recipes-compact\.recipes-open \.recipe-actions,\s*body\.browser-on\.recipes-open \.recipe-actions\{[^}]*position:sticky;[^}]*bottom:0;/s
   );
 });
 
@@ -97,24 +102,43 @@ test("settings and account stay inside the main footer controls", () => {
   assert.doesNotMatch(ui, /composer-footer-nav/);
   assert.match(ui, /<div class="app-footer" aria-label="App footer">\s*<div class="sidefoot-nav" aria-label="Settings and account">[\s\S]*id="topSettings" title="Settings" aria-label="Settings"[\s\S]*id="cloudSignIn" title="Sign in to your Boolean account" aria-label="Account"/);
   assert.match(ui, /\.sidefoot-nav\{[^}]*display:flex;[^}]*background:transparent;[^}]*box-shadow:none;/s);
-  assert.match(ui, /\.app-footer\{[^}]*position:absolute;[^}]*bottom:0;[^}]*height:24px;[^}]*border-top:1px solid color-mix\(in srgb,var\(--border\) 45%,transparent\);[^}]*background:color-mix\(in srgb,var\(--bg\) 96%,transparent\);/s);
+  assert.match(ui, /--app-footer-h:28px/);
+  assert.match(ui, /\.app-footer\{[^}]*position:absolute;[^}]*bottom:0;[^}]*height:var\(--app-footer-h\);[^}]*border-top:1px solid color-mix\(in srgb,var\(--border\) 45%,transparent\);[^}]*background:color-mix\(in srgb,var\(--bg\) 96%,transparent\);/s);
   assert.match(ui, /\.app-footer \.sidefoot-nav\{ display:flex; \}/);
   assert.match(ui, /id="footerVersion" aria-label="Boolean version"/);
-  assert.match(ui, /\.app-footer-version\{[^}]*margin-left:auto;[^}]*font:6\.5px\/1 var\(--mono\);/s);
+  assert.match(ui, /\.app-footer-version\{[^}]*margin-left:auto;[^}]*font:7\.5px\/1 var\(--mono\);/s);
   assert.match(ui, /if\(\$\("footerVersion"\)\) \$\("footerVersion"\)\.textContent="Boolean "\+\(state\.displayVersion/);
   assert.match(ui, /if\(info\) info\.innerHTML="";/);
   assert.doesNotMatch(ui, /composer-brand/);
   assert.doesNotMatch(ui, /\.composer-tools > \.sidefoot-nav\{ display:flex; \}/);
-  assert.match(ui, /\.composer-wrap\{[^}]*--composer-bottom:20px;[^}]*bottom:24px;/s);
+  assert.match(ui, /\.composer-wrap\{[^}]*--composer-bottom:20px;[^}]*bottom:var\(--app-footer-h\);/s);
   assert.match(ui, /body\.composer-simple \.composer-wrap\{[^}]*--composer-bottom:4px;/s);
-  assert.match(ui, /#topSettings,#cloudSignIn\{[^}]*width:22px;[^}]*height:22px;[^}]*font-size:0;/s);
+  assert.match(ui, /#topSettings,#cloudSignIn\{[^}]*width:25px;[^}]*height:25px;[^}]*font-size:0;/s);
   assert.match(ui, /#cloudSignInText\{ display:none; \}/);
+});
+
+test("about page shows build metadata, release history, and working links", () => {
+  assert.equal((ui.match(/id="aboutVersion"/g) || []).length, 1);
+  assert.match(ui, /id="brandVersion"/);
+  assert.match(ui, /id="aboutChannel"/);
+  assert.match(ui, /id="aboutBranch"/);
+  assert.match(ui, /id="aboutCommit"/);
+  assert.match(ui, /id="aboutReleaseDate"/);
+  assert.match(ui, /id="aboutChangelog"/);
+  assert.match(ui, /id="aboutGitList"/);
+  assert.match(ui, /async function loadAboutInfo/);
+  assert.match(ui, /if\(section\.dataset\.sec==="about"\) loadAboutInfo\(\);/);
+  assert.match(ui, /aboutSource:"https:\/\/github\.com\/syfy10\/Boolean"/);
+  assert.match(ui, /aboutReleases:"https:\/\/github\.com\/syfy10\/Boolean\/releases"/);
+  assert.match(server, /if \(req\.method === "GET" && p === "\/api\/about"\)/);
+  assert.match(server, /"log", "-6", "--date=short"/);
+  assert.match(server, /releases: ABOUT_RELEASES/);
 });
 
 test("chat scrolls behind the transparent action strip but not the input", () => {
   assert.match(
     ui,
-    /main::after\{[^}]*bottom:24px;[^}]*height:var\(--composer-h,106px\);[^}]*background:var\(--bg\);/s
+    /main::after\{[^}]*bottom:var\(--app-footer-h\);[^}]*height:var\(--composer-h,106px\);[^}]*background:var\(--bg\);/s
   );
   assert.match(ui, /body\.composer-simple main::after\{[^}]*height:max\(0px,calc\(var\(--composer-h,106px\) - 36px\)\);/s);
   assert.match(ui, /body\.composer-simple \.composer-top-strip\{[^}]*min-height:34px;[^}]*pointer-events:auto;/s);
@@ -125,11 +149,12 @@ test("narrow settings tabs do not leave a spacer under the header", () => {
 });
 
 test("readiness dots keep green ready and red down states", () => {
-  assert.match(ui, /\.dot\{[^}]*background:var\(--green\);/s);
-  assert.match(ui, /\.dot:not\(\.down\)\{ background:var\(--green\); \}/);
-  assert.match(ui, /\.dot\.down\{ background:#dc3f42; \}/);
+  assert.match(ui, /\.dot\{[^}]*background:var\(--ready\);/s);
+  assert.match(ui, /\.dot:not\(\.down\)\{ background:var\(--ready\); \}/);
+  assert.match(ui, /\.dot\.down\{ background:var\(--not-ready\); \}/);
   assert.match(ui, /if\(\$\("statusdot"\)\) \$\("statusdot"\)\.className="dot"\+\(ready\?"":" down"\);/);
   assert.match(ui, /if\(\$\("railBrandDot"\)\) \$\("railBrandDot"\)\.className="dot"\+\(ready\?"":" down"\);/);
+  assert.match(ui, /--ready:#22a559; --not-ready:#dc3f42/);
   assert.match(ui, /\.app-footer \.cmd-chip-dot\.ok\{ background:var\(--green\); \}/);
 });
 
@@ -151,6 +176,20 @@ test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /if\(menu&&seg&&list&&seg\.parentElement!==menu\) menu\.insertBefore\(seg,list\);/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.classList\.toggle\("on"/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.onclick=\(\)=>selectNet\(b\.dataset\.net\)\)/);
+});
+
+test("AI model switches have full mouse and touch targets and persist their state", () => {
+  assert.match(ui, /<label class="switch" for="cloudFallbackEnabled"[\s\S]*id="cloudFallbackEnabled" role="switch"[\s\S]*aria-checked="false"/);
+  assert.match(ui, /<label class="model-routing-toggle" for="autoRouteModels"[\s\S]*id="autoRouteModels" role="switch"[\s\S]*aria-checked="false"/);
+  assert.match(ui, /\.switch input\{[^}]*inset:0;[^}]*width:100%;[^}]*height:100%;[^}]*cursor:pointer;/s);
+  assert.match(ui, /\.model-routing-toggle input\{[^}]*inset:0;[^}]*width:100%;[^}]*height:100%;[^}]*cursor:pointer;/s);
+  assert.match(ui, /\.switch\{[^}]*touch-action:manipulation;/s);
+  assert.match(ui, /\.model-routing-toggle\{[^}]*touch-action:manipulation;/s);
+  assert.match(ui, /\.model-routing-toggle input:checked \+ \.slider\{ background:var\(--ready\); \}/);
+  assert.match(ui, /#settingsPanel \.model-routing-toggle input:checked \+ \.slider\{ background:var\(--ready\); \}/);
+  assert.match(ui, /toggle\.setAttribute\("aria-checked",String\(toggle\.checked\)\)/);
+  assert.match(ui, /Automatic model routing is on\./);
+  assert.match(ui, /Backup cloud model is on\./);
 });
 
 test("composer hides compare and moves approval beside the model picker", () => {
@@ -202,6 +241,16 @@ test("simple composer keeps only compact action icons above the input", () => {
   assert.match(ui, /aria-label="Paste into composer">'\+uPasteIcon\+'/);
 });
 
+test("approval and continuation cards remain visible above the composer", () => {
+  assert.match(ui, /\.col::after\{[^}]*height:calc\(var\(--composer-h,106px\) \+ var\(--chat-tail-gap,12px\)\)/s);
+  assert.match(ui, /function revealChatAction\(node\)\{/);
+  assert.match(ui, /requestAnimationFrame\(\(\)=>\{\s*reveal\(\);\s*requestAnimationFrame\(reveal\);/s);
+  assert.match(ui, /const card=insertAbove\(makeApprovalCard\(ev\)\);\s*revealChatAction\(card\);/s);
+  assert.match(ui, /col\.appendChild\(bar\);\s*revealChatAction\(bar\);/s);
+  assert.doesNotMatch(ui, /col\.scrollTop\s*=\s*col\.scrollHeight/);
+  assert.match(ui, /body\.composer-simple \.next-edit-bar\{ margin-bottom:4px; \}/);
+});
+
 test("local browser paste has a guarded backend clipboard fallback", () => {
   assert.match(server, /function readSystemClipboardText\(\)/);
   assert.match(server, /spawnSync\("powershell\.exe", \["-NoProfile", "-Command", "Get-Clipboard -Raw"\]/);
@@ -219,11 +268,11 @@ test("browser chrome adapts before the pane is too narrow", () => {
 });
 
 test("side chat popup scales smaller with the main window", () => {
-  assert.match(ui, /\.side-chat-launch\{ position:fixed;[^}]*left:4px; top:50%;[^}]*width:38px; height:38px;[^}]*cursor:ns-resize; touch-action:none;/s);
+  assert.match(ui, /\.side-chat-launch\{ position:fixed;[^}]*left:auto; right:4px; top:50%;[^}]*width:38px; height:38px;[^}]*cursor:ns-resize; touch-action:none;/s);
   assert.doesNotMatch(ui, /body:not\(\.collapsed\) \.side-chat-launch/);
-  assert.match(ui, /\.side-chat-panel\{[^}]*top:86px; left:14px; right:auto;[^}]*width:clamp\(228px,23vw,276px\);[^}]*height:clamp\(260px,44dvh,370px\);/s);
+  assert.match(ui, /\.side-chat-panel\{[^}]*top:86px; left:auto; right:14px;[^}]*width:clamp\(228px,23vw,276px\);[^}]*height:clamp\(260px,44dvh,370px\);/s);
   assert.match(ui, /body\.browser-on \.side-chat-panel\{ width:clamp\(216px,21vw,258px\); height:clamp\(250px,40dvh,344px\); \}/);
-  assert.match(ui, /@media\(max-width:720px\)\{ \.side-chat-panel\{ width:min\(276px,calc\(100vw - 22px\)\); height:min\(344px,calc\(100dvh - 92px\)\); left:11px; right:auto; \} \}/);
+  assert.match(ui, /@media\(max-width:720px\)\{ \.side-chat-panel\{ width:min\(276px,calc\(100vw - 22px\)\); height:min\(344px,calc\(100dvh - 92px\)\); left:auto; right:11px; \} \}/);
   assert.match(ui, /function sideChatLeftEdge\(\)\{/);
   assert.match(ui, /function applySideChatLauncherPosition\(\)\{/);
   assert.match(ui, /localStorage\.setItem\("boolean_side_chat_launcher_top"/);
@@ -248,12 +297,15 @@ test("native shell places the window inside the monitor work area", () => {
   assert.match(shell, /case "snapright": SnapWindow\(true\)/);
   assert.match(shell, /Screen\.FromHandle\(Handle\)\.WorkingArea/);
   assert.match(shell, /right \? work\.Right - width : work\.Left/);
+  assert.match(ui, /\$\("winMax"\)\.ondblclick=\(e\)=>\{/);
+  assert.match(ui, /winCmd\("maxtoggle"\);/);
 });
 
 test("native browser keeps a usable split width and auto-fits narrow pages", () => {
-  assert.match(shell, /const int browserMin = 420;/);
-  assert.match(shell, /const int preferredBrowserW = 520;/);
-  assert.match(shell, /int browserW = Math\.Clamp\(\(int\)\(available \* 0\.42\), browserMin/);
+  assert.match(shell, /const int chatMin = 260;/);
+  assert.match(shell, /const int browserMin = 480;/);
+  assert.match(shell, /const int preferredBrowserW = 560;/);
+  assert.match(shell, /int browserW = Math\.Clamp\(\(int\)\(available \* 0\.46\), browserMin/);
   assert.match(shell, /readonly Panel _browserChrome = new\(\) \{ Dock = DockStyle\.Top, Height = 112 \};/);
   assert.match(shell, /readonly FlowLayoutPanel _taskBar = new\(\) \{ Dock = DockStyle\.Top, Height = 34,[^}]*AutoScroll = false/);
   assert.match(shell, /_browserChrome\.Controls\.Add\(_taskBar\);[\s\S]*_browserChrome\.Controls\.Add\(_toolbar\);[\s\S]*_browserChrome\.Controls\.Add\(_tabBar\);[\s\S]*_browserPane\.Controls\.Add\(_browserChrome\);/);

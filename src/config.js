@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.45";
-export const APP_DISPLAY_VERSION = "v0.09.45";
+export const APP_VERSION = "0.9.46";
+export const APP_DISPLAY_VERSION = "v0.09.46";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -124,6 +124,8 @@ const DEFAULTS = {
     referenceChatMemory: true, // compact memory of the open chat for follow-ups
     learnedMemory: true,      // saved safe user preferences/behaviors
     notifications: false,
+    autoRouteModels: false,   // automatically select the configured model route for each task type
+    modelRouting: { selected: "chat" },
     contextMode: "balanced",  // minimal | balanced | full â€” Context Optimizer
     codingAgent: {
       mode: "quick",          // quick | feature | debug | review | refactor
@@ -180,6 +182,14 @@ const DEFAULTS = {
   }
 };
 
+export function defaultUiSettings() {
+  return structuredClone(DEFAULTS.ui);
+}
+
+export function defaultConfig() {
+  return structuredClone(DEFAULTS);
+}
+
 function deepMerge(base, extra) {
   const out = { ...base };
   for (const [k, v] of Object.entries(extra || {})) {
@@ -210,6 +220,21 @@ function preserveKeyedApiKeys(nextItems, previousItems) {
     if (!item?.id) continue;
     const previous = previousById.get(item.id);
     if (!nonEmptyString(item.apiKey) && nonEmptyString(previous?.apiKey)) item.apiKey = previous.apiKey;
+  }
+}
+
+function preserveMcpCredentials(nextItems, previousItems) {
+  if (!Array.isArray(nextItems) || !Array.isArray(previousItems)) return;
+  const previousById = new Map(previousItems.map((item) => [item?.id, item]).filter(([id]) => id));
+  const previousByUrl = new Map(previousItems.map((item) => [item?.url, item]).filter(([url]) => url));
+  for (const item of nextItems) {
+    const previous = previousById.get(item?.id) || previousByUrl.get(item?.url);
+    if (!previous) continue;
+    if (!nonEmptyString(item.token) && nonEmptyString(previous.token)) item.token = previous.token;
+    if (!item.oauth && previous.oauth) item.oauth = structuredClone(previous.oauth);
+    for (const field of ["toolCount", "tools", "lastTestedAt", "lastTestStatus", "lastError", "needsReconnect"]) {
+      if (item[field] === undefined && previous[field] !== undefined) item[field] = structuredClone(previous[field]);
+    }
   }
 }
 
@@ -253,6 +278,7 @@ export function preserveSavedApiKeys(next, previous) {
   }
   preserveKeyedApiKeys(next.connectors?.apis, previous.connectors?.apis);
   preserveKeyedApiKeys(next.connectors?.agents, previous.connectors?.agents);
+  preserveMcpCredentials(next.connectors?.mcp, previous.connectors?.mcp);
   return next;
 }
 

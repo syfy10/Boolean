@@ -681,6 +681,7 @@ sealed class MainForm : Form
             var source = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".saz");
             if (!Directory.Exists(source)) return;
             var backup = Path.Combine(_updateDir, "backup");
+            if (Directory.Exists(backup)) Directory.Delete(backup, true);
             Directory.CreateDirectory(backup);
             foreach (var name in new[] { "config.json", "threads.json", "usage.json", "preferences.json" })
             {
@@ -708,7 +709,9 @@ param(
   [Parameter(Mandatory=$true)][string]$AppExe,
   [Parameter(Mandatory=$true)][int]$ParentPid,
   [Parameter(Mandatory=$true)][string]$LogPath,
-  [Parameter(Mandatory=$true)][string]$PendingFile
+  [Parameter(Mandatory=$true)][string]$PendingFile,
+  [Parameter(Mandatory=$true)][string]$BackupDir,
+  [Parameter(Mandatory=$true)][string]$UserDataDir
 )
 $ErrorActionPreference = 'Stop'
 try {
@@ -723,6 +726,12 @@ try {
   if ($result.ExitCode -ne 0) {
     Add-Content -LiteralPath $LogPath -Value ("Updater: installer exited with code " + $result.ExitCode)
     exit $result.ExitCode
+  }
+  if (Test-Path -LiteralPath $BackupDir) {
+    New-Item -ItemType Directory -Path $UserDataDir -Force | Out-Null
+    Get-ChildItem -LiteralPath $BackupDir -File | ForEach-Object {
+      Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $UserDataDir $_.Name) -Force
+    }
   }
   Remove-Item -LiteralPath $PendingFile -Force -ErrorAction SilentlyContinue
   Remove-Item -LiteralPath $Installer -Force -ErrorAction SilentlyContinue
@@ -758,6 +767,10 @@ try {
             psi.ArgumentList.Add(logPath);
             psi.ArgumentList.Add("-PendingFile");
             psi.ArgumentList.Add(pendingFile);
+            psi.ArgumentList.Add("-BackupDir");
+            psi.ArgumentList.Add(Path.Combine(_updateDir, "backup"));
+            psi.ArgumentList.Add("-UserDataDir");
+            psi.ArgumentList.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".saz"));
             Process.Start(psi);
         }
         catch { }
@@ -1549,25 +1562,28 @@ try {
     void FitBrowserSplit()
     {
         if (_split.Width <= 0) return;
-        const int chatMin = 320;
-        const int browserMin = 420;
-        const int preferredBrowserW = 520;
+        const int chatMin = 260;
+        const int browserMin = 480;
+        const int preferredBrowserW = 560;
         int panelWidth = Math.Max(0, _split.Width - _split.SplitterWidth);
         if (panelWidth <= chatMin + browserMin)
         {
-            int compactMin = Math.Max(20, Math.Min(120, panelWidth / 3));
-            _split.Panel1MinSize = compactMin;
-            _split.Panel2MinSize = compactMin;
-            int compactDistance = Math.Max(compactMin, panelWidth / 2);
-            compactDistance = Math.Min(compactDistance, Math.Max(compactMin, _split.Width - compactMin));
-            _split.SplitterDistance = compactDistance;
+            // Preserve the browser chrome first. The chat remains usable in its
+            // compact responsive mode while browser tabs keep enough room.
+            int compactChatMin = Math.Max(20, Math.Min(180, panelWidth / 3));
+            int compactBrowserMin = Math.Max(20, Math.Min(browserMin, panelWidth - compactChatMin));
+            _split.Panel1MinSize = compactChatMin;
+            _split.Panel2MinSize = compactBrowserMin;
+            int compactBrowserW = Math.Min(browserMin, Math.Max(compactBrowserMin, panelWidth - compactChatMin));
+            _split.SplitterDistance = Math.Max(compactChatMin, panelWidth - compactBrowserW);
+            BeginInvoke(new Action(AutoFitActiveBrowserIfNarrow));
             return;
         }
 
         _split.Panel1MinSize = chatMin;
         _split.Panel2MinSize = browserMin;
         int available = panelWidth;
-        int browserW = Math.Clamp((int)(available * 0.42), browserMin, Math.Min(preferredBrowserW, available - chatMin));
+        int browserW = Math.Clamp((int)(available * 0.46), browserMin, Math.Min(preferredBrowserW, available - chatMin));
         int chatW = available - browserW;
         chatW = Math.Max(chatMin, chatW);
         _split.SplitterDistance = Math.Min(chatW, _split.Width - browserMin);
