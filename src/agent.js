@@ -221,13 +221,25 @@ const ARTIFACT_TOOL_NAMES = new Set([
 const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
 const RESEARCH_TOOL_NAMES = new Set(["web_search", "research_web"]);
 const RESEARCH_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => RESEARCH_TOOL_NAMES.has(tool.function.name));
+const INSPECT_TOOL_NAMES = new Set([
+  "list_dir", "read_file", "find_files", "search_files", "find_symbol",
+  "git_status", "git_diff", "git_log", "list_subagent_results", "read_process",
+  "read_page", "inspect_page_layout", "screenshot_page", "visible_browser_read",
+  "list_connectors", "mcp_list_tools", "notepad_read", "email_list", "email_read",
+  "windows_system_info"
+]);
+const INSPECT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => INSPECT_TOOL_NAMES.has(tool.function.name));
 const ACTION_TOOL_NAMES = new Set(TOOL_DEFINITIONS
   .map((tool) => String(tool.function?.name || "").toLowerCase())
   .filter((name) => name && !RESEARCH_TOOL_NAMES.has(name)));
 
-function explicitlyNamesActionTool(text) {
+function explicitlyNamedToolMode(text) {
   const names = String(text || "").toLowerCase().match(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g) || [];
-  return names.some((name) => ACTION_TOOL_NAMES.has(name));
+  const known = names.filter((name) => ACTION_TOOL_NAMES.has(name));
+  if (!known.length) return "";
+  if (known.some((name) => !INSPECT_TOOL_NAMES.has(name) && !/^(?:email_|mcp_|agent_connector_|list_connectors$)/.test(name))) return "action";
+  if (known.some((name) => /^(?:email_|mcp_|agent_connector_|list_connectors$)/.test(name) && !INSPECT_TOOL_NAMES.has(name))) return "connector";
+  return "inspect";
 }
 
 function compactChatPrompt(config = null) {
@@ -253,6 +265,17 @@ function compactResearchPrompt(config = null) {
   ].filter(Boolean).join("\n");
 }
 
+function compactInspectPrompt(config = null) {
+  const learned = config?.ui?.learnedMemory === false ? "" : summarizeLearnedPreferences();
+  return [
+    "You are Boolean in read-only inspection mode.",
+    "Answer the newest request from evidence in the available project, browser, notes, email, or connector read tools.",
+    "Do not edit files, run write actions, deploy, install, change settings, or continue an older build task.",
+    "Inspect only what is needed, distinguish verified facts from inference, and give a direct answer.",
+    learned
+  ].filter(Boolean).join("\n");
+}
+
 function preservedAppContext(content) {
   const text = String(content || "");
   const marker = "\n\nCURRENT APP CONTEXT:\n";
@@ -263,8 +286,10 @@ function preservedAppContext(content) {
 }
 
 function withTurnModeSystem(messages, mode, config) {
-  if (mode === "agent") return messages;
-  const prompt = mode === "research" ? compactResearchPrompt(config) : compactChatPrompt(config);
+  if (mode === "action" || mode === "connector") return messages;
+  const prompt = mode === "research"
+    ? compactResearchPrompt(config)
+    : mode === "inspect" ? compactInspectPrompt(config) : compactChatPrompt(config);
   const copy = messages.map((message) => ({ ...message }));
   const systemIndex = copy.findIndex((message) => message?.role === "system");
   if (systemIndex >= 0) {
@@ -485,6 +510,7 @@ const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|
 const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:it|that|all that)(?:\s+for me)?\b/i;
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
 const ANSWER_ONLY_REQUEST = /\b(?:do\s*not|don't|dont|no)\s+(?:make\s+)?(?:changes?|edits?|updates?|modify|write|touch|code)\b|\b(?:just|only)\s+(?:tell|explain|describe|summari[sz]e|review|show|list|answer)\b|\b(?:tell|explain|describe|summari[sz]e|review|show|list)\s+(?:me\s+)?(?:about|what|where|how|everything|the current|this project)\b/i;
+const INSPECT_REQUEST = /\b(?:project|repo(?:sitory)?|codebase|files?|folder|git|diff|changes?|status|progress|roadmap|implementation|what (?:was|is|has been) (?:changed|done|built|implemented)|where (?:are we|is the project)|last (?:deploy|build|update))\b/i;
 const RESEARCH_REQUEST = /\b(?:current|latest|today|tonight|tomorrow|yesterday|right now|live|news|headline|weather|forecast|score|won|winner|match|game|fixture|schedule|stock|stocks|market|price|earnings|dividend|available|availability|search|look up|lookup|web|internet|source|sources|cite)\b/i;
 const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
 const CONNECTOR_CONTEXT = /\b(?:mcp|connector|stocksignal|stockunc|robinhood|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
@@ -567,29 +593,34 @@ export function emailCleanupContinuationAction(messages) {
 
 export function classifyTurnMode(messages, options = {}) {
   const latest = options.latestText ?? plainMessageText([...(messages || [])].reverse().find((message) => message?.role === "user"));
-  if (emailCleanupContinuationAction(messages)) return "agent";
-  if (explicitlyNamesActionTool(latest)) return "agent";
-  if (ANSWER_ONLY_REQUEST.test(latest) && !AGENT_REQUEST.test(latest) && !options.directAction && !options.connectorActionRequired) {
+  if (emailCleanupContinuationAction(messages)) return "connector";
+  if (options.connectorActionRequired) return "connector";
+  const explicitToolMode = explicitlyNamedToolMode(latest);
+  if (explicitToolMode) return explicitToolMode;
+  if (ANSWER_ONLY_REQUEST.test(latest) && !options.directAction) {
+    if (options.projectDir || INSPECT_REQUEST.test(latest)) return "inspect";
     return RESEARCH_REQUEST.test(latest) ? "research" : "chat";
   }
-  if (options.directAction || options.artifactActionRequired || options.connectorActionRequired) return "agent";
+  if (options.directAction || options.artifactActionRequired) return "action";
   if (RESEARCH_REQUEST.test(latest)) return "research";
-  if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "agent";
+  if (INSPECT_REQUEST.test(latest) && /\b(?:status|progress|review|inspect|check|show|list|tell|explain|summari[sz]e|what|where)\b/i.test(latest)) return "inspect";
+  if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "action";
   return "chat";
 }
 
 export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false) {
   if (mode === "chat") return [];
   if (mode === "research") return RESEARCH_TOOL_DEFINITIONS;
+  if (mode === "inspect") return INSPECT_TOOL_DEFINITIONS;
   if (artifactActionRequired && !completedToolWork) return ARTIFACT_TOOL_DEFINITIONS;
   return TOOL_DEFINITIONS;
 }
 
 function focusedMessagesForTurn(messages, mode) {
   const focused = focusConversation(messages);
-  if (mode === "agent") return withRecentTaskStatusMemory(focused, messages);
+  if (mode === "action" || mode === "connector") return withRecentTaskStatusMemory(focused, messages);
   const system = focused[0];
-  const recent = focused.slice(1).slice(-(mode === "research" ? 10 : 6));
+  const recent = focused.slice(1).slice(-(mode === "research" || mode === "inspect" ? 10 : 6));
   return [system, ...recent];
 }
 
@@ -685,6 +716,23 @@ export function requiresConnectorToolResult(messages) {
     .filter(Boolean)
     .join("\n");
   return CONNECTOR_PROGRESS_FOLLOWUP.test(latest) && /\b(?:pull|fetch|get|scanner|strategy feeds?|trade ideas?|signals?|watchlist|positions?|orders?)\b/i.test(recent);
+}
+
+export function isExplicitTaskContinuation(text) {
+  const value = String(text || "").trim();
+  if (!value) return false;
+  return /^(?:please\s+)?(?:continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes(?:,?\s+please)?\s+do it|ok(?:ay)?\s+do it|continue where you left off|run the (?:next|second) batch)\b/i.test(value);
+}
+
+// A stopped build often receives a short correction instead of the literal
+// word "continue" (for example, "just name it chess"). Keep this narrower
+// than normal action routing: the server only uses it when an interrupted
+// task already exists, and the text must clearly refer to that task.
+export function isTaskRefinement(text) {
+  const value = String(text || "").trim();
+  if (!value || value.length > 240) return false;
+  if (ANSWER_ONLY_REQUEST.test(value) || /^(?:what|why|where|when|who|how|is|are|did|does|can|could|would)\b/i.test(value)) return false;
+  return /^(?:(?:just|also|and|but|please)\s+)*(?:(?:name|call|title)\s+(?:it|this|that)\b|(?:save|put|move|place|open|run|test|deploy|install)\s+(?:it|this|that)\b|(?:make|change|set|keep|use|add|remove|include|exclude|rename)\b[\s\S]{0,120}\b(?:it|this|that|game|app|site|website|project|file|folder|color|name|title|size|style|theme)\b)/i.test(value);
 }
 
 export function requiresExplicitActionToolResult(messages) {
@@ -1059,7 +1107,7 @@ export async function runTurn(ctx, messages) {
     return controllerStopAnswerFromToolResult(result);
   };
   const withController = (source) => source.map((message, index) => index === 0 && message?.role === "system"
-    ? { ...message, content: turnMode === "agent" ? `${message.content}\n\n${controller.prompt()}` : message.content }
+    ? { ...message, content: turnMode === "action" || turnMode === "connector" ? `${message.content}\n\n${controller.prompt()}` : message.content }
     : message);
   publishController();
   if (directAction) {

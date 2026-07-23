@@ -45,3 +45,25 @@ test("UI keeps the fast interaction paths and omits retry controls", () => {
   assert.match(html, /requestAnimationFrame\(paintPendingStream\)/);
   assert.match(html, /fetch\("\/api\/model\/warm"/);
 });
+
+test("coding plans render as persistent, controllable progress checklists", () => {
+  const html = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  assert.match(html, /function makePlanChecklist\(snapshot,\{live=false\}=\{\}\)/);
+  assert.match(html, /t\.pendingTask\?\.controller/);
+  assert.match(html, /data-plan-action="raw"/);
+  assert.match(html, /data-plan-action="cancel"/);
+  assert.match(html, /data-plan-action="retry"/);
+  assert.match(html, /plan-output-hidden/);
+  assert.match(html, /planElapsed\(snapshot\)/);
+  assert.match(html, /buildPlanProjectHTML\(snapshot\)/);
+  assert.match(html, /class="plan-project-block"/);
+  assert.doesNotMatch(html, /allDone \? ' collapsed' : ''/);
+  assert.match(html, /if\(completedPlan&&planEl\?\.isConnected\)\{ col\.appendChild\(planEl\); scrollDown\(\); \}/);
+  assert.match(server, /controller: publicTaskController\(task\.controller\)/);
+  assert.match(server, /changedFiles: Array\.isArray\(controller\.changedFiles\)/);
+  assert.match(server, /checks: Array\.isArray\(controller\.checks\)/);
+  assert.match(server, /recentActions: Array\.isArray\(controller\.recentActions\)/);
+  assert.match(html, /function buildDetailedPlanHTML\(snapshot\)/);
+  assert.match(html, /Commit changes \(optional\)/);
+});

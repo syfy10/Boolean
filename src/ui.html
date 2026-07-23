@@ -825,9 +825,10 @@
   body.shell main{ border-radius:0; box-shadow:none; }
   body.shell aside{ border-radius:0; box-shadow:none; }
   body:not(.collapsed) main{ border-top-left-radius:0; border-bottom-left-radius:0; }
-  main::after{ content:""; position:absolute; z-index:11; left:0; right:0; bottom:34px;
-    height:calc(var(--composer-base-h,56px) + (var(--composer-pill-h,52px) / 2));
+  main::after{ content:""; position:absolute; z-index:11; left:0; right:0; bottom:24px;
+    height:var(--composer-h,106px);
     background:var(--bg); pointer-events:none; }
+  body.composer-simple main::after{ height:max(0px,calc(var(--composer-h,106px) - 36px)); }
   body.settings-open main::after{ display:none; }
   body.browser-on main{ min-width:270px; flex-shrink:0; }
   body.browser-on.notes-on main{ min-width:260px; }
@@ -1020,9 +1021,16 @@
   .run-result.error .result-mark{ color:var(--danger); }
   .run-result.paused .result-mark{ color:#d89216; }
   /* -- plan checklist -- */
-  .plan-checklist{ align-self:flex-start; margin:4px 0 2px; padding:0; width:100%; max-width:520px; }
-  .plan-checklist-header{ display:flex; align-items:center; gap:6px; padding:5px 0; cursor:pointer; user-select:none; font-size:var(--fs-xs); color:var(--dim); }
+  .plan-checklist{ align-self:flex-start; margin:4px 0 2px; padding:0; width:100%; max-width:560px; }
+  .plan-checklist-header{ display:flex; align-items:center; gap:7px; min-height:30px; padding:4px 0; cursor:pointer; user-select:none; font-size:var(--fs-xs); color:var(--dim); }
   .plan-checklist-header:hover{ color:var(--text); }
+  .plan-checklist-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-weight:600; }
+  .plan-checklist-meta{ flex-shrink:0; color:var(--dim); font-size:var(--fs-xxs); }
+  .plan-checklist-actions{ display:flex; align-items:center; gap:2px; margin-left:auto; }
+  .plan-checklist-action{ border:0; background:transparent; color:var(--dim); font:500 var(--fs-xxs)/1 var(--ui); padding:5px 6px; border-radius:5px; cursor:pointer; }
+  .plan-checklist-action:hover{ color:var(--text); background:var(--hover); }
+  .plan-checklist-action.danger:hover{ color:var(--danger); }
+  .plan-checklist-action:disabled{ opacity:.45; cursor:default; background:transparent; }
   .plan-phase-badge{ display:inline-flex; align-items:center; gap:4px; font-size:var(--fs-xxs); font-weight:600; text-transform:uppercase; letter-spacing:.03em; padding:2px 8px; border-radius:var(--radius-pill); background:var(--hover); color:var(--dim); }
   .plan-phase-badge.planning{ background:color-mix(in srgb,var(--online) 12%,transparent); color:var(--online); }
   .plan-phase-badge.executing{ background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); }
@@ -1040,8 +1048,33 @@
   .plan-step-item .step-text{ flex:1; min-width:0; line-height:1.45; }
   .plan-step-item.done .step-text{ text-decoration:line-through; opacity:.55; }
   .plan-step-item.failed .step-text{ color:var(--danger,#ef4444); }
-  .plan-checklist-caret{ margin-left:auto; font-size:10px; color:var(--dim); transition:transform var(--t); }
+  .plan-step-error{ margin:2px 0 5px 26px; padding:5px 8px; border-left:2px solid var(--danger); color:var(--danger); font:var(--fs-xxs)/1.45 var(--mono); white-space:pre-wrap; word-break:break-word; }
+  .plan-step-retry{ border:0; background:transparent; color:inherit; font:600 var(--fs-xxs) var(--ui); margin-left:6px; padding:2px 4px; cursor:pointer; text-decoration:underline; }
+  .plan-project-block{ margin:6px 0 0; padding:6px 2px 1px; border-top:1px solid var(--border); }
+  .plan-project-heading{ display:grid; grid-template-columns:auto minmax(0,1fr); align-items:baseline; gap:8px; min-height:18px; padding:0 4px; }
+  .plan-project-title{ color:var(--text); font-size:var(--fs-xs); font-weight:600; }
+  .plan-project-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font:var(--fs-xxs)/1.35 var(--mono); }
+  .plan-project-folder{ margin:1px 4px 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--dim); font:var(--fs-xxs)/1.3 var(--mono); }
+  .plan-project-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); column-gap:12px; row-gap:1px; padding:0 4px; }
+  .plan-project-row{ display:grid; grid-template-columns:7px auto minmax(0,1fr); align-items:baseline; gap:5px; min-width:0; min-height:18px; color:var(--dim); font-size:var(--fs-xxs); line-height:1.35; }
+  .plan-project-mark{ align-self:center; width:5px; height:5px; border-radius:50%; background:var(--dim); opacity:.55; }
+  .plan-project-mark.ok{ background:var(--green); opacity:1; }
+  .plan-project-mark.warn{ background:#d89216; opacity:1; }
+  .plan-project-mark.err{ background:var(--danger); opacity:1; }
+  .plan-project-label{ color:var(--dim); white-space:nowrap; }
+  .plan-project-value{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-family:var(--mono); font-size:var(--fs-xxs); }
+  .plan-progress-block{ margin:6px 0 0; padding:6px 4px 1px; border-top:1px solid var(--border); list-style:none; }
+  .plan-progress-title{ margin:0 0 3px; color:var(--text); font-size:var(--fs-xs); font-weight:600; }
+  .plan-progress-item{ display:grid; grid-template-columns:14px minmax(0,1fr); align-items:baseline; gap:5px; min-height:19px; color:var(--dim); font-size:var(--fs-xs); line-height:1.35; }
+  .plan-progress-item.active{ color:var(--text); }
+  .plan-progress-item.done{ color:var(--text); }
+  .plan-progress-icon{ color:var(--dim); font-family:var(--mono); font-size:var(--fs-xxs); text-align:center; }
+  .plan-progress-item.active .plan-progress-icon{ color:var(--green); animation:pulse-ring 1.4s ease-in-out infinite; }
+  .plan-progress-item.done .plan-progress-icon{ color:var(--green); }
+  .plan-progress-item.optional:not(.done){ opacity:.72; }
+  .plan-checklist-caret{ font-size:10px; color:var(--dim); transition:transform var(--t); }
   .plan-checklist-caret.open{ transform:rotate(180deg); }
+  .plan-output-hidden .live-plan-output{ display:none; }
   @keyframes pulse-ring{ 0%,100%{box-shadow:0 0 0 0 rgba(0,0,0,.08)} 50%{box-shadow:0 0 0 4px rgba(0,0,0,.06)} }
   .spinner{ width:12px; height:12px; border-radius:50%; border:2px solid var(--border); border-top-color:var(--dim);
     animation:spin .8s linear infinite; flex-shrink:0; }
@@ -1535,9 +1568,9 @@
   .workspace-tabs{ position:relative; display:flex; align-items:center; gap:1px; padding:0 8px 0 38px; height:34px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
   body.collapsed .workspace-tabs{ padding-left:8px; }
   .workspace-tabs::-webkit-scrollbar{ display:none; }
-  .side-chat-launch{ position:fixed; z-index:85; left:14px; top:50%; width:38px; height:38px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--green) 22%,var(--border)); border-radius:14px; background:var(--glass-bg); color:var(--dim); cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.12); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); transform:translateY(-50%); transition:background .12s,color .12s,border-color .12s,transform .12s; }
-  body:not(.collapsed) .side-chat-launch{ left:224px; }
+  .side-chat-launch{ position:fixed; z-index:85; left:4px; top:50%; width:38px; height:38px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--green) 22%,var(--border)); border-radius:0 14px 14px 0; background:var(--glass-bg); color:var(--dim); cursor:ns-resize; touch-action:none; user-select:none; box-shadow:0 8px 24px rgba(0,0,0,.12); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); transform:translateY(-50%); transition:background .12s,color .12s,border-color .12s,transform .12s; }
   .side-chat-launch:hover,.side-chat-launch.active{ color:var(--green); background:color-mix(in srgb,var(--green) 10%,var(--bg)); border-color:color-mix(in srgb,var(--green) 34%,var(--border)); transform:translateY(-50%) scale(1.03); }
+  .side-chat-launch.dragging{ transition:none; transform:translateY(-50%); }
   .side-chat-launch svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
   .side-chat-launch:after{ content:""; position:absolute; right:7px; top:7px; width:5px; height:5px; border-radius:50%; background:var(--green); opacity:.8; }
   .ws-tab{ display:flex; align-items:center; gap:5px; padding:5px 11px; border:0; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; border-radius:7px 7px 0 0; border-bottom:2px solid transparent; white-space:nowrap; transition:color .12s; }
@@ -4415,7 +4448,7 @@
     return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span><button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">'▾'</button>'+chatActionButtons("ai")+'</div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span><button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">&#9662;</button>'+chatActionButtons("ai")+'</div>'; return d; }
   // a screenshot / image the AI produced, shown inline in the transcript
   function makeShot(src, caption){
     const d=document.createElement("div"); d.className="shotcard";
@@ -5455,7 +5488,7 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.44"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.45"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -5780,10 +5813,16 @@
     threadLogStart=Number(t.logStart||0);
     threadLogHasMore=t.hasMore===true;
     col.innerHTML="";
+    col.classList.remove("plan-output-hidden");
+    clearInterval(planTicker); planTicker=0; planEl=null;
     clearFileChips();
     const log=t.log||[];
     if(!log.length && !(run&&run.threadId===id)) showEmpty();
     renderLogEntries(log);
+    if(!viewingRun()&&t.pendingTask?.controller?.plan?.length){
+      planEl=makePlanChecklist(t.pendingTask.controller,{live:false});
+      col.appendChild(planEl);
+    }
     if(!viewingRun()) compactCompletedToolCards(col);
     // if this thread has a run in flight, rebuild its live status + partial answer
     if(viewingRun()){ run.statusEl=null; run.liveAI=null; ensureStatusEl(); if(run.raw && !run.answered) ensureLiveAI(); renderPendingApprovals(); }
@@ -7232,6 +7271,7 @@
   function insertToolAbove(entry){
     const s=(run&&run.statusEl&&run.statusEl.isConnected)?run.statusEl:null;
     const node=addToolCard(col,entry,s);
+    if(run?.controller?.plan?.length) node?.classList?.add("live-plan-output");
     updateCopyButton();
     scrollDown(); return node;
   }
@@ -7281,64 +7321,228 @@
   }
   // -- plan checklist --
   let planEl = null;
+  let planTicker = 0;
+  let latestProjectStatus = null;
+  function planTaskTitle(snapshot) {
+    const text = String(snapshot?.objective || "Coding task").replace(/\s+/g," ").trim();
+    return text.length > 72 ? text.slice(0,69).trimEnd()+"..." : text;
+  }
+  function planElapsed(snapshot) {
+    const started = Number(snapshot?.startedAt) || run?.startTime || Date.now();
+    const ended = Number(snapshot?.completedAt) || (snapshot?.phase === "completed" ? Number(snapshot?.updatedAt) : 0) || Date.now();
+    return fmtTime(Math.max(0,ended-started));
+  }
+  function failedPlanIndex(snapshot) {
+    if (!snapshot?.lastFailure || !["blocked","failed"].includes(snapshot.phase)) return -1;
+    const active = snapshot.plan.findIndex(step=>step.status==="in_progress");
+    if (active >= 0) return active;
+    return snapshot.plan.findIndex(step=>step.status!=="done");
+  }
+  function planDiagnosticCount(snapshot,kind) {
+    const checks=[...new Set((snapshot?.checks||[]).map(item=>String(item||"").trim()).filter(Boolean))];
+    let count=0;
+    for(const check of checks){
+      const matches=[
+        ...check.matchAll(new RegExp("(\\d+)\\s+"+kind+"s?\\b","gi")),
+        ...check.matchAll(new RegExp("\\b"+kind+"s?\\s*[:=]\\s*(\\d+)","gi"))
+      ];
+      if(matches.length) count+=matches.reduce((sum,match)=>sum+(Number(match[1])||0),0);
+      else if(!new RegExp("\\b(?:no|zero)\\s+"+kind+"s?\\b","i").test(check)&&new RegExp("\\b"+kind+"s?\\b","i").test(check)) count+=1;
+    }
+    return count;
+  }
+  function planProjectDetails(snapshot) {
+    const thread=threadSummary();
+    const projectDir=String(thread?.projectDir||"");
+    const folderName=projectDir ? projectDir.split(/[\\/]/).filter(Boolean).pop()||"" : "";
+    const status=latestProjectStatus;
+    const projectName=folderName||String(status?.projectName||thread?.title||"Project");
+    const provider=run?.provider||state.provider||"local";
+    const model=run?.model||state.model||"";
+    const ai=shortAiName(provider,model);
+    const git=status?.git||{};
+    const gitValue=status
+      ? (status.branch ? status.branch+(git.state==="unpushed"?" - unpushed":git.state==="behind"?" - behind":git.state==="diverged"?" - diverged":"") : gitSyncLabel(git))
+      : "Checking";
+    const gitTone=!status?"":git.state==="diverged"?"err":git.state==="unpushed"||git.state==="behind"?"warn":git.state&&git.state!=="none"?"ok":"";
+    const changedFiles=Array.isArray(status?.changedFiles)?status.changedFiles:Array.isArray(snapshot?.changedFiles)?snapshot.changedFiles:[];
+    const errors=Math.max(
+      status?.testState==="err"?1:0,
+      snapshot?.lastFailure&&["failed","blocked"].includes(snapshot?.phase)?1:0,
+      planDiagnosticCount(snapshot,"error")
+    );
+    const warnings=planDiagnosticCount(snapshot,"warning");
+    return [
+      {label:"Project",value:projectName},
+      {label:"Folder",value:projectDir||"No project folder",title:projectDir},
+      {label:"AI",value:ai},
+      {label:"Local",value:status?(status.serverRunning?"Running":"Stopped"):"Checking",tone:status?.serverRunning?"ok":""},
+      {label:"Git",value:gitValue,tone:gitTone},
+      {label:"Files",value:String(changedFiles.length)+" modified",tone:changedFiles.length?"warn":"ok"},
+      {label:"Errors",value:String(errors),tone:errors?"err":"ok"},
+      {label:"Warnings",value:String(warnings),tone:warnings?"warn":"ok"},
+      {label:"Time",value:planElapsed(snapshot)}
+    ];
+  }
+  function buildPlanProjectHTML(snapshot) {
+    const details=planProjectDetails(snapshot);
+    const project=details.find(item=>item.label==="Project")||{value:"Project"};
+    const folder=details.find(item=>item.label==="Folder")||{value:"No project folder"};
+    const rows=details.filter(item=>item.label!=="Project"&&item.label!=="Folder").map(item=>
+      '<div class="plan-project-row">'
+      +'<span class="plan-project-mark '+esc(item.tone||"")+'"></span>'
+      +'<span class="plan-project-label">'+esc(item.label)+'</span>'
+      +'<span class="plan-project-value"'+(item.title?' title="'+esc(item.title)+'"':'')+'>'+esc(item.value)+'</span>'
+      +'</div>'
+    ).join("");
+    return '<li class="plan-project-block">'
+      +'<div class="plan-project-heading"><span class="plan-project-title">Project</span><span class="plan-project-name">'+esc(project.value)+'</span></div>'
+      +'<div class="plan-project-folder"'+(folder.title?' title="'+esc(folder.title)+'"':'')+'>'+esc(folder.value)+'</div>'
+      +'<div class="plan-project-grid">'+rows+'</div>'
+      +'</li>';
+  }
+  function detailedPlanProgress(snapshot) {
+    const plan=Array.isArray(snapshot?.plan)?snapshot.plan:[];
+    const actions=(snapshot?.recentActions||[]).join("\n");
+    const checks=(snapshot?.checks||[]).join("\n");
+    const phase=String(snapshot?.phase||"");
+    const completed=phase==="completed"||(plan.length>0&&plan.every(step=>step.status==="done"));
+    const prepared=completed||plan[0]?.status==="done"||Number(snapshot?.inspectionCount)>0;
+    const inspected=completed||Number(snapshot?.inspectionCount)>0;
+    const edited=completed||Number(snapshot?.mutationCount)>0||(snapshot?.changedFiles||[]).length>0;
+    const ran=completed||/\brun_project\b|\bnpm(?:\.cmd)?\s+run\s+(?:dev|start|serve)\b|\blocalhost:\d+/i.test(actions+"\n"+checks);
+    const built=completed||/\bbuild(?::all|:shell)?\b|\bdotnet\s+build\b/i.test(actions+"\n"+checks);
+    const tested=completed||/\b(?:node\s+--test|npm(?:\.cmd)?\s+(?:run\s+)?test|pnpm\s+test|yarn\s+test|pytest|dotnet\s+test)\b/i.test(actions+"\n"+checks);
+    const verified=completed||Number(snapshot?.lastVerification)>0||(snapshot?.checks||[]).length>0;
+    const documented=completed||/(?:^|[\\/])(?:readme|agents|changelog|docs?)[^:\n]*\.(?:md|txt)\b/i.test(actions);
+    const committed=/\bgit\s+commit\b/i.test(actions);
+    const milestones=[
+      ["Understand request",true],
+      ["Analyze project",prepared],
+      ["Create implementation plan",plan.length>0],
+      ["Read relevant files",inspected],
+      ["Edit source code",edited],
+      ["Run project locally",ran],
+      ["Build application",built],
+      ["Run tests",tested],
+      ["Fix errors and warnings",verified&&!snapshot?.lastFailure],
+      ["Verify functionality",verified],
+      ["Update documentation",documented],
+      ["Commit changes (optional)",committed,true],
+      ["Complete",completed]
+    ];
+    const firstPending=milestones.findIndex(item=>!item[1]&&!item[2]);
+    return milestones.map((item,index)=>({
+      label:item[0],
+      done:Boolean(item[1]),
+      optional:Boolean(item[2]),
+      active:!completed&&index===firstPending
+    }));
+  }
+  function buildDetailedPlanHTML(snapshot) {
+    const rows=detailedPlanProgress(snapshot).map(item=>{
+      const cls=(item.done?" done":item.active?" active":"")+(item.optional?" optional":"");
+      const icon=item.done?"\u2713":item.active?"\u25D0":"\u25CB";
+      return '<div class="plan-progress-item'+cls+'"><span class="plan-progress-icon">'+icon+'</span><span>'+esc(item.label)+'</span></div>';
+    }).join("");
+    return '<li class="plan-progress-block"><div class="plan-progress-title">Progress</div>'+rows+'</li>';
+  }
+  function refreshPlanProjectDetails() {
+    col.querySelectorAll(".plan-checklist").forEach(el=>{
+      const block=el.querySelector(".plan-project-block");
+      if(block&&el._planSnapshot){
+        const holder=document.createElement("div");
+        holder.innerHTML=buildPlanProjectHTML(el._planSnapshot);
+        block.replaceWith(holder.firstElementChild);
+      }
+    });
+  }
+  function wirePlanChecklist(el,snapshot,live) {
+    const header=el.querySelector(".plan-checklist-header");
+    header.onclick=(event)=>{
+      if(event.target.closest("button")) return;
+      el.querySelector(".plan-step-list")?.classList.toggle("collapsed");
+      el.querySelector(".plan-checklist-caret")?.classList.toggle("open");
+    };
+    const raw=el.querySelector('[data-plan-action="raw"]');
+    if(raw) raw.onclick=()=>{
+      const hidden=col.classList.toggle("plan-output-hidden");
+      raw.textContent=hidden?"Show output":"Hide output";
+      raw.setAttribute("aria-pressed",String(!hidden));
+    };
+    const cancel=el.querySelector('[data-plan-action="cancel"]');
+    if(cancel) cancel.onclick=()=>stopRun();
+    const retryButton=el.querySelector('[data-plan-action="retry"]');
+    if(retryButton) retryButton.onclick=()=>{ if(!busy()) retry(); };
+    if(live){
+      clearInterval(planTicker);
+      planTicker=setInterval(()=>{
+        if(!el.isConnected||!run){ clearInterval(planTicker); planTicker=0; return; }
+        const timer=el.querySelector(".plan-elapsed");
+        if(timer) timer.textContent=planElapsed(run.controller||snapshot);
+      },1000);
+    }
+  }
+  function makePlanChecklist(snapshot,{live=false}={}) {
+    const phase=snapshot?.phase||"executing";
+    const plan=Array.isArray(snapshot?.plan)?snapshot.plan:[];
+    const doneCount=plan.filter(step=>step.status==="done").length;
+    const allDone=plan.length>0&&doneCount===plan.length;
+    const labels={planning:"Planning",executing:"Working",verifying:"Verifying",recovering:"Recovering",completed:"Completed",blocked:"Blocked",diagnosing:"Diagnosing",failed:"Failed"};
+    const el=document.createElement("div");
+    el.className="plan-checklist"+(allDone?" done":"");
+    el._planSnapshot=snapshot;
+    el.innerHTML=buildPlanHTML(allDone?"done":phase,labels[phase]||phase,snapshot,allDone,live);
+    wirePlanChecklist(el,snapshot,live);
+    return el;
+  }
   function ensurePlanChecklist(snapshot) {
     if (!snapshot || !snapshot.plan || !snapshot.plan.length || !run || !viewingRun()) {
       if (planEl && planEl.isConnected) planEl.remove();
       planEl = null;
       return;
     }
-    const phase = snapshot.phase || "executing";
-    const plan = snapshot.plan;
-    const doneCount = plan.filter(s => s.status === "done").length;
-    const totalCount = plan.length;
-    const allDone = doneCount === totalCount;
-    const phaseLabels = {planning:"Planning",executing:"Working",verifying:"Verifying",recovering:"Recovering",completed:"Completed",blocked:"Blocked",diagnosing:"Diagnosing"};
-    const phaseLabel = phaseLabels[phase] || phase;
-    const phaseClass = allDone ? "done" : phase;
     if (!planEl || !planEl.isConnected) {
-      planEl = document.createElement("div");
-      planEl.className = "plan-checklist";
-      planEl.innerHTML = buildPlanHTML(phaseClass, phaseLabel, plan, allDone);
+      col.classList.add("plan-output-hidden");
+      planEl = makePlanChecklist(snapshot,{live:true});
       insertAbove(planEl);
-      planEl.querySelector(".plan-checklist-header").onclick = () => {
-        const list = planEl.querySelector(".plan-step-list");
-        const caret = planEl.querySelector(".plan-checklist-caret");
-        list.classList.toggle("collapsed");
-        caret.classList.toggle("open");
-      };
     } else {
-      const badge = planEl.querySelector(".plan-phase-badge");
-      if (badge) { badge.className = "plan-phase-badge " + phaseClass; badge.textContent = phaseLabel; }
-      const bodyEl = planEl.querySelector(".plan-step-list");
-      if (bodyEl) bodyEl.innerHTML = buildStepListHTML(plan);
-      if (allDone) {
-        const list = planEl.querySelector(".plan-step-list");
-        const caret = planEl.querySelector(".plan-checklist-caret");
-        if (list) list.classList.add("collapsed");
-        if (caret) caret.classList.add("open");
-      }
+      const replacement=makePlanChecklist(snapshot,{live:true});
+      planEl.replaceWith(replacement);
+      planEl=replacement;
     }
   }
-  function buildPlanHTML(phaseClass, phaseLabel, plan, allDone) {
+  function buildPlanHTML(phaseClass, phaseLabel, snapshot, allDone, live) {
+    const plan=snapshot.plan||[];
     const doneCount = plan.filter(s => s.status === "done").length;
-    const summary = allDone ? "done - " + doneCount + "/" + plan.length + " steps" : doneCount + "/" + plan.length + " steps";
+    const failureIndex=failedPlanIndex(snapshot);
+    const summary = allDone ? plan.length + " steps" : doneCount + "/" + plan.length;
+    const outputHidden=col.classList.contains("plan-output-hidden");
     return '<div class="plan-checklist-header">'
       + '<span class="plan-phase-badge ' + esc(phaseClass) + '">' + esc(phaseLabel) + '</span>'
-      + '<span>' + esc(summary) + '</span>'
+      + '<span class="plan-checklist-title">' + esc(planTaskTitle(snapshot)) + '</span>'
+      + '<span class="plan-checklist-meta">' + esc(summary) + ' &middot; <span class="plan-elapsed">' + esc(planElapsed(snapshot)) + '</span></span>'
+      + '<span class="plan-checklist-actions">'
+      + (live?'<button class="plan-checklist-action" type="button" data-plan-action="raw" aria-pressed="'+String(!outputHidden)+'">'+(outputHidden?'Show output':'Hide output')+'</button><button class="plan-checklist-action danger" type="button" data-plan-action="cancel">Cancel</button>':'')
       + '<span class="plan-checklist-caret">&#9662;</span>'
+      + '</span>'
       + '</div>'
-      + '<ul class="plan-step-list' + (allDone ? ' collapsed' : '') + '">'
-      + buildStepListHTML(plan)
+      + '<ul class="plan-step-list">'
+      + buildStepListHTML(plan,failureIndex,snapshot.lastFailure,!live)
+      + buildPlanProjectHTML(snapshot)
+      + buildDetailedPlanHTML(snapshot)
       + '</ul>';
   }
-  function buildStepListHTML(plan) {
-    return plan.map(function(step) {
-      const cls = step.status === "done" ? "done" : step.status === "in_progress" ? "active" : "";
-      const icon = step.status === "done" ? "\u2713" : step.status === "in_progress" ? "\u25D0" : "\u25CB";
+  function buildStepListHTML(plan,failureIndex=-1,lastFailure="",canRetry=false) {
+    return plan.map(function(step,index) {
+      const failed=index===failureIndex;
+      const cls = failed ? "failed" : step.status === "done" ? "done" : step.status === "in_progress" ? "active" : "";
+      const icon = failed ? "\u2715" : step.status === "done" ? "\u2713" : step.status === "in_progress" ? "\u25D0" : "\u25CB";
       return '<li class="plan-step-item ' + cls + '">'
         + '<span class="step-icon">' + icon + '</span>'
         + '<span class="step-text">' + esc(step.step || "") + '</span>'
-        + '</li>';
+        + '</li>'
+        + (failed?'<li class="plan-step-error">'+esc(lastFailure)+(canRetry?'<button class="plan-step-retry" type="button" data-plan-action="retry">Retry</button>':'')+'</li>':'');
     }).join("");
   }
 
@@ -7582,7 +7786,17 @@
       }
     }catch(err){ if(err.name!=="AbortError" && viewingRun()) insertAbove(makeErr("connection error: "+err.message)); }
     if(run&&run.statusEl&&run.statusEl.isConnected) run.statusEl.remove();
-    if(planEl&&planEl.isConnected){ planEl.classList.add('done'); planEl.querySelector('.plan-step-list')?.classList.add('collapsed'); planEl.querySelector('.plan-checklist-caret')?.classList.add('open'); }
+    clearInterval(planTicker); planTicker=0;
+    col.classList.remove("plan-output-hidden");
+    let completedPlan=false;
+    if(planEl&&planEl.isConnected&&run?.controller){
+      const completed=run.outcome!=="error"&&run.outcome!=="paused"&&(run.controller.phase==="completed"||run.controller.plan?.every(step=>step.status==="done"));
+      if(completed){
+        run.controller={...run.controller,phase:"completed",completedAt:run.controller.completedAt||Date.now(),plan:(run.controller.plan||[]).map(step=>({...step,status:"done"}))};
+        const finalPlan=makePlanChecklist(run.controller,{live:false});
+        planEl.replaceWith(finalPlan); planEl=finalPlan; completedPlan=true;
+      }
+    }
     const finishedRun=run;
     const holdQueue=!!finishedRun?.holdQueue;
     lastRunWasCompare=!!finishedRun?.compare;
@@ -7600,11 +7814,12 @@
         maybeShowNextEdit(finishedRun);
     }catch(err){ console.warn("Completion UI failed",err); }
     await refreshStatus({forceThreads:true}).catch(err=>console.warn("Completion refresh failed",err));
+    await refreshProjectDashboard({force:true}).catch(err=>console.warn("Project summary refresh failed",err));
     if(threadId===tid) updateComposerConsoleInfo();
     // auto-send the next queued message for this thread
     const q=queues[tid];
     if(q&&q.length&&!holdQueue&&!queuePaused[tid]){ const next=q.shift(); if(threadId===tid) renderQueue(); setTimeout(()=>startRun(tid, next), 60); }
-    else { if(threadId===tid){ renderEndActions(); estimateContext(); if(finishedRun) maybeShowNextEditSuggestion(finishedRun); } input.focus(); }
+    else { if(threadId===tid){ renderEndActions(); estimateContext(); if(finishedRun) maybeShowNextEditSuggestion(finishedRun); if(completedPlan&&planEl?.isConnected){ col.appendChild(planEl); scrollDown(); } } input.focus(); }
   }
   let lastRunWasCompare=false;
   function retry(){ if(!busy()) startRun(threadId,lastRunWasCompare&&compareState.targets.length===2?{mode:"compare-retry",targets:compareState.targets}:{mode:"retry"}); }
@@ -7704,7 +7919,15 @@
       if(ev.level==="exceeded") tempToast("Monthly budget exceeded: $"+(ev.spent||0).toFixed(2)+" of $"+(ev.limit||0).toFixed(2)+". Cloud models are paused. Raise the budget in Settings or switch to a local model.");
       else if(ev.level==="warning") tempToast("Approaching monthly budget: "+(ev.pct||0)+"% of $"+(ev.limit||0).toFixed(2)+" used.");
     }
-    else if(ev.type==="error"){ run.outcome="error"; if(showing) insertAbove(makeErr(ev)); if(!showing) notify("Boolean encountered an error", ev.text||"The task failed unexpectedly."); }
+    else if(ev.type==="error"){
+      run.outcome="error";
+      if(run.controller?.plan?.length){
+        run.controller={...run.controller,phase:"blocked",lastFailure:ev.text||run.controller.lastFailure||"The task failed unexpectedly.",updatedAt:Date.now()};
+        if(showing) ensurePlanChecklist(run.controller);
+      }
+      if(showing) insertAbove(makeErr(ev));
+      if(!showing) notify("Boolean encountered an error", ev.text||"The task failed unexpectedly.");
+    }
     if(showing && ev.type!=="token" && ev.type!=="compareToken") scrollDown();
   }
   async function stopRun(edit=false){
@@ -10543,6 +10766,8 @@ Optional bundled starter model:
     try {
       const r = await (await _fetch("/api/project-status"+(force?"?force=1":""))).json();
       if (!r || !r.ok) { document.body.classList.add("pd-hidden"); return; }
+      latestProjectStatus=r;
+      refreshPlanProjectDetails();
       document.body.classList.remove("pd-hidden");
       if ($("pdTitle")) $("pdTitle").textContent = r.projectName || "Project";
       const completionSummary=changeSummaryParts(r.diffStat);
@@ -11005,6 +11230,8 @@ Optional bundled starter model:
   let sideChatBusy=false;
   let sideChatDragging=null;
   let sideChatDragFrame=0;
+  let sideChatLauncherDrag=null;
+  let sideChatLauncherMoved=false;
   try{ sideChatThreadId=localStorage.getItem("boolean_side_chat_thread")||""; }catch{}
   function sideChatAiChoice(){
     try{ return localStorage.getItem("boolean_side_chat_ai")||"main"; }catch{ return "main"; }
@@ -11194,8 +11421,13 @@ Optional bundled starter model:
     return sideChatThreadId;
   }
   async function loadSideChat(){
-    if(!sideChatThreadId){ renderSideChatLog([]); renderSideChatHistory(); return ""; }
-    const response=await fetch("/api/thread?id="+encodeURIComponent(sideChatThreadId)+"&peek=1");
+    if(!sideChatThreadId){
+      const latest=sideChatThreads()[0];
+      if(!latest){ renderSideChatLog([]); renderSideChatHistory(); return ""; }
+      sideChatThreadId=latest.id;
+      try{ localStorage.setItem("boolean_side_chat_thread",sideChatThreadId); }catch{}
+    }
+    const response=await fetch("/api/thread?id="+encodeURIComponent(sideChatThreadId)+"&peek=1&tail=250");
     if(response.status===404) return createSideChat();
     if(!response.ok) throw new Error("Could not load side chat.");
     const data=await response.json();
@@ -11236,6 +11468,26 @@ Optional bundled starter model:
     if(!panel) return;
     const rect=panel.getBoundingClientRect();
     try{ localStorage.setItem("boolean_side_chat_pos",JSON.stringify({left:rect.left,top:rect.top})); }catch{}
+  }
+  function clampSideChatLauncherTop(top){
+    const launcher=$("sideChatToggle");
+    const half=(launcher?.getBoundingClientRect().height||38)/2;
+    return Math.max(52+half,Math.min(window.innerHeight-48-half,top));
+  }
+  function applySideChatLauncherPosition(){
+    const launcher=$("sideChatToggle");
+    if(!launcher) return;
+    let saved=NaN;
+    try{ saved=Number(localStorage.getItem("boolean_side_chat_launcher_top")); }catch{}
+    const top=clampSideChatLauncherTop(Number.isFinite(saved)&&saved>0?saved:window.innerHeight/2);
+    launcher.style.top=top+"px";
+  }
+  function saveSideChatLauncherPosition(){
+    const launcher=$("sideChatToggle");
+    if(!launcher) return;
+    const top=clampSideChatLauncherTop(launcher.getBoundingClientRect().top+launcher.getBoundingClientRect().height/2);
+    launcher.style.top=top+"px";
+    try{ localStorage.setItem("boolean_side_chat_launcher_top",String(Math.round(top))); }catch{}
   }
   function paintSideChatDrag(){
     sideChatDragFrame=0;
@@ -11316,7 +11568,10 @@ Optional bundled starter model:
     }
     finally{ sideChatBusy=false; $("sideChatSend").disabled=false; field.disabled=false; field.focus(); await refreshStatus({forceThreads:true}).catch(()=>{}); if(sideChatThreadId) await loadSideChat().catch(()=>{}); renderSideChatHistory(); updateSideChatModelBadge(); }
   }
-  $("sideChatToggle").onclick=()=>setSideChatOpen(!$("sideChatPanel").classList.contains("open"));
+  $("sideChatToggle").onclick=()=>{
+    if(sideChatLauncherMoved){ sideChatLauncherMoved=false; return; }
+    setSideChatOpen(!$("sideChatPanel").classList.contains("open"));
+  };
   $("sideChatClose").onclick=()=>setSideChatOpen(false);
   $("sideChatNew").onclick=()=>{ if(sideChatBusy)return; sideChatThreadId=""; try{ localStorage.removeItem("boolean_side_chat_thread"); }catch{} renderSideChatLog([]); renderSideChatHistory(); $("sideChatInput")?.focus(); };
   $("sideChatAi").onchange=()=>{
@@ -11325,6 +11580,32 @@ Optional bundled starter model:
   };
   $("sideChatSend").onclick=sendSideChat;
   $("sideChatInput").onkeydown=(event)=>{ if(event.key==="Enter"&&!event.shiftKey){ event.preventDefault(); sendSideChat(); } };
+  $("sideChatToggle").addEventListener("pointerdown",(event)=>{
+    if(event.button!==0) return;
+    const launcher=$("sideChatToggle");
+    const rect=launcher.getBoundingClientRect();
+    sideChatLauncherMoved=false;
+    sideChatLauncherDrag={pointerId:event.pointerId,startY:event.clientY,top:rect.top+rect.height/2};
+    launcher.setPointerCapture?.(event.pointerId);
+  });
+  $("sideChatToggle").addEventListener("pointermove",(event)=>{
+    if(!sideChatLauncherDrag||event.pointerId!==sideChatLauncherDrag.pointerId) return;
+    const delta=event.clientY-sideChatLauncherDrag.startY;
+    if(!sideChatLauncherMoved&&Math.abs(delta)<4) return;
+    sideChatLauncherMoved=true;
+    event.preventDefault();
+    const launcher=$("sideChatToggle");
+    launcher.classList.add("dragging");
+    launcher.style.top=clampSideChatLauncherTop(sideChatLauncherDrag.top+delta)+"px";
+  });
+  const finishSideChatLauncherDrag=(event)=>{
+    if(!sideChatLauncherDrag||event.pointerId!==sideChatLauncherDrag.pointerId) return;
+    $("sideChatToggle").classList.remove("dragging");
+    if(sideChatLauncherMoved) saveSideChatLauncherPosition();
+    sideChatLauncherDrag=null;
+  };
+  $("sideChatToggle").addEventListener("pointerup",finishSideChatLauncherDrag);
+  $("sideChatToggle").addEventListener("pointercancel",finishSideChatLauncherDrag);
   $("sideChatPanel").querySelector(".side-chat-head").addEventListener("pointerdown",(event)=>{
     if(event.button!==0||event.target.closest("button,select,input,textarea")) return;
     event.preventDefault();
@@ -11353,7 +11634,8 @@ Optional bundled starter model:
     panel?.querySelector(".side-chat-head")?.classList.remove("dragging");
     saveSideChatPosition();
   });
-  window.addEventListener("resize",()=>{ if($("sideChatPanel")?.classList.contains("open")) applySideChatPosition(); });
+  window.addEventListener("resize",()=>{ applySideChatLauncherPosition(); if($("sideChatPanel")?.classList.contains("open")) applySideChatPosition(); });
+  applySideChatLauncherPosition();
   setTimeout(()=>{
     try{
       if(localStorage.getItem("boolean_side_chat_open")==="1" && sideChatThreads().length) setSideChatOpen(true);

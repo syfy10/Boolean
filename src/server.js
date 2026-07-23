@@ -12,7 +12,7 @@ import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL
 } from "./config.js";
-import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction } from "./agent.js";
+import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
@@ -552,7 +552,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       id, title, kind, projectDir, side: side === true,
       messages: [{ role: "system", content: systemPrompt(workDir, config.autoApprove, config) }],
       log: [], // display entries: {t:'user'|'ai'|'tool', ...}
-      createdAt: Date.now(), updatedAt: Date.now(), abort: null, pendingTask: null
+      createdAt: Date.now(), updatedAt: Date.now(), abort: null, pendingTask: null, memoryDigest: null
     };
     threads.set(id, t);
     activeThreadId = id;
@@ -576,13 +576,17 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       controller: null
     };
   }
-  function shouldTrackPendingTask(messages, latestText) {
+  function turnModeForPendingTask(messages, latestText) {
     const prospective = Array.isArray(messages) ? messages : [];
     return classifyTurnMode(prospective, {
       latestText,
       artifactActionRequired: requiresArtifactAction(prospective),
       connectorActionRequired: requiresConnectorContinuationAction(prospective)
-    }) === "agent";
+    });
+  }
+  function shouldTrackPendingTask(messages, latestText) {
+    const mode = turnModeForPendingTask(messages, latestText);
+    return mode === "action" || mode === "connector";
   }
   function activeTaskPrompt(task) {
     if (!task || !["running", "interrupted"].includes(task.state)) return "";
@@ -593,16 +597,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       "If the newest user message only asks whether you are working, why the run stopped, or says to continue, do not replace this objective with that message. Briefly acknowledge if needed, then resume this active task from the checkpoint."
     ].join("\n");
   }
-  function isTaskResumeOrStatusText(text) {
-    const s = String(text || "").trim().toLowerCase();
-    if (!s) return false;
-    if (/^(continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it|can you do (?:this|it)(?: now| or not| or now)?)\b/i.test(s)) return true;
-    if (/\b(are you|r u|you)\s+(still\s+)?(checking|working|running|doing|stuck|stopped)\b/i.test(s)) return true;
-    if (/\b(what happened|why did (it|you) stop|did (it|you) stop|what are you doing|where are we|status update|give me status|can move forward)\b/i.test(s)) return true;
-    if (/^(check now|try again|please continue|continue where you left off)\b/i.test(s)) return true;
-    return false;
-  }
-  function resumeTaskMessage(task, latestUserText = "") {
+  function resumeTaskMessage(task, latestUserText = "", { refinement = false } = {}) {
     if (!task) return "Continue exactly where you left off. Do not repeat work already done.";
     const lines = [
       "RESUME INTERRUPTED TASK:",
@@ -615,8 +610,10 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     if (latest) {
       lines.push(
         "",
-        `Latest user message: ${latest}`,
-        "Treat the latest user message as a status/resume instruction, not as a replacement objective."
+        `${refinement ? "Additional user requirement" : "Latest user message"}: ${latest}`,
+        refinement
+          ? "Apply this as an additional requirement to the original task, then continue from the saved checkpoint."
+          : "Treat the latest user message as a status/resume instruction, not as a replacement objective."
       );
     }
     return lines.join("\n");
@@ -658,16 +655,48 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     Array.isArray(t.log) && t.log.some((e) => e.t === "tool" && (e.name === "create_project" || e.name === "run_project")) ||
     /^Build\b/i.test(t?.title || "") ||
     /\b(build|create|make)\b.*\b(app|project|website|api|desktop|window|windows)\b/i.test(userTextOnly(firstUserContent(t)));
+  function publicTaskController(controller) {
+    if (!controller || typeof controller !== "object" || !Array.isArray(controller.plan)) return null;
+    return {
+      objective: String(controller.objective || "").slice(0, 500),
+      phase: String(controller.phase || ""),
+      plan: controller.plan.slice(0, 40).map((step) => ({
+        step: String(step?.step || "").slice(0, 300),
+        status: ["pending", "in_progress", "done"].includes(step?.status) ? step.status : "pending"
+      })),
+      startedAt: Number(controller.startedAt) || 0,
+      updatedAt: Number(controller.updatedAt) || 0,
+      completedAt: Number(controller.completedAt) || 0,
+      lastFailure: String(controller.lastFailure || "").slice(0, 1000),
+      changedFiles: Array.isArray(controller.changedFiles)
+        ? controller.changedFiles.slice(-12).map((item) => String(item || "").slice(0, 260))
+        : [],
+      checks: Array.isArray(controller.checks)
+        ? controller.checks.slice(-8).map((item) => String(item || "").slice(0, 260))
+        : [],
+      recentActions: Array.isArray(controller.recentActions)
+        ? controller.recentActions.slice(-10).map((item) => String(item || "").slice(0, 260))
+        : [],
+      inspectionCount: Math.max(0, Number(controller.inspectionCount) || 0),
+      mutationCount: Math.max(0, Number(controller.mutationCount) || 0),
+      lastVerification: Math.max(0, Number(controller.lastVerification) || 0)
+    };
+  }
+  function publicPendingTask(task) {
+    if (!task || typeof task !== "object") return null;
+    return {
+      state: task.state || "",
+      updatedAt: task.updatedAt || 0,
+      controller: publicTaskController(task.controller)
+    };
+  }
   function threadList() {
     cleanupBlankThreads();
     return [...threads.values()]
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
       .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, pinned: !!t.pinned,
         kind: isProjectThread(t) ? "project" : "chat", side: t.side === true, projectDir: t.projectDir || "",
-        pendingTask: t.pendingTask ? {
-          state: t.pendingTask.state || "",
-          updatedAt: t.pendingTask.updatedAt || 0
-        } : null }));
+        pendingTask: publicPendingTask(t.pendingTask) }));
   }
   const renderThread = (t) => t.log; // display log = full history incl. tool steps
   function threadPage(t, { tail = 0, before = null, limit = 0 } = {}) {
@@ -686,9 +715,25 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   }
   let activeThreadId = null;
 
-  function currentAppContext(t, latestText = "") {
+  function currentAppContext(t, latestText = "", { inspectSavedTask = false } = {}) {
     const parts = [];
-    const taskPrompt = activeTaskPrompt(t.pendingTask);
+    const taskPrompt = inspectSavedTask && t.pendingTask
+      ? [
+          "SAVED TASK STATUS (read-only; do not resume it unless the user explicitly asks):",
+          `Objective: ${t.pendingTask.objective || ""}`,
+          `State: ${t.pendingTask.state || "unknown"}`,
+          t.pendingTask.controller?.phase ? `Controller phase: ${t.pendingTask.controller.phase}` : "",
+          t.pendingTask.controller?.changedFiles?.length ? `Changed files: ${t.pendingTask.controller.changedFiles.join(", ")}` : "",
+          t.pendingTask.controller?.checks?.length ? `Checks: ${t.pendingTask.controller.checks.join("; ")}` : ""
+        ].filter(Boolean).join("\n")
+      : activeTaskPrompt(t.pendingTask);
+    const digest = t.memoryDigest && typeof t.memoryDigest === "object" ? [
+      "DURABLE CHAT MEMORY:",
+      t.memoryDigest.activeTopic ? `Active topic: ${t.memoryDigest.activeTopic}` : "",
+      t.memoryDigest.userCorrections?.length ? `User corrections: ${t.memoryDigest.userCorrections.slice(-2).join(" | ")}` : "",
+      t.memoryDigest.recentDecisions?.length ? `Decisions: ${t.memoryDigest.recentDecisions.slice(-3).join(" | ")}` : "",
+      t.memoryDigest.recentAnswers?.length ? `Recent answers: ${t.memoryDigest.recentAnswers.slice(-2).join(" | ")}` : ""
+    ].filter(Boolean).join("\n") : "";
     const brief = t.kind === "project" && t.projectDir ? projectBrief(t.projectDir) : "";
     const memory = config.ui?.autoSave === false ? "" : buildLocalChatMemory([...threads.values()], {
       currentThreadId: t.id,
@@ -698,6 +743,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     });
     if (brief) parts.push(brief);
     if (taskPrompt) parts.push(taskPrompt);
+    if (digest) parts.push(digest);
     if (memory) parts.push(memory);
     return parts.length ? `\n\nCURRENT APP CONTEXT:\n${parts.join("\n\n")}` : "";
   }
@@ -1028,10 +1074,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             kind: isProjectThread(activeThread) ? "project" : "chat",
             side: activeThread.side === true,
             projectDir: activeThread.projectDir || "",
-            pendingTask: activeThread.pendingTask ? {
-              state: activeThread.pendingTask.state || "",
-              updatedAt: activeThread.pendingTask.updatedAt || 0
-            } : null,
+            pendingTask: publicPendingTask(activeThread.pendingTask),
             ...activeThreadPage
           } : null
         });
@@ -1248,10 +1291,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         });
         json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat", side: t.side === true,
           projectDir: t.projectDir || "", ...page,
-          pendingTask: t.pendingTask ? {
-            state: t.pendingTask.state || "",
-            updatedAt: t.pendingTask.updatedAt || 0
-          } : null });
+          pendingTask: publicPendingTask(t.pendingTask) });
         return;
       }
 
@@ -2316,7 +2356,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
           if (t.log[i].t === "user") { t.log.length = i + 1; break; }
         }
         const retryUser = [...t.messages].reverse().find((message) => message?.role === "user");
-        if (retryUser) beginPendingTask(t, retryUser.content);
+        if (retryUser && shouldTrackPendingTask(t.messages, userTextOnly(retryUser.content))) beginPendingTask(t, retryUser.content);
+        else t.pendingTask = null;
         persist();
         return streamRun(t, res);
       }
@@ -2465,15 +2506,26 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         }
         const visibleUserText = userTextOnly(content);
         const savedTask = t.pendingTask && ["running", "interrupted"].includes(t.pendingTask.state) ? t.pendingTask : null;
-        const shouldResumeSavedTask = savedTask && isTaskResumeOrStatusText(visibleUserText);
+        const shouldRefineSavedTask = !!savedTask && isTaskRefinement(visibleUserText);
+        const shouldResumeSavedTask = !!savedTask && (isExplicitTaskContinuation(visibleUserText) || shouldRefineSavedTask);
+        let inspectSavedTask = false;
         if (shouldResumeSavedTask) {
-          t.messages.push({ role: "user", content: resumeTaskMessage(savedTask, visibleUserText) });
+          if (shouldRefineSavedTask) {
+            savedTask.context = `${savedTask.context || savedTask.objective || ""}\n\n--- additional user requirement ---\n\n${visibleUserText}`.slice(-24000);
+          }
+          t.messages.push({ role: "user", content: resumeTaskMessage(savedTask, visibleUserText, { refinement: shouldRefineSavedTask }) });
           savedTask.state = "running";
           savedTask.updatedAt = Date.now();
         } else {
           t.messages.push({ role: "user", content });
-          if (body.sideChat !== true && shouldTrackPendingTask(t.messages, visibleUserText)) beginPendingTask(t, content);
-          else t.pendingTask = null;
+          const incomingMode = body.sideChat === true ? "chat" : turnModeForPendingTask(t.messages, visibleUserText);
+          inspectSavedTask = !!savedTask && incomingMode === "inspect";
+          if (body.sideChat !== true && (incomingMode === "action" || incomingMode === "connector")) beginPendingTask(t, content);
+          else if (!inspectSavedTask) t.pendingTask = null;
+          else {
+            savedTask.state = "interrupted";
+            savedTask.updatedAt = Date.now();
+          }
         }
         t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now() });
         if (config.ui?.learnedMemory !== false) learnFromUserText(visibleUserText);
@@ -2485,7 +2537,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         return streamRun(t, res, {
           forceTurnMode: body.sideChat === true ? "chat" : "",
           provider: sideProvider || requestedProvider,
-          model: sideProvider ? sideModel : requestedModel
+          model: sideProvider ? sideModel : requestedModel,
+          inspectSavedTask
         });
       }
 
@@ -2522,7 +2575,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
         if (t.messages[0]?.role === "system") {
-          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + currentAppContext(t, userTextOnly(t.messages.at(-1)?.content || "")) };
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + currentAppContext(t, userTextOnly(t.messages.at(-1)?.content || ""), { inspectSavedTask: options.inspectSavedTask === true }) };
         }
 
         const abort = new AbortController();
@@ -2533,9 +2586,13 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
           browserUrl,
           signal: abort.signal,
-          objective: t.pendingTask?.objective || "",
-          taskContext: t.pendingTask?.context || "",
-          controllerState: t.pendingTask?.controller || null,
+          objective: options.inspectSavedTask ? "" : t.pendingTask?.objective || "",
+          taskContext: options.inspectSavedTask ? "" : t.pendingTask?.context || "",
+          controllerState: (() => {
+            const saved = options.inspectSavedTask ? null : t.pendingTask?.controller || null;
+            if (!t.memoryDigest) return saved;
+            return { ...(saved || {}), conversationDigest: t.memoryDigest };
+          })(),
           forceTurnMode: options.forceTurnMode || "",
           onStatus: (text) => send({ type: "status", text }),
           onToken: (text) => send({ type: "token", text }),
@@ -2554,7 +2611,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
           },
           onOptimize: (o) => send({ type: "optimized", ...o }),
           onController: (controller) => {
-            if (t.pendingTask) {
+            if (controller?.conversationDigest) t.memoryDigest = controller.conversationDigest;
+            if (t.pendingTask && !options.inspectSavedTask) {
               t.pendingTask.controller = controller;
               t.pendingTask.updatedAt = Date.now();
             }
@@ -2569,7 +2627,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             send({ type: "image", src, caption: entry.caption });
           },
           onCheckpoint: () => {
-            if (t.pendingTask) t.pendingTask.updatedAt = Date.now();
+            if (t.pendingTask && !options.inspectSavedTask) t.pendingTask.updatedAt = Date.now();
             t.updatedAt = Date.now();
             persist();
           },
@@ -2680,7 +2738,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
             send({ type: "answer", text: answer, provider: replyProvider, model: replyModel, aiLabel });
           }
-          if (t.pendingTask) {
+          if (t.pendingTask && !options.inspectSavedTask) {
             if (/^\(stopped by user\)/i.test(String(answer || "").trim())) {
               t.pendingTask.state = "interrupted";
               t.pendingTask.updatedAt = Date.now();
@@ -2705,7 +2763,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             }
           }
         } catch (err) {
-          if (t.pendingTask) {
+          if (t.pendingTask && !options.inspectSavedTask) {
             t.pendingTask.state = "interrupted";
             t.pendingTask.updatedAt = Date.now();
           }

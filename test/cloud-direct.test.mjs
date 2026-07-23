@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, isExplicitTaskContinuation, isTaskRefinement, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -508,10 +508,51 @@ test("turn classifier chooses the smallest useful mode", () => {
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }]), "chat");
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }], { projectDir: "C:\\repo" }), "chat");
   assert.equal(classifyTurnMode([{ role: "user", content: "stock news today" }]), "research");
-  assert.equal(classifyTurnMode([{ role: "user", content: "build me a tic tac toe game" }], { artifactActionRequired: true }), "agent");
-  assert.equal(classifyTurnMode([{ role: "user", content: "are you checking it?" }], { connectorActionRequired: true }), "agent");
+  assert.equal(classifyTurnMode([{ role: "user", content: "build me a tic tac toe game" }], { artifactActionRequired: true }), "action");
+  assert.equal(classifyTurnMode([{ role: "user", content: "are you checking it?" }], { connectorActionRequired: true }), "connector");
   assert.equal(toolDefinitionsForTurnMode("chat").length, 0);
   assert.deepEqual(toolDefinitionsForTurnMode("research").map((tool) => tool.function.name).sort(), ["research_web", "web_search"]);
+  const inspectTools = toolDefinitionsForTurnMode("inspect").map((tool) => tool.function.name);
+  assert.ok(inspectTools.includes("read_file"));
+  assert.ok(inspectTools.includes("git_status"));
+  assert.ok(!inspectTools.includes("write_file"));
+  assert.ok(!inspectTools.includes("run_command"));
+  assert.equal(classifyTurnMode([{ role: "user", content: "Call read_file for package.json" }]), "inspect");
+  assert.equal(classifyTurnMode([{ role: "user", content: "Call write_file to update package.json" }]), "action");
+  assert.equal(classifyTurnMode([{ role: "user", content: "Call email_cleanup_preview for Gmail" }]), "connector");
+});
+
+test("the newest message owns routing instead of stale task history", () => {
+  const history = [
+    { role: "user", content: "build a website" },
+    { role: "assistant", content: "I started the build." },
+    { role: "user", content: "dont make changes, just tell me the current project status" }
+  ];
+  assert.equal(classifyTurnMode(history, { projectDir: "C:\\repo" }), "inspect");
+  assert.equal(classifyTurnMode([...history, { role: "user", content: "what is 2 + 2?" }], { projectDir: "C:\\repo" }), "chat");
+  assert.equal(classifyTurnMode([...history, { role: "user", content: "continue the website build" }], {
+    projectDir: "C:\\repo",
+    artifactActionRequired: true
+  }), "action");
+});
+
+test("saved tasks resume only from explicit continuation commands", () => {
+  assert.equal(isExplicitTaskContinuation("continue"), true);
+  assert.equal(isExplicitTaskContinuation("please resume where you left off"), true);
+  assert.equal(isExplicitTaskContinuation("finish it"), true);
+  assert.equal(isExplicitTaskContinuation("where are we?"), false);
+  assert.equal(isExplicitTaskContinuation("are you still working?"), false);
+  assert.equal(isExplicitTaskContinuation("what happened?"), false);
+  assert.equal(isExplicitTaskContinuation("tell me the project status"), false);
+});
+
+test("short artifact refinements resume an interrupted task without treating questions as continuation", () => {
+  assert.equal(isTaskRefinement("just name it chess"), true);
+  assert.equal(isTaskRefinement("make the game dark"), true);
+  assert.equal(isTaskRefinement("save it in my Games folder"), true);
+  assert.equal(isTaskRefinement("what is the current status?"), false);
+  assert.equal(isTaskRefinement("just tell me what happened"), false);
+  assert.equal(isTaskRefinement("can you explain chess?"), false);
 });
 
 test("explicit email cleanup tool requests outrank web-research wording", () => {
@@ -528,7 +569,7 @@ test("explicit email cleanup tool requests outrank web-research wording", () => 
 
   const mode = classifyTurnMode([{ role: "user", content: prompt }]);
   const names = toolDefinitionsForTurnMode(mode).map((tool) => tool.function.name);
-  assert.equal(mode, "agent");
+  assert.equal(mode, "connector");
   assert.equal(requiresExplicitActionToolResult([{ role: "user", content: prompt }]), true);
   assert.equal(requiresExplicitActionToolResult([{ role: "user", content: "What does email_cleanup_preview do?" }]), false);
   assert.equal(requiresExplicitActionToolResult([{ role: "user", content: "Do not call email_cleanup_trash yet." }]), false);
@@ -560,7 +601,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
     args: { provider: "gmail", plan_id: planId, batch_size: 250 },
     remaining: 490
   });
-  assert.equal(classifyTurnMode(firstConfirmation), "agent");
+  assert.equal(classifyTurnMode(firstConfirmation), "connector");
   assert.equal(requiresExplicitActionToolResult(firstConfirmation), true);
 
   const secondConfirmation = [
@@ -584,7 +625,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
     args: { provider: "gmail", plan_id: planId, batch_size: 240 },
     remaining: 240
   });
-  assert.equal(classifyTurnMode(secondConfirmation), "agent");
+  assert.equal(classifyTurnMode(secondConfirmation), "connector");
   assert.match(systemPrompt("", true), /click the Move to Trash button or type `move next batch to trash`/);
 
   assert.equal(emailCleanupContinuationAction([
@@ -606,7 +647,7 @@ test("explicit no-change project questions do not require artifact edits", () =>
     latestText: "dont make any changes just tell me about this project",
     artifactActionRequired: requiresArtifactAction(messages),
     projectDir: "C:\\Users\\S10\\Documents\\Boolean"
-  }), "agent", "project overview can still inspect read-only");
+  }), "inspect", "project overview uses read-only tools without action completion gates");
 });
 
 test("connector progress follow-ups stay in tool mode", () => {

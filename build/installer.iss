@@ -3,7 +3,7 @@
 ; Build:  ISCC.exe build\installer.iss
 
 #define AppName "Boolean"
-#define AppVersion "0.9.44"
+#define AppVersion "0.9.45"
 #define AppPublisher "saz3 Labs"
 #define AppExe "Boolean.exe"
 #define CoreExe "Boolean-core.exe"

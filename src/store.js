@@ -24,7 +24,8 @@ export function saveThreads(threads) {
       kind: t.kind === "project" ? "project" : "chat",
       side: t.side === true,
       projectDir: t.kind === "project" && typeof t.projectDir === "string" ? t.projectDir : "",
-      pendingTask: t.pendingTask && typeof t.pendingTask === "object" ? t.pendingTask : null
+      pendingTask: t.pendingTask && typeof t.pendingTask === "object" ? t.pendingTask : null,
+      memoryDigest: t.memoryDigest && typeof t.memoryDigest === "object" ? t.memoryDigest : null
     }));
     const tmp = THREADS_FILE + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify({ version: 1, threads: data }));
@@ -152,6 +153,17 @@ function summarizeThreadForMemory(t, queryTerms) {
   const where = t?.kind === "project" && t?.projectDir ? ` project=${t.projectDir}` : "";
   const pending = t?.pendingTask?.state ? ` pending=${t.pendingTask.state}` : "";
   const lines = [`Thread "${title}" (${threadKindLabel(t)})${where}${pending}:`];
+  const digest = t?.memoryDigest && typeof t.memoryDigest === "object" ? t.memoryDigest : null;
+  if (digest?.activeTopic) lines.push(`- Active topic: ${cleanSnippet(digest.activeTopic, 220)}`);
+  for (const correction of (digest?.userCorrections || []).slice(-2)) {
+    lines.push(`- User correction: ${cleanSnippet(correction, 220)}`);
+  }
+  for (const decision of (digest?.recentDecisions || []).slice(-2)) {
+    lines.push(`- Decision: ${cleanSnippet(decision, 220)}`);
+  }
+  for (const answer of (digest?.recentAnswers || []).slice(-2)) {
+    lines.push(`- Remembered answer: ${cleanSnippet(answer, 260)}`);
+  }
   for (const message of relevantMessages(t, queryTerms)) {
     const role = message.role;
     const snippet = cleanSnippet(message.text, 300);

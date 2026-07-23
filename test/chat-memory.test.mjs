@@ -100,3 +100,29 @@ test("local chat memory summarizes chat log entries when messages are trimmed", 
   assert.match(memory, /page actions bar/i);
   assert.match(memory, /multi-tab extract/i);
 });
+
+test("local chat memory keeps durable answers corrections and decisions after trimming", () => {
+  const memory = buildLocalChatMemory([{
+    id: "durable",
+    title: "Boolean execution rules",
+    kind: "project",
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean",
+    updatedAt: Date.now(),
+    messages: [{ role: "system", content: "system" }, { role: "user", content: "remember our execution rules" }],
+    memoryDigest: {
+      activeTopic: "Fix task routing and completion",
+      userCorrections: ["Do not resume a saved task from a status question"],
+      recentDecisions: ["Use explicit Chat Inspect Action and Connector modes"],
+      recentAnswers: ["Read-only inspection must not require an artifact edit"]
+    }
+  }], {
+    currentThreadId: "durable",
+    latestText: "what did we decide about task routing?",
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
+  });
+
+  assert.match(memory, /Fix task routing and completion/);
+  assert.match(memory, /Do not resume a saved task from a status question/);
+  assert.match(memory, /explicit Chat Inspect Action and Connector modes/);
+  assert.match(memory, /inspection must not require an artifact edit/);
+});

@@ -111,6 +111,15 @@ test("settings and account stay inside the main footer controls", () => {
   assert.match(ui, /#cloudSignInText\{ display:none; \}/);
 });
 
+test("chat scrolls behind the transparent action strip but not the input", () => {
+  assert.match(
+    ui,
+    /main::after\{[^}]*bottom:24px;[^}]*height:var\(--composer-h,106px\);[^}]*background:var\(--bg\);/s
+  );
+  assert.match(ui, /body\.composer-simple main::after\{[^}]*height:max\(0px,calc\(var\(--composer-h,106px\) - 36px\)\);/s);
+  assert.match(ui, /body\.composer-simple \.composer-top-strip\{[^}]*min-height:34px;[^}]*pointer-events:auto;/s);
+});
+
 test("narrow settings tabs do not leave a spacer under the header", () => {
   assert.match(ui, /@media \(max-width:720px\)\{[\s\S]*?\.settings-tabs\{ top:0; flex-direction:row;/);
 });
@@ -210,12 +219,17 @@ test("browser chrome adapts before the pane is too narrow", () => {
 });
 
 test("side chat popup scales smaller with the main window", () => {
-  assert.match(ui, /\.side-chat-launch\{ position:fixed;[^}]*left:14px; top:50%;[^}]*width:38px; height:38px;/s);
-  assert.match(ui, /body:not\(\.collapsed\) \.side-chat-launch\{ left:224px; \}/);
+  assert.match(ui, /\.side-chat-launch\{ position:fixed;[^}]*left:4px; top:50%;[^}]*width:38px; height:38px;[^}]*cursor:ns-resize; touch-action:none;/s);
+  assert.doesNotMatch(ui, /body:not\(\.collapsed\) \.side-chat-launch/);
   assert.match(ui, /\.side-chat-panel\{[^}]*top:86px; left:14px; right:auto;[^}]*width:clamp\(228px,23vw,276px\);[^}]*height:clamp\(260px,44dvh,370px\);/s);
   assert.match(ui, /body\.browser-on \.side-chat-panel\{ width:clamp\(216px,21vw,258px\); height:clamp\(250px,40dvh,344px\); \}/);
   assert.match(ui, /@media\(max-width:720px\)\{ \.side-chat-panel\{ width:min\(276px,calc\(100vw - 22px\)\); height:min\(344px,calc\(100dvh - 92px\)\); left:11px; right:auto; \} \}/);
   assert.match(ui, /function sideChatLeftEdge\(\)\{/);
+  assert.match(ui, /function applySideChatLauncherPosition\(\)\{/);
+  assert.match(ui, /localStorage\.setItem\("boolean_side_chat_launcher_top"/);
+  assert.match(ui, /"sideChatToggle"\)\.addEventListener\("pointermove"/);
+  assert.match(ui, /const latest=sideChatThreads\(\)\[0\];[\s\S]*sideChatThreadId=latest\.id;/);
+  assert.match(ui, /peek=1&tail=250/);
   assert.match(ui, /const pos=clampSideChatPosition\(sideChatLeftEdge\(\),top\);/);
   assert.match(ui, /const pos=clampSideChatPosition\(sideChatLeftEdge\(\),top\);[\s\S]*sideChatDragging\.left=pos\.left;/);
   assert.match(ui, /\.side-chat-history\{[^}]*max-height:84px;/);
