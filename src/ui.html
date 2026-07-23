@@ -12,7 +12,7 @@
   :root{
     --bg:#fafafa; --sidebar:#ffffff; --text:#1a1a1a; --dim:#8a8a8a; --border:#ececea;
     --hover:#f3f3f1; --bubble:#f4f4f1; --user-bubble:#2d2d2d; --user-bubble-text:#ffffff; --ai-bubble:#f7f7f4; --accent:#2d2d2d; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
-    --green:#62676f; --ready:#22a559; --not-ready:#dc3f42; --label:#666;
+    --green:#3fb950; --ready:#22a559; --not-ready:#dc3f42; --label:#666;
     --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.03);
     --shadow:0 2px 8px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.04);
     --shadow-lg:0 8px 32px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.04);
@@ -30,12 +30,12 @@
   /* dark palette, shared by system-dark and explicit dark */
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
       --bg:#141414; --sidebar:#1a1a1a; --text:#ececec; --dim:#8f8f8f; --border:#262626;
-      --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --green:#a7abb1; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
+      --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
       --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
       --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06); } }
   :root[data-theme="dark"]{
     --bg:#141414; --sidebar:#1a1a1a; --text:#ececec; --dim:#8f8f8f; --border:#262626;
-    --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --green:#a7abb1; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
+    --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
     --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
     --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06);
   }
@@ -799,6 +799,7 @@
   .note-tab-menu-row .note-tab-x{ color:var(--note-muted); }
   .note-btn{ width:27px; height:27px; border:0; border-radius:50%; background:transparent; color:var(--note-btn);
     display:grid; place-items:center; cursor:pointer; font:14px/1 var(--ui); flex-shrink:0; }
+  .note-btn svg{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .note-btn:hover{ background:var(--note-tab); color:var(--note-text); }
   .note-btn.on{ background:var(--note-tab); color:var(--note-text); font-weight:700; }
   .note-actions{ display:flex; align-items:center; gap:4px; padding:6px 9px; border-bottom:1px solid var(--note-bar); flex-wrap:wrap; }
@@ -1786,16 +1787,16 @@
   body.composer-simple .next-edit-bar{ margin-bottom:4px; }
 
   /* ── Recipe quick-start cards ── */
-  .recipes-panel{ width:100%; min-height:0; flex:1; margin:0; padding:10px var(--content-x) 18px; display:none; background:var(--bg); overflow:hidden; }
+  .recipes-panel{ width:100%; min-height:0; flex:1; margin:0 0 var(--app-footer-h); padding:10px var(--content-x) 18px; display:none; background:var(--bg); overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; }
   body.recipes-open .recipes-panel{ display:flex; }
   body.recipes-open #chat,body.recipes-open .composer-wrap{ display:none !important; }
-  .recipes-shell{ width:min(1180px,100%); height:calc(100dvh - 168px); max-height:720px; min-height:0; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(210px,260px); gap:7px; align-items:stretch; }
+  .recipes-shell{ width:min(1180px,100%); min-height:100%; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(230px,300px); gap:7px; align-items:start; }
   .recipes-main,.recipes-detail{ min-width:0; min-height:0; border:1px solid var(--border); border-radius:8px; background:var(--card); }
   .recipes-role-pills{ display:flex; flex-wrap:wrap; gap:2px 4px; margin-top:3px; }
   .recipes-role-pill{ height:22px; border:0; border-radius:999px; background:transparent; color:var(--dim); display:flex; align-items:center; gap:5px; padding:0 7px; text-align:left; cursor:pointer; font:10px var(--ui); }
   .recipes-role-pill:hover,.recipes-role-pill.on{ background:var(--hover); color:var(--text); }
   .recipes-role-pill .role-dot{ width:6px; height:6px; border-radius:50%; background:var(--role-color,var(--green)); flex:0 0 auto; }
-  .recipes-main{ padding:8px; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
+  .recipes-main{ padding:8px; display:flex; flex-direction:column; gap:6px; overflow:visible; }
   .recipes-main-head{ display:flex; align-items:flex-start; gap:10px; }
   .recipes-main-head div{ min-width:0; flex:1; }
   .recipes-main-head h3{ margin:0; font:700 15px/1.15 var(--ui); color:var(--text); }
@@ -1803,13 +1804,13 @@
   .recipes-close{ width:26px; height:26px; flex:0 0 auto; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; font:18px/1 var(--ui); display:grid; place-items:center; }
   .recipes-close:hover{ background:var(--hover); color:var(--text); }
   .recipe-search{ height:31px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); padding:0 10px; font:12px var(--ui); outline:0; }
-  .recipe-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:5px; overflow:auto; padding-right:2px; min-height:0; flex:1; align-content:start; }
+  .recipe-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:5px; overflow:visible; padding-right:2px; min-height:0; align-content:start; }
   .recipe-card{ min-height:64px; text-align:left; border:1px solid var(--border); border-left:2px solid var(--role-color,var(--border)); border-radius:7px; background:var(--bg); padding:7px; cursor:pointer; color:var(--text); font:10.5px/1.25 var(--ui); transition:border-color .12s, background .12s, transform .12s; }
   .recipe-card:hover,.recipe-card.on{ border-color:color-mix(in srgb,var(--role-color,var(--green)) 48%,var(--border)); border-left-color:var(--role-color,var(--green)); background:var(--hover); transform:translateY(-1px); }
   .recipe-card b{ display:block; font:650 12px/1.2 var(--ui); overflow-wrap:anywhere; }
   .recipe-card small{ display:-webkit-box; color:var(--dim); font:10px/1.3 var(--ui); margin-top:3px; overflow:hidden; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
   .recipe-card .recipe-chip{ display:inline-flex; margin-top:3px; padding:1px 6px; border-radius:999px; background:color-mix(in srgb,var(--role-color,var(--green)) 13%,transparent); color:var(--role-color,var(--green)); font:9px/1.35 var(--ui); }
-  .recipes-detail{ padding:8px 8px 10px; display:flex; flex-direction:column; gap:6px; overflow:auto; }
+  .recipes-detail{ padding:8px 8px 10px; display:flex; flex-direction:column; gap:6px; overflow:visible; }
   .recipes-detail h3{ margin:0; font:700 15px/1.2 var(--ui); color:var(--text); overflow-wrap:anywhere; }
   .recipes-detail p{ margin:0; color:var(--dim); font:11.5px/1.4 var(--ui); }
   .recipe-tools{ display:flex; flex-wrap:wrap; gap:4px; }
@@ -1849,14 +1850,14 @@
   .email-recipe-empty button{ align-self:flex-start; height:30px; padding:0 10px; border:1px solid var(--border); border-radius:7px; background:var(--accent); color:var(--accent-text); cursor:pointer; }
   .email-recipe-summary{ border-left:2px solid var(--role-color); padding:2px 0 2px 8px; color:var(--dim); font:10.5px/1.45 var(--ui); }
   .email-recipe-summary b{ color:var(--text); }
-  .recipe-actions{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:auto; position:sticky; bottom:0; background:var(--card); padding:8px 0 2px; box-shadow:0 -8px 14px color-mix(in srgb,var(--card) 92%,transparent); }
+  .recipe-actions{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px; position:static; background:var(--card); padding:5px 0 2px; }
   .recipe-actions button{ height:31px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
   .recipe-actions button.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
   .recipe-actions button:hover{ opacity:.86; }
   body.recipes-compact.recipes-open .recipes-panel,
-  body.browser-on.recipes-open .recipes-panel{ padding:6px 8px 8px; }
+  body.browser-on.recipes-open .recipes-panel{ padding:6px 8px 10px; }
   body.recipes-compact.recipes-open .recipes-shell,
-  body.browser-on.recipes-open .recipes-shell{ height:calc(100dvh - 168px); max-height:none; grid-template-columns:minmax(0,1fr) minmax(200px,240px); grid-template-rows:minmax(0,1fr); gap:6px; overflow:hidden; align-items:stretch; }
+  body.browser-on.recipes-open .recipes-shell{ min-height:100%; grid-template-columns:minmax(0,1fr) minmax(210px,260px); gap:6px; overflow:visible; align-items:start; }
   body.recipes-compact.recipes-open .recipes-main,
   body.browser-on.recipes-open .recipes-main{ padding:9px; gap:7px; }
   body.recipes-compact.recipes-open .recipes-main-head h3,
@@ -1866,29 +1867,29 @@
   body.recipes-compact.recipes-open .recipe-search,
   body.browser-on.recipes-open .recipe-search{ height:28px; }
   body.recipes-compact.recipes-open .recipe-grid,
-  body.browser-on.recipes-open .recipe-grid{ grid-template-columns:repeat(auto-fill,minmax(136px,1fr)); gap:5px; max-height:none; overflow:auto; flex:1 1 auto; }
+  body.browser-on.recipes-open .recipe-grid{ grid-template-columns:repeat(auto-fill,minmax(136px,1fr)); gap:5px; overflow:visible; }
   body.recipes-compact.recipes-open .recipe-card,
   body.browser-on.recipes-open .recipe-card{ min-height:60px; padding:6px; }
   body.recipes-compact.recipes-open .recipes-detail,
-  body.browser-on.recipes-open .recipes-detail{ padding:9px; gap:8px; overflow:auto; max-height:none; }
+  body.browser-on.recipes-open .recipes-detail{ padding:9px; gap:8px; overflow:visible; }
   body.recipes-compact.recipes-open .recipe-actions,
-  body.browser-on.recipes-open .recipe-actions{ position:sticky; bottom:0; padding-top:5px; }
+  body.browser-on.recipes-open .recipe-actions{ position:static; padding-top:5px; }
   body.recipes-compact.recipes-open .recipes-role-pill,
   body.browser-on.recipes-open .recipes-role-pill{ height:24px; padding:0 7px; font-size:10px; }
-  @media(max-width:900px){ .recipes-shell{ grid-template-columns:minmax(0,1fr) minmax(190px,220px); grid-template-rows:minmax(0,1fr); height:calc(100dvh - 132px); max-height:none; overflow:hidden; } .recipes-main{ min-height:0; } .recipes-detail{ max-height:none; overflow:auto; } }
+  @media(max-width:900px){ .recipes-shell{ grid-template-columns:minmax(0,1fr) minmax(210px,250px); overflow:visible; } .recipes-main{ min-height:0; } .recipes-detail{ overflow:visible; } }
   @media(max-width:760px){
     body.recipes-compact.recipes-open .recipes-shell,
     body.browser-on.recipes-open .recipes-shell,
-    .recipes-shell{ grid-template-columns:minmax(0,1fr) minmax(180px,210px); grid-template-rows:minmax(0,1fr); overflow:hidden; }
+    .recipes-shell{ grid-template-columns:minmax(0,1fr) minmax(200px,230px); overflow:visible; }
     body.recipes-compact.recipes-open .recipes-detail,
     body.browser-on.recipes-open .recipes-detail,
-    .recipes-detail{ max-height:none; overflow:auto; }
+    .recipes-detail{ overflow:visible; }
   }
-  @media(max-width:520px){
+  @media(max-width:620px){
     body.recipes-compact.recipes-open .recipes-shell,
     body.browser-on.recipes-open .recipes-shell,
-    .recipes-shell{ grid-template-columns:1fr; grid-template-rows:minmax(0,1fr) minmax(170px,210px); }
-    .recipes-detail{ max-height:210px; }
+    .recipes-shell{ grid-template-columns:1fr; }
+    .recipes-detail{ max-height:none; }
   }
 
   /* ── MCP Connector Gallery ── */
@@ -3534,6 +3535,7 @@
   <div class="note-actions">
     <button class="note-btn" id="noteUndo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button class="note-btn" id="noteRedo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
+    <button class="note-btn" id="notePaste" title="Paste" aria-label="Paste"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5h6M9 3h6v4H9zM8 5H6v16h12V5h-2"/></svg></button>
     <button class="note-btn" id="noteSend" title="Send selection to message">↗</button>
     <button class="note-btn" id="noteSchedule" title="Schedule selected text" aria-label="Schedule selected text"><span class="note-clock-icon"></span></button>
     <div class="note-more-wrap">
@@ -5172,6 +5174,9 @@
     el.textContent=message||"";
     el.className="connection-notice"+(message?" on "+(failed?"error":"success"):"");
   }
+  function validGoogleOAuthClientId(value){
+    return /^\d+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(String(value||"").trim());
+  }
   function returnToEmailRecipeAfterConnect(){
     const target=emailRecipeReturn;
     emailRecipeReturn=null;
@@ -5186,7 +5191,7 @@
     if(emailConnectionBusy[provider]) return;
     const email=connectorsState().email||{};
     const connection=email[provider]||{};
-    const selectedMode=mode||(connection.connectionMode==="manual"&&connection.manualAvailable?"manual":(connection.managedAvailable?"managed":(connection.manualAvailable||(provider==="gmail"&&connection.hasClientId)?"manual":"managed")));
+    const selectedMode=mode||(connection.connectionMode==="manual"?"manual":(connection.managedAvailable?"managed":(connection.manualAvailable||(provider==="gmail"&&connection.hasClientId)?"manual":"managed")));
     const clientId=selectedMode==="manual"?$(provider+"ClientId").value.trim():"";
     const clientSecret=selectedMode==="manual"&&provider==="gmail"?$("gmailClientSecret").value.trim():"";
     if(selectedMode==="managed"&&!connection.managedAvailable){
@@ -5194,7 +5199,13 @@
       return;
     }
     if(selectedMode==="manual"&&!clientId&&!connection.manualAvailable&&!connection.hasClientId){
-      openEmailAdvanced(provider,"Enter the OAuth public client ID first.");
+      openEmailAdvanced(provider,connection.setupIssue==="invalid_client_id"
+        ?"The saved Google client ID is invalid. Paste the Desktop client ID ending in .apps.googleusercontent.com, not the GOCSPX client secret."
+        :"Enter the OAuth public client ID first.");
+      return;
+    }
+    if(selectedMode==="manual"&&provider==="gmail"&&clientId&&!validGoogleOAuthClientId(clientId)){
+      openEmailAdvanced(provider,"Paste the Google Desktop client ID ending in .apps.googleusercontent.com. The GOCSPX value belongs in the client secret field.");
       return;
     }
     if(selectedMode==="manual"&&provider==="gmail"&&!clientSecret&&!connection.hasClientSecret){
@@ -5208,7 +5219,7 @@
       const response=await fetch("/api/email/oauth/start",{method:"POST",body:JSON.stringify({provider,mode:selectedMode,clientId,clientSecret})});
       const result=await response.json().catch(()=>({}));
       if(!response.ok){
-        if(result.code==="email_oauth_setup_required") openEmailAdvanced(provider,result.error||"OAuth setup is required.");
+        if(result.code==="email_oauth_setup_required"||result.code==="email_oauth_invalid_client_id") openEmailAdvanced(provider,result.error||"OAuth setup is required.");
         throw new Error(result.error||"Could not start email sign-in.");
       }
       let popup=null;
@@ -5694,7 +5705,7 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.46"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.47"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -7038,6 +7049,16 @@
   // undo / redo on the note editor
   $("noteUndo").onclick=()=>{ $("noteEditor").focus(); document.execCommand("undo"); saveNotes(); };
   $("noteRedo").onclick=()=>{ $("noteEditor").focus(); document.execCommand("redo"); saveNotes(); };
+  $("notePaste").onclick=async()=>{
+    try{
+      const text=await readClipboardText();
+      if(!text){ tempToast("Clipboard is empty."); return; }
+      insertHtmlAtCursor(esc(text).replace(/\r?\n/g,"<br>"));
+      tempToast("Pasted into note.");
+    }catch(error){
+      tempToast(error?.message||"Clipboard is unavailable.");
+    }
+  };
   // save the active note to a file (.html preserves formatting + images)
   $("noteSaveFile").onclick=()=>{
     const n=activeNote();
@@ -7105,7 +7126,7 @@
   $("noteCopy").onclick=()=>document.execCommand("copy");
   $("noteMore").onclick=(e)=>{ e.stopPropagation(); $("noteMoreMenu").classList.toggle("open"); };
   $("noteMoreMenu").onclick=(e)=>{ if(e.target.closest("button") && e.target.closest("button").id!=="noteNumbers") $("noteMoreMenu").classList.remove("open"); };
-  ["noteSnip","noteNumbers","noteSend","noteSchedule","noteCut","noteCopy","noteMore"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
+  ["noteSnip","noteNumbers","noteSend","noteSchedule","noteCut","noteCopy","notePaste","noteMore"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
   function selectedNotePayload(){
     const sel=getSelection(); let html="", text="";
     const numbered=document.querySelector(".note-paper").classList.contains("numbered");
@@ -10398,7 +10419,10 @@ Optional bundled starter model:
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { toggleTerminal(true); tempToast("Terminal opened for code work."); }
     else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
-    else if (ws === "recipes") { ensureRecipes(); }
+    else if (ws === "recipes") {
+      ensureRecipes();
+      requestAnimationFrame(()=>resetRecipesScroll());
+    }
     else if (ws === "git") { openSettings("github"); }
     else if (ws === "automations") { openSettings("scheduled"); }
     requestAnimationFrame(()=>perfMark("tabOpen",tabStarted));
@@ -10921,6 +10945,10 @@ Optional bundled starter model:
     recipesReady=true;
     renderRecipes();
   }
+  function resetRecipesScroll(){
+    const panel=$("recipesPanel");
+    if(panel) panel.scrollTop=0;
+  }
   function renderRecipes(){
     const panel=$("recipesPanel"); if(!panel) return;
     if(!panel.querySelector(".recipes-shell")){
@@ -10930,7 +10958,7 @@ Optional bundled starter model:
     const role=currentRole();
     panel.style.setProperty("--role-color",role.color);
     $("recipeRolePills").innerHTML=recipeRoles.map(r=>'<button type="button" class="recipes-role-pill'+(r.id===activeRecipeRole?' on':'')+'" data-role="'+esc(r.id)+'" style="--role-color:'+esc(r.color)+'"><span class="role-dot"></span><span>'+esc(r.label)+'</span></button>').join("");
-    $("recipeRolePills").querySelectorAll(".recipes-role-pill").forEach(btn=>btn.onclick=()=>{ activeRecipeRole=btn.dataset.role; const first=recipeItems.find(item=>item.role===activeRecipeRole); if(first) activeRecipeId=first.id; if($("recipeSearch")) $("recipeSearch").value=""; renderRecipes(); });
+    $("recipeRolePills").querySelectorAll(".recipes-role-pill").forEach(btn=>btn.onclick=()=>{ activeRecipeRole=btn.dataset.role; const first=recipeItems.find(item=>item.role===activeRecipeRole); if(first) activeRecipeId=first.id; if($("recipeSearch")) $("recipeSearch").value=""; renderRecipes(); requestAnimationFrame(()=>resetRecipesScroll()); });
     $("recipeDetail").style.display="";
     $("recipeSearch").style.display="";
     $("recipeRoleTitle").textContent=role.label+" recipes";
@@ -10944,7 +10972,7 @@ Optional bundled starter model:
     }
     if(!items.some(item=>item.id===activeRecipeId)) activeRecipeId=(items[0]||recipeItems.find(item=>item.role===activeRecipeRole)||recipeItems[0]).id;
     $("recipeGrid").innerHTML=items.map(item=>{const rColor=recipeRoles.find(r=>r.id===item.role)?.color||'var(--green)';const rLabel=recipeRoles.find(r=>r.id===item.role)?.label||'';return '<button type="button" class="recipe-card'+(item.id===activeRecipeId?' on':'')+'" data-recipe-id="'+esc(item.id)+'" style="--role-color:'+esc(rColor)+'"><b>'+esc(item.title)+'</b><small>'+esc(item.desc)+'</small>'+(query?'<span class="recipe-chip" style="--role-color:'+esc(rColor)+'">'+esc(rLabel)+'</span>':'')+'<span class="recipe-chip">'+esc(item.tag)+'</span></button>';}).join("");
-    $("recipeGrid").querySelectorAll(".recipe-card").forEach(btn=>btn.onclick=()=>{ activeRecipeId=btn.dataset.recipeId; renderRecipes(); });
+    $("recipeGrid").querySelectorAll(".recipe-card").forEach(btn=>btn.onclick=()=>{ activeRecipeId=btn.dataset.recipeId; renderRecipes(); requestAnimationFrame(()=>resetRecipesScroll()); });
     $("recipeSearch").oninput=()=>renderRecipes();
     $("recipesClose").onclick=()=>setWorkspaceTab("chat");
     renderRecipeDetail();

@@ -36,6 +36,7 @@ import {
   createEmailOAuth,
   exchangeEmailCode,
   getEmailAccount,
+  isValidGmailOAuthClientId,
   publicEmailConnections
 } from "./email.js";
 import { emailOAuthRedirectUri, loadManagedEmailOAuthClients, managedEmailOAuthCredential } from "./email-oauth-config.js";
@@ -81,7 +82,7 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
-    version: "0.9.46",
+    version: "0.9.47",
     date: "2026-07-23",
     title: "Reliable settings and safer preferences",
     details: [
@@ -2080,6 +2081,14 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
             code: "email_oauth_setup_required",
             provider,
             managedAvailable: !!managedCredential.clientId && (provider !== "gmail" || !!managedCredential.clientSecret)
+          }, 400);
+        }
+        if (provider === "gmail" && !isValidGmailOAuthClientId(clientId)) {
+          return json({
+            error: "The Google OAuth client ID is invalid. Paste the Desktop client ID ending in .apps.googleusercontent.com, not the GOCSPX client secret.",
+            code: "email_oauth_invalid_client_id",
+            provider,
+            managedAvailable: false
           }, 400);
         }
         if (provider === "gmail" && !clientSecret) {

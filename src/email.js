@@ -21,6 +21,8 @@ const PROVIDERS = {
 
 const b64url = (value) => Buffer.from(value).toString("base64url");
 const cleanHeader = (value) => String(value || "").replace(/[\r\n]+/g, " ").trim();
+export const isValidGmailOAuthClientId = (value) =>
+  /^\d+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(String(value || "").trim());
 const clamp = (value, min, max) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, Math.trunc(parsed))) : min;
@@ -423,7 +425,10 @@ export function publicEmailConnections(config, managedClients = {}) {
     const managedSecret = managed.clientSecret || (connection.clientSource === "managed" ? oauth.clientSecret : "");
     const managedAvailable = !!managedId && (name !== "gmail" || !!managedSecret);
     const legacyManualId = connection.clientSource === "managed" ? "" : connection.clientId;
-    const manualAvailable = !!String(connection.manualClientId || legacyManualId || "").trim();
+    const manualId = String(connection.manualClientId || legacyManualId || "").trim();
+    const manualIdValid = name !== "gmail" || !manualId || isValidGmailOAuthClientId(manualId);
+    const manualAvailable = !!manualId && manualIdValid;
+    const setupIssue = name === "gmail" && manualId && !manualIdValid ? "invalid_client_id" : "";
     const connectionMode = connection.clientSource === "managed"
       ? "managed"
       : (connection.clientSource === "manual" || legacyManualId ? "manual" : (managedAvailable ? "managed" : "none"));
@@ -433,7 +438,7 @@ export function publicEmailConnections(config, managedClients = {}) {
       connected: !!connection.connected,
       ready,
       account: connection.account || "",
-      hasClientId: managedAvailable || manualAvailable || !!connection.clientId,
+      hasClientId: managedAvailable || manualAvailable || (name !== "gmail" && !!connection.clientId),
       hasClientSecret: !!connection.manualClientSecret,
       managedAvailable,
       manualAvailable,
@@ -441,7 +446,8 @@ export function publicEmailConnections(config, managedClients = {}) {
       health: ready ? "ready" : (connection.connected ? "attention" : "disconnected"),
       lastCheck: connection.lastCheckStatus || "",
       lastCheckedAt: Number(connection.lastCheckedAt || 0),
-      supportsCleanup: name === "gmail" || name === "outlook"
+      supportsCleanup: name === "gmail" || name === "outlook",
+      ...(setupIssue ? { setupIssue } : {})
     };
   };
   return { draftOnly: email.draftOnly !== false, confirmBeforeSend: true, gmail: one("gmail"), outlook: one("outlook") };

@@ -3,11 +3,18 @@ import assert from "node:assert/strict";
 import {
   createEmailOAuth,
   getEmailAccount,
+  isValidGmailOAuthClientId,
   publicEmailConnections,
   scanEmailMetadata,
   trashEmail,
   untrashEmail
 } from "../src/email.js";
+
+test("Gmail OAuth client IDs cannot be confused with client secrets", () => {
+  assert.equal(isValidGmailOAuthClientId("960924029694-example.apps.googleusercontent.com"), true);
+  assert.equal(isValidGmailOAuthClientId("GOCSPX-example-secret"), false);
+  assert.equal(isValidGmailOAuthClientId(""), false);
+});
 
 test("Gmail OAuth uses PKCE, offline access, and the paired desktop client secret", () => {
   const transaction = createEmailOAuth("gmail", "desktop-client", "http://127.0.0.1:8765/email/oauth/callback", {
@@ -34,7 +41,7 @@ test("Outlook OAuth uses a public-client account picker", () => {
 test("public email state never exposes OAuth tokens or client ids", () => {
   const state = publicEmailConnections({ connectors: { email: {
     draftOnly: false,
-    gmail: { connected: true, account: "person@example.com", clientId: "public-id", oauth: { accessToken: "secret", refreshToken: "secret2" } }
+    gmail: { connected: true, account: "person@example.com", clientId: "960924029694-public.apps.googleusercontent.com", oauth: { accessToken: "secret", refreshToken: "secret2" } }
   } } });
   assert.deepEqual(state.gmail, {
     provider: "gmail", connected: true, ready: true, account: "person@example.com",
@@ -44,7 +51,16 @@ test("public email state never exposes OAuth tokens or client ids", () => {
   });
   assert.equal(state.draftOnly, false);
   assert.equal(state.confirmBeforeSend, true);
-  assert.doesNotMatch(JSON.stringify(state), /secret|public-id/);
+  assert.doesNotMatch(JSON.stringify(state), /secret|googleusercontent/);
+});
+
+test("public email state flags a client secret saved as the Gmail client ID", () => {
+  const state = publicEmailConnections({ connectors: { email: {
+    gmail: { clientSource: "manual", clientId: "GOCSPX-secret", manualClientId: "GOCSPX-secret", manualClientSecret: "GOCSPX-secret" }
+  } } });
+  assert.equal(state.gmail.manualAvailable, false);
+  assert.equal(state.gmail.hasClientId, false);
+  assert.equal(state.gmail.setupIssue, "invalid_client_id");
 });
 
 test("public email readiness rejects an expired access-only connection", () => {

@@ -56,3 +56,8 @@ test("first-run setup does not promise automatic paid-provider routing", () => {
   assert.doesNotMatch(uiSource, /Both \(smart routing\)/);
   assert.match(uiSource, /will not switch providers or paid APIs without your choice/);
 });
+
+test("semantic success states remain green in every theme", () => {
+  assert.match(uiSource, /--green:#3fb950;/);
+  assert.doesNotMatch(uiSource, /--green:#(?:62676f|a7abb1);/i);
+});

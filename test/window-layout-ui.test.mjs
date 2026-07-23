@@ -68,28 +68,35 @@ test("compact rail uses the matching notepad icon and Boolean search", () => {
   assert.match(ui, /id: "chat:" \+ t\.id/);
 });
 
-test("compact recipes layout keeps details bounded instead of making a giant lower panel", () => {
+test("recipes use one responsive workspace scroll instead of clipped nested panes", () => {
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipes-shell,\s*body\.browser-on\.recipes-open \.recipes-shell\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(200px,240px\);[^}]*overflow:hidden;/s
+    /\.recipes-panel\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s
   );
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipe-grid,\s*body\.browser-on\.recipes-open \.recipe-grid\{[^}]*max-height:none;[^}]*overflow:auto;/s
+    /\.recipes-shell\{[^}]*min-height:100%;[^}]*align-items:start;/s
   );
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipes-detail,\s*body\.browser-on\.recipes-open \.recipes-detail\{[^}]*overflow:auto;[^}]*max-height:none;/s
+    /\.recipe-grid\{[^}]*overflow:visible;/s
   );
   assert.match(
     ui,
-    /@media\(max-width:760px\)\{[\s\S]*?\.recipes-shell\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(180px,210px\);[^}]*overflow:hidden;/s
+    /body\.recipes-compact\.recipes-open \.recipes-detail,\s*body\.browser-on\.recipes-open \.recipes-detail\{[^}]*overflow:visible;/s
   );
   assert.match(ui, /\.recipe-card\{[^}]*min-height:64px;/s);
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipe-actions,\s*body\.browser-on\.recipes-open \.recipe-actions\{[^}]*position:sticky;[^}]*bottom:0;/s
+    /\.recipe-actions\{[^}]*position:static;/s
   );
+  assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.recipes-shell\{ grid-template-columns:1fr; \}/s);
+});
+
+test("notepad has a functional clipboard paste action", () => {
+  assert.match(ui, /id="notePaste" title="Paste" aria-label="Paste"/);
+  assert.match(ui, /\$\("notePaste"\)\.onclick=async\(\)=>\{[\s\S]*?await readClipboardText\(\);[\s\S]*?insertHtmlAtCursor\(/);
+  assert.match(ui, /"noteCopy","notePaste","noteMore"/);
 });
 
 test("composer footer does not duplicate settings gear", () => {
