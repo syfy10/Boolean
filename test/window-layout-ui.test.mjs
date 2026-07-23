@@ -68,29 +68,53 @@ test("compact rail uses the matching notepad icon and Boolean search", () => {
   assert.match(ui, /id: "chat:" \+ t\.id/);
 });
 
-test("recipes use one responsive workspace scroll instead of clipped nested panes", () => {
+test("recipes keep both columns bounded with independently scrollable content and visible actions", () => {
   assert.match(
     ui,
-    /\.recipes-panel\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s
+    /\.recipes-panel\{[^}]*overflow:hidden;/s
   );
   assert.match(
     ui,
-    /\.recipes-shell\{[^}]*min-height:100%;[^}]*align-items:start;/s
+    /\.recipes-shell\{[^}]*height:100%;[^}]*min-height:0;[^}]*align-items:stretch;[^}]*overflow:hidden;/s
   );
   assert.match(
     ui,
-    /\.recipe-grid\{[^}]*overflow:visible;/s
+    /\.recipe-grid\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s
   );
   assert.match(
     ui,
-    /body\.recipes-compact\.recipes-open \.recipes-detail,\s*body\.browser-on\.recipes-open \.recipes-detail\{[^}]*overflow:visible;/s
+    /\.recipes-detail\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s
   );
   assert.match(ui, /\.recipe-card\{[^}]*min-height:64px;/s);
   assert.match(
     ui,
-    /\.recipe-actions\{[^}]*position:static;/s
+    /\.recipe-actions\{[^}]*position:sticky;[^}]*bottom:-10px;/s
   );
-  assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.recipes-shell\{ grid-template-columns:1fr; \}/s);
+  assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.recipes-panel\{ overflow-y:auto; \}[\s\S]*?\.recipes-shell\{ height:auto; min-height:100%; grid-template-columns:1fr; overflow:visible; \}/s);
+});
+
+test("completed plan checklists keep raw agent output hidden until requested", () => {
+  assert.match(ui, /function markCurrentPlanOutput\(\)/);
+  assert.match(ui, /markCurrentPlanOutput\(\);\s*col\.classList\.add\("plan-output-hidden"\)/);
+  assert.match(ui, /const hasOutput=live\|\|Boolean\(col\.querySelector\("\.live-plan-output"\)\)/);
+  assert.match(ui, /hasOutput\?'<button class="plan-checklist-action"[^]*data-plan-action="raw"/);
+  assert.match(ui, /if\(!planEl\?\.isConnected\) col\.classList\.remove\("plan-output-hidden"\)/);
+});
+
+test("manually hidden ClearFix output stays hidden until Code is opened again", () => {
+  assert.match(ui, /let terminalAutoReveal = true;/);
+  assert.match(ui, /function toggleTerminal\(force, userInitiated=false\)/);
+  assert.match(ui, /if\(userInitiated\) terminalAutoReveal=open;/);
+  assert.match(ui, /if\(terminalAutoReveal\) toggleTerminal\(true\);/);
+  assert.match(ui, /\$\("termToggle"\)\.onclick = \(\) => toggleTerminal\(false,true\)/);
+  assert.match(ui, /ws === "code"\) \{ terminalAutoReveal=true; toggleTerminal\(true\)/);
+});
+
+test("native browser and notepad growth respects Windows snapped layouts", () => {
+  assert.match(shell, /bool IsSnappedToWorkingArea\(\)/);
+  assert.match(shell, /bool fillsHeight = Math\.Abs\(Top - work\.Top\) <= tolerance/);
+  assert.match(shell, /bool touchesSide = Math\.Abs\(Left - work\.Left\) <= tolerance/);
+  assert.match(shell, /if \(WindowState == FormWindowState\.Maximized \|\| IsSnappedToWorkingArea\(\)\) return;/);
 });
 
 test("notepad has a functional clipboard paste action", () => {

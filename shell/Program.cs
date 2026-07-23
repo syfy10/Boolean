@@ -323,6 +323,18 @@ sealed class MainForm : Form
         Activate();
     }
 
+    bool IsSnappedToWorkingArea()
+    {
+        if (WindowState != FormWindowState.Normal) return false;
+        var work = Screen.FromHandle(Handle).WorkingArea;
+        const int tolerance = 12;
+        bool fillsHeight = Math.Abs(Top - work.Top) <= tolerance &&
+            Math.Abs(Bottom - work.Bottom) <= tolerance;
+        bool touchesSide = Math.Abs(Left - work.Left) <= tolerance ||
+            Math.Abs(Right - work.Right) <= tolerance;
+        return fillsHeight && touchesSide && Width < work.Width - tolerance;
+    }
+
     // layout
     readonly SplitContainer _split = new() { Orientation = Orientation.Vertical, SplitterWidth = 4 };
     readonly WebView2 _chat = new() { Dock = DockStyle.Fill };
@@ -1594,7 +1606,7 @@ try {
     // instead of being squeezed (chat holds a ~185px sidebar + the conversation).
     void GrowForBrowser()
     {
-        if (WindowState == FormWindowState.Maximized) return;
+        if (WindowState == FormWindowState.Maximized || IsSnappedToWorkingArea()) return;
         var wa = Screen.FromHandle(Handle).WorkingArea;
         const int desiredMin = 1240; // sidebar + chat + notepad + a usable browser pane
         int target = Math.Min(wa.Width, Math.Max(Width, desiredMin));

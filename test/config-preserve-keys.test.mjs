@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { preserveSavedApiKeys } from "../src/config.js";
+import { preserveSavedApiKeys, preserveSavedConnections } from "../src/config.js";
 
 test("config saves preserve existing API keys when new payload has blanks", () => {
   const previous = {
@@ -184,4 +184,45 @@ test("config email preservation restores blank disconnected defaults", () => {
   assert.equal(next.connectors.email.gmail.manualClientSecret, "google-secret");
   assert.deepEqual(next.connectors.email.gmail.oauth, previous.connectors.email.gmail.oauth);
   assert.equal(next.connectors.email.gmail.connected, true);
+});
+
+test("ordinary config saves retain connector and email rows omitted by partial updates", () => {
+  const previous = {
+    connectors: {
+      apis: [{ id: "api-1", name: "Saved API", apiKey: "secret" }],
+      mcp: [{ id: "mcp-1", name: "Saved MCP", token: "token" }],
+      agents: [{ id: "agent-1", name: "Saved agent", apiKey: "agent-secret" }],
+      email: {
+        gmail: { connected: true, account: "person@gmail.com", oauth: { refreshToken: "refresh" } }
+      }
+    }
+  };
+  const next = {
+    ui: { theme: "dark" },
+    connectors: { apis: [], mcp: [], agents: [], email: {} }
+  };
+
+  preserveSavedConnections(next, previous);
+
+  assert.deepEqual(next.connectors.apis, previous.connectors.apis);
+  assert.deepEqual(next.connectors.mcp, previous.connectors.mcp);
+  assert.deepEqual(next.connectors.agents, previous.connectors.agents);
+  assert.deepEqual(next.connectors.email.gmail, previous.connectors.email.gmail);
+});
+
+test("explicit connector replacement can still remove rows", () => {
+  const previous = {
+    connectors: {
+      apis: [{ id: "api-1", apiKey: "secret" }],
+      mcp: [{ id: "mcp-1", token: "token" }],
+      agents: [{ id: "agent-1", apiKey: "agent-secret" }]
+    }
+  };
+  const next = { connectors: { apis: [], mcp: [], agents: [] } };
+
+  preserveSavedApiKeys(next, previous);
+
+  assert.deepEqual(next.connectors.apis, []);
+  assert.deepEqual(next.connectors.mcp, []);
+  assert.deepEqual(next.connectors.agents, []);
 });

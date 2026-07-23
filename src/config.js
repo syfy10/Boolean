@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.47";
-export const APP_DISPLAY_VERSION = "v0.09.46";
+export const APP_VERSION = "0.9.48";
+export const APP_DISPLAY_VERSION = "v0.09.48";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -282,6 +282,37 @@ export function preserveSavedApiKeys(next, previous) {
   return next;
 }
 
+function mergeMissingConnectorRows(nextItems, previousItems) {
+  const next = Array.isArray(nextItems) ? nextItems : [];
+  if (!Array.isArray(previousItems) || !previousItems.length) return next;
+  const identities = new Set(next.map((item) => item?.id || item?.url).filter(Boolean));
+  for (const item of previousItems) {
+    const identity = item?.id || item?.url;
+    if (!identity || identities.has(identity)) continue;
+    next.push(structuredClone(item));
+    identities.add(identity);
+  }
+  return next;
+}
+
+export function preserveSavedConnections(next, previous) {
+  if (!next || !previous?.connectors) return next;
+  next.connectors = next.connectors || {};
+  for (const kind of ["apis", "mcp", "agents"]) {
+    next.connectors[kind] = mergeMissingConnectorRows(
+      next.connectors[kind],
+      previous.connectors[kind]
+    );
+  }
+  next.connectors.email = next.connectors.email || {};
+  for (const provider of ["gmail", "outlook"]) {
+    if (!next.connectors.email[provider] && previous.connectors.email?.[provider]) {
+      next.connectors.email[provider] = structuredClone(previous.connectors.email[provider]);
+    }
+  }
+  return next;
+}
+
 function atomicWriteJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = file + ".tmp";
@@ -341,13 +372,14 @@ export function loadConfig() {
 
 export function saveConfig(config, options = {}) {
   const preserveSecrets = options.preserveSecrets !== false;
+  const preserveConnections = options.preserveConnections !== false;
   let next = config;
-  if (preserveSecrets) {
-    try {
-      next = preserveSavedApiKeys(config, readJsonFile(CONFIG_FILE));
-    } catch {
-      next = config;
-    }
+  try {
+    const previous = readJsonFile(CONFIG_FILE);
+    if (preserveConnections) next = preserveSavedConnections(next, previous);
+    if (preserveSecrets) next = preserveSavedApiKeys(next, previous);
+  } catch {
+    next = config;
   }
   atomicWriteJson(CONFIG_FILE, next);
 }

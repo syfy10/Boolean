@@ -82,13 +82,13 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
-    version: "0.9.47",
+    version: "0.9.48",
     date: "2026-07-23",
-    title: "Reliable settings and safer preferences",
+    title: "Reliable layouts, connections, and task progress",
     details: [
-      "Connected model routing, retries, notifications, privacy, shortcuts, diagnostics, and agent preferences to real runtime behavior.",
-      "Separated preference reset from a guarded full-data deletion, while preserving saved keys, accounts, OAuth connections, and chats during updates.",
-      "Removed or clearly marked unsupported controls so Settings no longer promises unavailable voice, telemetry, encryption, proxy, or connector behavior."
+      "Kept Recipes and Email actions visible with bounded, independently scrolling columns and a pinned action row.",
+      "Preserved saved API, MCP, agent, Gmail, and Outlook connection records during ordinary app updates and partial settings saves.",
+      "Made coding checklists hide noisy live output by default, kept manually hidden ClearFix output closed, and respected Windows snapped layouts when opening Browser or Notepad."
     ]
   },
   {
@@ -1745,6 +1745,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       if (req.method === "POST" && p === "/api/config") {
         const body = await readBody(req);
         let explicitSecretRemoval = false;
+        let explicitConnectionRemoval = body.replaceConnectors === true;
         if (typeof body.provider === "string" && PROVIDERS.includes(body.provider)) config.provider = body.provider;
         if (typeof body.model === "string" && body.model) setCurrentModel(config, body.model);
         if (typeof body.autoApprove === "boolean") config.autoApprove = body.autoApprove;
@@ -1818,6 +1819,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         }
         if (body.connectors && typeof body.connectors === "object") config.connectors = mergeConnectors(config.connectors, body.connectors);
         if (typeof body.removeApiConnector === "string") {
+          explicitConnectionRemoval = true;
           config.connectors.apis = (config.connectors?.apis || []).filter((x) => x.id !== body.removeApiConnector);
           if (config.customApi?.connectionId === body.removeApiConnector) {
             explicitSecretRemoval = true;
@@ -1828,7 +1830,10 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         if (body.ui && typeof body.ui === "object") { config.ui = { ...config.ui, ...body.ui }; syncWarmEnv(); }
         if (body.acceptEula === true) config.eulaAccepted = "1.0";
         clearProviderModelCache();
-        saveConfig(config, { preserveSecrets: !explicitSecretRemoval });
+        saveConfig(config, {
+          preserveSecrets: !explicitSecretRemoval,
+          preserveConnections: !explicitConnectionRemoval
+        });
         json({ ok: true });
         return;
       }
@@ -1856,7 +1861,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         const fresh = defaultConfig();
         for (const key of Object.keys(config)) delete config[key];
         Object.assign(config, fresh);
-        saveConfig(config, { preserveSecrets: false });
+        saveConfig(config, { preserveSecrets: false, preserveConnections: false });
         newThread();
         json({ ok: true, activeThreadId });
         return;
