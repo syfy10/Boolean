@@ -737,7 +737,7 @@ export function requiresConnectorToolResult(messages) {
 export function isExplicitTaskContinuation(text) {
   const value = String(text || "").trim();
   if (!value) return false;
-  return /^(?:please\s+)?(?:continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes(?:,?\s+please)?\s+do it|ok(?:ay)?\s+do it|continue where you left off|run the (?:next|second) batch)\b/i.test(value);
+  return /^(?:(?:yes|ok(?:ay)?|right)\s*,?\s*)?(?:please\s+)?(?:continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|start(?:\s+(?:please|it|now|building(?:\s+it)?|working(?:\s+on\s+it)?))?|begin(?:\s+(?:it|now|building|working))?|(?:go to\s+)?(?:the\s+)?next step|continue where you left off|run the (?:next|second) batch)\b/i.test(value);
 }
 
 // A stopped build often receives a short correction instead of the literal

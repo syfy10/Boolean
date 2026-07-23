@@ -540,6 +540,11 @@ test("saved tasks resume only from explicit continuation commands", () => {
   assert.equal(isExplicitTaskContinuation("continue"), true);
   assert.equal(isExplicitTaskContinuation("please resume where you left off"), true);
   assert.equal(isExplicitTaskContinuation("finish it"), true);
+  assert.equal(isExplicitTaskContinuation("start please"), true);
+  assert.equal(isExplicitTaskContinuation("yes start building it"), true);
+  assert.equal(isExplicitTaskContinuation("next step"), true);
+  assert.equal(isExplicitTaskContinuation("yes go to next step"), true);
+  assert.equal(isExplicitTaskContinuation("begin building"), true);
   assert.equal(isExplicitTaskContinuation("where are we?"), false);
   assert.equal(isExplicitTaskContinuation("are you still working?"), false);
   assert.equal(isExplicitTaskContinuation("what happened?"), false);

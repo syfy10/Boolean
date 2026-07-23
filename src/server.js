@@ -82,6 +82,16 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
+    version: "0.9.49",
+    date: "2026-07-23",
+    title: "Reliable task continuation",
+    details: [
+      "Recognizes natural continuation requests such as start please, yes start building it, begin building, and next step without dropping the saved task.",
+      "Removed an incomplete local relay path that could not safely or reliably provide the paired remote-control experience.",
+      "Documented the secure Cloudflare relay, outbound desktop connection, device pairing, and end-to-end encryption required for future phone control."
+    ]
+  },
+  {
     version: "0.9.48",
     date: "2026-07-23",
     title: "Reliable layouts, connections, and task progress",
