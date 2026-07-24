@@ -167,7 +167,7 @@
   .account-surface-options button.on{ background:var(--bg); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,.08); }
 
   .brand svg{ display:block; }
-  .sidebar-brand{ flex-shrink:0; display:flex; align-items:flex-start; gap:3px; min-width:0; padding:0; }
+  .sidebar-brand{ width:100%; flex-shrink:0; display:flex; align-items:flex-start; gap:3px; min-width:0; padding:0; }
   .brand-word{ min-width:0; flex:1 1 auto; line-height:1; display:flex; flex-direction:column; gap:2px; }
   .brand-name[role="button"]{ cursor:pointer; border-radius:5px; outline:0; }
   .brand-name[role="button"]:hover,.brand-name[role="button"]:focus-visible{ color:var(--green); }
@@ -1268,15 +1268,6 @@
   .plan-project-mark.err{ background:var(--danger); opacity:1; }
   .plan-project-label{ color:var(--dim); white-space:nowrap; }
   .plan-project-value{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-family:var(--mono); font-size:var(--fs-xxs); }
-  .plan-progress-block{ margin:6px 0 0; padding:6px 4px 1px; border-top:1px solid var(--border); list-style:none; }
-  .plan-progress-title{ margin:0 0 3px; color:var(--text); font-size:var(--fs-xs); font-weight:600; }
-  .plan-progress-item{ display:grid; grid-template-columns:14px minmax(0,1fr); align-items:baseline; gap:5px; min-height:19px; color:var(--dim); font-size:var(--fs-xs); line-height:1.35; }
-  .plan-progress-item.active{ color:var(--text); }
-  .plan-progress-item.done{ color:var(--text); }
-  .plan-progress-icon{ color:var(--dim); font-family:var(--mono); font-size:var(--fs-xxs); text-align:center; }
-  .plan-progress-item.active .plan-progress-icon{ color:var(--green); animation:pulse-ring 1.4s ease-in-out infinite; }
-  .plan-progress-item.done .plan-progress-icon{ color:var(--green); }
-  .plan-progress-item.optional:not(.done){ opacity:.72; }
   .plan-checklist-caret{ font-size:10px; color:var(--dim); transition:transform var(--t); }
   .plan-checklist-caret.open{ transform:rotate(180deg); }
   .plan-output-hidden .live-plan-output{ display:none; }
@@ -1519,7 +1510,10 @@
   .api-model-loading{ padding:6px 7px; color:var(--muted); font-size:10.5px; }
   .api-key-form{ display:flex; align-items:center; gap:4px; padding:6px 7px 3px; border-top:1px solid var(--border); }
   .menu .api-key-form input{ min-width:0; flex:1; margin:0; padding:7px 8px; border:1px solid var(--border);
-    border-radius:7px; background:var(--bubble); font-size:12px; }
+    min-height:32px; border-radius:7px; background:var(--bubble); color:var(--text); caret-color:var(--text);
+    font:12px/1.35 var(--ui); cursor:text; pointer-events:auto; outline:none; appearance:none; -webkit-appearance:none; }
+  .menu .api-key-form input:hover{ border-color:color-mix(in srgb,var(--text) 28%,var(--border)); }
+  .menu .api-key-form input:focus{ border-color:var(--green); box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 15%,transparent); }
   .api-key-save{ flex:0 0 auto; border:0; border-radius:7px; padding:7px 10px; background:var(--text);
     color:var(--bg); font:600 11px var(--ui); cursor:pointer; }
   .api-key-save:hover{ opacity:.86; }
@@ -1794,7 +1788,7 @@
   .workspace-tabs{ position:relative; display:flex; align-items:center; gap:8px; padding:12px 14px 8px 22px; height:64px; border-bottom:0; background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
   body.collapsed .workspace-tabs{ padding-left:22px; }
   .workspace-tabs::-webkit-scrollbar{ display:none; }
-  .side-chat-launch{ position:fixed; z-index:85; left:auto; right:4px; top:calc(100% - var(--composer-h,106px) + 14px); width:23px; height:23px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--green) 20%,var(--border)); border-radius:8px 0 0 8px; background:color-mix(in srgb,var(--glass-bg) 72%,transparent); color:var(--dim); cursor:ns-resize; touch-action:none; user-select:none; box-shadow:0 4px 12px rgba(0,0,0,.10); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); transform:translateY(-50%); transition:background .12s,color .12s,border-color .12s,transform .12s; }
+  .side-chat-launch{ position:fixed; z-index:85; left:auto; right:4px; top:calc(100% - var(--composer-h,106px) + 14px); width:23px; height:23px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--green) 20%,var(--border)); border-radius:8px 0 0 8px; background:color-mix(in srgb,var(--glass-bg) 72%,transparent); color:var(--dim); cursor:pointer; touch-action:manipulation; user-select:none; box-shadow:0 4px 12px rgba(0,0,0,.10); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); transform:translateY(-50%); transition:background .12s,color .12s,border-color .12s,transform .12s; }
   .side-chat-launch:hover,.side-chat-launch.active{ color:var(--green); background:color-mix(in srgb,var(--green) 8%,transparent); border-color:color-mix(in srgb,var(--green) 34%,var(--border)); transform:translateY(-50%) scale(1.03); }
   .side-chat-launch.dragging{ transition:none; transform:translateY(-50%); }
   .side-chat-launch svg{ width:11px; height:11px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
@@ -2696,7 +2690,10 @@ body:not(.composer-simple) main::after{
   body:not(.composer-simple) .composer-tools .modebtn{ max-width:112px; padding-inline:7px; }
   body:not(.composer-simple) .composer-tools .modelbtn{ max-width:132px; padding-inline:7px; color:var(--text); }
   body:not(.composer-simple).online-mode .composer-tools .modelbtn{ background:transparent; }
-  body:not(.composer-simple) .promptline #interruptEdit{ position:absolute; right:52px; bottom:13px; margin:0; }
+  body:not(.composer-simple) .promptline #interruptEdit{
+    position:absolute; right:15px; bottom:52px; width:28px; height:28px; margin:0;
+    border-radius:9px; color:var(--dim);
+  }
   body:not(.composer-simple) .promptline #send{
     position:absolute; right:11px; bottom:10px; width:36px; height:36px; margin:0;
     border:0; border-radius:50%; background:#202124; color:#fff; box-shadow:none;
@@ -6483,7 +6480,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.52"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.53"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -7244,9 +7241,10 @@ body:not(.composer-simple) main::after{
     $("plusmenu")?.classList.remove("open");
     $("modemenu")?.classList.remove("open");
     $("modelmenu")?.classList.add("open");
-    positionModelMenu();
     $("modelsearch").value="";
     renderModelList("");
+    positionModelMenu();
+    requestAnimationFrame(positionModelMenu);
     $("modelsearch").focus();
   }
   function positionModelMenu(){
@@ -8443,52 +8441,6 @@ body:not(.composer-simple) main::after{
       +'<div class="plan-project-grid">'+rows+'</div>'
       +'</li>';
   }
-  function detailedPlanProgress(snapshot) {
-    const plan=Array.isArray(snapshot?.plan)?snapshot.plan:[];
-    const actions=(snapshot?.recentActions||[]).join("\n");
-    const checks=(snapshot?.checks||[]).join("\n");
-    const phase=String(snapshot?.phase||"");
-    const completed=phase==="completed"||(plan.length>0&&plan.every(step=>step.status==="done"));
-    const prepared=completed||plan[0]?.status==="done"||Number(snapshot?.inspectionCount)>0;
-    const inspected=completed||Number(snapshot?.inspectionCount)>0;
-    const edited=completed||Number(snapshot?.mutationCount)>0||(snapshot?.changedFiles||[]).length>0;
-    const ran=completed||/\brun_project\b|\bnpm(?:\.cmd)?\s+run\s+(?:dev|start|serve)\b|\blocalhost:\d+/i.test(actions+"\n"+checks);
-    const built=completed||/\bbuild(?::all|:shell)?\b|\bdotnet\s+build\b/i.test(actions+"\n"+checks);
-    const tested=completed||/\b(?:node\s+--test|npm(?:\.cmd)?\s+(?:run\s+)?test|pnpm\s+test|yarn\s+test|pytest|dotnet\s+test)\b/i.test(actions+"\n"+checks);
-    const verified=completed||Number(snapshot?.lastVerification)>0||(snapshot?.checks||[]).length>0;
-    const documented=completed||/(?:^|[\\/])(?:readme|agents|changelog|docs?)[^:\n]*\.(?:md|txt)\b/i.test(actions);
-    const committed=/\bgit\s+commit\b/i.test(actions);
-    const milestones=[
-      ["Understand request",true],
-      ["Analyze project",prepared],
-      ["Create implementation plan",plan.length>0],
-      ["Read relevant files",inspected],
-      ["Edit source code",edited],
-      ["Run project locally",ran],
-      ["Build application",built],
-      ["Run tests",tested],
-      ["Fix errors and warnings",verified&&!snapshot?.lastFailure],
-      ["Verify functionality",verified],
-      ["Update documentation",documented],
-      ["Commit changes (optional)",committed,true],
-      ["Complete",completed]
-    ];
-    const firstPending=milestones.findIndex(item=>!item[1]&&!item[2]);
-    return milestones.map((item,index)=>({
-      label:item[0],
-      done:Boolean(item[1]),
-      optional:Boolean(item[2]),
-      active:!completed&&index===firstPending
-    }));
-  }
-  function buildDetailedPlanHTML(snapshot) {
-    const rows=detailedPlanProgress(snapshot).map(item=>{
-      const cls=(item.done?" done":item.active?" active":"")+(item.optional?" optional":"");
-      const icon=item.done?"\u2713":item.active?"\u25D0":"\u25CB";
-      return '<div class="plan-progress-item'+cls+'"><span class="plan-progress-icon">'+icon+'</span><span>'+esc(item.label)+'</span></div>';
-    }).join("");
-    return '<li class="plan-progress-block"><div class="plan-progress-title">Progress</div>'+rows+'</li>';
-  }
   function refreshPlanProjectDetails() {
     col.querySelectorAll(".plan-checklist").forEach(el=>{
       const block=el.querySelector(".plan-project-block");
@@ -8587,7 +8539,6 @@ body:not(.composer-simple) main::after{
       + '<ul class="plan-step-list'+(planCollapsed?' collapsed':'')+'">'
       + buildStepListHTML(plan,failureIndex,snapshot.lastFailure,!live)
       + (allDone?buildPlanProjectHTML(snapshot):"")
-      + (allDone?buildDetailedPlanHTML(snapshot):"")
       + '</ul>';
   }
   function buildStepListHTML(plan,failureIndex=-1,lastFailure="",canRetry=false) {
@@ -11644,6 +11595,9 @@ Optional bundled starter model:
   function selectedEmailCategories(){
     return [...document.querySelectorAll(".email-clean-category:checked")].map(input=>input.value);
   }
+  function selectedEmailCleanupScope(){
+    return document.querySelector('input[name="emailCleanupScope"]:checked')?.value||"inbox";
+  }
   function updateEmailRecipeSummary(){
     const el=$("emailRecipeSummary"), recipe=currentRecipe(); if(!el) return;
     const account=selectedEmailAccount();
@@ -11655,6 +11609,7 @@ Optional bundled starter model:
         : browser;
       el.innerHTML="<b>Read-only cleanup preview</b><br>"
         +"Account: "+esc(account?.account||"not connected")+"<br>"
+        +"Mailbox: "+esc(selectedEmailCleanupScope()==="all"?"All mail (includes archived mail)":"Inbox only")+"<br>"
         +"Age: older than "+esc($("emailCleanupAge")?.value||"2y")+"<br>"
         +"Groups: "+esc(categories.join(", ")||"none selected")+"<br>"
         +"Scan limit: "+esc($("emailCleanupLimit")?.value||"500")+" messages<br>"
@@ -11696,6 +11651,7 @@ Optional bundled starter model:
     if(cleanupRecipe){
       if(useBrowser&&!browserMatchesAccount) parts.push("Important: do not describe the connected account as matching the visible browser account. The visible browser is unrelated to this cleanup unless it matches the connected provider/account.");
       parts.push("Cleanup configuration:");
+      parts.push("scope: "+selectedEmailCleanupScope());
       parts.push("older_than: "+($("emailCleanupAge")?.value||"2y"));
       parts.push("categories: "+(selectedEmailCategories().join(", ")||"none"));
       parts.push("limit: "+($("emailCleanupLimit")?.value||"500"));
@@ -11788,7 +11744,7 @@ Optional bundled starter model:
       parts.push("Important: Organize, summarize, compare, and help draft documents only. Do not provide legal advice. Important documents should be reviewed by a qualified attorney.");
       if($("startLegalDetails")?.value.trim()) parts.push("Legal details:\n"+$("startLegalDetails").value.trim());
     }
-    parts.push("Do not build, deploy, commit, push, install, delete, or run risky actions unless I explicitly confirm.");
+    parts.push("Normal in-project work and verification are allowed. Ask before destructive or external actions such as deleting data, installing software, committing, pushing, deploying, or creating automations.");
     return parts.filter(Boolean).join("\n\n");
   }
   function updateStartSummary(){
@@ -11851,7 +11807,7 @@ Optional bundled starter model:
     if($("recipeUseBrowser")?.checked) flags.push("Use the current browser page when relevant.");
     if($("recipeSaveNotes")?.checked) flags.push("Save useful findings to Notes.");
     if($("recipeUseGit")?.checked) flags.push("Use current git status/diff when relevant.");
-    if($("recipeSafeMode")?.checked) flags.push("Do not build, deploy, commit, push, install, delete, or run risky changes unless I explicitly confirm.");
+    if($("recipeSafeMode")?.checked) flags.push("Ask before destructive or external actions such as deleting data, installing software, committing, pushing, deploying, rolling back, or creating an automation. Normal in-project edits and verification are allowed when this recipe requests them.");
     return [recipe.prompt, detail?("User details:\n"+detail):"", flags.length?("Options:\n- "+flags.join("\n- ")):""].filter(Boolean).join("\n\n");
   }
   function sendRecipe(startNow=false){
@@ -11923,7 +11879,7 @@ Optional bundled starter model:
       +'<textarea class="recipe-custom" id="recipeCustom" placeholder="Paste key text, add opposing party, deadline, questions, or response goal..."></textarea>'
       +'<label class="recipe-option"><input type="checkbox" id="recipeSaveNotes" checked>Save useful result to Notes</label>'
       +'</div><div class="recipe-summary" id="recipeSessionSummary"></div>'
-      +'<div class="recipe-actions"><button type="button" id="recipeFill">Fill chat</button><button type="button" class="primary" id="recipeStart">Start Review</button></div>';
+      +'<div class="recipe-actions"><button type="button" id="recipeFill">Review in chat</button><button type="button" class="primary" id="recipeStart">Start Review</button></div>';
     $("recipeUpload").onclick=(e)=>{ if(e.target.id!=="recipeFileInput") $("recipeFileInput").click(); };
     $("recipeFileInput").onchange=e=>{ addRecipeFiles(e.target.files); e.target.value=""; };
     ["recipeDocType","recipeJurisdiction","recipeCustom"].forEach(id=>$(id)?.addEventListener("input",updateLegalRecipeSummary));
@@ -11954,6 +11910,10 @@ Optional bundled starter model:
       return;
     }
     const cleanupFields=cleanup?'<div class="email-recipe-section"><span class="email-recipe-section-title">Cleanup scope</span>'
+      +'<div class="recipe-field"><label>Mailbox</label><div class="recipe-check-grid">'
+      +'<label class="recipe-option"><input type="radio" name="emailCleanupScope" value="inbox" checked>Inbox only <small>Recommended</small></label>'
+      +'<label class="recipe-option"><input type="radio" name="emailCleanupScope" value="all">All mail <small>Includes archived mail</small></label>'
+      +'</div></div>'
       +'<div class="recipe-field"><label for="emailCleanupAge">Older than</label><select id="emailCleanupAge"><option value="6m">6 months</option><option value="1y">1 year</option><option value="2y" selected>2 years</option><option value="3y">3 years</option><option value="5y">5 years</option></select></div>'
       +'<div class="recipe-field"><label>Groups to scan</label><div class="recipe-check-grid">'
       +[["promotions","Promotions"],["social","Social"],["updates","Updates"],["forums","Forums"],["spam","Gmail Spam"]].map((item,index)=>'<label class="recipe-option"><input type="checkbox" class="email-clean-category" value="'+item[0]+'" '+(index<4?'checked':'')+'>'+item[1]+'</label>').join("")
@@ -11972,7 +11932,7 @@ Optional bundled starter model:
       +'<textarea class="recipe-custom" id="recipeCustom" placeholder="'+(cleanup?'Optional sender, domain, or Gmail search guidance...':'Add sender, date range, tone, question, or other details...')+'"></textarea></div>'
       +'<div class="email-recipe-summary" id="emailRecipeSummary"></div>'
       +'<div class="recipe-warning">Boolean uses the connected account for reliable mailbox actions. Cleanup is preview-first, moves only to Trash, and always keeps an Undo record.</div>'
-      +'<div class="recipe-actions"><button type="button" id="recipeFill">Fill chat</button><button type="button" class="primary" id="recipeStart">'+actionLabel+'</button></div>';
+      +'<div class="recipe-actions"><button type="button" id="recipeFill">Review in chat</button><button type="button" class="primary" id="recipeStart">'+actionLabel+'</button></div>';
     $("emailRecipeAccount").onchange=()=>{
       const account=selectedEmailAccount();
       const mark=$("recipeDetail").querySelector(".email-provider-mark");
@@ -11988,12 +11948,11 @@ Optional bundled starter model:
     updateEmailRecipeSummary();
   }
   function renderStartBuildDetail(recipe){
-    const modelChoices=["GLM 5.2 Local - Coding","Qwen Local - General","GPT Cloud","Claude Cloud"];
+    const selectedAi=currentAiLabel();
     $("recipeDetail").innerHTML='<h3>Start Building</h3><p>Choose an AI, configure the workspace, and describe the task.</p>'
       +'<div class="recipe-tools"><span class="recipe-tool">Manage Models</span><span class="recipe-tool">Quick Start</span><span class="recipe-tool">Workspace</span></div>'
       +'<div class="recipe-form">'
-      +'<div class="recipe-field"><label for="startModel">AI model</label><select id="startModel">'+modelChoices.map((m,i)=>'<option value="'+esc(m)+'" '+(i===0?'selected':'')+'>'+esc(m)+'</option>').join("")+'</select></div>'
-      +'<div class="recipe-model-status"><span>Ready</span><span>GLM 5.2 Local - Coding OK</span><span>Qwen Local - General OK</span><span>GPT Cloud OK</span><span>Claude Cloud OK</span></div>'
+      +'<div class="recipe-field"><label>AI model</label><div class="email-recipe-account"><span class="email-provider-mark">AI</span><b>'+esc(selectedAi)+'</b><small>Current selection</small></div><input type="hidden" id="startModel" value="'+esc(selectedAi)+'"></div>'
       +'<div class="recipe-field"><label>Quick start</label><div class="recipe-preset-grid">'+startPresets.map((p,i)=>'<button type="button" class="recipe-preset'+(i===0?' on':'')+'" data-preset="'+esc(p)+'">'+esc(p)+'</button>').join("")+'</div></div>'
       +'<div class="recipe-field"><label>Capabilities</label><div class="recipe-check-grid">'+startCapabilities.map((c,i)=>'<label class="recipe-option"><input type="checkbox" class="start-capability" value="'+esc(c[0])+'" '+(i<3?'checked':'')+'>'+esc(c[1])+'</label>').join("")+'</div></div>'
       +'<div class="recipe-field"><label>Workspace tools</label><div class="recipe-check-grid">'+startTools.map((t,i)=>'<label class="recipe-option"><input type="checkbox" class="start-tool" value="'+esc(t[0])+'" '+(i<4?'checked':'')+'>'+esc(t[1])+'</label>').join("")+'</div></div>'
@@ -12005,15 +11964,53 @@ Optional bundled starter model:
       +'<textarea class="recipe-custom" id="startLegalDetails" placeholder="Paste document text, questions, deadlines, or response goal..."></textarea></div>'
       +'<div class="recipe-field"><label for="startTask">What do you want to build?</label><textarea class="recipe-custom" id="startTask" placeholder="Describe the app, workflow, review, document, or task..."></textarea></div>'
       +'</div><div class="recipe-summary" id="startSessionSummary"></div>'
-      +'<div class="recipe-actions"><button type="button" id="startFill">Fill chat</button><button type="button" class="primary" id="startRun">Start Building</button></div>';
+      +'<div class="recipe-actions"><button type="button" id="startFill">Review in chat</button><button type="button" class="primary" id="startRun">Start Building</button></div>';
     document.querySelectorAll(".recipe-preset").forEach(btn=>btn.onclick=()=>setStartPreset(btn.dataset.preset));
     document.querySelectorAll(".start-capability,.start-tool,.start-legal-action").forEach(input=>input.onchange=updateStartSummary);
-    ["startModel","startDocType","startJurisdiction","startTask","startLegalDetails"].forEach(id=>$(id)?.addEventListener("input",updateStartSummary));
+    ["startDocType","startJurisdiction","startTask","startLegalDetails"].forEach(id=>$(id)?.addEventListener("input",updateStartSummary));
     $("startUpload").onclick=(e)=>{ if(e.target.id!=="startFileInput") $("startFileInput").click(); };
     $("startFileInput").onchange=e=>{ addRecipeFiles(e.target.files); e.target.value=""; updateStartSummary(); };
     $("startFill").onclick=()=>sendStartBuild(false);
     $("startRun").onclick=()=>sendStartBuild(true);
     updateStartSummary();
+  }
+  function genericRecipeClarity(recipe){
+    const projectChanges=new Set(["fix-bug","add-feature","ui-polish","screenshot-review"]);
+    const readOnly=new Set(["review-code","commit-message","browser-summary","extract-docs","compare-sources","deploy-plan","verify-deploy","rollback-plan","what-changed","roadmap-left"]);
+    const automation=new Set(["schedule-task","monitor-page"]);
+    let effect="Creates a result in chat. Project files stay unchanged unless you ask for edits.";
+    let action="Start recipe";
+    if(projectChanges.has(recipe.id)){
+      effect="May edit the current project and run focused verification. Destructive or external actions still require confirmation.";
+      action=recipe.id==="screenshot-review"?"Review and fix":"Start task";
+    }else if(automation.has(recipe.id)){
+      effect="Prepares an automation and asks for any missing schedule details before creation.";
+      action="Set up automation";
+    }else if(readOnly.has(recipe.id)){
+      effect=recipe.role==="deploy"
+        ?"Read-only planning or verification. It will not deploy, roll back, commit, or push."
+        :"Read-only review. It will not modify project files.";
+      action=recipe.id==="verify-deploy"?"Verify live site":"Run read-only";
+    }
+    let before="Add the goal and any useful constraints below.";
+    if(recipe.tools.includes("Image")) before="Attach the screenshot in chat after loading this Recipe.";
+    else if(recipe.tools.includes("Browser")) before="Open the page you want Boolean to use, or turn off browser context.";
+    else if(recipe.tools.includes("Git")) before="Open the correct project and confirm it is the Git repository you want reviewed.";
+    else if(recipe.tools.includes("Files")) before="Open the correct project or add the relevant file details.";
+    return {effect,before,action};
+  }
+  function updateGenericRecipeSummary(){
+    const el=$("recipeSessionSummary"); if(!el) return;
+    const recipe=currentRecipe(), clarity=genericRecipeClarity(recipe);
+    const enabled=[];
+    if($("recipeUseBrowser")?.checked) enabled.push("Browser");
+    if($("recipeSaveNotes")?.checked) enabled.push("Notes");
+    if($("recipeUseGit")?.checked) enabled.push("Git");
+    el.innerHTML="<b>Before you start</b><br>"
+      +"Action: "+esc(clarity.effect)+"<br>"
+      +"Context: "+esc(clarity.before)+"<br>"
+      +"Enabled: "+esc(enabled.join(", ")||"Chat only")+"<br>"
+      +"AI: "+esc(currentAiLabel());
   }
   function renderRecipeDetail(){
     const recipe=currentRecipe();
@@ -12021,17 +12018,23 @@ Optional bundled starter model:
     if(recipe.guide==="email"){ renderEmailRecipeDetail(recipe); return; }
     if(recipe.guide==="legalDoc"){ renderLegalRecipeDetail(recipe); return; }
     const needsBrowser=recipe.tools.includes("Browser"), needsNotes=recipe.tools.includes("Notes"), needsGit=recipe.tools.includes("Git");
+    const clarity=genericRecipeClarity(recipe);
     $("recipeDetail").innerHTML='<h3>'+esc(recipe.title)+'</h3><p>'+esc(recipe.desc)+'</p>'
       +'<div class="recipe-tools">'+recipe.tools.map(t=>'<span class="recipe-tool">'+esc(t)+'</span>').join("")+'</div>'
       +'<div class="recipe-options">'
-      +'<label class="recipe-option"><input type="checkbox" id="recipeUseBrowser" '+(needsBrowser?'checked':'')+'>Use browser context</label>'
-      +'<label class="recipe-option"><input type="checkbox" id="recipeSaveNotes" '+(needsNotes?'checked':'')+'>Save useful result to Notes</label>'
-      +'<label class="recipe-option"><input type="checkbox" id="recipeUseGit" '+(needsGit?'checked':'')+'>Include Git status/diff</label>'
-      +'<label class="recipe-option"><input type="checkbox" id="recipeSafeMode" checked>Ask before risky actions</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeUseBrowser" '+(needsBrowser?'checked':'')+'>Use the open browser page</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeSaveNotes" '+(needsNotes?'checked':'')+'>Save the useful result to Notes</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeUseGit" '+(needsGit?'checked':'')+'>Include current Git status and diff</label>'
+      +'<label class="recipe-option"><input type="checkbox" id="recipeSafeMode" checked>Confirm destructive or external actions</label>'
       +'</div><textarea class="recipe-custom" id="recipeCustom" placeholder="Add details, goal, URL, file name, tone, or constraints..."></textarea>'
-      +'<div class="recipe-actions"><button type="button" id="recipeFill">Fill chat</button><button type="button" class="primary" id="recipeStart">Start</button></div>';
+      +'<div class="recipe-summary" id="recipeSessionSummary"></div>'
+      +'<div class="recipe-actions"><button type="button" id="recipeFill">Review in chat</button><button type="button" class="primary" id="recipeStart">'+esc(clarity.action)+'</button></div>';
+    $("recipeDetail").querySelectorAll("input,textarea").forEach(control=>{
+      control.addEventListener(control.type==="checkbox"?"change":"input",updateGenericRecipeSummary);
+    });
     $("recipeFill").onclick=()=>sendRecipe(false);
     $("recipeStart").onclick=()=>sendRecipe(true);
+    updateGenericRecipeSummary();
   }
   let recipesReady=false;
   function ensureRecipes(){
@@ -12722,7 +12725,7 @@ Optional bundled starter model:
     }
     const paidReady=["glm","openai","claude","customApi"].some(provider=>providerReadyForRun(provider));
     if(paidReady){
-      $("modelmenu")?.classList.add("open");
+      openModelSelector();
       tempToast("A paid API key is ready, but Boolean will not switch to it automatically. Pick it from the AI menu to use it.");
     }
     return {ready:false,provider:"",model:""};
@@ -12900,10 +12903,11 @@ Optional bundled starter model:
     if(!panel) return;
     let saved=null;
     try{ saved=JSON.parse(localStorage.getItem("boolean_side_chat_pos")||"null"); }catch{}
+    const left=(saved&&Number.isFinite(saved.left))?saved.left:sideChatLeftEdge();
     const top=(saved&&Number.isFinite(saved.top))
       ? saved.top
       : Math.round((window.innerHeight-(panel.getBoundingClientRect().height||390))/2);
-    const pos=clampSideChatPosition(sideChatLeftEdge(),top);
+    const pos=clampSideChatPosition(left,top);
     panel.style.left=pos.left+"px";
     panel.style.top=pos.top+"px";
     panel.style.right="auto";
@@ -12922,19 +12926,17 @@ Optional bundled starter model:
   function applySideChatLauncherPosition(){
     const launcher=$("sideChatToggle");
     if(!launcher) return;
-    let saved=NaN;
-    try{ saved=Number(localStorage.getItem("boolean_side_chat_launcher_action_top")); }catch{}
     const composerTop=document.querySelector(".composer-wrap")?.getBoundingClientRect().top;
     const actionRowTop=Number.isFinite(composerTop)?composerTop+14:window.innerHeight-92;
-    const top=clampSideChatLauncherTop(Number.isFinite(saved)&&saved>0?saved:actionRowTop);
+    const top=clampSideChatLauncherTop(actionRowTop);
+    const chatRect=document.querySelector("main")?.getBoundingClientRect();
+    const launcherWidth=launcher.getBoundingClientRect().width||23;
+    const chatRight=Number.isFinite(chatRect?.right)?chatRect.right:window.innerWidth;
+    const left=Math.max(0,Math.min(window.innerWidth-launcherWidth,Math.round(chatRight-launcherWidth/2)));
     launcher.style.top=top+"px";
-  }
-  function saveSideChatLauncherPosition(){
-    const launcher=$("sideChatToggle");
-    if(!launcher) return;
-    const top=clampSideChatLauncherTop(launcher.getBoundingClientRect().top+launcher.getBoundingClientRect().height/2);
-    launcher.style.top=top+"px";
-    try{ localStorage.setItem("boolean_side_chat_launcher_action_top",String(Math.round(top))); }catch{}
+    launcher.style.left=left+"px";
+    launcher.style.right="auto";
+    try{ localStorage.removeItem("boolean_side_chat_launcher_action_top"); }catch{}
   }
   function paintSideChatDrag(){
     sideChatDragFrame=0;
@@ -12946,7 +12948,7 @@ Optional bundled starter model:
   }
   function scheduleSideChatDrag(left,top){
     if(!sideChatDragging) return;
-    const pos=clampSideChatPosition(sideChatLeftEdge(),top);
+    const pos=clampSideChatPosition(left,top);
     sideChatDragging.left=pos.left;
     sideChatDragging.top=pos.top;
     if(!sideChatDragFrame) sideChatDragFrame=requestAnimationFrame(paintSideChatDrag);
@@ -13028,32 +13030,6 @@ Optional bundled starter model:
   };
   $("sideChatSend").onclick=sendSideChat;
   $("sideChatInput").onkeydown=(event)=>{ if(event.key==="Enter"&&!event.shiftKey){ event.preventDefault(); sendSideChat(); } };
-  $("sideChatToggle").addEventListener("pointerdown",(event)=>{
-    if(event.button!==0) return;
-    const launcher=$("sideChatToggle");
-    const rect=launcher.getBoundingClientRect();
-    sideChatLauncherMoved=false;
-    sideChatLauncherDrag={pointerId:event.pointerId,startY:event.clientY,top:rect.top+rect.height/2};
-    launcher.setPointerCapture?.(event.pointerId);
-  });
-  $("sideChatToggle").addEventListener("pointermove",(event)=>{
-    if(!sideChatLauncherDrag||event.pointerId!==sideChatLauncherDrag.pointerId) return;
-    const delta=event.clientY-sideChatLauncherDrag.startY;
-    if(!sideChatLauncherMoved&&Math.abs(delta)<4) return;
-    sideChatLauncherMoved=true;
-    event.preventDefault();
-    const launcher=$("sideChatToggle");
-    launcher.classList.add("dragging");
-    launcher.style.top=clampSideChatLauncherTop(sideChatLauncherDrag.top+delta)+"px";
-  });
-  const finishSideChatLauncherDrag=(event)=>{
-    if(!sideChatLauncherDrag||event.pointerId!==sideChatLauncherDrag.pointerId) return;
-    $("sideChatToggle").classList.remove("dragging");
-    if(sideChatLauncherMoved) saveSideChatLauncherPosition();
-    sideChatLauncherDrag=null;
-  };
-  $("sideChatToggle").addEventListener("pointerup",finishSideChatLauncherDrag);
-  $("sideChatToggle").addEventListener("pointercancel",finishSideChatLauncherDrag);
   $("sideChatPanel").querySelector(".side-chat-head").addEventListener("pointerdown",(event)=>{
     if(event.button!==0||event.target.closest("button,select,input,textarea")) return;
     event.preventDefault();

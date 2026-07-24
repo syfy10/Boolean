@@ -433,7 +433,9 @@ sealed class MainForm : Form
         Text = "Boolean";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
-        MinimumSize = new Size(Math.Min(640, Math.Max(480, wa.Width - 16)), Math.Min(560, Math.Max(360, wa.Height - 16)));
+        // Do not let the borderless shell shrink until the workspace becomes
+        // unusable. Clamp to the monitor work area for genuinely small screens.
+        MinimumSize = new Size(Math.Min(720, Math.Max(600, wa.Width - 16)), Math.Min(620, Math.Max(480, wa.Height - 16)));
         Width = Math.Min(Math.Max(720, (int)(wa.Width * 0.42)), Math.Min(820, wa.Width - 16)); // compact, but wide enough for first-run UI
         Height = Math.Min(Math.Min(720, wa.Height), (int)(wa.Height * 0.82));
         StartPosition = FormStartPosition.Manual;

@@ -83,7 +83,7 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
-    version: "0.9.52",
+    version: "0.9.53",
     date: "2026-07-24",
     title: "Responsive workspace and personal surfaces",
     details: [

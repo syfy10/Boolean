@@ -264,7 +264,10 @@ export async function scanEmailMetadata(providerName, connection, save, query = 
   }
 
   const rows = [];
-  let nextUrl = new URL("https://graph.microsoft.com/v1.0/me/messages");
+  const outlookScope = String(options.scope || "inbox").toLowerCase() === "all" ? "all" : "inbox";
+  let nextUrl = new URL(outlookScope === "all"
+    ? "https://graph.microsoft.com/v1.0/me/messages"
+    : "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages");
   nextUrl.searchParams.set("$top", String(Math.min(250, limit)));
   nextUrl.searchParams.set("$select", "id,subject,from,toRecipients,receivedDateTime,bodyPreview,isRead,conversationId,internetMessageId,importance,hasAttachments,categories,parentFolderId,isDraft,flag");
   nextUrl.searchParams.set("$orderby", "receivedDateTime desc");

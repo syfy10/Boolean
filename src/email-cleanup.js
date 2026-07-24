@@ -48,6 +48,7 @@ export function buildGmailCleanupQuery(options = {}) {
   const parts = [];
   const custom = String(options.query || "").replace(/[\r\n]+/g, " ").trim();
   if (custom) parts.push(`(${custom})`);
+  if (String(options.scope || "inbox").toLowerCase() !== "all") parts.push("in:inbox");
   parts.push(`older_than:${safeAge(options.olderThan)}`);
   if (categories.length) {
     const terms = categories.map((category) => category === "spam" ? "in:spam" : `category:${category}`);

@@ -5,6 +5,7 @@ import fs from "node:fs";
 const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
 const shell = fs.readFileSync(new URL("../shell/Program.cs", import.meta.url), "utf8");
 const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+const config = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 
 test("maximize control offers left, maximize, and right window layouts", () => {
   const options = [...ui.matchAll(/data-window-place="([^"]+)"/g)].map((match) => match[1]);
@@ -290,7 +291,7 @@ test("workspace navigation and commands compact before they overflow", () => {
   assert.match(ui, /@media\(max-width:760px\)\{[\s\S]*?body\.composer-simple \.composer-tools \.anchor:has\(#modelbtn\)\{ margin-left:4px; \}/);
   assert.match(ui, /@media\(max-width:760px\)\{[\s\S]*?\.composer-tools \.modelbtn\{ max-width:54px; padding-inline:2px; \}/);
   assert.match(ui, /\.msg-ai \.body code\{ white-space:normal; overflow-wrap:anywhere; word-break:break-word; \}/);
-  assert.match(shell, /MinimumSize = new Size\(Math\.Min\(640, Math\.Max\(480,/);
+  assert.match(shell, /MinimumSize = new Size\(Math\.Min\(720, Math\.Max\(600,/);
   assert.match(ui, /body\.chat-xs #sideRail,[\s\S]*?display:none; width:0; min-width:0; flex-basis:0; opacity:0; pointer-events:none;/);
   assert.match(ui, /body\.chat-xs\.rail-menu-open #sideRail,[\s\S]*?display:flex!important; position:fixed;/);
   assert.doesNotMatch(ui, /body\.shell\.notes-on #notesPanel\{ display:none!important; \}/);
@@ -305,6 +306,13 @@ test("side chat stays compact and the duplicate browser edge launcher is removed
   assert.match(ui, /#browserPill\{\s*display:none !important;\s*\}/);
   assert.match(shell, /void ShowBrowserPill\(\)\s*\{[\s\S]*?_browserPill\.Visible = false;/);
   assert.match(ui, /body\.composer-simple \.promptline #interruptEdit\{ position:absolute; right:42px; top:auto; bottom:8px; z-index:3;/);
+  assert.match(ui, /body:not\(\.composer-simple\) \.promptline #interruptEdit\{[\s\S]*?right:15px; bottom:52px;[\s\S]*?width:28px; height:28px;/);
+});
+
+test("new users start with the rounded composer and API key entry has a real text cursor", () => {
+  assert.match(config, /composerStyle:\s*"pill",\s*\/\/ pill \| simple/);
+  assert.match(ui, /\.menu \.api-key-form input\{[^}]*min-height:32px;[^}]*color:var\(--text\); caret-color:var\(--text\);[^}]*cursor:text; pointer-events:auto;/s);
+  assert.match(ui, /\.menu \.api-key-form input:focus\{ border-color:var\(--green\); box-shadow:/);
 });
 
 test("compact composer dropdowns escape the footer tool-row clip", () => {
@@ -503,7 +511,8 @@ test("compact navigation rail returns at half the old width requirement", () => 
 test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /\.menu#modelmenu\{ position:fixed; bottom:auto; right:auto; width:286px;/);
   assert.match(ui, /function positionModelMenu\(\)\{[\s\S]*?const minLeft=workspaceRect\.left\+margin;[\s\S]*?const maxLeft=Math\.max\(minLeft,workspaceRect\.right-width-margin\);[\s\S]*?menu\.style\.left=/);
-  assert.match(ui, /\$\("modelmenu"\)\?\.classList\.add\("open"\);\s*positionModelMenu\(\);/);
+  assert.match(ui, /function openModelSelector\(\)\{[\s\S]*?\$\("modelmenu"\)\?\.classList\.add\("open"\);[\s\S]*?renderModelList\(""\);\s*positionModelMenu\(\);\s*requestAnimationFrame\(positionModelMenu\);/);
+  assert.match(ui, /if\(paidReady\)\{\s*openModelSelector\(\);/);
   assert.match(ui, /id="modelmenu"[\s\S]*id="modelsearch"[\s\S]*id="modelNetMode"[\s\S]*data-net="local"[\s\S]*data-net="online"[\s\S]*id="modellist"/);
   assert.match(ui, /#modelmenu \.model-netseg\{ position:absolute; top:10px; right:10px; z-index:1; \}/);
   assert.match(ui, /\.model-netseg\{[^}]*width:109px;[^}]*grid-template-columns:1fr 1fr;/s);
@@ -614,7 +623,7 @@ test("browser chrome adapts before the pane is too narrow", () => {
 });
 
 test("side chat popup scales smaller with the main window", () => {
-  assert.match(ui, /\.side-chat-launch\{ position:fixed;[^}]*left:auto; right:4px; top:calc\(100% - var\(--composer-h,106px\) \+ 14px\);[^}]*width:23px; height:23px;[^}]*cursor:ns-resize; touch-action:none;/s);
+  assert.match(ui, /\.side-chat-launch\{ position:fixed;[^}]*left:auto; right:4px; top:calc\(100% - var\(--composer-h,106px\) \+ 14px\);[^}]*width:23px; height:23px;[^}]*cursor:pointer; touch-action:manipulation;/s);
   assert.doesNotMatch(ui, /body:not\(\.collapsed\) \.side-chat-launch/);
   assert.match(ui, /\.side-chat-panel\{[^}]*top:86px; left:auto; right:14px;[^}]*width:clamp\(228px,23vw,276px\);[^}]*height:clamp\(260px,44dvh,370px\);/s);
   assert.match(ui, /body\.browser-on \.side-chat-panel\{ width:clamp\(216px,21vw,258px\); height:clamp\(250px,40dvh,344px\); \}/);
@@ -622,12 +631,16 @@ test("side chat popup scales smaller with the main window", () => {
   assert.match(ui, /function sideChatLeftEdge\(\)\{/);
   assert.match(ui, /const launcher=\$\("sideChatToggle"\);[\s\S]*return Math\.max\(8,Math\.round\(\(rect\?\.left\|\|window\.innerWidth\)-width-8\)\);/);
   assert.match(ui, /function applySideChatLauncherPosition\(\)\{/);
-  assert.match(ui, /localStorage\.setItem\("boolean_side_chat_launcher_action_top"/);
-  assert.match(ui, /"sideChatToggle"\)\.addEventListener\("pointermove"/);
+  assert.match(ui, /const actionRowTop=Number\.isFinite\(composerTop\)\?composerTop\+14:window\.innerHeight-92;/);
+  assert.match(ui, /const chatRect=document\.querySelector\("main"\)\?\.getBoundingClientRect\(\);/);
+  assert.match(ui, /const left=Math\.max\(0,Math\.min\(window\.innerWidth-launcherWidth,Math\.round\(chatRight-launcherWidth\/2\)\)\);/);
+  assert.match(ui, /launcher\.style\.left=left\+"px";\s*launcher\.style\.right="auto";/);
+  assert.match(ui, /localStorage\.removeItem\("boolean_side_chat_launcher_action_top"/);
+  assert.doesNotMatch(ui, /"sideChatToggle"\)\.addEventListener\("pointermove"/);
   assert.match(ui, /const latest=sideChatThreads\(\)\[0\];[\s\S]*sideChatThreadId=latest\.id;/);
   assert.match(ui, /peek=1&tail=250/);
-  assert.match(ui, /const pos=clampSideChatPosition\(sideChatLeftEdge\(\),top\);/);
-  assert.match(ui, /const pos=clampSideChatPosition\(sideChatLeftEdge\(\),top\);[\s\S]*sideChatDragging\.left=pos\.left;/);
+  assert.match(ui, /const left=\(saved&&Number\.isFinite\(saved\.left\)\)\?saved\.left:sideChatLeftEdge\(\);[\s\S]*const pos=clampSideChatPosition\(left,top\);/);
+  assert.match(ui, /function scheduleSideChatDrag\(left,top\)\{[\s\S]*const pos=clampSideChatPosition\(left,top\);[\s\S]*sideChatDragging\.left=pos\.left;/);
   assert.match(ui, /\.side-chat-history\{[^}]*max-height:84px;/);
   assert.doesNotMatch(ui, /class="new-side-chat/);
   assert.doesNotMatch(ui, /data-new="1"/);

@@ -15,11 +15,20 @@ test("cleanup query keeps non-negotiable Gmail protections", () => {
     protectAttachments: true
   });
   assert.match(query, /older_than:3y/);
+  assert.match(query, /in:inbox/);
   assert.match(query, /category:promotions/);
   assert.match(query, /-is:starred/);
   assert.match(query, /-label:important/);
   assert.match(query, /-in:sent/);
   assert.match(query, /-has:attachment/);
+});
+
+test("cleanup query scans all mail only when explicitly selected", () => {
+  const inbox = buildGmailCleanupQuery({ olderThan: "2y" });
+  const all = buildGmailCleanupQuery({ olderThan: "2y", scope: "all" });
+  assert.match(inbox, /in:inbox/);
+  assert.doesNotMatch(all, /in:inbox/);
+  assert.match(all, /-in:trash/);
 });
 
 test("cleanup classifier protects important, labeled, attachment, and sensitive mail", () => {

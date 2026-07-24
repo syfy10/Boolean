@@ -20,6 +20,11 @@ test("Email Recipes include connected-mail and cleanup workflows", () => {
     assert.match(html, new RegExp(`id:\\"${id}\\"`));
   }
   assert.match(html, /Maximum to scan/);
+  assert.match(html, /name="emailCleanupScope" value="inbox" checked/);
+  assert.match(html, /name="emailCleanupScope" value="all"/);
+  assert.match(html, /Inbox only/);
+  assert.match(html, /Includes archived mail/);
+  assert.match(html, /scope: "\+selectedEmailCleanupScope\(\)/);
   assert.match(html, /value="5000"/);
   assert.match(html, /Nothing moves until you confirm a reviewed batch/);
   assert.match(html, /saved cleanup plan and connected account belong to the same mailbox/);
@@ -125,4 +130,28 @@ test("opening Settings closes Recipes instead of stacking panels", () => {
   assert.match(html, /markWorkspaceTab\(settingsWs\|\|"chat"\)/);
   assert.match(html, /if\(opening\) prepareWorkspaceForSettings\(null\)/);
   assert.match(html, /function openSettings\(sec,\{remember=true\}=\{\}\)\{\s*prepareWorkspaceForSettings\(sec\)/);
+});
+
+test("Recipes explain effects, prerequisites, and action safety before starting", () => {
+  const html = read("../src/ui.html");
+  assert.match(html, /function genericRecipeClarity\(recipe\)/);
+  assert.match(html, /May edit the current project and run focused verification/);
+  assert.match(html, /Read-only planning or verification/);
+  assert.match(html, /Prepares an automation and asks for any missing schedule details/);
+  assert.match(html, /Attach the screenshot in chat after loading this Recipe/);
+  assert.match(html, /Open the page you want Boolean to use/);
+  assert.match(html, /Confirm destructive or external actions/);
+  assert.match(html, /Normal in-project edits and verification are allowed/);
+  assert.match(html, /Review in chat/);
+  assert.doesNotMatch(html, /<button type="button" id="recipeFill">Fill chat<\/button>/);
+});
+
+test("Start Building reports the actual selected AI instead of fake ready models", () => {
+  const html = read("../src/ui.html");
+  assert.match(html, /const selectedAi=currentAiLabel\(\)/);
+  assert.match(html, /Current selection/);
+  assert.doesNotMatch(html, /GLM 5\.2 Local - Coding OK/);
+  assert.doesNotMatch(html, /Qwen Local - General OK/);
+  assert.doesNotMatch(html, /GPT Cloud OK/);
+  assert.doesNotMatch(html, /Claude Cloud OK/);
 });

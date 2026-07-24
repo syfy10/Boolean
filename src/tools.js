@@ -766,6 +766,7 @@ export const TOOL_DEFINITIONS = [
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
         query: { type: "string", description: "Optional extra provider search criteria, such as from:sender@example.com or a sender/domain keyword" },
+        scope: { type: "string", enum: ["inbox", "all"], description: "Mailbox scope. Use inbox to scan only the Inbox (the safer default), or all to include archived and other non-Trash mail." },
         older_than: { type: "string", description: "Retention age such as 6m, 1y, or 2y; default 2y" },
         categories: { type: "array", items: { type: "string", enum: ["promotions", "social", "updates", "forums", "spam"] } },
         limit: { type: "integer", description: "Maximum messages to scan, 1-5000; default 500" },
@@ -1159,6 +1160,7 @@ async function executeEmailTool(name, args, ctx) {
   if (name === "email_cleanup_preview") {
     const options = {
       query: String(args.query || ""),
+      scope: String(args.scope || "inbox").toLowerCase() === "all" ? "all" : "inbox",
       olderThan: String(args.older_than || "2y"),
       categories: Array.isArray(args.categories) && args.categories.length ? args.categories : ["promotions", "social", "updates", "forums"],
       limit: Math.max(1, Math.min(5000, Number(args.limit || 500))),
@@ -1169,7 +1171,11 @@ async function executeEmailTool(name, args, ctx) {
     const query = provider === "gmail" ? buildGmailCleanupQuery(options) : String(options.query || "").trim();
     const labels = await listEmailLabels(provider, connection, save);
     const userLabelIds = labels.filter((label) => label.type === "user").map((label) => label.id);
-    const rows = cleanupOlderRows(await scanEmailMetadata(provider, connection, save, query, { limit: options.limit, receivedBefore: provider === "outlook" && !query ? cleanupCutoffMs(options.olderThan) : 0 }), options.olderThan);
+    const rows = cleanupOlderRows(await scanEmailMetadata(provider, connection, save, query, {
+      limit: options.limit,
+      scope: options.scope,
+      receivedBefore: provider === "outlook" && !query ? cleanupCutoffMs(options.olderThan) : 0
+    }), options.olderThan);
     const plan = createCleanupPlan({ provider, account: connection.account || (provider === "gmail" ? "Gmail account" : "Outlook account"), query, options: { ...options, protectAnyLabel: provider === "outlook" }, rows, userLabelIds });
     saveCleanupPlan(plan);
     return truncate(JSON.stringify(publicCleanupPlan(plan), null, 2));

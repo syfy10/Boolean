@@ -64,6 +64,7 @@ test("coding plans render as persistent, controllable progress checklists", () =
   assert.match(server, /changedFiles: Array\.isArray\(controller\.changedFiles\)/);
   assert.match(server, /checks: Array\.isArray\(controller\.checks\)/);
   assert.match(server, /recentActions: Array\.isArray\(controller\.recentActions\)/);
-  assert.match(html, /function buildDetailedPlanHTML\(snapshot\)/);
-  assert.match(html, /Commit changes \(optional\)/);
+  assert.doesNotMatch(html, /function buildDetailedPlanHTML\(snapshot\)/);
+  assert.doesNotMatch(html, /Commit changes \(optional\)/);
+  assert.doesNotMatch(html, /class="plan-progress-block"/);
 });
