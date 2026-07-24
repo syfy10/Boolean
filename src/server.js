@@ -83,6 +83,16 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
+    version: "0.9.52",
+    date: "2026-07-24",
+    title: "Responsive workspace and personal surfaces",
+    details: [
+      "Refined the native split workspace so Projects, Chat, Notepad, and Browser resize and hide cleanly across compact and maximized windows.",
+      "Added Paper Minimal, Soft Glass, and Graphite Mist surface styles with consistent light and dark panel colors.",
+      "Simplified Boolean identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
+    ]
+  },
+  {
     version: "0.9.49",
     date: "2026-07-23",
     title: "Reliable task continuation",

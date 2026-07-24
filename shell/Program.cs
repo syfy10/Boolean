@@ -56,6 +56,13 @@ sealed class RoundedPanel : Panel
     protected override void OnResize(EventArgs eventargs)
     {
         base.OnResize(eventargs);
+        if (Width > 1 && Height > 1)
+        {
+            using var path = RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Radius);
+            var oldRegion = Region;
+            Region = new Region(path);
+            oldRegion?.Dispose();
+        }
         Invalidate();
     }
 
@@ -140,6 +147,7 @@ sealed class TabItem
     public string Url = "";
     public string Title = "New tab";
     public Button Chip = new RoundedButton { Radius = 12 };
+    public RoundedButton Close = new() { Radius = 8 };
 }
 
 sealed class MainForm : Form
@@ -224,6 +232,7 @@ sealed class MainForm : Form
             SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0,
                 SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
             ApplyBorderlessDwm();
+            if (_browserOpen && !_full) BeginInvoke(new Action(FitBrowserSplit));
         }));
     }
 
@@ -278,7 +287,8 @@ sealed class MainForm : Form
         {
             Description = string.IsNullOrWhiteSpace(title) ? "Choose folder" : title,
             UseDescriptionForTitle = true,
-            ShowNewFolderButton = true
+            ShowNewFolderButton = true,
+            AutoUpgradeEnabled = true
         };
         try
         {
@@ -333,9 +343,9 @@ sealed class MainForm : Form
     }
 
     // layout
-    readonly SplitContainer _split = new() { Orientation = Orientation.Vertical, SplitterWidth = 1 };
+    readonly SplitContainer _split = new() { Orientation = Orientation.Vertical, SplitterWidth = 5 };
     readonly WebView2 _chat = new() { Dock = DockStyle.Fill };
-    readonly Panel _browserPane = new() { Dock = DockStyle.Fill };
+    readonly RoundedPanel _browserPane = new() { Dock = DockStyle.Fill, Radius = 12 };
     readonly Panel _startup = new() { Dock = DockStyle.Fill, BackColor = Color.FromArgb(245, 245, 243) };
     readonly Label _startupTitle = new() { AutoSize = true, Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = Color.FromArgb(18, 24, 20) };
     readonly Label _startupText = new() { AutoSize = false, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(96, 100, 96) };
@@ -348,6 +358,7 @@ sealed class MainForm : Form
     readonly Panel _content = new() { Dock = DockStyle.Fill };
     readonly RoundedPanel _addrBox = new() { Radius = 14 };
     readonly TextBox _addr = new();
+    readonly RoundedButton _addrClearBtn = new() { Radius = 8 };
     readonly List<TabItem> _tabs = new();
     readonly List<Button> _browserTaskButtons = new();
     readonly ToolTip _browserTaskToolTip = new();
@@ -358,14 +369,21 @@ sealed class MainForm : Form
     Button _menuBtn = null!;
     Button _addTabBtn = new();
     readonly System.Windows.Forms.Timer _menuDismissTimer = new() { Interval = 35 };
-    Button _browserCloseBtn = null!;
+    readonly FlowLayoutPanel _nativeWindowControls = new()
+    {
+        Width = 76, Height = BrowserTopInset, WrapContents = false,
+        FlowDirection = FlowDirection.LeftToRight, Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        Padding = new Padding(2, 7, 0, 0), Margin = new Padding(0),
+        BackColor = Color.Transparent, Visible = false
+    };
+    readonly List<Button> _nativeWindowButtons = new();
     Button? _deviceBtn;
     int _deviceModeIdx = 0;
     static readonly (string id, string label, int w, int h, bool mobile, string glyph)[] DeviceModes =
     {
-        ("desktop", "Desktop", 0, 0, false, "\U0001F5A5"),      // 🖥
-        ("mobile",  "Mobile 390 × 844", 390, 844, true, "\U0001F4F1"), // 📱
-        ("tablet",  "Tablet 834 × 1112", 834, 1112, false, "▭")
+        ("desktop", "Desktop", 0, 0, false, "▣"),
+        ("tablet",  "Tablet 834 × 1112", 834, 1112, false, "▭"),
+        ("mobile",  "Mobile 390 × 844", 390, 844, true, "▯")
     };
     Panel _tabBar = new() { Dock = DockStyle.Top, Height = 30 };
 
@@ -382,8 +400,14 @@ sealed class MainForm : Form
         Color Text, Color AddrBg, Color Splitter, Color ActiveTab, Color Hover)
     {
         public static Palette Light => new(
-            Color.FromArgb(243, 243, 243), Color.White, Color.FromArgb(243, 243, 243), Color.White, Color.FromArgb(224, 224, 221),
-            Color.FromArgb(26, 26, 26), Color.FromArgb(238, 238, 236), Color.FromArgb(230, 230, 227), Color.FromArgb(245, 245, 245), Color.FromArgb(242, 242, 242));
+            Color.FromArgb(245, 245, 243), Color.FromArgb(251, 251, 250), Color.FromArgb(245, 245, 243), Color.White, Color.FromArgb(233, 233, 230),
+            Color.FromArgb(32, 33, 36), Color.White, Color.FromArgb(233, 233, 230), Color.FromArgb(251, 251, 250), Color.FromArgb(245, 245, 243));
+        public static Palette SoftGlass => new(
+            Color.FromArgb(238, 240, 242), Color.FromArgb(250, 250, 249), Color.FromArgb(238, 240, 242), Color.White, Color.FromArgb(225, 227, 229),
+            Color.FromArgb(32, 33, 36), Color.White, Color.FromArgb(225, 227, 229), Color.FromArgb(250, 250, 249), Color.FromArgb(243, 244, 245));
+        public static Palette GraphiteMist => new(
+            Color.FromArgb(221, 225, 228), Color.FromArgb(247, 248, 248), Color.FromArgb(221, 225, 228), Color.White, Color.FromArgb(213, 218, 221),
+            Color.FromArgb(32, 33, 36), Color.White, Color.FromArgb(213, 218, 221), Color.FromArgb(247, 248, 248), Color.FromArgb(235, 238, 240));
         public static Palette Dark => new(
             Color.FromArgb(32, 32, 32), Color.FromArgb(28, 28, 28), Color.FromArgb(32, 32, 32), Color.FromArgb(34, 34, 34), Color.FromArgb(58, 58, 58),
             Color.Gainsboro, Color.FromArgb(44, 44, 44), Color.FromArgb(40, 40, 40), Color.FromArgb(46, 46, 46), Color.FromArgb(48, 48, 48));
@@ -409,7 +433,7 @@ sealed class MainForm : Form
         Text = "Boolean";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
-        MinimumSize = new Size(Math.Min(560, Math.Max(360, wa.Width - 16)), Math.Min(560, Math.Max(360, wa.Height - 16)));
+        MinimumSize = new Size(Math.Min(640, Math.Max(480, wa.Width - 16)), Math.Min(560, Math.Max(360, wa.Height - 16)));
         Width = Math.Min(Math.Max(720, (int)(wa.Width * 0.42)), Math.Min(820, wa.Width - 16)); // compact, but wide enough for first-run UI
         Height = Math.Min(Math.Min(720, wa.Height), (int)(wa.Height * 0.82));
         StartPosition = FormStartPosition.Manual;
@@ -417,7 +441,9 @@ sealed class MainForm : Form
         Top  = wa.Top + (wa.Height - Height) / 2;
         Opacity = 0;
         BackColor = Color.FromArgb(28, 28, 28);
-        Padding = new Padding(0, 0, 0, 14);
+        // Keep a clean canvas frame beneath both panes. Twelve pixels reveals
+        // the rounded corners without recreating the old oversized footer.
+        Padding = new Padding(0, 0, 0, 12);
         DoubleBuffered = true;
         try { _chat.DefaultBackgroundColor = BackColor; } catch { }
         TryLoadIcon();
@@ -436,9 +462,16 @@ sealed class MainForm : Form
         // the resize handle. An overlay approach was tried and reverted — the chat
         // underneath kept its full-width layout and half of it ended up hidden.
         _split.Panel2.Padding = new Padding(0, BrowserTopInset, 0, 0);
+        _split.Panel2.MouseDown += (_, me) =>
+        {
+            if (me.Button != MouseButtons.Left || me.Y >= BrowserTopInset) return;
+            ReleaseCapture();
+            SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
+        };
         _split.Panel2.Controls.Add(_browserPane);
         _split.Panel2Collapsed = true; // browser hidden until toggled
         Controls.Add(_split);
+        BuildNativeWindowControls();
         BuildBrowserPill();
         Controls.Add(_startup);
         _startup.BringToFront();
@@ -465,6 +498,33 @@ sealed class MainForm : Form
         Deactivate += (_, __) => _menu?.Close();
         FormClosed += (_, __) => { CleanupCoreOnClose(); LaunchPendingUpdate(); };
         Shown += (_, __) => { _split.Panel2Collapsed = true; }; // browser hidden until toggled
+    }
+
+    void BuildNativeWindowControls()
+    {
+        Button WindowButton(string glyph, string tip, EventHandler onClick)
+        {
+            var button = new RoundedButton
+            {
+                Text = glyph, Width = 24, Height = 24, Radius = 6,
+                Margin = new Padding(0), Padding = new Padding(0),
+                FlatStyle = FlatStyle.Flat, Font = new Font("Segoe Fluent Icons", 8f),
+                TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.Transparent
+            };
+            button.FlatAppearance.BorderSize = 0;
+            button.Click += onClick;
+            new ToolTip().SetToolTip(button, tip);
+            _nativeWindowControls.Controls.Add(button);
+            _nativeWindowButtons.Add(button);
+            return button;
+        }
+
+        WindowButton("\uE921", "Minimize", (_, __) => WindowState = FormWindowState.Minimized);
+        WindowButton("\uE922", "Maximize or restore", (_, __) => ToggleMaximize());
+        WindowButton("\uE8BB", "Close", (_, __) => Close());
+        _nativeWindowControls.Location = new Point(ClientSize.Width - _nativeWindowControls.Width, 0);
+        Controls.Add(_nativeWindowControls);
+        _nativeWindowControls.BringToFront();
     }
 
     void BuildStartupOverlay()
@@ -1052,21 +1112,36 @@ try {
         Place(Icon("\u2190", "Back", 32, (_, __) => Active()?.View.CoreWebView2?.GoBack()));
         Place(Icon("\u2192", "Forward", 32, (_, __) => Active()?.View.CoreWebView2?.GoForward()));
         Place(Icon("\u21BB", "Reload", 32, (_, __) => Active()?.View.CoreWebView2?.Reload()));
-        _deviceBtn = Icon("\U0001F5A5", "Responsive view: Desktop / Mobile / Tablet", 34, (_, __) => CycleDeviceMode());
+        _deviceBtn = Icon("▣", "Responsive view: Desktop / Tablet / Mobile", 34, (_, __) => CycleDeviceMode());
         Place(_deviceBtn);
         Place(Icon("\u25B6", "Run current project", 34, (_, __) => PostToChat(new { type = "runProject" })));
         x += 6;
 
         // address — a clearly visible field (own background, left-aligned)
         _addrBox.Top = 3; _addrBox.Height = 22; _addrBox.Left = x + 5;
-        _addrBox.Padding = new Padding(9, 2, 8, 1);
+        _addrBox.Padding = new Padding(9, 2, 3, 1);
         _addr.BorderStyle = BorderStyle.None;
         _addr.Dock = DockStyle.Fill;
         _addr.TextAlign = HorizontalAlignment.Left;
         _addr.PlaceholderText = "Search or enter a URL";
         _addr.Font = new Font("Segoe UI", 9.5f);
         _addr.KeyDown += (_, ke) => { if (ke.KeyCode == Keys.Enter) { ke.SuppressKeyPress = true; Navigate(_addr.Text); } };
+        _addr.TextChanged += (_, __) => _addrClearBtn.Visible = _addr.TextLength > 0;
+        _addrClearBtn.Text = "×";
+        _addrClearBtn.Dock = DockStyle.Right;
+        _addrClearBtn.Width = 23;
+        _addrClearBtn.FlatStyle = FlatStyle.Flat;
+        _addrClearBtn.FlatAppearance.BorderSize = 0;
+        _addrClearBtn.BackColor = Color.Transparent;
+        _addrClearBtn.Fill = Color.Transparent;
+        _addrClearBtn.Border = Color.Transparent;
+        _addrClearBtn.Font = new Font("Segoe UI", 10f);
+        _addrClearBtn.TabStop = false;
+        _addrClearBtn.Visible = false;
+        _addrClearBtn.Click += (_, __) => { _addr.Clear(); _addr.Focus(); };
         _addrBox.Controls.Add(_addr);
+        _addrBox.Controls.Add(_addrClearBtn);
+        _addrClearBtn.BringToFront();
         _toolbar.Controls.Add(_addrBox);
 
         // ⋮ overflow menu — styled to match the flat in-app browser menu.
@@ -1181,7 +1256,6 @@ try {
             tabRight.Controls.Add(b); _barBtns.Add(b); return b;
         }
         TabIcon("\u2922", "Full width (hide chat)", (_, __) => ToggleFull());
-        _browserCloseBtn = TabIcon("\u25CE", "Close current browser tab", (_, __) => CloseTab(_active));
         var hideBrowser = TabIcon("\u00D7", "Hide browser", (_, __) => ToggleBrowser(false));
         hideBrowser.FlatAppearance.MouseOverBackColor = Color.FromArgb(45, 45, 45);
 
@@ -1232,19 +1306,29 @@ try {
     Palette ResolveTheme()
     {
         string theme = "system";
+        string surface = "paper-minimal";
         try
         {
             var cfg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".saz", "config.json");
             if (File.Exists(cfg))
             {
                 using var doc = JsonDocument.Parse(File.ReadAllText(cfg));
-                if (doc.RootElement.TryGetProperty("ui", out var ui) && ui.TryGetProperty("theme", out var th))
-                    theme = th.GetString() ?? "system";
+                if (doc.RootElement.TryGetProperty("ui", out var ui))
+                {
+                    if (ui.TryGetProperty("theme", out var th)) theme = th.GetString() ?? "system";
+                    if (ui.TryGetProperty("colorTheme", out var ct)) surface = ct.GetString() ?? "paper-minimal";
+                }
             }
         }
         catch { }
         bool dark = theme == "dark" || (theme == "system" && SystemDark());
-        return dark ? Palette.Dark : Palette.Light;
+        if (dark) return Palette.Dark;
+        return surface switch
+        {
+            "soft-gloss" => Palette.SoftGlass,
+            "graphite-mist" => Palette.GraphiteMist,
+            _ => Palette.Light
+        };
     }
 
     void ApplyTheme(Palette p)
@@ -1254,8 +1338,13 @@ try {
         try { _chat.DefaultBackgroundColor = p.PaneBg; } catch { }
         ApplyDwmChromeColor(p.CanvasBg);
         _split.BackColor = p.Splitter;
-        _split.Panel2.BackColor = p.PaneBg;
+        _split.Panel1.BackColor = p.CanvasBg;
+        // Panel2 paints the reserved browser top band; the browserPane below it
+        // keeps its own PaneBg surface.
+        _split.Panel2.BackColor = p.CanvasBg;
         _browserPane.BackColor = p.PaneBg;
+        _browserPane.BorderColor = p.BtnBorder;
+        _nativeWindowControls.BackColor = p.CanvasBg;
         StyleBrowserPill();
         _content.BackColor = p.PaneBg;
         _browserTitleBar.BackColor = p.BarBg;
@@ -1268,6 +1357,8 @@ try {
         _addrBox.BackColor = p.AddrBg;
         _addrBox.BorderColor = p.BtnBorder;
         _addr.BackColor = p.AddrBg; _addr.ForeColor = p.Text;
+        _addrClearBtn.BackColor = Color.Transparent; _addrClearBtn.ForeColor = p.Text;
+        _addrClearBtn.Fill = Color.Transparent; _addrClearBtn.HoverFill = p.Hover;
         if (_menu != null) { _menu.BackColor = p.BarBg; _menu.ForeColor = p.Text; }
         foreach (var b in _barBtns)
         {
@@ -1284,17 +1375,29 @@ try {
                 rb.Invalidate();
             }
         }
-        if (_browserCloseBtn != null)
+        foreach (var b in _nativeWindowButtons)
         {
-            // match the other toolbar icons instead of a standout green pill
-            _browserCloseBtn.BackColor = Color.Transparent;
-            _browserCloseBtn.ForeColor = p.Text;
-            _browserCloseBtn.FlatAppearance.MouseOverBackColor = p.Hover;
-            _browserCloseBtn.FlatAppearance.MouseDownBackColor = p.Hover;
+            b.BackColor = Color.Transparent;
+            b.ForeColor = p.Text;
+            b.FlatAppearance.BorderSize = 0;
+            if (b is RoundedButton rb)
+            {
+                rb.Fill = Color.Transparent;
+                rb.HoverFill = p.Hover;
+                rb.DownFill = p.ActiveTab;
+                rb.Border = Color.Transparent;
+                rb.Invalidate();
+            }
         }
         RefreshTabChrome();
         foreach (var t in _tabs)
         {
+            t.Close.BackColor = Color.Transparent; t.Close.ForeColor = p.Text;
+            if (t.Close is RoundedButton close)
+            {
+                close.Fill = Color.Transparent; close.HoverFill = p.Hover;
+                close.DownFill = p.ActiveTab; close.Border = Color.Transparent;
+            }
             try { t.View.DefaultBackgroundColor = p.PaneBg; } catch { }
             if (t.View.CoreWebView2 != null)
                 t.View.CoreWebView2.Profile.PreferredColorScheme =
@@ -1335,6 +1438,11 @@ try {
             t.Chip.Margin = new Padding(3, 3, 0, 0);
             t.Chip.TextAlign = ContentAlignment.MiddleLeft;
             t.Chip.AutoEllipsis = true;
+            t.Chip.Padding = new Padding(7, 0, 22, 0);
+            t.Close.Left = Math.Max(30, chipW - 22);
+            t.Close.Top = 2;
+            t.Close.Width = 20;
+            t.Close.Height = 20;
         }
         RefreshTabChrome();
     }
@@ -1359,6 +1467,7 @@ try {
         t.Chip.FlatAppearance.MouseOverBackColor = _pal.Hover;
         t.Chip.Font = new Font("Segoe UI", 8f); t.Chip.Margin = new Padding(3, 3, 0, 0); t.Chip.Text = "\u25CE New tab";
         t.Chip.TextAlign = ContentAlignment.MiddleLeft;
+        t.Chip.Padding = new Padding(7, 0, 22, 0);
         t.Chip.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
         if (t.Chip is RoundedButton chip)
         {
@@ -1371,6 +1480,16 @@ try {
         t.Chip.Click += (_, __) => Activate(_tabs.IndexOf(t));
         // middle-click / right-click closes
         t.Chip.MouseUp += (_, me) => { if (me.Button != MouseButtons.Left) CloseTab(_tabs.IndexOf(t)); };
+        t.Close.Text = "×";
+        t.Close.Width = 20; t.Close.Height = 20; t.Close.Left = t.Chip.Width - 22; t.Close.Top = 2;
+        t.Close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        t.Close.FlatStyle = FlatStyle.Flat; t.Close.FlatAppearance.BorderSize = 0;
+        t.Close.BackColor = Color.Transparent; t.Close.ForeColor = _pal.Text;
+        t.Close.Fill = Color.Transparent; t.Close.HoverFill = _pal.Hover; t.Close.Border = Color.Transparent;
+        t.Close.Font = new Font("Segoe UI", 9f); t.Close.TabStop = false;
+        var tabTip = new ToolTip(); tabTip.SetToolTip(t.Close, "Close tab");
+        t.Close.Click += (_, __) => CloseTab(_tabs.IndexOf(t));
+        t.Chip.Controls.Add(t.Close);
         try { t.View.DefaultBackgroundColor = _pal.PaneBg; } catch { } // no black flash before load
         _tabs.Add(t);
         _tabStrip.Controls.Add(t.Chip);
@@ -1631,17 +1750,16 @@ try {
 
     // ── show / hide the browser pane (driven by the chat UI toggle) ──
     bool _browserOpen = false;
-    bool _browserEverOpened = false;
 
     // Floating edge pill: when the full-window browser is closed it collapses to
     // a small tab peeking off the right edge that reopens it.
     readonly RoundedButton _browserPill = new();
     void BuildBrowserPill()
     {
-        _browserPill.Text = "\U0001F310"; // 🌐
-        _browserPill.Size = new Size(46, 50);
-        _browserPill.Font = new Font("Segoe UI Emoji", 13.5f);
-        _browserPill.Radius = 16;
+        _browserPill.Text = "\u2039"; // slim edge chevron: reopen the right browser pane
+        _browserPill.Size = new Size(20, 30);
+        _browserPill.Font = new Font("Segoe UI Symbol", 14f);
+        _browserPill.Radius = 7;
         _browserPill.FlatStyle = FlatStyle.Flat;
         _browserPill.FlatAppearance.BorderSize = 0;
         _browserPill.TabStop = false;
@@ -1658,22 +1776,22 @@ try {
     void StyleBrowserPill()
     {
         _browserPill.ForeColor = _pal.Text;
-        _browserPill.Fill = _pal.BtnBg;
-        _browserPill.Border = _pal.BtnBorder;
+        _browserPill.Fill = Color.Transparent;
+        _browserPill.HoverFill = Color.FromArgb(32, _pal.Text);
+        _browserPill.DownFill = Color.FromArgb(48, _pal.Text);
+        _browserPill.Border = Color.Transparent;
         _browserPill.BackColor = Color.Transparent;
     }
     void PositionBrowserPill()
     {
-        _browserPill.Left = ClientSize.Width - _browserPill.Width + 8; // peek off the edge
+        _browserPill.Left = ClientSize.Width - 15; // only the chevron peeks in
         _browserPill.Top = Math.Max(0, (ClientSize.Height - _browserPill.Height) / 2);
     }
     void ShowBrowserPill()
     {
-        if (!_browserEverOpened) return;
-        StyleBrowserPill();
-        PositionBrowserPill();
-        _browserPill.Visible = true;
-        _browserPill.BringToFront();
+        // Browser remains available from the persistent top toolbar. Do not
+        // place a second launcher over the right edge of the chat.
+        _browserPill.Visible = false;
     }
     void HideBrowserPill() => _browserPill.Visible = false;
 
@@ -1702,7 +1820,10 @@ try {
         int available = panelWidth;
         // Default to an even split — the chat stays fully usable while the browser
         // is open; the user drags the splitter for anything else.
-        int browserW = Math.Clamp(available / 2, browserMin, Math.Max(browserMin, available - chatMin));
+        int preferredBrowserW = WindowState == FormWindowState.Maximized
+            ? (int)Math.Round(available * 0.40)
+            : available / 2;
+        int browserW = Math.Clamp(preferredBrowserW, browserMin, Math.Max(browserMin, available - chatMin));
         int chatW = Math.Max(chatMin, available - browserW);
         _split.SplitterDistance = Math.Min(chatW, _split.Width - browserMin);
         BeginInvoke(new Action(AutoFitActiveBrowserIfNarrow));
@@ -1733,10 +1854,11 @@ try {
         _browserOpen = force ?? !_browserOpen;
         if (_browserOpen)
         {
-            _browserEverOpened = true;
             HideBrowserPill();
             if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
             _split.Panel2Collapsed = false;
+            _nativeWindowControls.Visible = true;
+            _nativeWindowControls.BringToFront();
             if (ensureTab && _tabs.Count == 0) AddTab(_homeUrl, activate: true, navigate: true);
             var t = Active();
             if (t != null && t.View.CoreWebView2 != null)
@@ -1753,9 +1875,10 @@ try {
         else
         {
             _split.Panel2Collapsed = true;
+            _nativeWindowControls.Visible = false;
             _split.Panel1Collapsed = false; // restore the chat
             _full = false;
-            ShowBrowserPill(); // collapse to a floating edge pill
+            ShowBrowserPill();
         }
         PostToChat(new { type = "shellBrowser", open = _browserOpen });
     }
@@ -1842,9 +1965,21 @@ try {
                     _ = StartScreenSnipAsync(target);
                     break;
                 case "theme":
-                    var pal = root.TryGetProperty("dark", out var dk)
-                        ? (dk.GetBoolean() ? Palette.Dark : Palette.Light)
-                        : ResolveTheme();
+                    var pal = ResolveTheme();
+                    if (root.TryGetProperty("dark", out var dk))
+                    {
+                        if (dk.GetBoolean()) pal = Palette.Dark;
+                        else
+                        {
+                            var surface = root.TryGetProperty("surface", out var sf) ? sf.GetString() : "paper-minimal";
+                            pal = surface switch
+                            {
+                                "soft-gloss" => Palette.SoftGlass,
+                                "graphite-mist" => Palette.GraphiteMist,
+                                _ => Palette.Light
+                            };
+                        }
+                    }
                     ApplyTheme(pal);
                     break;
             }
