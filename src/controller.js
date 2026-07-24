@@ -584,44 +584,22 @@ export class AgentController {
       }
     }
     if (Object.keys(this.sourceOfTruth).length) {
-      lines.push("SOURCE OF TRUTH: use the recorded edit folder, build command, deploy command, live URL, and verification URL when present. Do not substitute older folders or commands from chat history.");
+      const truth = Object.entries(this.sourceOfTruth).map(([k, v]) => `${k}: ${v}`).join(" | ");
+      lines.push(`Recorded for this task: ${truth}`);
     }
-    if (this.contract.deployAllowed) {
-      lines.push("DEPLOY PROOF RULE: after deploying, capture the deploy version/id or release output, then verify the live or verification URL. Do not say deployed until both pieces of evidence are recorded.");
-    }
-    lines.push("WEB/BROWSER RULE: use background research_web/web_search for facts, docs, APIs, and quick checks. Open the visible built-in browser only for visual preview, local app/site development previews, OAuth/sign-in, user-facing browsing, screenshots, or page testing.");
-    lines.push("BLOCKED MEANS STOP: if Boolean blocks the same tool/action twice, stop and explain the blocker plainly instead of trying equivalent actions.");
     if (this.debugRequired) {
-      lines.push("DEBUG WORKFLOW (required): inspect -> reproduce -> identify root cause -> edit -> repeat the same check -> regressions.");
-      lines.push("Before editing, use a real command, project preview, page inspection, or screenshot to observe the failure, then call record_debug_evidence(stage='reproduced').");
-      lines.push("After inspecting the responsible code, call record_debug_evidence(stage='root_cause') with the concrete mechanism. Boolean blocks mutations until both checkpoints exist.");
-      lines.push("After the fix, repeat the original reproduction, run relevant regression checks, then call record_debug_evidence(stage='verified').");
-      lines.push("Never claim fixed from code inspection alone. Before-and-after tool evidence is mandatory.");
       if (this.reproductionEvidence) lines.push(`Reproduced: ${this.reproductionEvidence}`);
       if (this.rootCauseEvidence) lines.push(`Root cause: ${this.rootCauseEvidence}`);
       if (this.postFixEvidence) lines.push(`Verified: ${this.postFixEvidence}`);
     }
-    if (this.artifactRequired) {
-      lines.push("Completion gate: change the requested artifact, then run a relevant check after the latest change. A claim that it works is not evidence.");
-    } else if (this.actionRequired) {
-      lines.push("Completion gate: perform the requested action with the relevant tool and rely on its result. Instructions or a claim of success are not evidence.");
-    }
-    lines.push("Choose the tool whose result directly advances the objective. Do not substitute web search, browser activity, or unrelated inspection for the requested action.");
     if (this.nonProgressCount >= PROGRESS_WARNING_INSPECTIONS) {
-      lines.push("Progress warning: many inspection actions have occurred without a file change or new evidence. Prefer a targeted edit or known build/test command soon; continue inspecting only if it directly narrows the fix.");
-      if (!this.loopStopEnabled) lines.push("Loop guard is advisory for this task: do not pause because of repeated inspection. If more inspection is not helping, make the best targeted edit/check from current evidence and keep going.");
+      lines.push("Note: several inspections have run without a change or new evidence yet.");
     }
     return lines.join("\n");
   }
 
   allowTool(name, args = {}) {
-    if (this.contract.browserPolicy === "blocked" && BROWSER_TOOLS.has(name)) {
-      return { allowed: false, reason: "The task contract blocks the visible browser. Use files, local checks, or background research only." };
-    }
-    const visualVerification = this.artifactRequired && (VERIFICATION_TOOLS.has(name) || name === "read_page");
-    if (this.contract.browserPolicy === "on_demand" && BROWSER_TOOLS.has(name) && !visualVerification) {
-      return { allowed: false, reason: "Visible browser use was not requested for this task. Use background research_web/web_search for facts or ask before opening the browser." };
-    }
+    // The model decides when the visible browser is useful; it is not gated here.
     if (this.contract.mode === "read_only" && (MUTATION_TOOLS.has(name) || PREPARATION_TOOLS.has(name))) {
       return { allowed: false, reason: "The task is read-only; file and project changes are blocked." };
     }
@@ -670,13 +648,8 @@ export class AgentController {
     if (this.loopStopEnabled && (this.actionCounts[fingerprint] || 0) >= 2 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name))) {
       return { allowed: false, reason: `Loop guard: '${name}' already ran twice with the same target. Use the existing evidence, summarize the cause, or choose a different check.` };
     }
-    if (!this.debugRequired || !MUTATION_TOOLS.has(name)) return { allowed: true, reason: "" };
-    if (!this.reproductionEvidence) {
-      return { allowed: false, reason: "Debug workflow requires reproducing the reported failure and recording that evidence before editing." };
-    }
-    if (!this.rootCauseEvidence) {
-      return { allowed: false, reason: "Debug workflow requires recording the inspected root cause before editing." };
-    }
+    // Debug evidence is tracked and surfaced, but no longer blocks edits — the
+    // model decides when it understands a bug well enough to change code.
     return { allowed: true, reason: "" };
   }
 
@@ -731,33 +704,17 @@ export class AgentController {
         this.phase = "recovering";
         return this.snapshot();
       }
+      // Record whatever the model reports. The stage order is no longer policed —
+      // the model decides how it wants to work through a bug.
       if (stage === "reproduced") {
-        if (this.mutationCount || this.baselineCheckCount < 1) {
-          this.consecutiveFailures++;
-          this.lastFailure = "record_debug_evidence: reproduce with a real check before any edit";
-          this.phase = "recovering";
-          return this.snapshot();
-        }
         this.reproductionEvidence = summary;
         this.phase = "diagnosing";
         setPlanProgress(this.plan, 1, "done");
         if (this.plan[2]) this.plan[2].status = "in_progress";
       } else if (stage === "root_cause") {
-        if (!this.reproductionEvidence || this.inspectionCount < 1 || this.mutationCount) {
-          this.consecutiveFailures++;
-          this.lastFailure = "record_debug_evidence: inspect the responsible code after reproducing and before editing";
-          this.phase = "recovering";
-          return this.snapshot();
-        }
         this.rootCauseEvidence = summary;
         this.phase = "executing";
       } else if (stage === "verified") {
-        if (this.mutationCount < 1 || this.lastVerification < this.lastMutation) {
-          this.consecutiveFailures++;
-          this.lastFailure = "record_debug_evidence: repeat the original check after the latest edit first";
-          this.phase = "recovering";
-          return this.snapshot();
-        }
         this.postFixEvidence = summary;
         this.phase = "verifying";
         setPlanProgress(this.plan, 3, "done");
@@ -889,67 +846,23 @@ export class AgentController {
     return this.snapshot();
   }
 
+  // The model decides when a task is finished. Boolean no longer refuses a final
+  // answer for missing evidence — the only hard requirement is that an answer exists.
+  // A still-running background process is the one soft nudge worth keeping, because
+  // leaving one behind makes a finished task look stuck.
   evaluateCompletion(answer) {
     if (!cleanText(answer)) return { complete: false, reason: "The model returned no final result." };
-    if (this.contract.mode === "deploy" || this.deployEvidence) {
-      if (!this.deployEvidence) return { complete: false, reason: "Deploy has not produced a version, release, or deployment result yet." };
-      if (!this.deployVerificationEvidence) return { complete: false, reason: "The live or verification URL has not been checked after deploy yet." };
-    }
-    if (!this.artifactRequired) {
-      if (this.actionRequired && this.successfulActionCount < 1) {
-        return { complete: false, reason: "The requested action has not been performed by a successful tool yet." };
-      }
-      if (this.consecutiveFailures > 0) {
-        return { complete: false, reason: "The latest action failed and still needs recovery." };
-      }
-      this.phase = "completed";
-      this.updatedAt = Date.now();
-      return { complete: true, reason: this.actionRequired ? "Requested action completed." : "Answer delivered." };
-    }
-    if (this.mutationCount < 1) {
-      return { complete: false, reason: "No requested artifact change has been recorded yet." };
-    }
-    if (this.projectBound && this.inspectionCount < 1) {
-      return { complete: false, reason: "The existing project has not been inspected yet." };
-    }
-    if (this.lastVerification < this.lastMutation) {
-      return { complete: false, reason: "The latest change has not been checked yet." };
-    }
     if (this.openProcesses.length) {
       return { complete: false, reason: `Temporary process still running: ${this.openProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
-    }
-    if (this.consecutiveFailures > 0) {
-      return { complete: false, reason: "The latest tool result failed and still needs recovery." };
-    }
-    if (this.debugRequired && !this.reproductionEvidence) {
-      return { complete: false, reason: "The reported failure has not been reproduced with recorded evidence." };
-    }
-    if (this.debugRequired && !this.rootCauseEvidence) {
-      return { complete: false, reason: "The root cause has not been identified from inspected code and recorded." };
-    }
-    if (this.debugRequired && !this.postFixEvidence) {
-      return { complete: false, reason: "The original reproduction has not been repeated successfully after the fix." };
     }
     this.phase = "completed";
     for (const item of this.plan) item.status = "done";
     this.updatedAt = Date.now();
-    return { complete: true, reason: "Requested work changed and verified." };
+    return { complete: true, reason: "Done." };
   }
 
   continuationPrompt(reason) {
-    this.phase = this.lastFailure ? "recovering" : (this.mutationCount ? "verifying" : "executing");
-    this.updatedAt = Date.now();
-    const loopRecovery = isLoopBlock(reason) || isLoopBlock(this.lastFailure);
-    return [
-      "BOOLEAN CONTROLLER: Do not stop yet.",
-      reason,
-      loopRecovery
-        ? "Do not inspect the same files or re-check current state. Use the saved evidence, make a targeted edit if there is enough evidence, or run the known build/test command. If neither is possible, give a concise blocker summary."
-        : this.lastFailure ? "Inspect the failure, choose a different corrective action, and retry safely." : "Use the available tools to finish the missing work now.",
-      this.debugRequired
-        ? "Follow the debug checkpoints in order. Record concrete reproduction, root-cause, and post-fix evidence with record_debug_evidence; do not skip directly to editing or completion."
-        : "After the latest change, run a relevant test/build/check (and visual inspection for UI work). Return a concise result only when that evidence succeeds."
-    ].join(" ");
+    return "";
   }
 }
 

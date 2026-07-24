@@ -7,34 +7,36 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-test("artifact tasks cannot complete before a change and post-change verification", () => {
+test("the model decides completion; evidence is still tracked for context", () => {
   const controller = new AgentController({
     objective: "Update the app layout",
     artifactRequired: true,
     projectDir: "C:\\demo"
   });
 
-  assert.equal(controller.evaluateCompletion("Done.").complete, false);
+  // No longer gated on a change or a post-change check — the model judges this.
+  assert.equal(controller.evaluateCompletion("Done.").complete, true);
   controller.noteTool("read_file", { path: "app.css" }, "body { color: black; }");
   controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
-  assert.match(controller.evaluateCompletion("Fixed it.").reason, /not been checked/i);
   controller.noteTool("run_command", { command: "npm test" }, "tests passed");
-  assert.equal(controller.evaluateCompletion("Fixed and tested.").complete, true);
-  assert.equal(controller.snapshot().phase, "completed");
+  const snap = controller.snapshot();
+  assert.ok(snap.mutationCount >= 1, "edits are still recorded");
+  assert.ok(snap.inspectionCount >= 1, "inspections are still recorded");
 });
 
-test("project preparation alone is not treated as implementation", () => {
+test("project preparation is still not counted as a file change", () => {
   const controller = new AgentController({
     objective: "Build a tic-tac-toe game",
     artifactRequired: true
   });
   controller.noteTool("create_project", { name: "TicTacToe" }, "Created project");
   controller.noteTool("run_project", {}, "Preview ready");
-  assert.equal(controller.evaluateCompletion("Done").complete, false);
+  // Bookkeeping is unchanged, but it no longer blocks the model from finishing.
   assert.equal(controller.snapshot().mutationCount, 0);
+  assert.equal(controller.evaluateCompletion("Done").complete, true);
 });
 
-test("existing projects must be inspected before completion", () => {
+test("existing projects no longer require an inspection before finishing", () => {
   const controller = new AgentController({
     objective: "Update the existing app",
     artifactRequired: true,
@@ -42,8 +44,6 @@ test("existing projects must be inspected before completion", () => {
   });
   controller.noteTool("edit_file", { path: "app.js" }, "Updated app.js");
   controller.noteTool("run_command", { command: "npm test" }, "Tests passed");
-  assert.equal(controller.evaluateCompletion("Fixed").complete, false);
-  controller.noteTool("read_file", { path: "app.js" }, "current source");
   assert.equal(controller.evaluateCompletion("Fixed").complete, true);
 });
 
@@ -64,22 +64,20 @@ test("controller persists its objective, plan, evidence, and recovery state", ()
   assert.match(restored.prompt(), /change strategy/i);
 });
 
-test("direct action requests require a successful action result", () => {
+test("action requests are detected but no longer gate the final answer", () => {
   const controller = new AgentController({ objective: "Please send the saved email draft" });
-  assert.equal(controller.actionRequired, true);
-  assert.match(controller.evaluateCompletion("The draft was sent.").reason, /not been performed/i);
+  assert.equal(controller.actionRequired, true, "still classified as an action task");
+  // Boolean used to refuse this answer; the model now decides.
+  assert.equal(controller.evaluateCompletion("The draft was sent.").complete, true);
 
   controller.noteTool("email_send_draft", { id: "draft-1" }, "sent draft draft-1");
-  assert.equal(controller.evaluateCompletion("The draft was sent.").complete, true);
+  assert.equal(controller.snapshot().successfulActionCount >= 1, true);
 });
 
-test("explicit controller action requirement blocks status-only completion", () => {
+test("explicit controller action requirement no longer blocks a status answer", () => {
   const controller = new AgentController({ objective: "are you checking it?", actionRequired: true });
   assert.equal(controller.actionRequired, true);
-  assert.match(controller.evaluateCompletion("Doing it now.").reason, /not been performed/i);
-
-  controller.noteTool("mcp_call_tool", { server: "stocksignal", tool: "get_signals" }, "KMB active setup");
-  assert.equal(controller.evaluateCompletion("KMB active setup.").complete, true);
+  assert.equal(controller.evaluateCompletion("Doing it now.").complete, true);
 });
 
 test("ordinary questions do not require tools", () => {
@@ -88,48 +86,30 @@ test("ordinary questions do not require tools", () => {
   assert.equal(controller.evaluateCompletion("A Boolean is true or false.").complete, true);
 });
 
-test("debug tasks require reproduction and root-cause evidence before editing", () => {
+test("debug tasks are detected but edits are never blocked", () => {
   const controller = new AgentController({
     objective: "Fix the notepad first-word caret bug",
     artifactRequired: true,
     projectDir: "C:\\project"
   });
 
-  assert.equal(controller.snapshot().debugRequired, true);
-  assert.equal(controller.allowTool("edit_file").allowed, false);
-
-  controller.noteTool("read_file", { path: "ui.html" }, "current editor code");
-  controller.noteTool("run_command", { command: "npm test -- notepad" }, "error: first word reversed");
-  controller.noteTool("record_debug_evidence", {
-    stage: "reproduced",
-    summary: "Typing Firstword produces reversed characters before any edit."
-  }, "Recorded reproduced debug evidence");
-  assert.equal(controller.allowTool("edit_file").allowed, false);
-
-  controller.noteTool("record_debug_evidence", {
-    stage: "root_cause",
-    summary: "Input refresh replaces the active text node and invalidates the caret."
-  }, "Recorded root-cause debug evidence");
+  assert.equal(controller.snapshot().debugRequired, true, "still recognised as a debug task");
+  // The model decides when it understands the bug well enough to edit.
   assert.equal(controller.allowTool("edit_file").allowed, true);
 });
 
-test("debug tasks cannot complete until the original scenario passes after the fix", () => {
+test("debug evidence is recorded for context but does not gate completion", () => {
   const controller = new AgentController({
     objective: "Repair the broken notepad typing behavior",
     artifactRequired: true,
     projectDir: "C:\\project"
   });
   controller.noteTool("read_file", { path: "ui.html" }, "current editor code");
-  controller.noteTool("run_project", {}, "Preview shows the first word reversed");
   controller.noteTool("record_debug_evidence", { stage: "reproduced", summary: "First word reverses in the preview." }, "recorded");
-  controller.noteTool("record_debug_evidence", { stage: "root_cause", summary: "Selection is invalidated by DOM replacement." }, "recorded");
   controller.noteTool("edit_file", { path: "ui.html" }, "updated ui.html");
-  controller.noteTool("run_project", {}, "Preview now types Firstword second in order");
 
-  assert.match(controller.evaluateCompletion("Fixed.").reason, /original reproduction/i);
-  controller.noteTool("record_debug_evidence", { stage: "verified", summary: "The same typing sequence now passes." }, "recorded");
-  assert.equal(controller.evaluateCompletion("Fixed and verified.").complete, true);
-  assert.equal(controller.snapshot().phase, "completed");
+  assert.equal(controller.evaluateCompletion("Fixed.").complete, true);
+  assert.match(controller.snapshot().reproductionEvidence, /First word reverses/i);
 });
 
 test("debug evidence survives task continuation", () => {
@@ -185,18 +165,17 @@ test("task contract blocks browser, deploy, and paths outside an allowed project
     artifactRequired: true,
     projectDir: "C:\\demo\\sandbox"
   });
-  assert.equal(controller.allowTool("visible_browser_open", { url: "http://localhost:3000" }).allowed, false);
+  // Deploy and workspace-path guards remain — those are real safety rails.
   assert.equal(controller.allowTool("research_web", { query: "Cloudflare Workers docs" }).allowed, true);
   assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, false);
   assert.equal(controller.allowTool("read_file", { path: "C:\\demo\\production\\app.js" }).allowed, false);
   assert.equal(controller.allowTool("read_file", { path: "C:\\demo\\sandbox\\app.js" }).allowed, true);
 });
 
-test("visible browser is blocked by default while background research remains available", () => {
+test("the visible browser is never gated — the model decides when to open it", () => {
   const controller = new AgentController({ objective: "Find current API documentation for this package" });
   assert.equal(controller.allowTool("research_web", { query: "package API docs" }).allowed, true);
-  assert.equal(controller.allowTool("visible_browser_open", { url: "https://example.com" }).allowed, false);
-  assert.match(controller.allowTool("visible_browser_open", { url: "https://example.com" }).reason, /background research/i);
+  assert.equal(controller.allowTool("visible_browser_open", { url: "https://example.com" }).allowed, true);
 
   const builder = new AgentController({ objective: "Build a small website", artifactRequired: true });
   assert.equal(builder.allowTool("screenshot_page", { url: "http://localhost:3210" }).allowed, true);
@@ -273,9 +252,9 @@ test("deploy completion requires deploy proof and live verification", () => {
   });
   assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
   controller.noteTool("run_command", { command: "wrangler deploy" }, "Deployed version 12345678-1234-1234-1234-123456789abc");
-  assert.match(controller.evaluateCompletion("Done").reason, /not been checked/i);
-  controller.noteTool("run_command", { command: "curl https://example.com/health" }, "HTTP 200 OK");
-  assert.equal(controller.evaluateCompletion("Deployed and verified.").complete, true);
+  // Deploy evidence is still captured, but completion is the model's call.
+  assert.ok(controller.snapshot().deployEvidence);
+  assert.equal(controller.evaluateCompletion("Deployed.").complete, true);
 });
 
 test("source of truth blocks a different deploy command", () => {
@@ -352,7 +331,7 @@ test("loop guard recovery allows progress actions but blocks more inspection", (
 
   controller.noteBlockedTool("read_file", { path: "C:\\demo\\MainPage.xaml" }, blocked.reason);
   assert.match(controller.prompt(), /LOOP RECOVERY/i);
-  assert.match(controller.continuationPrompt(blocked.reason), /Do not inspect the same files/i);
+  assert.equal(controller.continuationPrompt(blocked.reason), "");
   assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\MainPage.xaml" }).allowed, true);
   assert.equal(controller.allowTool("run_command", { command: "dotnet build" }).allowed, true);
 });
@@ -375,7 +354,8 @@ test("loop guard is advisory by default so long tasks keep working", () => {
 
   const allowed = controller.allowTool("read_file", { path: "C:\\demo\\OtherPage.xaml" });
   assert.equal(allowed.allowed, true, allowed.reason);
-  assert.match(controller.prompt(), /Loop guard is advisory/i);
+  // The prompt notes the lack of progress without lecturing the model about it.
+  assert.match(controller.prompt(), /several inspections have run/i);
 });
 
 test("working memory tracks temporary processes and exposes a handoff report", () => {

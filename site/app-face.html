@@ -733,9 +733,317 @@
   .app-modal-actions button:hover{ background:var(--hover); }
   .app-modal-actions .primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-text); }
   .app-modal-actions .danger{ background:#dc3f42; border-color:#dc3f42; color:#fff; }
+
+  /* === WIN11 STYLE OVERLAY === */
+  body.win11{
+    --win11-accent:#0078d4; --win11-accent-hover:#006cbe;
+    --win11-accent-text:#fff; --win11-bg:#f3f3f3;
+    --win11-card:#ffffff; --win11-sidebar:#ffffff;
+    --win11-text:#1a1a1a; --win11-dim:#616161;
+    --win11-label:#717171; --win11-border:#e5e5e5;
+    --win11-hover:rgba(0,0,0,.04);
+    --win11-hover-accent:rgba(0,120,212,.06);
+    --win11-mica:rgba(255,255,255,.72);
+    --win11-radius:8px; --win11-radius-lg:12px;
+    --win11-font:"Segoe UI Variable","Segoe UI",system-ui,sans-serif;
+    --win11-transition:.25s cubic-bezier(.4,0,.2,1);
+    --win11-shadow:0 2px 6px rgba(0,0,0,.06);
+    --win11-shadow-lg:0 8px 24px rgba(0,0,0,.12);
+    font-family:var(--win11-font);
+    --bg:var(--win11-bg); --sidebar:var(--win11-sidebar);
+    --text:var(--win11-text); --dim:var(--win11-dim);
+    --border:var(--win11-border); --hover:var(--win11-hover);
+    --bubble:var(--win11-card); --card:var(--win11-card);
+    --accent:var(--win11-accent); --accent-text:var(--win11-accent-text);
+    --label:var(--win11-label); --shadow:var(--win11-shadow);
+    --green:var(--win11-accent);
+  }
+  @media(prefers-color-scheme:dark){ body.win11:not([data-theme="light"]){
+    --win11-bg:#202020; --win11-card:#2d2d2d; --win11-sidebar:#2d2d2d;
+    --win11-text:#f0f0f0; --win11-dim:#9e9e9e; --win11-label:#a0a0a0;
+    --win11-accent:#60cdff; --win11-accent-hover:#4db8e8; --win11-accent-text:#000;
+    --win11-border:#3d3d3d; --win11-hover:rgba(255,255,255,.05);
+    --win11-hover-accent:rgba(96,205,255,.08);
+    --win11-mica:rgba(32,32,32,.85);
+    --win11-shadow:0 2px 6px rgba(0,0,0,.2);
+    --win11-shadow-lg:0 8px 24px rgba(0,0,0,.35);
+  }}
+  body.win11[data-theme="dark"]{
+    --win11-bg:#202020; --win11-card:#2d2d2d; --win11-sidebar:#2d2d2d;
+    --win11-text:#f0f0f0; --win11-dim:#9e9e9e; --win11-label:#a0a0a0;
+    --win11-accent:#60cdff; --win11-accent-hover:#4db8e8; --win11-accent-text:#000;
+    --win11-border:#3d3d3d; --win11-hover:rgba(255,255,255,.05);
+    --win11-hover-accent:rgba(96,205,255,.08);
+    --win11-mica:rgba(32,32,32,.85);
+    --win11-shadow:0 2px 6px rgba(0,0,0,.2);
+    --win11-shadow-lg:0 8px 24px rgba(0,0,0,.35);
+  }
+
+  /* SIDEBAR */
+  body.win11 aside{
+    width:280px; border-right:1px solid var(--win11-border);
+    background:var(--win11-sidebar);
+  }
+  body.win11 .sidehead{ padding:10px 14px; gap:8px; border-bottom:1px solid var(--win11-border); }
+  body.win11 .brand-name{ font-size:18px; font-weight:600; letter-spacing:.02em; }
+  body.win11 .brand-about svg{ width:14px; height:14px; }
+  body.win11 .brand-tip{
+    left:130px; top:38px; width:220px;
+    border-radius:var(--win11-radius-lg); box-shadow:var(--win11-shadow-lg);
+  }
+  body.win11 .navbtn{
+    padding:9px 12px; margin:1px 8px; width:calc(100% - 16px);
+    border-radius:var(--win11-radius); font-size:13.5px;
+  }
+  body.win11 .navbtn:hover{ background:var(--win11-hover); }
+  body.win11 .navbtn.active{ background:var(--win11-hover-accent); color:var(--win11-accent); font-weight:500; }
+  body.win11 .navbtn svg{ width:18px; height:18px; }
+  body.win11 .thread{
+    padding:10px 14px; margin:1px 8px; width:calc(100% - 16px);
+    border-radius:var(--win11-radius);
+  }
+  body.win11 .thread:hover{ background:var(--win11-hover); }
+  body.win11 .thread.active{ background:var(--win11-hover-accent); }
+  body.win11 .thread.active .thread-title{ color:var(--win11-accent); font-weight:500; }
+
+  /* Sidebar collapsed */
+  body.win11.collapsed aside{ width:48px; border-right-color:transparent; background:transparent; }
+  body.win11.collapsed .threadlist, body.win11.collapsed .sidefoot{ display:none; }
+  body.win11.collapsed .sidebar-brand{ display:none; }
+  body.win11.collapsed .sidehead{
+    flex-direction:column; padding:6px 4px; gap:2px;
+    width:48px; height:auto; min-height:0; border-bottom:none;
+  }
+  body.win11.collapsed .sidehead .icon-btn{ width:36px; height:36px; border-radius:var(--win11-radius); }
+  body.win11.collapsed .sidehead .icon-btn:hover{ background:var(--win11-hover-accent); color:var(--win11-accent); }
+  body.win11.collapsed main .topbar{ padding-left:58px; }
+
+  /* TOPBAR */
+  body.win11 .topbar{
+    height:44px; background:var(--win11-mica);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--win11-border);
+  }
+  body.win11 .topbar .netseg{ background:rgba(0,0,0,.04); border:1px solid var(--win11-border); }
+  body.win11 .topbar .netseg button{ border-radius:6px; font-weight:500; }
+  body.win11 .topbar .netseg button.active{ background:var(--win11-accent); color:var(--win11-accent-text); }
+  body.win11 .win-btn{ border-radius:0; }
+  body.win11 .win-btn:hover{ background:var(--win11-hover); }
+  body.win11 .win-btn.win-close:hover{ background:#c42b1c; color:#fff; }
+
+  /* CHAT MESSAGES */
+  body.win11 .msg-ai{
+    background:var(--win11-card); border:1px solid var(--win11-border);
+    border-radius:var(--win11-radius-lg); border-bottom-left-radius:4px;
+    padding:10px 16px; box-shadow:var(--win11-shadow);
+  }
+  body.win11 .msg-user{
+    background:var(--win11-accent); color:var(--win11-accent-text);
+    border-radius:var(--win11-radius-lg); border-bottom-right-radius:4px;
+    padding:10px 16px;
+  }
+  body.win11 .msg-ai pre{ background:var(--win11-bg); border:1px solid var(--win11-border); border-radius:6px; padding:8px 10px; }
+
+  /* COMPOSER */
+  body.win11 .composer{
+    border:1px solid var(--win11-border); border-radius:var(--win11-radius-lg);
+    background:var(--win11-card); transition:border-color .15s, box-shadow .15s;
+  }
+  body.win11 .composer:focus-within{ border-color:var(--win11-accent); box-shadow:0 0 0 1px var(--win11-accent); }
+  body.win11 #send{ border-radius:var(--win11-radius); background:var(--win11-accent); color:var(--win11-accent-text); }
+  body.win11 #send:hover{ background:var(--win11-accent-hover); }
+  body.win11 .modebtn, body.win11 .modelbtn{
+    border-radius:20px; padding:4px 10px;
+    border:1px solid var(--win11-border); background:var(--win11-card);
+  }
+  body.win11 .modebtn:hover, body.win11 .modelbtn:hover{ border-color:var(--win11-accent); background:var(--win11-hover-accent); }
+
+  /* BROWSER */
+  body.win11 #browser{ background:var(--win11-card); border-left:1px solid var(--win11-border); }
+  body.win11 .browser-head{ background:var(--win11-mica); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+  body.win11 .btoolbar #bAddr{
+    border:1px solid var(--win11-border); border-radius:var(--win11-radius);
+    background:var(--win11-bg); padding:5px 12px; height:30px;
+  }
+  body.win11 .btoolbar #bAddr:focus{ border-color:var(--win11-accent); box-shadow:0 0 0 1px var(--win11-accent); }
+  body.win11 .btab{ border-radius:var(--win11-radius); height:30px; }
+  body.win11 .btab.active{ background:var(--win11-hover-accent); color:var(--win11-accent); }
+
+  /* NOTES */
+  body.win11 #notesPanel{ border-left:1px solid var(--win11-border); }
+  body.win11 .notes-top{ border-bottom:1px solid var(--win11-border); }
+  body.win11 .note-tab{ border-radius:var(--win11-radius); }
+  body.win11 .note-tab.active{ background:var(--win11-hover-accent); color:var(--win11-accent); }
+
+  /* SETTINGS */
+  body.win11 .settings-head{
+    background:var(--win11-mica); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--win11-border);
+  }
+  body.win11 .settings-nav{ border-right:1px solid var(--win11-border); }
+  body.win11 .settings-nav button{ border-radius:var(--win11-radius); margin:1px 4px; }
+  body.win11 .settings-nav button:hover{ background:var(--win11-hover); }
+  body.win11 .settings-nav button.active{ background:var(--win11-hover-accent); color:var(--win11-accent); font-weight:500; }
+  body.win11 .setrow{ border-radius:var(--win11-radius); }
+  body.win11 .minibtn{ border-radius:var(--win11-radius); border:1px solid var(--win11-border); }
+  body.win11 .minibtn:hover{ border-color:var(--win11-accent); background:var(--win11-hover-accent); }
+
+  /* RESIZE HANDLE */
+  body.win11 #bdrag:hover{ background:var(--win11-accent); opacity:.6; }
+
+  /* SCROLLBARS */
+  body.win11 ::-webkit-scrollbar{ width:6px; height:6px; }
+  body.win11 ::-webkit-scrollbar-thumb{ background:var(--win11-dim); border-radius:10px; border:none; background-clip:padding-box; }
+
+  /* DIALOG / MODAL */
+  body.win11 dialog{ border-radius:var(--win11-radius-lg); box-shadow:var(--win11-shadow-lg); }
+  body.win11 .app-modal-card{ border-radius:var(--win11-radius-lg); box-shadow:0 20px 54px rgba(0,0,0,.18); }
+
+  /* CHIPS */
+  body.win11 .qchip, body.win11 .chip{
+    border:1px solid var(--win11-border); border-radius:20px; background:var(--win11-card);
+  }
+
+  /* RESPONSIVE: Medium (<=1100px) — sidebar collapses to icon rail */
+  @media(max-width:1100px){
+    body.win11 aside{ width:48px; overflow:hidden; }
+    body.win11 aside .threadlist, body.win11 aside .sidefoot, body.win11 aside .sidebar-brand{ display:none; }
+    body.win11 aside .sidehead{ flex-direction:column; padding:6px 4px; gap:2px; width:48px; border-bottom:none; }
+    body.win11 aside .sidehead .icon-btn{ width:36px; height:36px; border-radius:var(--win11-radius); }
+    body.win11 aside .sidehead .icon-btn:hover{ background:var(--win11-hover-accent); color:var(--win11-accent); }
+    body.win11.collapsed aside{ width:0; border:none; }
+    body.win11.collapsed .sidehead{ display:none; }
+    body.win11 main .topbar{ padding-left:8px; }
+    body.win11.collapsed main .topbar{ padding-left:8px; }
+  }
+
+  /* RESPONSIVE: Narrow (<700px) — sidebar slides as overlay, panels float */
+  @media(max-width:699px){
+    body.win11 aside{
+      position:fixed; left:0; top:0; bottom:0;
+      width:280px; z-index:200; transform:translateX(-100%);
+      transition:transform var(--win11-transition);
+      box-shadow:var(--win11-shadow-lg); overflow-y:auto;
+    }
+    body.win11:not(.collapsed) aside{ transform:translateX(0); }
+    body.win11.collapsed aside{ transform:translateX(-100%); width:280px; }
+    body.win11.collapsed .sidehead{ display:flex; }
+    body.win11.collapsed aside .threadlist{ display:block; }
+    body.win11.collapsed aside .sidefoot{ display:block; }
+    body.win11.collapsed aside .sidebar-brand{ display:flex; }
+    body.win11.collapsed .sidehead .icon-btn{ width:36px; height:36px; border-radius:var(--win11-radius); }
+    body.win11 main .topbar{ padding-left:8px; }
+    body.win11.collapsed main .topbar{ padding-left:8px; }
+    body.win11.browser-on #browser{
+      position:fixed; right:0; top:0; bottom:0;
+      width:min(90vw,420px); z-index:200; box-shadow:var(--win11-shadow-lg);
+    }
+    body.win11.browser-on #bdrag{ display:none; }
+    body.win11.browser-on main{ min-width:0; }
+    body.win11.notes-on #notesPanel{
+      position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:min(90vw,380px); height:min(70vh,500px);
+      z-index:210; box-shadow:var(--win11-shadow-lg); border-radius:var(--win11-radius-lg);
+    }
+  }
+
+  /* MICA ACRYLIC */
+  @supports(backdrop-filter:blur(20px)){
+    body.win11 aside{ background:var(--win11-mica); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
+  }
+
+  /* FOOT STATUS */
+  body.win11 .foot-status{ font-size:11px; padding:8px 14px; border-top:1px solid var(--win11-border); }
+  body.win11 .foot-status .dot{ width:7px; height:7px; border-radius:50%; }
+
+  /* BANNER */
+  body.win11 .banner{ border-radius:var(--win11-radius); margin:0 16px; }
+
+  /* MENUS */
+  body.win11 .menu{ border-radius:var(--win11-radius-lg); border:1px solid var(--win11-border); box-shadow:var(--win11-shadow-lg); }
+  body.win11 .menu .item{ border-radius:var(--win11-radius); }
+
+  /* INPUTS */
+  body.win11 input, body.win11 select, body.win11 textarea{ font-family:var(--win11-font); }
+  body.win11 select{ border-radius:var(--win11-radius); border:1px solid var(--win11-border); }
+  body.win11 select:focus{ border-color:var(--win11-accent); box-shadow:0 0 0 1px var(--win11-accent); }
+  body.win11 input[type="text"], body.win11 input[type="password"]{
+    border-radius:var(--win11-radius); border:1px solid var(--win11-border);
+  }
+  body.win11 input[type="text"]:focus, body.win11 input[type="password"]:focus{
+    border-color:var(--win11-accent); box-shadow:0 0 0 1px var(--win11-accent);
+  }
+
+  /* SMOOTH TRANSITIONS */
+  body.win11 aside, body.win11 main, body.win11 #browser, body.win11 #notesPanel{
+    transition:all var(--win11-transition);
+  }
+  body.win11 #chat .col{ padding:12px 16px; gap:10px; }
+  body.win11 .composer-wrap{ padding:8px 16px 14px; }
+
+  /* WIN11 MULTI-PANEL: sidebar | chat | right tabs */
+  body.win11 .win-zone{
+    display:flex; flex:1; min-width:0; min-height:0; overflow:hidden;
+  }
+  body.win11 .right-zone{
+    display:flex; flex-direction:column; width:420px; flex-shrink:0;
+    background:var(--win11-sidebar); border-left:1px solid var(--win11-border);
+  }
+  body.win11 .right-zone .rz-header{
+    display:flex; align-items:center; border-bottom:1px solid var(--win11-border);
+    flex-shrink:0; min-height:40px;
+  }
+  body.win11 .right-zone .rz-tab{
+    flex:1; padding:8px 12px; border:none; background:transparent;
+    color:var(--win11-dim); font:12.5px/1 var(--win11-font); cursor:pointer;
+    border-bottom:2px solid transparent; text-align:center; transition:all .15s;
+  }
+  body.win11 .right-zone .rz-tab:hover{ color:var(--win11-text); background:var(--win11-hover); }
+  body.win11 .right-zone .rz-tab.active{ color:var(--win11-accent); border-bottom-color:var(--win11-accent); font-weight:600; }
+  body.win11 .right-zone .rz-body{ flex:1; min-height:0; position:relative; overflow:hidden; }
+  body.win11 .right-zone .rz-pane{ position:absolute; inset:0; overflow:hidden; display:none; flex-direction:column; }
+  body.win11 .right-zone .rz-pane.active{ display:flex; }
+  /* Browser fills its pane */
+  body.win11 .right-zone .rz-pane #browser{ width:100% !important; flex:1; display:flex !important; border:none !important; min-width:0; }
+  body.win11 .right-zone .rz-pane #bdrag{ display:none !important; }
+  /* Notepad fills its pane */
+  body.win11 .right-zone .rz-pane #notesPanel{ width:100% !important; flex:1; display:flex !important; min-width:0; border:none !important; }
+  body.win11 .right-zone .rz-pane #notesPanel .notes-top{ border-top:1px solid var(--win11-border); }
+  body.win11 .right-zone .rz-pane #notesPanel .note-paper{ flex:1; overflow-y:auto; }
+  /* Context strip fills its pane */
+  body.win11 .right-zone .rz-pane .ctx-strip{ flex:1; overflow-y:auto; }
+  body.win11 .ctx-strip{
+    padding:10px 14px; font-size:12px; color:var(--win11-dim); line-height:1.5;
+    overflow-y:auto; display:flex; flex-direction:column; gap:6px;
+  }
+  body.win11 .ctx-strip .ctx-card{
+    padding:8px 10px; border:1px solid var(--win11-border); border-radius:var(--win11-radius);
+    background:var(--win11-bg); font-size:12px; line-height:1.4;
+  }
+  body.win11 .ctx-strip .ctx-card b{ color:var(--win11-text); font-weight:600; }
+  @media(max-width:1100px){
+    body.win11 .right-zone{ width:320px; }
+  }
+  @media(max-width:900px){
+    body.win11 .win-zone{ flex-direction:column !important; }
+    body.win11 main{ flex:1; min-height:40%; }
+    body.win11 .right-zone{ width:100% !important; flex:1; border-left:none !important;
+      border-top:1px solid var(--win11-border); }
+  }
+  /* DEBUG: force all panels visible */
+  body.win11{ overflow:hidden !important; }
+  body.win11 aside{ display:flex !important; width:280px !important; overflow:auto !important; flex-shrink:0 !important; }
+  body.win11 .win-zone{ display:flex !important; flex:1 !important; min-width:0 !important; }
+  body.win11 .win-zone main{ display:flex !important; flex-direction:column !important; flex:1 !important; min-width:200px !important; }
+  body.win11 .right-zone{ display:flex !important; width:380px !important; min-width:280px !important; flex-shrink:0 !important; overflow:hidden !important; }
+  body.win11 .right-zone .rz-header{ display:flex !important; min-height:40px !important; flex-shrink:0 !important; }
+  body.win11 .right-zone .rz-body{ display:block !important; position:relative !important; }
+  body.win11 .right-zone .rz-pane{ position:absolute !important; top:0; left:0; right:0; bottom:0; }
+  body.win11 .right-zone .rz-pane.active{ display:flex !important; }
+  body.win11 .right-zone .rz-pane #browser{ display:flex !important; width:100% !important; }
+  body.win11 .right-zone .rz-pane #notesPanel{ display:flex !important; width:100% !important; }
 </style>
-</head>
-<body>
+</head>y class="win11">
 <div class="temp-toast" id="tempToast" role="status" aria-live="polite"></div>
 
 <aside id="sidebar">
@@ -2723,7 +3031,7 @@ Optional bundled starter model:
     else if(ui.theme==="dark") root.setAttribute("data-theme","dark");
     else root.removeAttribute("data-theme");
     document.body.classList.remove("fs-small","fs-large");
-    document.body.classList.add("compact");
+    document.body.classList.add("compact","win11");
     document.body.classList.toggle("hide-tokens", ui.showTokens===false);
     document.body.classList.toggle("show-time", !!ui.showTimestamps);
     const noteTheme=ui.notepadTheme==="warm"?"obsidian":ui.notepadTheme;
@@ -3327,6 +3635,87 @@ Optional bundled starter model:
   if(window.top===window) input.focus();
 })();
 </script>
+<!-- ===== WIN11 MULTI-PANEL LAYOUT RESTRUCTURE ===== -->
+<script>
+(function(){
+  if(!document.body.classList.contains('win11')) return;
+  const main=document.querySelector('main');
+  const notes=document.getElementById('notesPanel');
+  const browser=document.getElementById('browser');
+  const bdrag=document.getElementById('bdrag');
+  if(!main||!notes||!browser) return;
+
+  // Create win-zone wrapper
+  const winZone=document.createElement('div');
+  winZone.className='win-zone';
+  main.parentNode.insertBefore(winZone, main);
+  winZone.appendChild(main);
+
+  // Create right-zone container
+  const rightZone=document.createElement('div');
+  rightZone.className='right-zone';
+  rightZone.innerHTML=`
+    <div class="rz-header">
+      <button class="rz-tab active" data-rz="browser">Browser</button>
+      <button class="rz-tab" data-rz="notepad">Notepad</button>
+      <button class="rz-tab" data-rz="context">Context</button>
+    </div>
+    <div class="rz-body">
+      <div class="rz-pane active" data-rz="browser" id="rzBrowserPane"></div>
+      <div class="rz-pane" data-rz="notepad" id="rzNotepadPane"></div>
+      <div class="rz-pane" data-rz="context" id="rzContextPane">
+        <div class="ctx-strip" id="ctxStrip">
+          <div class="ctx-card"><b>Project</b><div id="ctxProject">-</div></div>
+          <div class="ctx-card"><b>Model</b><div id="ctxModel">-</div></div>
+          <div class="ctx-card"><b>Files changed</b><div id="ctxFiles">-</div></div>
+          <div class="ctx-card"><b>Git</b><div id="ctxGit">-</div></div>
+        </div>
+      </div>
+    </div>`;
+
+  // Insert right-zone into winZone first so querySelector works
+  winZone.appendChild(rightZone);
+
+  // Move browser into right-zone browser pane
+  const browserPane = rightZone.querySelector('.rz-pane[data-rz="browser"]');
+  if(bdrag) browserPane.appendChild(bdrag);
+  browserPane.appendChild(browser);
+
+  // Move notepad into right-zone notepad pane
+  rightZone.querySelector('.rz-pane[data-rz="notepad"]').appendChild(notes);
+
+  // Tab switching
+  rightZone.querySelectorAll('.rz-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      rightZone.querySelectorAll('.rz-tab').forEach(t=>t.classList.remove('active'));
+      rightZone.querySelectorAll('.rz-pane').forEach(p=>p.classList.remove('active'));
+      tab.classList.add('active');
+      rightZone.querySelector(`.rz-pane[data-rz="${tab.dataset.rz}"]`).classList.add('active');
+    });
+  });
+
+  // Force browser and notepad to be visible inside right-zone
+  browser.style.display='flex';
+  notes.style.display='flex';
+  if(bdrag) bdrag.style.display='none';
+
+  // Make sure classes that hide them don't interfere
+  document.body.classList.add('notes-on','browser-on');
+
+  // Debug: add visible indicator
+
+  // Update context info
+  function updateCtx(){
+    const ov=document.getElementById('ovModel');
+    const ovP=document.getElementById('ovProjdir');
+    if(ov) document.getElementById('ctxModel').textContent=ov.textContent||'Local';
+    if(ovP) document.getElementById('ctxProject').textContent=ovP.textContent||'-';
+  }
+  setTimeout(updateCtx,2000);
+  setTimeout(updateCtx,5000);
+})();
+</script>
+<!-- ===== END WIN11 MULTI-PANEL ===== -->
 <!-- ===== marketing-site demo patch (not part of the shipped app) ===== -->
 <style>
   #winctl{display:none!important;}          /* desktop-shell window buttons */
@@ -3340,8 +3729,12 @@ Optional bundled starter model:
 <script>
 (function(){
   function cleanPreview(){
-    document.body.classList.add("collapsed");
-    document.body.classList.remove("notes-on","browser-on","settings-open","about-open");
+    if(document.body.classList.contains('win11')){
+      document.body.classList.remove("settings-open","about-open");
+    } else {
+      document.body.classList.add("collapsed");
+      document.body.classList.remove("notes-on","browser-on","settings-open","about-open");
+    }
     var col=document.getElementById("col");
     if(col && col.querySelector(".msg-user,.msg-ai")) col.innerHTML="";
     var copy=document.getElementById("copyall");

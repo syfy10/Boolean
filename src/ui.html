@@ -29,13 +29,13 @@
   }
   /* dark palette, shared by system-dark and explicit dark */
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
-      --bg:#141414; --sidebar:#1a1a1a; --text:#ececec; --dim:#8f8f8f; --border:#262626;
-      --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
+      --bg:#181818; --sidebar:#1d1d1d; --text:#ececec; --dim:#8f8f8f; --border:#2a2a2a;
+      --hover:#242424; --bubble:#202020; --user-bubble:#e8e8e8; --user-bubble-text:#181818; --ai-bubble:#202020; --accent:#ececec; --accent-text:#181818; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#202020; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
       --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
       --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06); } }
   :root[data-theme="dark"]{
-    --bg:#141414; --sidebar:#1a1a1a; --text:#ececec; --dim:#8f8f8f; --border:#262626;
-    --hover:#262626; --bubble:#232323; --user-bubble:#e8e8e8; --user-bubble-text:#141414; --ai-bubble:#1e1e1d; --accent:#ececec; --accent-text:#141414; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#1a1a1a; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
+    --bg:#181818; --sidebar:#1d1d1d; --text:#ececec; --dim:#8f8f8f; --border:#2a2a2a;
+    --hover:#242424; --bubble:#202020; --user-bubble:#e8e8e8; --user-bubble-text:#181818; --ai-bubble:#202020; --accent:#ececec; --accent-text:#181818; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#202020; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
     --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
     --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06);
   }
@@ -147,6 +147,8 @@
   .brand-about{ position:relative; margin-left:1px; width:20px; height:20px; border:0; border-radius:50%; background:transparent; color:var(--dim);
     display:grid; place-items:center; cursor:help; padding:0; }
   .brand-about:hover{ background:var(--hover); color:var(--text); }
+  .brand-about.ready{ color:var(--ready); background:color-mix(in srgb,var(--ready) 10%,transparent); }
+  .brand-about.down{ color:#dc3f42; background:color-mix(in srgb,#dc3f42 8%,transparent); }
   .brand-about svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .brand-tip{ position:fixed; left:112px; top:34px; transform:translateY(-2px); z-index:120; width:204px;
     padding:11px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg); color:var(--text);
@@ -539,10 +541,16 @@
      mounted underneath so its state is preserved. When closed it collapses
      to a floating edge pill. The native shell has its own pane, so all of
      this only applies outside the shell (:not(.shell)). */
+  /* Floats over the main app (rail stays visible on the left), like the cloud
+     browser panel — not a full-window takeover. */
   body.browser-on:not(.shell) #browser{
-    position:fixed; inset:0; width:auto!important; min-width:0!important; max-width:none!important;
-    z-index:220; border-left:0; box-shadow:0 -1px 44px rgba(0,0,0,.30);
+    position:fixed; inset:10px 10px 10px var(--overlay-left,74px);
+    width:auto!important; min-width:0!important; max-width:none!important;
+    z-index:220; border-left:1px solid var(--border); border-radius:14px; overflow:hidden;
+    box-shadow:0 18px 60px rgba(0,0,0,.34), 0 0 0 1px rgba(0,0,0,.06);
     animation:browserRise .26s cubic-bezier(.16,.84,.44,1); }
+  /* the ⤢ focus mode still expands it edge to edge */
+  body.browser-on.chat-hidden:not(.shell) #browser{ inset:0; border-radius:0; }
   @keyframes browserRise{ from{ transform:translateY(16px) scale(.985); opacity:0; } to{ transform:none; opacity:1; } }
   body.browser-closing:not(.shell) #browser{ animation:browserSink .19s ease forwards; }
   @keyframes browserSink{ from{ transform:none; opacity:1; } to{ transform:translateY(16px) scale(.985); opacity:0; } }
@@ -578,6 +586,20 @@
     padding:3px 10px; border-radius:999px; background:var(--bg); border:1px solid var(--border);
     color:var(--dim); font:11px var(--mono); pointer-events:none; }
   #browser.dev-view .dev-badge{ display:block; }
+
+  /* running local servers, offered on the browser start screen */
+  .bsrv-list{ display:flex; flex-direction:column; gap:7px; margin:16px auto 2px; width:min(340px,92%); }
+  .bsrv-list:empty{ display:none; }
+  .bsrv{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border);
+    border-radius:11px; background:var(--bg); cursor:pointer; font:12.5px var(--ui); color:var(--text);
+    transition:border-color .15s, transform .08s; }
+  .bsrv:hover{ border-color:var(--dim); }
+  .bsrv:active{ transform:translateY(1px); }
+  .bsrv-ico{ opacity:.5; }
+  .bsrv-nm{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+  .bsrv-pt{ opacity:.55; font:11.5px var(--mono); }
+  .bsrv-go{ display:grid; place-items:center; width:22px; height:22px; border:1px solid var(--border);
+    border-radius:6px; opacity:.7; font-size:10px; }
 
   /* "Run current project" block on the browser start screen */
   .bblank-run{ display:flex; flex-direction:column; gap:9px; margin:20px auto 6px; width:min(340px,92%); }
@@ -829,6 +851,17 @@
   body.browser-on.notes-on #browser{ width:min(var(--bw,400px),34vw); min-width:260px; }
   body.browser-on.notes-on #notesPanel{ width:clamp(260px,27vw,330px); min-width:260px; }
   body.notes-on #notesPanel{ display:flex; }
+  /* Notepad floats on the main app too, docked to the right edge, so opening it
+     never squeezes the chat. Matches the browser overlay treatment. */
+  body.notes-on:not(.shell) #notesPanel{
+    position:fixed; top:10px; right:10px; bottom:10px; left:auto;
+    width:clamp(280px,30vw,380px); z-index:210; border-left:1px solid var(--note-border);
+    border-radius:14px; overflow:hidden;
+    box-shadow:0 18px 60px rgba(0,0,0,.30), 0 0 0 1px rgba(0,0,0,.06);
+    animation:browserRise .24s cubic-bezier(.16,.84,.44,1); }
+  /* when the browser overlay is up, sit the notepad beside it, still floating */
+  body.notes-on.browser-on:not(.shell) #notesPanel{ z-index:230; }
+  body:not(.shell) #ndrag{ display:none!important; }
   body.shell #notesPanel{ display:flex; }
   body:not(.notes-on) #notesPanel{ display:none !important; }
   .notes-top{ min-height:39px; display:flex; align-items:center; gap:6px; padding:7px 9px 5px; border-bottom:1px solid var(--note-bar); }
@@ -935,11 +968,14 @@
   body.settings-open main::after{ display:none; }
   body.browser-on main{ min-width:270px; flex-shrink:0; }
   body.browser-on.notes-on main{ min-width:260px; }
-  .topbar{ height:38px; flex-shrink:0; display:flex; align-items:center; gap:5px; padding:0 10px; background:var(--bg); border-bottom:1px solid var(--border); }
+  .topbar{ height:38px; flex-shrink:0; display:flex; align-items:center; gap:5px; padding:0 10px; background:var(--bg); border-bottom:1px solid var(--border); min-width:0; }
+  /* the flexible spacer absorbs the squeeze before any control has to clip */
+  .topbar .spacer{ min-width:0; flex-shrink:1; }
+  .topbar > button, .topbar > .anchor{ flex-shrink:0; }
   body.shell .topbar,body.shell .workspace-tabs,body.shell .cmd-bar,body.shell .sidehead{ cursor:grab; }
   body.shell .topbar button,body.shell .workspace-tabs button,body.shell .cmd-bar button,body.shell .cmd-bar input,body.shell .cmd-bar .cmd-chip{ cursor:pointer; }
-  #appBack{ display:none; }
-  #appBack.available{ display:grid; }
+  #appBack,#appForward{ display:none; }
+  #appBack.available,#appForward.available{ display:grid; }
   .topbar #panelToggle{ width:28px; height:28px; flex:0 0 28px; border-radius:7px; margin-right:4px; }
   .topbar #panelToggle svg{ width:15px; height:15px; }
   .topbar .spacer{ flex:1; }
@@ -950,13 +986,16 @@
   body.browser-on .topbar .spacer{ order:20; min-width:2px; }
   body.browser-on #notesToggle{ order:21; flex-shrink:0; }
   body.browser-on #browserToggle{ order:22; flex-shrink:0; }
-  body.chat-xxs .topbar{ padding:0 6px; justify-content:flex-end; }
+  body.chat-xxs .topbar{ padding:0 6px; justify-content:flex-start; }
   body.chat-xxs .topbar .netseg{ flex:0 0 96px; max-width:96px; }
   body.chat-xxs .topbar .netseg button{ min-width:0; padding:0 5px; font-size:10px; }
-  body.chat-xxs #newchat,body.chat-xxs #copyall,body.chat-xxs #notesToggle,body.chat-xxs #browserToggle{ display:none; }
+  body.chat-xxs #appForward,body.chat-xxs #newchat,body.chat-xxs #copyall,
+  body.chat-xxs #notesToggle,body.chat-xxs #browserToggle,body.chat-xxs #ctxToggle{ display:none; }
   body.chat-xxs .topbar .spacer{ display:none; }
+  body.chat-xxs .winctl{ margin-left:auto; }
   /* window controls — only in the native shell, and only when the browser pane isn't covering the corner */
-  .winctl{ position:relative; display:none; align-items:center; gap:1px; margin-left:4px; }
+  /* flex-shrink:0 — minimize/maximize/close must never be squeezed off-window. */
+  .winctl{ position:relative; display:none; align-items:center; gap:1px; margin-left:4px; flex-shrink:0; }
   body.shell .winctl{ display:flex; }
   body.shell.browser-on .winctl{ display:none; }
   .win-btn{ width:30px; height:30px; border:0; background:transparent; color:var(--text); cursor:pointer;
@@ -1080,6 +1119,7 @@
   .msg-ai pre{ background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:13px 16px;
     overflow-x:auto; font:13px/1.6 var(--mono); margin:8px 0; box-shadow:var(--shadow-sm); }
   .msg-ai code{ font:.9em var(--mono); background:var(--bubble); border-radius:6px; padding:1px 6px; }
+  .msg-ai .body code{ white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
   .msg-ai pre code{ background:none; padding:0; }
   /* clickable links in AI answers: URLs open the browser, files open the notepad */
   a.chat-link{ color:var(--accent); text-decoration:none; border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,transparent); cursor:pointer; word-break:break-word; }
@@ -1237,7 +1277,8 @@
   .composer-base{ margin:0 0 calc(-1 * var(--composer-bottom));
     padding:5px 12px var(--composer-bottom); background:var(--bg); pointer-events:auto; }
   .composer-tools{ display:flex; align-items:center; gap:5px; width:100%; min-width:0;
-    margin:0; padding:0; flex-wrap:nowrap; }
+    margin:0; padding:0; flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+  .composer-tools::-webkit-scrollbar{ display:none; }
   .composer-tools .anchor{ min-width:0; }
   .composer-tools .anchor:has(#modebtn), .composer-tools .anchor:has(#modelbtn){ flex:0 1 auto; min-width:0; }
   .composer-tools .spacer{ order:10; }
@@ -1680,17 +1721,17 @@
   .note-scheduled{ display:inline-flex; align-items:center; justify-content:center; margin-left:3px; color:var(--green); font-size:11px; cursor:pointer; user-select:none; }
 
   /* ── Workspace tabs ── */
-  .workspace-tabs{ position:relative; display:flex; align-items:center; gap:1px; padding:0 8px 0 38px; height:34px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
-  body.collapsed .workspace-tabs{ padding-left:8px; }
+  .workspace-tabs{ position:relative; display:flex; align-items:center; gap:8px; padding:12px 14px 8px 22px; height:64px; border-bottom:0; background:var(--sidebar); overflow-x:auto; scrollbar-width:none; }
+  body.collapsed .workspace-tabs{ padding-left:22px; }
   .workspace-tabs::-webkit-scrollbar{ display:none; }
-  .side-chat-launch{ position:fixed; z-index:85; left:auto; right:4px; top:50%; width:38px; height:38px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--green) 20%,var(--border)); border-radius:14px 0 0 14px; background:color-mix(in srgb,var(--glass-bg) 72%,transparent); color:var(--dim); cursor:ns-resize; touch-action:none; user-select:none; box-shadow:0 8px 24px rgba(0,0,0,.10); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); transform:translateY(-50%); transition:background .12s,color .12s,border-color .12s,transform .12s; }
+  .side-chat-launch{ position:fixed; z-index:85; left:auto; right:4px; top:calc(100% - var(--composer-h,106px) + 14px); width:23px; height:23px; display:grid; place-items:center; border:1px solid color-mix(in srgb,var(--green) 20%,var(--border)); border-radius:8px 0 0 8px; background:color-mix(in srgb,var(--glass-bg) 72%,transparent); color:var(--dim); cursor:ns-resize; touch-action:none; user-select:none; box-shadow:0 4px 12px rgba(0,0,0,.10); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); transform:translateY(-50%); transition:background .12s,color .12s,border-color .12s,transform .12s; }
   .side-chat-launch:hover,.side-chat-launch.active{ color:var(--green); background:color-mix(in srgb,var(--green) 8%,transparent); border-color:color-mix(in srgb,var(--green) 34%,var(--border)); transform:translateY(-50%) scale(1.03); }
   .side-chat-launch.dragging{ transition:none; transform:translateY(-50%); }
-  .side-chat-launch svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
-  .side-chat-launch:after{ content:""; position:absolute; left:7px; top:7px; width:5px; height:5px; border-radius:50%; background:var(--green); opacity:.8; }
-  .ws-tab{ display:flex; align-items:center; gap:5px; padding:5px 11px; border:0; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; border-radius:7px 7px 0 0; border-bottom:2px solid transparent; white-space:nowrap; transition:color .12s; }
+  .side-chat-launch svg{ width:11px; height:11px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  .side-chat-launch:after{ content:""; position:absolute; left:3px; top:3px; width:4px; height:4px; border-radius:50%; background:var(--green); opacity:.8; }
+  .ws-tab{ display:flex; align-items:center; gap:7px; padding:7px 0; border:0; background:transparent; color:var(--dim); font:14px var(--ui); cursor:pointer; border-radius:7px; white-space:nowrap; transition:color .12s; }
   .ws-tab:hover{ color:var(--text); background:var(--hover); }
-  .ws-tab.active{ color:var(--text); border-bottom-color:var(--accent); font-weight:550; }
+  .ws-tab.active{ color:var(--text); font-weight:600; }
   .ws-tab .ws-dot{ width:6px; height:6px; border-radius:50%; background:var(--dim); flex-shrink:0; }
   .ws-tab .ws-dot.active{ background:var(--green); }
   .ws-tab .ws-dot.error{ background:#dc3f42; }
@@ -1835,7 +1876,7 @@
   .onboard-ram-rec small{ font:11px var(--ui); color:var(--dim); display:block; margin-top:2px; }
 
   /* ── Next-edit suggestions ── */
-  .next-edit-bar{ display:flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid var(--border); border-radius:9px; background:var(--cloud-bubble); margin:4px 0; font:12px var(--ui); }
+  .next-edit-bar{ display:none!important; }
   .next-edit-bar .ne-icon{ font-size:14px; }
   .next-edit-bar .ne-text{ flex:1; color:var(--text); }
   .next-edit-bar .ne-text small{ display:block; color:var(--dim); font-size:10.5px; }
@@ -2075,7 +2116,7 @@
   .side-chat-messages{ flex:1; min-height:0; overflow-y:auto; padding:7px; display:flex; flex-direction:column; gap:5px; }
   .side-chat-empty{ margin:auto; max-width:160px; color:var(--dim); text-align:center; font:10.5px/1.4 var(--ui); }
   .side-chat-msg{ max-width:90%; padding:6px 8px; border-radius:10px; color:var(--text); font:11.5px/1.35 var(--ui); overflow-wrap:anywhere; box-shadow:0 1px 4px rgba(0,0,0,.04); }
-  .side-chat-msg.user{ align-self:flex-end; color:#fff; background:var(--accent); border-bottom-right-radius:5px; }
+  .side-chat-msg.user{ align-self:flex-end; color:var(--accent-text); background:var(--accent); border-bottom-right-radius:5px; }
   .side-chat-msg.ai{ align-self:flex-start; border:1px solid var(--border); background:var(--card); border-bottom-left-radius:5px; }
   .side-chat-msg.ai p{ margin:0 0 5px; }
   .side-chat-msg.ai p:last-child{ margin-bottom:0; }
@@ -2136,22 +2177,27 @@
   @keyframes sBadgePulse{ 0%,100%{opacity:1} 50%{opacity:.3} }
 
   /* ── Command bar (action bar) ── */
-  .cmd-bar{ display:flex; align-items:center; gap:3px; padding:0 8px; height:38px; border-bottom:1px solid var(--border); background:var(--sidebar); flex-shrink:0; border-radius:var(--radius-lg) var(--radius-lg) 0 0; }
+  /* Roomy, icon-led command surface from the Windows 11 mockup. min-width:0 +
+     scroll keeps every action reachable in a narrow split pane. */
+  .cmd-bar{ display:flex; align-items:center; gap:4px; padding:10px 14px 14px 12px; height:68px; border-bottom:0; background:var(--sidebar); flex-shrink:0; border-radius:0; min-width:0; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+  .cmd-bar::-webkit-scrollbar{ display:none; }
   body.shell .cmd-bar{ border-radius:0; }
   .cmd-row{ display:contents; }
   .cmd-bar .cmd-input{ flex:1 1 180px; max-width:none; }
-  .cmd-bar .cmd-loc{ display:flex; align-items:center; gap:4px; padding:0 4px; font:13px var(--mono); color:var(--accent); flex-shrink:0; opacity:.5; }
-  .cmd-bar .cmd-input{ flex:0 1 min(320px,42%); min-width:120px; max-width:320px; border:0; outline:0; background:transparent; color:var(--text); font:12px var(--ui); height:30px; padding:0 4px; }
-  .cmd-bar .cmd-input::placeholder{ color:var(--dim); opacity:.5; }
-  .cmd-bar .cmd-btn{ flex-shrink:0; display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border:0; border-radius:8px; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; white-space:nowrap; transition:all var(--t-fast); }
+  .cmd-bar .cmd-loc{ display:flex; align-items:center; padding:0 2px; font:15px var(--ui); color:var(--dim); flex-shrink:0; opacity:.72; }
+  .cmd-bar .cmd-input{ flex:1 1 auto; min-width:180px; max-width:none; border:0; outline:0; background:transparent; color:var(--text); font:14px var(--ui); height:32px; padding:0 5px; }
+  .cmd-bar .cmd-input::placeholder{ color:var(--dim); opacity:.68; }
+  .cmd-bar .cmd-btn{ width:34px; height:34px; flex:0 0 34px; display:grid; place-items:center; padding:0; border:0; border-radius:8px; background:transparent; color:var(--dim); cursor:pointer; transition:all var(--t-fast); }
+  .cmd-bar .cmd-btn span{ display:none; }
   .cmd-bar .cmd-btn:hover{ background:var(--hover); color:var(--text); }
   .cmd-bar .cmd-btn:active{ transform:scale(.95); }
-  .cmd-bar .cmd-btn svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; opacity:.7; }
+  .cmd-bar .cmd-btn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; opacity:.9; }
   .cmd-bar .cmd-btn:hover svg{ opacity:1; }
-  .cmd-bar .cmd-btn.primary{ background:var(--accent); color:var(--accent-text); }
-  .cmd-bar .cmd-btn.primary:hover{ opacity:.88; }
-  .cmd-bar .cmd-btn.primary svg{ opacity:.85; }
-  .cmd-bar .cmd-sep{ width:1px; height:18px; background:var(--border); flex-shrink:0; margin:0 1px; }
+  .cmd-bar .cmd-btn.primary{ position:relative; width:50px; height:32px; flex-basis:50px; border-radius:999px; background:#2b2b2b; color:#fff; }
+  .cmd-bar .cmd-btn.primary:hover{ background:#1f1f1f; opacity:1; }
+  .cmd-bar .cmd-btn.primary svg{ display:none; }
+  .cmd-bar .cmd-btn.primary::after{ content:""; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.18); }
+  .cmd-bar .cmd-sep{ width:1px; height:22px; background:var(--border); flex-shrink:0; margin:0 8px; }
   .cmd-bar .cmd-status{ display:flex; align-items:center; gap:3px; min-width:max-content; flex:0 0 auto; margin:0 2px; overflow:visible; }
   .cmd-bar .cmd-chip{ min-width:0; max-width:98px; height:24px; display:inline-flex; align-items:center; gap:4px; padding:0 7px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--dim); font:10.5px var(--ui); white-space:nowrap; overflow:hidden; }
   .cmd-bar .cmd-chip.active{ color:var(--text); background:color-mix(in srgb,var(--accent) 5%,var(--bg)); }
@@ -2172,7 +2218,7 @@
   .cmd-bar .cmd-shortcut{ display:inline-flex; align-items:center; gap:2px; font:9.5px var(--mono); color:var(--dim); opacity:.4; background:var(--hover); border:1px solid var(--border); border-radius:4px; padding:1px 5px; flex-shrink:0; margin-left:4px; }
   .cmd-bar .cmd-shortcut kbd{ font:inherit; }
   .cmd-bar .cmd-extra,.cmd-bar .cmd-shortcut,.cmd-bar .cmd-hint{ display:none; }
-  .cmd-bar .cmd-more{ flex-shrink:0; display:inline-flex; align-items:center; gap:3px; padding:4px 8px; border:0; border-radius:8px; background:transparent; color:var(--dim); font:11.5px var(--ui); cursor:pointer; white-space:nowrap; transition:all var(--t-fast); }
+  .cmd-bar .cmd-more{ width:34px; height:34px; flex:0 0 34px; display:grid; place-items:center; padding:0; border:0; border-radius:8px; background:transparent; color:var(--dim); cursor:pointer; transition:all var(--t-fast); }
   .cmd-bar .cmd-more:hover{ background:var(--hover); color:var(--text); }
   .cmd-bar .cmd-more svg{ width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; opacity:.7; }
   .cmd-bar .cmd-more:hover svg{ opacity:1; }
@@ -2206,14 +2252,15 @@
   .cmd-palette-foot kbd{ font:9.5px var(--mono); background:var(--bubble); border:1px solid var(--border); border-radius:3px; padding:1px 4px; }
   .cmd-palette-backdrop{ position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.15); opacity:0; pointer-events:none; transition:opacity var(--t); }
   .cmd-palette-backdrop.open{ opacity:1; pointer-events:auto; }
-  @media(max-width:768px){
-    .cmd-bar{ overflow-x:auto; scrollbar-width:none; }
-    .cmd-bar::-webkit-scrollbar{ display:none; }
-    .cmd-bar .cmd-btn span{ display:none; }
-    .cmd-bar .cmd-btn svg{ width:15px; height:15px; }
-    .cmd-bar .cmd-input{ flex-basis:34%; min-width:96px; }
+  /* Narrow panes (a half-width chat beside the browser, or a small window) must
+     compact rather than clip. The action labels go first, then the row scrolls. */
+  @media(max-width:900px){
+    .cmd-bar .cmd-btn svg{ width:17px; height:17px; }
+    .cmd-bar .cmd-input{ min-width:120px; }
     .cmd-bar .cmd-chip{ max-width:76px; padding:0 6px; }
     .cmd-bar .cmd-shortcut{ display:none; }
+  }
+  @media(max-width:768px){
     .cmd-palette{ width:calc(100vw - 16px); border-radius:14px 14px var(--radius-lg) var(--radius-lg); }
   }
   @media(max-width:520px){ .cmd-bar .cmd-status .cmd-chip:nth-child(n+4){ display:none; } }
@@ -2293,6 +2340,351 @@
   .tool-dot.ok{background:var(--green)}
   .tool-dot.warn{background:var(--online)}
   .tool-dot.err{background:var(--red,#e5534b)}
+
+  /* Approved Win11 mockup layout — one shared gray canvas with floating panes. */
+  :root{
+    --app-footer-h:0px; --approved-gap:8px; --approved-bottom-gap:20px;
+    --approved-topbar-h:38px; --approved-sidebar-w:252px; --approved-canvas:#f3f3f3;
+    --approved-card:var(--sidebar);
+  }
+  @media(prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --approved-canvas:#181818; --approved-card:#1d1d1d; } }
+  :root[data-theme="dark"]{ --approved-canvas:#181818; --approved-card:#1d1d1d; }
+  body,body.shell{
+    --app-fs:14px!important; --chat-fs:13px!important;
+    gap:var(--approved-gap); padding:calc(var(--approved-topbar-h) + var(--approved-gap)) var(--approved-gap) var(--approved-bottom-gap) 4px;
+    background:var(--approved-canvas); overflow:hidden;
+  }
+  body::before,body.shell::before{ display:none; }
+  main,body.shell main{
+    min-width:0; overflow:hidden; background:transparent; border:0; border-radius:0; box-shadow:none;
+  }
+  body:not(.collapsed) main{ border-radius:0; }
+  .topbar{
+    position:fixed; z-index:100; inset:0 0 auto; height:var(--approved-topbar-h); padding:0 10px;
+    background:transparent; border:0;
+  }
+  body.shell .topbar{ background:transparent; }
+  .topbar .icon-btn{ border-radius:8px; }
+  #railMenuToggle{ display:none; }
+  .topbar #newchat,.topbar #copyall,.topbar #ctxToggle{ display:none; }
+
+  #sideRail,body.collapsed #sideRail,body.collapsed.rail-expanded #sideRail{
+    order:-2; display:flex; flex:0 0 46px; width:46px; min-width:46px; opacity:1; pointer-events:auto;
+    flex-direction:column; overflow:hidden; padding:2px 0; border:0; background:transparent;
+  }
+  #sideRail .rail-brand{ display:none !important; }
+  #sideRail .rail-main{ gap:4px; padding:0; }
+  #sideRail .rail-btn,#sideRail .rail-user{ width:38px; height:38px; border-radius:10px; }
+  #sideRail .rail-btn.primary,#sideRail .rail-btn.active{ background:var(--sidebar); box-shadow:var(--shadow); }
+  #sideRail .rail-separator{ width:22px; height:1px; margin:1px 0; flex:0 0 1px; background:var(--border); }
+  #sideRail .rail-footer{ border:0; padding:0; }
+  body::after,body.shell::after{
+    content:""; position:fixed; z-index:200; left:0; right:0; bottom:0;
+    height:var(--approved-bottom-gap); background:var(--approved-canvas); pointer-events:none;
+  }
+
+  aside,body.shell aside{
+    order:-1; width:var(--approved-sidebar-w); flex:0 0 var(--approved-sidebar-w); margin:0;
+    position:relative;
+    background:var(--approved-card); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg); overflow:hidden;
+  }
+  body:not(.collapsed) aside{ border:1px solid var(--border); border-radius:var(--radius-lg); }
+  body.collapsed aside{ width:0; flex-basis:0; margin-left:calc(-1 * var(--approved-gap)); }
+  .sidehead{ min-height:64px; margin:10px 12px 6px; padding:10px 12px; border:0; border-radius:var(--radius-lg); }
+  .sidebar-brand{ align-items:center; }
+  .sidebar-brand::before{
+    content:"B"; width:38px; height:38px; flex:0 0 38px; display:grid; place-items:center; border-radius:50%;
+    background:#0a84d8; color:#fff; font:700 15px var(--ui);
+  }
+  .brand-word{ justify-content:center; gap:3px; }
+  .brand-name{ font-size:14px; font-weight:650; }
+  .sidehead #footStatus{ display:flex; max-width:150px; }
+  .sidehead #footStatus .dot,.sidehead #footStatus #statustext{ display:inline-flex; }
+  .brand-about{ margin-left:auto; }
+  .thread-search-wrap{ position:relative; width:calc(100% - 24px); height:32px; margin:0 12px 8px; }
+  .thread-search-wrap svg{
+    position:absolute; z-index:1; left:10px; top:50%; width:13px; height:13px; transform:translateY(-50%);
+    fill:none; stroke:var(--dim); stroke-width:1.8; stroke-linecap:round; pointer-events:none;
+  }
+  #threadSearch{
+    display:block; width:100%; height:32px; margin:0; padding:0 12px 0 30px;
+    border:1px solid var(--border); border-radius:8px; outline:0; background:color-mix(in srgb,var(--bg) 68%,var(--sidebar));
+    color:var(--text); font:12px var(--ui);
+  }
+  #threadSearch::placeholder{ color:var(--dim); }
+  #threadSearch:focus{ border-color:color-mix(in srgb,var(--green) 55%,var(--border)); }
+  .threadlist{ padding:3px 8px 34px; gap:2px; }
+  .thread{ min-height:36px; padding:7px 10px; border-radius:8px; font-size:12.5px; }
+  .thread.active{ box-shadow:inset 3px 0 0 var(--green); }
+
+  .workspace-tabs{
+    height:40px; min-height:40px; align-items:stretch; gap:24px; padding:0 8px;
+    border-bottom:1px solid var(--border); background:transparent;
+  }
+  body.collapsed .workspace-tabs{ padding-left:8px; }
+  .ws-tab{
+    align-items:center; height:40px; padding:0 12px; border-radius:0; border-bottom:2px solid transparent;
+    font:14px var(--ui); gap:6px;
+  }
+  .ws-tab:hover{ background:transparent; }
+  .ws-tab.active{ border-bottom-color:var(--text); }
+
+  .cmd-bar{
+    height:32px; min-height:32px; padding:0 8px; gap:4px; border:0; background:transparent; overflow:hidden;
+    margin-bottom:3px;
+  }
+  .cmd-bar .cmd-loc{ font-size:12px; padding:0; }
+  .cmd-bar .cmd-input{ height:26px; font-size:12px; padding:0 3px; }
+  .cmd-bar .cmd-input:-webkit-autofill,
+  .cmd-bar .cmd-input:-webkit-autofill:hover,
+  .cmd-bar .cmd-input:-webkit-autofill:focus{
+    -webkit-text-fill-color:var(--text); caret-color:var(--text);
+    box-shadow:0 0 0 1000px var(--approved-canvas) inset !important;
+    transition:background-color 9999s ease-out 0s;
+  }
+  .cmd-bar .cmd-input::selection{
+    color:var(--text); background:color-mix(in srgb,var(--text) 20%,var(--approved-canvas));
+  }
+  .cmd-bar .cmd-btn{
+    flex:0 0 auto; min-width:28px; width:auto; height:28px; padding:0 4px; display:flex; align-items:center; gap:4px;
+    border:0; border-radius:7px; background:transparent; color:var(--dim); font:12px var(--ui);
+  }
+  .cmd-bar .cmd-btn svg{ width:14px; height:14px; }
+  .cmd-bar .cmd-btn span{ display:inline; }
+  .cmd-bar .cmd-btn.primary{
+    flex:0 0 auto; width:auto; min-width:auto; height:26px; padding:0 8px; gap:3px; border-radius:9px; background:#2b2b2b; color:#fff; font-size:11px;
+  }
+  .cmd-bar .cmd-btn.primary::after{ content:none; }
+  .cmd-bar .cmd-btn.primary svg{ display:block; width:12px; height:12px; }
+  .cmd-bar .cmd-extra,.cmd-bar .cmd-shortcut,.cmd-bar .cmd-hint{ display:none; }
+  .cmd-bar .cmd-more{ width:28px; height:28px; flex:0 0 28px; }
+
+  body.chat-compact .workspace-tabs{ gap:3px; padding-inline:4px; }
+  body.chat-compact .ws-tab{ padding-inline:4px; gap:4px; font-size:11px; }
+  body.chat-compact .ws-tab .ws-dot{ width:4px; height:4px; }
+  body.chat-compact .cmd-bar{ gap:2px; padding-inline:4px; }
+  body.chat-compact .cmd-bar .cmd-loc{ font-size:11px; }
+  body.chat-compact .cmd-bar .cmd-input{ min-width:64px; font-size:11px; padding-inline:2px; }
+  body.chat-compact .cmd-bar .cmd-btn{ min-width:26px; height:26px; padding-inline:3px; gap:3px; font-size:11px; }
+  body.chat-compact .cmd-bar .cmd-btn:not(.primary) span{ display:none; }
+  body.chat-compact .cmd-bar .cmd-btn svg{ width:14px; height:14px; }
+  body.chat-compact .cmd-bar .cmd-btn.primary{ height:26px; padding-inline:8px; }
+  body.chat-compact .cmd-bar .cmd-sep{ margin-inline:2px; height:18px; }
+  body.chat-compact .cmd-bar .cmd-more{ width:26px; height:26px; flex-basis:26px; }
+
+  #chat{
+    min-height:0; margin:0; padding:16px 20px 0; border:1px solid var(--border);
+    border-radius:12px; background:var(--approved-card); box-shadow:var(--shadow); overflow-y:auto;
+    -webkit-mask-image:none; mask-image:none;
+  }
+  main::before,main::after,body.composer-simple main::after{
+    content:""; display:block; position:absolute; left:1px; right:1px; z-index:6; pointer-events:none;
+  }
+  main::before{
+    display:none;
+  }
+  main::after,body.composer-simple main::after{
+    bottom:79px; height:28px;
+    background:linear-gradient(to bottom,transparent,var(--approved-card));
+  }
+  body.settings-open main::before,body.settings-open main::after,
+  body.recipes-open main::before,body.recipes-open main::after{ display:none; }
+  .col{ width:100%; max-width:none; gap:12px; background:var(--approved-card); }
+  .msg-user,.msg-ai,body.win-lg .msg-user,body.win-lg .msg-ai{ max-width:85%; }
+  .msg-user .body,.msg-ai .body,.msg-ai.cloud .body{
+    padding:10px 14px; border-radius:12px; line-height:1.55;
+  }
+  .msg-user .body{
+    --msg-fill:#0a84d8; color:#fff;
+    border-radius:12px 12px 4px 12px; box-shadow:none;
+  }
+  .msg-ai .body,.msg-ai.cloud .body{
+    --msg-fill:var(--sidebar); background:var(--msg-fill); border:1px solid var(--border);
+    border-radius:12px 12px 12px 4px; box-shadow:none;
+  }
+  @media(prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) .msg-ai .body,
+    :root:not([data-theme="light"]) .msg-ai.cloud .body{ --msg-fill:var(--card); }
+  }
+  :root[data-theme="dark"] .msg-ai .body,
+  :root[data-theme="dark"] .msg-ai.cloud .body{ --msg-fill:var(--card); }
+  .msg-user .body:after,.msg-ai .body:after,.msg-ai.cloud .body:after{ display:none; }
+
+  .composer-wrap,body.composer-simple .composer-wrap{
+    --composer-x:0px; --composer-bottom:4px; left:1px; right:1px; bottom:1px; width:auto; transform:none;
+    padding:0; background:var(--approved-card);
+    border-radius:0 0 12px 12px; overflow:hidden;
+  }
+  body.composer-simple .composer-wrap{
+    background:linear-gradient(to bottom,transparent 0 28px,var(--approved-card) 28px 100%);
+  }
+  .composer-wrap:has(.menu.open),body.composer-simple .composer-wrap:has(.menu.open){ overflow:visible; z-index:30; }
+  .composer-tools:has(.menu.open){ overflow:visible; }
+  .composer-tools .anchor:has(.menu.open){ z-index:31; }
+  .composer,body.composer-simple .composer{
+    width:100%; min-height:56px; margin:0; padding:6px 12px 8px;
+    border:0; border-top:0; border-right:0; border-bottom:0; border-left:0;
+    border-radius:0 0 12px 12px; background:var(--approved-card); box-shadow:none; backdrop-filter:none;
+  }
+  body.composer-simple .composer{ border-top:1px solid #202020; }
+  .composer:hover{
+    border:0; border-top:0; border-right:0; border-bottom:0; border-left:0;
+  }
+  body.composer-simple .composer:hover{
+    border:0; border-top:1px solid #202020; border-right:0; border-bottom:0; border-left:0;
+  }
+  body.composer-simple .composer-top-strip{
+    display:flex !important; min-height:28px; height:28px; padding:0 6px;
+    align-items:center; background:transparent; pointer-events:auto;
+  }
+  body.composer-simple .composer-chat-actions{ gap:3px; min-width:max-content; overflow:visible; pointer-events:auto; }
+  body.composer-simple .composer-meta-action{
+    width:28px; height:28px; border-radius:6px; color:var(--dim); pointer-events:auto;
+  }
+  body.composer-simple .composer-meta-action svg{ width:14px; height:14px; }
+  body.composer-simple .promptline{ min-height:42px; padding:8px 6px 6px; }
+  body.composer-simple .composer-prompt{ left:6px; top:8px; }
+  body.composer-simple .composer textarea{ min-height:28px; max-height:52px; padding:0 70px 4px 6px; }
+  body.composer-simple .promptline #send{ right:6px; bottom:10px; font:12.5px/1.4 var(--ui); }
+  .composer-base,body.composer-simple .composer-base{
+    margin:-8px 0 var(--composer-bottom); padding:0 6px; border:0; background:var(--approved-card);
+  }
+  body.composer-simple .composer-tools .anchor:has(#modelbtn){ margin-left:6px; }
+  body.composer-simple .composer-tools .modebtn,
+  body.composer-simple .composer-tools .modelbtn{
+    height:18px; min-height:18px; padding:0 2px; gap:2px; border-radius:0;
+    background:transparent; box-shadow:none; font:9px/1 var(--ui); line-height:1;
+  }
+  body.composer-simple .composer-tools .modebtn{ max-width:52px; }
+  body.composer-simple .composer-tools .modelbtn{ max-width:54px; }
+  body.composer-simple .composer-tools .mdot{ font-size:9px; }
+  body.composer-simple .composer-tools .modebtn .chev,
+  body.composer-simple .composer-tools .modelbtn .chev{ font-size:7px; }
+  body.composer-simple.online-mode .composer-tools .modelbtn{
+    border-radius:0; background:transparent; box-shadow:none;
+  }
+  body.composer-simple .composer-tools .modebtn:hover,
+  body.composer-simple .composer-tools .modelbtn:hover{ background:transparent; text-decoration:underline; }
+
+  .app-footer{
+    position:absolute; z-index:15; left:8px; right:8px; bottom:7px; width:auto; height:22px;
+    display:none !important; padding:0; border:0; background:var(--sidebar); overflow:hidden;
+  }
+  .app-footer .sidefoot-nav,.app-footer-version{ display:none; }
+  .app-footer .cmd-status{ width:100%; margin:0; gap:0; justify-content:flex-start; overflow:hidden; }
+  .app-footer .cmd-chip{ height:22px; max-width:92px; padding:0 5px; font:10px var(--ui); }
+  .app-footer .cmd-chip + .cmd-chip{ border-left:0; }
+  .app-footer #cmdProjectStatus #cmdFilesChip,.app-footer #cmdProjectStatus #cmdServerChip{ display:inline-flex; }
+  .app-footer .cmd-chip-dot{ width:6px; height:6px; }
+  .side-chat-launch{
+    right:20px; top:calc(100% - var(--composer-h,106px) + 14px); width:23px; height:23px;
+    border-radius:8px; transform:translateY(-50%);
+  }
+  #browserPill{
+    right:0; top:calc(50% + 24px); min-width:76px; height:38px; padding:0 12px;
+    justify-content:center; border-radius:12px 0 0 12px; transform:translateY(-50%);
+  }
+
+  /* Responsive panes: consume real columns beside chat, then disappear in
+     stages as the window narrows. Open state is preserved for re-expansion. */
+  body.notes-on:not(.shell) #notesPanel,
+  body.browser-on:not(.shell) #browser,
+  body.zone-3 #ctxZone{
+    position:relative; inset:auto; top:auto; right:auto; bottom:auto; left:auto; align-self:stretch;
+    height:auto; max-height:none; z-index:auto; border-radius:var(--radius-lg); overflow:hidden;
+    box-shadow:var(--shadow); animation:none; transition:width var(--t),flex-basis var(--t),opacity var(--t);
+  }
+  body.notes-on:not(.shell) #notesPanel{
+    order:3; display:flex; width:clamp(240px,26vw,320px); min-width:220px; flex:0 0 clamp(240px,26vw,320px);
+    border:1px solid var(--note-border);
+  }
+  body.zone-3 #ctxZone{
+    order:4; display:flex; width:clamp(260px,24vw,340px); min-width:240px; flex:0 0 clamp(260px,24vw,340px);
+    border:1px solid var(--border); background:var(--bg);
+  }
+  body:not(.shell) #bdrag{ order:5; display:block!important; }
+  body.browser-on:not(.shell) #browser{
+    order:6; display:flex; width:clamp(260px,30vw,400px)!important; min-width:240px!important;
+    flex:0 0 clamp(260px,30vw,400px); border:1px solid var(--border);
+  }
+  body.browser-on.chat-hidden:not(.shell) #browser{ inset:auto; border-radius:var(--radius-lg); }
+
+  @media(max-width:1100px){
+    .workspace-tabs{ gap:clamp(6px,1.3vw,14px); padding-inline:6px; }
+    .ws-tab{ padding-inline:clamp(5px,1vw,9px); gap:5px; font-size:13px; }
+    .ws-tab .ws-dot{ width:5px; height:5px; }
+    .cmd-bar{ gap:3px; padding-inline:6px; }
+    .cmd-bar .cmd-input{ min-width:110px; font-size:12px; }
+    .cmd-bar .cmd-btn{ min-width:27px; height:27px; padding-inline:3px; gap:3px; font-size:11.5px; }
+    .cmd-bar .cmd-btn:not(.primary) span{ display:none; }
+    .cmd-bar .cmd-btn.primary{ height:26px; padding-inline:6px; }
+    .cmd-bar .cmd-sep{ margin-inline:3px; }
+    .cmd-bar .cmd-more{ flex-basis:27px; width:27px; height:27px; }
+  }
+  @media(max-width:640px){
+    body:not(.collapsed) aside{
+      width:0; min-width:0; flex-basis:0; margin-left:calc(-1 * var(--approved-gap)); border:0; opacity:0; pointer-events:none;
+    }
+    .workspace-tabs{ gap:4px; }
+    .ws-tab{ padding-inline:5px; font-size:12px; }
+    .cmd-bar .cmd-input{ min-width:80px; font-size:11px; }
+  }
+  @media(max-width:760px){
+    :root{ --approved-sidebar-w:225px; }
+    .workspace-tabs{ gap:3px; }
+    .ws-tab{ padding:0 5px; }
+    .cmd-bar{ gap:3px; }
+    .cmd-bar .cmd-btn span{ display:none; }
+    .cmd-bar .cmd-btn.primary span{ display:inline; }
+    #sideRail,body.collapsed #sideRail,body.collapsed.rail-expanded #sideRail{ display:none; width:0; min-width:0; flex-basis:0; }
+    #railMenuToggle{ display:grid; }
+    .topbar #newchat,.topbar #copyall,.topbar #ctxToggle{ display:grid; }
+    body.rail-menu-open .topbar #newchat,body.rail-menu-open .topbar #copyall,body.rail-menu-open .topbar #ctxToggle{ display:none; }
+    body.rail-menu-open #sideRail,
+    body.collapsed.rail-menu-open #sideRail{
+      display:flex !important; position:fixed; z-index:130; left:8px; top:42px;
+      width:46px; min-width:46px; height:auto; max-height:calc(100dvh - 52px); flex-basis:auto;
+      padding:5px 3px; opacity:1; pointer-events:auto; overflow-y:auto;
+      border:1px solid var(--border); border-radius:12px; background:var(--approved-card);
+      box-shadow:0 12px 32px rgba(0,0,0,.18);
+    }
+    body.rail-menu-open #sideRail .rail-spacer{ display:none; }
+    body.rail-menu-open #sideRail .rail-footer{ margin-top:5px; padding-top:5px; border-top:1px solid var(--border); }
+    body.composer-simple .composer-tools .anchor:has(#modelbtn){ margin-left:4px; }
+    .composer-tools #modetxt,.composer-tools .modebtn .chev{ display:none; }
+    .composer-tools .modelbtn{ max-width:54px; padding-inline:2px; }
+    body.notes-on:not(.shell) #notesPanel{ width:280px; min-width:250px; flex-basis:280px; }
+    body.browser-on:not(.shell) #browser{ width:320px!important; min-width:270px!important; flex-basis:320px; }
+    body.zone-3 #ctxZone{ width:280px; min-width:240px; flex-basis:280px; }
+  }
+  @media(max-width:700px){
+    body,body.shell{ gap:5px; padding-left:5px; padding-right:5px; padding-bottom:10px; }
+    #sideRail,body.collapsed #sideRail,body.collapsed.rail-expanded #sideRail{ flex-basis:38px; width:38px; min-width:38px; }
+    #sideRail .rail-btn,#sideRail .rail-user{ width:34px; height:34px; }
+    aside,body.shell aside{ --approved-sidebar-w:198px; }
+    body.zone-3 #ctxZone{ display:none; }
+    body.notes-on:not(.shell) #notesPanel{ width:260px; min-width:230px; flex-basis:260px; }
+    body.browser-on:not(.shell) #browser{ width:280px!important; min-width:240px!important; flex-basis:280px; }
+    main,#chat,.col{ min-width:0; max-width:100%; overflow-x:hidden; box-sizing:border-box; }
+    .msg-user,.msg-ai,body.win-lg .msg-user,body.win-lg .msg-ai{
+      min-width:0; max-width:min(88%,calc(100% - 12px)); box-sizing:border-box;
+    }
+    .msg-user .body,.msg-ai .body,.msg-ai.cloud .body{
+      min-width:0; max-width:100%; overflow-wrap:anywhere; word-break:break-word; box-sizing:border-box;
+    }
+    .msg-ai pre,.msg-user pre{ max-width:100%; white-space:pre-wrap; overflow-wrap:anywhere; box-sizing:border-box; }
+    .composer-wrap,body.composer-simple .composer-wrap,
+    .composer,body.composer-simple .composer,
+    .composer-base,body.composer-simple .composer-base,
+    .composer-tools{ min-width:0; max-width:100%; box-sizing:border-box; }
+  }
+  @media(max-width:560px){
+    #browserPill{ top:calc(50% + 23px); height:34px; min-width:68px; }
+    body.notes-on:not(.shell) #notesPanel,
+    body.browser-on:not(.shell) #browser,
+    body:not(.shell) #bdrag{ display:none!important; }
+  }
 </style>
 </head>
 <body class="workspace-chat">
@@ -2305,11 +2697,15 @@
         <div class="brand-name">Boolean</div>
         <div class="foot-status" title="" id="footStatus"><span class="dot" id="statusdot"></span><span id="statustext">…</span></div>
       </div>
-      <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".6" fill="currentColor"/></svg>
+      <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="AI readiness">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></svg>
         <span class="brand-tip" role="tooltip"><b>Boolean <span id="brandVersion">v0.09.25</span></b><small>Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
       </div>
     </div>
+  </div>
+  <div class="thread-search-wrap">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+    <input id="threadSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search chats, files, settings...">
   </div>
   <div class="threadlist" id="threadlist"></div>
 
@@ -3196,17 +3592,34 @@
     </div>
   </div>
   <div class="rail-stack rail-main">
-    <button class="rail-btn" data-rail="projects" title="Projects and chats" aria-label="Projects and chats">
-      <svg viewBox="0 0 24 24"><path d="M3 7.5 12 3l9 4.5-9 4.5z"/><path d="M5 12l7 3.5 7-3.5"/><path d="M5 16l7 3.5 7-3.5"/></svg>
-      <span class="rail-label">Projects</span>
+    <button class="rail-btn" data-rail="new-chat" title="New chat" aria-label="New chat">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      <span class="rail-label">New chat</span>
+    </button>
+    <button class="rail-btn" data-rail="copy-chat" title="Copy whole conversation" aria-label="Copy whole conversation">
+      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      <span class="rail-label">Copy chat</span>
+    </button>
+    <div class="rail-separator" aria-hidden="true"></div>
+    <button class="rail-btn" data-rail="projects" title="Open project folder" aria-label="Open project folder">
+      <svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10H3z"/><path d="M3 7V5h7l2 2"/></svg>
+      <span class="rail-label">Open folder</span>
     </button>
     <button class="rail-btn" data-rail="search" title="Search Boolean" aria-label="Search Boolean">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
       <span class="rail-label">Search</span>
     </button>
+    <div class="rail-separator" aria-hidden="true"></div>
     <button class="rail-btn" data-rail="browser" title="Browser" aria-label="Browser">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3z"/></svg><span class="rail-label">Browser</span><span class="rail-dot"></span>
     </button>
+    <button class="rail-btn" data-rail="context" title="Context panel" aria-label="Context panel">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="15" y1="4" x2="15" y2="20"/></svg><span class="rail-label">Context</span><span class="rail-dot"></span>
+    </button>
+    <button class="rail-btn" data-rail="notes" title="Notepad" aria-label="Notepad">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path class="notepad-paper" d="M14 7h36v43l-6 6-6-5-6 5-6-5-6 5-6-6z"/><path class="notepad-header" d="M14 7h36v12H14z"/><path class="notepad-line" d="M21 27h22M21 33h22M21 39h22M21 45h15"/></svg><span class="rail-label">Notepad</span><span class="rail-dot"></span>
+    </button>
+    <div class="rail-separator" aria-hidden="true"></div>
     <button class="rail-btn" data-rail="git" title="Git" aria-label="Git">
       <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 6H15.5"/><path d="M8 7.8 16.2 16"/></svg><span class="rail-label">Git</span><span class="rail-dot"></span>
     </button>
@@ -3215,9 +3628,6 @@
     </button>
     <button class="rail-btn" data-rail="automations" title="Automations" aria-label="Automations">
       <svg viewBox="0 0 24 24"><path d="M6 7a3 3 0 1 0 0 .1"/><path d="M18 7a3 3 0 1 0 0 .1"/><path d="M12 18a3 3 0 1 0 0 .1"/><path d="M8.5 8.5 11 15"/><path d="M15.5 8.5 13 15"/></svg><span class="rail-label">Automations</span><span class="rail-dot"></span>
-    </button>
-    <button class="rail-btn" data-rail="notes" title="Notepad" aria-label="Notepad">
-      <svg viewBox="0 0 64 64" aria-hidden="true"><path class="notepad-paper" d="M14 7h36v43l-6 6-6-5-6 5-6-5-6 5-6-6z"/><path class="notepad-header" d="M14 7h36v12H14z"/><path class="notepad-line" d="M21 27h22M21 33h22M21 39h22M21 45h15"/></svg><span class="rail-label">Notepad</span><span class="rail-dot"></span>
     </button>
   </div>
   <div class="rail-spacer"></div>
@@ -3281,11 +3691,17 @@
 
 <main>
   <div class="topbar">
+    <button class="icon-btn" id="railMenuToggle" title="Open navigation menu" aria-label="Open navigation menu" aria-expanded="false">
+      <svg viewBox="0 0 24 24"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="19" y2="17"/></svg>
+    </button>
     <button class="icon-btn" id="panelToggle" title="Show projects and chats" aria-label="Show projects and chats">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>
     </button>
     <button class="icon-btn" id="appBack" title="Go back" aria-label="Go back">
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/><path d="M9 12h10"/></svg>
+    </button>
+    <button class="icon-btn" id="appForward" title="Go forward" aria-label="Go forward">
+      <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/><path d="M15 12H5"/></svg>
     </button>
     <div class="netseg" id="netmode">
       <button data-net="local" title="Use the built-in local model — nothing leaves your PC">Local</button>
@@ -3354,21 +3770,21 @@
   <!-- Command bar: central input for quick actions -->
   <div class="cmd-bar" id="cmdBar">
     <span class="cmd-loc">›</span>
-    <input class="cmd-input" id="cmdInput" placeholder="Type a command, or use the action buttons…" spellcheck="false" autocomplete="off">
-    <button class="cmd-btn" id="cmdFile" title="Open and read a file">
+    <input class="cmd-input" id="cmdInput" name="boolean-command-bar" placeholder="Type a command, or use the action buttons…" spellcheck="false" autocomplete="new-password" data-1p-ignore="true" data-lpignore="true">
+    <button class="cmd-btn" id="cmdFile" title="Open and read a file" aria-label="File">
       <svg viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg><span>File</span>
     </button>
-    <button class="cmd-btn" id="cmdTest" title="Run tests or build">
+    <button class="cmd-btn" id="cmdTest" title="Run tests or build" aria-label="Test">
       <svg viewBox="0 0 24 24"><path d="M10 2v6.5"/><path d="M14 2v6.5"/><path d="M7 8.5h10l-2 12a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1z"/><path d="M10 13l1.5 1.5L14 12"/></svg><span>Test</span>
     </button>
-    <button class="cmd-btn" id="cmdSearch" title="Search the web">
+    <button class="cmd-btn" id="cmdSearch" title="Search the web" aria-label="Web">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg><span>Web</span>
     </button>
     <span class="cmd-sep"></span>
-    <button class="cmd-btn" id="cmdNote" title="Save text to notepad">
+    <button class="cmd-btn" id="cmdNote" title="Save text to notepad" aria-label="Note">
       <svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><line x1="8" y1="12" x2="14" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg><span>Note</span>
     </button>
-    <button class="cmd-btn primary" id="cmdCommit" title="Commit all changes">
+    <button class="cmd-btn primary" id="cmdCommit" title="Commit all changes" aria-label="Commit">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><line x1="3" y1="12" x2="8.5" y2="12"/><line x1="15.5" y1="12" x2="21" y2="12"/></svg><span>Commit</span>
     </button>
     <button class="cmd-btn cmd-extra" id="cmdGenCommit" title="Generate commit message from current changes">
@@ -3735,6 +4151,7 @@
             <h2>Browse the web</h2>
             <p>Search below, or type a URL / <b>localhost</b> address in the bar above.</p>
             <input class="bsearch" id="bStartSearch" placeholder="Search the web…" spellcheck="false">
+            <div class="bsrv-list" id="bLocalServers"></div>
             <div class="bblank-run" id="bblankRun">
               <button class="brun-btn" id="bRunProject" title="Run the current project and open its local preview here">▶ Run current project<span class="brun-proj" id="bRunProjName"></span></button>
               <div class="brun-sub">
@@ -3894,9 +4311,35 @@
   </div>
 </div>
 
+<!-- Command palette must exist before the main script binds Search/Ctrl+K. -->
+<div class="cmd-palette-backdrop" id="cmdBackdrop"></div>
+<div class="cmd-palette" id="cmdPalette" role="dialog" aria-label="Command palette">
+  <div class="cmd-palette-head">
+    <svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
+    <input id="cmdPaletteInput" placeholder="Search Boolean... chats, projects, commands..." spellcheck="false" autocomplete="off">
+  </div>
+  <div class="cmd-palette-list" id="cmdPaletteList"></div>
+  <div class="cmd-palette-foot">
+    <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+    <span><kbd>↵</kbd> run</span>
+    <span><kbd>Esc</kbd> close</span>
+  </div>
+</div>
+
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
+  const approvedFooter=document.querySelector(".app-footer");
+  const approvedSidebar=$("sidebar");
+  const approvedSidefoot=approvedSidebar?.querySelector(".sidefoot");
+  if(approvedFooter&&approvedSidebar) approvedSidebar.insertBefore(approvedFooter,approvedSidefoot||null);
+  const threadSearch=$("threadSearch");
+  if(threadSearch) threadSearch.addEventListener("input",()=>{
+    const query=threadSearch.value.trim().toLowerCase();
+    $("threadlist")?.querySelectorAll(".thread").forEach(thread=>{
+      thread.style.display=!query||thread.textContent.toLowerCase().includes(query)?"":"none";
+    });
+  });
   // all API calls carry a header the server requires (CSRF guard: sandboxed
   // web pages in the browser panel can never send it)
   const _fetch = window.fetch.bind(window);
@@ -4097,6 +4540,7 @@
   const syncComposerHeight=()=>{
     document.documentElement.style.setProperty("--composer-h",`${Math.ceil(composerWrap?.getBoundingClientRect().height||106)}px`);
     syncDockHeight();
+    applySideChatLauncherPosition();
     pinChatAfterLayout();
   };
   const syncComposerPillHeight=()=>document.documentElement.style.setProperty("--composer-pill-h",`${Math.ceil(composerPill?.getBoundingClientRect().height||52)}px`);
@@ -4139,15 +4583,22 @@
     { id:"qwen2.5-vl-7b", file:"Qwen_Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf", name:"Qwen2.5-VL-7B", label:"Vision", size:"6+ GB", note:"screenshots and images" }
   ];
   const threadGroups=JSON.parse(localStorage.getItem("sazThreadGroups")||'{"Projects":true,"Chats":true}');
+  let sidebarManualState=null;
   function updateResponsiveClasses(){
     const w=window.innerWidth;
+    const shouldCollapseApprovedSidebar=w<=640;
+    document.body.classList.toggle("collapsed",sidebarManualState===null?shouldCollapseApprovedSidebar:sidebarManualState);
     document.body.classList.toggle("win-xs",w<520);
     document.body.classList.toggle("win-sm",w>=520&&w<900);
     const mainW=document.querySelector("main")?.getBoundingClientRect().width||w;
     document.body.classList.toggle("win-lg",mainW>=980||w>=1280);
     document.body.classList.toggle("recipes-compact",mainW<860);
+    document.body.classList.toggle("chat-compact",mainW<720);
     document.body.classList.toggle("chat-xs",mainW<430);
-    document.body.classList.toggle("chat-xxs",mainW<260);
+    // The top bar needs ~370px for all its controls. Compact before that, not at
+    // 260 — otherwise the right-hand buttons (and the window controls) get clipped
+    // whenever the chat shares the window with the browser.
+    document.body.classList.toggle("chat-xxs",mainW<560);
   }
   function scheduleResponsiveClasses(){
     updateResponsiveClasses();
@@ -4339,7 +4790,9 @@
   }
   let navRestoring=false;
   let navHistory=[];
+  let navForward=[];
   try{ navHistory=JSON.parse(sessionStorage.getItem("booleanNavHistory")||"[]"); if(!Array.isArray(navHistory))navHistory=[]; }catch{ navHistory=[]; }
+  try{ navForward=JSON.parse(sessionStorage.getItem("booleanNavForward")||"[]"); if(!Array.isArray(navForward))navForward=[]; }catch{ navForward=[]; }
   // an in-flight run belongs to a specific thread; its live view is rebuilt
   // whenever that thread is on screen, so switching chats never loses progress
   let run=null; // { threadId, status, raw, liveAI, statusEl, request, holdQueue }
@@ -4375,11 +4828,15 @@
     view?.sidebarOpen?1:0,view?.notesOpen?1:0,view?.browserOpen?1:0
   ].join("|");
   function updateAppBack(){
-    const btn=$("appBack"); if(!btn)return;
+    const btn=$("appBack"),forwardBtn=$("appForward"); if(!btn||!forwardBtn)return;
     navHistory=navHistory.slice(-24);
+    navForward=navForward.slice(-24);
     btn.classList.toggle("available",navHistory.length>0);
     btn.disabled=!navHistory.length;
+    forwardBtn.classList.toggle("available",navForward.length>0);
+    forwardBtn.disabled=!navForward.length;
     sessionStorage.setItem("booleanNavHistory",JSON.stringify(navHistory));
+    sessionStorage.setItem("booleanNavForward",JSON.stringify(navForward));
   }
   function discardCurrentHistory(){
     while(navHistory.length&&appViewKey(navHistory[navHistory.length-1])===appViewKey(currentAppView())) navHistory.pop();
@@ -4390,27 +4847,44 @@
     const view=currentAppView();
     if(!view.threadId&&view.kind==="chat")return;
     if(appViewKey(navHistory[navHistory.length-1])!==appViewKey(view)) navHistory.push(view);
+    navForward=[];
     updateAppBack();
   }
-  async function goBackInApp(){
-    if(navRestoring)return;
+  function takeValidAppView(stack){
     let view=null;
-    while(navHistory.length&&!view){
-      const candidate=navHistory.pop();
+    while(stack.length&&!view){
+      const candidate=stack.pop();
       if(!candidate.threadId||(state.threads||[]).some(t=>t.id===candidate.threadId)) view=candidate;
     }
-    if(!view){ updateAppBack(); return; }
+    return view;
+  }
+  async function restoreAppView(view){
     navRestoring=true;
     try{
       if(view.threadId) await openThread(view.threadId,{remember:false});
       else closeConversationPanels();
       if(view.kind==="settings") openSettings(view.section||null,{remember:false});
-      document.body.classList.toggle("collapsed",view.sidebarOpen===false);
+      sidebarManualState=view.sidebarOpen===false;
+      document.body.classList.toggle("collapsed",sidebarManualState);
       openNotes(!!view.notesOpen,{remember:false,focus:false});
       if(SHELL) hostPost({type:"browser",cmd:view.browserOpen?"show":"hide"});
       else openBrowser(!!view.browserOpen,{remember:false});
       syncPanelButtons();
     }finally{ navRestoring=false; updateAppBack(); }
+  }
+  async function goBackInApp(){
+    if(navRestoring)return;
+    const view=takeValidAppView(navHistory);
+    if(!view){ updateAppBack(); return; }
+    navForward.push(currentAppView());
+    await restoreAppView(view);
+  }
+  async function goForwardInApp(){
+    if(navRestoring)return;
+    const view=takeValidAppView(navForward);
+    if(!view){ updateAppBack(); return; }
+    navHistory.push(currentAppView());
+    await restoreAppView(view);
   }
   let attachments=[]; // {kind:'image'|'file', name, dataURL?, text?}
   const PROVIDER_LABELS={ local:"Local", openai:"OpenAI", glm:"GLM", zaiCoding:"Z.AI Coding Plan", claude:"Claude", customApi:"User API" };
@@ -5174,11 +5648,16 @@
     document.querySelectorAll("#netmode button,#modelNetMode button").forEach(b=>b.classList.toggle("on",(b.dataset.net==="online")===online));
   }
   function updateReadyStatus(label,shortLabel){
-    const ready=!!state.backendUp;
+    const ready=providerReadyForRun(state.provider||"local");
     const text=shortLabel+" "+(ready?"ready":"not ready");
     if($("statusdot")) $("statusdot").className="dot"+(ready?"":" down");
     if($("statustext")) $("statustext").textContent=text;
     if($("footStatus")) $("footStatus").title=label+(ready?" - ready":" - not ready");
+    if($("brandAbout")){
+      $("brandAbout").classList.toggle("ready",ready);
+      $("brandAbout").classList.toggle("down",!ready);
+      $("brandAbout").setAttribute("aria-label",label+(ready?" ready":" not ready"));
+    }
     if($("railBrandDot")) $("railBrandDot").className="dot"+(ready?"":" down");
     if($("railBrandStatus")) $("railBrandStatus").textContent=text;
     if($("railBrandReady")) $("railBrandReady").title=label+(ready?" - ready":" - not ready");
@@ -5777,7 +6256,7 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.50"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.51"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -8327,9 +8806,13 @@
 
   // ── nav / panels / sidebar ──
   $("appBack").onclick=goBackInApp;
+  $("appForward").onclick=goForwardInApp;
   $("newchat").onclick=newChat;
   function syncPanelButtons(){
-    $("panelToggle").classList.toggle("active",!document.body.classList.contains("collapsed"));
+    const sidebarClosed=document.body.classList.contains("collapsed");
+    $("panelToggle").classList.toggle("active",!sidebarClosed);
+    $("panelToggle").title=sidebarClosed?"Show projects and chats":"Hide projects and chats";
+    $("panelToggle").setAttribute("aria-label",$("panelToggle").title);
     $("topSettings").classList.toggle("active",$("settingsPanel").classList.contains("open"));
     $("notesToggle").classList.toggle("active",document.body.classList.contains("notes-on"));
     $("browserToggle").classList.toggle("active",document.body.classList.contains("browser-on"));
@@ -8351,6 +8834,7 @@
     document.querySelectorAll("#sideRail [data-rail]").forEach(btn=>{
       const rail=btn.dataset.rail;
       const active=(rail==="browser"&&document.body.classList.contains("browser-on"))
+        ||(rail==="context"&&document.body.classList.contains("zone-3"))
         ||(rail==="git"&&$("settingsPanel")?.classList.contains("open")&&$("settingsPanel")?.dataset.page==="github")
         ||(rail==="recipes"&&document.body.classList.contains("recipes-open"))
         ||(rail==="automations"&&$("settingsPanel")?.classList.contains("open")&&$("settingsPanel")?.dataset.page==="scheduled")
@@ -8361,10 +8845,14 @@
   }
   function handleRailAction(action,event){
     rememberCurrentView();
-    document.body.classList.remove("rail-expanded");
-    if(action==="projects"){ document.body.classList.remove("collapsed"); syncPanelButtons(); return; }
+    document.body.classList.remove("rail-expanded","rail-menu-open");
+    $("railMenuToggle")?.setAttribute("aria-expanded","false");
+    if(action==="new-chat"){ newChat(); return; }
+    if(action==="copy-chat"){ $("copyall")?.click(); return; }
+    if(action==="projects"){ adoptProject(); return; }
     if(action==="search"){ if(typeof openCmdPalette==="function") openCmdPalette(); else $("cmdInput")?.focus(); }
     else if(action==="browser"){ $("browserToggle")?.click(); }
+    else if(action==="context"){ $("ctxToggle")?.click(); }
     else if(action==="git"){ setWorkspaceTab("git"); }
     else if(action==="recipes"){ setWorkspaceTab("recipes"); }
     else if(action==="automations"){ setWorkspaceTab("automations"); }
@@ -8377,6 +8865,7 @@
     rememberCurrentView();
     document.body.classList.remove("rail-expanded");
     document.body.classList.toggle("collapsed");
+    sidebarManualState=document.body.classList.contains("collapsed");
     if(!document.body.classList.contains("collapsed") && SHELL) hostPost({type:"window",action:"growContext"});
     scheduleResponsiveClasses();
     syncPanelButtons();
@@ -8385,6 +8874,23 @@
     const btn=event.target.closest("[data-rail]");
     if(!btn) return;
     handleRailAction(btn.dataset.rail,event);
+  });
+  $("railMenuToggle")?.addEventListener("click",(event)=>{
+    event.stopPropagation();
+    const open=document.body.classList.toggle("rail-menu-open");
+    $("railMenuToggle").setAttribute("aria-expanded",open?"true":"false");
+  });
+  document.addEventListener("click",(event)=>{
+    if(!document.body.classList.contains("rail-menu-open")) return;
+    if(event.target.closest("#sideRail,#railMenuToggle")) return;
+    document.body.classList.remove("rail-menu-open");
+    $("railMenuToggle")?.setAttribute("aria-expanded","false");
+  });
+  document.addEventListener("keydown",(event)=>{
+    if(event.key!=="Escape"||!document.body.classList.contains("rail-menu-open")) return;
+    document.body.classList.remove("rail-menu-open");
+    $("railMenuToggle")?.setAttribute("aria-expanded","false");
+    $("railMenuToggle")?.focus();
   });
   if($("composerSettings")) $("composerSettings").onclick=()=>openSettings("appearance");
   let composerActionTouchAt=0;
@@ -9624,7 +10130,7 @@ Optional bundled starter model:
     if(/\s/.test(v)||!v.includes(".")) return searchUrl(v);   // words → web search
     return "https://"+v; }
   function reportUrl(url){ fetch("/api/browser/url",{method:"POST",body:JSON.stringify({url:url||""})}).catch(()=>{}); }
-  function showBlank(b){ $("bblank").style.display=b?"grid":"none"; if(b) refreshRunProjectUI(); }
+  function showBlank(b){ $("bblank").style.display=b?"grid":"none"; if(b){ refreshRunProjectUI(); refreshLocalServers(); } }
   function currentProjectName(){ try{ const ts=threadSummary(); return ts&&ts.projectDir ? (ts.projectDir.split(/[\\/]/).filter(Boolean).pop()||"") : ""; }catch{ return ""; } }
   function refreshRunProjectUI(){ const name=currentProjectName(); const label=$("bRunProjName"); if(label) label.textContent=name?` · ${name}`:""; }
   function updateNav(){ const t=curTab(); $("bBack").disabled=!(t&&t.hi>0); $("bFwd").disabled=!(t&&t.hi<t.hist.length-1); }
@@ -10082,9 +10588,23 @@ Optional bundled starter model:
   $("bStartSearch").addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&e.target.value.trim()){ e.preventDefault(); navigate(e.target.value); e.target.value=""; } });
   const bblankhints=$("bblankhints");
   if(bblankhints){
-    const quickLinks=[{u:"https://www.google.com",icon:"🔍",label:"Google"},{u:"https://en.wikipedia.org",icon:"📚",label:"Wikipedia"},{u:"localhost:3210",icon:"🖥",label:"localhost:3210"},{u:"https://github.com",icon:"🐙",label:"GitHub"},{u:"https://stackoverflow.com",icon:"📋",label:"Stack Overflow"}];
+    const quickLinks=[{u:"https://www.google.com",icon:"🔍",label:"Google"},{u:"https://en.wikipedia.org",icon:"📚",label:"Wikipedia"},{u:"https://github.com",icon:"🐙",label:"GitHub"},{u:"https://stackoverflow.com",icon:"📋",label:"Stack Overflow"}];
     bblankhints.innerHTML=quickLinks.map(l=>`<div class="bblank-shortcut" data-u="${l.u}"><span>${l.icon}</span><span>${l.label}</span></div>`).join("");
     bblankhints.querySelectorAll(".bblank-shortcut").forEach(s=>s.onclick=(e)=>{ e.preventDefault(); navigate(s.dataset.u); });
+  }
+  // Local dev servers that are actually running, offered as one-click entries.
+  async function refreshLocalServers(){
+    const host=$("bLocalServers");
+    if(!host) return;
+    try{
+      const r=await fetch("/api/local-servers");
+      const servers=(await r.json()).servers||[];
+      if(!servers.length){ host.innerHTML=""; return; }
+      host.innerHTML=servers.map(s=>`<div class="bsrv" data-u="${esc(s.url)}">`
+        +`<span class="bsrv-ico">▤</span><span class="bsrv-nm">${esc(s.name)}</span>`
+        +`<span class="bsrv-pt">:${esc(String(s.port))}</span><span class="bsrv-go">▷</span></div>`).join("");
+      host.querySelectorAll(".bsrv").forEach(el=>el.onclick=()=>navigate(el.dataset.u));
+    }catch{ host.innerHTML=""; }
   }
   bframe.addEventListener("load",()=>{ const t=curTab(); if(t&&t.url) showBlank(false); });
 
@@ -10508,6 +11028,7 @@ Optional bundled starter model:
       if(e.defaultPrevented) return;
     }
     if(e.altKey&&e.key==="ArrowLeft"&&!document.body.classList.contains("browser-on")){ e.preventDefault(); goBackInApp(); return; }
+    if(e.altKey&&e.key==="ArrowRight"&&!document.body.classList.contains("browser-on")){ e.preventDefault(); goForwardInApp(); return; }
     // browser keyboard shortcuts (only when browser is visible and focus is not in a text field)
     if(!document.body.classList.contains("browser-on")) return;
     const inField=e.target.matches("input,textarea,#bAddr,#bFindInput,noteEditor")||e.target.isContentEditable;
@@ -11672,6 +12193,7 @@ Optional bundled starter model:
     };
   }
   function showNextEditSuggestion(suggestion) {
+    return;
     // suggestion: { text, detail, action }
     const bar = document.createElement("div");
     bar.className = "next-edit-bar";
@@ -11951,10 +12473,10 @@ Optional bundled starter model:
     };
   }
   function sideChatLeftEdge(){
-    const main=document.querySelector("main");
-    const rect=main?.getBoundingClientRect?.();
+    const launcher=$("sideChatToggle");
+    const rect=launcher?.getBoundingClientRect?.();
     const width=$("sideChatPanel")?.getBoundingClientRect().width||276;
-    return Math.max(8,Math.round((rect?.right||window.innerWidth)-width-14));
+    return Math.max(8,Math.round((rect?.left||window.innerWidth)-width-8));
   }
   function applySideChatPosition(){
     const panel=$("sideChatPanel");
@@ -11977,15 +12499,17 @@ Optional bundled starter model:
   }
   function clampSideChatLauncherTop(top){
     const launcher=$("sideChatToggle");
-    const half=(launcher?.getBoundingClientRect().height||38)/2;
+    const half=(launcher?.getBoundingClientRect().height||23)/2;
     return Math.max(52+half,Math.min(window.innerHeight-48-half,top));
   }
   function applySideChatLauncherPosition(){
     const launcher=$("sideChatToggle");
     if(!launcher) return;
     let saved=NaN;
-    try{ saved=Number(localStorage.getItem("boolean_side_chat_launcher_top")); }catch{}
-    const top=clampSideChatLauncherTop(Number.isFinite(saved)&&saved>0?saved:window.innerHeight/2);
+    try{ saved=Number(localStorage.getItem("boolean_side_chat_launcher_action_top")); }catch{}
+    const composerTop=document.querySelector(".composer-wrap")?.getBoundingClientRect().top;
+    const actionRowTop=Number.isFinite(composerTop)?composerTop+14:window.innerHeight-92;
+    const top=clampSideChatLauncherTop(Number.isFinite(saved)&&saved>0?saved:actionRowTop);
     launcher.style.top=top+"px";
   }
   function saveSideChatLauncherPosition(){
@@ -11993,7 +12517,7 @@ Optional bundled starter model:
     if(!launcher) return;
     const top=clampSideChatLauncherTop(launcher.getBoundingClientRect().top+launcher.getBoundingClientRect().height/2);
     launcher.style.top=top+"px";
-    try{ localStorage.setItem("boolean_side_chat_launcher_top",String(Math.round(top))); }catch{}
+    try{ localStorage.setItem("boolean_side_chat_launcher_action_top",String(Math.round(top))); }catch{}
   }
   function paintSideChatDrag(){
     sideChatDragFrame=0;
@@ -12156,6 +12680,7 @@ Optional bundled starter model:
     document.body.classList.toggle("zone-3", open);
     try { localStorage.setItem("boolean_ctx_zone", open ? "1" : "0"); } catch(e) {}
     if (open) refreshCtxZone();
+    syncPanelButtons();
   }
   async function refreshCtxZone() {
     const body = $("ctxBody");
@@ -12334,6 +12859,23 @@ Optional bundled starter model:
   const cmdPaletteList = $("cmdPaletteList");
   let cmdSelIdx = 0;
   let cmdFiltered = [];
+
+  function commandBarContainsCredential(value) {
+    const text=String(value||"").trim();
+    return /^\d+-[a-z0-9_-]+\.apps\.googleusercontent\.com$/i.test(text)
+      || /^GOCSPX-[A-Za-z0-9_-]+$/.test(text);
+  }
+  function sanitizeCommandBarValue() {
+    if(!cmdInput||!commandBarContainsCredential(cmdInput.value)) return;
+    cmdInput.value="";
+    cmdInput.placeholder="Type a command, or use the action buttons…";
+  }
+  sanitizeCommandBarValue();
+  window.addEventListener("pageshow",sanitizeCommandBarValue);
+  cmdInput?.addEventListener("focus",sanitizeCommandBarValue);
+  cmdInput?.addEventListener("input",sanitizeCommandBarValue);
+  setTimeout(sanitizeCommandBarValue,100);
+  setInterval(sanitizeCommandBarValue,500);
 
   function cmdSendChat(text) {
     $("input").value = text;
@@ -13190,19 +13732,12 @@ Optional bundled starter model:
 
 })();
 </script>
-<!-- Command palette (fixed overlay) -->
-<div class="cmd-palette-backdrop" id="cmdBackdrop"></div>
-<div class="cmd-palette" id="cmdPalette" role="dialog" aria-label="Command palette">
-  <div class="cmd-palette-head">
-    <svg viewBox="0 0 24 24"><path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M15 3v4h4"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
-    <input id="cmdPaletteInput" placeholder="Search Boolean... chats, projects, commands..." spellcheck="false" autocomplete="off">
-  </div>
-  <div class="cmd-palette-list" id="cmdPaletteList"></div>
-  <div class="cmd-palette-foot">
+<!-- obsolete late palette markup removed; retained bytes are commented out
     <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
     <span><kbd>↵</kbd> run</span>
     <span><kbd>Esc</kbd> close</span>
   </div>
 </div>
+-->
 </body>
 </html>

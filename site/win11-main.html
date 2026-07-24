@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boolean — Win11 Style Main Screen</title>
+<style>
+  :root {
+    /* Win11-style color tokens */
+    --bg: #f3f3f3;
+    --sidebar-bg: #ffffff;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --dim: #616161;
+    --label: #717171;
+    --accent: #0078d4;
+    --accent-hover: #006cbe;
+    --accent-text: #ffffff;
+    --border: #e5e5e5;
+    --hover: rgba(0,0,0,.04);
+    --hover-accent: rgba(0,120,212,.06);
+    --mica: rgba(255,255,255,.72);
+    --shadow: 0 2px 6px rgba(0,0,0,.06);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --font: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --sidebar-w: 320px;
+    --topbar-h: 38px;
+    --transition: .25s cubic-bezier(.4,0,.2,1);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg: #202020; --sidebar-bg: #2d2d2d; --card-bg: #2d2d2d;
+      --text: #f0f0f0; --dim: #9e9e9e; --label: #a0a0a0;
+      --accent: #60cdff; --accent-hover: #4db8e8; --accent-text: #000;
+      --border: #3d3d3d; --hover: rgba(255,255,255,.05);
+      --hover-accent: rgba(96,205,255,.08);
+      --mica: rgba(32,32,32,.85);
+      --shadow: 0 2px 6px rgba(0,0,0,.2);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { font-family: var(--font); font-size: 14px; color: var(--text); background: var(--bg); display: flex; flex-direction: column; }
+
+  /* ─── FULL-WIDTH TOP TOOLBAR (spans the whole window) ─── */
+  .top-bar {
+    height: 38px; flex-shrink: 0; display: flex; align-items: center; gap: 5px;
+    padding: 0 10px; background: transparent; border-bottom: 0;
+    -webkit-app-region: drag; user-select: none; z-index: 100;
+  }
+  .top-bar .icon-btn, .top-bar .seg, .top-bar .win-btns { -webkit-app-region: no-drag; }
+  .top-bar .spacer { flex: 1; }
+  .top-bar .notepad-paper { fill:#f2cf5b; stroke:#263238; stroke-width:2.2; stroke-linejoin:round; }
+  .top-bar .notepad-header { fill:#d99a20; stroke:#263238; stroke-width:2.2; stroke-linejoin:round; }
+  .top-bar .notepad-line { fill:none; stroke:#7aa7b8; stroke-width:1.8; stroke-linecap:round; }
+  .win-btns { display: flex; gap: 0; margin-left: 4px; }
+  .win-btn { width: 30px; height: 30px; border: none; border-radius:8px; background: transparent; color: var(--text);
+    cursor: pointer; display: grid; place-items: center; padding:0; transition: background .1s; }
+  .win-btn svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; }
+  .win-btn:hover { background: var(--hover); }
+  .win-btn.close:hover { background: #c42b1c; color: #fff; }
+
+  /* ─── WORKSPACE — floating cards on the gray background ─── */
+  .workspace {
+    flex: 1; display: flex; overflow: hidden; position: relative;
+    padding: 0 8px 8px 4px; gap: 8px; background: var(--bg);
+  }
+
+  /* Left icon rail — sits directly on the gray, not in a card */
+  .nav-rail {
+    width: 46px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+    padding: 2px 0; gap: 2px; background: transparent; z-index: 10;
+    transition: width var(--transition);
+  }
+  .nav-rail-item {
+    width: 40px; height: 40px; border: none; border-radius: var(--radius);
+    background: transparent; color: var(--dim); cursor: pointer;
+    display: grid; place-items: center; transition: all .15s;
+  }
+  .nav-rail-item:hover { background: var(--hover); color: var(--text); }
+  .nav-rail-item.active { background: var(--card-bg); color: var(--accent); box-shadow: var(--shadow); }
+  .nav-rail-item svg { width: 18px; height: 18px; }
+  .nav-rail .spacer { flex: 1; }
+
+  /* Sidebar — floating rounded card */
+  .nav-panel {
+    width: var(--sidebar-w); flex-shrink: 0; background: var(--card-bg);
+    border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+    display: flex; flex-direction: column; overflow: hidden; transition: all var(--transition);
+  }
+  .nav-panel.collapsed { width: 0; border: none; overflow: hidden; }
+  /* Account-style header card, mirroring the profile card atop Win11 Settings */
+  .nav-header {
+    margin: 10px 12px 6px; padding: 10px 12px; border-radius: var(--radius-lg);
+    background: var(--card-bg); border: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .nav-header .brand-icon {
+    width: 38px; height: 38px; background: var(--accent); border-radius: 50%;
+    display: grid; place-items: center; color: white; font-weight: 700; font-size: 16px; flex-shrink: 0;
+  }
+  .nav-header .brand-meta { min-width: 0; display: flex; flex-direction: column; }
+  .nav-header .brand-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .nav-header .brand-sub { font-size: 12px; color: var(--dim); }
+  .nav-search {
+    margin: 0 12px 8px; padding: 7px 12px 7px 32px; border: 1px solid var(--border);
+    border-radius: var(--radius); background: var(--bg); color: var(--text);
+    font: 13px var(--font); outline: none; transition: border .15s;
+    background-image: url("data:image/svg+xml,%3Csvg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23717171' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: 10px center;
+  }
+  .nav-search:focus { border-color: var(--accent); }
+  .nav-search::placeholder { color: var(--dim); }
+
+  .nav-section { padding: 4px 0; }
+  .nav-section-label {
+    padding: 6px 16px 4px; font-size: 11.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .4px; color: var(--dim);
+  }
+  /* Win11 Settings row: taller, left accent bar when selected, text stays neutral */
+  .nav-item {
+    position: relative; display: flex; align-items: center; gap: 12px; padding: 9px 12px;
+    min-height: 38px; border: none; border-radius: var(--radius); margin: 2px 8px;
+    background: transparent; color: var(--text); cursor: pointer;
+    font: 14px var(--font); width: calc(100% - 16px); text-align: left;
+    transition: background .12s;
+  }
+  .nav-item:hover { background: var(--hover); }
+  .nav-item.active { background: var(--hover); color: var(--text); font-weight: 400; }
+  .nav-item.active::before {
+    content: ""; position: absolute; left: -8px; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 16px; border-radius: 2px; background: var(--accent);
+  }
+  .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--dim); }
+  .nav-item.active svg { color: var(--accent); }
+  .nav-item .badge {
+    margin-left: auto; font-size: 10.5px; padding: 1px 6px;
+    border-radius: 10px; background: var(--accent); color: var(--accent-text);
+    font-weight: 600;
+  }
+  .nav-item .badge.dim { background: var(--border); color: var(--dim); }
+
+  .nav-footer {
+    margin-top: auto; padding: 8px 16px; border-top: 0;
+    display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--dim);
+    white-space: nowrap;
+  }
+  .nav-footer .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #3fb950; }
+  .nav-footer .status-sep { color: color-mix(in srgb, var(--dim) 60%, transparent); }
+
+  /* ─── CENTER COLUMN — transparent; tabs + command bar sit on the gray,
+     the chat is its own separate floating card ─── */
+  .center-panel {
+    flex: 1; display: flex; flex-direction: column; min-width: 0;
+    background: transparent; gap: 8px; overflow: hidden;
+    transition: all var(--transition);
+  }
+  /* Flat app chrome — blends into the gray background (no bar, no border) */
+  .app-chrome { flex-shrink: 0; background: transparent; }
+  .app-toolbar { display: flex; align-items: center; gap: 3px; padding: 7px 10px 3px; }
+  .app-toolbar .spacer { flex: 1; }
+  .app-toolbar .bookmark { color: #e0a800; }
+  /* Local / Cloud segmented control */
+  .seg { height:22px; display: flex; align-items: center; gap: 2px; margin: 0; padding: 2px;
+    background: var(--hover); border-radius: 999px; overflow:hidden; }
+  .seg-btn { border: none; background: transparent; color: var(--dim); cursor: pointer;
+    min-width:46px; height:18px; font: 11px/18px var(--font); padding:0 9px; border-radius: 999px; transition: all .12s; }
+  .seg-btn:hover { color: var(--text); }
+  .seg-btn.active { background: var(--card-bg); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+  .seg-btn.cloud.active { color: #d97706; }
+  /* Chat / Code / Preview / Recipes / Automations tabs */
+  .app-chrome { border-bottom: 1px solid var(--border); }
+  .app-tabs { height:40px; display: flex; align-items: stretch; gap: 24px; padding: 0 8px; }
+  .app-tab { display: flex; align-items: center; gap: 6px; border: none; border-bottom: 2px solid transparent; background: transparent;
+    color: var(--dim); cursor: pointer; font: 14px var(--font); padding: 0 12px; border-radius: 0;
+    transition: all .12s; }
+  .app-tab:hover { color: var(--text); }
+  .app-tab.active { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
+  .app-tab .tdot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); opacity: .5; }
+  .app-tab.active .tdot { background: #3fb950; opacity: 1; }
+
+  .icon-btn {
+    width: 30px; height: 30px; border: none; border-radius: 8px;
+    background: transparent; color: var(--dim); cursor: pointer;
+    display: grid; place-items: center; transition: all .12s;
+  }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+  .icon-btn.active { color: var(--accent); background: var(--hover-accent); }
+  .icon-btn svg { width: 15px; height: 15px; }
+  .top-bar .hamburger{ width:28px; height:28px; margin-right:4px; }
+
+  /* ─── CHAT MESSAGES ─── */
+  /* One box: messages scroll on top, the composer is docked at its bottom */
+  .chat-card {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .chat-area {
+    flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 28px), transparent 100%);
+  }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: var(--radius-lg); font-size: 14px; line-height: 1.55; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-text); border-bottom-right-radius: 4px; }
+  .msg.ai { align-self: flex-start; background: var(--card-bg); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.ai .msg-label { font-size: 11px; color: var(--accent); font-weight: 600; margin-bottom: 4px; display: block; }
+  .msg pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 12.5px; margin: 6px 0; overflow-x: auto; }
+  .msg code { font-family: "Cascadia Code", "Consolas", monospace; font-size: 12.5px; }
+
+  /* ─── COMPOSER (see pic 2) — docked at the bottom of the chat card ─── */
+  .composer { flex-shrink: 0; border-top: 0; padding: 6px 12px 8px; }
+  .cmp-input-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 6px 6px; }
+  .cmp-input-row textarea {
+    flex: 1; border: none; background: transparent; color: var(--text);
+    font: 14px/1.5 var(--font); resize: none; outline: none; min-height: 22px; max-height: 140px;
+  }
+  .cmp-input-row textarea::placeholder { color: var(--dim); }
+  .cmp-enter { color: var(--dim); font: 12.5px var(--font); padding-top: 2px; flex-shrink: 0; }
+  .cmp-tools { display: flex; align-items: center; gap: 2px; }
+  .cmp-tools .spacer { flex: 1; }
+  .cmp-ico { min-width: 28px; height: 28px; padding: 0 5px; border: none; background: transparent; color: var(--dim);
+    border-radius: 7px; cursor: pointer; display: grid; place-items: center; font-size: 17px; transition: background .12s, color .12s; }
+  .cmp-ico:hover { background: var(--hover); color: var(--text); }
+  .cmp-ico svg { width: 15px; height: 15px; }
+  .cmp-drop { display: flex; align-items: center; gap: 5px; height: 28px; padding: 0 9px; border: none;
+    background: transparent; color: var(--text); border-radius: 7px; cursor: pointer; font: 13px var(--font); transition: background .12s; }
+  .cmp-drop:hover { background: var(--hover); }
+  .cmp-drop .bolt { color: #d97706; font-size: 12px; }
+  .cmp-drop .chev { color: var(--dim); font-size: 9px; }
+  .cmp-drop.model { color: #d97706; }
+  .cmp-drop.model .chev { color: #d97706; }
+  /* Category chips (notepad) keep the outlined pill look */
+  .tool-chip {
+    padding: 3px 8px; border: 1px solid var(--border); border-radius: 20px;
+    background: var(--card-bg); color: var(--dim); font-size: 11.5px; cursor: pointer;
+    display: flex; align-items: center; gap: 4px; transition: all .12s;
+  }
+  .tool-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ─── SETTINGS-STYLE OVERVIEW (top of the main screen) ─── */
+  .overview { display: flex; flex-direction: column; gap: 14px; margin-bottom: 6px; }
+  .overview-title { font-size: 30px; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
+
+  /* Project card — mirrors the Win11 "device" card */
+  .workspace-card {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .ws-thumb {
+    width: 88px; height: 62px; border-radius: var(--radius); flex-shrink: 0;
+    display: grid; place-items: center; font-size: 30px;
+    background: linear-gradient(135deg, #1e2a52, #0e1730); color: #7fe3c4;
+    box-shadow: var(--shadow);
+  }
+  .ws-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .ws-name { font-size: 20px; font-weight: 600; color: var(--text); }
+  .ws-sub { font-size: 13px; color: var(--dim); }
+  .ws-link { font-size: 13px; color: var(--accent); cursor: pointer; text-decoration: none; }
+  .ws-link:hover { text-decoration: underline; }
+  .ws-status { margin-left: auto; display: flex; gap: 28px; padding-right: 4px; }
+  .status-tile { display: flex; align-items: center; gap: 10px; }
+  .status-tile .ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--hover-accent); color: var(--accent); font-size: 15px; flex-shrink: 0; }
+  .status-tile .st-meta { display: flex; flex-direction: column; }
+  .status-tile b { font-size: 13.5px; font-weight: 600; color: var(--text); }
+  .status-tile span { font-size: 12px; color: var(--dim); }
+
+  /* Boolean command bar (see pic 2) — flat, blends into the background, thin
+     divider underneath, action icons on the right */
+  .cmd-bar { height:47px; display: flex; align-items: center; gap: 4px; padding: 0 12px; background: transparent; }
+  .cmd-caret { color: color-mix(in srgb, var(--dim) 65%, transparent); font-size: 15px; padding:0 2px; }
+  .cmd-input { flex: 1; min-width: 0; border: 0; background: transparent; outline: 0;
+    color: var(--text); font: 14px var(--font); height:32px; padding:0 5px; }
+  .cmd-input::placeholder { color: color-mix(in srgb, var(--dim) 62%, transparent); }
+  .cmd-actions { display: flex; align-items: center; gap: 8px; }
+  .cmd-ico { min-width: 34px; height: 34px; padding: 0 6px; border: 0; background: transparent; color: var(--dim);
+    border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; font: 14px var(--font); transition: background .12s, color .12s; }
+  .cmd-ico:hover { background: var(--hover); color: var(--text); }
+  .cmd-ico svg { width: 17px; height: 17px; }
+  .cmd-sep { width: 1px; height: 22px; background: var(--border); margin: 0 8px; }
+  .cmd-commit { height:31px; padding: 0 14px; border: 0; border-radius: 10px;
+    background: #2b2b2b; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 7px;
+    font: 600 14px var(--font); }
+
+  /* Settings-style card with chevron rows — mirrors "Recommended settings" */
+  .settings-card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  .card-head { padding: 16px 18px 12px; }
+  .card-head h3 { font-size: 17px; font-weight: 600; color: var(--text); }
+  .card-head p { font-size: 13px; color: var(--dim); margin-top: 2px; }
+  .card-row {
+    display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+    padding: 14px 18px; border: none; border-top: 1px solid var(--border);
+    background: transparent; color: var(--text); font: 14px var(--font); cursor: pointer;
+    transition: background .12s;
+  }
+  .card-row:hover { background: var(--hover); }
+  .card-row .cr-ico { width: 20px; text-align: center; color: var(--dim); }
+  .card-row .chev { margin-left: auto; color: var(--dim); font-size: 18px; }
+
+  /* ─── BOTTOM DOCK (Browser / Notepad drop up from the bottom) ─── */
+  /* ─── RIGHT PANEL (Browser / Notepad) — floating card, opens on the right ─── */
+  .right-panel {
+    width: 0; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow); transition: width var(--transition), opacity var(--transition);
+    opacity: 0;
+  }
+  .right-panel.open { width: 400px; opacity: 1; }
+  .dock-head { display: flex; align-items: center; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .dock-close { margin-left: auto; width: 34px; height: 34px; border: none; background: transparent;
+    color: var(--dim); cursor: pointer; font-size: 14px; border-radius: 7px; margin-right: 4px; }
+  .dock-close:hover { background: var(--hover); color: var(--text); }
+  .right-tab { flex: 0 0 auto; padding: 10px 16px; border: none; background: transparent;
+    color: var(--dim); font: 12.5px var(--font); cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all .15s; }
+  .right-tab:hover { color: var(--text); background: var(--hover); }
+  .right-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+  /* left-edge drag handle to resize the right panel */
+  .right-grip { position: absolute; left: -3px; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 6; }
+  .right-content { flex: 1; overflow-y: auto; padding: 16px; }
+
+  /* Browser preview */
+  .browser-preview {
+    width: 100%; aspect-ratio: 16/10; background: var(--bg); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow: hidden; position: relative;
+  }
+  .browser-preview .url-bar {
+    height: 28px; display: flex; align-items: center; padding: 0 8px; gap: 4px;
+    background: var(--card-bg); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--dim);
+  }
+  .browser-preview .url-bar .lock { color: var(--accent); }
+  .browser-preview .page-content {
+    height: calc(100% - 28px); background: linear-gradient(135deg, #e8f0fe, #f0e8fe);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: var(--dim);
+  }
+
+  /* Notepad — Boolean's real lined-paper pad (yellow paper, red margin, ruled lines) */
+  .note-paper {
+    --note-paper: #fff7d9; --note-line: #d7d2b5; --note-rule: rgba(111,153,184,.25);
+    --note-text: #28210f; --note-placeholder: #b2a778;
+    min-height: 260px; border: 1px solid #e6dcae; border-radius: var(--radius);
+    overflow: hidden; box-shadow: var(--shadow);
+    background:
+      linear-gradient(90deg, transparent 44px, var(--note-rule) 45px, var(--note-rule) 46px, transparent 47px),
+      repeating-linear-gradient(var(--note-paper) 0 27px, var(--note-line) 28px, var(--note-paper) 29px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .note-paper {
+      --note-paper: #242523; --note-line: #363833; --note-rule: rgba(115,184,170,.23);
+      --note-text: #e7e3d4; --note-placeholder: #6f6a52; border-color: #34352f;
+    }
+  }
+  .note-editor {
+    min-height: 220px; padding: 6px 14px 14px 58px; outline: 0; color: var(--note-text);
+    font: 14px/29px "Segoe Print", "Bradley Hand ITC", var(--font);
+  }
+  .note-editor:empty:before { content: "Start writing…"; color: var(--note-placeholder); }
+
+  /* ═══════════════════════════════════════════
+     RESPONSIVE BREAKPOINTS (Win11 feel)
+     ═══════════════════════════════════════════ */
+
+  /* Narrower windows: shrink the right panel, then collapse the sidebar to the rail */
+  @media (max-width: 1099px) and (min-width: 820px) {
+    .right-panel.open { width: 340px; }
+  }
+  @media (max-width: 819px) {
+    .nav-panel { width: 0 !important; border: none; overflow: hidden; }
+    .right-panel.open { width: 300px; }
+  }
+  /* The panel toggle is always shown, like Boolean's real chrome */
+
+  /* ─── Transitions for sliding effect ─── */
+  .nav-panel, .right-panel { will-change: transform, width; }
+  .center-panel { will-change: flex; }
+
+  /* ─── Acrylic backdrop for panels ─── */
+  @supports (backdrop-filter: blur(20px)) {
+    .nav-panel, .right-panel { background: var(--mica); }
+  }
+
+  /* ─── Resize handle for right panel ─── */
+  .resize-handle {
+    width: 4px; cursor: col-resize; background: transparent;
+    transition: background .15s; flex-shrink: 0; z-index: 5;
+  }
+  .resize-handle:hover, .resize-handle.active { background: var(--accent); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 10px; opacity: .4; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text); }
+  * { scrollbar-width: thin; scrollbar-color: var(--dim) transparent; }
+</style>
+</head>
+<body>
+  <!-- FULL-WIDTH TOP TOOLBAR -->
+  <div class="top-bar">
+    <button class="icon-btn hamburger" onclick="toggleNav()" title="Toggle sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+    </button>
+    <button class="icon-btn" title="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="seg">
+      <button class="seg-btn">Local</button>
+      <button class="seg-btn cloud active">Cloud</button>
+    </div>
+    <button class="icon-btn" title="New chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+    </button>
+    <button class="icon-btn" title="Copy">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    </button>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="btnNotes" onclick="toggleRight('notes')" title="Notepad">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><path class="notepad-paper" d="M14 7h36v43l-6 6-6-5-6 5-6-5-6 5-6-6z"/><path class="notepad-header" d="M14 7h36v12H14z"/><path class="notepad-line" d="M21 27h22M21 33h22M21 39h22M21 45h15"/></svg>
+    </button>
+    <button class="icon-btn" id="btnBrowser" onclick="toggleRight('browser')" title="Browser">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg>
+    </button>
+    <button class="icon-btn" title="Context panel">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="15" y1="4" x2="15" y2="20"/></svg>
+    </button>
+    <div class="win-btns">
+      <button class="win-btn" aria-label="Minimize">─</button>
+      <button class="win-btn" aria-label="Maximize">□</button>
+      <button class="win-btn close" aria-label="Close">✕</button>
+    </div>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div class="workspace" id="workspace">
+
+    <!-- NAV RAIL (always visible except narrow) -->
+    <div class="nav-rail" id="navRail">
+      <button class="nav-rail-item active" title="Chat" onclick="setNav('chat')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </button>
+      <button class="nav-rail-item" title="Code" onclick="setNav('code')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      </button>
+      <button class="nav-rail-item" title="Browser" onclick="toggleRight('browser')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg>
+      </button>
+      <button class="nav-rail-item" title="Notes" onclick="toggleRight('notes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M7 3h10a2 2 0 0 1 2 2v16l-4-2-4 2-4-2-4 2V5a2 2 0 0 1 2-2z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+      </button>
+      <button class="nav-rail-item" title="Settings" onclick="setNav('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <div class="spacer"></div>
+    </div>
+
+    <!-- NAV PANEL (thread list + model selector) -->
+    <nav class="nav-panel" id="navPanel">
+      <div class="nav-header">
+        <span class="brand-icon">B</span>
+        <div class="brand-meta">
+          <span class="brand-name">Boolean</span>
+          <span class="brand-sub">Local AI workspace</span>
+        </div>
+      </div>
+      <input class="nav-search" placeholder="Search chats, files, settings…" spellcheck="false">
+
+      <div class="nav-section">
+        <div class="nav-section-label">Threads</div>
+        <button class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Build Simple Game
+          <span class="badge">●</span>
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Win11 UI Redesign
+          <span class="badge">2</span>
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Fix auth bug
+        </button>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Research GLM pricing
+        </button>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Model</div>
+        <button class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          GLM-5.2 · Online
+          <span class="badge dim">Pro</span>
+        </button>
+      </div>
+
+      <div class="nav-footer">
+        <span class="status-dot"></span>
+        <span>Local</span><span class="status-sep">·</span>
+        <span>GLM-5.2</span><span class="status-sep">·</span>
+        <span>3 files</span><span class="status-sep">·</span>
+        <span>42k / 200k</span><span class="status-sep">·</span>
+        <span>Idle</span>
+      </div>
+    </nav>
+
+    <!-- CENTER PANEL (Chat) -->
+    <div class="center-panel">
+      <div class="app-chrome">
+        <div class="app-tabs">
+          <button class="app-tab active"><span class="tdot"></span> Chat</button>
+          <button class="app-tab"><span class="tdot"></span> Code</button>
+          <button class="app-tab"><span class="tdot"></span> Preview</button>
+          <button class="app-tab"><span class="tdot"></span> Recipes</button>
+          <button class="app-tab"><span class="tdot"></span> Automations</button>
+        </div>
+      </div>
+
+      <!-- COMMAND BAR — sits on the gray, above the separate chat card -->
+      <div class="cmd-bar">
+        <span class="cmd-caret">›</span>
+        <input class="cmd-input" placeholder="Type a command, or use the action buttons…">
+        <div class="cmd-actions">
+          <button class="cmd-ico" title="File">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+            <span>File</span>
+          </button>
+          <button class="cmd-ico" title="Test">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 2h6M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2"/></svg>
+            <span>Test</span>
+          </button>
+          <button class="cmd-ico" title="Web">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <span>Web</span>
+          </button>
+          <span class="cmd-sep"></span>
+          <button class="cmd-ico" id="btnNotes2" onclick="toggleRight('notes')" title="Note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg>
+            <span>Note</span>
+          </button>
+          <button class="cmd-commit" title="Commit"><span>↔</span><span>Commit</span></button>
+          <button class="cmd-ico" title="More">⋯</button>
+        </div>
+      </div>
+
+      <!-- ONE BOX: messages + composer together -->
+      <div class="chat-card">
+      <div class="chat-area">
+        <div class="msg ai">
+          <span class="msg-label">Boolean</span>
+          Your 🐍 Snake Game is built and running at <strong>http://localhost:3210</strong>! Here's what you get:
+          <ul style="margin:8px 0 0 16px">
+            <li>Classic snake with arrow-key controls</li>
+            <li>Score tracking + high score</li>
+            <li>Speed increases as you eat</li>
+            <li>Game over → restart with spacebar</li>
+          </ul>
+        </div>
+        <div class="msg user">make it look better, add colors and make it smoother</div>
+        <div class="msg ai">
+          <span class="msg-label">Boolean</span>
+          Done! Updated the game with:
+          <pre><code>╔═══ Updated Files ═══╗
+║ SnakeGame/index.html ║
+╚═════════════════════╝
+
+✓ Gradient snake body (green → teal)
+✓ Smooth movement with requestAnimationFrame
+✓ Glowing food particles
+✓ Score popup animations
+✓ Dark theme with rounded corners
+✓ Grid lines for retro feel</code></pre>
+          Refresh your browser — or I can restart the server for you.
+        </div>
+        <div class="msg user">can you turn boolean app close to window 11 setting?</div>
+        <div class="msg ai">
+          <span class="msg-label">Boolean</span>
+          That's doable — it's essentially making the layout responsive like Win11's split-pane:
+          <br><br>
+          <strong>Wide (≥900px):</strong> Left sidebar + right panel side by side — exactly how Win11 Settings looks.
+          <br><br>
+          <strong>Narrow (&lt;700px):</strong> Sidebar collapses to icon-only rail, right panel slides in as overlay.
+          <br><br>
+          The key CSS trick is using <code>flex</code> with responsive breakpoints plus <code>transition</code> so panels <strong>slide</strong> instead of snapping.
+        </div>
+        <div class="msg user">no i want you do that main screen of boolean app.</div>
+        <div class="msg ai">
+          <span class="msg-label">Boolean</span>
+          Working on it — building the Win11-style prototype now. Here's what you'll see:
+          <br><br>
+          <strong>↔ Drag the window edges to see the responsive behavior:</strong>
+          <br>
+          • <strong>Wide:</strong> Nav rail → Thread sidebar → Chat center → Browser/Notes right panel
+          <br>
+          • <strong>Medium:</strong> Sidebar collapses, just rail + chat + right panel
+          <br>
+          • <strong>Narrow:</strong> Right panel slides out as an overlay
+          <br>
+          • <strong>Very narrow:</strong> Both sidebar and right panel become slide-out overlays, hamburger menu appears
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="cmp-input-row">
+          <textarea rows="1" placeholder="What do you want done?"></textarea>
+          <span class="cmp-enter">Enter</span>
+        </div>
+        <div class="cmp-tools">
+          <button class="cmp-ico" title="Attach">+</button>
+          <button class="cmp-ico" title="Expand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          </button>
+          <div class="spacer"></div>
+          <button class="cmp-drop" title="Mode"><span class="bolt">⚡</span> Auto <span class="chev">▾</span></button>
+          <button class="cmp-drop model" title="Model">GLM-5 <span class="chev">▾</span></button>
+        </div>
+      </div>
+      </div><!-- /chat-card -->
+    </div>
+
+    <!-- RIGHT PANEL (Browser / Notepad) — floating card, opens on the right -->
+    <div class="right-panel" id="rightPanel">
+      <div class="right-grip" id="rightGrip"></div>
+      <div class="dock-head">
+        <button class="right-tab active" onclick="setRightTab('browser')">🌐 Browser</button>
+        <button class="right-tab" onclick="setRightTab('notes')">📝 Notepad</button>
+        <button class="dock-close" onclick="closeDock()" title="Hide panel">✕</button>
+      </div>
+      <div class="right-content" id="rightContent">
+        <!-- Browser content (default) -->
+        <div id="browserContent">
+          <div class="browser-preview">
+            <div class="url-bar"><span class="lock">🔒</span> localhost:3210</div>
+            <div class="page-content">🐍 Snake Game — Playing!</div>
+          </div>
+          <div style="margin-top: 12px">
+            <div style="font-size: 12px; color: var(--dim); margin-bottom: 6px;">Recently visited</div>
+            <div style="font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; cursor: pointer;">
+              <span style="color: var(--dim); font-size: 11px; flex-shrink:0;">1.</span><span>docs.z.ai/devpack/faq</span>
+            </div>
+            <div style="font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; cursor: pointer;">
+              <span style="color: var(--dim); font-size: 11px; flex-shrink:0;">2.</span><span>github.com/syfy10/Boolean</span>
+            </div>
+          </div>
+        </div>
+        <!-- Notepad content (hidden) -->
+        <div id="notesContent" style="display:none">
+          <div style="font-size: 12px; color: var(--dim); margin-bottom: 8px;">📋 Project Notes</div>
+          <div class="note-paper">
+            <div class="note-editor" contenteditable="true">yes go to next step
+Lets finish anything not done from this list.
+
+I'd change Settings from a long "options page" into a control center with clear sections, search, and health/status indicators.
+
+Key design change:
+- Settings search bar at top
+- Setup checklist
+- Explain what each option affects</div>
+          </div>
+          <div style="margin-top: 10px; display: flex; gap: 4px; flex-wrap: wrap;">
+            <span class="tool-chip">📋 Ideas</span>
+            <span class="tool-chip">🐛 Bugs</span>
+            <span class="tool-chip">✅ Tasks</span>
+            <span class="tool-chip">📖 Research</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+  // ─── Nav panel toggle ───
+  function toggleNav() {
+    const p = document.getElementById('navPanel');
+    p.classList.toggle('open');
+    p.classList.toggle('collapsed');
+  }
+
+  // ─── Right panel: browser/notepad open on the right ───
+  function toggleRight(type) {
+    const panel = document.getElementById('rightPanel');
+    const wasOpen = panel.classList.contains('open');
+    const current = document.getElementById('browserContent').style.display !== 'none' ? 'browser' : 'notes';
+    // Clicking the active tab's button again hides the panel; otherwise open/switch.
+    if (wasOpen && type === current) { closeDock(); return; }
+    panel.classList.add('open');
+    setRightTab(type || 'browser');
+    syncDockButtons();
+  }
+  function closeDock() {
+    document.getElementById('rightPanel').classList.remove('open');
+    syncDockButtons();
+  }
+  function syncDockButtons() {
+    const open = document.getElementById('rightPanel').classList.contains('open');
+    const tab = document.getElementById('browserContent').style.display !== 'none' ? 'browser' : 'notes';
+    document.getElementById('btnBrowser').classList.toggle('active', open && tab === 'browser');
+    document.getElementById('btnNotes').classList.toggle('active', open && tab === 'notes');
+  }
+
+  // ─── Panel tab switching (Browser / Notepad) ───
+  function setRightTab(tab) {
+    const tabs = document.querySelectorAll('#rightPanel .right-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    if (tab === 'browser') {
+      tabs[0].classList.add('active');
+      document.getElementById('browserContent').style.display = '';
+      document.getElementById('notesContent').style.display = 'none';
+    } else {
+      tabs[1].classList.add('active');
+      document.getElementById('browserContent').style.display = 'none';
+      document.getElementById('notesContent').style.display = '';
+    }
+    syncDockButtons();
+  }
+
+  // ─── Nav rail selection ───
+  function setNav(section) {
+    document.querySelectorAll('.nav-rail-item').forEach(b => b.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+  }
+
+  // ─── Right panel resize (drag the left-edge grip) ───
+  (function() {
+    const grip = document.getElementById('rightGrip');
+    const panel = document.getElementById('rightPanel');
+    let isResizing = false, startX, startW;
+    grip.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startW = panel.offsetWidth;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+      const w = Math.max(280, Math.min(640, startW - (e.clientX - startX)));
+      panel.style.width = w + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      if (!isResizing) return;
+      isResizing = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    });
+  })();
+
+  // ─── Auto-resize textarea ───
+  document.querySelector('.cmp-input-row textarea').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+  });
+</script>
+</body>
+</html>

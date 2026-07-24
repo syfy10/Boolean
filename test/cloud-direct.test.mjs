@@ -424,7 +424,7 @@ test("the model receives topic changes without deterministic routing", async (t)
   assert.equal(messages.at(-1).content, answer);
 });
 
-test("ordinary chat turns send no tools and use a compact prompt", async (t) => {
+test("ordinary chat turns send no tools and no Boolean prompt", async (t) => {
   let requestBody = null;
   let requestCount = 0;
   const server = http.createServer(async (req, res) => {
@@ -462,7 +462,7 @@ test("ordinary chat turns send no tools and use a compact prompt", async (t) => 
   assert.equal(answer, "Hi. How can I help?");
   assert.equal(requestCount, 1, "plain chat should complete in one model call");
   assert.equal(requestBody.tools, undefined, "plain chat should not send tool schemas");
-  assert.match(requestBody.messages[0].content, /concise AI workspace/);
+  assert.equal(requestBody.messages[0].content, "");
   assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
 });
 
@@ -631,7 +631,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
     remaining: 240
   });
   assert.equal(classifyTurnMode(secondConfirmation), "connector");
-  assert.match(systemPrompt("", true), /click the Move to Trash button or type `move next batch to trash`/);
+  assert.equal(systemPrompt("", true), "");
 
   assert.equal(emailCleanupContinuationAction([
     { role: "system", content: "system" },
@@ -737,7 +737,7 @@ test("agent tasks continue past the legacy tool-turn limit", async (t) => {
   assert.equal(checkpoints, 16, "every tool result and final answer should be checkpointed");
 });
 
-test("clear artifact requests retry tutorial-only answers with an action nudge", async (t) => {
+test("clear artifact requests accept the API model's own response without an action nudge", async (t) => {
   let calls = 0;
   let nudgedRequest = null;
   let protocolRequest = null;
@@ -790,16 +790,13 @@ test("clear artifact requests retry tutorial-only answers with an action nudge",
     onCheckpoint() {}
   }, messages);
 
-  assert.equal(answer, "Built and verified the requested game.");
-  assert.equal(calls, 5);
-  assert.deepEqual(steps, ["create_project", "list_dir", "write_file", "run_command"]);
-  assert.match(nudgedRequest.messages[0].content, /ACTION REQUIRED/);
-  assert.match(nudgedRequest.messages[0].content, /created website project/i);
-  assert.equal(nudgedRequest.tool_choice, "required");
-  assert.equal(nudgedRequest.tools.length > 0, true);
-  assert.equal(protocolRequest.tools, undefined);
-  assert.match(protocolRequest.messages[0].content, /TOOL PROTOCOL/);
-  assert.doesNotMatch(messages.map((message) => message.content || "").join("\n"), /steps you can follow/);
+  assert.equal(answer, "Here are the steps you can follow to make the game yourself.");
+  assert.equal(calls, 1);
+  assert.deepEqual(steps, []);
+  assert.equal(nudgedRequest.messages[0].content, "");
+  assert.equal(nudgedRequest.tool_choice, undefined);
+  assert.equal(protocolRequest, null);
+  assert.match(messages.map((message) => message.content || "").join("\n"), /steps you can follow/);
 });
 
 test("malformed native tool-call server errors retry without surfacing a 500", async (t) => {
@@ -956,8 +953,8 @@ test("an empty response after tool work continues instead of silently stopping",
   assert.equal(calls, 7);
   assert.deepEqual(steps, ["list_dir"]);
   assert.match(statuses.join("\n"), /paused before finishing.*continuing/i);
-  assert.match(continuationRequest.messages[0].content, /CONTINUE REQUIRED/);
-  assert.match(continuationRequest.messages.at(-1).content, /Do not wait for me to press Continue/i);
+  assert.equal(continuationRequest.messages[0].content, "");
+  assert.doesNotMatch(continuationRequest.messages.map((message) => message.content || "").join("\n"), /CONTINUE REQUIRED|Do not wait for me to press Continue/i);
 });
 
 test("unsupported screenshot image content retries automatically as text", async (t) => {

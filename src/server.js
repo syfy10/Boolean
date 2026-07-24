@@ -42,6 +42,7 @@ import {
 import { emailOAuthRedirectUri, loadManagedEmailOAuthClients, managedEmailOAuthCredential } from "./email-oauth-config.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
+import { detectLocalServers } from "./local-servers.js";
 import { detectWebsiteTech } from "./tech-detector.js";
 import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
@@ -649,6 +650,56 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
   let browseBase = ""; // origin of the isolated browser-proxy server (set on listen)
+  let serverPort = 0;  // this app's own port, hidden from local-server discovery
+
+  // Entry page for the built-in browser. Kept deliberately small and dependency
+  // free: local servers first (the thing you almost always want), then links.
+  const browserStartPage = (servers) => {
+    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const cards = servers.length
+      ? servers.map((s) => `<a class="srv" href="${esc(s.url)}">
+          <span class="ico">▤</span>
+          <span class="nm">${esc(s.name)}</span>
+          <span class="pt">:${esc(s.port)}</span>
+          <span class="go">▷</span>
+        </a>`).join("")
+      : `<p class="none">No local servers are running right now. Start one and reopen this page.</p>`;
+    const links = [
+      ["https://www.google.com", "Google"],
+      ["https://github.com", "GitHub"],
+      ["https://stackoverflow.com", "Stack Overflow"],
+      ["https://developer.mozilla.org", "MDN"]
+    ].map(([u, l]) => `<a class="lnk" href="${u}">${l}</a>`).join("");
+    return `<!doctype html><html><head><meta charset="utf-8"><title>New tab</title><style>
+:root{color-scheme:light dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  font:14px/1.5 "Segoe UI",system-ui,sans-serif;background:#fafaf9;color:#1a1a1a}
+@media(prefers-color-scheme:dark){body{background:#1c1c1c;color:#e8e8e8}}
+h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
+.list{display:flex;flex-direction:column;gap:8px;width:min(460px,88vw)}
+.srv{display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid #e2e2df;border-radius:11px;
+  background:#fff;color:inherit;text-decoration:none;transition:border-color .15s,transform .08s}
+.srv:hover{border-color:#9a9a95}
+.srv:active{transform:translateY(1px)}
+@media(prefers-color-scheme:dark){.srv{background:#242424;border-color:#3a3a3a}.srv:hover{border-color:#5a5a5a}}
+.ico{opacity:.5}
+.nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt{opacity:.5;font-variant-numeric:tabular-nums}
+.go{display:grid;place-items:center;width:26px;height:26px;border:1px solid #e2e2df;border-radius:7px;opacity:.75}
+@media(prefers-color-scheme:dark){.go{border-color:#3a3a3a}}
+.none{opacity:.55;text-align:center;margin:0}
+.links{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.lnk{padding:6px 13px;border:1px solid #e2e2df;border-radius:999px;color:inherit;text-decoration:none;font-size:13px;opacity:.8}
+.lnk:hover{opacity:1}
+@media(prefers-color-scheme:dark){.lnk{border-color:#3a3a3a}}
+</style></head><body>
+<h1>Running locally</h1>
+<div class="list">${cards}</div>
+<div class="links">${links}</div>
+</body></html>`;
+  };
 
   // ── thread store ───────────────────────────────────────────────
   const threads = new Map(); // id -> { id, title, messages, createdAt, updatedAt, abort }
@@ -705,25 +756,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     ].join("\n");
   }
   function resumeTaskMessage(task, latestUserText = "", { refinement = false } = {}) {
-    if (!task) return "Continue exactly where you left off. Do not repeat work already done.";
-    const lines = [
-      "RESUME INTERRUPTED TASK:",
-      `Original objective: ${task.objective || "Finish the prior request."}`,
-      "Relevant user instructions and constraints:",
-      task.context || task.objective || "",
-      "Continue from the existing messages and tool results. Do not restart, switch projects, or claim the context is missing. Finish the task and report the files changed."
-    ];
-    const latest = String(latestUserText || "").trim();
-    if (latest) {
-      lines.push(
-        "",
-        `${refinement ? "Additional user requirement" : "Latest user message"}: ${latest}`,
-        refinement
-          ? "Apply this as an additional requirement to the original task, then continue from the saved checkpoint."
-          : "Treat the latest user message as a status/resume instruction, not as a replacement objective."
-      );
-    }
-    return lines.join("\n");
+    return String(latestUserText || "").trim();
   }
   function isBlankNewThread(t) {
     if (!t || t.kind === "project" || t.pinned) return false;
@@ -823,6 +856,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   let activeThreadId = null;
 
   function currentAppContext(t, latestText = "", { inspectSavedTask = false } = {}) {
+    return "";
+    /*
     const parts = [];
     const taskPrompt = inspectSavedTask && t.pendingTask
       ? [
@@ -854,6 +889,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     if (digest) parts.push(digest);
     if (memory) parts.push(memory);
     return parts.length ? `\n\nCURRENT APP CONTEXT:\n${parts.join("\n\n")}` : "";
+    */
   }
 
   // persist chats to disk (workspace recovery), unless privacy mode is on
@@ -963,7 +999,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         .slice(-18)
         .map((message) => ({ role: message.role, content: message.content }));
       const prompt = [
-        { role: "system", content: "Answer the scheduled request directly. Use recent chat context when useful. This is an unattended, answer-only run: do not call tools, modify files, open pages, send messages, or claim that you performed an action." },
+        { role: "system", content: "" },
         ...recent
       ];
       const answerMessage = await chatCompletion(target, prompt);
@@ -1123,6 +1159,22 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       if (req.method === "POST" && p === "/api/bye") {
         res.writeHead(200); res.end("bye");
         if (autoExit && !byeTimer) byeTimer = setTimeout(shutdown, 8000);
+        return;
+      }
+
+      // Local dev servers currently listening, for the browser's start screen.
+      if (req.method === "GET" && p === "/api/local-servers") {
+        let servers = [];
+        try { servers = await detectLocalServers({ excludePort: serverPort }); } catch { /* best effort */ }
+        return json({ servers });
+      }
+
+      // Entry page for the built-in browser: local servers first, then quick links.
+      if (req.method === "GET" && p === "/browser-start") {
+        let servers = [];
+        try { servers = await detectLocalServers({ excludePort: serverPort }); } catch { /* best effort */ }
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+        res.end(browserStartPage(servers));
         return;
       }
 
@@ -3053,7 +3105,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         .slice(-18)
         .map((m) => ({ role: m.role, content: m.content }));
       const prompt = [
-        { role: "system", content: "Answer the user's request directly and concisely. Use the recent conversation for context. Do not claim to run tools or take actions." },
+        { role: "system", content: "" },
         ...recent
       ];
       const results = new Array(2);
@@ -3144,7 +3196,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       server.listen(tryPort, "127.0.0.1", () => {
         proxyServer.listen(0, "127.0.0.1", () => {
           browseBase = `http://127.0.0.1:${proxyServer.address().port}`;
-          resolve({ server, port: server.address().port });
+          serverPort = server.address().port;
+          resolve({ server, port: serverPort });
         });
       });
     }
