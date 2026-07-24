@@ -2750,10 +2750,17 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
           const incomingMode = body.sideChat === true ? "chat" : turnModeForPendingTask(t.messages, visibleUserText);
           inspectSavedTask = !!savedTask && incomingMode === "inspect";
           if (body.sideChat !== true && (incomingMode === "action" || incomingMode === "connector")) beginPendingTask(t, content);
-          else if (!inspectSavedTask) t.pendingTask = null;
-          else {
+          else if (savedTask) {
+            // A status/inspect question mid-build (e.g. "what's done so far?",
+            // "what's next?") must NOT discard the active task. If it does, a
+            // later "continue"/"next step" has nothing to resume and runs as
+            // answer-only chat, so the model narrates the next step and stops.
+            // Keep the task interrupted; a genuinely new request re-enters the
+            // action branch above and replaces it via beginPendingTask.
             savedTask.state = "interrupted";
             savedTask.updatedAt = Date.now();
+          } else {
+            t.pendingTask = null;
           }
         }
         t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now() });

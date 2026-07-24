@@ -533,6 +533,64 @@
   body.chat-hidden #browser{ width:auto; flex:1; }
   /* native shell provides the browser pane — hide the HTML one */
   body.shell #browser, body.shell #bdrag{ display:none !important; }
+
+  /* ── Full-window browser takeover (web mode) ──────────────────────────
+     The browser slides up over the chat and stays on top; the chat stays
+     mounted underneath so its state is preserved. When closed it collapses
+     to a floating edge pill. The native shell has its own pane, so all of
+     this only applies outside the shell (:not(.shell)). */
+  body.browser-on:not(.shell) #browser{
+    position:fixed; inset:0; width:auto!important; min-width:0!important; max-width:none!important;
+    z-index:220; border-left:0; box-shadow:0 -1px 44px rgba(0,0,0,.30);
+    animation:browserRise .26s cubic-bezier(.16,.84,.44,1); }
+  @keyframes browserRise{ from{ transform:translateY(16px) scale(.985); opacity:0; } to{ transform:none; opacity:1; } }
+  body.browser-closing:not(.shell) #browser{ animation:browserSink .19s ease forwards; }
+  @keyframes browserSink{ from{ transform:none; opacity:1; } to{ transform:translateY(16px) scale(.985); opacity:0; } }
+  body:not(.shell) #bdrag{ display:none!important; }
+  body.browser-on:not(.shell) main{ min-width:0; }
+  @media (prefers-reduced-motion:reduce){
+    body.browser-on:not(.shell) #browser, body.browser-closing:not(.shell) #browser{ animation:none; } }
+
+  /* floating reopen pill on the right edge (shown only when a session exists
+     and the overlay is closed) */
+  #browserPill{ position:fixed; right:0; top:50%; transform:translateY(-50%) translateX(7px); z-index:120;
+    display:none; align-items:center; gap:7px; padding:11px 13px; cursor:pointer;
+    background:var(--bg); border:1px solid var(--border); border-right:0; border-radius:16px 0 0 16px;
+    color:var(--text); font:12px var(--ui); box-shadow:-6px 0 22px rgba(0,0,0,.16);
+    transition:transform .18s ease, background .15s; }
+  #browserPill:hover{ transform:translateY(-50%) translateX(0); background:var(--hover); }
+  #browserPill .bp-ico{ font-size:16px; line-height:1; }
+  #browserPill .bp-label{ font-weight:500; letter-spacing:.01em; }
+  body.has-browser:not(.browser-on):not(.shell) #browserPill{ display:flex; }
+  @container (max-width:0px){} /* noop to keep container context intact */
+
+  /* device / mobile framed view — presets driven by --dev-w / --dev-h */
+  #browser.dev-view .bframewrap{ display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(120% 90% at 50% 0%, color-mix(in srgb,var(--green) 6%,transparent), transparent 60%),
+      var(--card);
+    padding:20px 0; }
+  #browser.dev-view #bframe{ width:var(--dev-w,390px); max-width:94%; height:var(--dev-h,844px); max-height:100%;
+    border-radius:30px; border:10px solid #0b0b0b; box-shadow:0 26px 74px rgba(0,0,0,.5); background:#fff; }
+  #browser.dev-view.dev-tablet #bframe{ border-radius:22px; border-width:12px; }
+  #browser.dev-view .bblank, #browser.dev-view .breader{ border-radius:22px; }
+  .dev-badge{ position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:6; display:none;
+    padding:3px 10px; border-radius:999px; background:var(--bg); border:1px solid var(--border);
+    color:var(--dim); font:11px var(--mono); pointer-events:none; }
+  #browser.dev-view .dev-badge{ display:block; }
+
+  /* "Run current project" block on the browser start screen */
+  .bblank-run{ display:flex; flex-direction:column; gap:9px; margin:20px auto 6px; width:min(340px,92%); }
+  .bblank-run .brun-btn{ display:flex; align-items:center; justify-content:center; gap:9px; height:46px; border:0;
+    border-radius:15px; background:var(--green); color:#fff; font:600 14px var(--ui); cursor:pointer;
+    box-shadow:0 8px 22px color-mix(in srgb,var(--green) 38%,transparent); transition:filter .15s, transform .1s; }
+  .bblank-run .brun-btn:hover{ filter:brightness(1.07); }
+  .bblank-run .brun-btn:active{ transform:translateY(1px); }
+  .bblank-run .brun-btn .brun-proj{ font-weight:400; opacity:.85; font-size:12.5px; }
+  .bblank-run .brun-sub{ display:flex; gap:7px; }
+  .bblank-run .brun-mini{ flex:1; height:36px; border:1px solid var(--border); border-radius:12px; background:var(--bg);
+    color:var(--dim); font:12px var(--ui); cursor:pointer; transition:all .15s; }
+  .bblank-run .brun-mini:hover{ background:var(--hover); color:var(--text); border-color:var(--dim); }
   .bmenu{ position:absolute; top:50px; right:10px; z-index:30; width:min(240px,calc(100% - 20px));
     max-height:calc(100% - 112px); overflow-y:auto; padding:9px; border-radius:14px;
     border:1px solid color-mix(in srgb,var(--glass-border) 82%,var(--border));
@@ -1850,7 +1908,7 @@
   .email-recipe-empty button{ align-self:flex-start; height:30px; padding:0 10px; border:1px solid var(--border); border-radius:7px; background:var(--accent); color:var(--accent-text); cursor:pointer; }
   .email-recipe-summary{ border-left:2px solid var(--role-color); padding:2px 0 2px 8px; color:var(--dim); font:10.5px/1.45 var(--ui); }
   .email-recipe-summary b{ color:var(--text); }
-  .recipe-actions{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:auto; position:sticky; bottom:-10px; z-index:2; background:var(--card); padding:8px 0 2px; border-top:1px solid var(--border); }
+  .recipe-actions{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:auto; position:sticky; bottom:0; z-index:2; background:var(--card); padding:8px 0 4px; border-top:1px solid var(--border); }
   .recipe-actions button{ height:31px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; }
   .recipe-actions button.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
   .recipe-actions button:hover{ opacity:.86; }
@@ -1873,7 +1931,7 @@
   body.recipes-compact.recipes-open .recipes-detail,
   body.browser-on.recipes-open .recipes-detail{ padding:9px; gap:8px; overflow-x:hidden; overflow-y:auto; }
   body.recipes-compact.recipes-open .recipe-actions,
-  body.browser-on.recipes-open .recipe-actions{ position:sticky; bottom:-9px; padding-top:7px; }
+  body.browser-on.recipes-open .recipe-actions{ position:sticky; bottom:0; padding-top:7px; }
   body.recipes-compact.recipes-open .recipes-role-pill,
   body.browser-on.recipes-open .recipes-role-pill{ height:24px; padding:0 7px; font-size:10px; }
   @media(max-width:900px){ .recipes-shell{ grid-template-columns:minmax(0,1fr) minmax(210px,250px); } .recipes-main{ min-height:0; } }
@@ -1892,7 +1950,7 @@
     .recipes-shell{ height:auto; min-height:100%; grid-template-columns:1fr; overflow:visible; }
     .recipes-main,.recipes-detail{ max-height:none; overflow:visible; }
     .recipe-grid{ overflow:visible; }
-    .recipe-actions{ position:sticky; bottom:-10px; }
+    .recipe-actions{ position:sticky; bottom:0; }
   }
 
   /* ── MCP Connector Gallery ── */
@@ -3625,6 +3683,7 @@
     <button class="bbtn" id="bFindBtn" title="Find on page (Ctrl+F)">⌕</button>
     <button class="bbtn" id="bOutlineBtn" title="Toggle page outline (O)">☰</button>
     <button class="bbtn" id="bSplitBtn" title="Toggle split view (Ctrl+Shift+V)">⊞</button>
+    <button class="bbtn" id="bDeviceBtn" title="Responsive view: Desktop → Mobile → Tablet">🖥</button>
     </div>
     <div class="btool-sep"></div>
     <div class="page-actions" id="pageActions">
@@ -3667,6 +3726,7 @@
     <div class="bframe-row reading" id="bFrameRow">
       <div class="bframewrap">
         <div class="bread" id="bread"><span class="beye">👁</span> Boolean is browsing…</div>
+        <div class="dev-badge" id="bDevBadge"></div>
         <iframe id="bframe" sandbox="allow-scripts allow-forms allow-modals allow-downloads" referrerpolicy="no-referrer"></iframe>
         <div class="breader" id="breader"><div class="breader-inner" id="breaderInner"></div></div>
         <div class="bblank" id="bblank">
@@ -3675,6 +3735,13 @@
             <h2>Browse the web</h2>
             <p>Search below, or type a URL / <b>localhost</b> address in the bar above.</p>
             <input class="bsearch" id="bStartSearch" placeholder="Search the web…" spellcheck="false">
+            <div class="bblank-run" id="bblankRun">
+              <button class="brun-btn" id="bRunProject" title="Run the current project and open its local preview here">▶ Run current project<span class="brun-proj" id="bRunProjName"></span></button>
+              <div class="brun-sub">
+                <button class="brun-mini" id="bRunLocalhost" title="Open a running local server">⌂ localhost</button>
+                <button class="brun-mini" id="bRunReload" title="Reload the current preview">⟳ Reload preview</button>
+              </div>
+            </div>
             <div class="bblank-shortcuts" id="bblankhints"></div>
           </div>
         </div>
@@ -3723,6 +3790,8 @@
     </div>
   </div><!-- end flex row -->
 </section>
+
+<div id="browserPill" title="Reopen browser"><span class="bp-ico">🌐</span><span class="bp-label">Browser</span></div>
 
 <input type="file" id="fileImage" accept="image/*" hidden>
 <input type="file" id="fileAny" hidden>
@@ -5708,7 +5777,7 @@
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.49"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.50"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -6034,7 +6103,7 @@
     threadLogHasMore=t.hasMore===true;
     col.innerHTML="";
     col.classList.remove("plan-output-hidden");
-    clearInterval(planTicker); planTicker=0; planEl=null;
+    clearInterval(planTicker); planTicker=0; planEl=null; planCollapsed=false;
     clearFileChips();
     const log=t.log||[];
     if(!log.length && !(run&&run.threadId===id)) showEmpty();
@@ -7572,6 +7641,7 @@
   // -- plan checklist --
   let planEl = null;
   let planTicker = 0;
+  let planCollapsed = false; // user's minimize choice, kept across live re-renders
   let latestProjectStatus = null;
   function planTaskTitle(snapshot) {
     const text = String(snapshot?.objective || "Coding task").replace(/\s+/g," ").trim();
@@ -7711,8 +7781,8 @@
     const header=el.querySelector(".plan-checklist-header");
     header.onclick=(event)=>{
       if(event.target.closest("button")) return;
-      el.querySelector(".plan-step-list")?.classList.toggle("collapsed");
-      el.querySelector(".plan-checklist-caret")?.classList.toggle("open");
+      planCollapsed=!!el.querySelector(".plan-step-list")?.classList.toggle("collapsed");
+      el.querySelector(".plan-checklist-caret")?.classList.toggle("open",!planCollapsed);
     };
     const raw=el.querySelector('[data-plan-action="raw"]');
     if(raw) raw.onclick=()=>{
@@ -7789,10 +7859,10 @@
       + '<span class="plan-checklist-actions">'
       + (hasOutput?'<button class="plan-checklist-action" type="button" data-plan-action="raw" aria-pressed="'+String(!outputHidden)+'">'+(outputHidden?'Show output':'Hide output')+'</button>':'')
       + (live?'<button class="plan-checklist-action danger" type="button" data-plan-action="cancel">Cancel</button>':'')
-      + '<span class="plan-checklist-caret">&#9662;</span>'
+      + '<span class="plan-checklist-caret'+(planCollapsed?'':' open')+'">&#9662;</span>'
       + '</span>'
       + '</div>'
-      + '<ul class="plan-step-list">'
+      + '<ul class="plan-step-list'+(planCollapsed?' collapsed':'')+'">'
       + buildStepListHTML(plan,failureIndex,snapshot.lastFailure,!live)
       + (allDone?buildPlanProjectHTML(snapshot):"")
       + (allDone?buildDetailedPlanHTML(snapshot):"")
@@ -9554,7 +9624,9 @@ Optional bundled starter model:
     if(/\s/.test(v)||!v.includes(".")) return searchUrl(v);   // words → web search
     return "https://"+v; }
   function reportUrl(url){ fetch("/api/browser/url",{method:"POST",body:JSON.stringify({url:url||""})}).catch(()=>{}); }
-  function showBlank(b){ $("bblank").style.display=b?"grid":"none"; }
+  function showBlank(b){ $("bblank").style.display=b?"grid":"none"; if(b) refreshRunProjectUI(); }
+  function currentProjectName(){ try{ const ts=threadSummary(); return ts&&ts.projectDir ? (ts.projectDir.split(/[\\/]/).filter(Boolean).pop()||"") : ""; }catch{ return ""; } }
+  function refreshRunProjectUI(){ const name=currentProjectName(); const label=$("bRunProjName"); if(label) label.textContent=name?` · ${name}`:""; }
   function updateNav(){ const t=curTab(); $("bBack").disabled=!(t&&t.hi>0); $("bFwd").disabled=!(t&&t.hi<t.hist.length-1); }
   let saveT=null;
   function saveBrowser(){ clearTimeout(saveT); saveT=setTimeout(()=>setUi({ browserTabs:btabs.map(t=>({url:t.url,title:t.title})),
@@ -9730,6 +9802,7 @@ Optional bundled starter model:
   }
   function navigate(v){ const u=normUrl(v); if(u) loadUrl(u); }
   function newTab(url){ btabs.push({url:url||"",title:url||"New tab",hist:url?[url]:[],hi:url?0:-1,zoom:1}); bactive=btabs.length-1;
+    document.body.classList.add("has-browser");
     if(url) loadUrl(url); else { showFrame(curTab()); } saveBrowser(); }
   function switchTab(i){ bactive=i; showFrame(curTab()); }
   function closeTab(i){ btabs.splice(i,1); if(!btabs.length){ newTab(); return; } bactive=Math.min(bactive,btabs.length-1); switchTab(bactive); saveBrowser(); }
@@ -9748,8 +9821,26 @@ Optional bundled starter model:
     const w=Math.max(minBrowser,Math.min(Math.round(available/2),maxBrowser));
     document.body.style.setProperty("--bw",w+"px");
   }
-  function openBrowser(on,{remember=false}={}){ if(remember && !!on!==document.body.classList.contains("browser-on")) rememberCurrentView(); if(on){ browserManualSize=false; fitBrowserSplit(); } document.body.classList.toggle("browser-on",on); syncPanelButtons(); if(on&&!btabs.length) newTab();
+  let browserCloseTimer=0;
+  function openBrowser(on,{remember=false}={}){
+    const wasOn=document.body.classList.contains("browser-on");
+    if(remember && !!on!==wasOn) rememberCurrentView();
+    clearTimeout(browserCloseTimer);
+    if(on){
+      browserManualSize=false; fitBrowserSplit();
+      document.body.classList.remove("browser-closing");
+      document.body.classList.add("browser-on","has-browser");
+    } else if(wasOn && !SHELL){
+      // full-window overlay: play the slide-down before unmounting the panel
+      document.body.classList.add("browser-closing");
+      browserCloseTimer=setTimeout(()=>{ document.body.classList.remove("browser-on","browser-closing"); syncPanelButtons(); },190);
+    } else {
+      document.body.classList.remove("browser-on");
+    }
+    syncPanelButtons();
+    if(on&&!btabs.length) newTab();
     if(!on) document.body.classList.remove("chat-hidden");
+    if(on) refreshRunProjectUI();
     const t=curTab(); reportUrl(on&&t?t.url:""); saveBrowser(); }
   function runProjectPreviewUrl(entry){
     if(!entry || entry.name!=="run_project") return "";
@@ -9940,6 +10031,39 @@ Optional bundled starter model:
   if($("bHome")) $("bHome").onclick=()=>{ const t=curTab(); if(t){ t.url=""; t.hist=[]; t.hi=-1; t.title="New tab"; } showFrame(curTab()); saveBrowser(); };
   $("bClose").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"hide"}) : openBrowser(false); };
   $("browserToggle").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"toggle"}) : openBrowser(!document.body.classList.contains("browser-on")); };
+  // floating edge pill — reopen the overlay after it collapses
+  $("browserPill")?.addEventListener("click",()=>{ SHELL ? hostPost({type:"browser",cmd:"show"}) : openBrowser(true,{remember:true}); });
+
+  // Responsive / device view: Desktop → Mobile → Tablet (mirrors the cloud browser presets)
+  const DEVICE_MODES=[
+    {id:"desktop",icon:"🖥",label:"Desktop",w:0,h:0},
+    {id:"mobile",icon:"📱",label:"Mobile · 390 × 844",w:390,h:844},
+    {id:"tablet",icon:"▭",label:"Tablet · 834 × 1112",w:834,h:1112}
+  ];
+  let deviceModeIdx=0;
+  function applyDeviceMode(){
+    const m=DEVICE_MODES[deviceModeIdx], br=$("browser");
+    if(SHELL){ hostPost({type:"browser",cmd:"device",device:m.id,w:m.w,h:m.h}); }
+    br.classList.toggle("dev-view",m.w>0);
+    br.classList.toggle("dev-tablet",m.id==="tablet");
+    if(m.w){ document.body.style.setProperty("--dev-w",m.w+"px"); document.body.style.setProperty("--dev-h",m.h+"px"); }
+    const badge=$("bDevBadge"); if(badge) badge.textContent=m.w?m.label:"";
+    const btn=$("bDeviceBtn"); if(btn){ btn.textContent=m.icon; btn.classList.toggle("active",m.w>0); btn.title="Responsive view: "+m.label+" — click to switch"; }
+  }
+  $("bDeviceBtn")?.addEventListener("click",()=>{ deviceModeIdx=(deviceModeIdx+1)%DEVICE_MODES.length; applyDeviceMode(); });
+
+  // "Run current project" middle options on the start screen
+  function askAI(text){ if(!text) return; input.value=text; try{ autosize(); }catch{} sendMessage(); }
+  function runCurrentProject(){
+    const name=currentProjectName();
+    askAI(name
+      ? `Run the current project (${name}) and open its local preview in the built-in browser.`
+      : "Run the current project and open its local preview in the built-in browser. If no project is open, tell me how to start one.");
+  }
+  window.runCurrentProject=runCurrentProject;
+  $("bRunProject")?.addEventListener("click",runCurrentProject);
+  $("bRunLocalhost")?.addEventListener("click",()=>{ bAddr.value="http://localhost:"; bAddr.focus(); });
+  $("bRunReload")?.addEventListener("click",()=>{ const t=curTab(); if(t&&t.url) showFrame(t); else { bAddr.value="http://localhost:"; bAddr.focus(); } });
   $("bReader").onclick=toggleReader;
   $("bDarkPage").onclick=toggleDarkPage;
   $("bStar").onclick=toggleBookmark;
@@ -10324,6 +10448,7 @@ Optional bundled starter model:
       else if(d.type==="clipboard"&&d.id&&clipboardWaiters[d.id]){ const pending=clipboardWaiters[d.id]; delete clipboardWaiters[d.id]; d.ok?pending.resolve(d.text||""):pending.reject(new Error(d.error||"clipboard unavailable")); }
       else if(d.type==="folder"&&d.id&&folderWaiters[d.id]){ const resolve=folderWaiters[d.id]; delete folderWaiters[d.id]; resolve(d.ok&&d.path?{path:d.path}:{path:null,error:d.error||""}); }
       else if(d.type==="shellBrowser"){ document.body.classList.toggle("browser-on",!!d.open); syncPanelButtons(); }
+      else if(d.type==="runProject"){ try{ runCurrentProject(); }catch{} }
       else if(d.type==="updateReady"){ tempToast("Boolean "+(d.version||"update")+" is ready. Close Boolean to install it.",6000); }
       else if(d.type==="snip"){ addSnipImage(d.dataURL,d.target||"message"); }
       else if(d.type==="context"&&d.id&&shellContextWaiters[d.id]){ const fn=shellContextWaiters[d.id]; delete shellContextWaiters[d.id]; fn(d); }

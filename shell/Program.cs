@@ -327,12 +327,16 @@ sealed class MainForm : Form
     {
         if (WindowState != FormWindowState.Normal) return false;
         var work = Screen.FromHandle(Handle).WorkingArea;
-        const int tolerance = 12;
-        bool fillsHeight = Math.Abs(Top - work.Top) <= tolerance &&
-            Math.Abs(Bottom - work.Bottom) <= tolerance;
+        // Wider tolerance: Windows 11 snap layouts leave small gaps and the DWM
+        // frame extends a few px past the visible edge, so a strict 12px test
+        // missed genuine snaps and the window grew anyway.
+        const int tolerance = 24;
+        // Cover "most of the height" rather than exact top+bottom — a snapped or
+        // user-dragged edge window is tall even if it doesn't perfectly fill.
+        bool tallEnough = Height >= work.Height - Math.Max(tolerance, work.Height / 6);
         bool touchesSide = Math.Abs(Left - work.Left) <= tolerance ||
             Math.Abs(Right - work.Right) <= tolerance;
-        return fillsHeight && touchesSide && Width < work.Width - tolerance;
+        return tallEnough && touchesSide && Width < work.Width - tolerance;
     }
 
     // layout
@@ -362,6 +366,14 @@ sealed class MainForm : Form
     Button _addTabBtn = new();
     readonly System.Windows.Forms.Timer _menuDismissTimer = new() { Interval = 35 };
     Button _browserCloseBtn = null!;
+    Button? _deviceBtn;
+    int _deviceModeIdx = 0;
+    static readonly (string id, string label, int w, int h, bool mobile, string glyph)[] DeviceModes =
+    {
+        ("desktop", "Desktop", 0, 0, false, "\U0001F5A5"),      // 🖥
+        ("mobile",  "Mobile 390 × 844", 390, 844, true, "\U0001F4F1"), // 📱
+        ("tablet",  "Tablet 834 × 1112", 834, 1112, false, "▭")
+    };
     Panel _tabBar = new() { Dock = DockStyle.Top, Height = 42 };
 
     // themeable chrome (follows the app's light/dark theme)
@@ -425,6 +437,7 @@ sealed class MainForm : Form
         _split.Panel2.Padding = new Padding(0, BrowserTopInset, 0, 0);
         _split.Panel2.Controls.Add(_browserPane);
         Controls.Add(_split);
+        BuildBrowserPill();
         Controls.Add(_startup);
         _startup.BringToFront();
 
@@ -695,10 +708,11 @@ sealed class MainForm : Form
             var backup = Path.Combine(_updateDir, "backup");
             if (Directory.Exists(backup)) Directory.Delete(backup, true);
             Directory.CreateDirectory(backup);
-            foreach (var name in new[] { "config.json", "threads.json", "usage.json", "preferences.json" })
+            foreach (var name in new[] { "config.json", "config.json.bak", "threads.json", "usage.json", "preferences.json" })
             {
                 var from = Path.Combine(source, name);
-                if (File.Exists(from)) File.Copy(from, Path.Combine(backup, name), true);
+                // Skip empty/zero-byte files so a bad copy can't overwrite good user data on restore.
+                if (File.Exists(from) && new FileInfo(from).Length > 0) File.Copy(from, Path.Combine(backup, name), true);
             }
         }
         catch { }
@@ -742,6 +756,13 @@ try {
   if (Test-Path -LiteralPath $BackupDir) {
     New-Item -ItemType Directory -Path $UserDataDir -Force | Out-Null
     Get-ChildItem -LiteralPath $BackupDir -File | ForEach-Object {
+      # Never clobber user data with an empty or corrupt backup. For JSON files,
+      # require the backup to parse before restoring it over the installed copy.
+      if ($_.Length -le 0) { return }
+      if ($_.Extension -ieq '.json') {
+        try { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -ErrorAction Stop | Out-Null }
+        catch { Add-Content -LiteralPath $LogPath -Value ("Updater: skipped invalid backup " + $_.Name); return }
+      }
       Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $UserDataDir $_.Name) -Force
     }
   }
@@ -1026,6 +1047,9 @@ try {
         Place(Icon("\u2190", "Back", 32, (_, __) => Active()?.View.CoreWebView2?.GoBack()));
         Place(Icon("\u2192", "Forward", 32, (_, __) => Active()?.View.CoreWebView2?.GoForward()));
         Place(Icon("\u21BB", "Reload", 32, (_, __) => Active()?.View.CoreWebView2?.Reload()));
+        _deviceBtn = Icon("\U0001F5A5", "Responsive view: Desktop / Mobile / Tablet", 34, (_, __) => CycleDeviceMode());
+        Place(_deviceBtn);
+        Place(Icon("\u25B6", "Run current project", 34, (_, __) => PostToChat(new { type = "runProject" })));
         x += 6;
 
         // address — a clearly visible field (own background, left-aligned)
@@ -1229,6 +1253,7 @@ try {
         _split.BackColor = p.Splitter;
         _split.Panel2.BackColor = p.PaneBg;
         _browserPane.BackColor = p.PaneBg;
+        StyleBrowserPill();
         _content.BackColor = p.PaneBg;
         _browserTitleBar.BackColor = p.BarBg;
         _browserChrome.BackColor = p.BarBg;
@@ -1545,6 +1570,38 @@ try {
         _split.Panel1Collapsed = _full; // hide the chat pane → browser full width
     }
 
+    // Responsive/device emulation, mirroring the web browser's Desktop → Mobile
+    // → Tablet presets. Uses the WebView2 DevTools protocol on the active tab.
+    async void CycleDeviceMode()
+    {
+        _deviceModeIdx = (_deviceModeIdx + 1) % DeviceModes.Length;
+        await ApplyDeviceModeAsync();
+    }
+    async System.Threading.Tasks.Task ApplyDeviceModeAsync()
+    {
+        var m = DeviceModes[_deviceModeIdx];
+        if (_deviceBtn != null) { _deviceBtn.Text = m.glyph; _deviceBtn.Invalidate(); }
+        var cw = Active()?.View.CoreWebView2;
+        if (cw == null) return;
+        try
+        {
+            if (m.w == 0)
+            {
+                await cw.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
+                await cw.CallDevToolsProtocolMethodAsync("Emulation.setTouchEmulationEnabled", "{\"enabled\":false}");
+            }
+            else
+            {
+                var mob = m.mobile ? "true" : "false";
+                await cw.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride",
+                    $"{{\"width\":{m.w},\"height\":{m.h},\"deviceScaleFactor\":0,\"mobile\":{mob}}}");
+                await cw.CallDevToolsProtocolMethodAsync("Emulation.setTouchEmulationEnabled",
+                    $"{{\"enabled\":{mob}}}");
+            }
+        }
+        catch { }
+    }
+
     void Navigate(string input)
     {
         var url = Normalize(input);
@@ -1571,6 +1628,52 @@ try {
 
     // ── show / hide the browser pane (driven by the chat UI toggle) ──
     bool _browserOpen = false;
+    bool _browserEverOpened = false;
+
+    // Floating edge pill: when the full-window browser is closed it collapses to
+    // a small tab peeking off the right edge that reopens it.
+    readonly RoundedButton _browserPill = new();
+    void BuildBrowserPill()
+    {
+        _browserPill.Text = "\U0001F310"; // 🌐
+        _browserPill.Size = new Size(46, 50);
+        _browserPill.Font = new Font("Segoe UI Emoji", 13.5f);
+        _browserPill.Radius = 16;
+        _browserPill.FlatStyle = FlatStyle.Flat;
+        _browserPill.FlatAppearance.BorderSize = 0;
+        _browserPill.TabStop = false;
+        _browserPill.Visible = false;
+        _browserPill.Cursor = Cursors.Hand;
+        _browserPill.Click += (_, __) => ToggleBrowser(true);
+        var tt = new ToolTip(); tt.SetToolTip(_browserPill, "Open browser");
+        Controls.Add(_browserPill);
+        _browserPill.BringToFront();
+        StyleBrowserPill();
+        PositionBrowserPill();
+        Resize += (_, __) => { if (_browserPill.Visible) PositionBrowserPill(); };
+    }
+    void StyleBrowserPill()
+    {
+        _browserPill.ForeColor = _pal.Text;
+        _browserPill.Fill = _pal.BtnBg;
+        _browserPill.Border = _pal.BtnBorder;
+        _browserPill.BackColor = Color.Transparent;
+    }
+    void PositionBrowserPill()
+    {
+        _browserPill.Left = ClientSize.Width - _browserPill.Width + 8; // peek off the edge
+        _browserPill.Top = Math.Max(0, (ClientSize.Height - _browserPill.Height) / 2);
+    }
+    void ShowBrowserPill()
+    {
+        if (!_browserEverOpened) return;
+        StyleBrowserPill();
+        PositionBrowserPill();
+        _browserPill.Visible = true;
+        _browserPill.BringToFront();
+    }
+    void HideBrowserPill() => _browserPill.Visible = false;
+
     void FitBrowserSplit()
     {
         if (_split.Width <= 0) return;
@@ -1608,6 +1711,11 @@ try {
     {
         if (WindowState == FormWindowState.Maximized || IsSnappedToWorkingArea()) return;
         var wa = Screen.FromHandle(Handle).WorkingArea;
+        // Respect a window the user has docked against either screen edge: widening
+        // it (opening the browser or notepad) looked like it ignored the snap.
+        const int edgeTol = 24;
+        bool touchesEdge = Math.Abs(Left - wa.Left) <= edgeTol || Math.Abs(Right - wa.Right) <= edgeTol;
+        if (touchesEdge && Width < wa.Width - edgeTol) return;
         const int desiredMin = 1240; // sidebar + chat + notepad + a usable browser pane
         int target = Math.Min(wa.Width, Math.Max(Width, desiredMin));
         if (target <= Width) return;
@@ -1622,9 +1730,15 @@ try {
         _browserOpen = force ?? !_browserOpen;
         if (_browserOpen)
         {
+            _browserEverOpened = true;
+            HideBrowserPill();
             GrowForBrowser();
-            if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
+            // Full-window takeover: the browser covers the whole window (chat
+            // hidden underneath) and stays on top. The ⤢ button / "Hide chat"
+            // menu toggle can drop back to a side-by-side split via ToggleFull.
             _split.Panel2Collapsed = false;
+            _split.Panel1Collapsed = true;
+            _full = true;
             if (ensureTab && _tabs.Count == 0) AddTab(_homeUrl, activate: true, navigate: true);
             var t = Active();
             if (t != null && t.View.CoreWebView2 != null)
@@ -1636,9 +1750,15 @@ try {
                     t.View.CoreWebView2.Navigate(_homeUrl);
                 }
             }
-            BeginInvoke(new Action(FitBrowserSplit)); // fit after the layout settles
+            BeginInvoke(new Action(AutoFitActiveBrowserIfNarrow));
         }
-        else _split.Panel2Collapsed = true;
+        else
+        {
+            _split.Panel2Collapsed = true;
+            _split.Panel1Collapsed = false; // restore the chat
+            _full = false;
+            ShowBrowserPill(); // collapse to a floating edge pill
+        }
         PostToChat(new { type = "shellBrowser", open = _browserOpen });
     }
 

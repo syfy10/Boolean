@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.49";
-export const APP_DISPLAY_VERSION = "v0.09.49";
+export const APP_VERSION = "0.9.50";
+export const APP_DISPLAY_VERSION = "v0.09.50";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -326,11 +326,45 @@ function atomicWriteJson(file, value) {
   fs.renameSync(tmp, file);
 }
 
+// Does a config hold any saved credential (email connection, API key, or a
+// connector row)? Used to detect a config that was reset/wiped by an update.
+function hasAnySavedCredential(cfg) {
+  const c = cfg?.connectors || {};
+  const email = c.email || {};
+  if (["gmail", "outlook"].some((p) => hasSavedEmailCredential(email[p]))) return true;
+  if (["openai", "glm", "zaiCoding", "claude", "customApi"].some((p) => nonEmptyString(cfg?.[p]?.apiKey))) return true;
+  if (["apis", "agents", "mcp"].some((k) => Array.isArray(c[k]) && c[k].length)) return true;
+  return false;
+}
+
+// If the primary config came back with no credentials at all but a backup still
+// has them, the primary was reset (e.g. wiped during an app update). Restore the
+// saved connections/keys from the backup. Only fires on a total wipe, so it never
+// resurrects a single credential the user deliberately removed.
+function recoverCredentialsFromBackup(cfg) {
+  if (hasAnySavedCredential(cfg)) return false;
+  for (const backupFile of [CONFIG_BACKUP_FILE, LEGACY_CONFIG_FILE]) {
+    try {
+      const backup = readJsonFile(backupFile);
+      if (!hasAnySavedCredential(backup)) continue;
+      cfg.connectors = deepMerge(cfg.connectors || {}, backup.connectors || {});
+      preserveSavedApiKeys(cfg, backup);
+      return true;
+    } catch {
+      /* try next backup */
+    }
+  }
+  return false;
+}
+
 export function loadConfig() {
   for (const file of [CONFIG_FILE, CONFIG_BACKUP_FILE, LEGACY_CONFIG_FILE]) {
     try {
       const raw = readJsonFile(file);
       const cfg = deepMerge(DEFAULTS, raw);
+      // Recover connections/keys wiped from the primary config by an update.
+      let recovered = false;
+      if (file === CONFIG_FILE) recovered = recoverCredentialsFromBackup(cfg);
       // Coding Plan traffic must always use Z.AI's dedicated endpoint.
       cfg.zaiCoding.baseUrl = DEFAULTS.zaiCoding.baseUrl;
       if (!["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"].includes(cfg.zaiCoding.model)) cfg.zaiCoding.model = "GLM-4.7";
@@ -338,7 +372,7 @@ export function loadConfig() {
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
       // migrate configs saved before the context-window increase (8192 â†’ 32768)
       if (!cfg.local.ctx) cfg.local.ctx = 32768;
-      let migrated = false;
+      let migrated = recovered;
       if (raw.ui && raw.ui.onboarded === undefined && (raw.eulaAccepted || raw.ui.showOnboarding === false)) {
         cfg.ui.onboarded = true;
         cfg.ui.showOnboarding = false;

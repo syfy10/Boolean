@@ -538,7 +538,22 @@ const EMAIL_CLEANUP_BATCH_REQUEST = /\b(?:do|run|process|move|trash|continue)\b[
 const EMAIL_CLEANUP_PENDING_PROMPT = /\b(?:confirm|go ahead|proceed|second batch|next batch|remaining candidates?|cleanup batch|move[\s\S]{0,50}trash|trash[\s\S]{0,50}(?:messages?|candidates?))\b/i;
 // text that signals the model is describing MORE work instead of finishing it —
 // small models often narrate the next step rather than doing it and then stop
-const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|have to)\s+(?:now\s+|then\s+|also\s+)?(?:add|create|build|write|implement|update|make|set ?up|style|wire|continue|proceed|finish|start|handle|generate|scaffold|develop|do)|next step|next[,:]|let'?s\s+(?:now\s+)?(?:add|create|build|write|implement|continue|proceed|finish|do)|let us\s+(?:now\s+)?(?:add|create|build|continue|proceed|finish|do)|still (?:need|have) to|remaining\b|to-?do\b|step \d+\b|going to\s+(?:add|create|build|write|implement|make|finish|do)|shall i\b|would you like me to\b|after (?:that|this)\b|proceed to\b)/i;
+const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|have to)\s+(?:now\s+|then\s+|also\s+)?(?:add|create|build|write|implement|update|make|set ?up|style|wire|continue|proceed|finish|start|handle|generate|scaffold|develop|do|read|open|check|look|inspect|trace|examine|review|view|search|find|scan|explore|investigate|verify|test|run)|next step|next[,:]|let'?s\s+(?:now\s+)?(?:add|create|build|write|implement|continue|proceed|finish|do|read|open|check|look|inspect|start)|let us\s+(?:now\s+)?(?:add|create|build|continue|proceed|finish|do|read|check|look)|still (?:need|have) to|remaining\b|to-?do\b|step \d+\b|going to\s+(?:add|create|build|write|implement|make|finish|do|read|check|look|inspect)|shall i\b|would you like me to\b|after (?:that|this)\b|proceed to\b)/i;
+
+// A pure announcement of an imminent step ("let me read the files now",
+// "I'll check agent.js") with no deliverable and no tool call. Small/mid models
+// narrate the next action and then stop; this catches that so the loop can push
+// them to actually take the step instead of accepting the narration as an answer.
+const ANNOUNCE_ACTION = /\b(?:let me|let'?s|i'?ll|i will|i'?m going to|i am going to|allow me to|first,?\s*i'?ll|now i'?ll)\s+(?:just\s+|now\s+|actually\s+|first\s+|then\s+|go\s+(?:ahead\s+)?(?:and\s+)?|start by\s+|begin by\s+|quickly\s+)?(?:read|open|check|look|inspect|trace|examine|review|view|see|find|search|grep|scan|explore|investigate|start|begin|continue|proceed|add|create|build|write|implement|update|edit|fix|run|wire|load|pull|fetch)\b/i;
+
+// True when a response is a short bare announcement of an imminent step with no
+// deliverable — the "let me read the files now" stall. The loop uses this to
+// push the model to actually call a tool instead of accepting the narration.
+export function announcesUnperformedAction(text) {
+  const value = String(text || "").trim();
+  if (!value || value.length >= 400) return false;
+  return ANNOUNCE_ACTION.test(value);
+}
 
 function parsedJsonObject(value) {
   try {
@@ -1333,10 +1348,13 @@ export async function runTurn(ctx, messages) {
   let textOnlyContentFallback = false;
   let autoContinues = 0;
   let controllerRecoveries = 0;
+  let announceNudges = 0;
+  let forceToolCallNext = false;
   let activeToolDefinitions = [];
   const MAX_AUTO_CONTINUE = 8; // finish multi-step builds without looping forever
   const MAX_CONTROLLER_RECOVERIES = 4;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
+  const MAX_ANNOUNCE_NUDGES = 3; // stop pushing if the model refuses to act
   const handleControllerStop = (result) => {
     const stoppedByController = controllerStopAnswer(result);
     if (!stoppedByController) return "";
@@ -1402,9 +1420,10 @@ export async function runTurn(ctx, messages) {
       const availableTools = toolDefinitionsForTurnMode(turnMode, artifactActionRequired, completedToolWork);
       activeToolDefinitions = availableTools;
       if (!useNativeTools && availableTools.length) modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: localCompactTools });
-      const requestTarget = (actionNudgeActive || explicitActionToolResultRequired) && !completedToolWork && useNativeTools && availableTools.length
+      const requestTarget = (actionNudgeActive || explicitActionToolResultRequired || forceToolCallNext) && !completedToolWork && useNativeTools && availableTools.length
         ? { ...target, toolChoice: "required" }
         : target;
+      forceToolCallNext = false;
       const completion = await chatCompletionWithFallback(
         config,
         requestTarget,
@@ -1571,6 +1590,25 @@ export async function runTurn(ctx, messages) {
         continue;
       }
       throw new Error("The model returned an empty response repeatedly after Boolean retried automatically. The task remains checkpointed.");
+    }
+
+    // The model announced an inspection or action ("let me read the files now")
+    // but emitted no tool call this turn, then stopped. Small/mid models do this
+    // constantly. Catch it independent of task classification — as long as tools
+    // are available and the response is a short bare announcement with nothing
+    // done — and push the model to actually take the step instead of accepting
+    // the narration as a final answer.
+    if (activeToolDefinitions.length && !completedToolWork && !signal?.aborted
+        && announceNudges < MAX_ANNOUNCE_NUDGES
+        && announcesUnperformedAction(assistantContent)) {
+      announceNudges++;
+      forceToolCallNext = true;
+      messages.push({ role: "assistant", content: assistantContent });
+      messages.push({ role: "user", content:
+        "You described the next step but did not perform it. Do not narrate or ask — call a tool now to carry out exactly what you just said, then keep going. "
+        + "Do not reply with plain text again until you have run at least one tool." });
+      onStatus("taking the announced step...");
+      continue;
     }
 
     // Build tasks: if the model stops with text that describes MORE work to do
