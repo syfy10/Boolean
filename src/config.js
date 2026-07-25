@@ -2,8 +2,8 @@
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.54";
-export const APP_DISPLAY_VERSION = "v0.09.54";
+export const APP_VERSION = "0.9.55";
+export const APP_DISPLAY_VERSION = "v0.09.55";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -89,9 +89,11 @@ const DEFAULTS = {
     apis: [],             // [{id,name,baseUrl,model,apiKey,approvedUse,enabled}] OpenAI-compatible APIs
     mcp: [],              // [{id,name,url,token,oauth,enabled}] remote Streamable-HTTP MCP servers
     agents: [],           // [{id,name,url,apiKey,enabled}]
+    cloudflare: { token: "", connected: false, accountId: "", accountName: "", tokenId: "", status: "", lastTestedAt: 0 },
     email: {
       draftOnly: true,
       confirmBeforeSend: true,
+      accounts: [],
       gmail: { clientId: "", manualClientId: "", manualClientSecret: "", clientSource: "", connected: false, account: "", oauth: null },
       outlook: { clientId: "", manualClientId: "", manualClientSecret: "", clientSource: "", connected: false, account: "", oauth: null }
     }
@@ -279,6 +281,21 @@ export function preserveSavedApiKeys(next, previous) {
   preserveKeyedApiKeys(next.connectors?.apis, previous.connectors?.apis);
   preserveKeyedApiKeys(next.connectors?.agents, previous.connectors?.agents);
   preserveMcpCredentials(next.connectors?.mcp, previous.connectors?.mcp);
+  const nextCloudflare = next.connectors?.cloudflare;
+  const previousCloudflare = previous.connectors?.cloudflare;
+  if (nextCloudflare && previousCloudflare) {
+    if (!nonEmptyString(nextCloudflare.token) && nonEmptyString(previousCloudflare.token)) {
+      nextCloudflare.token = previousCloudflare.token;
+    }
+  }
+  if (next.connectors?.email || previous.connectors?.email?.accounts) {
+    next.connectors = next.connectors || {};
+    next.connectors.email = next.connectors.email || {};
+    next.connectors.email.accounts = mergeMissingConnectorRows(
+      next.connectors.email.accounts,
+      previous.connectors.email?.accounts
+    );
+  }
   return next;
 }
 
@@ -309,6 +326,13 @@ export function preserveSavedConnections(next, previous) {
     if (!next.connectors.email[provider] && previous.connectors.email?.[provider]) {
       next.connectors.email[provider] = structuredClone(previous.connectors.email[provider]);
     }
+  }
+  next.connectors.email.accounts = mergeMissingConnectorRows(
+    next.connectors.email.accounts,
+    previous.connectors.email?.accounts
+  );
+  if (!next.connectors.cloudflare && previous.connectors.cloudflare) {
+    next.connectors.cloudflare = structuredClone(previous.connectors.cloudflare);
   }
   return next;
 }

@@ -44,6 +44,26 @@ test("does not confuse a project update question with Windows Update", () => {
   );
 });
 
+test("email cleanup recipes never open Windows account settings", () => {
+  const noOpenEmail = `Use the sender and subject from the email open in Boolean's browser to call email_cleanup_preview for the connected Gmail or Outlook account.
+
+Connected account: syfy10@gmail.com (gmail).
+
+No open email page was detected.
+
+Before any write action, verify that the saved cleanup plan and connected account belong to the same mailbox.`;
+  const openGmail = `Use the sender and subject from the email open in Boolean's browser to call email_cleanup_preview for the connected Gmail or Outlook account.
+
+Connected account: syfy10@gmail.com (gmail).
+
+Email open in Boolean browser: Inbox (5,853) - syfy10@gmail.com - Gmail (https://mail.google.com/mail/u/0/#inbox)
+
+Before any write action, verify that the browser email belongs to the connected account.`;
+
+  assert.equal(detectWindowsSettingsRequest(noOpenEmail), null);
+  assert.equal(detectWindowsSettingsRequest(openGmail), null);
+});
+
 test("still routes explicit Windows Update settings requests", () => {
   assert.deepEqual(detectWindowsSettingsRequest("Open Windows Update"), {
     name: "windows_settings_open",
@@ -73,5 +93,12 @@ test("still routes explicit privacy settings requests", () => {
   assert.deepEqual(detectWindowsSettingsRequest("Open Windows privacy settings"), {
     name: "windows_settings_open",
     args: { page: "privacy" }
+  });
+});
+
+test("still routes an explicit Windows accounts settings request", () => {
+  assert.deepEqual(detectWindowsSettingsRequest("Open Windows account settings"), {
+    name: "windows_settings_open",
+    args: { page: "accounts" }
   });
 });

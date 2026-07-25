@@ -32,6 +32,10 @@ test("Email Recipes include connected-mail and cleanup workflows", () => {
   assert.match(html, /browserMatchesAccount/);
   assert.match(html, /Ignore the browser page for this connected-account cleanup/);
   assert.match(html, /do not describe the connected account as matching the visible browser account/);
+  assert.match(html, /Pass this exact value as account_id to every email tool call/);
+  assert.match(html, /email\.accounts/);
+  assert.match(html, /data-email-account-id/);
+  assert.match(html, /Add account/);
 });
 
 test("built-in browser switches to email actions for Gmail and Outlook", () => {
@@ -44,7 +48,8 @@ test("built-in browser switches to email actions for Gmail and Outlook", () => {
   assert.match(html, /outlook\.office365\.com/);
   assert.match(shell, /mail\.google\.com/);
   assert.match(shell, /outlook\.office365\.com/);
-  assert.match(shell, /UpdateBrowserTasks/);
+  assert.match(shell, /ChromeTaskSpecs\(string\? url\) => IsEmailPage\(url\)/);
+  assert.match(shell, /PushChromeState\(\)/);
 });
 
 test("email cleanup exposes preview, reversible Trash, and Undo only", () => {

@@ -8,6 +8,7 @@ import { saveConfig, SAZ_DIR } from "./config.js";
 import { providerImageSupport } from "./providers.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
+import { cloudflareRequest, cloudflareResourceList, assertCloudflarePath } from "./cloudflare.js";
 import {
   listEmail,
   readEmail,
@@ -19,7 +20,8 @@ import {
   listEmailLabels,
   getEmailThreadSafety,
   trashEmail,
-  untrashEmail
+  untrashEmail,
+  savedEmailAccounts
 } from "./email.js";
 import {
   buildGmailCleanupQuery,
@@ -698,8 +700,40 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "list_connectors",
-      description: "List configured email accounts, MCP servers, and agent connectors. Use this before using a connector or when the user asks what connectors are available.",
+      description: "List configured Cloudflare, email, MCP, and agent connectors. Use this before using a connector or when the user asks what connectors are available.",
       parameters: { type: "object", properties: {}, required: [] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "cloudflare_list_resources",
+      description: "Read the connected Cloudflare account's zones, Workers, Pages projects, D1 databases, or R2 buckets.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: { type: "string", enum: ["zones", "workers", "pages", "d1", "r2"] }
+        },
+        required: ["resource"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "cloudflare_api_request",
+      description:
+        "Make an advanced Cloudflare API request scoped to the account connected in Settings. " +
+        "Use GET for account inspection. POST, PUT, PATCH, and DELETE always require user approval.",
+      parameters: {
+        type: "object",
+        properties: {
+          method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          path: { type: "string", description: "Cloudflare API v4 path, beginning with /accounts/{connected_account_id} or a zone path." },
+          body: { type: "object", description: "Optional JSON request body." }
+        },
+        required: ["method", "path"]
+      }
     }
   },
   {
@@ -709,6 +743,7 @@ export const TOOL_DEFINITIONS = [
       description: "List recent messages from a connected Gmail or Outlook account. This reads mail but does not send anything.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id from the recipe/account picker. Required when more than one account uses this provider." },
         query: { type: "string", description: "Optional provider search query" },
         limit: { type: "integer", description: "1-25 messages; default 10" }
       }, required: ["provider"] }
@@ -721,6 +756,7 @@ export const TOOL_DEFINITIONS = [
       description: "Read one message from a connected Gmail or Outlook account by the id returned from email_list.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
         id: { type: "string", description: "Message id returned by email_list" }
       }, required: ["provider", "id"] }
     }
@@ -732,6 +768,7 @@ export const TOOL_DEFINITIONS = [
       description: "Create, but do not send, an email draft in connected Gmail or Outlook.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
         to: { type: "string" }, subject: { type: "string" }, text: { type: "string" }
       }, required: ["provider", "to", "subject", "text"] }
     }
@@ -743,6 +780,7 @@ export const TOOL_DEFINITIONS = [
       description: "Create, but do not send, a reply draft for a message in connected Gmail or Outlook.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
         message_id: { type: "string" }, text: { type: "string" }
       }, required: ["provider", "message_id", "text"] }
     }
@@ -754,6 +792,7 @@ export const TOOL_DEFINITIONS = [
       description: "Send an existing Gmail or Outlook draft. Boolean always shows a confirmation prompt first, even in Auto-approve mode. Unavailable while Draft-only is on.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
         draft_id: { type: "string" }
       }, required: ["provider", "draft_id"] }
     }
@@ -765,6 +804,7 @@ export const TOOL_DEFINITIONS = [
       description: "Create a read-only, locally stored cleanup preview for connected Gmail or Outlook. It protects starred, important, flagged, primary, labeled/categorized, attachment, sensitive, sent, and draft mail. It changes nothing and returns a plan id, counts, reasons, and samples.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
         query: { type: "string", description: "Optional extra provider search criteria, such as from:sender@example.com or a sender/domain keyword" },
         scope: { type: "string", enum: ["inbox", "all"], description: "Mailbox scope. Use inbox to scan only the Inbox (the safer default), or all to include archived and other non-Trash mail." },
         older_than: { type: "string", description: "Retention age such as 6m, 1y, or 2y; default 2y" },
@@ -782,6 +822,7 @@ export const TOOL_DEFINITIONS = [
       description: "Move one confirmed batch from a saved cleanup preview to Trash. It re-checks every message and conversation immediately before acting, skips anything protected or uncertain, never permanently deletes, and always asks for explicit confirmation.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
         plan_id: { type: "string" },
         batch_size: { type: "integer", description: "1-250 messages; default 100" }
       }, required: ["provider", "plan_id"] }
@@ -794,6 +835,7 @@ export const TOOL_DEFINITIONS = [
       description: "Undo a Boolean cleanup run by moving its messages out of Trash. Requires the run id returned by email_cleanup_trash.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
+        account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
         run_id: { type: "string" }
       }, required: ["provider", "run_id"] }
     }
@@ -814,7 +856,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "mcp_call_tool",
-      description: "Call a tool on an enabled MCP server. Boolean always asks the user to confirm MCP actions, including trading actions.",
+      description: "Call a tool on an enabled MCP server. Read-only calls respect the current approval mode. Trading, transfers, orders, and other account-changing calls always require explicit confirmation.",
       parameters: {
         type: "object",
         properties: {
@@ -1115,13 +1157,62 @@ function connectorList(ctx) {
   const agents = (c.agents || []).map((x) => `${x.enabled === false ? "off" : "on"} Agent ${x.name || x.id}: ${x.url || ""}${x.apiKey ? " (key saved)" : ""}`);
   const email = ["gmail", "outlook"].filter((name) => c.email?.[name]?.connected)
     .map((name) => `on Email ${name}: ${c.email[name].account || "connected"}`);
-  return [...email, ...mcp, ...agents].join("\n") || "no connectors configured";
+  const cloudflare = c.cloudflare?.connected
+    ? [`on Cloudflare: ${c.cloudflare.accountName || c.cloudflare.accountId || "connected"}`]
+    : [];
+  return [...cloudflare, ...email, ...mcp, ...agents].join("\n") || "no connectors configured";
+}
+
+function cloudflareConnection(ctx) {
+  const connection = ctx.config?.connectors?.cloudflare;
+  if (!connection?.connected || !connection?.token || !connection?.accountId) {
+    throw new Error("Cloudflare is not connected. Add a scoped API token in Settings > Connectors.");
+  }
+  return connection;
+}
+
+async function listCloudflareResources(args, ctx) {
+  const connection = cloudflareConnection(ctx);
+  const resource = String(args.resource || "").trim().toLowerCase();
+  const payload = await cloudflareResourceList(connection, resource);
+  return truncate(JSON.stringify({
+    account: connection.accountName || connection.accountId,
+    resource,
+    result: payload.result || [],
+    resultInfo: payload.result_info || null
+  }, null, 2));
+}
+
+async function callCloudflareApi(args, ctx) {
+  const connection = cloudflareConnection(ctx);
+  const method = String(args.method || "GET").trim().toUpperCase();
+  if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) return "error: unsupported Cloudflare method";
+  const requestPath = await assertCloudflarePath(connection, args.path, method);
+  if (method !== "GET") {
+    const ok = await ctx.approve(
+      `${method} Cloudflare ${requestPath} on ${connection.accountName || connection.accountId}`
+    );
+    if (!ok) return "user declined the Cloudflare account change";
+  }
+  const payload = await cloudflareRequest(connection.token, requestPath, {
+    method,
+    body: method === "GET" || method === "DELETE" ? undefined : (args.body || {})
+  });
+  return truncate(JSON.stringify(payload, null, 2));
 }
 
 function emailConnection(args, ctx) {
   const provider = String(args.provider || "").trim().toLowerCase();
   if (!["gmail", "outlook"].includes(provider)) throw new Error("Choose gmail or outlook.");
-  const connection = ctx.config?.connectors?.email?.[provider];
+  const requested = String(args.account_id || args.account || "").trim().toLowerCase();
+  const matching = savedEmailAccounts(ctx.config).filter((row) =>
+    row.provider === provider &&
+    (!requested || row.id?.toLowerCase() === requested || row.account?.toLowerCase() === requested)
+  );
+  if (!requested && matching.length > 1) {
+    throw new Error(`Multiple ${provider === "gmail" ? "Gmail" : "Outlook"} accounts are connected. Choose the exact account_id.`);
+  }
+  const connection = matching[0];
   if (!connection?.connected) throw new Error(`${provider === "gmail" ? "Gmail" : "Outlook"} is not connected in Settings > Email.`);
   return { provider, connection, save: () => saveConfig(ctx.config) };
 }
@@ -1283,11 +1374,23 @@ async function listMcpTools(args, ctx) {
   }, null, 2));
 }
 
+export function mcpToolRequiresExplicitApproval(toolName, annotations = {}) {
+  if (annotations?.readOnlyHint === true) return false;
+  if (annotations?.destructiveHint === true) return true;
+  const name = String(toolName || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  if (!name) return true;
+  const mutating = /(?:^|_)(?:add|approve|archive|buy|cancel|change|close|commit|connect|create|delete|deposit|disable|disconnect|edit|enable|execute|invite|merge|move|order|place|post|publish|reject|remove|revoke|sell|send|set|submit|trade|transfer|trash|update|withdraw|write)(?:_|$)/;
+  if (mutating.test(name)) return true;
+  const readOnly = /^(?:analyze|check|compare|count|describe|explain|fetch|find|get|history|inspect|inventory|list|lookup|preview|query|quote|read|report|retrieve|scan|search|status|summarize|validate|verify|view|watch)(?:_|$)/;
+  return !readOnly.test(name);
+}
+
 async function callMcp(args, ctx) {
   if (!args.tool) return "error: missing 'tool' argument";
   const connector = findMcpConnector(args, ctx);
   const description = `Use MCP tool '${args.tool}' on '${connector.name || connector.id}' with ${JSON.stringify(args.arguments || {}).slice(0, 500)}`;
-  const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
+  const explicit = mcpToolRequiresExplicitApproval(args.tool);
+  const approve = explicit && typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
   const ok = await approve(description);
   if (!ok) return "user declined the MCP action";
   const result = await mcpCallTool(connector, String(args.tool), args.arguments || {}, {
@@ -1935,6 +2038,10 @@ export async function executeTool(name, args, ctx) {
         return await notepad("write", { text: args.text, mode: args.mode || "append" }, ctx);
       case "list_connectors":
         return connectorList(ctx);
+      case "cloudflare_list_resources":
+        return await listCloudflareResources(args, ctx);
+      case "cloudflare_api_request":
+        return await callCloudflareApi(args, ctx);
       case "email_list":
       case "email_read":
       case "email_create_draft":

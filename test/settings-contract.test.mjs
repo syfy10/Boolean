@@ -7,6 +7,27 @@ import { resolveProviderTarget } from "../src/providers.js";
 
 const uiSource = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
 const serverSource = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+const toolsSource = fs.readFileSync(new URL("../src/tools.js", import.meta.url), "utf8");
+
+test("Connectors includes a real Cloudflare account control surface", () => {
+  assert.match(uiSource, /data-add-connector="cloudflare"/);
+  assert.match(uiSource, /id="cloudflareToken"/);
+  assert.match(uiSource, /id="cloudflareAccount"/);
+  assert.match(uiSource, /data-cloudflare-resource="workers"/);
+  assert.match(uiSource, /data-cloudflare-resource="pages"/);
+  assert.match(uiSource, /data-cloudflare-resource="d1"/);
+  assert.match(uiSource, /data-cloudflare-resource="r2"/);
+  assert.match(serverSource, /p === "\/api\/cloudflare\/connect"/);
+  assert.match(serverSource, /p === "\/api\/cloudflare\/resources"/);
+  assert.match(uiSource, /type="password" id="cloudflareToken"/);
+});
+
+test("MCP approval copy distinguishes reads from account-changing actions", () => {
+  assert.match(uiSource, /Read-only MCP calls follow your approval mode/);
+  assert.match(uiSource, /Trades, orders, transfers, deletes/);
+  assert.match(toolsSource, /mcpToolRequiresExplicitApproval/);
+  assert.doesNotMatch(toolsSource, /Boolean always asks the user to confirm MCP actions/);
+});
 
 test("settings defaults are independent and never enable paid-provider switching", () => {
   const first = defaultUiSettings();
@@ -76,6 +97,21 @@ test("manual local checkpoints persist config and chats and keep sensitive backu
   assert.match(serverSource, /"config\.json"/);
   assert.match(serverSource, /"threads\.json"/);
   assert.match(serverSource, /sensitive: true/);
+});
+
+test("Notepad and Memory is a searchable, editable local control center", () => {
+  assert.match(uiSource, /class="memory-status-grid"/);
+  assert.match(uiSource, /id="chatMemoryStatus"/);
+  assert.match(uiSource, /id="learningStatus"/);
+  assert.match(uiSource, /id="memoryRuleCount"/);
+  assert.match(uiSource, /id="memorySearch"[^>]*placeholder="Search saved preferences"/);
+  assert.match(uiSource, /Review exactly what Boolean will reuse\. Edit or forget any item\./);
+  assert.match(uiSource, /data-action="edit"/);
+  assert.match(uiSource, /data-action="forget"/);
+  assert.match(uiSource, /View saved example/);
+  assert.match(uiSource, /id="turnNoteIntoRule"[^>]*>Add project rule</);
+  assert.match(serverSource, /p === "\/api\/preferences\/update"/);
+  assert.match(serverSource, /updatePreference\(String\(body\.id \|\| ""\), String\(body\.text \|\| ""\)\)/);
 });
 
 test("first-run setup does not promise automatic paid-provider routing", () => {

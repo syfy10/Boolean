@@ -210,6 +210,22 @@ test("ordinary config saves retain connector and email rows omitted by partial u
   assert.deepEqual(next.connectors.email.gmail, previous.connectors.email.gmail);
 });
 
+test("Cloudflare tokens survive ordinary partial settings saves", () => {
+  const previous = {
+    connectors: {
+      cloudflare: {
+        token: "cf-secret",
+        connected: true,
+        accountId: "a".repeat(32),
+        accountName: "Demo"
+      }
+    }
+  };
+  const next = { connectors: { cloudflare: { token: "", connected: true, accountId: "a".repeat(32), accountName: "Demo" } } };
+  preserveSavedApiKeys(next, previous);
+  assert.equal(next.connectors.cloudflare.token, "cf-secret");
+});
+
 test("explicit connector replacement can still remove rows", () => {
   const previous = {
     connectors: {

@@ -114,6 +114,9 @@ test("recipes keep both columns bounded with independently scrollable content an
 });
 
 test("completed plan checklists keep raw agent output hidden until requested", () => {
+  assert.match(ui, /function shouldShowProjectPlan\(snapshot\)/);
+  assert.match(ui, /snapshot\?\.showPlan === true \|\| snapshot\?\.artifactRequired === true/);
+  assert.match(ui, /!shouldShowProjectPlan\(snapshot\)/);
   assert.match(ui, /function markCurrentPlanOutput\(\)/);
   assert.match(ui, /markCurrentPlanOutput\(\);\s*col\.classList\.add\("plan-output-hidden"\)/);
   assert.match(ui, /const hasOutput=live\|\|Boolean\(col\.querySelector\("\.live-plan-output"\)\)/);
@@ -137,10 +140,12 @@ test("native browser and notepad reflow without resizing the app window", () => 
 });
 
 test("browser tabs, address clearing, and device presets stay explicit", () => {
-  assert.match(shell, /public RoundedButton Close = new\(\)/);
-  assert.match(shell, /t\.Close\.Click \+= \(_, __\) => CloseTab\(_tabs\.IndexOf\(t\)\)/);
-  assert.match(shell, /_addrClearBtn\.Click \+= \(_, __\) => \{ _addr\.Clear\(\); _addr\.Focus\(\); \}/);
-  assert.match(shell, /\("desktop", "Desktop", 0, 0, false, "▣"\),\s*\("tablet",[\s\S]*?"▭"\),\s*\("mobile",[\s\S]*?"▯"\)/);
+  assert.match(server, /var x = document\.createElement\("span"\); x\.className="x"/);
+  assert.match(server, /if\(e\.target===x\)\{ act\("closeTab",\{id:t\.id\}\); \}/);
+  assert.match(server, /clr\.onclick = function\(\)\{ url\.value=""; clr\.style\.display="none"; url\.focus\(\); \}/);
+  assert.match(shell, /\("desktop", "Desktop", 0, 0, false,/);
+  assert.match(shell, /\("tablet",\s*"Tablet 834 [^"]* 1112", 834, 1112, false,/);
+  assert.match(shell, /\("mobile",\s*"Mobile 390 [^"]* 844", 390, 844, true,/);
   assert.match(ui, /id="bAddrClear"[^>]*title="Clear address"/);
   assert.match(ui, /\$\("bAddrClear"\)\?\.addEventListener\("click",\(\)=>\{ bAddr\.value=""/);
   assert.match(ui, /body\.chat-micro #notesToggle,body\.chat-micro #browserToggle\{ display:grid; \}/);
@@ -309,6 +314,14 @@ test("side chat stays compact and the duplicate browser edge launcher is removed
   assert.match(ui, /body:not\(\.composer-simple\) \.promptline #interruptEdit\{[\s\S]*?right:15px; bottom:52px;[\s\S]*?width:28px; height:28px;/);
 });
 
+test("the native app opens as a large centered workspace", () => {
+  assert.match(shell, /Width = Math\.Min\(wa\.Width - 32, Math\.Max\(1100, \(int\)Math\.Round\(wa\.Width \* 0\.90\)\)\);/);
+  assert.match(shell, /Height = Math\.Min\(wa\.Height - 32, Math\.Max\(760, \(int\)Math\.Round\(wa\.Height \* 0\.90\)\)\);/);
+  assert.match(shell, /Left = wa\.Left \+ \(wa\.Width - Width\) \/ 2;/);
+  assert.match(shell, /Top\s+= wa\.Top \+ \(wa\.Height - Height\) \/ 2;/);
+  assert.doesNotMatch(shell, /wa\.Width \* 0\.42/);
+});
+
 test("new users start with the rounded composer and API key entry has a real text cursor", () => {
   assert.match(config, /composerStyle:\s*"pill",\s*\/\/ pill \| simple/);
   assert.match(ui, /\.menu \.api-key-form input\{[^}]*min-height:32px;[^}]*color:var\(--text\); caret-color:var\(--text\);[^}]*cursor:text; pointer-events:auto;/s);
@@ -322,23 +335,16 @@ test("compact composer dropdowns escape the footer tool-row clip", () => {
 
 test("native browser split uses the approved gray header and bottom frame", () => {
   assert.match(shell, /const int BrowserTopInset = 38;/);
-  assert.match(shell, /_split\.Panel2\.Padding = new Padding\(0, BrowserTopInset, 0, 0\);/);
   assert.match(shell, /readonly RoundedPanel _browserPane = new\(\) \{ Dock = DockStyle\.Fill, Radius = 12 \};/);
-  assert.match(shell, /BuildNativeWindowControls\(\);/);
-  assert.match(shell, /Width = 76, Height = BrowserTopInset/);
-  assert.match(shell, /Text = glyph, Width = 24, Height = 24, Radius = 6/);
-  assert.match(shell, /Font = new Font\("Segoe Fluent Icons", 8f\)/);
-  assert.match(shell, /WindowButton\("\\uE921", "Minimize"/);
-  assert.match(shell, /WindowButton\("\\uE922", "Maximize or restore"/);
-  assert.match(shell, /WindowButton\("\\uE8BB", "Close"/);
-  assert.match(shell, /_nativeWindowControls\.Visible = true;/);
-  assert.match(shell, /_nativeWindowControls\.Visible = false;/);
+  assert.match(shell, /readonly WebView2 _chromeView = new\(\) \{ Dock = DockStyle\.Top, Height = 116 \};/);
+  assert.match(shell, /const int ChromeHeight = 116;/);
+  assert.match(shell, /_chromeView\.CoreWebView2\.Navigate\(\$"http:\/\/127\.0\.0\.1:\{_port\}\/browser-chrome"\)/);
+  assert.match(shell, /_chromeView\.Bounds = new Rectangle\(r\.Left, r\.Top, r\.Width, h\)/);
   assert.match(shell, /Palette\(Color CanvasBg, Color PaneBg, Color BarBg/);
   assert.match(shell, /public static Palette Light => new\(\s*Color\.FromArgb\(245, 245, 243\), Color\.FromArgb\(251, 251, 250\), Color\.FromArgb\(245, 245, 243\)/);
   assert.match(shell, /public static Palette SoftGlass => new\(/);
   assert.match(shell, /public static Palette GraphiteMist => new\(/);
   assert.match(shell, /Padding = new Padding\(0, 0, 0, 12\);/);
-  assert.match(shell, /_split\.Panel2\.MouseDown \+= \(_, me\) =>/);
   assert.match(shell, /BackColor = p\.CanvasBg;/);
   assert.match(shell, /_split\.Panel1\.BackColor = p\.CanvasBg;/);
   assert.match(shell, /_split\.Panel2\.BackColor = p\.CanvasBg;/);
@@ -682,6 +688,39 @@ test("round composer uses the compact floating card layout without changing line
   assert.match(ui, /body\.composer-simple \.composer-wrap\{/);
 });
 
+test("composer sends with Enter and inserts a line with Shift Enter", () => {
+  assert.match(ui, /\{ id:"send_message", label:"Send message", keys:"Enter" \}/);
+  assert.match(ui, /\{ id:"newline", label:"New line", keys:"Shift\+Enter" \}/);
+  assert.match(ui, /if\(e\.isComposing\) return;/);
+  assert.match(ui, /if\(shortcutActionFor\(e\)==="send_message"\)\{ e\.preventDefault\(\); sendMessage\(\); \}/);
+});
+
+test("native browser overflow menu reserves space above the page WebView", () => {
+  assert.match(shell, /const int ChromeMenuHeight = 548;/);
+  assert.match(shell, /bool _chromeMenuOpen;/);
+  assert.match(shell, /int desiredHeight = _chromeMenuOpen[\s\S]*?ChromeMenuHeight/);
+  assert.match(shell, /_content\.Bounds = new Rectangle\([\s\S]*?r\.Top \+ normalHeight/);
+  assert.match(shell, /_chromeView\.BringToFront\(\);/);
+  assert.match(shell, /_chromeView\.DefaultBackgroundColor = Color\.Transparent/);
+  assert.match(shell, /case "menuLayout":[\s\S]*?LayoutBrowserPane\(\);/);
+  assert.match(shell, /_chromeView\.Leave \+= \(_, __\) => CloseChromeMenu\(\);/);
+  assert.match(server, /max-height:calc\(100vh - 86px\);overflow-y:auto/);
+  assert.match(server, /html,body\{margin:0;height:100%;overflow:hidden;background:transparent\}/);
+  assert.match(server, /\.bar\{display:flex;flex-direction:column;height:116px;background:var\(--bg\)\}/);
+  assert.match(server, /r\.style\.colorScheme = dark \? "dark" : "light"/);
+  assert.match(server, /act\("menuLayout",\{open:v\}\)/);
+  assert.match(server, /e\.key==="Escape"&&open/);
+  assert.match(server, /e\.data\.type==="dismissMenu"/);
+});
+
+test("native browser opens at its final split width without an intermediate jump", () => {
+  assert.match(shell, /bool _fittingBrowserSplit;/);
+  assert.match(shell, /if \(_fittingBrowserSplit \|\| _split\.Width <= 0\) return;/);
+  assert.match(shell, /_fittingBrowserSplit = true;[\s\S]*?finally\s*\{\s*_fittingBrowserSplit = false;/);
+  assert.match(shell, /_split\.SuspendLayout\(\);[\s\S]*?_split\.Panel2Collapsed = false;[\s\S]*?FitBrowserSplit\(\);[\s\S]*?_split\.ResumeLayout\(true\);/);
+  assert.doesNotMatch(shell, /BeginInvoke\(new Action\(FitBrowserSplit\)\); \/\/ fit after the layout settles/);
+});
+
 test("approved chat styling expands AI responses on the surface and keeps user messages bubbled", () => {
   assert.match(ui, /\.msg-user,body\.win-lg \.msg-user\{ max-width:min\(78%,720px\); \}/);
   assert.match(ui, /\.msg-ai,body\.win-lg \.msg-ai\{\s*align-self:stretch; width:100%; max-width:100%;/);
@@ -700,13 +739,13 @@ test("native browser keeps a usable split width and auto-fits narrow pages", () 
   assert.match(shell, /int preferredBrowserW = WindowState == FormWindowState\.Maximized\s*\? \(int\)Math\.Round\(available \* 0\.40\)\s*: available \/ 2;/);
   assert.match(shell, /int browserW = Math\.Clamp\(preferredBrowserW, browserMin/);
   assert.match(shell, /ApplyBorderlessDwm\(\);\s*if \(_browserOpen && !_full\) BeginInvoke\(new Action\(FitBrowserSplit\)\);/);
-  assert.match(shell, /readonly Panel _browserChrome = new\(\) \{ Dock = DockStyle\.Top, Height = 82 \};/);
-  assert.match(shell, /readonly Panel _toolbar = new\(\) \{ Dock = DockStyle\.Top, Height = 28 \};/);
-  assert.match(shell, /readonly FlowLayoutPanel _taskBar = new\(\) \{ Dock = DockStyle\.Top, Height = 24,[^}]*AutoScroll = false/);
-  assert.match(shell, /Panel _tabBar = new\(\) \{ Dock = DockStyle\.Top, Height = 30 \};/);
-  assert.match(shell, /_browserChrome\.Controls\.Add\(_taskBar\);[\s\S]*_browserChrome\.Controls\.Add\(_toolbar\);[\s\S]*_browserChrome\.Controls\.Add\(_tabBar\);[\s\S]*_browserPane\.Controls\.Add\(_browserChrome\);/);
-  assert.match(shell, /_tabStrip\.ClientSize\.Width - rightWidth - _addTabBtn\.Width - 18/);
-  assert.match(shell, /t\.View\.NavigationCompleted \+= \(_, __\) => AutoFitActiveBrowserIfNarrow\(\);/);
+  assert.match(shell, /readonly WebView2 _chromeView = new\(\) \{ Dock = DockStyle\.Top, Height = 116 \};/);
+  assert.match(shell, /const int ChromeHeight = 116;/);
+  assert.match(shell, /const int ChromeMenuHeight = 548;/);
+  assert.match(shell, /_chromeView\.Bounds = new Rectangle\(r\.Left, r\.Top, r\.Width, h\)/);
+  assert.match(shell, /ChromeTaskSpecs\(string\? url\)/);
+  assert.match(shell, /PushChromeState\(\)/);
+  assert.match(shell, /t\.View\.NavigationCompleted \+= \(_, __\) => \{ AutoFitActiveBrowserIfNarrow\(\); PushChromeState\(\); \};/);
   assert.match(shell, /async void AutoFitActiveBrowserIfNarrow\(\)/);
   assert.match(shell, /if \(t\.View\.ClientSize\.Width >= 560\) return;/);
   assert.match(shell, /await AutoFitZoom\(allowZoomIn: false\);/);

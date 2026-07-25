@@ -51,7 +51,27 @@ test("public email state never exposes OAuth tokens or client ids", () => {
   });
   assert.equal(state.draftOnly, false);
   assert.equal(state.confirmBeforeSend, true);
+  assert.deepEqual(state.accounts.map((row) => [row.id, row.account]), [
+    ["gmail:person@example.com", "person@example.com"]
+  ]);
   assert.doesNotMatch(JSON.stringify(state), /secret|googleusercontent/);
+});
+
+test("public email state keeps multiple accounts for the same provider distinct", () => {
+  const state = publicEmailConnections({ connectors: { email: {
+    accounts: [
+      { id: "gmail:first@example.com", provider: "gmail", connected: true, account: "first@example.com", oauth: { refreshToken: "one" } },
+      { id: "gmail:second@example.com", provider: "gmail", connected: true, account: "second@example.com", oauth: { refreshToken: "two" } },
+      { id: "outlook:work@example.com", provider: "outlook", connected: true, account: "work@example.com", oauth: { refreshToken: "three" } }
+    ]
+  } } });
+  assert.deepEqual(state.accounts.map((row) => row.id), [
+    "gmail:first@example.com",
+    "gmail:second@example.com",
+    "outlook:work@example.com"
+  ]);
+  assert.equal(state.accounts.every((row) => row.ready), true);
+  assert.doesNotMatch(JSON.stringify(state), /refreshToken|"one"|"two"|"three"/);
 });
 
 test("public email state flags a client secret saved as the Gmail client ID", () => {

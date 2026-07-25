@@ -102,6 +102,19 @@ export function deletePreference(id) {
   return prefs.rules.length !== before;
 }
 
+export function updatePreference(id, text) {
+  const cleanId = String(id || "").trim();
+  const cleanText = String(text || "").replace(/\s+/g, " ").trim().slice(0, 600);
+  if (!cleanId || !cleanText) return false;
+  const prefs = loadPreferences();
+  const rule = prefs.rules.find((entry) => entry.id === cleanId);
+  if (!rule) return false;
+  rule.text = cleanText;
+  rule.updatedAt = Date.now();
+  savePreferences(prefs);
+  return true;
+}
+
 export function clearPreferences() {
   savePreferences({ rules: [] });
 }

@@ -188,11 +188,13 @@ test("the visible browser is never gated — the model decides when to open it",
 test("task-specific plans advance from email and preview tools", () => {
   const email = new AgentController({ objective: "Clean up old Outlook email", actionRequired: true });
   email.noteTool("email_cleanup_preview", { provider: "outlook" }, "Plan ready with 20 candidates");
+  assert.equal(email.snapshot().showPlan, false);
   assert.equal(email.snapshot().plan.find((item) => /cleanup plan/i.test(item.step)).status, "done");
   assert.equal(email.snapshot().plan.find((item) => /confirmation/i.test(item.step)).status, "in_progress");
 
   const app = new AgentController({ objective: "Build a small website", artifactRequired: true });
   app.noteTool("run_project", {}, "Preview ready at http://localhost:3210");
+  assert.equal(app.snapshot().showPlan, true);
   assert.equal(app.snapshot().plan.find((item) => /run the project locally/i.test(item.step)).status, "done");
   assert.equal(app.snapshot().plan.find((item) => /open the result/i.test(item.step)).status, "in_progress");
 });

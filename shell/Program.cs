@@ -6,6 +6,7 @@
 using System.Diagnostics;
 using System.ComponentModel;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -143,11 +144,10 @@ sealed class RoundedButton : Button
 
 sealed class TabItem
 {
+    public int Id;
     public WebView2 View = new();
     public string Url = "";
     public string Title = "New tab";
-    public Button Chip = new RoundedButton { Radius = 12 };
-    public RoundedButton Close = new() { Radius = 8 };
 }
 
 sealed class MainForm : Form
@@ -345,39 +345,24 @@ sealed class MainForm : Form
     // layout
     readonly SplitContainer _split = new() { Orientation = Orientation.Vertical, SplitterWidth = 5 };
     readonly WebView2 _chat = new() { Dock = DockStyle.Fill };
+    // HTML browser chrome (tabs + nav + address + tasks + menu + window controls),
+    // served from the core at /browser-chrome. Replaces the old WinForms chrome.
+    readonly WebView2 _chromeView = new() { Dock = DockStyle.Top, Height = 116 };
+    bool _chromeReady;
+    bool _themeDark;
+    string _themeSurface = "paper-minimal";
+    int _tabSeq;
     readonly RoundedPanel _browserPane = new() { Dock = DockStyle.Fill, Radius = 12 };
     readonly Panel _startup = new() { Dock = DockStyle.Fill, BackColor = Color.FromArgb(245, 245, 243) };
     readonly Label _startupTitle = new() { AutoSize = true, Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = Color.FromArgb(18, 24, 20) };
     readonly Label _startupText = new() { AutoSize = false, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(96, 100, 96) };
     readonly Button _startupClose = new() { Text = "Close", Width = 92, Height = 34, FlatStyle = FlatStyle.Flat, Visible = false };
-    readonly Panel _browserTitleBar = new() { Dock = DockStyle.Top, Height = 0 };
-    readonly Panel _browserChrome = new() { Dock = DockStyle.Top, Height = 82 };
-    readonly Panel _toolbar = new() { Dock = DockStyle.Top, Height = 28 };
-    readonly FlowLayoutPanel _taskBar = new() { Dock = DockStyle.Top, Height = 24, WrapContents = false, AutoScroll = false, Padding = new Padding(5, 1, 3, 1) };
-    readonly FlowLayoutPanel _tabStrip = new() { Dock = DockStyle.Top, Height = 30, WrapContents = false, AutoScroll = true };
     readonly Panel _content = new() { Dock = DockStyle.Fill };
-    readonly RoundedPanel _addrBox = new() { Radius = 14 };
-    readonly TextBox _addr = new();
-    readonly RoundedButton _addrClearBtn = new() { Radius = 8 };
     readonly List<TabItem> _tabs = new();
-    readonly List<Button> _browserTaskButtons = new();
-    readonly ToolTip _browserTaskToolTip = new();
     int _active = -1;
     bool _full = false;
     bool _windowSizing;
-    ContextMenuStrip _menu = null!;
-    Button _menuBtn = null!;
-    Button _addTabBtn = new();
-    readonly System.Windows.Forms.Timer _menuDismissTimer = new() { Interval = 35 };
-    readonly FlowLayoutPanel _nativeWindowControls = new()
-    {
-        Width = 76, Height = BrowserTopInset, WrapContents = false,
-        FlowDirection = FlowDirection.LeftToRight, Anchor = AnchorStyles.Top | AnchorStyles.Right,
-        Padding = new Padding(2, 7, 0, 0), Margin = new Padding(0),
-        BackColor = Color.Transparent, Visible = false
-    };
-    readonly List<Button> _nativeWindowButtons = new();
-    Button? _deviceBtn;
+    bool _fittingBrowserSplit;
     int _deviceModeIdx = 0;
     static readonly (string id, string label, int w, int h, bool mobile, string glyph)[] DeviceModes =
     {
@@ -385,16 +370,20 @@ sealed class MainForm : Form
         ("tablet",  "Tablet 834 × 1112", 834, 1112, false, "▭"),
         ("mobile",  "Mobile 390 × 844", 390, 844, true, "▯")
     };
-    Panel _tabBar = new() { Dock = DockStyle.Top, Height = 30 };
 
     // themeable chrome (follows the app's light/dark theme)
-    readonly List<Button> _barBtns = new();
-    FlowLayoutPanel _rightPanel = null!;
     Palette _pal = Palette.Light;
     // Keep the native browser below Boolean's shared 38px title/tool band.
     // Without this inset the browser tab strip sits against the frameless
     // window edge, where its first row can be visually clipped.
     const int BrowserTopInset = 38;
+    // Height of the HTML chrome bar: tab row (40) + nav/address row (42) + task row (34).
+    const int ChromeHeight = 116;
+    // The overflow menu is rendered inside the chrome WebView. WebView2 surfaces
+    // are separate native HWNDs, so the page WebView would otherwise paint over
+    // any menu pixels that extend past the chrome's normal 116px viewport.
+    const int ChromeMenuHeight = 548;
+    bool _chromeMenuOpen;
 
     readonly record struct Palette(Color CanvasBg, Color PaneBg, Color BarBg, Color BtnBg, Color BtnBorder,
         Color Text, Color AddrBg, Color Splitter, Color ActiveTab, Color Hover)
@@ -436,10 +425,13 @@ sealed class MainForm : Form
         // Do not let the borderless shell shrink until the workspace becomes
         // unusable. Clamp to the monitor work area for genuinely small screens.
         MinimumSize = new Size(Math.Min(720, Math.Max(600, wa.Width - 16)), Math.Min(620, Math.Max(480, wa.Height - 16)));
-        Width = Math.Min(Math.Max(720, (int)(wa.Width * 0.42)), Math.Min(820, wa.Width - 16)); // compact, but wide enough for first-run UI
-        Height = Math.Min(Math.Min(720, wa.Height), (int)(wa.Height * 0.82));
+        // Start large enough to present the complete workspace on first launch
+        // and after an update: rail, project/chat sidebar, and main chat should
+        // all be visible without the user having to resize the window.
+        Width = Math.Min(wa.Width - 32, Math.Max(1100, (int)Math.Round(wa.Width * 0.90)));
+        Height = Math.Min(wa.Height - 32, Math.Max(760, (int)Math.Round(wa.Height * 0.90)));
         StartPosition = FormStartPosition.Manual;
-        Left = wa.Left + 8;
+        Left = wa.Left + (wa.Width - Width) / 2;
         Top  = wa.Top + (wa.Height - Height) / 2;
         Opacity = 0;
         BackColor = Color.FromArgb(28, 28, 28);
@@ -463,17 +455,12 @@ sealed class MainForm : Form
         // so nothing is covered or cut off. The native splitter (thin, themed) is
         // the resize handle. An overlay approach was tried and reverted — the chat
         // underneath kept its full-width layout and half of it ended up hidden.
-        _split.Panel2.Padding = new Padding(0, BrowserTopInset, 0, 0);
-        _split.Panel2.MouseDown += (_, me) =>
-        {
-            if (me.Button != MouseButtons.Left || me.Y >= BrowserTopInset) return;
-            ReleaseCapture();
-            SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
-        };
+        // The HTML chrome renders its own window controls and drag region, so the
+        // browser pane runs edge-to-edge (no reserved WinForms title band).
+        _split.Panel2.Padding = new Padding(0, 0, 0, 0);
         _split.Panel2.Controls.Add(_browserPane);
         _split.Panel2Collapsed = true; // browser hidden until toggled
         Controls.Add(_split);
-        BuildNativeWindowControls();
         BuildBrowserPill();
         Controls.Add(_startup);
         _startup.BringToFront();
@@ -487,6 +474,7 @@ sealed class MainForm : Form
         Resize += (_, __) =>
         {
             if (_browserOpen && !_full && !_windowSizing) FitBrowserSplit();
+            PushChromeState(); // keep the chrome's maximize/restore glyph in sync
         };
         ResizeEnd += (_, __) =>
         {
@@ -497,36 +485,8 @@ sealed class MainForm : Form
             finally { _split.ResumeLayout(true); }
             _split.Invalidate(true);
         };
-        Deactivate += (_, __) => _menu?.Close();
         FormClosed += (_, __) => { CleanupCoreOnClose(); LaunchPendingUpdate(); };
         Shown += (_, __) => { _split.Panel2Collapsed = true; }; // browser hidden until toggled
-    }
-
-    void BuildNativeWindowControls()
-    {
-        Button WindowButton(string glyph, string tip, EventHandler onClick)
-        {
-            var button = new RoundedButton
-            {
-                Text = glyph, Width = 24, Height = 24, Radius = 6,
-                Margin = new Padding(0), Padding = new Padding(0),
-                FlatStyle = FlatStyle.Flat, Font = new Font("Segoe Fluent Icons", 8f),
-                TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.Transparent
-            };
-            button.FlatAppearance.BorderSize = 0;
-            button.Click += onClick;
-            new ToolTip().SetToolTip(button, tip);
-            _nativeWindowControls.Controls.Add(button);
-            _nativeWindowButtons.Add(button);
-            return button;
-        }
-
-        WindowButton("\uE921", "Minimize", (_, __) => WindowState = FormWindowState.Minimized);
-        WindowButton("\uE922", "Maximize or restore", (_, __) => ToggleMaximize());
-        WindowButton("\uE8BB", "Close", (_, __) => Close());
-        _nativeWindowControls.Location = new Point(ClientSize.Width - _nativeWindowControls.Width, 0);
-        Controls.Add(_nativeWindowControls);
-        _nativeWindowControls.BringToFront();
     }
 
     void BuildStartupOverlay()
@@ -929,6 +889,16 @@ try {
             };
             _chat.CoreWebView2.Navigate($"http://127.0.0.1:{_port}");
 
+            await _chromeView.EnsureCoreWebView2Async(_env);
+            _chromeView.CoreWebView2.WebMessageReceived += OnChromeMessage;
+            _chromeView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            _chromeView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+            // The chrome WebView temporarily overlaps the page while its menu
+            // is open. A transparent controller background lets the page remain
+            // visible everywhere outside the opaque menu and three chrome rows.
+            try { _chromeView.DefaultBackgroundColor = Color.Transparent; } catch { }
+            _chromeView.CoreWebView2.Navigate($"http://127.0.0.1:{_port}/browser-chrome");
+
             _ = CheckForUpdatesAsync();
             // long-lived windows re-check on the same cadence as the feed throttle
             var updateTimer = new System.Windows.Forms.Timer { Interval = (int)TimeSpan.FromHours(6).TotalMilliseconds };
@@ -1082,214 +1052,175 @@ try {
     }
 
     // ── browser pane UI (native) ─────────────────────────────────────
+    // ── browser pane: HTML chrome bar on top + the page-content region below ──
     void BuildBrowserPane()
     {
         _browserPane.BackColor = Color.FromArgb(28, 28, 28);
-        _browserTitleBar.BackColor = Color.FromArgb(22, 22, 22);
-        _toolbar.BackColor = Color.FromArgb(22, 22, 22);
-        _taskBar.BackColor = Color.FromArgb(22, 22, 22);
-        _tabStrip.BackColor = Color.FromArgb(22, 22, 22);
-
-        // modern rounded, borderless icon button
-        Button Icon(string glyph, string tip, int w, EventHandler onClick)
-        {
-            var b = new RoundedButton
-            {
-                Text = glyph, Width = w, Height = 24, FlatStyle = FlatStyle.Flat, TabStop = false,
-                ForeColor = Color.Gainsboro, BackColor = Color.Transparent, Font = new Font("Segoe UI", 10.5f),
-                Padding = new Padding(0), Margin = new Padding(0), Radius = 9
-            };
-            b.Fill = Color.Transparent;
-            b.Border = Color.Transparent;
-            b.FlatAppearance.BorderSize = 0;
-            b.Click += onClick;
-            var tt = new ToolTip(); tt.SetToolTip(b, tip);
-            _barBtns.Add(b);
-            return b;
-        }
-
-        // ── nav row (below the tabs): ← → ↻  [ Enter a URL ]  ⋮ ──
-        int x = 6;
-        void Place(Button b) { b.Left = x; b.Top = 2; _toolbar.Controls.Add(b); x += b.Width + 1; }
-        Place(Icon("\u2190", "Back", 32, (_, __) => Active()?.View.CoreWebView2?.GoBack()));
-        Place(Icon("\u2192", "Forward", 32, (_, __) => Active()?.View.CoreWebView2?.GoForward()));
-        Place(Icon("\u21BB", "Reload", 32, (_, __) => Active()?.View.CoreWebView2?.Reload()));
-        _deviceBtn = Icon("▣", "Responsive view: Desktop / Tablet / Mobile", 34, (_, __) => CycleDeviceMode());
-        Place(_deviceBtn);
-        Place(Icon("\u25B6", "Run current project", 34, (_, __) => PostToChat(new { type = "runProject" })));
-        x += 6;
-
-        // address — a clearly visible field (own background, left-aligned)
-        _addrBox.Top = 3; _addrBox.Height = 22; _addrBox.Left = x + 5;
-        _addrBox.Padding = new Padding(9, 2, 3, 1);
-        _addr.BorderStyle = BorderStyle.None;
-        _addr.Dock = DockStyle.Fill;
-        _addr.TextAlign = HorizontalAlignment.Left;
-        _addr.PlaceholderText = "Search or enter a URL";
-        _addr.Font = new Font("Segoe UI", 9.5f);
-        _addr.KeyDown += (_, ke) => { if (ke.KeyCode == Keys.Enter) { ke.SuppressKeyPress = true; Navigate(_addr.Text); } };
-        _addr.TextChanged += (_, __) => _addrClearBtn.Visible = _addr.TextLength > 0;
-        _addrClearBtn.Text = "×";
-        _addrClearBtn.Dock = DockStyle.Right;
-        _addrClearBtn.Width = 23;
-        _addrClearBtn.FlatStyle = FlatStyle.Flat;
-        _addrClearBtn.FlatAppearance.BorderSize = 0;
-        _addrClearBtn.BackColor = Color.Transparent;
-        _addrClearBtn.Fill = Color.Transparent;
-        _addrClearBtn.Border = Color.Transparent;
-        _addrClearBtn.Font = new Font("Segoe UI", 10f);
-        _addrClearBtn.TabStop = false;
-        _addrClearBtn.Visible = false;
-        _addrClearBtn.Click += (_, __) => { _addr.Clear(); _addr.Focus(); };
-        _addrBox.Controls.Add(_addr);
-        _addrBox.Controls.Add(_addrClearBtn);
-        _addrClearBtn.BringToFront();
-        _toolbar.Controls.Add(_addrBox);
-
-        // ⋮ overflow menu — styled to match the flat in-app browser menu.
-        _menu = new ContextMenuStrip { ShowImageMargin = false, Font = new Font("Segoe UI", 9f), Padding = new Padding(7) };
-        _menu.Renderer = new BrowserMenuRenderer(() => _pal);
-        _menu.Closed += (_, __) => _menuDismissTimer.Stop();
-        _menuDismissTimer.Tick += (_, __) =>
-        {
-            if (!_menu.Visible) { _menuDismissTimer.Stop(); return; }
-            if ((Control.MouseButtons & (MouseButtons.Left | MouseButtons.Right | MouseButtons.Middle)) == 0) return;
-            var p = Cursor.Position;
-            var menuBounds = new Rectangle(_menu.PointToScreen(Point.Empty), _menu.Size);
-            var btnBounds = new Rectangle(_menuBtn.PointToScreen(Point.Empty), _menuBtn.Size);
-            if (!menuBounds.Contains(p) && !btnBounds.Contains(p)) _menu.Close();
-        };
-        void Sep() { var s = new ToolStripSeparator { Margin = new Padding(0, 4, 0, 4) }; _menu.Items.Add(s); }
-        ToolStripMenuItem Item(string text, EventHandler on)
-        {
-            var it = new ToolStripMenuItem(text) { AutoSize = false, Height = 30, Width = 206, Padding = new Padding(7, 0, 7, 0) };
-            it.Click += on;
-            _menu.Items.Add(it);
-            return it;
-        }
-        Item("New tab", (_, __) => AddTab(_homeUrl, true, true));
-        Item("Close current tab", (_, __) => CloseTab(_active));
-        Item("Close other tabs", (_, __) => CloseOtherTabs());
-        Sep();
-        Item("Send page to AI", async (_, __) => await SendPageToAI(false));
-        Item("Send selected text to message", async (_, __) => await SendSelectedText("message"));
-        Item("Send selected text to notepad", async (_, __) => await SendSelectedText("note"));
-        Item("Send screenshot to AI", async (_, __) => await SendPageToAI(true));
-        Item("Send screenshot to notepad", async (_, __) => await SendScreenshotToNotepad());
-        Sep();
-        _menu.Items.Add(MakeZoomRow());
-        Item("Auto fit to window", async (_, __) => await AutoFitZoom());
-        Sep();
-        Item("History", (_, __) => { });
-        Item("Clear browsing data", async (_, __) => await ClearBrowserData());
-        Sep();
-        Item("Open in system browser", (_, __) => OpenActiveInSystemBrowser());
-        Item("Hide chat (focus browser)", (_, __) => ToggleFull());
-
-        _menuBtn = Icon("\u22EE", "Menu", 32, (_, __) =>
-        {
-            if (_menu.Visible) _menu.Close();
-            else
-            {
-                _menu.Show(_menuBtn, new Point(_menuBtn.Width - _menu.Width, _menuBtn.Height));
-                _menuDismissTimer.Start();
-            }
-        });
-        _menuBtn.Top = 2; _menuBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _toolbar.Controls.Add(_menuBtn);
-
-        void LayoutBar()
-        {
-            _menuBtn.Left = _toolbar.Width - _menuBtn.Width - 4;
-            _addrBox.Width = Math.Max(116, _menuBtn.Left - _addrBox.Left - 12);
-        }
-        LayoutBar();
-        _toolbar.Resize += (_, __) => LayoutBar();
-
-        // ── tab row (on top): [tabs] [+] ......... [⤢ full width] [⧉ close] ──
-        Button TaskButton(string text, string tip, string task)
-        {
-            var b = new RoundedButton
-            {
-                Text = text,
-                Width = text.Length > 11 ? 112 : 92,
-                Height = 20,
-                FlatStyle = FlatStyle.Flat,
-                TabStop = false,
-                BackColor = Color.Transparent,
-                Font = new Font("Segoe UI", 7.8f),
-                TextAlign = ContentAlignment.MiddleCenter,
-                Margin = new Padding(2, 1, 2, 0),
-                Padding = new Padding(6, 0, 6, 0),
-                Radius = 9
-            };
-            b.Fill = Color.Transparent;
-            b.Border = Color.Transparent;
-            b.FlatAppearance.BorderSize = 0;
-            b.Tag = task;
-            b.Click += (_, __) => SendBrowserTask(Convert.ToString(b.Tag) ?? task);
-            _browserTaskToolTip.SetToolTip(b, tip);
-            _taskBar.Controls.Add(b);
-            _barBtns.Add(b);
-            _browserTaskButtons.Add(b);
-            return b;
-        }
-        TaskButton("Use page", "Use the current page as context", "use");
-        TaskButton("Extract docs", "Extract documentation and code samples", "docs");
-        TaskButton("Turn into code", "Turn this page into working code", "code");
-        TaskButton("Summarize", "Summarize this page and save findings", "summarize");
-        TaskButton("Stack", "Detect CMS, framework, analytics, and hosting", "tech");
-        TaskButton("Monitor", "Watch this page for changes", "monitor");
-        UpdateBrowserTasks(_homeUrl);
-        _taskBar.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
-
-        _addTabBtn = new RoundedButton { Text = "+", Width = 26, Height = 24, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 10.5f), Margin = new Padding(3, 3, 0, 0), Radius = 9 };
-        _addTabBtn.FlatAppearance.BorderSize = 0;
-        _addTabBtn.Click += (_, __) => AddTab(_homeUrl, true, true);
-        _barBtns.Add(_addTabBtn);
-
-        var tabRight = new FlowLayoutPanel { Dock = DockStyle.Right, AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 5, 0), BackColor = Color.Transparent };
-        _rightPanel = tabRight;
-        Button TabIcon(string g, string tip, EventHandler on)
-        {
-            var b = new RoundedButton { Text = g, Width = 28, Height = 24, FlatStyle = FlatStyle.Flat, TabStop = false, BackColor = Color.Transparent, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(1, 0, 1, 0), Radius = 9 };
-            b.FlatAppearance.BorderSize = 0; b.Click += on;
-            var tt = new ToolTip(); tt.SetToolTip(b, tip);
-            tabRight.Controls.Add(b); _barBtns.Add(b); return b;
-        }
-        TabIcon("\u2922", "Full width (hide chat)", (_, __) => ToggleFull());
-        var hideBrowser = TabIcon("\u00D7", "Hide browser", (_, __) => ToggleBrowser(false));
-        hideBrowser.FlatAppearance.MouseOverBackColor = Color.FromArgb(45, 45, 45);
-
-        _tabStrip.Dock = DockStyle.Fill;
-        _tabStrip.HorizontalScroll.Enabled = true;
-        _tabStrip.HorizontalScroll.Visible = false;
-        _tabStrip.VerticalScroll.Enabled = false;
-        _tabStrip.VerticalScroll.Visible = false;
-        _tabStrip.Resize += (_, __) => LayoutTabs();
-        _tabBar.Controls.Add(_tabStrip);
-        _tabBar.Controls.Add(tabRight);
-
-        // assemble — add toolbar first, tab bar last so the tabs sit on TOP
-        _browserChrome.Controls.Add(_taskBar);
-        _browserChrome.Controls.Add(_toolbar);
-        _browserChrome.Controls.Add(_tabBar);
+        // The chrome WebView and the page-content host are laid out with EXPLICIT
+        // bounds. Two WebView2 surfaces docked in the same pane overlap (the page
+        // paints over the chrome lower rows), so manual bounds are used: the
+        // chrome sits on top at a fixed height, the content fills the rest.
+        _chromeView.Dock = DockStyle.None;
+        _content.Dock = DockStyle.None;
         _browserPane.Controls.Add(_content);
-        _browserPane.Controls.Add(_browserChrome);
-        _browserPane.Controls.Add(_browserTitleBar);
-        _toolbar.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
-        _tabBar.MouseDown += (_, me) =>
-        {
-            if (_menu.Visible) _menu.Close();
-            if (me.Button == MouseButtons.Left)
-            {
-                ReleaseCapture();
-                SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
-            }
-        };
-        _browserTitleBar.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
-        _content.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
+        _browserPane.Controls.Add(_chromeView);
+        _browserPane.Layout += (_, __) => LayoutBrowserPane();
+        _browserPane.SizeChanged += (_, __) => LayoutBrowserPane();
+        // Clicking the page moves focus away from the chrome WebView. Collapse
+        // any open chrome popup at the same time so stale menu state cannot
+        // leave the page compressed or make the next menu click behave backward.
+        _chromeView.Leave += (_, __) => CloseChromeMenu();
+        LayoutBrowserPane();
         ApplyTheme(ResolveTheme()); // initial colors (UI resends the exact theme on load)
+    }
+
+    void CloseChromeMenu()
+    {
+        if (!_chromeMenuOpen) return;
+        _chromeMenuOpen = false;
+        LayoutBrowserPane();
+        try
+        {
+            _chromeView.CoreWebView2?.PostWebMessageAsJson(
+                JsonSerializer.Serialize(new { type = "dismissMenu" }));
+        }
+        catch { }
+    }
+
+    // ── HTML browser chrome bridge ───────────────────────────────────
+    // Explicit two-region layout: fixed-height chrome bar on top, page content
+    // filling the rest. Manual bounds so the two WebView2 surfaces never overlap.
+    void LayoutBrowserPane()
+    {
+        var r = _browserPane.ClientRectangle;
+        if (r.Width <= 0 || r.Height <= 0) return;
+        // The chrome WebView renders its HTML in CSS (logical) pixels, but this
+        // pane's bounds are in device pixels. Scale the fixed chrome height by the
+        // DPI factor so all three HTML rows are shown (not clipped at ~66%).
+        double dpi = _browserPane.DeviceDpi / 96.0;
+        int normalHeight = (int)Math.Round(ChromeHeight * dpi);
+        int desiredHeight = _chromeMenuOpen
+            ? (int)Math.Round(ChromeMenuHeight * dpi)
+            : normalHeight;
+        // Keep a useful slice of the page visible in short windows. The menu
+        // itself becomes scrollable inside the remaining chrome viewport.
+        int pageReserve = (int)Math.Round(120 * dpi);
+        int maxChromeHeight = Math.Max(normalHeight, r.Height - pageReserve);
+        int h = Math.Min(desiredHeight, Math.Min(maxChromeHeight, r.Height));
+        _chromeView.Bounds = new Rectangle(r.Left, r.Top, r.Width, h);
+        // The page always starts below the normal chrome rows. Expanding the
+        // chrome for a popup overlays the page instead of reflowing it downward.
+        _content.Bounds = new Rectangle(
+            r.Left,
+            r.Top + normalHeight,
+            r.Width,
+            Math.Max(0, r.Height - normalHeight));
+        _chromeView.BringToFront();
+    }
+
+    // Compute the six context-aware AI quick actions for the task row.
+    static (string text, string tip, string task)[] ChromeTaskSpecs(string? url) => IsEmailPage(url)
+        ? new[] {
+            ("Summarize", "Summarize this email conversation", "email_summary"),
+            ("Draft reply", "Create a reply draft without sending", "email_reply"),
+            ("Tasks", "Extract dates, decisions, and action items", "email_tasks"),
+            ("Save", "Save useful email context to the project", "email_save"),
+            ("Clean sender", "Preview older mail from this sender", "email_clean"),
+            ("Email recipes", "Open all Email Recipes", "email_more")
+        }
+        : new[] {
+            ("Use page", "Use the current page as context", "use"),
+            ("Extract docs", "Extract documentation and code samples", "docs"),
+            ("Turn into code", "Turn this page into working code", "code"),
+            ("Summarize", "Summarize this page and save findings", "summarize"),
+            ("Stack", "Detect CMS, framework, analytics, and hosting", "tech"),
+            ("Monitor", "Watch this page for changes", "monitor")
+        };
+
+    static string ChromeTabTitle(TabItem t) =>
+        !string.IsNullOrWhiteSpace(t.Title) && t.Title != t.Url ? t.Title
+        : (!string.IsNullOrWhiteSpace(t.Url) ? t.Url : "New tab");
+
+    // Push the full chrome state (tabs, address, nav availability, zoom, device,
+    // window state, task specs, theme) to the HTML chrome.
+    void PushChromeState()
+    {
+        if (!_chromeReady) return;
+        var t = Active();
+        var cw = t?.View.CoreWebView2;
+        var tabs = _tabs.Select(x => new { id = x.Id, title = ChromeTabTitle(x), active = ReferenceEquals(x, t) }).ToArray();
+        int zoom = cw != null ? (int)Math.Round(t!.View.ZoomFactor * 100) : 100;
+        var specs = ChromeTaskSpecs(t?.Url).Select(s => new { text = s.text, tip = s.tip, task = s.task }).ToArray();
+        var state = new
+        {
+            type = "state",
+            tabs,
+            url = t?.Url ?? "",
+            canBack = cw?.CanGoBack ?? false,
+            canFwd = cw?.CanGoForward ?? false,
+            zoom,
+            device = DeviceModes[_deviceModeIdx].id,
+            maxed = WindowState == FormWindowState.Maximized,
+            full = _full,
+            tasks = specs,
+            dark = _themeDark,
+            surface = _themeSurface
+        };
+        try { _chromeView.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(state)); } catch { }
+    }
+
+    void SelectTabById(int id) { var i = _tabs.FindIndex(x => x.Id == id); if (i >= 0) Activate(i); }
+    void CloseTabById(int id) { var i = _tabs.FindIndex(x => x.Id == id); if (i >= 0) CloseTab(i); }
+
+    void OnChromeMessage(object? s, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(e.WebMessageAsJson);
+            var r = doc.RootElement;
+            var type = r.TryGetProperty("type", out var tp) ? tp.GetString() : null;
+            if (type == "window") { HandleWindowCommand(r); BeginInvoke(new Action(PushChromeState)); return; }
+            if (type != "chrome") return;
+            var a = r.TryGetProperty("a", out var ap) ? ap.GetString() : null;
+            int Id() => r.TryGetProperty("id", out var idp) && idp.TryGetInt32(out var v) ? v : -1;
+            string Url() => r.TryGetProperty("url", out var up) ? up.GetString() ?? "" : "";
+            string Task() => r.TryGetProperty("task", out var tkp) ? tkp.GetString() ?? "" : "";
+            switch (a)
+            {
+                case "ready": _chromeReady = true; PushChromeState(); break;
+                case "menuLayout":
+                    _chromeMenuOpen = r.TryGetProperty("open", out var menuOpen) &&
+                        menuOpen.ValueKind == JsonValueKind.True;
+                    LayoutBrowserPane();
+                    break;
+                case "back": Active()?.View.CoreWebView2?.GoBack(); break;
+                case "fwd": Active()?.View.CoreWebView2?.GoForward(); break;
+                case "reload": Active()?.View.CoreWebView2?.Reload(); break;
+                case "stop": Active()?.View.CoreWebView2?.Stop(); break;
+                case "go": Navigate(Url()); break;
+                case "newTab": AddTab(_homeUrl, true, true); break;
+                case "selTab": SelectTabById(Id()); break;
+                case "closeTab": CloseTabById(Id()); break;
+                case "closeOthers": CloseOtherTabs(); break;
+                case "device": CycleDeviceMode(); break;
+                case "run": PostToChat(new { type = "runProject" }); break;
+                case "task": SendBrowserTask(Task()); break;
+                case "zoomIn": Zoom(0.1); break;
+                case "zoomOut": Zoom(-0.1); break;
+                case "zoomReset": ResetZoom(); break;
+                case "autofit": _ = AutoFitZoom(); break;
+                case "sendPageAI": _ = SendPageToAI(false); break;
+                case "sendShotAI": _ = SendPageToAI(true); break;
+                case "sendSelMsg": _ = SendSelectedText("message"); break;
+                case "sendSelNote": _ = SendSelectedText("note"); break;
+                case "sendShotNote": _ = SendScreenshotToNotepad(); break;
+                case "clear": _ = ClearBrowserData(); break;
+                case "openSystem": OpenActiveInSystemBrowser(); break;
+                case "hideChat": ToggleFull(); break;
+                case "hideBrowser": ToggleBrowser(false); break;
+            }
+        }
+        catch { }
     }
 
     // ── theme-aware chrome ───────────────────────────────────────────
@@ -1324,6 +1255,8 @@ try {
         }
         catch { }
         bool dark = theme == "dark" || (theme == "system" && SystemDark());
+        _themeDark = dark;
+        _themeSurface = surface;
         if (dark) return Palette.Dark;
         return surface switch
         {
@@ -1346,180 +1279,50 @@ try {
         _split.Panel2.BackColor = p.CanvasBg;
         _browserPane.BackColor = p.PaneBg;
         _browserPane.BorderColor = p.BtnBorder;
-        _nativeWindowControls.BackColor = p.CanvasBg;
         StyleBrowserPill();
         _content.BackColor = p.PaneBg;
-        _browserTitleBar.BackColor = p.BarBg;
-        _browserChrome.BackColor = p.BarBg;
-        _toolbar.BackColor = p.BarBg;
-        _taskBar.BackColor = p.BarBg;
-        _tabStrip.BackColor = p.BarBg;
-        _tabBar.BackColor = p.BarBg;
-        if (_rightPanel != null) _rightPanel.BackColor = p.BarBg;
-        _addrBox.BackColor = p.AddrBg;
-        _addrBox.BorderColor = p.BtnBorder;
-        _addr.BackColor = p.AddrBg; _addr.ForeColor = p.Text;
-        _addrClearBtn.BackColor = Color.Transparent; _addrClearBtn.ForeColor = p.Text;
-        _addrClearBtn.Fill = Color.Transparent; _addrClearBtn.HoverFill = p.Hover;
-        if (_menu != null) { _menu.BackColor = p.BarBg; _menu.ForeColor = p.Text; }
-        foreach (var b in _barBtns)
-        {
-            b.BackColor = Color.Transparent; b.ForeColor = p.Text;
-            b.FlatAppearance.BorderSize = 0;
-            b.FlatAppearance.MouseOverBackColor = p.Hover;
-            b.FlatAppearance.MouseDownBackColor = p.ActiveTab;
-            if (b is RoundedButton rb)
-            {
-                rb.Fill = Color.Transparent;
-                rb.HoverFill = p.Hover;
-                rb.DownFill = p.ActiveTab;
-                rb.Border = Color.Transparent;
-                rb.Invalidate();
-            }
-        }
-        foreach (var b in _nativeWindowButtons)
-        {
-            b.BackColor = Color.Transparent;
-            b.ForeColor = p.Text;
-            b.FlatAppearance.BorderSize = 0;
-            if (b is RoundedButton rb)
-            {
-                rb.Fill = Color.Transparent;
-                rb.HoverFill = p.Hover;
-                rb.DownFill = p.ActiveTab;
-                rb.Border = Color.Transparent;
-                rb.Invalidate();
-            }
-        }
-        RefreshTabChrome();
+        // The chrome bar is HTML (it themes itself from the pushed state); only its
+        // pre-paint background needs to match so there is no flash.
+        try { _chromeView.DefaultBackgroundColor = Color.Transparent; } catch { }
         foreach (var t in _tabs)
         {
-            t.Close.BackColor = Color.Transparent; t.Close.ForeColor = p.Text;
-            if (t.Close is RoundedButton close)
-            {
-                close.Fill = Color.Transparent; close.HoverFill = p.Hover;
-                close.DownFill = p.ActiveTab; close.Border = Color.Transparent;
-            }
             try { t.View.DefaultBackgroundColor = p.PaneBg; } catch { }
             if (t.View.CoreWebView2 != null)
                 t.View.CoreWebView2.Profile.PreferredColorScheme =
                     (p.PaneBg.R < 128) ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light;
         }
+        PushChromeState();
     }
 
     TabItem? Active() => _active >= 0 && _active < _tabs.Count ? _tabs[_active] : null;
 
-    void RefreshTabChrome()
-    {
-        for (int i = 0; i < _tabs.Count; i++)
-        {
-            _tabs[i].Chip.ForeColor = _pal.Text;
-            _tabs[i].Chip.BackColor = Color.Transparent;
-            if (_tabs[i].Chip is RoundedButton rb)
-            {
-                rb.Fill = (i == _active) ? _pal.ActiveTab : Color.Transparent;
-                rb.HoverFill = _pal.Hover;
-                rb.DownFill = _pal.ActiveTab;
-                rb.Border = (i == _active) ? _pal.BtnBorder : Color.Transparent;
-                rb.Invalidate();
-            }
-        }
-    }
-
-    void LayoutTabs()
-    {
-        if (_tabs.Count == 0 || _tabStrip.Width <= 0) return;
-        var rightWidth = _rightPanel?.Width ?? 0;
-        var available = Math.Max(80, _tabStrip.ClientSize.Width - rightWidth - _addTabBtn.Width - 18);
-        var chipW = Math.Clamp(available / Math.Max(1, _tabs.Count) - 4, 54, 142);
-        foreach (var t in _tabs)
-        {
-            t.Chip.AutoSize = false;
-            t.Chip.Width = chipW;
-            t.Chip.Height = 24;
-            t.Chip.Margin = new Padding(3, 3, 0, 0);
-            t.Chip.TextAlign = ContentAlignment.MiddleLeft;
-            t.Chip.AutoEllipsis = true;
-            t.Chip.Padding = new Padding(7, 0, 22, 0);
-            t.Close.Left = Math.Max(30, chipW - 22);
-            t.Close.Top = 2;
-            t.Close.Width = 20;
-            t.Close.Height = 20;
-        }
-        RefreshTabChrome();
-    }
-
-    string TabLabel(TabItem t)
-    {
-        var text = string.IsNullOrWhiteSpace(t.Title) ? (string.IsNullOrWhiteSpace(t.Url) ? "New tab" : t.Url) : t.Title;
-        var max = _tabs.Count > 6 ? 12 : 20;
-        return "\u25CE " + Trunc(text, max);
-    }
-
     async void AddTab(string url, bool activate, bool navigate)
     {
-        var t = new TabItem { Url = url };
+        var t = new TabItem { Url = url, Id = ++_tabSeq };
         t.View.Dock = DockStyle.Fill;
         t.View.Visible = false;
         _content.Controls.Add(t.View);
-
-        t.Chip.Height = 24; t.Chip.AutoSize = false; t.Chip.Width = 126; t.Chip.FlatStyle = FlatStyle.Flat;
-        t.Chip.ForeColor = _pal.Text; t.Chip.BackColor = Color.Transparent;
-        t.Chip.FlatAppearance.BorderSize = 0;
-        t.Chip.FlatAppearance.MouseOverBackColor = _pal.Hover;
-        t.Chip.Font = new Font("Segoe UI", 8f); t.Chip.Margin = new Padding(3, 3, 0, 0); t.Chip.Text = "\u25CE New tab";
-        t.Chip.TextAlign = ContentAlignment.MiddleLeft;
-        t.Chip.Padding = new Padding(7, 0, 22, 0);
-        t.Chip.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
-        if (t.Chip is RoundedButton chip)
-        {
-            chip.Radius = 12;
-            chip.Fill = Color.Transparent;
-            chip.HoverFill = _pal.Hover;
-            chip.DownFill = _pal.ActiveTab;
-            chip.Border = Color.Transparent;
-        }
-        t.Chip.Click += (_, __) => Activate(_tabs.IndexOf(t));
-        // middle-click / right-click closes
-        t.Chip.MouseUp += (_, me) => { if (me.Button != MouseButtons.Left) CloseTab(_tabs.IndexOf(t)); };
-        t.Close.Text = "×";
-        t.Close.Width = 20; t.Close.Height = 20; t.Close.Left = t.Chip.Width - 22; t.Close.Top = 2;
-        t.Close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        t.Close.FlatStyle = FlatStyle.Flat; t.Close.FlatAppearance.BorderSize = 0;
-        t.Close.BackColor = Color.Transparent; t.Close.ForeColor = _pal.Text;
-        t.Close.Fill = Color.Transparent; t.Close.HoverFill = _pal.Hover; t.Close.Border = Color.Transparent;
-        t.Close.Font = new Font("Segoe UI", 9f); t.Close.TabStop = false;
-        var tabTip = new ToolTip(); tabTip.SetToolTip(t.Close, "Close tab");
-        t.Close.Click += (_, __) => CloseTab(_tabs.IndexOf(t));
-        t.Chip.Controls.Add(t.Close);
         try { t.View.DefaultBackgroundColor = _pal.PaneBg; } catch { } // no black flash before load
         _tabs.Add(t);
-        _tabStrip.Controls.Add(t.Chip);
-        if (!_tabStrip.Controls.Contains(_addTabBtn)) _tabStrip.Controls.Add(_addTabBtn);
-        _tabStrip.Controls.SetChildIndex(_addTabBtn, _tabStrip.Controls.Count - 1); // keep "+" last
-        LayoutTabs();
 
-        await t.View.EnsureCoreWebView2Async(_env);
+                await t.View.EnsureCoreWebView2Async(_env);
         try { t.View.CoreWebView2.Profile.PreferredColorScheme =
             (_pal.PaneBg.R < 128) ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light; } catch { }
         WireView(t);
         if (navigate) t.View.CoreWebView2.Navigate(url);
         if (activate) Activate(_tabs.IndexOf(t));
+        PushChromeState();
     }
 
     void WireView(TabItem t)
     {
         var c = t.View.CoreWebView2;
-        t.View.Enter += (_, __) => { if (_menu.Visible) _menu.Close(); };
-        t.View.GotFocus += (_, __) => { if (_menu.Visible) _menu.Close(); };
-        t.View.MouseDown += (_, __) => { if (_menu.Visible) _menu.Close(); };
-        c.SourceChanged += (_, __) => { t.Url = c.Source; if (t == Active()) { _addr.Text = t.Url; UpdateBrowserTasks(t.Url); } t.Chip.Text = TabLabel(t); LayoutTabs(); SyncTabs(); };
-        t.View.NavigationCompleted += (_, __) => AutoFitActiveBrowserIfNarrow();
+        c.SourceChanged += (_, __) => { t.Url = c.Source; SyncTabs(); PushChromeState(); };
+        t.View.NavigationCompleted += (_, __) => { AutoFitActiveBrowserIfNarrow(); PushChromeState(); };
         c.DocumentTitleChanged += (_, __) =>
         {
             t.Title = string.IsNullOrWhiteSpace(c.DocumentTitle) ? t.Url : c.DocumentTitle;
-            t.Chip.Text = TabLabel(t);
-            LayoutTabs();
+            PushChromeState();
         };
         c.NewWindowRequested += (_, ev) =>
         {
@@ -1564,25 +1367,19 @@ try {
         for (int k = 0; k < _tabs.Count; k++)
         {
             _tabs[k].View.Visible = (k == i);
-            _tabs[k].Chip.BackColor = (k == i) ? _pal.Hover : Color.Transparent;
         }
-        _addr.Text = _tabs[i].Url;
-        UpdateBrowserTasks(_tabs[i].Url);
-        LayoutTabs();
-        _tabStrip.ScrollControlIntoView(_tabs[i].Chip);
         UpdateZoomLabel();
+        PushChromeState();
     }
 
     void CloseTab(int i)
     {
         if (i < 0 || i >= _tabs.Count) return;
         var t = _tabs[i];
-        _tabStrip.Controls.Remove(t.Chip);
         _content.Controls.Remove(t.View);
         try { t.View.Dispose(); } catch { }
         _tabs.RemoveAt(i);
         if (_tabs.Count == 0) { AddTab(_homeUrl, true, true); return; }
-        LayoutTabs();
         Activate(Math.Min(i, _tabs.Count - 1));
     }
 
@@ -1593,15 +1390,11 @@ try {
         foreach (var t in _tabs.ToArray())
         {
             if (ReferenceEquals(t, keep)) continue;
-            _tabStrip.Controls.Remove(t.Chip);
             _content.Controls.Remove(t.View);
             try { t.View.Dispose(); } catch { }
             _tabs.Remove(t);
         }
-        if (!_tabStrip.Controls.Contains(_addTabBtn)) _tabStrip.Controls.Add(_addTabBtn);
-        _tabStrip.Controls.SetChildIndex(_addTabBtn, _tabStrip.Controls.Count - 1);
         _active = 0;
-        LayoutTabs();
         Activate(0);
     }
 
@@ -1614,36 +1407,6 @@ try {
         if (t?.View.CoreWebView2 == null) return;
         t.View.ZoomFactor = Math.Clamp(t.View.ZoomFactor + delta, 0.3, 3.0);
         UpdateZoomLabel();
-    }
-    ToolStripControlHost MakeZoomRow()
-    {
-        var row = new TableLayoutPanel
-        {
-            Width = 206,
-            Height = 30,
-            ColumnCount = 5,
-            RowCount = 1,
-            Margin = new Padding(0),
-            Padding = new Padding(7, 0, 3, 0),
-            BackColor = Color.Transparent
-        };
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 24));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 24));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1));
-        row.Controls.Add(new Label { Text = "Zoom", AutoSize = true, Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft }, 0, 0);
-        Button Flat(string text, EventHandler onClick)
-        {
-            var b = new Button { Text = text, Width = 20, Height = 20, FlatStyle = FlatStyle.Flat, BackColor = Color.Transparent, TabStop = false, Margin = new Padding(0), Font = new Font("Segoe UI", 9f) };
-            b.FlatAppearance.BorderSize = 0;
-            b.Click += onClick;
-            return b;
-        }
-        row.Controls.Add(Flat("-", (_, __) => Zoom(-0.1)), 1, 0);
-        row.Controls.Add(new Label { Text = "100%", AutoSize = false, Width = 48, TextAlign = ContentAlignment.MiddleCenter, Anchor = AnchorStyles.None, Tag = "zoomLabel" }, 2, 0);
-        row.Controls.Add(Flat("+", (_, __) => Zoom(0.1)), 3, 0);
-        return new ToolStripControlHost(row) { AutoSize = false, Width = 206, Height = 30, Margin = new Padding(0), Padding = new Padding(0) };
     }
     void ResetZoom()
     {
@@ -1677,21 +1440,13 @@ try {
         if (t.View.ClientSize.Width >= 560) return;
         await AutoFitZoom(allowZoomIn: false);
     }
-    void UpdateZoomLabel()
-    {
-        var t = Active();
-        int pct = t?.View.CoreWebView2 != null ? (int)Math.Round(t.View.ZoomFactor * 100) : 100;
-        if (_menu == null) return;
-        foreach (ToolStripItem item in _menu.Items)
-            if (item is ToolStripControlHost host && host.Control is TableLayoutPanel row)
-                foreach (Control c in row.Controls)
-                    if ((string?)c.Tag == "zoomLabel") c.Text = $"{pct}%";
-    }
+    void UpdateZoomLabel() => PushChromeState();
     void ToggleFull()
     {
         if (!_browserOpen) ToggleBrowser(true);
         _full = !_full;
         _split.Panel1Collapsed = _full; // hide the chat pane → browser full width
+        PushChromeState();
     }
 
     // Responsive/device emulation, mirroring the web browser's Desktop → Mobile
@@ -1704,7 +1459,7 @@ try {
     async System.Threading.Tasks.Task ApplyDeviceModeAsync()
     {
         var m = DeviceModes[_deviceModeIdx];
-        if (_deviceBtn != null) { _deviceBtn.Text = m.glyph; _deviceBtn.Invalidate(); }
+        PushChromeState();
         var cw = Active()?.View.CoreWebView2;
         if (cw == null) return;
         try
@@ -1799,7 +1554,10 @@ try {
 
     void FitBrowserSplit()
     {
-        if (_split.Width <= 0) return;
+        if (_fittingBrowserSplit || _split.Width <= 0) return;
+        _fittingBrowserSplit = true;
+        try
+        {
         const int chatMin = 300;
         const int browserMin = 340;
         int panelWidth = Math.Max(0, _split.Width - _split.SplitterWidth);
@@ -1829,6 +1587,11 @@ try {
         int chatW = Math.Max(chatMin, available - browserW);
         _split.SplitterDistance = Math.Min(chatW, _split.Width - browserMin);
         BeginInvoke(new Action(AutoFitActiveBrowserIfNarrow));
+        }
+        finally
+        {
+            _fittingBrowserSplit = false;
+        }
     }
 
     // When the browser opens in a small window, grow it so the chat side keeps room
@@ -1857,10 +1620,19 @@ try {
         if (_browserOpen)
         {
             HideBrowserPill();
-            if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
-            _split.Panel2Collapsed = false;
-            _nativeWindowControls.Visible = true;
-            _nativeWindowControls.BringToFront();
+            // Reveal and size both panes in one layout transaction. Painting the
+            // open pane before assigning its split width caused a visible jump.
+            _split.SuspendLayout();
+            try
+            {
+                if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
+                _split.Panel2Collapsed = false;
+                FitBrowserSplit();
+            }
+            finally
+            {
+                _split.ResumeLayout(true);
+            }
             if (ensureTab && _tabs.Count == 0) AddTab(_homeUrl, activate: true, navigate: true);
             var t = Active();
             if (t != null && t.View.CoreWebView2 != null)
@@ -1872,17 +1644,17 @@ try {
                     t.View.CoreWebView2.Navigate(_homeUrl);
                 }
             }
-            BeginInvoke(new Action(FitBrowserSplit)); // fit after the layout settles
         }
         else
         {
+            CloseChromeMenu();
             _split.Panel2Collapsed = true;
-            _nativeWindowControls.Visible = false;
             _split.Panel1Collapsed = false; // restore the chat
             _full = false;
             ShowBrowserPill();
         }
         PostToChat(new { type = "shellBrowser", open = _browserOpen });
+        PushChromeState();
     }
 
     // ── bridge: messages from the chat UI ────────────────────────────
@@ -1970,11 +1742,13 @@ try {
                     var pal = ResolveTheme();
                     if (root.TryGetProperty("dark", out var dk))
                     {
-                        if (dk.GetBoolean()) pal = Palette.Dark;
+                        _themeDark = dk.GetBoolean();
+                        if (_themeDark) pal = Palette.Dark;
                         else
                         {
                             var surface = root.TryGetProperty("surface", out var sf) ? sf.GetString() : "paper-minimal";
-                            pal = surface switch
+                            _themeSurface = surface ?? "paper-minimal";
+                            pal = _themeSurface switch
                             {
                                 "soft-gloss" => Palette.SoftGlass,
                                 "graphite-mist" => Palette.GraphiteMist,
@@ -2365,36 +2139,6 @@ try {
                host == "outlook.office365.com" || host.EndsWith(".outlook.office365.com", StringComparison.Ordinal);
     }
 
-    void UpdateBrowserTasks(string? url)
-    {
-        if (_browserTaskButtons.Count == 0) return;
-        (string Text, string Tip, string Task)[] specs = IsEmailPage(url)
-            ? new[] {
-                ("Summarize", "Summarize this email conversation", "email_summary"),
-                ("Draft reply", "Create a reply draft without sending", "email_reply"),
-                ("Tasks", "Extract dates, decisions, and action items", "email_tasks"),
-                ("Save", "Save useful email context to the project", "email_save"),
-                ("Clean sender", "Preview older mail from this sender", "email_clean"),
-                ("Email recipes", "Open all Email Recipes", "email_more")
-            }
-            : new[] {
-                ("Use page", "Use the current page as context", "use"),
-                ("Extract docs", "Extract documentation and code samples", "docs"),
-                ("Turn into code", "Turn this page into working code", "code"),
-                ("Summarize", "Summarize this page and save findings", "summarize"),
-                ("Stack", "Detect CMS, framework, analytics, and hosting", "tech"),
-                ("Monitor", "Watch this page for changes", "monitor")
-            };
-        for (var i = 0; i < _browserTaskButtons.Count && i < specs.Length; i++)
-        {
-            var button = _browserTaskButtons[i];
-            button.Text = specs[i].Text;
-            button.Tag = specs[i].Task;
-            button.Width = specs[i].Text.Length > 11 ? 122 : 106;
-            _browserTaskToolTip.SetToolTip(button, specs[i].Tip);
-        }
-    }
-
     async Task SendSelectedText(string target)
     {
         var t = Active();
@@ -2439,28 +2183,4 @@ try {
         catch { }
     }
 
-    sealed class BrowserMenuRenderer : ToolStripProfessionalRenderer
-    {
-        readonly Func<Palette> _palette;
-
-        public BrowserMenuRenderer(Func<Palette> palette) => _palette = palette;
-
-        protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e) { }
-
-        protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
-        {
-            var p = _palette();
-            var rect = new Rectangle(Point.Empty, e.Item.Size);
-            using var brush = new SolidBrush(e.Item.Selected ? p.Hover : p.BarBg);
-            e.Graphics.FillRectangle(brush, rect);
-        }
-
-        protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
-        {
-            var p = _palette();
-            var y = e.Item.Height / 2;
-            using var pen = new Pen(p.BtnBorder);
-            e.Graphics.DrawLine(pen, 8, y, e.Item.Width - 8, y);
-        }
-    }
 }

@@ -166,7 +166,7 @@ const INSPECT_TOOL_NAMES = new Set([
   "list_dir", "read_file", "find_files", "search_files", "find_symbol",
   "git_status", "git_diff", "git_log", "list_subagent_results", "read_process",
   "read_page", "inspect_page_layout", "screenshot_page", "visible_browser_read",
-  "list_connectors", "mcp_list_tools", "notepad_read", "email_list", "email_read",
+  "list_connectors", "mcp_list_tools", "cloudflare_list_resources", "notepad_read", "email_list", "email_read",
   "windows_system_info"
 ]);
 const INSPECT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => INSPECT_TOOL_NAMES.has(tool.function.name));
@@ -178,8 +178,8 @@ function explicitlyNamedToolMode(text) {
   const names = String(text || "").toLowerCase().match(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g) || [];
   const known = names.filter((name) => ACTION_TOOL_NAMES.has(name));
   if (!known.length) return "";
-  if (known.some((name) => !INSPECT_TOOL_NAMES.has(name) && !/^(?:email_|mcp_|agent_connector_|list_connectors$)/.test(name))) return "action";
-  if (known.some((name) => /^(?:email_|mcp_|agent_connector_|list_connectors$)/.test(name) && !INSPECT_TOOL_NAMES.has(name))) return "connector";
+  if (known.some((name) => !INSPECT_TOOL_NAMES.has(name) && !/^(?:email_|mcp_|cloudflare_|agent_connector_|list_connectors$)/.test(name))) return "action";
+  if (known.some((name) => /^(?:email_|mcp_|cloudflare_|agent_connector_|list_connectors$)/.test(name) && !INSPECT_TOOL_NAMES.has(name))) return "connector";
   return "inspect";
 }
 
@@ -430,9 +430,11 @@ const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:i
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
 const ANSWER_ONLY_REQUEST = /\b(?:do\s*not|don't|dont|no)\s+(?:make\s+)?(?:changes?|edits?|updates?|modify|write|touch|code)\b|\b(?:just|only)\s+(?:tell|explain|describe|summari[sz]e|review|show|list|answer)\b|\b(?:tell|explain|describe|summari[sz]e|review|show|list)\s+(?:me\s+)?(?:about|what|where|how|everything|the current|this project)\b/i;
 const INSPECT_REQUEST = /\b(?:project|repo(?:sitory)?|codebase|files?|folder|git|diff|changes?|status|progress|roadmap|implementation|what (?:was|is|has been) (?:changed|done|built|implemented)|where (?:are we|is the project)|last (?:deploy|build|update))\b/i;
+const CONTEXTUAL_INSPECTION_REQUEST = /\b(?:review|inspect|analy[sz]e|assess|audit|evaluate|improve|improvements?|recommend(?:ation)?s?|suggest(?:ion)?s?)\b[\s\S]{0,100}\b(?:this|the|it|current|local|running)?\s*(?:app|application|site|website|project|code|ui|layout|version)\b|\bhow (?:can|could|would|should|do)\s+(?:you\s+)?improve\b/i;
+const LOCAL_PROJECT_CONTEXT = /(?:[a-z]:\\[^\r\n`]+|(?:^|[\s`])(?:\.{0,2}[\\/])?(?:src|app|public|outputs?|projects?|build|dist)[\\/][^\s`]+|https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?|(?:project|source|local-ready copy|production build)\s*:)/i;
 const RESEARCH_REQUEST = /\b(?:current|latest|today|tonight|tomorrow|yesterday|right now|live|news|headline|weather|forecast|score|won|winner|match|game|fixture|schedule|stock|stocks|market|price|earnings|dividend|available|availability|search|look up|lookup|web|internet|source|sources|cite)\b/i;
-const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
-const CONNECTOR_CONTEXT = /\b(?:mcp|connector|stocksignal|stockunc|robinhood|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
+const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|cloudflare|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
+const CONNECTOR_CONTEXT = /\b(?:mcp|connector|cloudflare|cloudflare workers?|cloudflare pages|stocksignal|stockunc|robinhood|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
 const CONNECTOR_ACTION_REQUEST = /\b(?:check|checking|connected|connection|connect|use|call|pull|fetch|get|see|refresh|try again|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
 const CONNECTOR_DATA_ACTION = /\b(?:pull|fetch|get|give|show|list|all|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
 const CONNECTOR_PROGRESS_FOLLOWUP = /\b(?:are you (?:checking|doing|working)|did you check|doing it now|checking it|check now|what happened|still checking|try again|refresh it)\b/i;
@@ -531,6 +533,18 @@ export function classifyTurnMode(messages, options = {}) {
   if (options.connectorActionRequired) return "connector";
   const explicitToolMode = explicitlyNamedToolMode(latest);
   if (explicitToolMode) return explicitToolMode;
+  // Advice about "this app/site/project" is not generic chat when the open
+  // conversation already established a local artifact. Route it through the
+  // read-only inspection tools so the model can examine the actual files
+  // instead of promising to review them and ending the turn.
+  if (!options.directAction && CONTEXTUAL_INSPECTION_REQUEST.test(latest)) {
+    const priorContext = (messages || [])
+      .slice(-10)
+      .filter((message) => plainMessageText(message) !== latest)
+      .map(plainMessageText)
+      .join("\n");
+    if (options.projectDir || LOCAL_PROJECT_CONTEXT.test(priorContext)) return "inspect";
+  }
   if (ANSWER_ONLY_REQUEST.test(latest) && !options.directAction) {
     if (options.projectDir || INSPECT_REQUEST.test(latest)) return "inspect";
     return RESEARCH_REQUEST.test(latest) ? "research" : "chat";

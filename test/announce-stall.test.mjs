@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import fs from "node:fs";
-import { announcesUnperformedAction, focusedMessagesForTurn } from "../src/agent.js";
+import { announcesUnperformedAction, classifyTurnMode, focusedMessagesForTurn } from "../src/agent.js";
 
 test("catches bare next-step announcements with no deliverable", () => {
   // The exact GLM stalls from the reported bug.
@@ -13,6 +13,24 @@ test("catches bare next-step announcements with no deliverable", () => {
   assert.equal(announcesUnperformedAction("Let me read the files now."), true);
   assert.equal(announcesUnperformedAction("I'll check agent.js to see how ctx is built."), true);
   assert.equal(announcesUnperformedAction("Let me start with src/relay.js to check where we left off."), true);
+  assert.equal(announcesUnperformedAction("Let me quickly review the current state of the app to give you specific, informed recommendations rather than generic ones."), true);
+});
+
+test("routes contextual app improvement questions through read-only inspection tools", () => {
+  const messages = [
+    { role: "system", content: "system" },
+    {
+      role: "assistant",
+      content: "GreenScan is running locally at http://localhost:3210 from C:\\Users\\S10\\Documents\\GreenScan\\app."
+    },
+    { role: "user", content: "how would you improve this app give me 3 things." }
+  ];
+
+  assert.equal(classifyTurnMode(messages), "inspect");
+  assert.equal(classifyTurnMode([
+    { role: "system", content: "system" },
+    { role: "user", content: "how would you improve an app?" }
+  ]), "chat");
 });
 
 test("ignores real answers, questions, and long substantive text", () => {

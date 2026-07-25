@@ -415,10 +415,28 @@ export async function untrashEmail(providerName, connection, save, operation) {
   return { id: row?.id || id, provider: providerName };
 }
 
+export function emailAccountId(provider, account) {
+  return `${String(provider || "").toLowerCase()}:${String(account || "").trim().toLowerCase()}`;
+}
+
+export function savedEmailAccounts(config) {
+  const email = config.connectors?.email || {};
+  const accounts = Array.isArray(email.accounts) ? email.accounts.filter(Boolean) : [];
+  const result = [...accounts];
+  for (const provider of ["gmail", "outlook"]) {
+    const legacy = email[provider];
+    if (!legacy?.connected) continue;
+    const id = legacy.id || emailAccountId(provider, legacy.account);
+    if (!result.some((row) => row.id === id || (row.provider === provider && row.account === legacy.account))) {
+      result.push({ ...legacy, id, provider });
+    }
+  }
+  return result;
+}
+
 export function publicEmailConnections(config, managedClients = {}) {
   const email = config.connectors?.email || {};
-  const one = (name) => {
-    const connection = email[name] || {};
+  const publicOne = (name, connection = {}, exposeId = false) => {
     const oauth = connection.oauth || {};
     const accessReady = !!oauth.accessToken && (!oauth.expiresAt || Number(oauth.expiresAt) > Date.now());
     const credentialReady = !!oauth.refreshToken || accessReady;
@@ -438,6 +456,7 @@ export function publicEmailConnections(config, managedClients = {}) {
     const ready = !!connection.connected && credentialReady && !connection.needsReconnect;
     return {
       provider: name,
+      ...(exposeId ? { id: connection.id || emailAccountId(name, connection.account) } : {}),
       connected: !!connection.connected,
       ready,
       account: connection.account || "",
@@ -453,5 +472,13 @@ export function publicEmailConnections(config, managedClients = {}) {
       ...(setupIssue ? { setupIssue } : {})
     };
   };
-  return { draftOnly: email.draftOnly !== false, confirmBeforeSend: true, gmail: one("gmail"), outlook: one("outlook") };
+  const accounts = savedEmailAccounts(config).map((connection) => publicOne(connection.provider, connection, true));
+  const setup = (name) => publicOne(name, email[name] || {});
+  return {
+    draftOnly: email.draftOnly !== false,
+    confirmBeforeSend: true,
+    accounts,
+    gmail: setup("gmail"),
+    outlook: setup("outlook")
+  };
 }

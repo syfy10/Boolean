@@ -453,6 +453,7 @@ export class AgentController {
       debugRequired: this.debugRequired,
       actionRequired: this.actionRequired,
       projectBound: this.projectBound,
+      showPlan: this.artifactRequired,
       phase: this.phase,
       plan: this.plan.map((item) => ({ ...item })),
       toolCount: this.toolCount,

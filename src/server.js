@@ -19,7 +19,7 @@ import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
 import { handleBrowse, clearCookies } from "./browse.js";
-import { learnFromUserText, publicPreferences, deletePreference, clearPreferences } from "./preferences.js";
+import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences } from "./preferences.js";
 import {
   McpHttpError,
   mcpTestConnection as testMcpConnector,
@@ -32,12 +32,15 @@ import {
   mcpStatusPayload,
   MCP_STATUS
 } from "./mcp.js";
+import { verifyCloudflareToken, cloudflareResourceList } from "./cloudflare.js";
 import {
   createEmailOAuth,
   exchangeEmailCode,
+  emailAccountId,
   getEmailAccount,
   isValidGmailOAuthClientId,
-  publicEmailConnections
+  publicEmailConnections,
+  savedEmailAccounts
 } from "./email.js";
 import { emailOAuthRedirectUri, loadManagedEmailOAuthClients, managedEmailOAuthCredential } from "./email-oauth-config.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
@@ -361,7 +364,17 @@ function publicConnectors(config, managedEmailOAuthClients = {}) {
     agents: Array.isArray(c.agents) ? c.agents.map((x) => ({
       id: x.id, name: x.name, url: x.url, enabled: x.enabled !== false, hasKey: !!x.apiKey
     })) : [],
-    email: publicEmailConnections(config, managedEmailOAuthClients)
+    email: publicEmailConnections(config, managedEmailOAuthClients),
+    cloudflare: {
+      connected: c.cloudflare?.connected === true,
+      hasToken: !!c.cloudflare?.token,
+      accountId: c.cloudflare?.accountId || "",
+      accountName: c.cloudflare?.accountName || "",
+      tokenId: c.cloudflare?.tokenId || "",
+      status: c.cloudflare?.status || "",
+      expiresOn: c.cloudflare?.expiresOn || "",
+      lastTestedAt: Number(c.cloudflare?.lastTestedAt || 0)
+    }
   };
 }
 
@@ -524,6 +537,7 @@ function mergeConnectors(current, incoming) {
     apis: Array.isArray(current?.apis) ? current.apis : [],
     mcp: Array.isArray(current?.mcp) ? current.mcp : [],
     agents: Array.isArray(current?.agents) ? current.agents : [],
+    cloudflare: current?.cloudflare || {},
     email: current?.email || {}
   };
   if (Array.isArray(incoming?.apis)) {
@@ -711,6 +725,243 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 </body></html>`;
   };
 
+  // The browser CHROME (tab strip, nav row, address bar, task row, overflow menu
+  // and window controls) rendered as HTML so it can match every app theme and
+  // stay clean. It talks to the C# shell over WebView2 postMessage; the shell
+  // drives the real page rendering. Deliberately self-contained (no assets).
+  const browserChromePage = () => `<!doctype html><html><head><meta charset="utf-8"><title>chrome</title><style>
+  :root{
+    --bg:#fafafa; --sidebar:#ffffff; --text:#1a1a1a; --dim:#8a8a8a; --border:#ececea;
+    --hover:#f3f3f1; --card:#ffffff; --accent:#2d2d2d; --online:#e86f16;
+    --radius:12px; --radius-sm:8px; --radius-pill:999px;
+    --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#181818; --sidebar:#1d1d1d; --text:#ececec; --dim:#8f8f8f; --border:#2a2a2a;
+    --hover:#242424; --card:#202020; --accent:#ececec; --online:#fb923c;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3); } }
+  :root[data-theme="dark"]{
+    --bg:#181818; --sidebar:#1d1d1d; --text:#ececec; --dim:#8f8f8f; --border:#2a2a2a;
+    --hover:#242424; --card:#202020; --accent:#ececec; --online:#fb923c;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  }
+  :root[data-visual-theme="light"][data-color-theme="soft-gloss"]{ --bg:#eef0f2; --sidebar:#fafaf9; --card:#fff; --border:rgba(30,30,30,.08); }
+  :root[data-visual-theme="light"][data-color-theme="paper-minimal"]{ --bg:#f5f5f3; --sidebar:#fbfbfa; --card:#fff; --border:#e9e9e6; }
+  :root[data-visual-theme="light"][data-color-theme="graphite-mist"]{ --bg:#dde1e4; --sidebar:#f7f8f8; --card:#fff; --border:#d5dadd; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:transparent}
+  body{color:var(--text);font:12.5px/1 var(--ui);
+    -webkit-user-select:none;user-select:none;cursor:default}
+  button{font:inherit;color:inherit;border:0;background:transparent;cursor:default}
+  .bar{display:flex;flex-direction:column;height:116px;background:var(--bg)}
+  .row{display:flex;align-items:center;gap:2px;padding:0 6px}
+  .r-tabs{height:40px;padding-left:8px;padding-right:0}
+  .r-nav{height:42px;gap:3px}
+  .r-tasks{height:34px;gap:4px;overflow:hidden;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+  .ico{display:grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border-radius:9px;
+    color:var(--text);font-size:14px;line-height:1;transition:background .12s}
+  .ico:hover{background:var(--hover)}
+  .ico:disabled{opacity:.32}
+  .ico:disabled:hover{background:transparent}
+  /* tabs */
+  .tabs{display:flex;align-items:center;gap:3px;flex:0 1 auto;min-width:0;overflow:hidden}
+  .tab{display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:64px;width:180px;max-width:200px;height:30px;
+    padding:0 6px 0 11px;border-radius:9px;color:var(--dim);border:1px solid transparent}
+  .tab:hover{background:var(--hover)}
+  .tab.on{background:var(--card);color:var(--text);border-color:var(--border);box-shadow:var(--shadow-sm)}
+  .tab .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:none;opacity:.7}
+  .tab.on .dot{background:var(--online);opacity:1}
+  .tab .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+  .tab .x{display:grid;place-items:center;width:18px;height:18px;border-radius:6px;font-size:13px;color:var(--dim);flex:none;opacity:0}
+  .tab:hover .x,.tab.on .x{opacity:1}
+  .tab .x:hover{background:color-mix(in srgb,var(--text) 12%,transparent);color:var(--text)}
+  .add{min-width:28px;flex:none;font-size:16px}
+  .drag{flex:1;align-self:stretch;min-width:8px}
+  .wc{display:flex;align-items:center;gap:1px;flex:none;padding-left:4px}
+  .wc .ico{min-width:34px;height:32px;border-radius:0;font-size:10px;
+    font-family:"Segoe Fluent Icons","Segoe MDL2 Assets",var(--ui)}
+  .wc .close:hover{background:#e81123;color:#fff}
+  /* address */
+  .addr{flex:1;min-width:60px;display:flex;align-items:center;height:30px;margin:0 4px;
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius-pill);
+    padding:0 4px 0 12px;transition:border-color .12s}
+  .addr:focus-within{border-color:color-mix(in srgb,var(--accent) 40%,var(--border))}
+  .addr input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--text);
+    font:12.5px var(--ui);-webkit-user-select:text;user-select:text}
+  .addr .clr{width:22px;height:22px;border-radius:50%;color:var(--dim);font-size:14px;display:none;place-items:center}
+  .addr .clr:hover{background:var(--hover)}
+  /* tasks */
+  .task{height:26px;padding:0 11px;border-radius:9px;color:var(--dim);font-size:11.5px;white-space:nowrap;flex:none}
+  .task:hover{background:var(--hover);color:var(--text)}
+  /* menu */
+  .menu{position:fixed;top:78px;right:8px;min-width:224px;max-height:calc(100vh - 86px);overflow-y:auto;
+    scrollbar-color:var(--dim) transparent;background:var(--sidebar);
+    border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.22);
+    padding:6px;z-index:50;display:none}
+  .menu.open{display:block}
+  .mi{display:flex;align-items:center;height:30px;padding:0 10px;border-radius:8px;
+    width:100%;text-align:left;color:var(--text);font-size:12.5px}
+  .mi:hover{background:var(--hover)}
+  .sep{height:1px;margin:5px 6px;background:var(--border)}
+  .zoom{display:flex;align-items:center;gap:6px;padding:2px 10px;height:32px}
+  .zoom span{flex:1;color:var(--dim)}
+  .zoom b{min-width:44px;text-align:center;font-weight:600}
+  .zoom button{width:24px;height:24px;border-radius:7px;font-size:14px}
+  .zoom button:hover{background:var(--hover)}
+  </style></head><body>
+  <div class="bar">
+    <div class="row r-tabs">
+      <div class="tabs" id="tabs"></div>
+      <button class="ico add" id="add" title="New tab">+</button>
+      <div class="drag" id="drag"></div>
+      <button class="ico" id="full" title="Hide chat (focus browser)">&#x2922;</button>
+      <div class="wc">
+        <button class="ico" data-w="min" title="Minimize">&#xE921;</button>
+        <button class="ico" id="wmax" data-w="maxtoggle" title="Maximize">&#xE922;</button>
+        <button class="ico close" data-w="close" title="Close">&#xE8BB;</button>
+      </div>
+    </div>
+    <div class="row r-nav">
+      <button class="ico" id="back" title="Back">&#x2190;</button>
+      <button class="ico" id="fwd" title="Forward">&#x2192;</button>
+      <button class="ico" id="reload" title="Reload">&#x21BB;</button>
+      <button class="ico" id="device" title="Responsive view: Desktop / Tablet / Mobile">&#x25A3;</button>
+      <button class="ico" id="run" title="Run current project">&#x25B6;</button>
+      <div class="addr">
+        <input id="url" placeholder="Search or enter a URL" spellcheck="false" autocomplete="off">
+        <button class="clr" id="clr" title="Clear">&times;</button>
+      </div>
+      <button class="ico" id="menu" title="Menu">&#x22EE;</button>
+    </div>
+    <div class="row r-tasks" id="tasks"></div>
+  </div>
+  <div class="menu" id="dd">
+    <button class="mi" data-a="newTab">New tab</button>
+    <button class="mi" data-a="closeTab">Close current tab</button>
+    <button class="mi" data-a="closeOthers">Close other tabs</button>
+    <div class="sep"></div>
+    <button class="mi" data-a="sendPageAI">Send page to AI</button>
+    <button class="mi" data-a="sendSelMsg">Send selection to message</button>
+    <button class="mi" data-a="sendSelNote">Send selection to notepad</button>
+    <button class="mi" data-a="sendShotAI">Send screenshot to AI</button>
+    <button class="mi" data-a="sendShotNote">Send screenshot to notepad</button>
+    <div class="sep"></div>
+    <div class="zoom"><span>Zoom</span><button data-a="zoomOut">&minus;</button><b id="zpct">100%</b><button data-a="zoomIn">+</button></div>
+    <button class="mi" data-a="autofit">Auto fit to window</button>
+    <div class="sep"></div>
+    <button class="mi" data-a="clear">Clear browsing data</button>
+    <div class="sep"></div>
+    <button class="mi" data-a="openSystem">Open in system browser</button>
+    <button class="mi" data-a="hideChat">Hide chat (focus browser)</button>
+    <button class="mi" data-a="hideBrowser">Hide browser panel</button>
+  </div>
+  <script>
+  (function(){
+    var vs = window.chrome && window.chrome.webview;
+    var $ = function(id){ return document.getElementById(id); };
+    function send(o){ try{ vs.postMessage(o); }catch(e){} }
+    function act(a, extra){ send(Object.assign({type:"chrome",a:a}, extra||{})); }
+    function win(action){ send({type:"window",action:action}); }
+    var dev = { desktop:"\\u25A3", tablet:"\\u25AD", mobile:"\\u25AF" };
+
+    // static wiring
+    $("back").onclick   = function(){ act("back"); };
+    $("fwd").onclick    = function(){ act("fwd"); };
+    $("reload").onclick = function(){ act("reload"); };
+    $("device").onclick = function(){ act("device"); };
+    $("run").onclick    = function(){ act("run"); };
+    $("add").onclick    = function(){ act("newTab"); };
+    $("full").onclick   = function(){ act("hideChat"); };
+    document.querySelectorAll(".wc [data-w]").forEach(function(b){
+      b.onclick = function(){ win(b.dataset.w); };
+    });
+    // drag empty regions; double-click toggles maximize
+    ["drag"].forEach(function(id){
+      var el = $(id);
+      el.addEventListener("mousedown", function(e){ if(e.button===0) win("drag"); });
+      el.addEventListener("dblclick", function(){ win("maxtoggle"); });
+    });
+
+    // address bar
+    var url = $("url"), clr = $("clr");
+    url.addEventListener("keydown", function(e){
+      if(e.key==="Enter"){ e.preventDefault(); act("go",{url:url.value}); url.blur(); }
+    });
+    url.addEventListener("input", function(){ clr.style.display = url.value ? "grid" : "none"; });
+    clr.onclick = function(){ url.value=""; clr.style.display="none"; url.focus(); };
+
+    // overflow menu
+    var dd = $("dd"), open=false;
+    function setMenu(v){
+      open=v;
+      dd.classList.toggle("open", v);
+      act("menuLayout",{open:v});
+    }
+    $("menu").onclick = function(e){ e.stopPropagation(); setMenu(!open); };
+    document.addEventListener("click", function(){ if(open) setMenu(false); });
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape"&&open){ e.preventDefault(); setMenu(false); $("menu").focus(); } });
+    dd.addEventListener("click", function(e){ e.stopPropagation(); });
+    dd.querySelectorAll("[data-a]").forEach(function(b){
+      b.onclick = function(){ var a=b.dataset.a; act(a); if(a!=="zoomIn"&&a!=="zoomOut") setMenu(false); };
+    });
+
+    var urlFocused=false;
+    url.addEventListener("focus", function(){ urlFocused=true; });
+    url.addEventListener("blur", function(){ urlFocused=false; });
+
+    function renderTabs(tabs){
+      var host = $("tabs"); host.innerHTML="";
+      (tabs||[]).forEach(function(t){
+        var el = document.createElement("div");
+        el.className = "tab" + (t.active ? " on" : "");
+        el.title = t.title || "New tab";
+        var dot = document.createElement("span"); dot.className="dot"; el.appendChild(dot);
+        var lbl = document.createElement("span"); lbl.className="t"; lbl.textContent = t.title || "New tab"; el.appendChild(lbl);
+        var x = document.createElement("span"); x.className="x"; x.innerHTML="&times;"; el.appendChild(x);
+        el.addEventListener("mousedown", function(e){
+          if(e.button===1){ e.preventDefault(); act("closeTab",{id:t.id}); }
+        });
+        el.addEventListener("click", function(e){ if(e.target===x){ act("closeTab",{id:t.id}); } else { act("selTab",{id:t.id}); } });
+        host.appendChild(el);
+      });
+    }
+    function renderTasks(list){
+      var host = $("tasks"); host.innerHTML="";
+      (list||[]).forEach(function(s){
+        var b = document.createElement("button");
+        b.className="task"; b.textContent=s.text; b.title=s.tip;
+        b.onclick = function(){ act("task",{task:s.task}); };
+        host.appendChild(b);
+      });
+    }
+    function applyTheme(dark, surface){
+      var r = document.documentElement;
+      r.style.colorScheme = dark ? "dark" : "light";
+      if(dark){ r.setAttribute("data-theme","dark"); r.removeAttribute("data-visual-theme"); r.removeAttribute("data-color-theme"); }
+      else { r.setAttribute("data-theme","light"); r.setAttribute("data-visual-theme","light"); r.setAttribute("data-color-theme", surface||"paper-minimal"); }
+    }
+    function render(s){
+      if(!s || s.type!=="state") return;
+      applyTheme(s.dark, s.surface);
+      renderTabs(s.tabs);
+      renderTasks(s.tasks);
+      if(!urlFocused){ url.value = s.url||""; clr.style.display = url.value ? "grid" : "none"; }
+      $("back").disabled = !s.canBack;
+      $("fwd").disabled = !s.canFwd;
+      $("device").innerHTML = dev[s.device] || dev.desktop;
+      $("zpct").textContent = (s.zoom||100) + "%";
+      var wm = $("wmax"); wm.innerHTML = s.maxed ? "\\uE923" : "\\uE922"; wm.title = s.maxed ? "Restore" : "Maximize";
+    }
+    if(vs) vs.addEventListener("message", function(e){
+      if(e.data && e.data.type==="dismissMenu"){ setMenu(false); return; }
+      render(e.data);
+    });
+    act("ready");
+  })();
+  </script>
+  </body></html>`;
+
   // ── thread store ───────────────────────────────────────────────
   const threads = new Map(); // id -> { id, title, messages, createdAt, updatedAt, abort }
   function newThread({ kind = "chat", title = "New chat", projectDir = "", side = false } = {}) {
@@ -810,6 +1061,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     return {
       objective: String(controller.objective || "").slice(0, 500),
       phase: String(controller.phase || ""),
+      artifactRequired: controller.artifactRequired === true,
+      showPlan: controller.showPlan === true || controller.artifactRequired === true,
       plan: controller.plan.slice(0, 40).map((step) => ({
         step: String(step?.step || "").slice(0, 300),
         status: ["pending", "in_progress", "done"].includes(step?.status) ? step.status : "pending"
@@ -1185,6 +1438,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         try { servers = await detectLocalServers({ excludePort: serverPort }); } catch { /* best effort */ }
         res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
         res.end(browserStartPage(servers));
+        return;
+      }
+
+      if (req.method === "GET" && p === "/browser-chrome") {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+        res.end(browserChromePage());
         return;
       }
 
@@ -2006,6 +2265,66 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
       }
 
+      if (req.method === "POST" && p === "/api/cloudflare/connect") {
+        const body = await readBody(req);
+        const saved = config.connectors?.cloudflare || {};
+        const token = String(body.token || "").trim() === "__keep__"
+          ? String(saved.token || "")
+          : String(body.token || "").trim();
+        if (!token) return json({ ok: false, error: "Paste a Cloudflare API token." }, 400);
+        try {
+          const verified = await verifyCloudflareToken(token);
+          const requestedAccountId = String(body.accountId || "").trim();
+          const selected = verified.accounts.find((account) => account.id === requestedAccountId)
+            || (verified.accounts.length === 1 ? verified.accounts[0] : null);
+          config.connectors = config.connectors || {};
+          config.connectors.cloudflare = {
+            token,
+            connected: !!selected,
+            accountId: selected?.id || "",
+            accountName: selected?.name || "",
+            tokenId: verified.tokenId,
+            status: verified.status,
+            expiresOn: verified.expiresOn,
+            lastTestedAt: Date.now()
+          };
+          saveConfig(config);
+          return json({
+            ok: true,
+            connected: !!selected,
+            accounts: verified.accounts,
+            cloudflare: publicConnectors(config, managedEmailOAuthClients).cloudflare,
+            message: selected ? `${selected.name} is connected.` : "Token verified. Choose an account."
+          });
+        } catch (error) {
+          return json({ ok: false, error: error.message || "Cloudflare connection failed." }, 400);
+        }
+      }
+
+      if (req.method === "POST" && p === "/api/cloudflare/disconnect") {
+        config.connectors = config.connectors || {};
+        config.connectors.cloudflare = {
+          token: "", connected: false, accountId: "", accountName: "",
+          tokenId: "", status: "", expiresOn: "", lastTestedAt: 0
+        };
+        saveConfig(config, { preserveSecrets: false });
+        return json({ ok: true, cloudflare: publicConnectors(config, managedEmailOAuthClients).cloudflare });
+      }
+
+      if (req.method === "GET" && p === "/api/cloudflare/resources") {
+        const connection = config.connectors?.cloudflare;
+        if (!connection?.connected || !connection?.token) {
+          return json({ ok: false, error: "Connect Cloudflare in Settings first." }, 400);
+        }
+        const kind = String(url.searchParams.get("kind") || "zones").toLowerCase();
+        try {
+          const payload = await cloudflareResourceList(connection, kind);
+          return json({ ok: true, kind, result: payload.result || [], resultInfo: payload.result_info || null });
+        } catch (error) {
+          return json({ ok: false, error: error.message || "Could not load Cloudflare resources." }, 400);
+        }
+      }
+
       if (req.method === "POST" && p === "/api/mcp/connect") {
         const body = await readBody(req);
         const mcpUrl = String(body.url || "").trim();
@@ -2286,13 +2605,31 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             lastCheckStatus: "ok",
             lastCheckedAt: Date.now()
           };
-          config.connectors.email[transaction.provider] = connection;
           try {
             connection.account = await getEmailAccount(transaction.provider, connection, () => saveConfig(config));
           } catch (err) {
-            config.connectors.email[transaction.provider] = previousConnection;
             throw err;
           }
+          connection.id = emailAccountId(transaction.provider, connection.account);
+          connection.provider = transaction.provider;
+          const accounts = savedEmailAccounts(config).filter((row) =>
+            row.id !== connection.id &&
+            !(row.provider === connection.provider && String(row.account || "").toLowerCase() === String(connection.account).toLowerCase())
+          );
+          accounts.push(connection);
+          config.connectors.email.accounts = accounts;
+          // Keep the provider slot as an OAuth setup template for older configs/UI,
+          // but account tokens live only in the account collection.
+          config.connectors.email[transaction.provider] = {
+            ...previousConnection,
+            clientId: connection.clientId,
+            manualClientId: connection.manualClientId,
+            manualClientSecret: connection.manualClientSecret,
+            clientSource: connection.clientSource,
+            connected: false,
+            account: "",
+            oauth: null
+          };
           saveConfig(config);
           transaction.status = "complete";
           transaction.account = connection.account;
@@ -2313,6 +2650,15 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         if (!['gmail', 'outlook'].includes(provider)) return json({ error: "unsupported email provider" }, 400);
         config.connectors = config.connectors || {};
         config.connectors.email = config.connectors.email || {};
+        const accountId = String(body.accountId || "").trim().toLowerCase();
+        if (accountId) {
+          const before = savedEmailAccounts(config);
+          const after = before.filter((row) => String(row.id || "").toLowerCase() !== accountId);
+          if (after.length === before.length) return json({ error: "email account not found" }, 404);
+          config.connectors.email.accounts = after;
+          saveConfig(config, { preserveSecrets: false, preserveConnections: false });
+          return json({ ok: true, email: publicEmailConnections(config, managedEmailOAuthClients) });
+        }
         const previous = config.connectors.email[provider] || {};
         const manualClientId = String(previous.manualClientId || (previous.clientSource !== "managed" ? previous.clientId : "") || "").trim();
         config.connectors.email[provider] = {
@@ -2327,7 +2673,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           lastCheckStatus: "",
           lastCheckedAt: 0
         };
-        saveConfig(config, { preserveSecrets: false });
+        saveConfig(config, { preserveSecrets: false, preserveConnections: false });
         return json({ ok: true, email: publicEmailConnections(config, managedEmailOAuthClients) });
       }
 
@@ -2335,7 +2681,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const body = await readBody(req);
         const provider = String(body.provider || "").trim().toLowerCase();
         if (!['gmail', 'outlook'].includes(provider)) return json({ error: "unsupported email provider" }, 400);
-        const connection = config.connectors?.email?.[provider];
+        const accountId = String(body.accountId || "").trim().toLowerCase();
+        const connection = accountId
+          ? savedEmailAccounts(config).find((row) => String(row.id || "").toLowerCase() === accountId && row.provider === provider)
+          : savedEmailAccounts(config).filter((row) => row.provider === provider)[0];
         if (!connection?.connected || !connection.oauth) {
           return json({ error: "Connect this email account first.", code: "email_not_connected" }, 400);
         }
@@ -2632,6 +2981,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/preferences/delete") {
         const body = await readBody(req);
         json({ ok: deletePreference(String(body.id || "")) });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/preferences/update") {
+        const body = await readBody(req);
+        const ok = updatePreference(String(body.id || ""), String(body.text || ""));
+        json({ ok }, ok ? 200 : 400);
         return;
       }
 

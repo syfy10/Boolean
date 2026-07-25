@@ -11,6 +11,25 @@ import {
   mcpTestConnection,
   protectedResourceMetadataUrl
 } from "../src/mcp.js";
+import { mcpToolRequiresExplicitApproval } from "../src/tools.js";
+
+test("read-only MCP tools respect Full access while account changes still require approval", () => {
+  for (const name of [
+    "get_watchlists", "get_watchlist_items", "get_positions", "get_quotes",
+    "list_open_orders", "search_symbols", "find_alerts", "query_portfolio",
+    "count_transactions", "preview_rebalance", "verify_account"
+  ]) {
+    assert.equal(mcpToolRequiresExplicitApproval(name), false, name);
+  }
+  for (const name of [
+    "place_order", "cancel_order", "buy_stock", "sell_stock", "transfer_cash",
+    "delete_watchlist", "close_position", "custom_action"
+  ]) {
+    assert.equal(mcpToolRequiresExplicitApproval(name), true, name);
+  }
+  assert.equal(mcpToolRequiresExplicitApproval("custom_action", { readOnlyHint: true }), false);
+  assert.equal(mcpToolRequiresExplicitApproval("get_positions", { destructiveHint: true }), true);
+});
 
 test("extracts OAuth protected resource metadata from a Bearer challenge", () => {
   const header = 'Bearer realm="mcp", resource_metadata="https://agent.robinhood.com/.well-known/oauth-protected-resource/mcp/trading"';

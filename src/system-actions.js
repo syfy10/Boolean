@@ -52,6 +52,14 @@ function directActionSource(input) {
 export function detectWindowsSettingsRequest(input) {
   const source = directActionSource(input);
   if (!source) return null;
+  // Connector/Recipe instructions can contain phrases such as "email open in
+  // Boolean's browser" and "connected account". Those describe mailbox
+  // context; they are not requests to open the Windows Accounts page.
+  if (/\bemail_cleanup_(?:preview|trash|undo)\b/i.test(source)
+    || /\bconnected (?:gmail|outlook|email) account\b/i.test(source)
+    || /\bemail open in Boolean(?:'s)? browser\b/i.test(source)) {
+    return null;
+  }
   const normalize = (value) => String(value || "")
     .toLowerCase()
     .replace(/\bdesplay\b/g, "display")

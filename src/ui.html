@@ -1713,13 +1713,39 @@
   .zai-key-paste:hover,.zai-key-paste:focus-visible{ color:var(--text); background:transparent; }
   #settingsPanel .usagebody,#settingsPanel .usage-grid{ font-size:var(--fs-xs); }
   #settingsPanel #projdir{ display:block; max-width:132px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .memory-list{ display:flex; flex-direction:column; gap:5px; margin-top:6px; }
-  .memory-card{ background:var(--bubble); border-radius:9px; padding:7px 8px; font-size:var(--fs-xs); color:var(--text); }
-  .memory-card .mtext{ line-height:1.35; }
-  .memory-card .mev{ color:var(--dim); margin-top:4px; max-height:44px; overflow:hidden; white-space:pre-wrap; }
-  .memory-card .mbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:5px; color:var(--dim); font-size:var(--fs-xxs); }
-  .memory-card button{ border:0; background:transparent; color:#ef4444; cursor:pointer; padding:2px 4px; border-radius:6px; }
-  .memory-card button:hover{ background:var(--hover); }
+  .memory-center{ display:flex; flex-direction:column; gap:10px; padding-top:4px; }
+  .memory-status-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+  .memory-status-card{ min-width:0; padding:9px 10px; border:1px solid var(--border); border-radius:10px; background:var(--bubble); }
+  .memory-status-card b{ display:block; font-size:var(--fs-xs); font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .memory-status-card small{ display:block; margin-top:2px; color:var(--dim); font-size:var(--fs-xxs); }
+  .memory-control-card{ border:1px solid var(--border); border-radius:11px; background:var(--bubble); overflow:hidden; }
+  .memory-control-card .setrow{ padding:9px 10px!important; margin:0!important; border-radius:0!important; background:transparent!important; }
+  .memory-control-card .setrow+.setrow{ border-top:1px solid var(--border); }
+  .memory-section-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .memory-section-head h4{ margin:0; color:var(--text); font-size:var(--fs-sm); font-weight:600; }
+  .memory-section-head p{ margin:2px 0 0; color:var(--dim); font-size:var(--fs-xxs); line-height:1.35; }
+  .memory-toolbar{ display:flex; align-items:center; gap:6px; margin-top:8px; }
+  .memory-search{ flex:1; min-width:0; position:relative; }
+  #settingsPanel .memory-search input{ width:100%; min-width:0; box-sizing:border-box; padding:7px 9px 7px 28px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; font-size:var(--fs-xs); }
+  .memory-search svg{ position:absolute; left:8px; top:50%; width:13px; height:13px; transform:translateY(-50%); color:var(--dim); pointer-events:none; }
+  .memory-list{ display:flex; flex-direction:column; gap:7px; margin-top:8px; }
+  .memory-card{ border:1px solid var(--border); background:var(--bg); border-radius:10px; padding:9px 10px; font-size:var(--fs-xs); color:var(--text); }
+  .memory-card .mtext{ line-height:1.42; }
+  .memory-card .mev{ margin-top:7px; padding:7px 8px; border-left:2px solid var(--border); color:var(--dim); background:var(--bubble); border-radius:0 7px 7px 0; max-height:82px; overflow:auto; white-space:pre-wrap; }
+  .memory-card .mbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:7px; color:var(--dim); font-size:var(--fs-xxs); }
+  .memory-actions{ display:flex; align-items:center; gap:3px; }
+  .memory-card button{ border:0; background:transparent; color:var(--dim); cursor:pointer; padding:3px 6px; border-radius:6px; font:inherit; font-size:var(--fs-xxs); }
+  .memory-card button:hover{ color:var(--text); background:var(--hover); }
+  .memory-card button.danger{ color:#d14343; }
+  .memory-editor{ width:100%; min-height:64px; resize:vertical; box-sizing:border-box; border:1px solid var(--green); border-radius:8px; padding:7px 8px; background:var(--bg); color:var(--text); font:inherit; line-height:1.4; }
+  .memory-empty{ padding:22px 12px; border:1px dashed var(--border); border-radius:10px; text-align:center; color:var(--dim); font-size:var(--fs-xs); }
+  .memory-rule-card{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:11px; border:1px solid var(--border); border-radius:11px; background:var(--bubble); }
+  .memory-rule-card b{ display:block; color:var(--text); font-size:var(--fs-xs); }
+  .memory-rule-card small{ display:block; margin-top:3px; color:var(--dim); font-size:var(--fs-xxs); line-height:1.35; }
+  @media(max-width:700px){
+    .memory-status-grid{ grid-template-columns:1fr; }
+    .memory-rule-card{ align-items:stretch; flex-direction:column; }
+  }
   .legal-docs{ display:flex; flex-direction:column; gap:10px; margin-top:8px; }
   .legal-doc{ border-radius:10px; background:var(--bubble); padding:9px 10px; }
   .legal-doc h4{ margin:0 0 6px; font-size:var(--fs-xs); font-weight:600; color:var(--text); }
@@ -3201,6 +3227,7 @@ body:not(.composer-simple) main::after{
               <div style="position:relative">
                 <button class="connector-add" id="connectorAdd" type="button">Add&nbsp;⌄</button>
                 <div class="connector-add-menu" id="connectorAddMenu" hidden>
+                  <button type="button" data-add-connector="cloudflare">Cloudflare account</button>
                   <button type="button" data-add-connector="api">API connection</button>
                   <button type="button" data-add-connector="mcp">MCP server</button>
                   <button type="button" data-add-connector="agent">HTTP agent</button>
@@ -3291,6 +3318,40 @@ body:not(.composer-simple) main::after{
             </div>
             <div class="hint" id="zaiCodingStatus" style="margin-top:7px"></div>
           </div>
+          <div class="thirdparty-provider" data-provider-panel="cloudflare" role="tabpanel" hidden>
+            <div class="setrow" style="display:block">
+              <div><b>Cloudflare account</b><div class="hint">Use a scoped API token to inspect and manage Workers, Pages, zones, D1, and R2. The token stays on this PC.</div></div>
+            </div>
+            <div class="setrow" style="display:block">
+              <div>API token<div class="hint" id="cloudflareTokenHint">Create a least-privilege token in the Cloudflare dashboard.</div></div>
+              <div class="zai-key-control">
+                <input type="password" id="cloudflareToken" autocomplete="off" spellcheck="false" placeholder="Paste Cloudflare API token">
+                <button class="zai-key-paste" id="cloudflarePaste" type="button" title="Paste token" aria-label="Paste Cloudflare token"><svg class="paste-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h4"/><path d="M5 5h6"/><rect x="3.5" y="4" width="9" height="10" rx="1.5"/><path d="M6 9h4"/><path d="M8 7v4"/></svg></button>
+              </div>
+            </div>
+            <div class="setrow" id="cloudflareAccountRow" style="display:none">
+              <div>Account<div class="hint">Account Boolean will control</div></div>
+              <select id="cloudflareAccount"></select>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:5px">
+              <button class="minibtn" id="cloudflareConnect" style="flex:1">Verify token</button>
+              <button class="minibtn dangerbtn" id="cloudflareDisconnect" style="display:none">Disconnect</button>
+            </div>
+            <div class="hint" id="cloudflareStatus" role="status" aria-live="polite" style="margin-top:7px"></div>
+            <div id="cloudflareResources" style="display:none;margin-top:12px">
+              <div class="setrow" style="display:block">
+                <div><b>Account resources</b><div class="hint">Quick read-only inventory. Changes requested in chat still require approval.</div></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+                  <button class="minibtn cloudflare-resource" data-cloudflare-resource="zones">Zones</button>
+                  <button class="minibtn cloudflare-resource" data-cloudflare-resource="workers">Workers</button>
+                  <button class="minibtn cloudflare-resource" data-cloudflare-resource="pages">Pages</button>
+                  <button class="minibtn cloudflare-resource" data-cloudflare-resource="d1">D1</button>
+                  <button class="minibtn cloudflare-resource" data-cloudflare-resource="r2">R2</button>
+                </div>
+                <div class="conn-list" id="cloudflareResourceList" style="margin-top:8px"></div>
+              </div>
+            </div>
+          </div>
           <div class="thirdparty-provider" data-provider-panel="mcp" role="tabpanel" hidden>
             <div class="setrow" style="display:block">
               <div><b>MCP servers</b><div class="hint">Connect a remote Model Context Protocol server. Services such as Robinhood open their own secure sign-in page; no token copy is needed.</div></div>
@@ -3372,7 +3433,7 @@ body:not(.composer-simple) main::after{
             <div>CLI setup<div class="hint">install GitHub CLI then run 'gh auth login'</div></div>
             <button class="minibtn" id="ghRefresh" type="button">Refresh</button>
           </div>
-          <div class="hint" style="margin-top:9px">Mutating operations (PR create, comments) always require approval.</div>
+          <div class="hint" style="margin-top:9px">GitHub changes follow your approval mode. Full access can approve them automatically.</div>
         </div>
       </div>
 
@@ -3389,7 +3450,7 @@ body:not(.composer-simple) main::after{
             <div>Install<div class="hint">point to a local folder containing skill.json</div></div>
             <button class="minibtn" id="skillInstallBtn" type="button">Install guide</button>
           </div>
-          <div class="hint" style="margin-top:9px">Skill installs require approval. Packages are local and permission-declared but not yet signed.</div>
+          <div class="hint" style="margin-top:9px">Skill installs follow your approval mode. Packages are local and permission-declared but not yet signed.</div>
         </div>
       </div>
 
@@ -3445,7 +3506,7 @@ body:not(.composer-simple) main::after{
             <div>Custom MCP server<div class="hint">connect to any MCP server by URL or command</div></div>
             <div style="display:flex;gap:6px;margin-top:4px"><input type="text" id="mcpCustomUrl" placeholder="npx @some/mcp-server or https://…" spellcheck="false" autocomplete="off" style="flex:1"><button class="minibtn" id="mcpCustomAdd" type="button">Add</button></div>
           </div>
-          <div class="hint" style="margin-top:9px">MCP tool calls always require your confirmation, including trading and financial actions. Each connector shows its permission scope before first use.</div>
+          <div class="hint" style="margin-top:9px">Read-only MCP calls follow your approval mode. Trades, orders, transfers, deletes, and other account changes always require confirmation. Each connector shows its permission scope before first use.</div>
         </div>
       </div>
 
@@ -3467,6 +3528,7 @@ body:not(.composer-simple) main::after{
               <div class="email-provider-actions"><button class="minibtn email-disconnect-action" id="outlookEmailDisconnect" type="button">Disconnect</button><button class="minibtn email-primary-action" id="outlookEmailAction" type="button">Connect</button></div>
             </div>
           </div>
+          <div class="email-account-list" id="connectedEmailAccountList"></div>
           <div class="hint email-setup-note" id="emailSetupNote"></div>
           <details class="email-advanced" id="emailAdvanced">
             <summary>Advanced OAuth setup</summary>
@@ -3533,17 +3595,32 @@ body:not(.composer-simple) main::after{
 
       <div class="sec" data-sec="memory" data-search="notepad memory project notes global notes saved preferences remember review delete active note project rule">
         <div class="sechead">Notepad &amp; Memory <span class="caret">▶</span></div>
-        <div class="secbody">
-          <div class="setrow"><div>Current chat memory<div class="hint">keeps up with this open chat</div></div><label class="switch"><input type="checkbox" id="referenceChatMemory"><span class="slider"></span></label></div>
-          <div class="setrow"><div>Learn behavior<div class="hint">safe preferences and formats only</div></div><label class="switch"><input type="checkbox" id="learnedMemory"><span class="slider"></span></label></div>
-          <div class="setrow" style="display:block">
-            <div>Learned behavior<div class="hint">stored locally on this PC</div></div>
-            <div class="memory-list" id="memoryList"></div>
-            <button class="minibtn dangerbtn" id="clearMemory" style="width:100%;margin-top:6px">Clear learned behavior</button>
+        <div class="secbody memory-center">
+          <div class="memory-status-grid" aria-label="Memory status">
+            <div class="memory-status-card"><b id="chatMemoryStatus">Chat memory on</b><small>Current conversation</small></div>
+            <div class="memory-status-card"><b id="learningStatus">Learning on</b><small>Safe preferences only</small></div>
+            <div class="memory-status-card"><b id="memoryRuleCount">0 preferences</b><small>Saved locally on this PC</small></div>
           </div>
-          <div class="setrow" style="display:block">
-            <div>Turn active note into project rule<div class="hint">Saves the current notepad tab as a rule in <code>BOOLEAN.md</code> so Boolean follows it for this project.</div></div>
-            <button class="minibtn" id="turnNoteIntoRule" style="width:100%;margin-top:4px">Turn active note into project rule</button>
+          <div class="memory-control-card">
+            <div class="setrow"><div>Remember this chat<div class="hint">Keeps decisions and corrections available while you continue this conversation.</div></div><label class="switch"><input type="checkbox" id="referenceChatMemory"><span class="slider"></span></label></div>
+            <div class="setrow"><div>Learn safe preferences<div class="hint">Learns response length and reusable formats—never purchases, sends, deletes, or approvals.</div></div><label class="switch"><input type="checkbox" id="learnedMemory"><span class="slider"></span></label></div>
+          </div>
+          <div>
+            <div class="memory-section-head">
+              <div><h4>Saved preferences</h4><p>Review exactly what Boolean will reuse. Edit or forget any item.</p></div>
+              <button class="minibtn dangerbtn" id="clearMemory">Clear all</button>
+            </div>
+            <div class="memory-toolbar">
+              <label class="memory-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input id="memorySearch" type="search" placeholder="Search saved preferences" aria-label="Search saved preferences">
+              </label>
+            </div>
+            <div class="memory-list" id="memoryList"></div>
+          </div>
+          <div class="memory-rule-card">
+            <div><b>Use the active note as a project rule</b><small id="activeNoteRuleHint">Saves the current note to <code>BOOLEAN.md</code> for this project.</small></div>
+            <button class="minibtn" id="turnNoteIntoRule">Add project rule</button>
           </div>
         </div>
       </div>
@@ -5631,7 +5708,7 @@ body:not(.composer-simple) main::after{
     const model=provider==="local"?displayName(state.model)||"Local model":(state.userApi&&provider==="customApi"?state.userApi.model||"Custom API":label);
     const project=shortPath(state.projectsDir)||"Projects";
     const connectors=connectorsState();
-    const connectorCount=(connectors.apis||[]).length+(connectors.mcp||[]).length+(connectors.agents||[]).length+Object.values(connectors.email||{}).filter(Boolean).length;
+    const connectorCount=(connectors.apis||[]).length+(connectors.mcp||[]).length+(connectors.agents||[]).length+(connectors.email?.accounts||[]).length;
     const githubConnected=githubDashboardStatus?.authenticated===true;
     const connectedToolCount=connectorCount+(githubConnected?1:0);
     const agent=(state.ui&&state.ui.codingAgent)||{};
@@ -5763,7 +5840,7 @@ body:not(.composer-simple) main::after{
     $("modellibraryrow").style.display=(prov==="local")?"block":"none";
     renderCloudFallbackSettings();
   }
-  let connectorFilter="all", editingApiId="", editingAgentId="", editingMcpId="";
+  let connectorFilter="all", editingApiId="", editingAgentId="", editingMcpId="", cloudflareAccounts=[];
   const API_PRESETS={
     zai:{name:"Z.AI Coding Plan",baseUrl:"https://api.z.ai/api/coding/paas/v4",model:"GLM-4.7"},
     glm:{name:"Z.AI API",baseUrl:"https://api.z.ai/api/paas/v4",model:"glm-4.6"},
@@ -5775,7 +5852,7 @@ body:not(.composer-simple) main::after{
     if(!overview||!detail) return;
     overview.hidden=true; detail.hidden=false;
     document.querySelectorAll("[data-provider-panel]").forEach(panel=>panel.hidden=panel.dataset.providerPanel!==provider);
-    const titles={api:existing?"API connection":"Add API connection",mcp:existing?"Reconnect MCP server":"Add MCP server",agent:existing?"HTTP agent":"Add HTTP agent",zai:"Z.AI Coding Plan"};
+    const titles={cloudflare:"Cloudflare account",api:existing?"API connection":"Add API connection",mcp:existing?"Reconnect MCP server":"Add MCP server",agent:existing?"HTTP agent":"Add HTTP agent",zai:"Z.AI Coding Plan"};
     $("connectorDetailTitle").textContent=titles[provider]||"Connection";
     $("connectorAddMenu").hidden=true;
     if(provider==="api"){
@@ -5815,6 +5892,20 @@ body:not(.composer-simple) main::after{
       mcpStatus(existing?.lastError||"");
       setTimeout(()=>$("mcpName").focus(),0);
     }
+    if(provider==="cloudflare"){
+      const connection=connectorsState().cloudflare||{};
+      cloudflareAccounts=connection.accountId?[{id:connection.accountId,name:connection.accountName||"Cloudflare account"}]:[];
+      $("cloudflareToken").value="";
+      $("cloudflareToken").placeholder=connection.hasToken?"Token saved - paste to replace":"Paste Cloudflare API token";
+      $("cloudflareTokenHint").textContent=connection.hasToken?"Token saved locally on this PC.":"Use a scoped token with only the permissions you want Boolean to have.";
+      renderCloudflareAccounts(connection.accountId||"");
+      $("cloudflareConnect").textContent=connection.connected?"Test connection":"Verify token";
+      $("cloudflareDisconnect").style.display=connection.hasToken?"":"none";
+      $("cloudflareResources").style.display=connection.connected?"":"none";
+      $("cloudflareResourceList").innerHTML="";
+      cloudflareStatus(connection.connected?(connection.accountName+" is ready."):"");
+      if(!connection.hasToken) setTimeout(()=>$("cloudflareToken").focus(),0);
+    }
   }
   function showConnectorOverview(){
     const overview=$("connectorOverview"), detail=$("connectorDetail");
@@ -5845,7 +5936,11 @@ body:not(.composer-simple) main::after{
     const apiConnections=connectorsState().apis;
     const mcpServers=remoteMcpServers();
     const agents=connectorsState().agents;
-    const rows=[...apiConnections.map(api=>({
+    const cloudflare=connectorsState().cloudflare||{};
+    const rows=[{
+      id:"cloudflare",name:"Cloudflare",type:"Cloud platform",connected:cloudflare.connected===true,
+      kind:"cloudflare",url:cloudflare.accountName||"",cloudflare
+    },...apiConnections.map(api=>({
       id:api.id,name:api.name||"API connection",type:"API",connected:!!api.hasKey,paused:api.enabled===false,
       selected:!!api.selected,kind:"api",url:api.baseUrl||"",api
     })),...mcpServers.map(server=>({
@@ -5868,27 +5963,98 @@ body:not(.composer-simple) main::after{
       const status=row.paused?"Paused":row.selected?"Selected":row.connected?"Connected":(row.kind==="mcp"&&row.needsReconnect?"Reconnect required":(row.kind==="mcp"?"Not connected":"Key needed"));
       const statusClass=row.paused?"warn":row.connected?"ready":row.needsReconnect?"error":"";
       const mark=connectorBrandMark(row);
-      const action=row.kind==="api"?(row.selected?"Manage":"Use"):row.kind==="mcp"?(row.connected?"Test":"Reconnect"):"Manage";
+      const action=row.kind==="api"?(row.selected?"Manage":"Use"):row.kind==="mcp"?(row.connected?"Test":"Reconnect"):row.kind==="cloudflare"?(row.connected?"Manage":"Connect"):"Manage";
       item.innerHTML='<div class="connector-name"><span class="connector-mark '+mark.cls+'">'+mark.html+'</span><span class="connector-label">'+esc(row.name)+'</span></div>'+
         '<div class="connector-type">'+esc(row.type)+(row.kind==="mcp"?' · Web':'')+'</div>'+
         '<div class="connector-status"><span class="connector-state '+statusClass+'">'+status+'</span><span style="display:flex;align-items:center;gap:2px"><button class="connector-action" type="button">'+action+'</button>'+
         '<button class="connector-remove" type="button" title="Remove" aria-label="Remove '+esc(row.name)+'">×</button></span></div>';
-      item.querySelector(".connector-label").onclick=()=>openConnectorDetail(row.kind,row.api||row.agent||row.server||null);
+      item.querySelector(".connector-label").onclick=()=>openConnectorDetail(row.kind,row.api||row.agent||row.server||row.cloudflare||null);
       item.querySelector(".connector-action").onclick=async()=>{
         if(row.kind==="api"&&!row.selected){ await fetch("/api/config",{method:"POST",body:JSON.stringify({selectApiConnector:row.id})}); await refresh(); tempToast(row.name+" selected."); return; }
         if(row.kind==="api") return openConnectorDetail("api",row.api);
         if(row.kind==="mcp") return row.connected?testMcp({id:row.id}):openConnectorDetail("mcp",row.server);
+        if(row.kind==="cloudflare") return openConnectorDetail("cloudflare",row.cloudflare);
         openConnectorDetail("agent",row.agent);
       };
       const remove=item.querySelector(".connector-remove");
       if(remove) remove.onclick=async()=>{
         if(!await appConfirm("Delete connection?",'"'+row.name+'" will be removed from Boolean.',"Delete",true)) return;
-        if(row.kind==="api") await fetch("/api/config",{method:"POST",body:JSON.stringify({removeApiConnector:row.id})});
+        if(row.kind==="cloudflare") await disconnectCloudflare(false);
+        else if(row.kind==="api") await fetch("/api/config",{method:"POST",body:JSON.stringify({removeApiConnector:row.id})});
         else { const items=row.kind==="mcp"?connectorsState().mcp:connectorsState().agents; const index=items.findIndex(entry=>entry.id===row.id); if(index>=0) items.splice(index,1); await saveConnectors(); }
         await refresh(); renderConnectorOverview();
       };
       host.appendChild(item);
     });
+  }
+  function cloudflareStatus(message,color=""){
+    const el=$("cloudflareStatus"); if(!el) return;
+    el.textContent=message||"";
+    el.style.color=color||"var(--dim)";
+  }
+  function renderCloudflareAccounts(selected=""){
+    const row=$("cloudflareAccountRow"), select=$("cloudflareAccount");
+    if(!row||!select) return;
+    row.style.display=cloudflareAccounts.length?"":"none";
+    select.innerHTML=cloudflareAccounts.map(account=>'<option value="'+esc(account.id)+'">'+esc(account.name)+'</option>').join("");
+    if(selected&&cloudflareAccounts.some(account=>account.id===selected)) select.value=selected;
+  }
+  async function connectCloudflare(){
+    const button=$("cloudflareConnect");
+    const connection=connectorsState().cloudflare||{};
+    const token=$("cloudflareToken").value.trim()||(connection.hasToken?"__keep__":"");
+    if(!token){ cloudflareStatus("Paste a Cloudflare API token.","var(--danger,#d14343)"); return; }
+    button.disabled=true;
+    cloudflareStatus("Verifying token and loading accounts...");
+    try{
+      const response=await fetch("/api/cloudflare/connect",{method:"POST",body:JSON.stringify({
+        token,accountId:$("cloudflareAccount").value||""
+      })});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error||"Cloudflare connection failed.");
+      cloudflareAccounts=Array.isArray(result.accounts)?result.accounts:[];
+      state.connectors=state.connectors||{};
+      state.connectors.cloudflare=result.cloudflare||{};
+      renderCloudflareAccounts(result.cloudflare?.accountId||"");
+      $("cloudflareToken").value="";
+      $("cloudflareToken").placeholder="Token saved - paste to replace";
+      $("cloudflareDisconnect").style.display="";
+      $("cloudflareResources").style.display=result.connected?"":"none";
+      button.textContent=result.connected?"Test connection":"Connect selected account";
+      cloudflareStatus(result.message||"Cloudflare token verified.",result.connected?"var(--green)":"var(--dim)");
+      renderConnectorOverview();
+    }catch(error){ cloudflareStatus(error.message||"Cloudflare connection failed.","var(--danger,#d14343)"); }
+    finally{ button.disabled=false; }
+  }
+  async function disconnectCloudflare(confirm=true){
+    if(confirm&&!await appConfirm("Disconnect Cloudflare?","The saved API token and selected account will be removed from this PC.","Disconnect",true)) return;
+    const response=await fetch("/api/cloudflare/disconnect",{method:"POST"});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ cloudflareStatus(result.error||"Could not disconnect Cloudflare.","var(--danger,#d14343)"); return; }
+    state.connectors=state.connectors||{};
+    state.connectors.cloudflare=result.cloudflare||{};
+    cloudflareAccounts=[];
+    if($("cloudflareToken")) $("cloudflareToken").value="";
+    if($("cloudflareDisconnect")) $("cloudflareDisconnect").style.display="none";
+    if($("cloudflareResources")) $("cloudflareResources").style.display="none";
+    cloudflareStatus("Cloudflare disconnected.");
+    renderCloudflareAccounts();
+    renderConnectorOverview();
+  }
+  async function loadCloudflareResources(kind){
+    const host=$("cloudflareResourceList");
+    host.innerHTML='<div class="hint">Loading '+esc(kind)+'...</div>';
+    try{
+      const response=await fetch("/api/cloudflare/resources?kind="+encodeURIComponent(kind));
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error||"Could not load resources.");
+      const rows=Array.isArray(result.result)?result.result:[];
+      host.innerHTML=rows.length?rows.slice(0,50).map(item=>{
+        const name=item.name||item.id||item.title||"Untitled";
+        const detail=item.subdomain||item.modified_on||item.created_on||"";
+        return '<div class="conn-card"><div class="top"><b>'+esc(name)+'</b><span class="kind">'+esc(kind.toUpperCase())+'</span></div>'+(detail?'<div class="url">'+esc(detail)+'</div>':'')+'</div>';
+      }).join(""):'<div class="hint">No '+esc(kind)+' found, or this token does not grant read access.</div>';
+    }catch(error){ host.innerHTML='<div class="hint" style="color:var(--danger,#d14343)">'+esc(error.message||"Could not load resources.")+'</div>'; }
   }
   function applyThirdParty(){
     const details=state.thirdParty?.zaiCoding||{};
@@ -5932,10 +6098,11 @@ body:not(.composer-simple) main::after{
     if($("railBrandReady")) $("railBrandReady").title=label+(ready?" - ready":" - not ready");
   }
   function connectorsState(){
-    state.connectors=state.connectors||{apis:[],mcp:[],agents:[],email:{}};
+    state.connectors=state.connectors||{apis:[],mcp:[],agents:[],cloudflare:{},email:{}};
     state.connectors.apis=Array.isArray(state.connectors.apis)?state.connectors.apis:[];
     state.connectors.mcp=Array.isArray(state.connectors.mcp)?state.connectors.mcp:[];
     state.connectors.agents=Array.isArray(state.connectors.agents)?state.connectors.agents:[];
+    state.connectors.cloudflare=state.connectors.cloudflare||{};
     state.connectors.email=state.connectors.email||{};
     return state.connectors;
   }
@@ -5956,28 +6123,43 @@ body:not(.composer-simple) main::after{
   }
   function renderEmailSettings(){
     const email=connectorsState().email||{};
+    const accounts=Array.isArray(email.accounts)?email.accounts:[];
     ["gmail","outlook"].forEach(provider=>{
       const connection=email[provider]||{};
       const account=$(provider+"EmailAccount"), health=$(provider+"EmailState"), action=$(provider+"EmailAction");
       const disconnect=$(provider+"EmailDisconnect"), manual=$(provider+"ManualConnect");
       const card=document.querySelector('[data-email-provider="'+provider+'"]');
-      const ready=connection.connected&&connection.ready!==false;
-      if(account) account.textContent=connection.connected
-        ? (connection.account||"Connected account")
+      const count=accounts.filter(row=>row.provider===provider).length;
+      const ready=count>0;
+      if(account) account.textContent=count
+        ? count+" connected "+(count===1?"account":"accounts")
         : (connection.managedAvailable?"One-click sign-in ready":(connection.manualAvailable?"Developer client ID saved":"Setup needed in this build"));
       if(health){
-        health.textContent=ready?"Ready":(connection.connected?"Needs attention":"Not connected");
-        health.className="email-health "+(ready?"ready":(connection.connected?"attention":"disconnected"));
+        health.textContent=ready?"Ready":"Not connected";
+        health.className="email-health "+(ready?"ready":"disconnected");
       }
       if(action){
-        action.textContent=ready?"Test":(connection.connected?"Reconnect":(emailConnectionFailed[provider]?"Try again":"Connect"));
+        action.textContent="Add account";
         action.disabled=!!emailConnectionBusy[provider];
       }
       if(card) card.classList.toggle("is-ready",!!ready);
-      if(card) card.classList.toggle("needs-attention",!ready&&(connection.connected||emailConnectionFailed[provider]));
-      if(disconnect){ disconnect.style.display=connection.connected?"":"none"; disconnect.disabled=!!emailConnectionBusy[provider]; }
+      if(card) card.classList.toggle("needs-attention",!!emailConnectionFailed[provider]);
+      if(disconnect) disconnect.style.display="none";
       if(manual){ manual.textContent=connection.manualAvailable?(provider==="gmail"?"Use saved credentials":"Use saved ID"):(provider==="gmail"?"Use Google":"Use ID"); manual.disabled=!!emailConnectionBusy[provider]; }
     });
+    const list=$("connectedEmailAccountList");
+    if(list){
+      list.innerHTML=accounts.length?accounts.map(row=>{
+        const label=row.provider==="gmail"?"Gmail":"Outlook";
+        const ready=row.ready!==false;
+        return '<div class="conn-card email-connection '+(ready?'is-ready':'needs-attention')+'" data-email-account-id="'+esc(row.id)+'">'
+          +'<span class="email-provider-icon '+esc(row.provider)+'" aria-hidden="true">'+(row.provider==="gmail"?"G":"O")+'</span>'
+          +'<div class="email-provider-copy"><div class="email-provider-title"><b>'+esc(row.account||label)+'</b><span class="email-health '+(ready?'ready':'attention')+'">'+(ready?'Ready':'Needs attention')+'</span></div><small class="email-provider-account">'+label+'</small></div>'
+          +'<div class="email-provider-actions"><button class="minibtn" data-email-test="'+esc(row.id)+'" data-provider="'+esc(row.provider)+'">Test</button><button class="minibtn email-disconnect-action" data-email-remove="'+esc(row.id)+'" data-provider="'+esc(row.provider)+'">Disconnect</button></div></div>';
+      }).join(""):'<div class="hint">No email accounts connected yet. Add as many Gmail or Outlook accounts as you need.</div>';
+      list.querySelectorAll("[data-email-test]").forEach(button=>button.onclick=()=>testEmail(button.dataset.provider,button.dataset.emailTest));
+      list.querySelectorAll("[data-email-remove]").forEach(button=>button.onclick=()=>disconnectEmail(button.dataset.provider,button.dataset.emailRemove));
+    }
     if($("emailDraftOnly")) $("emailDraftOnly").checked=email.draftOnly!==false;
     if($("gmailCallbackUri")) $("gmailCallbackUri").textContent=emailCallbackUriFor("gmail");
     if($("outlookCallbackUri")) $("outlookCallbackUri").textContent=emailCallbackUriFor("outlook");
@@ -6069,13 +6251,13 @@ body:not(.composer-simple) main::after{
     }
     finally{ emailConnectionBusy[provider]=false; renderEmailSettings(); }
   }
-  async function testEmail(provider){
+  async function testEmail(provider,accountId=""){
     if(emailConnectionBusy[provider]) return;
     emailConnectionBusy[provider]=true;
     renderEmailSettings();
     emailStatus("Checking the "+(provider==="gmail"?"Gmail":"Outlook")+" connection...");
     try{
-      const response=await fetch("/api/email/test",{method:"POST",body:JSON.stringify({provider})});
+      const response=await fetch("/api/email/test",{method:"POST",body:JSON.stringify({provider,accountId})});
       const result=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(result.error||"Connection test failed.");
       state.connectors=state.connectors||{};
@@ -6091,14 +6273,14 @@ body:not(.composer-simple) main::after{
       tempToast(message,5200);
     }finally{ emailConnectionBusy[provider]=false; renderEmailSettings(); }
   }
-  async function disconnectEmail(provider){
+  async function disconnectEmail(provider,accountId=""){
     if(emailConnectionBusy[provider]) return;
-    const connection=connectorsState().email?.[provider]||{};
+    const connection=(connectorsState().email?.accounts||[]).find(row=>row.id===accountId)||connectorsState().email?.[provider]||{};
     if(!await appConfirm("Disconnect email?",`Remove Boolean's local access to ${connection.account||provider}?`,"Disconnect",true)) return;
     emailConnectionBusy[provider]=true;
     renderEmailSettings();
     try{
-      const response=await fetch("/api/email/disconnect",{method:"POST",body:JSON.stringify({provider})});
+      const response=await fetch("/api/email/disconnect",{method:"POST",body:JSON.stringify({provider,accountId})});
       const result=await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(result.error||"Could not disconnect the account.");
       state.connectors=state.connectors||{};
@@ -6528,7 +6710,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.54"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.55"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -6707,26 +6889,58 @@ body:not(.composer-simple) main::after{
       $("usageBody").innerHTML=h;
     }catch{ $("usageBody").textContent="unavailable"; }
   }
+  let memoryRules=[];
+  function renderMemory(){
+    const box=$("memoryList"); if(!box) return;
+    const query=String($("memorySearch")?.value||"").trim().toLowerCase();
+    const rules=memoryRules.filter(rule=>!query||`${rule.text||""} ${rule.evidence||""}`.toLowerCase().includes(query));
+    const count=$("memoryRuleCount");
+    if(count) count.textContent=memoryRules.length+" "+(memoryRules.length===1?"preference":"preferences");
+    const chatOn=$("referenceChatMemory")?.checked!==false;
+    const learningOn=$("learnedMemory")?.checked!==false;
+    if($("chatMemoryStatus")) $("chatMemoryStatus").textContent="Chat memory "+(chatOn?"on":"off");
+    if($("learningStatus")) $("learningStatus").textContent="Learning "+(learningOn?"on":"off");
+    const note=typeof activeNote==="function"?activeNote():null;
+    if($("activeNoteRuleHint")) $("activeNoteRuleHint").innerHTML=note
+      ?'Add <b>'+esc(note.title||"Untitled note")+'</b> to <code>BOOLEAN.md</code> for this project.'
+      :'Open a note first, then add it to <code>BOOLEAN.md</code>.';
+    box.innerHTML="";
+    if(!rules.length){
+      box.innerHTML='<div class="memory-empty">'+(query?"No preferences match this search.":"Nothing learned yet. Boolean will list reusable, local preferences here.")+'</div>';
+      return;
+    }
+    rules.forEach(rule=>{
+      const card=document.createElement("div"); card.className="memory-card";
+      const when=rule.updatedAt?new Date(rule.updatedAt).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}):"";
+      card.innerHTML='<div class="mtext">'+esc(rule.text||"")+'</div>'+
+        (rule.evidence?'<details class="mev"><summary>View saved example</summary>'+esc(rule.evidence)+'</details>':"")+
+        '<div class="mbar"><span>'+((rule.hits||0)>1?("Used "+(rule.hits||0)+" times"):"Saved once")+(when?" · Updated "+esc(when):"")+'</span>'+
+        '<span class="memory-actions"><button data-action="edit">Edit</button><button class="danger" data-action="forget">Forget</button></span></div>';
+      card.querySelector('[data-action="edit"]').onclick=async()=>{
+        const next=await appPrompt("Edit saved preference","Update what Boolean should remember. This stays on this PC.","Preference",rule.text||"",600);
+        if(next===null||!String(next).trim()||String(next).trim()===String(rule.text||"").trim()) return;
+        const response=await fetch("/api/preferences/update",{method:"POST",body:JSON.stringify({id:rule.id,text:String(next).trim()})});
+        if(!response.ok){ tempToast("Could not update preference"); return; }
+        await loadMemory();
+        tempToast("Preference updated");
+      };
+      card.querySelector('[data-action="forget"]').onclick=async()=>{
+        if(!await appConfirm("Forget this preference?","Boolean will stop reusing this saved behavior.","Forget",true)) return;
+        await fetch("/api/preferences/delete",{method:"POST",body:JSON.stringify({id:rule.id})});
+        await loadMemory();
+      };
+      box.appendChild(card);
+    });
+  }
   async function loadMemory(){
     const box=$("memoryList"); if(!box) return;
     try{
       const r=await (await fetch("/api/preferences")).json();
-      const rules=r.rules||[];
-      box.innerHTML="";
-      if(!rules.length){ box.innerHTML='<div class="hint">No learned behavior yet.</div>'; return; }
-      rules.forEach(rule=>{
-        const card=document.createElement("div"); card.className="memory-card";
-        card.innerHTML='<div class="mtext">'+esc(rule.text||"")+'</div>'+
-          (rule.evidence?'<div class="mev">'+esc(rule.evidence)+'</div>':"")+
-          '<div class="mbar"><span>'+((rule.hits||0)>1?((rule.hits||0)+" times"):"learned")+'</span><button title="Forget">Forget</button></div>';
-        card.querySelector("button").onclick=async()=>{
-          await fetch("/api/preferences/delete",{method:"POST",body:JSON.stringify({id:rule.id})});
-          loadMemory();
-        };
-        box.appendChild(card);
-      });
-    }catch{ box.innerHTML='<div class="hint">Memory unavailable.</div>'; }
+      memoryRules=r.rules||[];
+      renderMemory();
+    }catch{ box.innerHTML='<div class="memory-empty">Memory is unavailable right now.</div>'; }
   }
+  if($("memorySearch")) $("memorySearch").oninput=renderMemory;
   function startRename(d,t){
     const ttl=d.querySelector(".ttl"); if(!ttl) return;
     const inp=document.createElement("input"); inp.className="rename"; inp.value=t.title;
@@ -6859,7 +7073,7 @@ body:not(.composer-simple) main::after{
     const log=t.log||[];
     if(!log.length && !(run&&run.threadId===id)) showEmpty();
     renderLogEntries(log);
-    if(!viewingRun()&&t.pendingTask?.controller?.plan?.length){
+    if(!viewingRun()&&shouldShowProjectPlan(t.pendingTask?.controller)&&t.pendingTask?.controller?.plan?.length){
       const children=[...col.children];
       let lastUser=-1;
       children.forEach((node,index)=>{ if(node.classList?.contains("msg-user")) lastUser=index; });
@@ -8415,6 +8629,9 @@ body:not(.composer-simple) main::after{
     const text = String(snapshot?.objective || "Coding task").replace(/\s+/g," ").trim();
     return text.length > 72 ? text.slice(0,69).trimEnd()+"..." : text;
   }
+  function shouldShowProjectPlan(snapshot) {
+    return snapshot?.showPlan === true || snapshot?.artifactRequired === true;
+  }
   function planElapsed(snapshot) {
     const started = Number(snapshot?.startedAt) || run?.startTime || Date.now();
     const ended = Number(snapshot?.completedAt) || (snapshot?.phase === "completed" ? Number(snapshot?.updatedAt) : 0) || Date.now();
@@ -8551,7 +8768,7 @@ body:not(.composer-simple) main::after{
     });
   }
   function ensurePlanChecklist(snapshot) {
-    if (!snapshot || !snapshot.plan || !snapshot.plan.length || !run || !viewingRun()) {
+    if (!snapshot || !shouldShowProjectPlan(snapshot) || !snapshot.plan || !snapshot.plan.length || !run || !viewingRun()) {
       if (planEl && planEl.isConnected) planEl.remove();
       planEl = null;
       return;
@@ -8605,7 +8822,7 @@ body:not(.composer-simple) main::after{
   function ensureStatusEl(){
     if(!run) return;
     if(!run.statusEl||!run.statusEl.isConnected){
-      run.statusEl=document.createElement("div"); run.statusEl.className="status"+(run?.controller?.plan?.length?" live-plan-output":"");
+      run.statusEl=document.createElement("div"); run.statusEl.className="status"+(shouldShowProjectPlan(run?.controller)&&run?.controller?.plan?.length?" live-plan-output":"");
       run.statusEl.innerHTML='<span class="spinner"></span><span class="stx"></span><span class="meta"></span>';
       col.appendChild(run.statusEl);
     }
@@ -9047,6 +9264,7 @@ body:not(.composer-simple) main::after{
   });
   send.onclick=()=>{ if(viewingRun()){ (input.value.trim()||attachments.length)?sendMessage():stopRun(); } else sendMessage(); };
   input.addEventListener("keydown",(e)=>{
+    if(e.isComposing) return;
     if(e.key==="Tab"&&acceptPromptSuggestion()){ e.preventDefault(); return; }
     if(shortcutActionFor(e)==="send_message"){ e.preventDefault(); sendMessage(); }
   });
@@ -9556,7 +9774,15 @@ body:not(.composer-simple) main::after{
   $("settingsBack").onclick=()=>$("settingsPanel").classList.contains("settings-detail")?showSettingsHome():goBackInApp();
   $("settingsClose").onclick=closeSettingsPanel;
   $("resetusage").onclick=async()=>{ if(await appConfirm("Reset token counters?","This clears the saved token usage totals for the app.","Reset",true)){ await fetch("/api/usage/reset",{method:"POST"}); loadUsage(); } };
-  $("clearMemory").onclick=async()=>{ if(await appConfirm("Clear learned behavior?","Boolean will forget saved preferences and formats.","Clear",true)){ await fetch("/api/preferences/clear",{method:"POST"}); loadMemory(); } };
+  $("clearMemory").onclick=async()=>{
+    if(!memoryRules.length){ tempToast("No saved preferences to clear."); return; }
+    if(await appConfirm("Clear all saved preferences?","Boolean will permanently forget every learned response preference and saved format. Chat history and notes are not affected.","Clear all",true)){
+      await fetch("/api/preferences/clear",{method:"POST"});
+      if($("memorySearch")) $("memorySearch").value="";
+      await loadMemory();
+      tempToast("Saved preferences cleared.");
+    }
+  };
   $("openmodels").onclick=()=>fetch("/api/open-models",{method:"POST"});
   $("openproj").onclick=()=>fetch("/api/open-projects",{method:"POST"});
   $("changeproj").onclick=changeProjects;
@@ -9861,6 +10087,17 @@ Optional bundled starter model:
   $("connectorAdd").onclick=event=>{ event.stopPropagation(); $("connectorAddMenu").hidden=!$("connectorAddMenu").hidden; };
   $("connectorAddMenu").onclick=event=>event.stopPropagation();
   document.querySelectorAll("[data-add-connector]").forEach(button=>button.onclick=()=>openConnectorDetail(button.dataset.addConnector));
+  if($("cloudflareConnect")) $("cloudflareConnect").onclick=connectCloudflare;
+  if($("cloudflareDisconnect")) $("cloudflareDisconnect").onclick=()=>disconnectCloudflare(true);
+  if($("cloudflarePaste")) $("cloudflarePaste").onclick=async()=>{
+    try{
+      const text=await readClipboardText();
+      if(!text){ tempToast("Clipboard is empty."); return; }
+      $("cloudflareToken").value=text.trim();
+      $("cloudflareToken").focus();
+    }catch(error){ tempToast(error?.message||"Clipboard is unavailable."); }
+  };
+  document.querySelectorAll(".cloudflare-resource").forEach(button=>button.onclick=()=>loadCloudflareResources(button.dataset.cloudflareResource));
   if($("customApiQuickOpen")) $("customApiQuickOpen").onclick=()=>{ openSettings("thirdparty"); openConnectorDetail("api"); };
   async function saveCustomApiQuick({test=false}={}){
     const name=($("customApiName")?.value||"Custom API").trim()||"Custom API";
@@ -9921,11 +10158,7 @@ Optional bundled starter model:
     catch{ tempToast("Could not read the clipboard."); }
   };
   ["gmail","outlook"].forEach(provider=>{
-    $(provider+"EmailAction").onclick=()=>{
-      const connection=connectorsState().email?.[provider]||{};
-      if(connection.connected&&connection.ready!==false) testEmail(provider);
-      else connectEmail(provider);
-    };
+    $(provider+"EmailAction").onclick=()=>connectEmail(provider);
     $(provider+"EmailDisconnect").onclick=()=>disconnectEmail(provider);
     $(provider+"ManualConnect").onclick=()=>connectEmail(provider,{mode:"manual"});
     $(provider+"ClientPaste").onclick=async()=>{
@@ -10243,8 +10476,8 @@ Optional bundled starter model:
   if($("browserSummaryAutoSave")) $("browserSummaryAutoSave").onchange=e=>setUi({browserSummaryAutoSave:e.target.checked});
   $("autoSave").onchange=e=>setUi({autoSave:e.target.checked});
   $("keepLocalWarm").onchange=e=>setUi({keepLocalWarm:e.target.checked});
-  $("referenceChatMemory").onchange=e=>setUi({referenceChatMemory:e.target.checked});
-  $("learnedMemory").onchange=e=>setUi({learnedMemory:e.target.checked});
+  $("referenceChatMemory").onchange=e=>{ setUi({referenceChatMemory:e.target.checked}); renderMemory(); };
+  $("learnedMemory").onchange=e=>{ setUi({learnedMemory:e.target.checked}); renderMemory(); };
   $("systemActions").onchange=e=>setUi({systemActions:e.target.checked});
   $("aiBrowser").onchange=e=>setUi({aiBrowser:e.target.checked});
   if($("researchMode")) $("researchMode").onchange=e=>setUi({researchMode:e.target.checked});
@@ -10356,8 +10589,8 @@ Optional bundled starter model:
     { id:"toggle_settings", label:"Open settings", keys:"Ctrl+," },
     { id:"toggle_notepad", label:"Toggle notepad", keys:"Ctrl+Shift+N" },
     { id:"toggle_browser", label:"Toggle browser", keys:"Ctrl+Shift+B" },
-    { id:"send_message", label:"Send message", keys:"Ctrl+Enter" },
-    { id:"newline", label:"New line", keys:"Enter" },
+    { id:"send_message", label:"Send message", keys:"Enter" },
+    { id:"newline", label:"New line", keys:"Shift+Enter" },
     { id:"stop_generation", label:"Stop generation", keys:"Esc" },
     { id:"copy_last", label:"Copy last reply", keys:"Ctrl+Shift+C" }
   ];
@@ -11673,12 +11906,12 @@ Optional bundled starter model:
   }
   function connectedEmailAccounts({cleanup=false}={}){
     const email=connectorsState().email||{};
-    return ["gmail","outlook"].map(provider=>({provider,...(email[provider]||{})}))
+    return (Array.isArray(email.accounts)?email.accounts:[])
       .filter(account=>account.connected&&account.ready!==false&&(!cleanup||account.supportsCleanup));
   }
   function selectedEmailAccount(){
-    const provider=$("emailRecipeAccount")?.value||"";
-    return connectedEmailAccounts().find(account=>account.provider===provider)||null;
+    const accountId=$("emailRecipeAccount")?.value||"";
+    return connectedEmailAccounts().find(account=>account.id===accountId)||null;
   }
   function selectedEmailCategories(){
     return [...document.querySelectorAll(".email-clean-category:checked")].map(input=>input.value);
@@ -11720,6 +11953,7 @@ Optional bundled starter model:
       : "No open email page was detected.";
     const details=$("recipeCustom")?.value.trim()||"";
     const accountLine=`Connected account: ${account?.account||"unknown"} (${account?.provider||"email"}).`;
+    const accountIdLine=`Connected account id: ${account?.id||"unknown"}. Pass this exact value as account_id to every email tool call.`;
     const useBrowserForPrompt=useBrowser&&(!cleanupRecipe||browserMatchesAccount);
     const verify=useBrowserForPrompt
       ? "Before any write action, verify that the browser email belongs to the connected account. If that is uncertain, stop and ask me."
@@ -11735,7 +11969,7 @@ Optional bundled starter model:
       cleanSender:"Use the sender and subject from the email open in Boolean's browser to call email_cleanup_preview for the connected Gmail or Outlook account. Add a narrow sender query, keep all protection rules on, and return the plan id, counts, reasons, and samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch.",
       cleanup:"Call email_cleanup_preview for the connected Gmail or Outlook account using the configuration below. Return the plan id, exact search query, counts, reasons, and representative samples. This step is read-only. Do not call email_cleanup_trash until I explicitly confirm a batch. Never permanently delete email."
     };
-    const parts=[prompts[recipe.emailAction]||recipe.prompt,accountLine,useBrowser?browserLine:"",verify];
+    const parts=[prompts[recipe.emailAction]||recipe.prompt,accountLine,accountIdLine,useBrowser?browserLine:"",verify];
     if(cleanupRecipe){
       if(useBrowser&&!browserMatchesAccount) parts.push("Important: do not describe the connected account as matching the visible browser account. The visible browser is unrelated to this cleanup unless it matches the connected provider/account.");
       parts.push("Cleanup configuration:");
@@ -11981,7 +12215,7 @@ Optional bundled starter model:
     const accounts=connectedEmailAccounts({cleanup});
     const allAccounts=connectedEmailAccounts();
     const useBrowserDefault=["summary","reply","tasks","cleanSender"].includes(recipe.emailAction);
-    const accountOptions=accounts.map(account=>'<option value="'+esc(account.provider)+'">'+esc((account.provider==="gmail"?"Gmail":"Outlook")+" - "+(account.account||"connected"))+'</option>').join("");
+    const accountOptions=accounts.map(account=>'<option value="'+esc(account.id)+'">'+esc((account.provider==="gmail"?"Gmail":"Outlook")+" - "+(account.account||"connected"))+'</option>').join("");
     const tools='<div class="recipe-tools">'+recipe.tools.map(tool=>'<span class="recipe-tool">'+esc(tool)+'</span>').join("")+'</div>';
     if(!accounts.length){
       const reason=cleanup&&allAccounts.length?"Connect a Gmail or Outlook account with cleanup support to use this recipe.":"Connect Gmail or Outlook in Settings before running email recipes.";
