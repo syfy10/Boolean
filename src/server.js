@@ -11,7 +11,7 @@ import * as sea from "node:sea";
 import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
-  defaultConfig, defaultUiSettings
+  defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
@@ -83,7 +83,7 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
-    version: "0.9.53",
+    version: "0.9.54",
     date: "2026-07-24",
     title: "Responsive workspace and personal surfaces",
     details: [
@@ -1914,6 +1914,53 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         config.ui = defaultUiSettings();
         saveConfig(config);
         json({ ok: true, ui: config.ui });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/local-data/save") {
+        saveConfig(config);
+        saveThreads([...threads.values()].filter((thread) => !isBlankNewThread(thread)));
+        json({
+          ok: true,
+          savedAt: new Date().toISOString(),
+          location: SAZ_DIR
+        });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/local-data/backup") {
+        saveConfig(config);
+        saveThreads([...threads.values()].filter((thread) => !isBlankNewThread(thread)));
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const backupDir = path.join(SAZ_DIR, "backups", `manual-${stamp}`);
+        const files = [
+          "config.json",
+          "threads.json",
+          "preferences.json",
+          "automations.json",
+          "automation-runs.json",
+          "agent-runs.json",
+          "email-cleanup.json",
+          "usage.json",
+          "system-actions.jsonl"
+        ];
+        fs.mkdirSync(backupDir, { recursive: true });
+        const included = [];
+        for (const name of files) {
+          const source = path.join(SAZ_DIR, name);
+          if (!fs.existsSync(source) || !fs.statSync(source).isFile()) continue;
+          fs.copyFileSync(source, path.join(backupDir, name));
+          included.push(name);
+        }
+        fs.writeFileSync(path.join(backupDir, "backup-info.json"), JSON.stringify({
+          format: "boolean-local-backup",
+          version: 1,
+          createdAt: new Date().toISOString(),
+          appVersion: APP_VERSION,
+          sensitive: true,
+          included
+        }, null, 2));
+        json({ ok: true, location: backupDir, included });
         return;
       }
 

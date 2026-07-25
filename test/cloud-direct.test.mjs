@@ -462,7 +462,8 @@ test("ordinary chat turns send no tools and no Boolean prompt", async (t) => {
   assert.equal(answer, "Hi. How can I help?");
   assert.equal(requestCount, 1, "plain chat should complete in one model call");
   assert.equal(requestBody.tools, undefined, "plain chat should not send tool schemas");
-  assert.equal(requestBody.messages[0].content, "");
+  assert.match(requestBody.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.match(requestBody.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
 });
 
@@ -631,7 +632,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
     remaining: 240
   });
   assert.equal(classifyTurnMode(secondConfirmation), "connector");
-  assert.equal(systemPrompt("", true), "");
+  assert.match(systemPrompt("", true), /BOOLEAN OPERATING POLICY/);
 
   assert.equal(emailCleanupContinuationAction([
     { role: "system", content: "system" },
@@ -793,7 +794,8 @@ test("clear artifact requests accept the API model's own response without an act
   assert.equal(answer, "Here are the steps you can follow to make the game yourself.");
   assert.equal(calls, 1);
   assert.deepEqual(steps, []);
-  assert.equal(nudgedRequest.messages[0].content, "");
+  assert.match(nudgedRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.match(nudgedRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.equal(nudgedRequest.tool_choice, undefined);
   assert.equal(protocolRequest, null);
   assert.match(messages.map((message) => message.content || "").join("\n"), /steps you can follow/);
@@ -953,7 +955,8 @@ test("an empty response after tool work continues instead of silently stopping",
   assert.equal(calls, 7);
   assert.deepEqual(steps, ["list_dir"]);
   assert.match(statuses.join("\n"), /paused before finishing.*continuing/i);
-  assert.equal(continuationRequest.messages[0].content, "");
+  assert.match(continuationRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.match(continuationRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(continuationRequest.messages.map((message) => message.content || "").join("\n"), /CONTINUE REQUIRED|Do not wait for me to press Continue/i);
 });
 

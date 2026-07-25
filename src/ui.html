@@ -397,6 +397,20 @@
   .settings-card small{ color:var(--dim); font-size:9.5px; line-height:1.2; }
   .settings-card b{ color:var(--text); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .settings-card .badge{ align-self:flex-start; margin-top:2px; padding:1px 6px; border-radius:999px; background:color-mix(in srgb,var(--green) 14%,transparent); color:var(--green); font-size:9px; line-height:1.4; }
+  .local-data-card{ margin-top:12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--card); padding:12px; box-shadow:var(--shadow-sm); }
+  .local-data-account{ display:flex; align-items:center; gap:10px; padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .local-data-avatar{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:var(--accent); color:#fff; font-weight:700; }
+  .local-data-identity{ min-width:0; flex:1; }
+  .local-data-identity b,.local-data-identity span{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .local-data-identity b{ font-size:12px; }
+  .local-data-identity span{ margin-top:2px; color:var(--dim); font-size:10.5px; }
+  .local-data-list{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 14px; margin:10px 0; color:var(--dim); font-size:10.5px; line-height:1.35; }
+  .local-data-list span:before{ content:"\2713"; color:var(--green); margin-right:6px; }
+  .local-data-note{ color:var(--dim); font-size:10.5px; line-height:1.45; margin-bottom:10px; }
+  .local-data-actions{ display:flex; flex-wrap:wrap; gap:6px; }
+  .local-data-actions .minibtn{ min-height:28px; padding:0 10px; }
+  .local-data-status{ min-height:16px; margin-top:8px; color:var(--dim); font-size:10.5px; }
+  @media (max-width:560px){ .local-data-list{ grid-template-columns:1fr; } }
   .settings-checklist{ display:flex; flex-wrap:wrap; gap:5px; margin:0 0 8px; }
   .settings-check{ flex:1 1 0; min-width:150px; align-items:center; gap:6px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg); padding:7px 9px; font-size:11px; cursor:pointer; transition:background var(--t-fast),border-color var(--t-fast); }
   .settings-check:hover{ background:var(--hover); border-color:color-mix(in srgb,var(--green) 20%,var(--border)); }
@@ -1282,6 +1296,9 @@
   .approval button{ padding:7px 18px; border-radius:9px; font:600 13px/1 inherit; cursor:pointer; border:1px solid var(--border); background:var(--bg); color:var(--text); }
   .approval button.allow{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
   .approval .verdict{ font-size:13px; color:var(--dim); }
+  .email-cleanup-confirm{ margin:8px 12px 10px; }
+  .email-cleanup-confirm .cmd{ font-family:var(--ui); word-break:normal; }
+  .email-cleanup-confirm .cleanup-safe{ color:var(--dim); font-size:11.5px; margin:-4px 0 12px; }
   .banner{ max-width:760px; margin:6px auto 0; padding:10px 16px; border:1px solid #d4a72c55; background:#d4a72c18; border-radius:var(--radius); font-size:13.5px; box-shadow:var(--shadow-sm); }
 
   .composer-wrap{ --composer-x:var(--content-x); --composer-bottom:20px; position:absolute; z-index:12;
@@ -2986,7 +3003,7 @@ body:not(.composer-simple) main::after{
         <div class="settings-empty-filter" id="settingsEmptyFilter">No settings match that search.</div>
       </div>
 
-      <div class="sec" data-sec="overview" data-search="overview status health provider model token budget tools project folder privacy checklist setup">
+      <div class="sec" data-sec="overview" data-search="overview profile account sign in sign out local save backup data layout api keys connections chats notes automations clear status health provider model token budget tools project folder privacy checklist setup">
         <div class="sechead">Overview <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Current model/provider<div class="hint">Shows what Boolean will use for the next answer.</div></div><b id="overviewProvider">Local</b></div>
@@ -2994,6 +3011,28 @@ body:not(.composer-simple) main::after{
           <div class="setrow"><div>Connected tools status<div class="hint">Connectors display Connected, Needs login, Disabled, or Permissions.</div></div><b id="overviewTools">Checking…</b></div>
           <div class="setrow"><div>Project folder<div class="hint">The folder Boolean reads, edits, tests, and remembers rules for.</div></div><b id="overviewProject">Projects</b></div>
           <div class="setrow"><div>Privacy mode<div class="hint">Local-only keeps model work on this PC; cloud AI requires your chosen provider/API.</div></div><b id="overviewPrivacy">Local first</b></div>
+          <div class="local-data-card" aria-label="Local data and account">
+            <div class="local-data-account">
+              <div class="local-data-avatar" id="overviewAccountAvatar">B</div>
+              <div class="local-data-identity"><b id="overviewAccountName">Local Boolean workspace</b><span id="overviewAccountEmail">Not signed in</span></div>
+              <button class="minibtn" id="overviewAccountAuth">Sign in</button>
+            </div>
+            <div class="local-data-list" aria-label="Data saved on this PC">
+              <span>Layout, theme, and behavior</span>
+              <span>API keys and selected models</span>
+              <span>Email and connector accounts</span>
+              <span>Chats, notes, and memory</span>
+              <span>Projects and workspace links</span>
+              <span>Recipes, tasks, and usage</span>
+            </div>
+            <div class="local-data-note">Boolean saves changes automatically on this PC. Save now flushes the current workspace. Create local backup makes a private snapshot in the Boolean data folder, including credentials and connection records; it is not uploaded or downloaded through the browser.</div>
+            <div class="local-data-actions">
+              <button class="minibtn primary" id="saveLocalData">Save now</button>
+              <button class="minibtn" id="backupLocalData">Create local backup</button>
+              <button class="minibtn dangerbtn" id="clearLocalData">Clear local data</button>
+            </div>
+            <div class="local-data-status" id="localDataStatus">Auto-save is on.</div>
+          </div>
         </div>
       </div>
 
@@ -5608,6 +5647,15 @@ body:not(.composer-simple) main::after{
     setText("overviewTools",connectedToolCount?connectedToolCount+" connected tool"+(connectedToolCount===1?"":"s"):"No connected tools");
     setText("overviewProject",project);
     setText("overviewPrivacy",provider==="local"?"Local first":"Cloud provider selected");
+    const cloudAccount=state.cloudBackend||{};
+    const cloudUser=cloudAccount.user||{};
+    const accountName=cloudAccount.signedIn?(cloudUser.name||cloudUser.displayName||cloudUser.email||"Boolean account"):"Local Boolean workspace";
+    const accountEmail=cloudAccount.signedIn?(cloudUser.email||cloudUser.id||"Signed in"):"Not signed in - local data still saves on this PC";
+    setText("overviewAccountName",accountName);
+    setText("overviewAccountEmail",accountEmail);
+    setText("overviewAccountAvatar",(accountName||"B").trim().charAt(0).toUpperCase()||"B");
+    setText("overviewAccountAuth",cloudAccount.signedIn?"Sign out":"Sign in");
+    setText("localDataStatus",state.ui?.autoSave===false?"Auto-save is off. Use Save now to keep the current workspace.":"Auto-save is on.");
     document.querySelectorAll(".settings-check").forEach(check=>{
       const sec=check.dataset.openSec;
       let done=false;
@@ -6480,7 +6528,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.53"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.54"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -10443,7 +10491,7 @@ Optional bundled starter model:
   if($("dataRetention")) $("dataRetention").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),retention:e.target.value}});
   if($("privacyClipboard")) $("privacyClipboard").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),clipboard:e.target.checked}});
   if($("privacyMasking")) $("privacyMasking").onchange=e=>setUi({privacy:{...((state.ui&&state.ui.privacy)||{}),masking:e.target.checked}});
-  if($("deleteAllData")) $("deleteAllData").onclick=async()=>{
+  async function deleteAllBooleanData(){
     if(!await appConfirm("Delete all Boolean data?","This permanently removes chats, learned behavior, preferences, API keys, OAuth accounts, and connector credentials. This cannot be undone.","Continue",true)) return;
     const phrase=await appPrompt("Type to confirm",'Enter DELETE ALL BOOLEAN DATA to permanently erase everything.',"");
     if(phrase!=="DELETE ALL BOOLEAN DATA"){ tempToast("Delete cancelled. Confirmation did not match."); return; }
@@ -10454,6 +10502,46 @@ Optional bundled starter model:
       localStorage.clear();
       location.reload();
     }catch(error){ tempToast(error.message||"Could not delete data."); }
+  }
+  if($("deleteAllData")) $("deleteAllData").onclick=deleteAllBooleanData;
+  if($("clearLocalData")) $("clearLocalData").onclick=deleteAllBooleanData;
+  if($("saveLocalData")) $("saveLocalData").onclick=async()=>{
+    const status=$("localDataStatus");
+    if(status) status.textContent="Saving...";
+    try{
+      const response=await fetch("/api/local-data/save",{method:"POST",headers:{"x-saz":"1"}});
+      const data=await response.json();
+      if(!response.ok) throw new Error(data.error||"Could not save local data.");
+      if(status) status.textContent="Saved on this PC just now.";
+      tempToast("Local workspace saved.");
+    }catch(error){
+      if(status) status.textContent="Save failed. "+(error.message||"Try again.");
+      tempToast(error.message||"Could not save local data.");
+    }
+  };
+  if($("backupLocalData")) $("backupLocalData").onclick=async()=>{
+    if(!await appConfirm("Create a private local backup?","The backup stays in Boolean's data folder on this PC and includes API keys, OAuth sessions, and connection credentials. Anyone with access to your Windows account may be able to read it.","Create backup")) return;
+    const status=$("localDataStatus");
+    if(status) status.textContent="Creating local backup...";
+    try{
+      const response=await fetch("/api/local-data/backup",{method:"POST",headers:{"x-saz":"1"}});
+      const data=await response.json();
+      if(!response.ok) throw new Error(data.error||"Could not create the backup.");
+      if(status) status.textContent="Backup created: "+data.location;
+      tempToast("Private local backup created.");
+    }catch(error){
+      if(status) status.textContent="Backup failed. "+(error.message||"Try again.");
+      tempToast(error.message||"Could not create the backup.");
+    }
+  };
+  if($("overviewAccountAuth")) $("overviewAccountAuth").onclick=async()=>{
+    const cloud=state.cloudBackend||{};
+    if(cloud.signedIn){
+      if(await appConfirm("Sign out?","Sign out of your Boolean account on this PC. Local saved data will remain.","Sign out",true)) await signOutCloudAccount();
+    }else{
+      await startCloudSignIn();
+    }
+    updateSettingsDashboard();
   };
 
   // ── Advanced: proxy + API overrides ──
@@ -11613,7 +11701,7 @@ Optional bundled starter model:
         +"Age: older than "+esc($("emailCleanupAge")?.value||"2y")+"<br>"
         +"Groups: "+esc(categories.join(", ")||"none selected")+"<br>"
         +"Scan limit: "+esc($("emailCleanupLimit")?.value||"500")+" messages<br>"
-        +"Context: "+esc(context)+"<br>Nothing moves until you confirm a reviewed batch.";
+        +"Context: "+esc(context)+"<br>Nothing moves during the scan. After the preview, Boolean shows a required approval card for the reviewed batch.";
       return;
     }
     el.innerHTML="<b>Recipe ready</b><br>Account: "+esc(account?.account||"not connected")+"<br>Context: "+esc(browser)+"<br>AI: "+esc(currentAiLabel());
@@ -11931,7 +12019,7 @@ Optional bundled starter model:
       +cleanupFields
       +'<textarea class="recipe-custom" id="recipeCustom" placeholder="'+(cleanup?'Optional sender, domain, or Gmail search guidance...':'Add sender, date range, tone, question, or other details...')+'"></textarea></div>'
       +'<div class="email-recipe-summary" id="emailRecipeSummary"></div>'
-      +'<div class="recipe-warning">Boolean uses the connected account for reliable mailbox actions. Cleanup is preview-first, moves only to Trash, and always keeps an Undo record.</div>'
+      +'<div class="recipe-warning">Boolean uses the connected account for reliable mailbox actions. Cleanup is preview-first. After the scan, approve or cancel the reviewed batch from a visible confirmation card. Approved mail moves only to Trash and keeps an Undo record.</div>'
       +'<div class="recipe-actions"><button type="button" id="recipeFill">Review in chat</button><button type="button" class="primary" id="recipeStart">'+actionLabel+'</button></div>';
     $("emailRecipeAccount").onchange=()=>{
       const account=selectedEmailAccount();
@@ -12612,6 +12700,41 @@ Optional bundled starter model:
       kind: "email-cleanup"
     };
   }
+  function cleanupApprovalDetails(text){
+    const raw=String(text||"");
+    const suggestion=cleanupSuggestionFromText(raw);
+    if(!suggestion) return null;
+    const planId=raw.match(/\bPlan ID\b[^\r\n`]*`?([0-9a-f]{8}-[0-9a-f-]{27,})`?/i)?.[1]||"";
+    const account=raw.match(/\bAccount\b[^\r\n`]*`([^`@\s]+@[^`\s]+)`/i)?.[1]
+      ||raw.match(/\bConnected account:\s*([^\s(]+@[^\s)]+)/i)?.[1]||"";
+    const remaining=raw.match(/\b(?:Remaining candidates|remaining to act on|reviewed candidates left)\D{0,40}(\d{1,5})\b/i)?.[1]
+      ||raw.match(/\bCandidates to trash\b\D{0,30}(\d{1,5})\b/i)?.[1]||"";
+    return {suggestion,planId,account,remaining:Number(remaining)||0};
+  }
+  function showCleanupApprovalCard(details){
+    if(!details) return;
+    const key=details.planId||"latest";
+    if(col.querySelector('.email-cleanup-confirm[data-plan-id="'+CSS.escape(key)+'"]')) return;
+    const card=document.createElement("div");
+    card.className="approval email-cleanup-confirm";
+    card.dataset.planId=key;
+    const batch=details.remaining?Math.min(250,details.remaining):250;
+    const target=details.account?(" for "+details.account):"";
+    card.innerHTML='<div class="q">Email cleanup preview is ready</div>'
+      +'<div class="cmd">'+esc((details.remaining||"Reviewed")+" messages remain"+target+". Move the next batch of up to "+batch+" messages to Trash?")+'</div>'
+      +'<div class="cleanup-safe">This is the required approval step. Nothing is permanently deleted, and the completed batch can be undone.</div>'
+      +'<div class="btns"><button class="allow">Move next batch to Trash</button><button class="deny">Keep email unchanged</button></div>';
+    card.querySelector(".allow").onclick=()=>{
+      card.querySelector(".btns")?.replaceWith(Object.assign(document.createElement("div"),{className:"verdict",textContent:"Approved — moving the reviewed batch to Trash…"}));
+      setComposerDraft("move next batch to trash");
+      setTimeout(()=>{ if(!busy()) $("send")?.click(); },40);
+    };
+    card.querySelector(".deny").onclick=()=>{
+      card.querySelector(".btns")?.replaceWith(Object.assign(document.createElement("div"),{className:"verdict",textContent:"Canceled — no email was changed."}));
+    };
+    col.appendChild(card);
+    revealChatAction(card);
+  }
   function showNextEditSuggestion(suggestion) {
     return;
     // suggestion: { text, detail, action }
@@ -12641,8 +12764,8 @@ Optional bundled starter model:
   function maybeShowNextEdit(run) {
     if (!run || !run.raw) return;
     const text = String(run.raw || "");
-    const cleanupSuggestion=cleanupSuggestionFromText(text);
-    if(cleanupSuggestion){ setTimeout(() => { if (!busy()) showNextEditSuggestion(cleanupSuggestion); }, 250); return; }
+    const cleanupApproval=cleanupApprovalDetails(text);
+    if(cleanupApproval){ setTimeout(() => { if (!busy()) showCleanupApprovalCard(cleanupApproval); }, 250); return; }
     const hasFileRef = /\b[\w/-]+\.(js|html|css|ts|json|md|py|cs|go|rs)\b/.test(text);
     const hasRunHint = /\b(run|test|build|check|verify|start.*server|npm|node|dotnet)\b/i.test(text);
     const hasStep = /\b(next|then|now|after that|you can|try|should|want me)\b/i.test(text);

@@ -7,6 +7,7 @@ import { CLOUD } from "./config.js";
 import { summarizeLearnedPreferences } from "./preferences.js";
 import { detectWindowsSettingsRequest } from "./system-actions.js";
 import { createAgentController } from "./controller.js";
+import { booleanAgentPolicy } from "./agent-policy.js";
 
 const CLOUD_FALLBACK_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
@@ -73,15 +74,11 @@ function connectorSummary(config) {
 }
 
 function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
-  return "";
+  return booleanAgentPolicy();
 }
 
 export function systemPrompt(projectsDir = "", fullAccess = false, config = null) {
-  // Neutral relay: Boolean does not prescribe a persona, response style,
-  // reasoning strategy, coding workflow, or completion policy to the model.
-  // Tool schemas and code-enforced permission boundaries are supplied
-  // separately by the provider/tool loop.
-  return "";
+  return cleanSystemPrompt(projectsDir, fullAccess, connectorSummary(config), "");
 }
 
 // Load per-project rules from BOOLEAN.md or .boolean/rules.md. These teach
@@ -208,7 +205,18 @@ function preservedAppContext(content) {
 }
 
 function withTurnModeSystem(messages, mode, config) {
-  return messages;
+  const copy = messages.map((message) => ({ ...message }));
+  const policy = systemPrompt("", false, config);
+  const systemIndex = copy.findIndex((message) => message?.role === "system");
+  if (systemIndex >= 0) {
+    const existing = String(copy[systemIndex].content || "").trim();
+    if (!existing.includes("BOOLEAN OPERATING POLICY")) {
+      copy[systemIndex].content = existing ? `${existing}\n\n${policy}` : policy;
+    }
+  } else {
+    copy.unshift({ role: "system", content: policy });
+  }
+  return copy;
 }
 
 function fallbackToolPrompt(definitions = TOOL_DEFINITIONS, options = {}) {
@@ -542,12 +550,32 @@ export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false,
   return TOOL_DEFINITIONS;
 }
 
-function focusedMessagesForTurn(messages, mode) {
+function isRealUserRequest(message) {
+  if (message?.role !== "user") return false;
+  const text = plainMessageText(message).trim();
+  return !!text
+    && !/^SYSTEM PREFLIGHT:/i.test(text)
+    && !/^TOOL RESULT for /i.test(text)
+    && !/^Screenshot captured by the requested tool\./i.test(text);
+}
+
+export function focusedMessagesForTurn(messages, mode) {
   const focused = focusConversation(messages);
   if (mode === "action" || mode === "connector") return withRecentTaskStatusMemory(focused, messages);
   const system = focused[0];
-  const recent = focused.slice(1).slice(-(mode === "research" || mode === "inspect" ? 10 : 6));
-  return [system, ...recent];
+  const keep = mode === "research" || mode === "inspect" ? 10 : 6;
+  const recent = focused.slice(1).slice(-keep);
+  if (mode !== "research" && mode !== "inspect") return [system, ...recent];
+
+  // A read-only inspection can produce several assistant/tool pairs before the
+  // model has enough evidence to answer. Keep the latest real user request
+  // alongside the rolling tool tail so the request cannot fall out of context
+  // and leave the model looking at an unexplained file snippet.
+  const request = [...focused].reverse().find(isRealUserRequest)
+    || [...(messages || [])].reverse().find(isRealUserRequest);
+  const summaries = focused.slice(1).filter((message) => message?.role === "system").slice(-1);
+  const tail = recent.filter((message) => message !== request && !summaries.includes(message));
+  return [system, ...summaries, ...(request ? [request] : []), ...tail];
 }
 
 const STATUS_FOLLOWUP = /\b(?:finish|continue|do|build|make|implement|fix|handle|work on|start)\b[\s\S]{0,80}\b(?:\d+(?:\s*[-–]\s*\d+)?|remaining|missing|those|that|them|next)\b/i;
@@ -964,6 +992,9 @@ function directActionAnswer(action, result) {
  * @returns {Promise<string>} the model's final answer
  */
 export async function runTurn(ctx, messages) {
+  // The provider still owns the answer and tool choices. Boolean supplies the
+  // operating policy and enforces hard permission boundaries, but does not
+  // replace a model's substantive response with an opinionated workflow.
   const neutralModelRelay = true;
   const { config, onStatus, onToken, onStep, onUsage, signal } = ctx;
   const emitStep = (entry) => { if (onStep) onStep(entry); };
@@ -1020,7 +1051,21 @@ export async function runTurn(ctx, messages) {
   const controllerStopAnswer = (result) => {
     return controllerStopAnswerFromToolResult(result);
   };
-  const withController = (source) => source;
+  const withController = (source) => {
+    const copy = source.map((message) => ({ ...message }));
+    const live = controller.prompt();
+    if (!live) return copy;
+    const systemIndex = copy.findIndex((message) => message?.role === "system");
+    if (systemIndex >= 0) {
+      const existing = String(copy[systemIndex].content || "")
+        .replace(/\n\nCURRENT TASK CONTRACT\n[\s\S]*$/, "")
+        .trim();
+      copy[systemIndex].content = `${existing}\n\nCURRENT TASK CONTRACT\n${live}`;
+    } else {
+      copy.unshift({ role: "system", content: `CURRENT TASK CONTRACT\n${live}` });
+    }
+    return copy;
+  };
   publishController();
   if (directAction) {
     onStatus(`running ${directAction.name}...`);
@@ -1228,7 +1273,7 @@ export async function runTurn(ctx, messages) {
   const MAX_AUTO_CONTINUE = neutralModelRelay ? 0 : 8;
   const MAX_CONTROLLER_RECOVERIES = 4;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
-  const MAX_ANNOUNCE_NUDGES = neutralModelRelay ? 0 : 3;
+  const MAX_ANNOUNCE_NUDGES = neutralModelRelay ? 2 : 3;
   const handleControllerStop = (result) => {
     const stoppedByController = controllerStopAnswer(result);
     if (!stoppedByController) return "";
@@ -1469,7 +1514,7 @@ export async function runTurn(ctx, messages) {
     // are available and the response is a short bare announcement with nothing
     // done — and push the model to actually take the step instead of accepting
     // the narration as a final answer.
-    if (activeToolDefinitions.length && !completedToolWork && !signal?.aborted
+    if (activeToolDefinitions.length && !signal?.aborted
         && announceNudges < MAX_ANNOUNCE_NUDGES
         && announcesUnperformedAction(assistantContent)) {
       announceNudges++;

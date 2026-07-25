@@ -26,7 +26,8 @@ test("Email Recipes include connected-mail and cleanup workflows", () => {
   assert.match(html, /Includes archived mail/);
   assert.match(html, /scope: "\+selectedEmailCleanupScope\(\)/);
   assert.match(html, /value="5000"/);
-  assert.match(html, /Nothing moves until you confirm a reviewed batch/);
+  assert.match(html, /Nothing moves during the scan/);
+  assert.match(html, /required approval card for the reviewed batch/);
   assert.match(html, /saved cleanup plan and connected account belong to the same mailbox/);
   assert.match(html, /browserMatchesAccount/);
   assert.match(html, /Ignore the browser page for this connected-account cleanup/);
@@ -111,8 +112,16 @@ test("automatic AI recovery avoids paid API key providers", () => {
 test("email cleanup follow-up offers a clear Move to Trash action", () => {
   const html = read("../src/ui.html");
   assert.match(html, /function cleanupSuggestionFromText\(text\)/);
+  assert.match(html, /function cleanupApprovalDetails\(text\)/);
+  assert.match(html, /function showCleanupApprovalCard\(details\)/);
   assert.match(html, /Move next batch to Trash/);
   assert.match(html, /move next batch to trash/);
+  assert.match(html, /Keep email unchanged/);
+  assert.match(html, /required approval step/);
+  assert.match(html, /Nothing is permanently deleted/);
+  assert.match(html, /completed batch can be undone/);
+  assert.match(html, /After the preview, Boolean shows a required approval card/);
+  assert.match(html, /cleanupApprovalDetails\(text\)[\s\S]*showCleanupApprovalCard\(cleanupApproval\)/);
   assert.match(html, /emailCleanup\?'Move to Trash':'Allow'/);
 });
 
