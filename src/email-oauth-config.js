@@ -50,7 +50,7 @@ export function loadManagedEmailOAuthClients({ env = process.env, filePaths } = 
       clients.outlook.clientId ||= outlook.clientId;
       clients.outlook.clientSecret ||= outlook.clientSecret;
     } catch {
-      // A missing or malformed optional file should not prevent Boolean starting.
+      // A missing or malformed optional file should not prevent Boollm starting.
     }
   }
 

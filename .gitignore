@@ -37,3 +37,20 @@ Thumbs.db
 # Internal handoff history is kept locally, not in the public source repository.
 AGENTS.md
 
+# Scratch / temp working dir — not source
+tmp/
+
+# Generated agent project output (projectsDir defaults to this repo). These are
+# built by the agent, not source. Ignore the known default names + local scratch.
+/SimpleGame/
+/RandomGame/
+/NewAPI/
+/DesktopApp/
+/NewWebsite/
+/SnakeGame/
+/SpaceShooter/
+/google-clone/
+/cat/
+/13x/
+/demo/
+

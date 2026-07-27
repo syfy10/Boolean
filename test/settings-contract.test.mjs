@@ -11,6 +11,11 @@ const toolsSource = fs.readFileSync(new URL("../src/tools.js", import.meta.url),
 
 test("Connectors includes a real Cloudflare account control surface", () => {
   assert.match(uiSource, /data-add-connector="cloudflare"/);
+  assert.match(uiSource, /id="cloudflareOAuthClientId"/);
+  assert.match(uiSource, /id="cloudflareOAuthConnect"/);
+  assert.match(uiSource, /id="cloudflareOAuthConnect">Connect Cloudflare/);
+  assert.match(uiSource, /id="cloudflareAdvanced"/);
+  assert.match(uiSource, /Advanced setup/);
   assert.match(uiSource, /id="cloudflareToken"/);
   assert.match(uiSource, /id="cloudflareAccount"/);
   assert.match(uiSource, /data-cloudflare-resource="workers"/);
@@ -18,15 +23,25 @@ test("Connectors includes a real Cloudflare account control surface", () => {
   assert.match(uiSource, /data-cloudflare-resource="d1"/);
   assert.match(uiSource, /data-cloudflare-resource="r2"/);
   assert.match(serverSource, /p === "\/api\/cloudflare\/connect"/);
+  assert.match(serverSource, /p === "\/api\/cloudflare\/oauth\/start"/);
+  assert.match(serverSource, /p === "\/cloudflare\/oauth\/callback"/);
   assert.match(serverSource, /p === "\/api\/cloudflare\/resources"/);
   assert.match(uiSource, /type="password" id="cloudflareToken"/);
+});
+
+test("Cloudflare fallback controls stay inside the Settings content column", () => {
+  assert.match(
+    uiSource,
+    /id="cloudflareAdvanced"[\s\S]*id="cloudflareOAuthClientId"[\s\S]*id="cloudflareConnect"[^>]*>Verify API token<\/button>[\s\S]*<\/details>\s*<div class="setrow" id="cloudflareAccountRow"/,
+  );
+  assert.match(uiSource, /id="cloudflareConnectCard"[\s\S]*id="cloudflareOAuthConnect">Connect Cloudflare/);
 });
 
 test("MCP approval copy distinguishes reads from account-changing actions", () => {
   assert.match(uiSource, /Read-only MCP calls follow your approval mode/);
   assert.match(uiSource, /Trades, orders, transfers, deletes/);
   assert.match(toolsSource, /mcpToolRequiresExplicitApproval/);
-  assert.doesNotMatch(toolsSource, /Boolean always asks the user to confirm MCP actions/);
+  assert.doesNotMatch(toolsSource, /Boollm always asks the user to confirm MCP actions/);
 });
 
 test("settings defaults are independent and never enable paid-provider switching", () => {
@@ -68,7 +83,7 @@ test("settings UI does not expose unsupported voice, telemetry, or encryption sw
 test("reset and destructive delete are separate guarded operations", () => {
   assert.match(serverSource, /p === "\/api\/settings\/reset"/);
   assert.match(serverSource, /p === "\/api\/delete-all-data"/);
-  assert.match(serverSource, /DELETE ALL BOOLEAN DATA/);
+  assert.match(serverSource, /DELETE ALL BOOLLM DATA/);
   assert.match(uiSource, /Accounts, API keys, email connections, chats, and projects are preserved/);
   assert.match(uiSource, /permanently removes chats, learned behavior, preferences, API keys, OAuth accounts, and connector credentials/);
 });
@@ -105,7 +120,7 @@ test("Notepad and Memory is a searchable, editable local control center", () => 
   assert.match(uiSource, /id="learningStatus"/);
   assert.match(uiSource, /id="memoryRuleCount"/);
   assert.match(uiSource, /id="memorySearch"[^>]*placeholder="Search saved preferences"/);
-  assert.match(uiSource, /Review exactly what Boolean will reuse\. Edit or forget any item\./);
+  assert.match(uiSource, /Review exactly what Boollm will reuse\. Edit or forget any item\./);
   assert.match(uiSource, /data-action="edit"/);
   assert.match(uiSource, /data-action="forget"/);
   assert.match(uiSource, /View saved example/);

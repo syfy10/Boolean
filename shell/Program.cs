@@ -1,4 +1,4 @@
-// Boolean native shell: a WinForms window we own (so the taskbar shows OUR icon),
+// Boollm native shell: a WinForms window we own (so the taskbar shows OUR icon),
 // hosting the existing web UI in a WebView2 on the left and a REAL Chromium
 // browser (native WebView2, full internet — Outlook/Gmail included) on the
 // right. The Node backend runs as a child ("core") process; the window just
@@ -148,15 +148,17 @@ sealed class TabItem
     public WebView2 View = new();
     public string Url = "";
     public string Title = "New tab";
+    public string DarkModeScriptId = "";
 }
 
-sealed class MainForm : Form
+sealed class MainForm : Form, IMessageFilter
 {
     // derived from AssemblyVersion (SazShell.csproj) so it can never drift from
     // the shipped version again — a stale hardcoded value here made 0.9.9
     // think it was 0.9.8 and re-download itself forever
     static readonly string AppVersion =
         typeof(MainForm).Assembly.GetName().Version is { } av ? $"{av.Major}.{av.Minor}.{av.Build}" : "0.0.0";
+    // Keep the existing repository URL until the GitHub repository itself is renamed.
     const string UpdateManifestUrl = "https://github.com/syfy10/Boolean/releases/latest/download/update.json";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -196,6 +198,23 @@ sealed class MainForm : Form
 
     FormWindowState _lastWindowState = FormWindowState.Normal;
     bool _frameRefreshQueued;
+    bool _restoreMaximized;
+    bool _restoreBrowserOpen;
+    int _restoreBrowserWidth;
+    string WindowLayoutPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "saz3", "window-layout.json");
+
+    sealed class SavedWindowLayout
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public bool Maximized { get; set; }
+        public bool BrowserOpen { get; set; }
+        public int BrowserWidth { get; set; }
+    }
 
     // Reclaim the top frame in a normal window. When maximized, MaximizedBounds already keeps
     // the window inside the work area, so reclaim the entire resize frame to avoid edge gaps.
@@ -240,8 +259,11 @@ sealed class MainForm : Form
     {
         try
         {
-            int none = unchecked((int)0xFFFFFFFE); // DWMWA_COLOR_NONE — drop the gray border hairline
-            DwmSetWindowAttribute(Handle, 34 /*DWMWA_BORDER_COLOR*/, ref none, 4);
+            // Keep the custom title bar, but retain a quiet one-pixel native
+            // outline around the whole rounded window so it remains distinct
+            // from similarly colored content behind it.
+            int border = ColorTranslator.ToWin32(_pal.BtnBorder);
+            DwmSetWindowAttribute(Handle, 34 /*DWMWA_BORDER_COLOR*/, ref border, 4);
             int round = 2; // DWMWCP_ROUND
             DwmSetWindowAttribute(Handle, 33 /*DWMWA_WINDOW_CORNER_PREFERENCE*/, ref round, 4);
         }
@@ -254,8 +276,8 @@ sealed class MainForm : Form
         {
             int caption = ColorTranslator.ToWin32(color);
             DwmSetWindowAttribute(Handle, 35 /*DWMWA_CAPTION_COLOR*/, ref caption, 4);
-            int none = unchecked((int)0xFFFFFFFE);
-            DwmSetWindowAttribute(Handle, 34 /*DWMWA_BORDER_COLOR*/, ref none, 4);
+            int border = ColorTranslator.ToWin32(_pal.BtnBorder);
+            DwmSetWindowAttribute(Handle, 34 /*DWMWA_BORDER_COLOR*/, ref border, 4);
         }
         catch { }
     }
@@ -350,9 +372,10 @@ sealed class MainForm : Form
     readonly WebView2 _chromeView = new() { Dock = DockStyle.Top, Height = 116 };
     bool _chromeReady;
     bool _themeDark;
-    string _themeSurface = "paper-minimal";
+    string _themeSurface = "classic";
+    bool _browserDarkMode;
     int _tabSeq;
-    readonly RoundedPanel _browserPane = new() { Dock = DockStyle.Fill, Radius = 12 };
+    readonly RoundedPanel _browserPane = new() { Dock = DockStyle.Fill, Radius = 0 };
     readonly Panel _startup = new() { Dock = DockStyle.Fill, BackColor = Color.FromArgb(245, 245, 243) };
     readonly Label _startupTitle = new() { AutoSize = true, Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = Color.FromArgb(18, 24, 20) };
     readonly Label _startupText = new() { AutoSize = false, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(96, 100, 96) };
@@ -363,6 +386,7 @@ sealed class MainForm : Form
     bool _full = false;
     bool _windowSizing;
     bool _fittingBrowserSplit;
+    bool _splitHitDragging;
     int _deviceModeIdx = 0;
     static readonly (string id, string label, int w, int h, bool mobile, string glyph)[] DeviceModes =
     {
@@ -373,7 +397,7 @@ sealed class MainForm : Form
 
     // themeable chrome (follows the app's light/dark theme)
     Palette _pal = Palette.Light;
-    // Keep the native browser below Boolean's shared 38px title/tool band.
+    // Keep the native browser below Boollm's shared 38px title/tool band.
     // Without this inset the browser tab strip sits against the frameless
     // window edge, where its first row can be visually clipped.
     const int BrowserTopInset = 38;
@@ -391,12 +415,6 @@ sealed class MainForm : Form
         public static Palette Light => new(
             Color.FromArgb(245, 245, 243), Color.FromArgb(251, 251, 250), Color.FromArgb(245, 245, 243), Color.White, Color.FromArgb(233, 233, 230),
             Color.FromArgb(32, 33, 36), Color.White, Color.FromArgb(233, 233, 230), Color.FromArgb(251, 251, 250), Color.FromArgb(245, 245, 243));
-        public static Palette SoftGlass => new(
-            Color.FromArgb(238, 240, 242), Color.FromArgb(250, 250, 249), Color.FromArgb(238, 240, 242), Color.White, Color.FromArgb(225, 227, 229),
-            Color.FromArgb(32, 33, 36), Color.White, Color.FromArgb(225, 227, 229), Color.FromArgb(250, 250, 249), Color.FromArgb(243, 244, 245));
-        public static Palette GraphiteMist => new(
-            Color.FromArgb(221, 225, 228), Color.FromArgb(247, 248, 248), Color.FromArgb(221, 225, 228), Color.White, Color.FromArgb(213, 218, 221),
-            Color.FromArgb(32, 33, 36), Color.White, Color.FromArgb(213, 218, 221), Color.FromArgb(247, 248, 248), Color.FromArgb(235, 238, 240));
         public static Palette Dark => new(
             Color.FromArgb(32, 32, 32), Color.FromArgb(28, 28, 28), Color.FromArgb(32, 32, 32), Color.FromArgb(34, 34, 34), Color.FromArgb(58, 58, 58),
             Color.Gainsboro, Color.FromArgb(44, 44, 44), Color.FromArgb(40, 40, 40), Color.FromArgb(46, 46, 46), Color.FromArgb(48, 48, 48));
@@ -419,7 +437,7 @@ sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "Boolean";                          // taskbar label only
+        Text = "Boollm";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
         // Do not let the borderless shell shrink until the workspace becomes
@@ -433,6 +451,7 @@ sealed class MainForm : Form
         StartPosition = FormStartPosition.Manual;
         Left = wa.Left + (wa.Width - Width) / 2;
         Top  = wa.Top + (wa.Height - Height) / 2;
+        RestoreWindowLayout();
         Opacity = 0;
         BackColor = Color.FromArgb(28, 28, 28);
         // Keep a clean canvas frame beneath both panes. Twelve pixels reveals
@@ -485,8 +504,67 @@ sealed class MainForm : Form
             finally { _split.ResumeLayout(true); }
             _split.Invalidate(true);
         };
-        FormClosed += (_, __) => { CleanupCoreOnClose(); LaunchPendingUpdate(); };
-        Shown += (_, __) => { _split.Panel2Collapsed = true; }; // browser hidden until toggled
+        Application.AddMessageFilter(this);
+        FormClosing += (_, __) => SaveWindowLayout();
+        FormClosed += (_, __) =>
+        {
+            Application.RemoveMessageFilter(this);
+            CleanupCoreOnClose();
+            LaunchPendingUpdate();
+        };
+        Shown += (_, __) =>
+        {
+            if (_restoreMaximized) BeginInvoke(new Action(MaximizeWindow));
+        };
+    }
+
+    void RestoreWindowLayout()
+    {
+        try
+        {
+            if (!File.Exists(WindowLayoutPath)) return;
+            var saved = JsonSerializer.Deserialize<SavedWindowLayout>(File.ReadAllText(WindowLayoutPath));
+            if (saved == null || saved.Width < 600 || saved.Height < 480) return;
+            var requested = new Rectangle(saved.X, saved.Y, saved.Width, saved.Height);
+            var screen = Screen.AllScreens.FirstOrDefault(item =>
+            {
+                var overlap = Rectangle.Intersect(item.WorkingArea, requested);
+                return overlap.Width >= 120 && overlap.Height >= 120;
+            });
+            if (screen == null) return;
+            var work = screen.WorkingArea;
+            var width = Math.Clamp(saved.Width, Math.Min(MinimumSize.Width, work.Width), work.Width);
+            var height = Math.Clamp(saved.Height, Math.Min(MinimumSize.Height, work.Height), work.Height);
+            var x = Math.Clamp(saved.X, work.Left, Math.Max(work.Left, work.Right - width));
+            var y = Math.Clamp(saved.Y, work.Top, Math.Max(work.Top, work.Bottom - height));
+            Bounds = new Rectangle(x, y, width, height);
+            _restoreMaximized = saved.Maximized;
+            _restoreBrowserOpen = saved.BrowserOpen;
+            _restoreBrowserWidth = Math.Max(0, saved.BrowserWidth);
+        }
+        catch { }
+    }
+
+    void SaveWindowLayout()
+    {
+        try
+        {
+            var normal = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+            if (normal.Width < 1 || normal.Height < 1) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(WindowLayoutPath)!);
+            var saved = new SavedWindowLayout
+            {
+                X = normal.X,
+                Y = normal.Y,
+                Width = normal.Width,
+                Height = normal.Height,
+                Maximized = WindowState == FormWindowState.Maximized,
+                BrowserOpen = _browserOpen,
+                BrowserWidth = _browserOpen && !_split.Panel2Collapsed ? _split.Panel2.Width : 0
+            };
+            File.WriteAllText(WindowLayoutPath, JsonSerializer.Serialize(saved));
+        }
+        catch { }
     }
 
     void BuildStartupOverlay()
@@ -499,7 +577,7 @@ sealed class MainForm : Form
         _startup.Controls.Add(_startupText);
         _startup.Controls.Add(_startupClose);
         _startup.Resize += (_, __) => LayoutStartupOverlay();
-        ShowStartup("Starting Boolean", "Loading the local app...");
+        ShowStartup("Starting Boollm", "Loading the local app...");
     }
 
     void LayoutStartupOverlay()
@@ -585,7 +663,7 @@ sealed class MainForm : Form
     string PendingInstallerPath(string version)
     {
         var safe = string.Concat((version ?? "").Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
-        return Path.Combine(_updateDir, $"Boolean-setup-{safe}.exe");
+        return Path.Combine(_updateDir, $"Boollm-setup-{safe}.exe");
     }
 
     async Task CheckForUpdatesAsync()
@@ -595,7 +673,7 @@ sealed class MainForm : Form
 
         // Development builds do not update themselves. Packaged builds always
         // contain the core executable beside the shell.
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "Boolean-core.exe"))) { _updateCheckRunning = false; return; }
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "Boollm-core.exe"))) { _updateCheckRunning = false; return; }
 
         try
         {
@@ -634,7 +712,7 @@ sealed class MainForm : Form
                 {
                     Timeout = TimeSpan.FromMinutes(15)
                 };
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("Boolean-Windows/" + AppVersion);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Boollm-Windows/" + AppVersion);
 
                 var json = await client.GetStringAsync(UpdateManifestUrl);
                 var manifest = JsonSerializer.Deserialize<UpdateManifest>(json, options);
@@ -752,7 +830,7 @@ sealed class MainForm : Form
             var helperPath = Path.Combine(_updateDir, "apply-update.ps1");
             var logPath = Path.Combine(_updateDir, "update-install.log");
             var pendingFile = Path.Combine(_updateDir, "pending-update.json");
-            var appExe = Path.Combine(AppContext.BaseDirectory, "Boolean.exe");
+            var appExe = Path.Combine(AppContext.BaseDirectory, "Boollm.exe");
             var script = """
 param(
   [Parameter(Mandatory=$true)][string]$Installer,
@@ -869,7 +947,7 @@ try {
             var coreTask = StartCoreAsync();
             var webViewTask = CoreWebView2Environment.CreateAsync(null, udf);
             _port = await coreTask;
-            // The browser opens on Boolean's own start page (running local servers
+            // The browser opens on Boollm's own start page (running local servers
             // + quick links) instead of a search engine.
             _homeUrl = $"http://127.0.0.1:{_port}/browser-start";
             _env = await webViewTask;
@@ -898,6 +976,8 @@ try {
             // visible everywhere outside the opaque menu and three chrome rows.
             try { _chromeView.DefaultBackgroundColor = Color.Transparent; } catch { }
             _chromeView.CoreWebView2.Navigate($"http://127.0.0.1:{_port}/browser-chrome");
+            if (_restoreBrowserOpen)
+                BeginInvoke(new Action(() => ToggleBrowser(true)));
 
             _ = CheckForUpdatesAsync();
             // long-lived windows re-check on the same cadence as the feed throttle
@@ -907,7 +987,7 @@ try {
         }
         catch (Exception ex)
         {
-            ShowStartup("Boolean could not start", ex.Message + "\n\nLog: " + CoreLogPath + ReadCoreLogTail(), true);
+            ShowStartup("Boollm could not start", ex.Message + "\n\nLog: " + CoreLogPath + ReadCoreLogTail(), true);
         }
     }
 
@@ -953,6 +1033,9 @@ try {
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+        // Node 24 can misclassify newer Windows Insider/build numbers as
+        // unsupported even though the OS is Windows 10/11 compatible.
+        psi.Environment["NODE_SKIP_PLATFORM_CHECK"] = "1";
         foreach (var a in args) psi.ArgumentList.Add(a);
         _core = Process.Start(psi) ?? throw new Exception("failed to launch: " + exe);
         _core.OutputDataReceived += (_, ev) => { if (ev.Data != null) OnCoreLogLine(ev.Data); };
@@ -963,11 +1046,11 @@ try {
         {
             if (_core.HasExited) throw new Exception("engine exited on startup (code " + _core.ExitCode + ")");
             if (i > 0 && i % 10 == 0)
-                ShowStartup("Starting Boolean", "Still waiting for the local engine...\n" + ((i / 2) + 1) + " seconds elapsed\nLog: " + CoreLogPath);
+                ShowStartup("Starting Boollm", "Still waiting for the local engine...\n" + ((i / 2) + 1) + " seconds elapsed\nLog: " + CoreLogPath);
             if (_corePrintedServing || await CoreReadyAsync(port)) return port;
             await Task.Delay(500);
         }
-        throw new Exception("engine did not become ready in time. Boolean started the engine process, but it did not answer on localhost.");
+        throw new Exception("engine did not become ready in time. Boollm started the engine process, but it did not answer on localhost.");
     }
 
     void OnCoreLogLine(string line)
@@ -1014,11 +1097,11 @@ try {
         catch { return ""; }
     }
 
-    // packaged: Boolean-core.exe next to us. dev: node <repo>\src\index.js
+    // packaged: Boollm-core.exe next to us. dev: node <repo>\src\index.js
     (string exe, string[] args) ResolveCore(int port)
     {
         var dir = AppContext.BaseDirectory;
-        var core = Path.Combine(dir, "Boolean-core.exe");
+        var core = Path.Combine(dir, "Boollm-core.exe");
         string[] tail = { "ui", "--no-open", "--port", port.ToString() };
         if (File.Exists(core)) return (core, tail);
 
@@ -1028,7 +1111,7 @@ try {
             var node = new[] { index }.Concat(tail).ToArray();
             return ("node", node);
         }
-        throw new Exception("Boolean-core.exe not found and dev src\\index.js not located");
+        throw new Exception("Boollm-core.exe not found and dev src\\index.js not located");
     }
 
     static string? FindUp(string start, string rel)
@@ -1164,6 +1247,7 @@ try {
             full = _full,
             tasks = specs,
             dark = _themeDark,
+            darkPage = _browserDarkMode,
             surface = _themeSurface
         };
         try { _chromeView.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(state)); } catch { }
@@ -1204,6 +1288,9 @@ try {
                 case "closeOthers": CloseOtherTabs(); break;
                 case "device": CycleDeviceMode(); break;
                 case "run": PostToChat(new { type = "runProject" }); break;
+                case "darkPage":
+                    _ = SetBrowserDarkModeAsync(!_browserDarkMode, notifyChat: true);
+                    break;
                 case "task": SendBrowserTask(Task()); break;
                 case "zoomIn": Zoom(0.1); break;
                 case "zoomOut": Zoom(-0.1); break;
@@ -1239,7 +1326,7 @@ try {
     Palette ResolveTheme()
     {
         string theme = "system";
-        string surface = "paper-minimal";
+        string surface = "classic";
         try
         {
             var cfg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".saz", "config.json");
@@ -1249,26 +1336,24 @@ try {
                 if (doc.RootElement.TryGetProperty("ui", out var ui))
                 {
                     if (ui.TryGetProperty("theme", out var th)) theme = th.GetString() ?? "system";
-                    if (ui.TryGetProperty("colorTheme", out var ct)) surface = ct.GetString() ?? "paper-minimal";
+                    if (ui.TryGetProperty("colorTheme", out var ct)) surface = ct.GetString() ?? "classic";
                 }
             }
         }
         catch { }
         bool dark = theme == "dark" || (theme == "system" && SystemDark());
         _themeDark = dark;
-        _themeSurface = surface;
+        _themeSurface = "classic";
         if (dark) return Palette.Dark;
-        return surface switch
-        {
-            "soft-gloss" => Palette.SoftGlass,
-            "graphite-mist" => Palette.GraphiteMist,
-            _ => Palette.Light
-        };
+        return Palette.Light;
     }
 
     void ApplyTheme(Palette p)
     {
         _pal = p;
+        Padding = new Padding(0, 0, 0, 12);
+        _split.SplitterWidth = 5;
+        _browserPane.Radius = 0;
         BackColor = p.CanvasBg;
         try { _chat.DefaultBackgroundColor = p.PaneBg; } catch { }
         ApplyDwmChromeColor(p.CanvasBg);
@@ -1278,7 +1363,8 @@ try {
         // keeps its own PaneBg surface.
         _split.Panel2.BackColor = p.CanvasBg;
         _browserPane.BackColor = p.PaneBg;
-        _browserPane.BorderColor = p.BtnBorder;
+        _browserPane.BorderColor = Color.Transparent;
+        _browserPane.Invalidate();
         StyleBrowserPill();
         _content.BackColor = p.PaneBg;
         // The chrome bar is HTML (it themes itself from the pushed state); only its
@@ -1292,6 +1378,54 @@ try {
                     (p.PaneBg.R < 128) ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light;
         }
         PushChromeState();
+    }
+
+    public bool PreFilterMessage(ref Message m)
+    {
+        const int WM_MOUSEMOVE = 0x0200;
+        const int WM_LBUTTONDOWN = 0x0201;
+        const int WM_LBUTTONUP = 0x0202;
+        // The browser/chat panes are WebView2 controls, which swallow the mouse so the
+        // SplitContainer's own splitter can never be grabbed. This manual hit-test drives
+        // the drag in every theme so the splitter remains usable over WebView surfaces.
+        if (!_browserOpen || _full || _split.Panel2Collapsed)
+            return false;
+        if (m.Msg != WM_MOUSEMOVE && m.Msg != WM_LBUTTONDOWN && m.Msg != WM_LBUTTONUP)
+            return false;
+
+        var point = _split.PointToClient(Cursor.Position);
+        bool insideHeight = point.Y >= 0 && point.Y < _split.ClientSize.Height;
+        bool nearSplitter = insideHeight && Math.Abs(point.X - _split.SplitterDistance) <= 5;
+
+        if (m.Msg == WM_LBUTTONDOWN && nearSplitter)
+        {
+            _splitHitDragging = true;
+            Capture = true;
+            _split.Cursor = Cursors.VSplit;
+            return true;
+        }
+
+        if (m.Msg == WM_MOUSEMOVE && _splitHitDragging)
+        {
+            int maximum = Math.Max(_split.Panel1MinSize,
+                _split.Width - _split.SplitterWidth - _split.Panel2MinSize);
+            _split.SplitterDistance = Math.Clamp(point.X, _split.Panel1MinSize, maximum);
+            _split.Cursor = Cursors.VSplit;
+            return true;
+        }
+
+        if (m.Msg == WM_LBUTTONUP && _splitHitDragging)
+        {
+            _splitHitDragging = false;
+            Capture = false;
+            _split.Cursor = nearSplitter ? Cursors.VSplit : Cursors.Default;
+            AutoFitActiveBrowserIfNarrow();
+            return true;
+        }
+
+        if (m.Msg == WM_MOUSEMOVE)
+            _split.Cursor = nearSplitter ? Cursors.VSplit : Cursors.Default;
+        return false;
     }
 
     TabItem? Active() => _active >= 0 && _active < _tabs.Count ? _tabs[_active] : null;
@@ -1308,6 +1442,7 @@ try {
                 await t.View.EnsureCoreWebView2Async(_env);
         try { t.View.CoreWebView2.Profile.PreferredColorScheme =
             (_pal.PaneBg.R < 128) ? CoreWebView2PreferredColorScheme.Dark : CoreWebView2PreferredColorScheme.Light; } catch { }
+        await ConfigureBrowserDarkModeAsync(t);
         WireView(t);
         if (navigate) t.View.CoreWebView2.Navigate(url);
         if (activate) Activate(_tabs.IndexOf(t));
@@ -1358,6 +1493,80 @@ try {
             };
             ev.State = allow ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
         };
+    }
+
+    const string BrowserDarkModeScript = """
+(() => {
+  const id = "boollm-browser-dark-mode";
+  let style = document.getElementById(id);
+  if (!style) {
+    style = document.createElement("style");
+    style.id = id;
+    style.textContent = `
+      :root { color-scheme: dark !important; }
+      html, body { background-color: #181a1b !important; color: #e8e6e3 !important; }
+      body { background-image: none !important; }
+      *, *::before, *::after { border-color: #45484a !important; }
+      a { color: #76b7ff !important; }
+      input, textarea, select, button {
+        background-color: #25282a !important;
+        color: #e8e6e3 !important;
+        border-color: #4b4f52 !important;
+      }
+      table, th, td { border-color: #45484a !important; }
+      [style*="background: white"], [style*="background:white"],
+      [style*="background: #fff"], [style*="background:#fff"],
+      [style*="background-color: white"], [style*="background-color:white"],
+      [style*="background-color: #fff"], [style*="background-color:#fff"] {
+        background-color: #181a1b !important;
+      }
+      [style*="color: black"], [style*="color:black"],
+      [style*="color: #000"], [style*="color:#000"] {
+        color: #e8e6e3 !important;
+      }
+      img, picture, video, canvas, svg { filter: none !important; opacity: 1 !important; }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+})();
+""";
+
+    const string BrowserDarkModeRemoveScript = """
+(() => { document.getElementById("boollm-browser-dark-mode")?.remove(); })();
+""";
+
+    async Task ConfigureBrowserDarkModeAsync(TabItem t)
+    {
+        var c = t.View.CoreWebView2;
+        if (c == null) return;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(t.DarkModeScriptId))
+            {
+                c.RemoveScriptToExecuteOnDocumentCreated(t.DarkModeScriptId);
+                t.DarkModeScriptId = "";
+            }
+            if (_browserDarkMode)
+            {
+                t.DarkModeScriptId = await c.AddScriptToExecuteOnDocumentCreatedAsync(BrowserDarkModeScript);
+                await c.ExecuteScriptAsync(BrowserDarkModeScript);
+            }
+            else
+            {
+                await c.ExecuteScriptAsync(BrowserDarkModeRemoveScript);
+            }
+        }
+        catch { }
+    }
+
+    async Task SetBrowserDarkModeAsync(bool enabled, bool notifyChat = false)
+    {
+        _browserDarkMode = enabled;
+        foreach (var tab in _tabs.ToArray())
+            await ConfigureBrowserDarkModeAsync(tab);
+        PushChromeState();
+        if (notifyChat)
+            PostToChat(new { type = "shellBrowserDarkMode", enabled });
     }
 
     void Activate(int i)
@@ -1627,7 +1836,17 @@ try {
             {
                 if (_split.Panel1Collapsed) { _split.Panel1Collapsed = false; _full = false; }
                 _split.Panel2Collapsed = false;
-                FitBrowserSplit();
+                if (_restoreBrowserWidth > 0)
+                {
+                    const int chatMin = 300, browserMin = 340;
+                    int available = Math.Max(0, _split.Width - _split.SplitterWidth);
+                    int browserWidth = Math.Clamp(_restoreBrowserWidth, Math.Min(browserMin, available), Math.Max(browserMin, available - chatMin));
+                    _split.Panel1MinSize = Math.Min(chatMin, Math.Max(20, available - browserWidth));
+                    _split.Panel2MinSize = Math.Min(browserMin, Math.Max(20, browserWidth));
+                    _split.SplitterDistance = Math.Max(_split.Panel1MinSize, available - browserWidth);
+                    _restoreBrowserWidth = 0;
+                }
+                else FitBrowserSplit();
             }
             finally
             {
@@ -1700,7 +1919,7 @@ try {
             }
             if (type == "notify")
             {
-                var title = root.TryGetProperty("title", out var tp2) ? tp2.GetString() ?? "Boolean" : "Boolean";
+                var title = root.TryGetProperty("title", out var tp2) ? tp2.GetString() ?? "Boollm" : "Boollm";
                 var body = root.TryGetProperty("body", out var bp) ? bp.GetString() ?? "" : "";
                 ShowToast(title, body);
                 return;
@@ -1746,16 +1965,12 @@ try {
                         if (_themeDark) pal = Palette.Dark;
                         else
                         {
-                            var surface = root.TryGetProperty("surface", out var sf) ? sf.GetString() : "paper-minimal";
-                            _themeSurface = surface ?? "paper-minimal";
-                            pal = _themeSurface switch
-                            {
-                                "soft-gloss" => Palette.SoftGlass,
-                                "graphite-mist" => Palette.GraphiteMist,
-                                _ => Palette.Light
-                            };
+                            _themeSurface = "classic";
+                            pal = Palette.Light;
                         }
                     }
+                    if (root.TryGetProperty("browserDark", out var browserDark))
+                        _ = SetBrowserDarkModeAsync(browserDark.GetBoolean());
                     ApplyTheme(pal);
                     break;
             }
@@ -1782,7 +1997,7 @@ try {
                     {
                         Icon = File.Exists(iconPath) ? new Icon(iconPath) : SystemIcons.Application,
                         Visible = true,
-                        Text = "Boolean",
+                        Text = "Boollm",
                     };
                 }
                 _notifyIcon.ShowBalloonTip(4000, title, body, ToolTipIcon.Info);

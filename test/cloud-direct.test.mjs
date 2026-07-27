@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, isExplicitTaskContinuation, isTaskRefinement, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, focusedMessagesForTurn, isExplicitTaskContinuation, isTaskRefinement, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -63,7 +63,7 @@ test("controller loop stops render as a compact user-facing pause", () => {
   assert.doesNotMatch(answer, /controller|loop guard|checkpointed|Do not inspect/i);
 });
 
-test("third-party provider 401 responses do not affect Boolean account sign-in", async (t) => {
+test("third-party provider 401 responses do not affect Boollm account sign-in", async (t) => {
   const server = http.createServer(async (req, res) => {
     for await (const _chunk of req) { /* consume request */ }
     res.writeHead(401, { "content-type": "application/json" });
@@ -418,13 +418,14 @@ test("the model receives topic changes without deterministic routing", async (t)
   assert.equal(answer, "The cloud model handled this question.");
   assert.equal(requestBody.model, "test-cloud-model");
   assert.equal(requestBody.messages.at(-1).content, "stock news");
-  assert.deepEqual(requestBody.tools.map((tool) => tool.function.name).sort(), ["research_web", "web_search"], "research turns should send only background search tools");
-  assert.doesNotMatch(requestBody.messages[0].content, /TOOL DEFINITIONS|Boolean includes local GGUF models|mcp_list_tools/i, "research turns should not carry the full agent controller prompt");
+  assert.ok(requestBody.tools.some((tool) => tool.function.name === "research_web"));
+  assert.ok(requestBody.tools.some((tool) => tool.function.name === "mcp_list_tools"), "research turns should retain the open catalog");
+  assert.doesNotMatch(requestBody.messages[0].content, /TOOL DEFINITIONS|Boollm includes local GGUF models|mcp_list_tools/i, "research turns should not carry the full agent controller prompt");
   assert.deepEqual(steps, [], "the app must not force a tool before the model requests one");
   assert.equal(messages.at(-1).content, answer);
 });
 
-test("ordinary chat turns send no tools and no Boolean prompt", async (t) => {
+test("ordinary main-chat turns receive non-project tools without an implicit workspace", async (t) => {
   let requestBody = null;
   let requestCount = 0;
   const server = http.createServer(async (req, res) => {
@@ -441,7 +442,7 @@ test("ordinary chat turns send no tools and no Boolean prompt", async (t) => {
   const config = {
     provider: "openai",
     openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "chat-test", apiKey: "test" },
-    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
+    projectsDir: "C:\\Users\\S10\\Documents\\Boollm",
     autoApprove: true,
     ui: { contextMode: "balanced", learnedMemory: false },
     connectors: { mcp: [{ name: "Robinhood", enabled: true }], agents: [] }
@@ -461,8 +462,12 @@ test("ordinary chat turns send no tools and no Boolean prompt", async (t) => {
 
   assert.equal(answer, "Hi. How can I help?");
   assert.equal(requestCount, 1, "plain chat should complete in one model call");
-  assert.equal(requestBody.tools, undefined, "plain chat should not send tool schemas");
-  assert.match(requestBody.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.ok(requestBody.tools.length > 10, "main chat should retain useful non-project tools");
+  assert.ok(requestBody.tools.some((tool) => tool.function.name === "mcp_list_tools"));
+  assert.ok(!requestBody.tools.some((tool) => tool.function.name === "create_project"));
+  assert.ok(!requestBody.tools.some((tool) => tool.function.name === "read_file"));
+  assert.ok(!requestBody.tools.some((tool) => tool.function.name === "write_file"));
+  assert.match(requestBody.messages[0].content, /BOOLLM OPERATING POLICY/);
   assert.match(requestBody.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
 });
@@ -482,7 +487,7 @@ test("side chat stays answer-only even when its wording resembles an action", as
   const config = {
     provider: "openai",
     openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "side-chat-test", apiKey: "test" },
-    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
+    projectsDir: "C:\\Users\\S10\\Documents\\Boollm",
     autoApprove: true,
     ui: { contextMode: "balanced", learnedMemory: false }
   };
@@ -505,22 +510,97 @@ test("side chat stays answer-only even when its wording resembles an action", as
   assert.deepEqual(steps, []);
 });
 
-test("turn classifier chooses the smallest useful mode", () => {
+test("turn classifier shapes context without withholding the tool catalog", () => {
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }]), "chat");
   assert.equal(classifyTurnMode([{ role: "user", content: "hi" }], { projectDir: "C:\\repo" }), "chat");
   assert.equal(classifyTurnMode([{ role: "user", content: "stock news today" }]), "research");
   assert.equal(classifyTurnMode([{ role: "user", content: "build me a tic tac toe game" }], { artifactActionRequired: true }), "action");
   assert.equal(classifyTurnMode([{ role: "user", content: "are you checking it?" }], { connectorActionRequired: true }), "connector");
-  assert.equal(toolDefinitionsForTurnMode("chat").length, 0);
-  assert.deepEqual(toolDefinitionsForTurnMode("research").map((tool) => tool.function.name).sort(), ["research_web", "web_search"]);
-  const inspectTools = toolDefinitionsForTurnMode("inspect").map((tool) => tool.function.name);
+  const chatTools = toolDefinitionsForTurnMode("chat", false, false, true).map((tool) => tool.function.name);
+  const researchTools = toolDefinitionsForTurnMode("research", false, false, true).map((tool) => tool.function.name);
+  assert.deepEqual(researchTools, chatTools);
+  assert.ok(chatTools.includes("mcp_list_tools"));
+  assert.ok(chatTools.includes("write_file"));
+  const inspectTools = toolDefinitionsForTurnMode("inspect", false, false, true).map((tool) => tool.function.name);
   assert.ok(inspectTools.includes("read_file"));
   assert.ok(inspectTools.includes("git_status"));
-  assert.ok(!inspectTools.includes("write_file"));
-  assert.ok(!inspectTools.includes("run_command"));
+  assert.ok(inspectTools.includes("write_file"));
+  assert.ok(inspectTools.includes("run_command"));
   assert.equal(classifyTurnMode([{ role: "user", content: "Call read_file for package.json" }]), "inspect");
   assert.equal(classifyTurnMode([{ role: "user", content: "Call write_file to update package.json" }]), "action");
   assert.equal(classifyTurnMode([{ role: "user", content: "Call email_cleanup_preview for Gmail" }]), "connector");
+});
+
+test("ordinary chats cannot create or operate on a project workspace", () => {
+  const chatTools = toolDefinitionsForTurnMode("action").map((tool) => tool.function.name);
+  assert.ok(!chatTools.includes("create_project"));
+  assert.ok(!chatTools.includes("write_file"));
+  assert.ok(!chatTools.includes("run_command"));
+
+  const projectTools = toolDefinitionsForTurnMode("action", true, false, true).map((tool) => tool.function.name);
+  assert.ok(!projectTools.includes("create_project"));
+  assert.ok(projectTools.includes("write_file"));
+  assert.ok(projectTools.includes("run_command"));
+});
+
+test("software build requests stay normal chats until the user opens a project", async () => {
+  const messages = [
+    { role: "system", content: "system" },
+    { role: "user", content: "build me a tic tac toe game" }
+  ];
+  const answer = await runTurn({
+    config: { provider: "openai", openai: {}, ui: {} },
+    approve: async () => false,
+    onStatus() {},
+    onStep() {},
+    onUsage() {}
+  }, messages);
+
+  assert.match(answer, /Open a folder or create a project first/i);
+  assert.match(answer, /normal chat/i);
+  assert.equal(messages.at(-1).role, "assistant");
+});
+
+test("direct connector actions inherit recent connector context", () => {
+  const tradingHistory = [
+    { role: "user", content: "Connect Robinhood and StockSignal so we can use signals on Robinhood." },
+    { role: "assistant", content: "Both MCP servers are connected. SLB is the top idea at a $52.42 entry." },
+    { role: "user", content: "lets go with number 1 slb buy 20 shares" }
+  ];
+  assert.equal(classifyTurnMode(tradingHistory), "connector");
+  assert.equal(requiresConnectorContinuationAction(tradingHistory), true);
+  assert.equal(requiresConnectorToolResult(tradingHistory), true);
+
+  const serviceHistory = [
+    { role: "user", content: "Use the connected GitHub MCP for this repo." },
+    { role: "assistant", content: "GitHub is connected and the issue draft is ready." },
+    { role: "user", content: "create the issue" }
+  ];
+  assert.equal(classifyTurnMode(serviceHistory), "connector");
+  assert.equal(requiresConnectorToolResult(serviceHistory), true);
+
+  assert.equal(classifyTurnMode([
+    { role: "assistant", content: "Buying stocks involves risk." },
+    { role: "user", content: "why can buying stocks be risky?" }
+  ]), "research");
+});
+
+test("connector turns discard stale project history but preserve the current tool tail", () => {
+  const messages = [
+    { role: "system", content: "system" },
+    { role: "user", content: "build a website" },
+    { role: "assistant", content: "old project answer ".repeat(5000) },
+    { role: "user", content: "can you connect to mcp robinhood and stocksignal?" },
+    { role: "assistant", content: "", tool_calls: [{ id: "call-1", type: "function", function: { name: "list_connectors", arguments: "{}" } }] },
+    { role: "tool", tool_call_id: "call-1", content: "{\"connectors\":[]}" }
+  ];
+  const focused = focusedMessagesForTurn(messages, "connector");
+
+  assert.equal(focused[0].content, "system");
+  assert.ok(focused.some((message) => message.content === "can you connect to mcp robinhood and stocksignal?"));
+  assert.ok(focused.some((message) => message.role === "tool" && message.tool_call_id === "call-1"));
+  assert.ok(!focused.some((message) => String(message.content).includes("old project answer")));
+  assert.ok(focused.length <= 6, "connector context should remain a small rolling window");
 });
 
 test("the newest message owns routing instead of stale task history", () => {
@@ -632,7 +712,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
     remaining: 240
   });
   assert.equal(classifyTurnMode(secondConfirmation), "connector");
-  assert.match(systemPrompt("", true), /BOOLEAN OPERATING POLICY/);
+  assert.match(systemPrompt("", true), /BOOLLM OPERATING POLICY/);
 
   assert.equal(emailCleanupContinuationAction([
     { role: "system", content: "system" },
@@ -644,7 +724,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
 
 test("explicit no-change project questions do not require artifact edits", () => {
   const messages = [
-    { role: "system", content: systemPrompt("C:\\Users\\S10\\Documents\\Boolean", true, { ui: { learnedMemory: false } }) },
+    { role: "system", content: systemPrompt("C:\\Users\\S10\\Documents\\Boollm", true, { ui: { learnedMemory: false } }) },
     { role: "user", content: "dont make any changes just tell me about this project" }
   ];
 
@@ -652,7 +732,7 @@ test("explicit no-change project questions do not require artifact edits", () =>
   assert.equal(classifyTurnMode(messages, {
     latestText: "dont make any changes just tell me about this project",
     artifactActionRequired: requiresArtifactAction(messages),
-    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
+    projectDir: "C:\\Users\\S10\\Documents\\Boollm"
   }), "inspect", "project overview uses read-only tools without action completion gates");
 });
 
@@ -784,6 +864,7 @@ test("clear artifact requests accept the API model's own response without an act
   const steps = [];
   const answer = await runTurn({
     config,
+    projectDir: projectsDir,
     approve: async () => true,
     onStatus() {},
     onStep(step) { steps.push(step.name); },
@@ -794,7 +875,7 @@ test("clear artifact requests accept the API model's own response without an act
   assert.equal(answer, "Here are the steps you can follow to make the game yourself.");
   assert.equal(calls, 1);
   assert.deepEqual(steps, []);
-  assert.match(nudgedRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.match(nudgedRequest.messages[0].content, /BOOLLM OPERATING POLICY/);
   assert.match(nudgedRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.equal(nudgedRequest.tool_choice, undefined);
   assert.equal(protocolRequest, null);
@@ -851,6 +932,61 @@ test("malformed native tool-call server errors retry without surfacing a 500", a
   assert.equal(requests[0].tools.length > 0, true);
   assert.equal(requests[3].tools, undefined);
   assert.match(statuses.join("\n"), /malformed.*compatibility mode/i);
+});
+
+test("Z.AI prompt-parameter rejection retries with the compact compatible tool catalog", async (t) => {
+  let calls = 0;
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    requests.push(body);
+    calls++;
+    if (calls === 1) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({
+        error: { message: "The prompt parameter was not received normally." }
+      }));
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "Recovered and continued the task." } }]
+    }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const statuses = [];
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "glm-5-turbo", apiKey: "test" },
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(os.tmpdir(), true, config) },
+    { role: "user", content: "Inspect this project and continue the deployment task." }
+  ];
+  const answer = await runTurn({
+    config,
+    approve: async () => true,
+    onStatus(status) { statuses.push(status); },
+    onStep() {},
+    onUsage() {},
+    onCheckpoint() {}
+  }, messages);
+
+  assert.equal(answer, "Recovered and continued the task.");
+  assert.equal(calls, 2);
+  assert.equal(requests[0].tools.length > 0, true);
+  assert.equal(requests[1].tools, undefined);
+  assert.match(requests[1].messages[0].content, /TOOL PROTOCOL/);
+  assert.match(requests[1].messages[0].content, /Available tools \(name: purpose\)/);
+  assert.doesNotMatch(requests[1].messages[0].content, /Available tools \(JSON schema\)/);
+  assert.match(statuses.join("\n"), /rejected.*native tool prompt.*compact tool catalog/i);
 });
 
 test("malformed native tool arguments are never executed as empty arguments", async (t) => {
@@ -955,7 +1091,7 @@ test("an empty response after tool work continues instead of silently stopping",
   assert.equal(calls, 7);
   assert.deepEqual(steps, ["list_dir"]);
   assert.match(statuses.join("\n"), /paused before finishing.*continuing/i);
-  assert.match(continuationRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.match(continuationRequest.messages[0].content, /BOOLLM OPERATING POLICY/);
   assert.match(continuationRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(continuationRequest.messages.map((message) => message.content || "").join("\n"), /CONTINUE REQUIRED|Do not wait for me to press Continue/i);
 });

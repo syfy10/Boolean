@@ -1,11 +1,11 @@
-# Boolean Remote Control Architecture
+# Boollm Remote Control Architecture
 
 Status: planned, not enabled in the desktop app.
 
 ## Goal
 
-Let a user securely view and control their own Boolean desktop tasks from a
-phone or another browser without exposing the local Boolean API or tool server
+Let a user securely view and control their own Boollm desktop tasks from a
+phone or another browser without exposing the local Boollm API or tool server
 to the public internet.
 
 ## Required Design

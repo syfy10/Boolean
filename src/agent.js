@@ -81,14 +81,17 @@ export function systemPrompt(projectsDir = "", fullAccess = false, config = null
   return cleanSystemPrompt(projectsDir, fullAccess, connectorSummary(config), "");
 }
 
-// Load per-project rules from BOOLEAN.md or .boolean/rules.md. These teach
-// Boolean the project's coding style, commands, architecture, and constraints
+// Prefer Boollm project rules, while retaining the two legacy Boolean paths
+// so existing projects continue to work after the product rename.
+// Boollm the project's coding style, commands, architecture, and constraints
 // so it doesn't need to re-discover them every turn. Capped to 4 KB.
 const MAX_RULES_BYTES = 4096;
 export function loadProjectRules(projectDir) {
   try {
     if (!projectDir || !fs.existsSync(projectDir)) return "";
     const candidates = [
+      path.join(projectDir, "BOOLLM.md"),
+      path.join(projectDir, ".boollm", "rules.md"),
       path.join(projectDir, "BOOLEAN.md"),
       path.join(projectDir, ".boolean", "rules.md")
     ];
@@ -99,7 +102,10 @@ export function loadProjectRules(projectDir) {
         // Strip a leading markdown H1 title to avoid redundancy.
         text = text.replace(/^#\s+.+\r?\n?/, "").trim();
         if (text.length > MAX_RULES_BYTES) text = text.slice(0, MAX_RULES_BYTES) + "\n…(rules truncated)";
-        const label = path.basename(candidate) === "rules.md" ? ".boolean/rules.md" : "BOOLEAN.md";
+        const relative = path.relative(projectDir, candidate).replaceAll("\\", "/");
+        const label = relative === "BOOLEAN.md" || relative === ".boolean/rules.md"
+          ? `${relative} (legacy)`
+          : relative;
         return `PROJECT RULES (from ${label}):\n${text}`;
       }
     }
@@ -157,7 +163,7 @@ export function projectBrief(projectDir) {
 // the model is asked to emit a fenced ```tool block containing JSON.
 const ARTIFACT_TOOL_NAMES = new Set([
   "create_project", "list_dir", "read_file", "write_file", "run_project", "run_command", "read_page",
-  "create_artifact", "generate_image", "run_guarded", "record_debug_evidence"
+  "create_artifact", "generate_image", "run_guarded", "record_debug_evidence", "remember"
 ]);
 const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
 const RESEARCH_TOOL_NAMES = new Set(["web_search", "research_web"]);
@@ -166,20 +172,30 @@ const INSPECT_TOOL_NAMES = new Set([
   "list_dir", "read_file", "find_files", "search_files", "find_symbol",
   "git_status", "git_diff", "git_log", "list_subagent_results", "read_process",
   "read_page", "inspect_page_layout", "screenshot_page", "visible_browser_read",
-  "list_connectors", "mcp_list_tools", "cloudflare_list_resources", "notepad_read", "email_list", "email_read",
-  "windows_system_info"
+  "list_connectors", "mcp_list_tools", "cloudflare_list_resources", "cloud_hosting_list_resources", "notepad_read", "email_list", "email_read",
+  "windows_system_info", "remember"
 ]);
 const INSPECT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => INSPECT_TOOL_NAMES.has(tool.function.name));
 const ACTION_TOOL_NAMES = new Set(TOOL_DEFINITIONS
   .map((tool) => String(tool.function?.name || "").toLowerCase())
   .filter((name) => name && !RESEARCH_TOOL_NAMES.has(name)));
+// A chat becomes a project workspace only through the UI's New project or
+// Open folder actions. Never let a model silently turn an ordinary chat into a
+// project or operate on config.projectsDir as an implicit workspace.
+const PROJECT_WORKSPACE_TOOL_NAMES = new Set([
+  "create_project", "list_dir", "read_file", "write_file", "run_project",
+  "run_command", "find_files", "search_files", "find_symbol", "git_status",
+  "git_diff", "git_log", "github_workflow", "run_guarded",
+  "record_debug_evidence", "run_subagent", "list_subagent_results",
+  "apply_subagent_result", "discard_subagent_result"
+]);
 
 function explicitlyNamedToolMode(text) {
   const names = String(text || "").toLowerCase().match(/\b[a-z][a-z0-9]*(?:_[a-z0-9]+)+\b/g) || [];
   const known = names.filter((name) => ACTION_TOOL_NAMES.has(name));
   if (!known.length) return "";
-  if (known.some((name) => !INSPECT_TOOL_NAMES.has(name) && !/^(?:email_|mcp_|cloudflare_|agent_connector_|list_connectors$)/.test(name))) return "action";
-  if (known.some((name) => /^(?:email_|mcp_|cloudflare_|agent_connector_|list_connectors$)/.test(name) && !INSPECT_TOOL_NAMES.has(name))) return "connector";
+  if (known.some((name) => !INSPECT_TOOL_NAMES.has(name) && !/^(?:email_|mcp_|cloudflare_|cloud_hosting_|agent_connector_|list_connectors$)/.test(name))) return "action";
+  if (known.some((name) => /^(?:email_|mcp_|cloudflare_|cloud_hosting_|agent_connector_|list_connectors$)/.test(name) && !INSPECT_TOOL_NAMES.has(name))) return "connector";
   return "inspect";
 }
 
@@ -210,7 +226,7 @@ function withTurnModeSystem(messages, mode, config) {
   const systemIndex = copy.findIndex((message) => message?.role === "system");
   if (systemIndex >= 0) {
     const existing = String(copy[systemIndex].content || "").trim();
-    if (!existing.includes("BOOLEAN OPERATING POLICY")) {
+    if (!existing.includes("BOOLLM OPERATING POLICY")) {
       copy[systemIndex].content = existing ? `${existing}\n\n${policy}` : policy;
     }
   } else {
@@ -320,6 +336,12 @@ function looksLikeNoToolSupport(err) {
 function looksLikeMalformedNativeToolCall(err) {
   const text = errorChainText(err);
   return /failed to parse tool call arguments|tool call arguments.{0,40}(?:invalid|json|parse)|json\.exception\.parse_error/i
+    .test(text);
+}
+
+function looksLikeRejectedNativeToolPrompt(err) {
+  const text = errorChainText(err);
+  return /prompt parameter was not received normally|prompt parameter.{0,60}(?:invalid|illegal|missing|not received)/i
     .test(text);
 }
 
@@ -435,8 +457,9 @@ const LOCAL_PROJECT_CONTEXT = /(?:[a-z]:\\[^\r\n`]+|(?:^|[\s`])(?:\.{0,2}[\\/])?
 const RESEARCH_REQUEST = /\b(?:current|latest|today|tonight|tomorrow|yesterday|right now|live|news|headline|weather|forecast|score|won|winner|match|game|fixture|schedule|stock|stocks|market|price|earnings|dividend|available|availability|search|look up|lookup|web|internet|source|sources|cite)\b/i;
 const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|cloudflare|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
 const CONNECTOR_CONTEXT = /\b(?:mcp|connector|cloudflare|cloudflare workers?|cloudflare pages|stocksignal|stockunc|robinhood|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
-const CONNECTOR_ACTION_REQUEST = /\b(?:check|checking|connected|connection|connect|use|call|pull|fetch|get|see|refresh|try again|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
+const CONNECTOR_ACTION_REQUEST = /\b(?:check|checking|connected|connection|connect|use|call|pull|fetch|get|see|refresh|try again|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?|buy|sell|trade|place|submit|execute|cancel|close|send|post|publish|upload|download|create|add|remove|delete|move|update|change|approve|confirm)\b/i;
 const CONNECTOR_DATA_ACTION = /\b(?:pull|fetch|get|give|show|list|all|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
+const CONNECTOR_MUTATION_ACTION = /\b(?:buy|sell|trade|place|submit|execute|cancel|close|send|post|publish|upload|create|add|remove|delete|move|update|change|approve|confirm)\b/i;
 const CONNECTOR_PROGRESS_FOLLOWUP = /\b(?:are you (?:checking|doing|working)|did you check|doing it now|checking it|check now|what happened|still checking|try again|refresh it)\b/i;
 const EMAIL_CLEANUP_CONFIRMATION = /^(?:yes(?:\s+(?:do it|please|go ahead))?|go ahead|do it|proceed|confirm(?:ed)?|okay(?:\s+(?:do it|go ahead))?|ok(?:\s+(?:do it|go ahead))?|continue|run it|run the (?:next|second) batch)[.!? ]*$/i;
 const EMAIL_CLEANUP_BATCH_REQUEST = /\b(?:do|run|process|move|trash|continue)\b[\s\S]{0,80}\b(?:second|next|remaining)\b[\s\S]{0,60}\b(?:batch|messages?|candidates?)\b/i;
@@ -449,7 +472,7 @@ const MORE_WORK_INTENT = /\b(?:i\s*(?:'ll|will|am going to|need to|can|should|ha
 // "I'll check agent.js") with no deliverable and no tool call. Small/mid models
 // narrate the next action and then stop; this catches that so the loop can push
 // them to actually take the step instead of accepting the narration as an answer.
-const ANNOUNCE_ACTION = /\b(?:let me|let'?s|i'?ll|i will|i'?m going to|i am going to|allow me to|first,?\s*i'?ll|now i'?ll)\s+(?:just\s+|now\s+|actually\s+|first\s+|then\s+|go\s+(?:ahead\s+)?(?:and\s+)?|start by\s+|begin by\s+|quickly\s+)?(?:read|open|check|look|inspect|trace|examine|review|view|see|find|search|grep|scan|explore|investigate|start|begin|continue|proceed|add|create|build|write|implement|update|edit|fix|run|wire|load|pull|fetch)\b/i;
+const ANNOUNCE_ACTION = /\b(?:let me|let'?s|i'?ll|i will|i'?m going to|i am going to|allow me to|first,?\s*i'?ll|now i'?ll)\s+(?:just\s+|now\s+|actually\s+|first\s+|then\s+|go\s+(?:ahead\s+)?(?:and\s+)?|start by\s+|begin by\s+|quickly\s+)?(?:read|open|check|look|inspect|trace|examine|review|view|see|find|search|grep|scan|explore|investigate|get|start|begin|continue|proceed|add|create|build|write|implement|update|edit|fix|run|wire|load|pull|fetch|call|connect|place|execute|submit|send|install|deploy|publish)\b/i;
 
 // True when a response is a short bare announcement of an imminent step with no
 // deliverable — the "let me read the files now" stall. The loop uses this to
@@ -530,7 +553,7 @@ export function emailCleanupContinuationAction(messages) {
 export function classifyTurnMode(messages, options = {}) {
   const latest = options.latestText ?? plainMessageText([...(messages || [])].reverse().find((message) => message?.role === "user"));
   if (emailCleanupContinuationAction(messages)) return "connector";
-  if (options.connectorActionRequired) return "connector";
+  if (options.connectorActionRequired || requiresConnectorContinuationAction(messages)) return "connector";
   const explicitToolMode = explicitlyNamedToolMode(latest);
   if (explicitToolMode) return explicitToolMode;
   // Advice about "this app/site/project" is not generic chat when the open
@@ -556,12 +579,17 @@ export function classifyTurnMode(messages, options = {}) {
   return "chat";
 }
 
-export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false) {
-  if (mode === "chat") return [];
-  if (mode === "research") return RESEARCH_TOOL_DEFINITIONS;
-  if (mode === "inspect") return INSPECT_TOOL_DEFINITIONS;
-  if (artifactActionRequired && !completedToolWork) return ARTIFACT_TOOL_DEFINITIONS;
-  return TOOL_DEFINITIONS;
+export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false, projectBound = false) {
+  // Keep the full catalog visible on every normal main-chat turn. The model
+  // should decide whether a tool is useful; Boollm's controller, approvals,
+  // and tool implementations remain the authority for whether a requested
+  // action may execute. Project filesystem tools are the one deliberate
+  // boundary: the user must first create or open a project from the UI.
+  return TOOL_DEFINITIONS.filter((tool) => {
+    const name = String(tool.function?.name || "");
+    if (name === "create_project") return false;
+    return projectBound || !PROJECT_WORKSPACE_TOOL_NAMES.has(name);
+  });
 }
 
 function isRealUserRequest(message) {
@@ -575,7 +603,22 @@ function isRealUserRequest(message) {
 
 export function focusedMessagesForTurn(messages, mode) {
   const focused = focusConversation(messages);
-  if (mode === "action" || mode === "connector") return withRecentTaskStatusMemory(focused, messages);
+  if (mode === "action") return withRecentTaskStatusMemory(focused, messages);
+  if (mode === "connector") {
+    // Connector requests are usually self-contained ("connect to X", "check
+    // connector Y"). Do not make the provider reread a long project chat before
+    // it can perform the first local connector lookup. Preserve the newest real
+    // request plus a short rolling tail so later tool results still have enough
+    // context to finish the same turn.
+    const system = focused[0];
+    const request = [...focused].reverse().find(isRealUserRequest)
+      || [...(messages || [])].reverse().find(isRealUserRequest);
+    const requestIndex = request ? focused.lastIndexOf(request) : -1;
+    const currentTurn = requestIndex >= 0 ? focused.slice(requestIndex + 1) : focused.slice(1);
+    const recent = currentTurn.slice(-4);
+    const tail = recent.filter((message) => message !== request);
+    return [system, ...(request ? [request] : []), ...tail];
+  }
   const system = focused[0];
   const keep = mode === "research" || mode === "inspect" ? 10 : 6;
   const recent = focused.slice(1).slice(-keep);
@@ -640,7 +683,7 @@ function withRecentTaskStatusMemory(focused, fullMessages) {
 }
 
 // Keep the model in charge of implementation details, but recognize the narrow
-// case where a user clearly asked Boolean to produce a software/file artifact.
+// case where a user clearly asked Boollm to produce a software/file artifact.
 // This is used only to retry a model that answered with a tutorial and made no
 // tool call; it does not route or execute an action itself.
 export function requiresArtifactAction(messages) {
@@ -676,7 +719,7 @@ export function requiresConnectorToolResult(messages) {
   const source = Array.isArray(messages) ? messages : [];
   const latestUser = [...source].reverse().find((message) => message?.role === "user");
   const latest = plainMessageText(latestUser);
-  if (CONNECTOR_DATA_ACTION.test(latest)) return true;
+  if (CONNECTOR_DATA_ACTION.test(latest) || CONNECTOR_MUTATION_ACTION.test(latest)) return true;
   const recent = source
     .filter((message) => message?.role === "user" || message?.role === "assistant")
     .slice(-8, -1)
@@ -715,39 +758,6 @@ export function requiresExplicitActionToolResult(messages) {
     if (ACTION_TOOL_NAMES.has(match[1])) return true;
   }
   return false;
-}
-
-function connectorNamesForPreflight(config, text) {
-  const enabled = (config?.connectors?.mcp || []).filter((item) => item.enabled !== false && item.url);
-  const source = String(text || "").toLowerCase();
-  const matches = enabled.filter((item) => {
-    const id = String(item.id || "").toLowerCase();
-    const name = String(item.name || "").toLowerCase();
-    return (id && source.includes(id)) || (name && source.includes(name)) ||
-      (source.includes("stocksignal") && `${id} ${name}`.includes("stocksignal")) ||
-      (source.includes("stock signal") && `${id} ${name}`.includes("stocksignal")) ||
-      (source.includes("stockunc") && `${id} ${name}`.includes("stock")) ||
-      (source.includes("robinhood") && `${id} ${name}`.includes("robinhood"));
-  });
-  if (matches.length) return matches.map((item) => item.name || item.id).filter(Boolean).slice(0, 3);
-  return enabled.length === 1 ? [enabled[0].name || enabled[0].id].filter(Boolean) : [];
-}
-
-function inferArtifactBootstrap(messages) {
-  const users = (Array.isArray(messages) ? messages : [])
-    .filter((message) => message?.role === "user")
-    .map(plainMessageText)
-    .filter(Boolean);
-  const text = users.slice(-4).reverse().find((entry) => ARTIFACT_ACTION.test(entry) && ARTIFACT_TARGET.test(entry)) || "";
-  if (!/\b(build|create|make|develop|set up|setup)\b/i.test(text)) return null;
-  let template = "";
-  if (/\b(game|website|web ?site|web page)\b/i.test(text)) template = "website";
-  else if (/\b(api|server)\b/i.test(text)) template = "api";
-  else if (/\bdesktop(?: app| tool)?\b/i.test(text)) template = "desktop";
-  if (!template) return null;
-  const named = text.match(/\b(?:called|named)\s+["']?([a-z0-9][a-z0-9 _.-]{0,30}?)(?=\s+(?:and|with|that)\b|[,.!?]|$)/i)?.[1]?.trim();
-  const name = named || (/\bgame\b/i.test(text) ? "RandomGame" : template === "api" ? "NewAPI" : template === "desktop" ? "DesktopApp" : "NewWebsite");
-  return { template, name };
 }
 
 function withActionNudge(messages, bootstrapContext = "", projectBound = false) {
@@ -838,6 +848,7 @@ function summarizeDropped(dropped) {
   let lastUserTopic = '';
   const decisions = [];  // user decisions/choices extracted from dropped messages
   const fileChanges = []; // file names mentioned in dropped messages (tool results)
+  let lastError = ''; // most recent error/failure seen in dropped tool output
 
   for (const m of dropped) {
     const text = plainMessageText(m);
@@ -867,6 +878,8 @@ function summarizeDropped(dropped) {
       if (fileMentions && fileChanges.length < 5) {
         fileChanges.push(...fileMentions.slice(0, 5 - fileChanges.length));
       }
+      const errMatch = text.match(/\b(?:error|failed|failure|exception|cannot|not found|denied|traceback|refused)\b[^\n]{0,160}/i);
+      if (errMatch) lastError = errMatch[0].slice(0, 200);
     }
 
     // Extract key answers from assistant messages (first sentence of substantial replies)
@@ -883,6 +896,7 @@ function summarizeDropped(dropped) {
   if (lastUserCorrection) keyPoints.push('User correction: ' + lastUserCorrection);
   if (decisions.length) keyPoints.push('User decisions: ' + decisions.join('; '));
   if (fileChanges.length) keyPoints.push('Files worked on: ' + fileChanges.slice(0, 4).join(', '));
+  if (lastError) keyPoints.push('Last error seen: ' + lastError);
 
   if (!keyPoints.length) return '';
   return 'CONTEXT SUMMARY (from earlier in this conversation):\n' + keyPoints.join('\n') + '\n';
@@ -967,6 +981,16 @@ export function controllerStopAnswerFromToolResult(result) {
     : "Paused for safety. Work is saved.";
 }
 
+export function recoverableToolErrorResult(name, err) {
+  const message = String(err?.message || err || "the tool could not complete").trim();
+  return [
+    `recoverable tool error (${name || "unknown_tool"}): ${message}`,
+    "The task is still active. Do not end the response with this raw error.",
+    "If the intended correction is unambiguous, correct the tool arguments and retry now.",
+    "If a required value is ambiguous, ask the user one short, specific question that includes the likely correction."
+  ].join("\n");
+}
+
 function controllerStopReason(result) {
   if (!/^blocked:/i.test(String(result || ""))) return "";
   return String(result || "").split(/\r?\n/)[0].replace(/^blocked:\s*/i, "").trim();
@@ -1006,10 +1030,9 @@ function directActionAnswer(action, result) {
  * @returns {Promise<string>} the model's final answer
  */
 export async function runTurn(ctx, messages) {
-  // The provider still owns the answer and tool choices. Boolean supplies the
+  // The provider still owns the answer and tool choices. Boollm supplies the
   // operating policy and enforces hard permission boundaries, but does not
   // replace a model's substantive response with an opinionated workflow.
-  const neutralModelRelay = true;
   const { config, onStatus, onToken, onStep, onUsage, signal } = ctx;
   const emitStep = (entry) => { if (onStep) onStep(entry); };
   const checkpoint = () => { if (ctx.onCheckpoint) ctx.onCheckpoint(); };
@@ -1029,6 +1052,11 @@ export async function runTurn(ctx, messages) {
     projectDir: ctx.projectDir,
     directAction
   });
+  if (artifactActionRequired && !ctx.projectDir) {
+    const answer = "Open a folder or create a project first, then ask me to build or change it. I will keep this as a normal chat and will not create a project workspace automatically.";
+    messages.push({ role: "assistant", content: answer });
+    return answer;
+  }
   const controller = createAgentController({
     objective: ctx.objective || ctx.latestUserText,
     taskContext: ctx.taskContext || "",
@@ -1037,6 +1065,7 @@ export async function runTurn(ctx, messages) {
     actionRequired: connectorToolResultRequired || explicitActionToolResultRequired,
     projectDir: ctx.projectDir,
     loopStop: ctx.config?.ui?.codingAgent?.stopLoop === true,
+    autopilot: ctx.config?.ui?.codingAgent?.autopilot === true,
     persisted: ctx.controllerState,
     tokenBudget: perRunTokenBudget(config),
     timeBudgetMs: perRunTimeBudgetMs(config)
@@ -1051,6 +1080,14 @@ export async function runTurn(ctx, messages) {
     publishController();
   };
   const executeControllerTool = async (name, args) => {
+    // `remember` is a no-side-effect memory write handled by the controller; it is
+    // never loop-guarded and never touches the filesystem.
+    if (name === "remember") {
+      const note = String(args?.note || args?.text || "").trim();
+      controller.addNote(note);
+      publishController();
+      return note ? `Noted: ${note}` : "Nothing to remember.";
+    }
     const gate = controller.allowTool(name, args);
     if (!gate.allowed) {
       const blocked = controller.noteBlockedTool(name, args, gate.reason);
@@ -1060,7 +1097,14 @@ export async function runTurn(ctx, messages) {
       }
       return `error: ${gate.reason}`;
     }
-    return await executeTool(name, args, ctx);
+    try {
+      return await executeTool(name, args, ctx);
+    } catch (err) {
+      if (err?.name === "AbortError" || signal?.aborted) throw err;
+      const result = recoverableToolErrorResult(name, err);
+      onStatus("the tool needs corrected input - continuing...");
+      return result;
+    }
   };
   const controllerStopAnswer = (result) => {
     return controllerStopAnswerFromToolResult(result);
@@ -1115,63 +1159,25 @@ export async function runTurn(ctx, messages) {
     return answer;
   }
 
-  if (connectorActionRequired && !neutralModelRelay) {
-    const parts = [];
-    onStatus("checking configured connectors...");
-    let connectorListResult = "";
-    try {
-      connectorListResult = await executeControllerTool("list_connectors", {});
-    } catch (err) {
-      connectorListResult = `error: ${err?.message || String(err)}`;
-    }
-    parts.push(`list_connectors:\n${connectorListResult}`);
-    const preflightText = `${ctx.latestUserText}\n${messages
-      .filter((message) => message?.role === "user" || message?.role === "assistant")
-      .slice(-8, -1)
-      .map(plainMessageText)
-      .join("\n")}`;
-    for (const connector of connectorNamesForPreflight(config, preflightText)) {
-      const args = { connector };
-      let toolsResult = "";
-      try {
-        toolsResult = await executeControllerTool("mcp_list_tools", args);
-      } catch (err) {
-        toolsResult = `error: ${err?.message || String(err)}`;
-      }
-      parts.push(`mcp_list_tools(${connector}):\n${toolsResult}`);
-    }
-    messages.push({
-      role: "user",
-      content: parts.join("\n\n")
-    });
-    checkpoint();
-  }
-
   let bootstrapContext = "";
-  if (artifactActionRequired && !neutralModelRelay) {
-    const projectBound = !!ctx.projectDir;
-    const bootstrap = projectBound ? { name: "list_dir", args: { path: "." } } : null;
-    const inferred = projectBound ? null : inferArtifactBootstrap(messages);
-    const action = bootstrap || (inferred ? { name: "create_project", args: inferred } : null);
-    if (action) {
-      onStatus(projectBound ? "checking the current project..." : "creating the project workspace...");
-      const result = await executeControllerTool(action.name, action.args);
-      noteControllerTool(action.name, action.args, result);
-      emitStep({ name: action.name, args: action.args, result });
-      const stoppedByController = controllerStopAnswer(result);
-      if (stoppedByController) {
-        messages.push({ role: "assistant", content: stoppedByController });
-        return stoppedByController;
-      }
-      checkpoint();
-      bootstrapContext = `${action.name}: ${result}`;
-    }
-  }
-
   let target = await resolveTarget(config, onStatus);
+  // Model routing: with routing="cloud-plan", the first planning step runs on the
+  // configured cloud model (stronger reasoning), then execution continues locally.
+  let planTarget = null;
+  if ((config?.ui?.codingAgent?.routing || "auto") === "cloud-plan") {
+    try {
+      const fb = config.cloudFallback || {};
+      if (fb.provider) {
+        const t = await resolveProviderTarget(config, fb.provider, onStatus);
+        const candidate = fb.model ? { ...t, model: fb.model } : t;
+        if (!(candidate.provider === target.provider && candidate.model === target.model)) planTarget = candidate;
+      }
+    } catch { planTarget = null; }
+  }
   let localRecoveryAttempted = false;
   let localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
   let useNativeTools = !localCompactTools;
+  let compactToolProtocol = localCompactTools;
   const emitUsage = (msg, usedTarget = target) => {
     if (msg?.usage) controller.addUsage(msg.usage);
     if (onUsage && msg?.usage) onUsage({ provider: usedTarget.provider || config.provider, model: usedTarget.model, ...msg.usage });
@@ -1203,9 +1209,11 @@ export async function runTurn(ctx, messages) {
     ] });
   };
 
-  // Plain conversation does not need the coding-agent loop. Keep it to one
-  // model call, with only the two recovery cases that can improve a retry.
-  if (turnMode === "chat") {
+  // Explicit answer-only surfaces (currently Side chat) stay tool-free and use
+  // the lightweight one-call path. Normal main chat continues into the agent
+  // loop with the open tool catalog so a routing guess cannot strand the model
+  // without a capability it discovers it needs.
+  if (turnMode === "chat" && forceChat) {
     let contextRecoveryAttempted = false;
     let transportRecoveryAttempted = false;
     let textFallbackAttempted = false;
@@ -1220,13 +1228,7 @@ export async function runTurn(ctx, messages) {
           onOptimize({ mode: contextMode, sent: fit.sentTokens, full: originalFull,
             saved: Math.max(0, originalFull - fit.sentTokens), budget: fit.budget });
         }
-        let modelMessages = withController(withTurnModeSystem(fit.msgs, turnMode, config));
-        if (emptyRetryAttempted && !neutralModelRelay) {
-          modelMessages = [...modelMessages, {
-            role: "user",
-            content: "Reply to the original request in plain text. Do not emit a tool call and do not return an empty response."
-          }];
-        }
+        const modelMessages = withController(withTurnModeSystem(fit.msgs, turnMode, config));
         const completion = await chatCompletionWithFallback(
           config, target, modelMessages, undefined, signal, onToken, onStatus
         );
@@ -1275,7 +1277,6 @@ export async function runTurn(ctx, messages) {
   // A repeated-action guard below still stops models that are genuinely stuck.
   let turn = 0;
   let actionNudgeActive = artifactActionRequired;
-  let actionRetryAttempted = false;
   let completedToolWork = false;
   let emptyResponseRetries = 0;
   let textOnlyContentFallback = false;
@@ -1284,10 +1285,13 @@ export async function runTurn(ctx, messages) {
   let announceNudges = 0;
   let forceToolCallNext = false;
   let activeToolDefinitions = [];
-  const MAX_AUTO_CONTINUE = neutralModelRelay ? 0 : 8;
+  // Autopilot re-enables the controller's auto-continue (verify/recover) loop even
+  // in neutral-relay mode; with it off, behavior is unchanged (0 = model owns the loop).
+  const autopilot = config?.ui?.codingAgent?.autopilot === true;
+  const MAX_AUTO_CONTINUE = autopilot ? 8 : 0;
   const MAX_CONTROLLER_RECOVERIES = 4;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
-  const MAX_ANNOUNCE_NUDGES = neutralModelRelay ? 2 : 3;
+  const MAX_ANNOUNCE_NUDGES = 2;
   const handleControllerStop = (result) => {
     const stoppedByController = controllerStopAnswer(result);
     if (!stoppedByController) return "";
@@ -1335,24 +1339,25 @@ export async function runTurn(ctx, messages) {
       let modelMessages = actionNudgeActive ? withActionNudge(fit.msgs, bootstrapContext, !!ctx.projectDir) : fit.msgs;
       modelMessages = withTurnModeSystem(modelMessages, turnMode, config);
       modelMessages = withController(modelMessages);
-      if (emptyResponseRetries > 0 && !neutralModelRelay) {
-        modelMessages = modelMessages.map((message, index) => index === 0 && message?.role === "system"
-          ? {
-              ...message,
-              content: message.content
-            }
-          : message);
-        if (emptyResponseRetries >= 2) {
-          modelMessages.push({ role: "user", content: "" });
-        }
-      }
       if (textOnlyContentFallback) modelMessages = withTextOnlyContent(modelMessages);
-      const availableTools = toolDefinitionsForTurnMode(turnMode, artifactActionRequired, completedToolWork);
+      // Explicit answer-only surfaces such as Side chat remain intentionally
+      // tool-free. Every normal main-chat turn receives the open catalog.
+      const availableTools = forceChat
+        ? []
+        : toolDefinitionsForTurnMode(turnMode, artifactActionRequired, completedToolWork, !!ctx.projectDir);
       activeToolDefinitions = availableTools;
-      if (!useNativeTools && availableTools.length) modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: localCompactTools });
-      const requestTarget = !neutralModelRelay && (actionNudgeActive || explicitActionToolResultRequired || forceToolCallNext) && !completedToolWork && useNativeTools && availableTools.length
-        ? { ...target, toolChoice: "required" }
-        : target;
+      if (!useNativeTools && availableTools.length) {
+        modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: compactToolProtocol });
+      }
+      const requireInitialNativeTool = connectorActionRequired;
+      // Route the planning step (first turn / planning phase) to the cloud model
+      // when configured; execution steps stay on the local model.
+      const routeBase = (planTarget && !completedToolWork && (turn === 1 || controller.phase === "planning"))
+        ? planTarget : target;
+      if (routeBase === planTarget) onStatus(`planning with ${planTarget.model || planTarget.provider}...`);
+      const requestTarget = requireInitialNativeTool && !completedToolWork && useNativeTools && availableTools.length
+        ? { ...routeBase, toolChoice: "required" }
+        : routeBase;
       forceToolCallNext = false;
       const completion = await chatCompletionWithFallback(
         config,
@@ -1400,16 +1405,23 @@ export async function runTurn(ctx, messages) {
         continue;
       }
       const malformedNativeCall = useNativeTools && looksLikeMalformedNativeToolCall(err);
-      if (useNativeTools && (looksLikeNoToolSupport(err) || malformedNativeCall)) {
+      const rejectedNativePrompt = useNativeTools && looksLikeRejectedNativeToolPrompt(err);
+      if (useNativeTools && (looksLikeNoToolSupport(err) || malformedNativeCall || rejectedNativePrompt)) {
         useNativeTools = false;
-        onStatus(malformedNativeCall
-          ? "the model's tool call was malformed - retrying in compatibility mode..."
-          : `model '${target.model}' lacks native tool support — using text protocol`);
+        if (rejectedNativePrompt) compactToolProtocol = true;
+        onStatus(rejectedNativePrompt
+          ? "the provider rejected its native tool prompt - retrying with the compatible compact tool catalog..."
+          : malformedNativeCall
+            ? "the model's tool call was malformed - retrying in compatibility mode..."
+            : `model '${target.model}' lacks native tool support — using text protocol`);
         convertNativeToolHistoryToText(messages);
         if (messages[0]?.role === "system" && !messages[0].content.includes("TOOL PROTOCOL")) {
           messages[0] = {
             role: "system",
-            content: messages[0].content + "\n" + fallbackToolPrompt(activeToolDefinitions.length ? activeToolDefinitions : TOOL_DEFINITIONS, { compact: localCompactTools })
+            content: messages[0].content + "\n" + fallbackToolPrompt(
+              activeToolDefinitions.length ? activeToolDefinitions : TOOL_DEFINITIONS,
+              { compact: compactToolProtocol }
+            )
           };
         }
         continue;
@@ -1502,14 +1514,6 @@ export async function runTurn(ctx, messages) {
     // A small model may understand a build request yet answer with a tutorial
     // instead of using its tools. Give it one explicit corrective retry, while
     // leaving normal questions and brainstorming untouched.
-    if (artifactActionRequired && !completedToolWork && !actionRetryAttempted && !neutralModelRelay) {
-      actionRetryAttempted = true;
-      actionNudgeActive = true;
-      useNativeTools = false;
-      onStatus("starting the requested work...");
-      continue;
-    }
-
     if (!assistantContent.trim()) {
       emptyResponseRetries++;
       if (emptyResponseRetries <= MAX_EMPTY_RESPONSE_RETRIES) {
@@ -1519,7 +1523,7 @@ export async function runTurn(ctx, messages) {
           : "the model returned no answer - retrying...");
         continue;
       }
-      throw new Error("The model returned an empty response repeatedly after Boolean retried automatically. The task remains checkpointed.");
+      throw new Error("The model returned an empty response repeatedly after Boollm retried automatically. The task remains checkpointed.");
     }
 
     // The model announced an inspection or action ("let me read the files now")

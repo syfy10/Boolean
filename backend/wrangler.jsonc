@@ -7,25 +7,25 @@
   "preview_urls": true,
   "routes": [
     {
-      "pattern": "saz3.com/boolean/auth/*",
-      "zone_name": "saz3.com"
+      "pattern": "boollm.com/boolean/auth/*",
+      "zone_name": "boollm.com"
     },
     {
-      "pattern": "saz3.com/boolean/admin*",
-      "zone_name": "saz3.com"
+      "pattern": "boollm.com/boolean/admin*",
+      "zone_name": "boollm.com"
     }
   ],
   "observability": {
     "enabled": true
   },
   "vars": {
-    "APP_NAME": "Boolean",
-    "PUBLIC_APP_URL": "https://saz3.com/boolean",
-    "PUBLIC_AUTH_BASE_URL": "https://saz3.com/boolean",
+    "APP_NAME": "Boollm",
+    "PUBLIC_APP_URL": "https://boollm.com/boolean",
+    "PUBLIC_AUTH_BASE_URL": "https://boollm.com/boolean",
     "ALLOWED_ORIGINS": "http://localhost:8765",
     "ADMIN_EMAILS": "syfy10@gmail.com",
-    "EMAIL_FROM_ADDRESS": "notifications@saz3.com",
-    "EMAIL_FROM_NAME": "Boolean",
+    "EMAIL_FROM_ADDRESS": "notifications@boollm.com",
+    "EMAIL_FROM_NAME": "Boollm",
     "FREE_TIER_PROVIDER": "workers-ai",
     "FREE_TIER_MODEL": "@cf/qwen/qwen3-30b-a3b-fp8"
   },

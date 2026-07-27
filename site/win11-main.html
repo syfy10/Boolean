@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Boolean — Win11 Style Main Screen</title>
+<title>Boollm — Win11 Style Main Screen</title>
 <style>
   :root {
     /* Win11-style color tokens */
@@ -268,7 +268,7 @@
   .status-tile b { font-size: 13.5px; font-weight: 600; color: var(--text); }
   .status-tile span { font-size: 12px; color: var(--dim); }
 
-  /* Boolean command bar (see pic 2) — flat, blends into the background, thin
+  /* Boollm command bar (see pic 2) — flat, blends into the background, thin
      divider underneath, action icons on the right */
   .cmd-bar { height:47px; display: flex; align-items: center; gap: 4px; padding: 0 12px; background: transparent; }
   .cmd-caret { color: color-mix(in srgb, var(--dim) 65%, transparent); font-size: 15px; padding:0 2px; }
@@ -341,7 +341,7 @@
     font-size: 13px; color: var(--dim);
   }
 
-  /* Notepad — Boolean's real lined-paper pad (yellow paper, red margin, ruled lines) */
+  /* Notepad — Boollm's real lined-paper pad (yellow paper, red margin, ruled lines) */
   .note-paper {
     --note-paper: #fff7d9; --note-line: #d7d2b5; --note-rule: rgba(111,153,184,.25);
     --note-text: #28210f; --note-placeholder: #b2a778;
@@ -375,7 +375,7 @@
     .nav-panel { width: 0 !important; border: none; overflow: hidden; }
     .right-panel.open { width: 300px; }
   }
-  /* The panel toggle is always shown, like Boolean's real chrome */
+  /* The panel toggle is always shown, like Boollm's real chrome */
 
   /* ─── Transitions for sliding effect ─── */
   .nav-panel, .right-panel { will-change: transform, width; }
@@ -465,7 +465,7 @@
       <div class="nav-header">
         <span class="brand-icon">B</span>
         <div class="brand-meta">
-          <span class="brand-name">Boolean</span>
+          <span class="brand-name">Boollm</span>
           <span class="brand-sub">Local AI workspace</span>
         </div>
       </div>
@@ -555,7 +555,7 @@
       <div class="chat-card">
       <div class="chat-area">
         <div class="msg ai">
-          <span class="msg-label">Boolean</span>
+          <span class="msg-label">Boollm</span>
           Your 🐍 Snake Game is built and running at <strong>http://localhost:3210</strong>! Here's what you get:
           <ul style="margin:8px 0 0 16px">
             <li>Classic snake with arrow-key controls</li>
@@ -566,7 +566,7 @@
         </div>
         <div class="msg user">make it look better, add colors and make it smoother</div>
         <div class="msg ai">
-          <span class="msg-label">Boolean</span>
+          <span class="msg-label">Boollm</span>
           Done! Updated the game with:
           <pre><code>╔═══ Updated Files ═══╗
 ║ SnakeGame/index.html ║
@@ -582,7 +582,7 @@
         </div>
         <div class="msg user">can you turn boolean app close to window 11 setting?</div>
         <div class="msg ai">
-          <span class="msg-label">Boolean</span>
+          <span class="msg-label">Boollm</span>
           That's doable — it's essentially making the layout responsive like Win11's split-pane:
           <br><br>
           <strong>Wide (≥900px):</strong> Left sidebar + right panel side by side — exactly how Win11 Settings looks.
@@ -593,7 +593,7 @@
         </div>
         <div class="msg user">no i want you do that main screen of boolean app.</div>
         <div class="msg ai">
-          <span class="msg-label">Boolean</span>
+          <span class="msg-label">Boollm</span>
           Working on it — building the Win11-style prototype now. Here's what you'll see:
           <br><br>
           <strong>↔ Drag the window edges to see the responsive behavior:</strong>
@@ -647,7 +647,7 @@
               <span style="color: var(--dim); font-size: 11px; flex-shrink:0;">1.</span><span>docs.z.ai/devpack/faq</span>
             </div>
             <div style="font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 6px; cursor: pointer;">
-              <span style="color: var(--dim); font-size: 11px; flex-shrink:0;">2.</span><span>github.com/syfy10/Boolean</span>
+              <span style="color: var(--dim); font-size: 11px; flex-shrink:0;">2.</span><span>Boollm on GitHub</span>
             </div>
           </div>
         </div>

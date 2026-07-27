@@ -1,7 +1,7 @@
-# Pushes Boolean's icon onto the Edge app-mode window so Alt+Tab / title bar /
+# Pushes Boollm's icon onto the Edge app-mode window so Alt+Tab / title bar /
 # taskbar show our icon instead of the generic Edge one. Enumerates ALL
-# top-level Chromium windows titled "Boolean" and sends WM_SETICON to each.
-param([string]$Title = "Boolean", [string]$IconPath)
+# top-level Chromium windows titled "Boollm" and sends WM_SETICON to each.
+param([string]$Title = "Boollm", [string]$IconPath)
 
 if (-not $IconPath) { $IconPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "saz.ico" }
 if (-not (Test-Path $IconPath)) { return }

@@ -17,7 +17,7 @@ test("run_command refuses dev servers that should be backgrounded", async () => 
     }
   };
 
-  const result = await executeTool("run_command", { command: "cd Boolean && npm run dev" }, ctx);
+  const result = await executeTool("run_command", { command: "cd Boollm && npm run dev" }, ctx);
 
   assert.equal(approved, false);
   assert.match(result, /long-running dev server/i);

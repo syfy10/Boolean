@@ -1,4 +1,4 @@
-// Local HTTP server hosting the Boolean UI and bridging it to the agent loop.
+// Local HTTP server hosting the Boollm UI and bridging it to the agent loop.
 // NDJSON streaming for chat; approvals round-trip to the browser as events.
 // Multi-thread conversation store, per-thread stop/abort, image attachments.
 import http from "node:http";
@@ -32,7 +32,18 @@ import {
   mcpStatusPayload,
   MCP_STATUS
 } from "./mcp.js";
-import { verifyCloudflareToken, cloudflareResourceList } from "./cloudflare.js";
+import {
+  verifyCloudflareToken,
+  verifyCloudflareOAuthToken,
+  cloudflareResourceList,
+  createCloudflareOAuth,
+  exchangeCloudflareOAuthCode
+} from "./cloudflare.js";
+import {
+  verifyAzureConnection, azureResourceList,
+  verifyAwsConnection, awsResourceList,
+  verifyGoogleCloudConnection, googleCloudResourceList
+} from "./cloud-hosting.js";
 import {
   createEmailOAuth,
   exchangeEmailCode,
@@ -92,7 +103,7 @@ const ABOUT_RELEASES = [
     details: [
       "Refined the native split workspace so Projects, Chat, Notepad, and Browser resize and hide cleanly across compact and maximized windows.",
       "Added Paper Minimal, Soft Glass, and Graphite Mist surface styles with consistent light and dark panel colors.",
-      "Simplified Boolean identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
+      "Simplified Boollm identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
     ]
   },
   {
@@ -241,7 +252,7 @@ async function cloudRequest(config, endpoint, options = {}) {
     if (res.status === 401 && options.auth !== false) {
       config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
       saveConfig(config);
-      const err = new Error("Your Boolean account session expired. Sign in again to continue.");
+      const err = new Error("Your Boollm account session expired. Sign in again to continue.");
       err.status = 401;
       err.code = "cloud_auth_required";
       throw err;
@@ -368,12 +379,43 @@ function publicConnectors(config, managedEmailOAuthClients = {}) {
     cloudflare: {
       connected: c.cloudflare?.connected === true,
       hasToken: !!c.cloudflare?.token,
+      authType: c.cloudflare?.authType || (c.cloudflare?.oauth ? "oauth" : (c.cloudflare?.token ? "token" : "")),
+      oauthClientId: c.cloudflare?.oauthClientId || "",
+      oauthRedirectUri: c.cloudflare?.oauthRedirectUri || "https://boollm.com/oauth/cloudflare/callback",
+      oauthScopes: Array.isArray(c.cloudflare?.oauthScopes) ? c.cloudflare.oauthScopes : [],
       accountId: c.cloudflare?.accountId || "",
       accountName: c.cloudflare?.accountName || "",
       tokenId: c.cloudflare?.tokenId || "",
       status: c.cloudflare?.status || "",
       expiresOn: c.cloudflare?.expiresOn || "",
       lastTestedAt: Number(c.cloudflare?.lastTestedAt || 0)
+    },
+    azure: {
+      connected: c.azure?.connected === true,
+      hasSecret: !!c.azure?.clientSecret,
+      tenantId: c.azure?.tenantId || "",
+      clientId: c.azure?.clientId || "",
+      subscriptionId: c.azure?.subscriptionId || "",
+      subscriptionName: c.azure?.subscriptionName || "",
+      lastTestedAt: Number(c.azure?.lastTestedAt || 0)
+    },
+    aws: {
+      connected: c.aws?.connected === true,
+      hasSecret: !!c.aws?.secretAccessKey,
+      hasSessionToken: !!c.aws?.sessionToken,
+      accessKeyId: c.aws?.accessKeyId || "",
+      region: c.aws?.region || "us-east-1",
+      accountId: c.aws?.accountId || "",
+      arn: c.aws?.arn || "",
+      lastTestedAt: Number(c.aws?.lastTestedAt || 0)
+    },
+    googleCloud: {
+      connected: c.googleCloud?.connected === true,
+      hasKey: !!c.googleCloud?.serviceAccount,
+      projectId: c.googleCloud?.projectId || "",
+      projectName: c.googleCloud?.projectName || "",
+      clientEmail: c.googleCloud?.clientEmail || "",
+      lastTestedAt: Number(c.googleCloud?.lastTestedAt || 0)
     }
   };
 }
@@ -633,6 +675,7 @@ function stepSummary(name, args) {
 function shortAiName(provider, model = "") {
   const value = String(model || "").toLowerCase();
   if (/\b(gpt|o[1345](?:\b|-))/.test(value) || provider === "openai") return "GPT";
+  if (/gemini/.test(value) || provider === "google") return "Gemini";
   if (/claude/.test(value) || provider === "claude") return "Claude";
   if (/glm|zai|z\.ai/.test(value) || provider === "glm" || provider === "zaiCoding") return "GLM";
   if (/qwen/.test(value)) return "Qwen";
@@ -670,6 +713,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   const pendingApprovals = new Map(); // id -> resolve(boolean)
   const pendingMcpOAuth = new Map(); // state -> short-lived OAuth transaction
   const pendingEmailOAuth = new Map(); // state -> short-lived mailbox OAuth transaction
+  const pendingCloudflareOAuth = new Map(); // state -> short-lived Cloudflare PKCE transaction
   const pendingBrowserControls = new Map(); // id -> resolve(result)
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
@@ -746,9 +790,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     --hover:#242424; --card:#202020; --accent:#ececec; --online:#fb923c;
     --shadow-sm:0 1px 2px rgba(0,0,0,.3);
   }
-  :root[data-visual-theme="light"][data-color-theme="soft-gloss"]{ --bg:#eef0f2; --sidebar:#fafaf9; --card:#fff; --border:rgba(30,30,30,.08); }
-  :root[data-visual-theme="light"][data-color-theme="paper-minimal"]{ --bg:#f5f5f3; --sidebar:#fbfbfa; --card:#fff; --border:#e9e9e6; }
-  :root[data-visual-theme="light"][data-color-theme="graphite-mist"]{ --bg:#dde1e4; --sidebar:#f7f8f8; --card:#fff; --border:#d5dadd; }
+  :root[data-visual-theme="light"][data-color-theme="classic"]{ --bg:#f5f5f3; --sidebar:#fbfbfa; --card:#fff; --border:#e9e9e6; }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;overflow:hidden;background:transparent}
   body{color:var(--text);font:12.5px/1 var(--ui);
@@ -762,6 +804,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
   .ico{display:grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border-radius:9px;
     color:var(--text);font-size:14px;line-height:1;transition:background .12s}
   .ico:hover{background:var(--hover)}
+  .ico.on{background:color-mix(in srgb,var(--online) 14%,var(--card));color:var(--online)}
   .ico:disabled{opacity:.32}
   .ico:disabled:hover{background:transparent}
   /* tabs */
@@ -828,6 +871,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       <button class="ico" id="reload" title="Reload">&#x21BB;</button>
       <button class="ico" id="device" title="Responsive view: Desktop / Tablet / Mobile">&#x25A3;</button>
       <button class="ico" id="run" title="Run current project">&#x25B6;</button>
+      <button class="ico" id="darkPage" title="Dark mode for websites" aria-pressed="false">&#x263E;</button>
       <div class="addr">
         <input id="url" placeholder="Search or enter a URL" spellcheck="false" autocomplete="off">
         <button class="clr" id="clr" title="Clear">&times;</button>
@@ -871,6 +915,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     $("reload").onclick = function(){ act("reload"); };
     $("device").onclick = function(){ act("device"); };
     $("run").onclick    = function(){ act("run"); };
+    $("darkPage").onclick = function(){ act("darkPage"); };
     $("add").onclick    = function(){ act("newTab"); };
     $("full").onclick   = function(){ act("hideChat"); };
     document.querySelectorAll(".wc [data-w]").forEach(function(b){
@@ -939,7 +984,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       var r = document.documentElement;
       r.style.colorScheme = dark ? "dark" : "light";
       if(dark){ r.setAttribute("data-theme","dark"); r.removeAttribute("data-visual-theme"); r.removeAttribute("data-color-theme"); }
-      else { r.setAttribute("data-theme","light"); r.setAttribute("data-visual-theme","light"); r.setAttribute("data-color-theme", surface||"paper-minimal"); }
+      else { r.setAttribute("data-theme","light"); r.setAttribute("data-visual-theme","light"); r.setAttribute("data-color-theme","classic"); }
     }
     function render(s){
       if(!s || s.type!=="state") return;
@@ -950,6 +995,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       $("back").disabled = !s.canBack;
       $("fwd").disabled = !s.canFwd;
       $("device").innerHTML = dev[s.device] || dev.desktop;
+      $("darkPage").classList.toggle("on", !!s.darkPage);
+      $("darkPage").setAttribute("aria-pressed", s.darkPage ? "true" : "false");
+      $("darkPage").title = s.darkPage ? "Turn off website dark mode" : "Dark mode for websites";
       $("zpct").textContent = (s.zoom||100) + "%";
       var wm = $("wmax"); wm.innerHTML = s.maxed ? "\\uE923" : "\\uE922"; wm.title = s.maxed ? "Restore" : "Maximize";
     }
@@ -1003,9 +1051,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       connectorActionRequired: requiresConnectorContinuationAction(prospective)
     });
   }
-  function shouldTrackPendingTask(messages, latestText) {
+  function shouldTrackPendingTask(t, messages, latestText) {
     const mode = turnModeForPendingTask(messages, latestText);
-    return mode === "action" || mode === "connector";
+    return mode === "connector" || (mode === "action" && t?.kind === "project" && !!t?.projectDir);
   }
   function activeTaskPrompt(task) {
     if (!task || !["running", "interrupted"].includes(task.state)) return "";
@@ -1017,7 +1065,26 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     ].join("\n");
   }
   function resumeTaskMessage(task, latestUserText = "", { refinement = false } = {}) {
-    return String(latestUserText || "").trim();
+    const userText = String(latestUserText || "").trim();
+    if (userText) return userText;
+    const loopPaused = /\b(?:loop guard|tool budget reached|repeated the same kind of inspection)\b/i
+      .test(String(task?.controller?.lastFailure || ""));
+    return loopPaused
+      ? "Continue the saved task with a new strategy. Use the evidence already collected. Do not repeat broad searches, folder listings, or file reads; make the next targeted progress action, or report the specific blocker."
+      : "Continue the saved task from its checkpoint.";
+  }
+  function resetLoopRecoveryState(task) {
+    const controller = task?.controller;
+    if (!controller || !/\b(?:loop guard|tool budget reached|repeated the same kind of inspection)\b/i.test(String(controller.lastFailure || ""))) return false;
+    controller.nonProgressCount = 0;
+    controller.actionCounts = {};
+    controller.blockedToolCount = 0;
+    controller.blockedActionCounts = {};
+    controller.consecutiveFailures = 0;
+    controller.lastFailure = "";
+    controller.phase = "executing";
+    controller.updatedAt = Date.now();
+    return true;
   }
   function isBlankNewThread(t) {
     if (!t || t.kind === "project" || t.pinned) return false;
@@ -1367,11 +1434,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             "content-type": "text/html; charset=utf-8",
             "content-encoding": "gzip",
             "content-length": body.length,
+            "cache-control": "no-store",
             vary: "Accept-Encoding"
           });
           res.end(body);
         } else {
-          res.writeHead(200, { "content-type": "text/html; charset=utf-8", vary: "Accept-Encoding" });
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", vary: "Accept-Encoding" });
           res.end(html);
         }
         return;
@@ -1394,7 +1462,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/manifest.json") {
         res.writeHead(200, { "content-type": "application/manifest+json" });
         res.end(JSON.stringify({
-          name: APP_NAME, short_name: "Boolean", description: APP_TAGLINE,
+          name: APP_NAME, short_name: "Boollm", description: APP_TAGLINE,
           start_url: "/", display: "standalone",
           background_color: "#17181a", theme_color: "#17181a",
           icons: [
@@ -1560,9 +1628,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const body = await readBody(req);
         const provider = String(body.provider || "").trim();
         if (!CLOUD[provider]) return json({ error: "invalid_provider" }, 400);
-        if (!config[provider]?.apiKey) return json({ error: "api_key_required" }, 401);
+        const candidateKey = typeof body.key === "string" ? body.key.trim() : "";
+        if (!candidateKey && !config[provider]?.apiKey) return json({ error: "api_key_required" }, 401);
         try {
-          const target = await resolveTarget({ ...config, provider });
+          const providerConfig = candidateKey
+            ? { ...config, provider, [provider]: { ...config[provider], apiKey: candidateKey } }
+            : { ...config, provider };
+          const target = await resolveTarget(providerConfig);
           const reply = await chatCompletion(target, [
             { role: "user", content: "Reply with exactly: Connected" }
           ], null, AbortSignal.timeout(20000));
@@ -1730,7 +1802,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (req.method === "GET" && p === "/api/top-prompts") {
-        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLEAN CONTROLLER)/i;
+        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLLM CONTROLLER)/i;
         const counts = new Map();
         for (const t of threads.values()) {
           for (const m of t.messages || []) {
@@ -2225,8 +2297,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
       if (req.method === "POST" && p === "/api/delete-all-data") {
         const body = await readBody(req);
-        if (body.confirm !== "DELETE ALL BOOLEAN DATA") {
-          json({ ok: false, error: "Type DELETE ALL BOOLEAN DATA to confirm." }, 400);
+        if (body.confirm !== "DELETE ALL BOOLLM DATA") {
+          json({ ok: false, error: "Type DELETE ALL BOOLLM DATA to confirm." }, 400);
           return;
         }
         for (const thread of threads.values()) {
@@ -2265,6 +2337,99 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
       }
 
+      if (req.method === "POST" && p === "/api/cloud-hosting/connect") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim();
+        if (!["azure", "aws", "googleCloud"].includes(provider)) {
+          return json({ ok: false, error: "Choose Azure, AWS, or Google Cloud." }, 400);
+        }
+        const saved = config.connectors?.[provider] || {};
+        const input = body.credentials && typeof body.credentials === "object" ? body.credentials : body;
+        try {
+          let connection;
+          let accounts = [];
+          if (provider === "azure") {
+            const credentials = {
+              tenantId: String(input.tenantId || saved.tenantId || "").trim(),
+              clientId: String(input.clientId || saved.clientId || "").trim(),
+              clientSecret: input.clientSecret === "__keep__" ? saved.clientSecret : String(input.clientSecret || "").trim(),
+              subscriptionId: String(body.accountId || saved.subscriptionId || "").trim()
+            };
+            const verified = await verifyAzureConnection(credentials);
+            accounts = verified.accounts;
+            const selected = accounts.find((item) => item.id === credentials.subscriptionId) || verified.selected;
+            connection = {
+              ...credentials, connected: !!selected,
+              subscriptionId: selected?.id || "", subscriptionName: selected?.name || "",
+              lastTestedAt: Date.now()
+            };
+          } else if (provider === "aws") {
+            const credentials = {
+              accessKeyId: String(input.accessKeyId || saved.accessKeyId || "").trim(),
+              secretAccessKey: input.secretAccessKey === "__keep__" ? saved.secretAccessKey : String(input.secretAccessKey || "").trim(),
+              sessionToken: input.sessionToken === "__keep__" ? saved.sessionToken : String(input.sessionToken || "").trim(),
+              region: String(input.region || saved.region || "us-east-1").trim()
+            };
+            const verified = await verifyAwsConnection(credentials);
+            accounts = [{ id: verified.accountId, name: verified.arn || verified.accountId }];
+            connection = { ...credentials, ...verified, connected: true, lastTestedAt: Date.now() };
+          } else {
+            const rawKey = input.serviceAccount === "__keep__" ? saved.serviceAccount : input.serviceAccount;
+            const serviceAccount = typeof rawKey === "string" ? JSON.parse(rawKey) : rawKey;
+            const credentials = { serviceAccount, projectId: String(body.accountId || saved.projectId || "").trim() };
+            const verified = await verifyGoogleCloudConnection(credentials);
+            accounts = verified.accounts;
+            const selected = accounts.find((item) => item.id === credentials.projectId) || verified.selected;
+            connection = {
+              ...credentials, connected: !!selected, projectId: selected?.id || "",
+              projectName: selected?.name || "", clientEmail: verified.clientEmail,
+              lastTestedAt: Date.now()
+            };
+          }
+          config.connectors = config.connectors || {};
+          config.connectors[provider] = connection;
+          saveConfig(config);
+          return json({
+            ok: true, connected: connection.connected, accounts,
+            connection: publicConnectors(config, managedEmailOAuthClients)[provider],
+            message: connection.connected ? "Cloud account connected." : "Credentials verified. Choose an account."
+          });
+        } catch (error) {
+          return json({ ok: false, error: error.message || "Cloud connection failed." }, 400);
+        }
+      }
+
+      if (req.method === "POST" && p === "/api/cloud-hosting/disconnect") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim();
+        if (!["azure", "aws", "googleCloud"].includes(provider)) return json({ ok: false, error: "Unsupported cloud provider." }, 400);
+        config.connectors = config.connectors || {};
+        config.connectors[provider] = provider === "azure"
+          ? { tenantId: "", clientId: "", clientSecret: "", connected: false, subscriptionId: "", subscriptionName: "", lastTestedAt: 0 }
+          : provider === "aws"
+            ? { accessKeyId: "", secretAccessKey: "", sessionToken: "", region: "us-east-1", connected: false, accountId: "", arn: "", lastTestedAt: 0 }
+            : { serviceAccount: null, connected: false, projectId: "", projectName: "", clientEmail: "", lastTestedAt: 0 };
+        saveConfig(config, { preserveSecrets: false });
+        return json({ ok: true, connection: publicConnectors(config, managedEmailOAuthClients)[provider] });
+      }
+
+      if (req.method === "GET" && p === "/api/cloud-hosting/resources") {
+        const provider = String(url.searchParams.get("provider") || "").trim();
+        const kind = String(url.searchParams.get("kind") || "").trim();
+        const connection = config.connectors?.[provider];
+        if (!connection?.connected) return json({ ok: false, error: "Connect this cloud provider in Settings first." }, 400);
+        try {
+          const result = provider === "azure"
+            ? await azureResourceList(connection, kind || "resources")
+            : provider === "aws"
+              ? await awsResourceList(connection, kind || "amplify")
+              : await googleCloudResourceList(connection, kind || "projects");
+          return json({ ok: true, provider, kind, resources: result });
+        } catch (error) {
+          return json({ ok: false, error: error.message || "Could not load cloud resources." }, 400);
+        }
+      }
+
       if (req.method === "POST" && p === "/api/cloudflare/connect") {
         const body = await readBody(req);
         const saved = config.connectors?.cloudflare || {};
@@ -2280,6 +2445,11 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           config.connectors = config.connectors || {};
           config.connectors.cloudflare = {
             token,
+            authType: "token",
+            oauthClientId: saved.oauthClientId || "",
+            oauthRedirectUri: saved.oauthRedirectUri || "https://boollm.com/oauth/cloudflare/callback",
+            oauthScopes: Array.isArray(saved.oauthScopes) ? saved.oauthScopes : [],
+            oauth: null,
             connected: !!selected,
             accountId: selected?.id || "",
             accountName: selected?.name || "",
@@ -2301,11 +2471,121 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
       }
 
+      if (req.method === "POST" && p === "/api/cloudflare/oauth/start") {
+        const body = await readBody(req);
+        const saved = config.connectors?.cloudflare || {};
+        const clientId = String(body.clientId || saved.oauthClientId || "").trim();
+        const redirectUri = String(body.redirectUri || saved.oauthRedirectUri || "https://boollm.com/oauth/cloudflare/callback").trim();
+        const scopes = Array.isArray(body.scopes)
+          ? body.scopes
+          : String(body.scopes || "").split(/[\s,]+/).filter(Boolean);
+        try {
+          const transaction = createCloudflareOAuth(clientId, redirectUri, scopes);
+          const localCallbackUrl = `http://${req.headers.host}/cloudflare/oauth/callback`;
+          const relayState = `${transaction.state}.${Buffer.from(localCallbackUrl).toString("base64url")}`;
+          transaction.state = relayState;
+          const authorizationUrl = new URL(transaction.authorizationUrl);
+          authorizationUrl.searchParams.set("state", relayState);
+          transaction.authorizationUrl = authorizationUrl.toString();
+          pendingCloudflareOAuth.set(transaction.state, { ...transaction, status: "pending" });
+          for (const [key, value] of pendingCloudflareOAuth) {
+            if (Date.now() - value.createdAt > 10 * 60 * 1000) pendingCloudflareOAuth.delete(key);
+          }
+          config.connectors = config.connectors || {};
+          config.connectors.cloudflare = {
+            ...saved,
+            oauthClientId: clientId,
+            oauthRedirectUri: redirectUri,
+            oauthScopes: transaction.scopes
+          };
+          saveConfig(config);
+          return json({
+            ok: true,
+            state: transaction.state,
+            authorizationUrl: transaction.authorizationUrl,
+            redirectUri,
+            localCallbackUrl
+          });
+        } catch (error) {
+          return json({ ok: false, error: error.message || "Could not start Cloudflare authorization." }, 400);
+        }
+      }
+
+      if (req.method === "GET" && p === "/api/cloudflare/oauth/status") {
+        const state = url.searchParams.get("state") || "";
+        const transaction = pendingCloudflareOAuth.get(state);
+        if (!transaction) return json({ status: "expired" }, 404);
+        return json({
+          status: transaction.status,
+          error: transaction.error || "",
+          accounts: Array.isArray(transaction.accounts) ? transaction.accounts : [],
+          cloudflare: transaction.status === "complete"
+            ? publicConnectors(config, managedEmailOAuthClients).cloudflare
+            : undefined
+        });
+      }
+
+      if (req.method === "GET" && p === "/cloudflare/oauth/callback") {
+        const state = url.searchParams.get("state") || "";
+        const code = url.searchParams.get("code") || "";
+        const oauthError = url.searchParams.get("error") || "";
+        const transaction = pendingCloudflareOAuth.get(state);
+        if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect Cloudflare again.", false));
+          return;
+        }
+        if (oauthError || !code) {
+          transaction.status = "error";
+          transaction.error = oauthError || "Cloudflare did not return an authorization code.";
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Authorization canceled", "No Cloudflare access was saved.", false));
+          return;
+        }
+        try {
+          const oauth = await exchangeCloudflareOAuthCode(transaction, code);
+          const verified = await verifyCloudflareOAuthToken(oauth.accessToken);
+          const selected = verified.accounts.length === 1 ? verified.accounts[0] : null;
+          const saved = config.connectors?.cloudflare || {};
+          config.connectors.cloudflare = {
+            ...saved,
+            token: oauth.accessToken,
+            authType: "oauth",
+            oauth,
+            oauthClientId: transaction.clientId,
+            oauthRedirectUri: transaction.redirectUri,
+            oauthScopes: transaction.scopes,
+            connected: !!selected,
+            accountId: selected?.id || "",
+            accountName: selected?.name || "",
+            tokenId: verified.tokenId,
+            status: verified.status,
+            expiresOn: verified.expiresOn,
+            lastTestedAt: Date.now()
+          };
+          saveConfig(config);
+          transaction.status = "complete";
+          transaction.accounts = verified.accounts;
+          res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Cloudflare connected", selected
+            ? `${selected.name} is ready in Boollm. This window will close.`
+            : "Cloudflare approved access. Return to Boollm and choose an account.", true));
+        } catch (error) {
+          transaction.status = "error";
+          transaction.error = error.message || "Cloudflare authorization failed.";
+          res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
+          res.end(oauthResultPage("Could not connect Cloudflare", transaction.error, false));
+        }
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/cloudflare/disconnect") {
         config.connectors = config.connectors || {};
         config.connectors.cloudflare = {
           token: "", connected: false, accountId: "", accountName: "",
-          tokenId: "", status: "", expiresOn: "", lastTestedAt: 0
+          tokenId: "", status: "", expiresOn: "", lastTestedAt: 0,
+          authType: "", oauthClientId: "", oauthRedirectUri: "https://boollm.com/oauth/cloudflare/callback",
+          oauthScopes: [], oauth: null
         };
         saveConfig(config, { preserveSecrets: false });
         return json({ ok: true, cloudflare: publicConnectors(config, managedEmailOAuthClients).cloudflare });
@@ -2430,7 +2710,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingMcpOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and try connecting again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and try connecting again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -2444,7 +2724,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boolean.", false));
+          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boollm.", false));
           return;
         }
         try {
@@ -2480,7 +2760,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.toolCount = result.toolCount;
           transaction.tools = result.tools.map((tool) => tool.name).filter(Boolean);
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boolean. This window will close.`, true));
+          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boollm. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
@@ -2492,7 +2772,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect", "Return to Boolean and try again.", false));
+          res.end(oauthResultPage("Could not connect", "Return to Boollm and try again.", false));
         }
         return;
       }
@@ -2519,7 +2799,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           const label = provider === "gmail" ? "Google" : "Microsoft";
           return json({
             error: mode === "managed"
-              ? `${label} sign-in is not provisioned in this Boolean build. Open Advanced setup to add a public client ID.`
+              ? `${label} sign-in is not provisioned in this Boollm build. Open Advanced setup to add a public client ID.`
               : `Enter the ${label} OAuth public client ID first.`,
             code: "email_oauth_setup_required",
             provider,
@@ -2577,7 +2857,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingEmailOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect the email account again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect the email account again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -2634,12 +2914,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.status = "complete";
           transaction.account = connection.account;
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boolean. This window will close.`, true));
+          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boollm. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boolean and check the OAuth client settings.`, false));
+          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boollm and check the OAuth client settings.`, false));
         }
         return;
       }
@@ -2896,7 +3176,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           try {
             const response = await fetch(parsed.toString(), {
               signal: controller.signal,
-              headers: { "user-agent": "Boolean Website Tech Detector" }
+              headers: { "user-agent": "Boollm Website Tech Detector" }
             });
             finalUrl = response.url || finalUrl;
             headers = Object.fromEntries(response.headers.entries());
@@ -3050,7 +3330,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           if (t.log[i].t === "user") { t.log.length = i + 1; break; }
         }
         const retryUser = [...t.messages].reverse().find((message) => message?.role === "user");
-        if (retryUser && shouldTrackPendingTask(t.messages, userTextOnly(retryUser.content))) beginPendingTask(t, retryUser.content);
+        if (retryUser && shouldTrackPendingTask(t, t.messages, userTextOnly(retryUser.content))) beginPendingTask(t, retryUser.content);
         else t.pendingTask = null;
         persist();
         return streamRun(t, res);
@@ -3108,6 +3388,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           return json({ error: "There is no interrupted task to continue in this chat." }, 409);
         }
         const content = resumeTaskMessage(savedTask);
+        resetLoopRecoveryState(savedTask);
         t.messages.push({ role: "user", content });
         t.log.push({ t: "user", text: "Continue", images: [], at: Date.now() });
         savedTask.state = "running";
@@ -3214,7 +3495,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           t.messages.push({ role: "user", content });
           const incomingMode = body.sideChat === true ? "chat" : turnModeForPendingTask(t.messages, visibleUserText);
           inspectSavedTask = !!savedTask && incomingMode === "inspect";
-          if (body.sideChat !== true && (incomingMode === "action" || incomingMode === "connector")) beginPendingTask(t, content);
+          if (body.sideChat !== true && (incomingMode === "connector" || (incomingMode === "action" && t.kind === "project" && !!t.projectDir))) beginPendingTask(t, content);
           else if (savedTask) {
             // A status/inspect question mid-build (e.g. "what's done so far?",
             // "what's next?") must NOT discard the active task. If it does, a
@@ -3264,9 +3545,22 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     }
 
     // ── shared streaming runner for chat / retry / continue ──
+    function openNdjsonStream(res) {
+      res.writeHead(200, {
+        "content-type": "application/x-ndjson; charset=utf-8",
+        "cache-control": "no-cache, no-transform",
+        "x-accel-buffering": "no",
+        "connection": "keep-alive"
+      });
+      res.socket?.setNoDelay?.(true);
+      res.flushHeaders?.();
+      return (payload) => {
+        if (!res.writableEnded) res.write(JSON.stringify(payload) + "\n");
+      };
+    }
+
     async function streamRun(t, res, options = {}) {
-        res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
-        const send = (o) => res.write(JSON.stringify(o) + "\n");
+        const send = openNdjsonStream(res);
         const baseConfig = t.projectDir ? { ...config, projectsDir: t.projectDir } : config;
         const runConfig = options.provider ? { ...baseConfig, provider: options.provider, [options.provider]: { ...(baseConfig[options.provider] || {}) } } : baseConfig;
         if (options.provider && options.model && runConfig[options.provider]) runConfig[options.provider].model = options.model;
@@ -3504,8 +3798,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     }
 
     async function streamCompare(t, targets, res) {
-      res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-cache" });
-      const send = (o) => res.write(JSON.stringify(o) + "\n");
+      const send = openNdjsonStream(res);
       const abort = new AbortController();
       t.abort = abort;
       activeChats++;
@@ -3636,7 +3929,7 @@ export function openAppWindow(url) {
     const dir = path.dirname(process.execPath);
     script = path.join(dir, "set-window-icon.ps1");
     icon = path.join(dir, "saz.ico");
-    if (!fs.existsSync(icon)) icon = path.join(dir, "Boolean.exe"); // fall back to exe icon
+    if (!fs.existsSync(icon)) icon = path.join(dir, "Boollm.exe"); // fall back to exe icon
   } else {
     script = appPath("assets", "set-window-icon.ps1");
     icon = appPath("assets", "saz.ico");

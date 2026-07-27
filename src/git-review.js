@@ -66,7 +66,7 @@ export function gitDiffFiles(projectDir, options = {}) {
         files.push({
           path: file,
           status: "untracked",
-          lines: [{ type: "ctx", num: "", text: "Untracked file. Accept keeps it; Reject skips it so Boolean does not delete new files unexpectedly." }]
+          lines: [{ type: "ctx", num: "", text: "Untracked file. Accept keeps it; Reject skips it so Boollm does not delete new files unexpectedly." }]
         });
       }
     }

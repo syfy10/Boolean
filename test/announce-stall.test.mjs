@@ -14,6 +14,8 @@ test("catches bare next-step announcements with no deliverable", () => {
   assert.equal(announcesUnperformedAction("I'll check agent.js to see how ctx is built."), true);
   assert.equal(announcesUnperformedAction("Let me start with src/relay.js to check where we left off."), true);
   assert.equal(announcesUnperformedAction("Let me quickly review the current state of the app to give you specific, informed recommendations rather than generic ones."), true);
+  assert.equal(announcesUnperformedAction("Let me get the current result and execute the requested action."), true);
+  assert.equal(announcesUnperformedAction("I'll call the connector and submit it now."), true);
 });
 
 test("routes contextual app improvement questions through read-only inspection tools", () => {
@@ -86,7 +88,7 @@ test("inspect context does not mistake compatibility tool results for the user r
 
 test("unfinished action announcements are retried even after earlier tool work", () => {
   const source = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
-  assert.match(source, /const MAX_ANNOUNCE_NUDGES = neutralModelRelay \? 2 : 3;/);
+  assert.match(source, /const MAX_ANNOUNCE_NUDGES = 2;/);
   assert.match(source, /if \(activeToolDefinitions\.length && !signal\?\.aborted[\s\S]*?announcesUnperformedAction\(assistantContent\)\)/);
   assert.doesNotMatch(source, /activeToolDefinitions\.length && !completedToolWork && !signal\?\.aborted/);
 });

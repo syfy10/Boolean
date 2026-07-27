@@ -1,6 +1,6 @@
-# Boolean Account Backend
+# Boollm Account Backend
 
-Cloudflare Worker backend for Boolean account sign-in and administration. The
+Cloudflare Worker backend for Boollm account sign-in and administration. The
 desktop app connects to AI providers directly with user-supplied API keys.
 
 This backend owns secrets. The Windows app should never contain Google client
@@ -22,7 +22,7 @@ Implemented:
   expiration, daily-limit, and ban enforcement
 - web admin console for account search, token adjustments, unlimited access,
   bans, roles, usage statistics, and account deletion
-- Cloudflare Email Service binding for Boolean transactional messages; it is
+- Cloudflare Email Service binding for Boollm transactional messages; it is
   separate from users' optional Gmail and Outlook inbox connectors
 
 Coming next:
@@ -67,7 +67,7 @@ Create a Google OAuth Web application client in Google Cloud Console.
 Authorized redirect URI for deployed backend:
 
 ```text
-https://saz3.com/boolean/auth/google/callback
+https://boollm.com/boolean/auth/google/callback
 ```
 
 Authorized redirect URI for local Wrangler dev:
@@ -76,9 +76,9 @@ Authorized redirect URI for local Wrangler dev:
 http://localhost:8787/auth/google/callback
 ```
 
-The production Worker route is `saz3.com/boolean/auth/*`. Keep
-`PUBLIC_AUTH_BASE_URL` set to `https://saz3.com/boolean` so Google displays the
-public saz3.com domain during sign-in instead of the workers.dev hostname.
+The production Worker route is `boollm.com/boolean/auth/*`. Keep
+`PUBLIC_AUTH_BASE_URL` set to `https://boollm.com/boolean` so Google displays the
+public boollm.com domain during sign-in instead of the workers.dev hostname.
 
 Set Cloudflare secrets:
 
@@ -87,14 +87,14 @@ npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
-Enable Email Sending for the `saz3.com` zone before deploying the email
+Enable Email Sending for the `boollm.com` zone before deploying the email
 binding, then verify the sender DNS records in Cloudflare:
 
 ```powershell
-npx wrangler email sending enable saz3.com
+npx wrangler email sending enable boollm.com
 ```
 
-The Worker sends from `notifications@saz3.com` by default. Change
+The Worker sends from `notifications@boollm.com` by default. Change
 `EMAIL_FROM_ADDRESS` only to a sender on an onboarded domain. The admin-only
 `POST /admin/api/email/test` route sends a connection test to the signed-in
 admin unless a different `to` address is supplied.
@@ -113,14 +113,14 @@ npm run deploy
 
 ## Desktop login flow
 
-1. Boolean calls `POST /auth/device/start`.
+1. Boollm calls `POST /auth/device/start`.
 2. Backend returns `device_id` and `auth_url`.
-3. Boolean opens `auth_url` in the browser.
+3. Boollm opens `auth_url` in the browser.
 4. User signs in with Google.
 5. Backend completes `/auth/google/callback`.
-6. Boolean polls `GET /auth/device/status?device_id=...`.
-7. When status is `complete`, Boolean stores `session_token`.
-8. Boolean calls cloud endpoints with:
+6. Boollm polls `GET /auth/device/status?device_id=...`.
+7. When status is `complete`, Boollm stores `session_token`.
+8. Boollm calls cloud endpoints with:
 
 ```text
 Authorization: Bearer SESSION_TOKEN
@@ -134,7 +134,7 @@ Authorization: Bearer SESSION_TOKEN
 | `GOOGLE_CLIENT_SECRET` | secret | Google OAuth client secret |
 | `ALLOWED_ORIGINS` | var | comma-separated app origins allowed by CORS |
 | `ADMIN_EMAILS` | var | comma-separated Google account emails promoted to admin with unlimited tokens |
-| `PUBLIC_APP_URL` | var | public Boolean/app URL for future billing redirects |
+| `PUBLIC_APP_URL` | var | public Boollm/app URL for future billing redirects |
 | `EMAIL_FROM_ADDRESS` | var | verified Cloudflare Email Service sender |
 | `EMAIL_FROM_NAME` | var | display name for transactional email |
 | `FREE_TIER_PROVIDER` | var | legacy compatibility setting; desktop managed AI is disabled |
@@ -152,7 +152,7 @@ Authorization: Bearer SESSION_TOKEN
 | `/tokens/debit` | POST | authenticated token debit with balance, expiry, and daily-cap enforcement |
 | `/chat/completions` | POST | authenticated OpenAI-compatible cloud chat stream |
 | `/auth/logout` | POST | revoke current session |
-| `/admin` | GET | Boolean account admin console |
+| `/admin` | GET | Boollm account admin console |
 | `/admin/api/*` | GET/POST | admin-only stats and account controls |
 | `/admin/api/email/test` | POST | send a transactional email connection test |
 
@@ -160,7 +160,7 @@ Authorization: Bearer SESSION_TOKEN
 
 New accounts receive no managed AI token grant. Legacy token fields and routes
 remain in the Worker for database and admin compatibility, but the desktop app
-does not expose Boolean-managed AI access or token purchases.
+does not expose Boollm-managed AI access or token purchases.
 - usage debits are written to `token_ledger`
 
 These limits are enforced by `/tokens/debit` and `/chat/completions` before

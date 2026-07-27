@@ -346,7 +346,7 @@ function publicModelSource(url) {
   return { name, url: parsed.toString() };
 }
 
-/** Download a public Hugging Face GGUF directly into Boolean's model folder. */
+/** Download a public Hugging Face GGUF directly into Boollm's model folder. */
 export async function downloadPublicModel(url, onProgress, options = {}) {
   const source = publicModelSource(url);
   const { name } = source;

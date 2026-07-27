@@ -567,8 +567,7 @@ body{background:#1e1e1e !important;color:#e0e0e0 !important;background-image:non
 a{color:#7ab8ff !important;}
 input,textarea,select{background:#2a2a2a !important;color:#e0e0e0 !important;border-color:#444 !important;}
 table,th,td{border-color:#444 !important;}
-img{opacity:.85;}
-img[src*="logo"],img[class*="logo"]{opacity:1;}
+img,video,canvas,svg{opacity:1 !important;}
 div,section,article,header,footer,nav,aside{background-color:transparent !important;background-image:none !important;}
 [style*="background: #fff"],[style*="background:#fff"],[style*="background: white"],[style*="background:white"]{background:#1e1e1e !important;}
 [style*="color: #000"],[style*="color:#000"],[style*="color: black"],[style*="color:black"]{color:#e0e0e0 !important;}

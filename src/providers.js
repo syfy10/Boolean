@@ -9,13 +9,13 @@ export function providerBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
 }
 
-// Return true/false only when Boolean knows the endpoint's image capability.
+// Return true/false only when Boollm knows the endpoint's image capability.
 // null keeps custom OpenAI-compatible endpoints permissive because their model
 // names and capabilities are not standardized.
 export function providerImageSupport(config) {
   const provider = String(config?.provider || "");
   if (provider === "local") return null;
-  if (provider === "openai" || provider === "claude") return true;
+  if (provider === "openai" || provider === "google" || provider === "claude") return true;
   if (provider === "zaiCoding") return false;
 
   const settings = config?.[provider] || {};
@@ -150,7 +150,7 @@ function cloudProviderError(target, status, body, retryAfter) {
 function localConnectionError(interrupted = false, cause) {
   const err = new Error(interrupted
     ? "The Local model connection stopped during its response. Your task was checkpointed; Continue can resume it."
-    : "The Local model connection stopped before it answered. Boolean will restart the local engine and retry once.");
+    : "The Local model connection stopped before it answered. Boollm will restart the local engine and retry once.");
   err.code = "local_transport_error";
   err.partial = interrupted;
   err.cause = cause;
@@ -320,9 +320,16 @@ export async function chatCompletion(target, messages, tools, signal, onToken) {
 // static fallbacks when a provider has no usable /models endpoint
 const STATIC_MODELS = {
   openai: ["gpt-5.1", "gpt-5.1-codex", "gpt-5-mini", "gpt-4.1"],
+  google: ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash"],
+  xai: ["grok-4.5", "grok-4.1-fast"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner"],
+  qwen: ["qwen3.7-plus", "qwen3.6-plus", "qwen3.6-flash"],
+  baidu: ["ernie-5.0", "ernie-4.5-turbo-128k"],
+  bytedance: ["doubao-seed-1-6-251015"],
   glm: ["glm-4.6", "glm-4.5", "glm-4.5-air"],
   zaiCoding: ["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"],
   claude: ["claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5-20251001"],
+  kimi: ["kimi-k2.5", "kimi-k2-thinking"],
   customApi: []
 };
 
@@ -360,6 +367,9 @@ function usableProviderModels(provider, ids, selected = "") {
     const incompatible = /(?:audio|realtime|transcrib|tts|whisper|image|dall-e|embedding|moderation|sora|search-preview|search-api|deep-research)/i;
     models = models.filter((id) => /^(?:gpt-|o[1345](?:-|$)|chat-latest$)/i.test(id) && !incompatible.test(id));
     models = models.filter((id) => !/-20\d{2}-\d{2}-\d{2}$/.test(id) && !/(?:^|-)\d{4}$/.test(id));
+  }
+  if (provider === "google") {
+    models = models.filter((id) => /^gemini-/i.test(id) && !/(?:embedding|aqa|imagen|veo|tts|live)/i.test(id));
   }
   models.sort((a, b) => {
     if (a === selected) return -1;

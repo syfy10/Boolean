@@ -5,7 +5,14 @@ import { preserveSavedApiKeys, preserveSavedConnections } from "../src/config.js
 test("config saves preserve existing API keys when new payload has blanks", () => {
   const previous = {
     openai: { apiKey: "sk-openai" },
+    google: { apiKey: "google-key" },
     zaiCoding: { apiKey: "sk-zai" },
+    xai: { apiKey: "sk-xai" },
+    deepseek: { apiKey: "sk-deepseek" },
+    qwen: { apiKey: "sk-qwen" },
+    baidu: { apiKey: "sk-baidu" },
+    bytedance: { apiKey: "sk-bytedance" },
+    kimi: { apiKey: "sk-kimi" },
     customApi: { apiKey: "sk-custom" },
     connectors: {
       apis: [{ id: "api-1", apiKey: "sk-api-1" }],
@@ -14,7 +21,14 @@ test("config saves preserve existing API keys when new payload has blanks", () =
   };
   const next = {
     openai: { apiKey: "" },
+    google: { apiKey: "" },
     zaiCoding: { apiKey: "" },
+    xai: { apiKey: "" },
+    deepseek: { apiKey: "" },
+    qwen: { apiKey: "" },
+    baidu: { apiKey: "" },
+    bytedance: { apiKey: "" },
+    kimi: { apiKey: "" },
     customApi: { apiKey: "" },
     connectors: {
       apis: [{ id: "api-1", apiKey: "" }],
@@ -25,7 +39,14 @@ test("config saves preserve existing API keys when new payload has blanks", () =
   preserveSavedApiKeys(next, previous);
 
   assert.equal(next.openai.apiKey, "sk-openai");
+  assert.equal(next.google.apiKey, "google-key");
   assert.equal(next.zaiCoding.apiKey, "sk-zai");
+  assert.equal(next.xai.apiKey, "sk-xai");
+  assert.equal(next.deepseek.apiKey, "sk-deepseek");
+  assert.equal(next.qwen.apiKey, "sk-qwen");
+  assert.equal(next.baidu.apiKey, "sk-baidu");
+  assert.equal(next.bytedance.apiKey, "sk-bytedance");
+  assert.equal(next.kimi.apiKey, "sk-kimi");
   assert.equal(next.customApi.apiKey, "sk-custom");
   assert.equal(next.connectors.apis[0].apiKey, "sk-api-1");
   assert.equal(next.connectors.agents[0].apiKey, "sk-agent-1");

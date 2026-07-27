@@ -1,4 +1,8 @@
+import crypto from "node:crypto";
+
 const API_BASE = "https://api.cloudflare.com/client/v4";
+const OAUTH_AUTHORIZE = "https://dash.cloudflare.com/oauth2/auth";
+const OAUTH_TOKEN = "https://dash.cloudflare.com/oauth2/token";
 
 function errorMessage(payload, fallback) {
   const messages = Array.isArray(payload?.errors)
@@ -29,24 +33,96 @@ export async function cloudflareRequest(token, path, options = {}) {
   return payload;
 }
 
-export async function verifyCloudflareToken(token) {
-  const verified = await cloudflareRequest(token, "/user/tokens/verify");
-  if (verified?.result?.status !== "active") {
-    throw new Error(`Cloudflare API token is ${verified?.result?.status || "not active"}.`);
-  }
+async function accessibleCloudflareAccounts(token) {
   const accountsPayload = await cloudflareRequest(token, "/accounts?per_page=50");
-  const accounts = Array.isArray(accountsPayload?.result)
+  return Array.isArray(accountsPayload?.result)
     ? accountsPayload.result.map((account) => ({
       id: String(account?.id || ""),
       name: String(account?.name || "Cloudflare account"),
       type: String(account?.type || "")
     })).filter((account) => account.id)
     : [];
+}
+
+export async function verifyCloudflareToken(token) {
+  const verified = await cloudflareRequest(token, "/user/tokens/verify");
+  if (verified?.result?.status !== "active") {
+    throw new Error(`Cloudflare API token is ${verified?.result?.status || "not active"}.`);
+  }
+  const accounts = await accessibleCloudflareAccounts(token);
   return {
     tokenId: String(verified?.result?.id || ""),
     status: "active",
     expiresOn: String(verified?.result?.expires_on || ""),
     accounts
+  };
+}
+
+export async function verifyCloudflareOAuthToken(token) {
+  const accounts = await accessibleCloudflareAccounts(token);
+  return {
+    tokenId: "",
+    status: "active",
+    expiresOn: "",
+    accounts
+  };
+}
+
+export function createCloudflareOAuth(clientId, redirectUri, scopes = []) {
+  const cleanClientId = String(clientId || "").trim();
+  const cleanRedirectUri = String(redirectUri || "").trim();
+  const cleanScopes = Array.isArray(scopes)
+    ? scopes.map((scope) => String(scope || "").trim()).filter(Boolean)
+    : String(scopes || "").split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
+  if (!cleanClientId) throw new Error("Enter the Cloudflare OAuth client ID.");
+  if (!/^https?:\/\//i.test(cleanRedirectUri)) throw new Error("Enter a valid Cloudflare OAuth redirect URL.");
+  if (!cleanScopes.length) throw new Error("Choose at least one Cloudflare OAuth scope.");
+  const verifier = crypto.randomBytes(48).toString("base64url");
+  const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
+  const state = crypto.randomBytes(24).toString("base64url");
+  const url = new URL(OAUTH_AUTHORIZE);
+  url.searchParams.set("client_id", cleanClientId);
+  url.searchParams.set("redirect_uri", cleanRedirectUri);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("scope", cleanScopes.join(" "));
+  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  return {
+    state,
+    verifier,
+    clientId: cleanClientId,
+    redirectUri: cleanRedirectUri,
+    scopes: cleanScopes,
+    authorizationUrl: url.toString(),
+    createdAt: Date.now()
+  };
+}
+
+export async function exchangeCloudflareOAuthCode(transaction, code) {
+  const form = new URLSearchParams({
+    client_id: transaction.clientId,
+    code: String(code || "").trim(),
+    code_verifier: transaction.verifier,
+    grant_type: "authorization_code",
+    redirect_uri: transaction.redirectUri
+  });
+  const response = await fetch(OAUTH_TOKEN, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+    body: form,
+    signal: AbortSignal.timeout(30000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error_description || data.error || `Cloudflare authorization failed (HTTP ${response.status}).`);
+  }
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || "",
+    expiresAt: data.expires_in ? Date.now() + Math.max(60, Number(data.expires_in)) * 1000 : 0,
+    scope: data.scope || transaction.scopes.join(" "),
+    tokenType: data.token_type || "Bearer"
   };
 }
 

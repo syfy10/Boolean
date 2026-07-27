@@ -36,7 +36,7 @@ test("gitDiffFiles includes untracked files without treating them as restorable 
   const git = (...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
   git("init");
   git("config", "user.email", "test@example.com");
-  git("config", "user.name", "Boolean Test");
+  git("config", "user.name", "Boollm Test");
   fs.writeFileSync(path.join(dir, "tracked.txt"), "old\n");
   git("add", "tracked.txt");
   git("commit", "-m", "initial");

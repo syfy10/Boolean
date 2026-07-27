@@ -1,4 +1,4 @@
-// Boolean Admin console — self-contained page served by the Worker at /admin.
+// Boollm Admin console — self-contained page served by the Worker at /admin.
 // Signs in with the same Google device flow the desktop app uses; every API
 // call goes through requireAdmin on the Worker.
 export const ADMIN_PAGE_HTML = `<!doctype html>
@@ -7,7 +7,7 @@ export const ADMIN_PAGE_HTML = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Boolean Admin</title>
+<title>Boollm Admin</title>
 <style>
   :root{ --bg:#101210; --card:#181b18; --border:#262b26; --text:#e8ece8; --dim:#8a938a; --green:#3fb950; --red:#e5534b; --amber:#d4a72c; }
   *{ box-sizing:border-box; margin:0; }
@@ -49,13 +49,13 @@ export const ADMIN_PAGE_HTML = `<!doctype html>
 <body>
 <div class="wrap">
   <div id="signin" hidden>
-    <h1 style="justify-content:center"><span class="dot"></span> Boolean Admin</h1>
+    <h1 style="justify-content:center"><span class="dot"></span> Boollm Admin</h1>
     <p>Sign in with an admin Google account to manage users, tokens, and access.</p>
     <button class="primary" id="loginBtn">Sign in with Google</button>
     <p id="loginState"></p>
   </div>
   <div id="panel" hidden>
-    <h1><span class="dot"></span> Boolean Admin <span class="who" id="who"><button id="logout">Sign out</button></span></h1>
+    <h1><span class="dot"></span> Boollm Admin <span class="who" id="who"><button id="logout">Sign out</button></span></h1>
     <div class="cards" id="cards"></div>
     <div class="bar">
       <input type="text" id="q" placeholder="Search email or name...">

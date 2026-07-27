@@ -1,11 +1,11 @@
-# Boolean email connectors
+# Boollm email connectors
 
-Boolean separates user mail access from product email:
+Boollm separates user mail access from product email:
 
 - Gmail and Outlook connect directly from the desktop app. OAuth tokens remain
-  in the user's local Boolean configuration and mail requests go directly to
+  in the user's local Boollm configuration and mail requests go directly to
   Google or Microsoft.
-- Cloudflare Email Service sends Boolean account and transactional messages
+- Cloudflare Email Service sends Boollm account and transactional messages
   from the backend. Its credentials and binding never ship in the desktop app.
 
 ## Gmail
@@ -15,8 +15,8 @@ Boolean separates user mail access from product email:
 3. Create an OAuth client with application type **Desktop app**.
 4. Paste its public client ID into Settings > Email > Gmail.
 
-Boolean uses a loopback callback shown on that Settings page. A client secret
-is not required or stored by Boolean.
+Boollm uses a loopback callback shown on that Settings page. A client secret
+is not required or stored by Boollm.
 
 ## Outlook
 
@@ -25,13 +25,13 @@ is not required or stored by Boolean.
 3. Add delegated permissions: `User.Read`, `Mail.ReadWrite`, and `Mail.Send`.
 4. Paste the Application (client) ID into Settings > Email > Outlook.
 
-Boolean also requests `openid`, `profile`, `email`, and `offline_access` so the
+Boollm also requests `openid`, `profile`, `email`, and `offline_access` so the
 user can reconnect without repeatedly signing in.
 
 ## Sending safeguards
 
 Draft-only mode is enabled by default. Disabling it allows send actions, but
-Boolean still requires a separate explicit confirmation for every message.
+Boollm still requires a separate explicit confirmation for every message.
 Auto-approve does not bypass that confirmation.
 
 ## Cloudflare transactional email
@@ -41,7 +41,7 @@ The Worker uses an `EMAIL` Email Sending binding and the verified sender in
 
 ```powershell
 cd backend
-npx wrangler email sending enable saz3.com
+npx wrangler email sending enable boollm.com
 ```
 
 After the domain is verified and the Worker is deployed, an administrator can

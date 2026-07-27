@@ -38,12 +38,19 @@ test("cloud model discovery is local on startup and cached after refresh", async
 
 test("UI keeps the fast interaction paths and omits retry controls", () => {
   const html = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
   assert.doesNotMatch(html, /data-act="retry"|data-chat-act="retry"|data-a="retry"/);
   assert.match(html, /fetch\("\/api\/status"\)/);
   assert.match(html, /THREAD_PAGE_SIZE=80/);
   assert.match(html, /loadOlderMessages\(\)/);
   assert.match(html, /requestAnimationFrame\(paintPendingStream\)/);
+  assert.match(html, /class="stream-caret"/);
+  assert.match(html, /run\.liveAI\.classList\.remove\("streaming"\)/);
   assert.match(html, /fetch\("\/api\/model\/warm"/);
+  assert.match(server, /"cache-control": "no-cache, no-transform"/);
+  assert.match(server, /"x-accel-buffering": "no"/);
+  assert.match(server, /res\.socket\?\.setNoDelay\?\.\(true\)/);
+  assert.match(server, /res\.flushHeaders\?\.\(\)/);
 });
 
 test("coding plans render as persistent, controllable progress checklists", () => {
@@ -67,4 +74,16 @@ test("coding plans render as persistent, controllable progress checklists", () =
   assert.doesNotMatch(html, /function buildDetailedPlanHTML\(snapshot\)/);
   assert.doesNotMatch(html, /Commit changes \(optional\)/);
   assert.doesNotMatch(html, /class="plan-progress-block"/);
+});
+
+test("loop pauses ask before restarting and clear only exhausted loop counters", () => {
+  const html = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  assert.match(html, /Boollm stopped a repeated loop\./);
+  assert.match(html, /Continue differently/);
+  assert.match(server, /function resetLoopRecoveryState\(task\)/);
+  assert.match(server, /controller\.nonProgressCount = 0/);
+  assert.match(server, /controller\.actionCounts = \{\}/);
+  assert.match(server, /Use the evidence already collected/);
+  assert.match(server, /resetLoopRecoveryState\(savedTask\)/);
 });

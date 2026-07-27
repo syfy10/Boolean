@@ -34,7 +34,7 @@ async function route(request, env) {
     : rawPath;
 
   if (path === "/health") {
-    return json({ ok: true, app: env.APP_NAME || "Boolean", transactional_email: !!env.EMAIL }, 200, request, env);
+    return json({ ok: true, app: env.APP_NAME || "Boollm", transactional_email: !!env.EMAIL }, 200, request, env);
   }
 
   if (path === "/auth/device/start" && request.method === "POST") {
@@ -145,9 +145,9 @@ async function route(request, env) {
     if (!/^\S+@\S+\.\S+$/.test(to)) return json({ error: "invalid_email" }, 400, request, env);
     await sendTransactionalEmail(env, {
       to,
-      subject: "Boolean email connection test",
-      text: "Boolean's Cloudflare transactional email connection is working.",
-      html: "<p>Boolean's Cloudflare transactional email connection is working.</p>"
+      subject: "Boollm email connection test",
+      text: "Boollm's Cloudflare transactional email connection is working.",
+      html: "<p>Boollm's Cloudflare transactional email connection is working.</p>"
     });
     return json({ ok: true, to }, 200, request, env);
   }
@@ -294,12 +294,12 @@ function sanitizeUiPayload(value) {
 
 async function sendTransactionalEmail(env, { to, subject, text, html }) {
   if (!env.EMAIL) throw httpError("email_service_not_configured", 503);
-  const fromAddress = String(env.EMAIL_FROM_ADDRESS || "notifications@saz3.com").trim();
-  const fromName = String(env.EMAIL_FROM_NAME || env.APP_NAME || "Boolean").trim();
+  const fromAddress = String(env.EMAIL_FROM_ADDRESS || "notifications@boollm.com").trim();
+  const fromName = String(env.EMAIL_FROM_NAME || env.APP_NAME || "Boollm").trim();
   return env.EMAIL.send({
     to,
     from: { email: fromAddress, name: fromName },
-    subject: String(subject || "Boolean notification"),
+    subject: String(subject || "Boollm notification"),
     text: String(text || ""),
     html: String(html || "")
   });
@@ -553,10 +553,10 @@ async function googleCallback(request, env) {
   ).bind(state).first();
 
   if (!login || login.expires_at < now()) {
-    return htmlPage("Sign in expired", "This sign-in link expired. Please start sign-in again from Boolean.");
+    return htmlPage("Sign in expired", "This sign-in link expired. Please start sign-in again from Boollm.");
   }
   if (login.status !== "pending") {
-    return htmlPage("Already signed in", "This sign-in request was already completed. You can return to Boolean.");
+    return htmlPage("Already signed in", "This sign-in request was already completed. You can return to Boollm.");
   }
 
   const tokenSet = await exchangeGoogleCode(code, callbackUrl(request, env), env);
@@ -570,7 +570,7 @@ async function googleCallback(request, env) {
 
   return htmlPage(
     "Signed in",
-    "You are signed in to Boolean. This window will close automatically.",
+    "You are signed in to Boollm. This window will close automatically.",
     true
   );
 }
@@ -1059,7 +1059,7 @@ function htmlPage(title, message, autoClose = false) {
     body.done p:after{content:" If this window did not close, you can close it now."}
   </style>
 </head>
-<body><main><div class="mark">Boolean</div><h1>${safeTitle}</h1><p>${safeMessage}</p></main>${closeScript}</body>
+<body><main><div class="mark">Boollm</div><h1>${safeTitle}</h1><p>${safeMessage}</p></main>${closeScript}</body>
 </html>`, {
     status: 200,
     headers: { "content-type": "text/html; charset=utf-8" }

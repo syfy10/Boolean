@@ -83,7 +83,7 @@ function onStatus(text) {
 async function ensureEula() {
   if (config.eulaAccepted) return true;
   console.log(`${C.yellow}${C.bold}  Before we start:${C.reset}`);
-  console.log("  Boolean is a local AI workspace that can run commands and edit files on this PC");
+  console.log("  Boollm is a local AI workspace that can run commands and edit files on this PC");
   console.log("  with your approval. AI makes mistakes — review what it asks to do.");
   console.log("  Provided as-is, no warranty; you are responsible for what it runs.");
   console.log(`  Full terms: LICENSE.txt and PRIVACY.txt in the install folder.\n`);
@@ -102,7 +102,7 @@ function help() {
     [
       "",
       `${C.bold}commands${C.reset}`,
-      "  /provider [name]  show or switch provider: local | openai | glm | zaiCoding | claude",
+      "  /provider [name]  show or switch provider: local | openai | google | glm | zaiCoding | claude",
       "  /model <name>     switch model for the current provider",
       "  /models           list models for the current provider",
       "  /pull <id>        download a local model (e.g. /pull gemma4-e4b)",
@@ -245,7 +245,7 @@ async function uiMain() {
   const noOpen = args.includes("--no-open");
   const autoExit = args.includes("--auto-exit");
 
-  console.log(`${C.cyan}${C.bold}Boolean${C.reset} - starting...`);
+  console.log(`${C.cyan}${C.bold}Boollm${C.reset} - starting...`);
 
   // single-instance: if the app is already serving on the fixed port, just
   // focus that window and exit — never run two engines fighting over a port
@@ -253,7 +253,7 @@ async function uiMain() {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/api/state`, { signal: AbortSignal.timeout(1500) });
       if (r.ok && (await r.json()).appName) {
-        console.log("  Boolean is already running - opening its window.");
+        console.log("  Boollm is already running - opening its window.");
         if (!noOpen) openAppWindow(`http://127.0.0.1:${port}`);
         process.exit(0);
       }
@@ -276,7 +276,7 @@ async function uiMain() {
   }
   if (!noOpen) {
     openAppWindow(url);
-    console.log("  app window opened - keep this console open while using Boolean.");
+    console.log("  app window opened - keep this console open while using Boollm.");
   }
   rl.close();
 }
@@ -284,7 +284,7 @@ async function uiMain() {
 async function main() {
   console.log(`${C.cyan}${C.bold}
   ┌─────────────────────────────────────────┐
-  │  >Boolean - local AI workspace.  v${APP_VERSION}       │
+  │  >Boollm - local AI workspace.  v${APP_VERSION}       │
   └─────────────────────────────────────────┘${C.reset}`);
   console.log(`  provider: ${C.green}${config.provider}${C.reset}   model: ${C.green}${currentModel(config) || "none"}${C.reset}`);
   console.log(`  cwd:      ${process.cwd()}`);

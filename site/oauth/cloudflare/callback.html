@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Return to Boollm</title>
+  <style>
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f4f2;color:#202124;font:16px/1.45 system-ui,sans-serif}
+    main{width:min(440px,calc(100% - 40px));padding:28px;border:1px solid #ddd;border-radius:18px;background:#fff;box-shadow:0 16px 50px #0001}
+    h1{margin:0 0 8px;font-size:22px}p{margin:8px 0;color:#666}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Returning to Boollm…</h1>
+    <p id="status">Finishing Cloudflare authorization on this PC.</p>
+  </main>
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const state = params.get("state") || "";
+      const encoded = state.split(".").pop() || "";
+      try {
+        const padded = encoded.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - encoded.length % 4) % 4);
+        const local = atob(padded);
+        const target = new URL(local);
+        if (target.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(target.hostname)) throw new Error("invalid callback");
+        target.search = location.search;
+        location.replace(target.toString());
+      } catch {
+        document.getElementById("status").textContent = "Could not return to the local app. Close this tab and try connecting again.";
+      }
+    })();
+  </script>
+</body>
+</html>

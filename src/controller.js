@@ -15,8 +15,14 @@ const VERIFICATION_TOOLS = new Set([
 
 const INSPECTION_TOOLS = new Set([
   "list_dir", "read_file", "find_files", "search_files", "find_symbol",
-  "git_status", "git_diff", "read_page", "visible_browser_read"
+  "git_status", "git_diff", "read_page", "visible_browser_read",
+  "list_connectors", "mcp_list_tools"
 ]);
+
+// MCP is a transport, not an action category. Discovery and account/data reads
+// must count as inspection so the global loop guard can stop repeated connector
+// rediscovery. Only clearly mutating inner tools count as progress actions.
+const MCP_MUTATION_TOOL = /(?:^|_)(?:add|approve|archive|buy|cancel|close|create|delete|disable|edit|enable|execute|exercise|move|open|place|publish|remove|rename|reply|restore|sell|send|set|submit|trade|transfer|trash|update|upload|write)(?:_|$)/i;
 
 const BACKGROUND_RESEARCH_TOOLS = new Set(["web_search", "research_web"]);
 const VISIBLE_BROWSER_TOOLS = new Set([
@@ -45,6 +51,11 @@ const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|use
 const LOOP_BLOCK_REASON = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i;
 const PROGRESS_WARNING_INSPECTIONS = 12;
 const NON_PROGRESS_INSPECTION_LIMIT = 28;
+// Strict mode stops loops early. These larger emergency limits are always
+// enforced so optional preferences can never permit hundreds of wasted calls.
+const EMERGENCY_NON_PROGRESS_INSPECTION_LIMIT = 48;
+const EMERGENCY_COARSE_REPEAT_LIMIT = 6;
+const EMERGENCY_EXACT_REPEAT_LIMIT = 4;
 
 function cleanText(value, max = 240) {
   return String(value || "").replace(SECRET_PATTERN, "[redacted]").replace(/\s+/g, " ").trim().slice(0, max);
@@ -192,7 +203,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     if (/\b(?:clean|cleanup|trash|spam|old mail|old email)\b/.test(task)) {
       return [
         { step: "Verify the connected mailbox", status: "in_progress" },
-        { step: "Open the mailbox in Boolean browser", status: "pending" },
+        { step: "Open the mailbox in Boollm browser", status: "pending" },
         { step: "Apply protection rules", status: "pending" },
         { step: "Scan and group cleanup candidates", status: "pending" },
         { step: "Review the read-only cleanup plan", status: "pending" },
@@ -202,7 +213,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     }
     return [
       { step: "Verify the connected mailbox", status: "in_progress" },
-      { step: "Open the relevant email in Boolean browser", status: "pending" },
+      { step: "Open the relevant email in Boollm browser", status: "pending" },
       { step: "Read the requested conversation or messages", status: "pending" },
       { step: "Prepare the requested email result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
@@ -214,7 +225,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
       { step: "Create the implementation plan", status: "pending" },
       { step: "Build the requested experience", status: "pending" },
       { step: "Run the project locally", status: "pending" },
-      { step: "Open the result in Boolean browser", status: "pending" },
+      { step: "Open the result in Boollm browser", status: "pending" },
       { step: "Run checks and inspect the result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
     ];
@@ -232,7 +243,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
   if (/\b(?:browser|web page|page|site|research|search the web|look up)\b/.test(task)) {
     return [
       { step: "Confirm the requested page or research target", status: "in_progress" },
-      { step: "Open the target in Boolean browser", status: "pending" },
+      { step: "Open the target in Boollm browser", status: "pending" },
       { step: "Inspect the relevant content", status: "pending" },
       { step: "Complete the requested browser task", status: "pending" },
       { step: "Report the verified result", status: "pending" }
@@ -330,6 +341,13 @@ function isInspectionCommand(name, args = {}) {
   return INSPECTION_COMMAND.test(command);
 }
 
+export function isInspectionTool(name, args = {}) {
+  if (INSPECTION_TOOLS.has(name)) return true;
+  if (name !== "mcp_call_tool") return false;
+  const innerTool = String(args.tool || args.name || "").trim();
+  return !innerTool || !MCP_MUTATION_TOOL.test(innerTool);
+}
+
 function isLoopBlock(reason = "") {
   return LOOP_BLOCK_REASON.test(String(reason || ""));
 }
@@ -354,7 +372,16 @@ function commandSubject(command = "") {
 
 function coarseActionFingerprint(name, args = {}) {
   if (isInspectionCommand(name, args)) return `coarse:run_inspect:${commandSubject(args.command)}`;
-  if (INSPECTION_TOOLS.has(name)) return `coarse:inspect:${name}:${cleanText(fileArgument(args) || args.query || args.url || "", 120).toLowerCase()}`;
+  if (name === "list_connectors") return "coarse:connector_discovery:list";
+  if (name === "mcp_list_tools") {
+    return `coarse:connector_discovery:${cleanText(args.connector || "default", 80).toLowerCase()}`;
+  }
+  if (name === "mcp_call_tool" && isInspectionTool(name, args)) {
+    const connector = cleanText(args.connector || "default", 80).toLowerCase();
+    const tool = cleanText(args.tool || "unknown", 100).toLowerCase();
+    return `coarse:connector_read:${connector}:${tool}`;
+  }
+  if (isInspectionTool(name, args)) return `coarse:inspect:${name}:${cleanText(fileArgument(args) || args.query || args.url || "", 120).toLowerCase()}`;
   if (BROWSER_TOOLS.has(name)) return `coarse:browser:${name}:${cleanText(args.url || args.selector || args.text || "", 120).toLowerCase()}`;
   return "";
 }
@@ -430,6 +457,13 @@ export class AgentController {
     this.timeBudgetMs = Number(saved.timeBudgetMs) || 0;
     this.startedAt = Number(saved.startedAt) || Date.now();
     this.cancelRequested = !!saved.cancelRequested;
+    // Active-controller mode (autopilot): re-enables auto-continue, verification
+    // nudge, and recovery prompts. Off by default so the neutral relay is unchanged.
+    this.autopilot = options.autopilot === true;
+    // Model-curated findings: the model records durable notes via the `remember`
+    // tool; they surface in workingMemory even after older chat is trimmed.
+    this.notes = Array.isArray(saved.notes) ? saved.notes.map((n) => cleanText(n, 300)).filter(Boolean).slice(-12) : [];
+    this.verificationNudged = saved.verificationNudged === true;
     this.updatedAt = Date.now();
 
     // Per-thread rolling digest: tracks answers given, corrections received,
@@ -488,8 +522,21 @@ export class AgentController {
       startedAt: this.startedAt,
       cancelRequested: this.cancelRequested,
       updatedAt: this.updatedAt,
-      conversationDigest: this.conversationDigest
+      conversationDigest: this.conversationDigest,
+      notes: [...this.notes],
+      verificationNudged: this.verificationNudged
     };
+  }
+
+  /** Record a durable finding curated by the model (via the `remember` tool). */
+  addNote(text) {
+    const note = cleanText(text, 300);
+    if (note) {
+      this.notes.push(note);
+      this.notes = this.notes.slice(-12);
+      this.updatedAt = Date.now();
+    }
+    return this.snapshot();
   }
 
   /**
@@ -527,7 +574,7 @@ export class AgentController {
     const next = this.plan.find((item) => item.status === "in_progress")?.step ||
       this.plan.find((item) => item.status === "pending")?.step || "Answer or report the completed result.";
     const lines = [
-      "BOOLEAN WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
+      "BOOLLM WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
       `Objective: ${cleanText(this.objective || "Complete the latest request.", 700)}`,
       `Mode: ${this.contract.mode}; browser: ${this.contract.browserPolicy}; deploy: ${this.contract.deployAllowed ? "allowed" : "blocked unless explicitly requested"}.`,
       this.contract.allowedRoots.length ? `Allowed workspace roots: ${this.contract.allowedRoots.join(" | ")}` : "",
@@ -541,6 +588,7 @@ export class AgentController {
       this.conversationDigest.recentAnswers.length ? `Recent answers: ${this.conversationDigest.recentAnswers.slice(-3).map(a => a.slice(0, 150)).join(" | ")}` : "",
       this.conversationDigest.recentDecisions?.length ? `User decisions: ${this.conversationDigest.recentDecisions.slice(-3).join(" | ")}` : "",
       this.checks.length ? `Checks: ${this.checks.slice(-4).join(" | ")}` : "",
+      this.notes.length ? `Findings recorded: ${this.notes.slice(-6).join(" | ")}` : "",
       this.openProcesses.length ? `Open temporary processes: ${this.openProcesses.join(" | ")}` : "",
       this.lastFailure ? `Unresolved failure: ${this.lastFailure}` : "",
       `Next step: ${next}`
@@ -569,7 +617,7 @@ export class AgentController {
   prompt() {
     const lines = [
       this.workingMemory(),
-      "BOOLEAN TASK CONTROLLER:",
+      "BOOLLM TASK CONTROLLER:",
       `Phase: ${this.phase}.`
     ];
     if (this.plan.length) {
@@ -639,15 +687,20 @@ export class AgentController {
     const coarseFingerprint = coarseActionFingerprint(name, args);
     // record_debug_evidence always allowed — it is the debug workflow own mechanism
     if (name === "record_debug_evidence") return { allowed: true, reason: "" };
-    if (this.loopStopEnabled && coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= 3) {
+    const coarseRepeatLimit = this.loopStopEnabled ? 3 : EMERGENCY_COARSE_REPEAT_LIMIT;
+    if (coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= coarseRepeatLimit) {
       return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Do not inspect again; use the evidence already collected and take a different progress step such as a targeted edit or known build/test command." };
     }
-    if (this.loopStopEnabled && this.nonProgressCount >= NON_PROGRESS_INSPECTION_LIMIT && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
+    const nonProgressLimit = this.loopStopEnabled
+      ? NON_PROGRESS_INSPECTION_LIMIT
+      : EMERGENCY_NON_PROGRESS_INSPECTION_LIMIT;
+    if (this.nonProgressCount >= nonProgressLimit && (isInspectionTool(name, args) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
       return { allowed: false, reason: "Tool budget reached: many inspection steps happened without a file change or new result. Do not inspect again; continue from the saved evidence with a targeted edit, a known build/test command, or a concise blocker summary." };
     }
     const fingerprint = actionFingerprint(name, args);
-    if (this.loopStopEnabled && (this.actionCounts[fingerprint] || 0) >= 2 && (INSPECTION_TOOLS.has(name) || BROWSER_TOOLS.has(name))) {
-      return { allowed: false, reason: `Loop guard: '${name}' already ran twice with the same target. Use the existing evidence, summarize the cause, or choose a different check.` };
+    const exactRepeatLimit = this.loopStopEnabled ? 2 : EMERGENCY_EXACT_REPEAT_LIMIT;
+    if ((this.actionCounts[fingerprint] || 0) >= exactRepeatLimit && (isInspectionTool(name, args) || BROWSER_TOOLS.has(name))) {
+      return { allowed: false, reason: `Loop guard: '${name}' already ran repeatedly with the same target. Use the existing evidence, summarize the cause, or choose a different check.` };
     }
     // Debug evidence is tracked and surfaced, but no longer blocks edits — the
     // model decides when it understands a bug well enough to change code.
@@ -770,14 +823,15 @@ export class AgentController {
     this.consecutiveFailures = 0;
     this.lastFailure = "";
     const inspectionCommand = isInspectionCommand(name, args);
-    if (name !== "update_plan" && !INSPECTION_TOOLS.has(name) && !inspectionCommand) this.successfulActionCount++;
+    const inspectionTool = isInspectionTool(name, args);
+    if (name !== "update_plan" && !inspectionTool && !inspectionCommand) this.successfulActionCount++;
     if (PREPARATION_TOOLS.has(name)) {
       this.preparationCount++;
       this.phase = "executing";
       setPlanProgress(this.plan, 0, "done");
       if (this.plan[1]?.status === "pending") this.plan[1].status = "in_progress";
     }
-    if (INSPECTION_TOOLS.has(name) || inspectionCommand) {
+    if (inspectionTool || inspectionCommand) {
       this.inspectionCount++;
       this.nonProgressCount++;
       const inspected = cleanText(fileArgument(args) || commandSubject(args.command), 260);
@@ -847,7 +901,7 @@ export class AgentController {
     return this.snapshot();
   }
 
-  // The model decides when a task is finished. Boolean no longer refuses a final
+  // The model decides when a task is finished. Boollm no longer refuses a final
   // answer for missing evidence — the only hard requirement is that an answer exists.
   // A still-running background process is the one soft nudge worth keeping, because
   // leaving one behind makes a finished task look stuck.
@@ -856,6 +910,25 @@ export class AgentController {
     if (this.openProcesses.length) {
       return { complete: false, reason: `Temporary process still running: ${this.openProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
     }
+    if (this.autopilot && this.projectBound && this.artifactRequired && this.mutationCount === 0) {
+      this.phase = "executing";
+      this.updatedAt = Date.now();
+      return {
+        complete: false,
+        reason: "This project task has not changed any project file. Use the available project tools to implement the requested work instead of only describing a timeline or tutorial."
+      };
+    }
+    // Verification nudge (autopilot only): a build/fix task that changed files but
+    // ran no build/test/check should confirm before finishing — once, so it can
+    // never loop. Neutral relay keeps its current "accept the answer" behavior.
+    if (this.autopilot && !this.verificationNudged
+        && (this.debugRequired || this.artifactRequired)
+        && this.mutationCount > 0 && this.checks.length === 0 && !this.postFixEvidence) {
+      this.verificationNudged = true;
+      this.phase = "verifying";
+      this.updatedAt = Date.now();
+      return { complete: false, reason: "You changed files but have not run a build/test/check to confirm the result. Run the project's check (for example node --test, dotnet build, or a smoke run) and finish with the verified outcome. If no check is possible here, say so explicitly and finish." };
+    }
     this.phase = "completed";
     for (const item of this.plan) item.status = "done";
     this.updatedAt = Date.now();
@@ -863,7 +936,15 @@ export class AgentController {
   }
 
   continuationPrompt(reason) {
-    return "";
+    if (!this.autopilot) return "";
+    const r = cleanText(reason, 500);
+    const next = this.plan.find((item) => item.status && item.status !== "done")?.step;
+    const tail = next ? ` Planned next step: ${next}.` : "";
+    if (isLoopBlock(reason)) {
+      return `${r} Re-read WORKING MEMORY above. Do not repeat the blocked action — use the evidence already gathered and take a different concrete step: a targeted edit, a known build/test/check command, or a plain blocker summary.${tail}`;
+    }
+    if (r) return `${r} Re-read WORKING MEMORY above and continue in this same run toward the objective.${tail}`;
+    return `Re-read WORKING MEMORY above and continue in this same run toward the objective.${tail}`;
   }
 }
 

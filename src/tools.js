@@ -9,6 +9,7 @@ import { providerImageSupport } from "./providers.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
 import { cloudflareRequest, cloudflareResourceList, assertCloudflarePath } from "./cloudflare.js";
+import { azureResourceList, awsResourceList, googleCloudResourceList } from "./cloud-hosting.js";
 import {
   listEmail,
   readEmail,
@@ -90,6 +91,17 @@ export const TOOL_DEFINITIONS = [
       parameters: { type: "object", properties: {
         id: { type: "string", description: "Isolated sub-agent run id" }
       }, required: ["id"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "remember",
+      description:
+        "Record a durable finding, decision, or hypothesis for THIS task (e.g. \"root cause is a DPI mismatch in LayoutBrowserPane\", \"user wants dark theme kept\"). Notes stay in your working memory even after older chat is trimmed, so use this to avoid re-discovering the same facts. Keep each note to one short sentence.",
+      parameters: { type: "object", properties: {
+        note: { type: "string", description: "One concise finding, decision, or next-step to remember" }
+      }, required: ["note"] }
     }
   },
   {
@@ -229,7 +241,7 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "record_debug_evidence",
       description:
-        "Record one grounded checkpoint in Boolean's required bug-fix workflow. " +
+        "Record one grounded checkpoint in Boollm's required bug-fix workflow. " +
         "Use reproduced only after a real pre-edit command/page/preview check shows the reported failure; " +
         "root_cause only after inspecting the responsible code; verified only after repeating the original check following the latest edit.",
       parameters: {
@@ -427,7 +439,7 @@ export const TOOL_DEFINITIONS = [
       description:
         "Capture a visual screenshot of a rendered web page (a URL, or the page already open in the browser) and review it visually. " +
         "Use this after building or changing a website/app UI to SEE how it actually looks, then refine the design. " +
-        "For a local dev server, pass its URL (e.g. http://localhost:3210). Needs the Boolean desktop app and a vision-capable model.",
+        "For a local dev server, pass its URL (e.g. http://localhost:3210). Needs the Boollm desktop app and a vision-capable model.",
       parameters: {
         type: "object",
         properties: { url: { type: "string", description: "Optional URL to open and capture; defaults to the page already open in the browser" } },
@@ -660,7 +672,7 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "download_local_model",
       description:
-        "Download and select a public/free local GGUF model from Boolean's curated model library. " +
+        "Download and select a public/free local GGUF model from Boollm's curated model library. " +
         "Use this when the user asks to get, download, install, use, or switch to a local LLM/model. " +
         "Only downloads known public catalog models into the local models folder; never invent model URLs.",
       parameters: {
@@ -682,9 +694,9 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "install_public_local_model",
       description:
-        "Install and select a public GGUF that is not in Boolean's curated library. " +
+        "Install and select a public GGUF that is not in Boollm's curated library. " +
         "Use source_url for a direct huggingface.co .gguf link, or local_path when the GGUF already exists on this PC. " +
-        "Boolean validates the file and places it in its own models folder; do not use browser_download, curl, Ollama, or another model app.",
+        "Boollm validates the file and places it in its own models folder; do not use browser_download, curl, Ollama, or another model app.",
       parameters: {
         type: "object",
         properties: {
@@ -733,6 +745,21 @@ export const TOOL_DEFINITIONS = [
           body: { type: "object", description: "Optional JSON request body." }
         },
         required: ["method", "path"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "cloud_hosting_list_resources",
+      description: "List resources from the Azure, AWS, or Google Cloud account selected in Settings.",
+      parameters: {
+        type: "object",
+        properties: {
+          provider: { type: "string", enum: ["azure", "aws", "googleCloud"] },
+          resource: { type: "string", description: "Azure: resources, webapps, functions, storage. AWS: identity, amplify, lambda, buckets. Google Cloud: projects, run, appengine, storage." }
+        },
+        required: ["provider", "resource"]
       }
     }
   },
@@ -789,7 +816,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "email_send_draft",
-      description: "Send an existing Gmail or Outlook draft. Boolean always shows a confirmation prompt first, even in Auto-approve mode. Unavailable while Draft-only is on.",
+      description: "Send an existing Gmail or Outlook draft. Boollm always shows a confirmation prompt first, even in Auto-approve mode. Unavailable while Draft-only is on.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
         account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
@@ -832,7 +859,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "email_cleanup_undo",
-      description: "Undo a Boolean cleanup run by moving its messages out of Trash. Requires the run id returned by email_cleanup_trash.",
+      description: "Undo a Boollm cleanup run by moving its messages out of Trash. Requires the run id returned by email_cleanup_trash.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
         account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
@@ -948,7 +975,7 @@ function summarizeLargeRead(target, content) {
   const previewLines = lines.slice(0, DEFAULT_LARGE_FILE_PREVIEW_LINES).join("\n");
   const map = [
     `Large file preview: ${path.basename(target)} (${lines.length} lines, ${content.length.toLocaleString()} chars${ext ? `, ${ext}` : ""}${likelyGenerated ? ", generated/build path" : ""}).`,
-    "Boolean did not return the full file to avoid wasting tokens or causing repeated truncated reads.",
+    "Boollm did not return the full file to avoid wasting tokens or causing repeated truncated reads.",
     "Next step: use search_files/find_symbol, or call read_file with offset and limit for the exact lines needed.",
     headings.length ? `Headings:\n${headings.join("\n")}` : "",
     defs.length ? `Definitions/anchors:\n${defs.slice(0, 20).join("\n")}` : "",
@@ -1097,7 +1124,7 @@ const BROWSER_OFF_MSG = "AI browser access is disabled in Settings.";
 async function screenshotPage(args, ctx) {
   if (browserDisabled(ctx)) return BROWSER_OFF_MSG;
   if (typeof ctx.captureScreenshot !== "function") {
-    return "Screenshots need the Boolean desktop app (the embedded browser). Not available in this session — use read_page for the page text instead.";
+    return "Screenshots need the Boollm desktop app (the embedded browser). Not available in this session — use read_page for the page text instead.";
   }
   const body = await ctx.captureScreenshot(args.url ? { url: String(args.url) } : {});
   if (!body || body.ok === false || !body.image) {
@@ -1118,7 +1145,7 @@ async function screenshotPage(args, ctx) {
       (info ? `\n\nPage text/OCR:\n${info}` : "");
   }
   const endpoint = ctx.config?.provider === "zaiCoding" ? "Z.AI Coding Plan model" : "selected model";
-  return `Screenshot captured and shown to the user, but the ${endpoint} is text-only, so Boolean did not send it unsupported image data. ` +
+  return `Screenshot captured and shown to the user, but the ${endpoint} is text-only, so Boollm did not send it unsupported image data. ` +
     "Use inspect_page_layout for sticky, overflow, sizing, and scroll behavior; use read_page for page text; or switch to a vision-capable model. " +
     (info ? `\n\nPage text/OCR:\n${info}` : "");
 }
@@ -1160,7 +1187,12 @@ function connectorList(ctx) {
   const cloudflare = c.cloudflare?.connected
     ? [`on Cloudflare: ${c.cloudflare.accountName || c.cloudflare.accountId || "connected"}`]
     : [];
-  return [...cloudflare, ...email, ...mcp, ...agents].join("\n") || "no connectors configured";
+  const hosting = [
+    ["Azure", c.azure, c.azure?.subscriptionName || c.azure?.subscriptionId],
+    ["AWS", c.aws, c.aws?.accountId],
+    ["Google Cloud", c.googleCloud, c.googleCloud?.projectName || c.googleCloud?.projectId]
+  ].filter(([, value]) => value?.connected).map(([name,, scope]) => `on ${name}: ${scope || "connected"}`);
+  return [...cloudflare, ...hosting, ...email, ...mcp, ...agents].join("\n") || "no connectors configured";
 }
 
 function cloudflareConnection(ctx) {
@@ -1199,6 +1231,21 @@ async function callCloudflareApi(args, ctx) {
     body: method === "GET" || method === "DELETE" ? undefined : (args.body || {})
   });
   return truncate(JSON.stringify(payload, null, 2));
+}
+
+async function listCloudHostingResources(args, ctx) {
+  const provider = String(args.provider || "").trim();
+  const connection = ctx.config?.connectors?.[provider];
+  if (!connection?.connected) throw new Error(`${provider} is not connected. Open Settings > Connectors.`);
+  const resource = String(args.resource || "").trim().toLowerCase();
+  const result = provider === "azure"
+    ? await azureResourceList(connection, resource)
+    : provider === "aws"
+      ? await awsResourceList(connection, resource)
+      : provider === "googleCloud"
+        ? await googleCloudResourceList(connection, resource)
+        : (() => { throw new Error("Choose azure, aws, or googleCloud."); })();
+  return truncate(JSON.stringify({ provider, resource, result }, null, 2));
 }
 
 function emailConnection(args, ctx) {
@@ -1280,7 +1327,7 @@ async function executeEmailTool(name, args, ctx) {
     const alreadyProcessed = new Set(plan.processedIds || []);
     const pending = plan.candidates.filter((item) => !alreadyProcessed.has(item.id)).slice(0, batchSize);
     if (!pending.length) return `Cleanup plan ${plan.id} has no remaining candidates. Nothing was changed.`;
-    const ok = await ctx.approve(`Move up to ${pending.length} reviewed messages from ${plan.account || (provider === "gmail" ? "Gmail" : "Outlook")} to Trash now? This does not permanently delete them and Boolean will create an Undo record.`);
+    const ok = await ctx.approve(`Move up to ${pending.length} reviewed messages from ${plan.account || (provider === "gmail" ? "Gmail" : "Outlook")} to Trash now? This does not permanently delete them and Boollm will create an Undo record.`);
     if (!ok) return "No email was moved because the user declined confirmation.";
 
     const labels = await listEmailLabels(provider, connection, save);
@@ -1490,13 +1537,13 @@ async function installPublicLocalModel(args, ctx) {
     last = `${pct}%`;
     if (pct >= lastReported + 10 || pct === 100) {
       lastReported = pct;
-      ctx.onStatus?.(`Installing ${name} in Boolean: ${pct}%`);
+      ctx.onStatus?.(`Installing ${name} in Boollm: ${pct}%`);
     }
   };
   if (localPath) {
     if (!path.isAbsolute(localPath)) return "error: local_path must be an absolute .gguf path";
     const name = path.basename(localPath);
-    const ok = await ctx.approve(`Install ${name} in Boolean`);
+    const ok = await ctx.approve(`Install ${name} in Boollm`);
     if (!ok) return "user declined installing the model";
     file = await engine.importModel(localPath, (pct) => progress(name, pct));
     if (args.move_source && path.resolve(localPath).toLowerCase() !== path.resolve(engine.MODELS_DIR, file).toLowerCase()) {
@@ -1505,7 +1552,7 @@ async function installPublicLocalModel(args, ctx) {
   } else {
     let name = "public GGUF model";
     try { name = decodeURIComponent(new URL(sourceUrl).pathname.split("/").pop() || name); } catch { /* engine gives exact error */ }
-    const ok = await ctx.approve(`Install ${name} in Boolean`);
+    const ok = await ctx.approve(`Install ${name} in Boollm`);
     if (!ok) return "user declined installing the model";
     file = await engine.downloadPublicModel(sourceUrl, (pct) => progress(name, pct));
   }
@@ -1515,14 +1562,14 @@ async function installPublicLocalModel(args, ctx) {
   ctx.config.local.model = file;
   saveConfig(ctx.config);
   try { engine.stopEngine(); } catch { /* reload next request */ }
-  return `Installed and selected ${file} in Boolean.` + (last ? ` (${last})` : "");
+  return `Installed and selected ${file} in Boollm.` + (last ? ` (${last})` : "");
 }
 
 export function explicitModelInstallRequest(input) {
   const text = String(input || "").trim().toLowerCase();
   if (!text) return false;
   if (/\b(?:download|install|reinstall|redownload|import)\b/.test(text)) return true;
-  if (/\bmove\b.*\b(?:boolean|models? folder|local models?)\b/.test(text)) return true;
+  if (/\bmove\b.*\b(?:boollm|boolean|models? folder|local models?)\b/.test(text)) return true;
   if (/^(?:please\s+)?(?:get|add|use|select)\b/.test(text)) return true;
   if (/^(?:please\s+)?switch\s+(?:me\s+)?to\b/.test(text)) return true;
   if (/\b(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:get|add|use|select)\b/.test(text)) return true;
@@ -1902,10 +1949,10 @@ export async function executeTool(name, args, ctx) {
         if (/^gh(?:\.exe)?\s+auth\s+login(?:\s|$)/i.test(normalizedCommand)) {
           const status = await ghStatus(ctx);
           if (status.authenticated) return `GitHub CLI is already authenticated${status.user ? ` as ${status.user}` : ""}. No login is needed.`;
-          return "GitHub login needs an interactive browser or terminal. Open GitHub settings and start the visible sign-in flow; Boolean will not run this command hidden.";
+          return "GitHub login needs an interactive browser or terminal. Open GitHub settings and start the visible sign-in flow; Boollm will not run this command hidden.";
         }
         if (isLikelyLongRunningCommand(normalizedCommand)) {
-          return "This looks like a long-running dev server or watcher. Do not run it with run_command because it keeps the chat in Stop/running mode. Use run_background for this command, then read_process to check status, or run_project for Boolean project previews.";
+          return "This looks like a long-running dev server or watcher. Do not run it with run_command because it keeps the chat in Stop/running mode. Use run_background for this command, then read_process to check status, or run_project for Boollm project previews.";
         }
         const shell = args.shell === "cmd" ? "cmd" : "powershell";
         const ok = await ctx.approve(`run [${shell}]: ${args.command}`);
@@ -2042,6 +2089,8 @@ export async function executeTool(name, args, ctx) {
         return await listCloudflareResources(args, ctx);
       case "cloudflare_api_request":
         return await callCloudflareApi(args, ctx);
+      case "cloud_hosting_list_resources":
+        return await listCloudHostingResources(args, ctx);
       case "email_list":
       case "email_read":
       case "email_create_draft":

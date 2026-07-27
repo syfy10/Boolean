@@ -1,10 +1,10 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.55";
+export const APP_VERSION = "0.9.56";
 export const APP_DISPLAY_VERSION = "v0.09.55";
-export const APP_NAME = "Boolean";
+export const APP_NAME = "Boollm";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
 export const AI_BEHAVIOR_VERSION = 2;
@@ -15,13 +15,24 @@ const CONFIG_BACKUP_FILE = path.join(SAZ_DIR, "config.json.bak");
 // pre-rename location (app used to be called sazcode)
 const LEGACY_CONFIG_FILE = path.join(os.homedir(), ".sazcode", "config.json");
 
-export const PROVIDERS = ["local", "openai", "glm", "zaiCoding", "claude", "customApi"];
+export const FIRST_PARTY_CLOUD_PROVIDERS = [
+  "openai", "claude", "google", "xai", "deepseek", "qwen",
+  "baidu", "bytedance", "glm", "zaiCoding", "kimi"
+];
+export const PROVIDERS = ["local", ...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"];
 // providers that need an API key, and the friendly label for each
 export const CLOUD = {
   openai: "OpenAI",
+  google: "Google AI (Gemini)",
+  xai: "xAI (Grok)",
+  deepseek: "DeepSeek",
+  qwen: "Alibaba Cloud (Qwen)",
+  baidu: "Baidu Qianfan (ERNIE)",
+  bytedance: "ByteDance ModelArk (Doubao)",
   glm: "GLM (Z.ai)",
   zaiCoding: "Z.AI Coding Plan",
   claude: "Claude (Anthropic)",
+  kimi: "Moonshot AI (Kimi)",
   customApi: "Custom API"
 };
 
@@ -45,6 +56,36 @@ const DEFAULTS = {
     model: "gpt-5.1",
     apiKey: ""
   },
+  google: {
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    model: "gemini-3.6-flash",
+    apiKey: ""
+  },
+  xai: {
+    baseUrl: "https://api.x.ai/v1",
+    model: "grok-4.5",
+    apiKey: ""
+  },
+  deepseek: {
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-chat",
+    apiKey: ""
+  },
+  qwen: {
+    baseUrl: "https://dashscope-us.aliyuncs.com/compatible-mode/v1",
+    model: "qwen3.7-plus",
+    apiKey: ""
+  },
+  baidu: {
+    baseUrl: "https://api.baiduqianfan.ai/v1",
+    model: "ernie-5.0",
+    apiKey: ""
+  },
+  bytedance: {
+    baseUrl: "https://operator.las.ap-southeast-1.volces.com/api/v1",
+    model: "doubao-seed-1-6-251015",
+    apiKey: ""
+  },
   glm: {
     baseUrl: "https://api.z.ai/api/paas/v4",
     model: "glm-4.6",
@@ -60,6 +101,11 @@ const DEFAULTS = {
     // Anthropic's OpenAI-compatible endpoint â€” same chat/completions shape
     baseUrl: "https://api.anthropic.com/v1",
     model: "claude-sonnet-5",
+    apiKey: ""
+  },
+  kimi: {
+    baseUrl: "https://api.moonshot.ai/v1",
+    model: "kimi-k2.5",
     apiKey: ""
   },
   customApi: {
@@ -80,7 +126,7 @@ const DEFAULTS = {
   // EULA version the user accepted ("" = not yet accepted)
   eulaAccepted: "",
   // where generated projects are saved (user can change)
-  projectsDir: path.join(os.homedir(), "Documents", "Boolean"),
+  projectsDir: path.join(os.homedir(), "Documents", "Boollm"),
   // reference model for the "estimated savings" figure
   referenceModel: "gpt-5.1",
   // monthly cloud spending budget in USD. 0 = no limit. UI warns at 80%+.
@@ -89,7 +135,23 @@ const DEFAULTS = {
     apis: [],             // [{id,name,baseUrl,model,apiKey,approvedUse,enabled}] OpenAI-compatible APIs
     mcp: [],              // [{id,name,url,token,oauth,enabled}] remote Streamable-HTTP MCP servers
     agents: [],           // [{id,name,url,apiKey,enabled}]
-    cloudflare: { token: "", connected: false, accountId: "", accountName: "", tokenId: "", status: "", lastTestedAt: 0 },
+    cloudflare: {
+      token: "", connected: false, accountId: "", accountName: "", tokenId: "", status: "", lastTestedAt: 0,
+      authType: "", oauthClientId: "", oauthRedirectUri: "https://boollm.com/oauth/cloudflare/callback",
+      oauthScopes: [], oauth: null
+    },
+    azure: {
+      tenantId: "", clientId: "", clientSecret: "", connected: false,
+      subscriptionId: "", subscriptionName: "", lastTestedAt: 0
+    },
+    aws: {
+      accessKeyId: "", secretAccessKey: "", sessionToken: "", region: "us-east-1",
+      connected: false, accountId: "", arn: "", lastTestedAt: 0
+    },
+    googleCloud: {
+      serviceAccount: null, connected: false, projectId: "", projectName: "",
+      clientEmail: "", lastTestedAt: 0
+    },
     email: {
       draftOnly: true,
       confirmBeforeSend: true,
@@ -111,6 +173,7 @@ const DEFAULTS = {
   // UI/behavior preferences (surfaced in the organized Settings page)
   ui: {
     theme: "system",          // system | light | dark
+    colorTheme: "classic",
     composerStyle: "pill",    // pill | simple
     fontSize: "medium",       // small | medium | large
     density: "compact",       // compact is the fixed UI density
@@ -135,11 +198,15 @@ const DEFAULTS = {
       stopLoop: false,
       maxRetries: 2,
       budget: "normal",       // small | normal | large
-      autoCommit: false
+      autoCommit: false,
+      autopilot: true,        // active controller: auto-continue, plan/verify/recover loop (helps weaker models stay on task)
+      routing: "auto"         // auto | local-only | cloud-plan (route the first planning step to the cloud model, execute locally)
     },
     browserOpen: false,       // in-app browser panel visible
     cleanStartup: true,       // open with sidebar/workspace tabs/panels closed
     browserW: 460,            // browser panel width (px)
+    notepadW: 320,            // notepad panel width (px)
+    contextW: 300,            // context panel width (px)
     browserTabs: [],          // [{url,title}] restored on launch
     aiBrowser: true,          // allow the AI to browse the web (search/open/click/forms)
     systemActions: true,      // typed Windows inspection/settings/package actions
@@ -270,7 +337,7 @@ function restoreEmailConnection(nextEmail, prevEmail) {
 
 export function preserveSavedApiKeys(next, previous) {
   if (!next || !previous) return next;
-  for (const provider of ["openai", "glm", "zaiCoding", "claude", "customApi"]) {
+  for (const provider of [...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"]) {
     preserveApiKey(next, previous, provider);
   }
   for (const provider of ["gmail", "outlook"]) {
@@ -286,6 +353,18 @@ export function preserveSavedApiKeys(next, previous) {
   if (nextCloudflare && previousCloudflare) {
     if (!nonEmptyString(nextCloudflare.token) && nonEmptyString(previousCloudflare.token)) {
       nextCloudflare.token = previousCloudflare.token;
+    }
+  }
+  for (const [kind, secrets] of [
+    ["azure", ["clientSecret"]],
+    ["aws", ["secretAccessKey", "sessionToken"]],
+    ["googleCloud", ["serviceAccount"]]
+  ]) {
+    const current = next.connectors?.[kind];
+    const saved = previous.connectors?.[kind];
+    if (!current || !saved) continue;
+    for (const key of secrets) {
+      if (!current[key] && saved[key]) current[key] = structuredClone(saved[key]);
     }
   }
   if (next.connectors?.email || previous.connectors?.email?.accounts) {
@@ -334,6 +413,11 @@ export function preserveSavedConnections(next, previous) {
   if (!next.connectors.cloudflare && previous.connectors.cloudflare) {
     next.connectors.cloudflare = structuredClone(previous.connectors.cloudflare);
   }
+  for (const kind of ["azure", "aws", "googleCloud"]) {
+    if (!next.connectors[kind] && previous.connectors[kind]) {
+      next.connectors[kind] = structuredClone(previous.connectors[kind]);
+    }
+  }
   return next;
 }
 
@@ -356,7 +440,10 @@ function hasAnySavedCredential(cfg) {
   const c = cfg?.connectors || {};
   const email = c.email || {};
   if (["gmail", "outlook"].some((p) => hasSavedEmailCredential(email[p]))) return true;
-  if (["openai", "glm", "zaiCoding", "claude", "customApi"].some((p) => nonEmptyString(cfg?.[p]?.apiKey))) return true;
+  if ([...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"].some((p) => nonEmptyString(cfg?.[p]?.apiKey))) return true;
+  if (nonEmptyString(c.azure?.clientSecret)) return true;
+  if (nonEmptyString(c.aws?.secretAccessKey) || nonEmptyString(c.aws?.sessionToken)) return true;
+  if (nonEmptyString(c.googleCloud?.serviceAccount)) return true;
   if (["apis", "agents", "mcp"].some((k) => Array.isArray(c[k]) && c[k].length)) return true;
   return false;
 }
@@ -397,6 +484,10 @@ export function loadConfig() {
       // migrate configs saved before the context-window increase (8192 â†’ 32768)
       if (!cfg.local.ctx) cfg.local.ctx = 32768;
       let migrated = recovered;
+      if (cfg.ui.colorTheme !== "classic") {
+        cfg.ui.colorTheme = "classic";
+        migrated = true;
+      }
       if (raw.ui && raw.ui.onboarded === undefined && (raw.eulaAccepted || raw.ui.showOnboarding === false)) {
         cfg.ui.onboarded = true;
         cfg.ui.showOnboarding = false;
@@ -405,7 +496,7 @@ export function loadConfig() {
       const oldProjects = path.join(os.homedir(), "Documents", "SAZ3 Projects");
       const loxaProjects = path.join(os.homedir(), "Documents", "Loxa Projects");
       const booleanProjects = path.join(os.homedir(), "Documents", "Boolean Projects");
-      const newProjects = path.join(os.homedir(), "Documents", "Boolean");
+      const newProjects = path.join(os.homedir(), "Documents", "Boollm");
       if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects) { cfg.projectsDir = newProjects; migrated = true; }
       if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
         cfg.aiBehaviorVersion = AI_BEHAVIOR_VERSION;

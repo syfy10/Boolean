@@ -101,16 +101,32 @@ test("email recipes keep the selected AI and start in a fresh chat", () => {
   assert.match(html, /forceNew:true,title/);
 });
 
+test("open-email recipes can use the signed-in visible browser session", () => {
+  const html = read("../src/ui.html");
+  assert.match(html, /function browserEmailActionSupported/);
+  assert.match(html, /\["summary","reply","tasks"\]/);
+  assert.match(html, /Signed-in browser session/);
+  assert.match(html, /Use signed-in email open in Boollm browser/);
+  assert.match(html, /function updateEmailBrowserStatus/);
+  assert.match(html, /Gmail or Outlook in Boollm's browser/);
+  assert.match(html, /First call visible_browser_read/);
+  assert.match(html, /use visible_browser_draft_email/);
+  assert.match(html, /if\(!accounts\.length&&!browserEmailActionSupported\(recipe\)\)/);
+  assert.match(html, /if\(!account&&!browserOnly\)/);
+  assert.match(html, /if\(!\$\("emailUseBrowser"\)\?\.checked\)/);
+  assert.match(html, /Open Gmail or Outlook in Boollm's browser and open the email first/);
+});
+
 test("automatic AI recovery avoids paid API key providers", () => {
   const html = read("../src/ui.html");
-  assert.match(html, /const DIRECT_API_PROVIDERS=new Set\(\["glm","openai","claude","customApi"\]\)/);
+  assert.match(html, /const DIRECT_API_PROVIDERS=new Set\(\["glm","openai","google","claude","xai","deepseek","qwen","baidu","bytedance","kimi","customApi"\]\)/);
   assert.match(html, /function directProviderRequiresExplicitPick\(provider\)/);
   assert.match(html, /providerReadyForRun\(current\)&&!directProviderRequiresExplicitPick\(current\)/);
   assert.match(html, /const safeOrder=\["zaiCoding","local"\]/);
   assert.match(html, /Pick .* from the AI menu to use that API key/);
-  assert.match(html, /Boolean will not switch to it automatically/);
+  assert.match(html, /Boollm will not switch to it automatically/);
   assert.match(html, /markExplicitProviderChoice\(prov\);[\s\S]*JSON\.stringify\(\{provider:prov,model\}\)/);
-  assert.match(html, /if\(providerReadyForRun\("zaiCoding"\)\|\|keys\.zaiCoding\) prov="zaiCoding"/);
+  assert.match(html, /if\(!prov&&\(providerReadyForRun\("zaiCoding"\)\|\|keys\.zaiCoding\)\) prov="zaiCoding"/);
   assert.doesNotMatch(html, /const cloudOrder=\["zaiCoding","glm","openai","claude","customApi"\]/);
 });
 
@@ -125,7 +141,7 @@ test("email cleanup follow-up offers a clear Move to Trash action", () => {
   assert.match(html, /required approval step/);
   assert.match(html, /Nothing is permanently deleted/);
   assert.match(html, /completed batch can be undone/);
-  assert.match(html, /After the preview, Boolean shows a required approval card/);
+  assert.match(html, /After the preview, Boollm shows a required approval card/);
   assert.match(html, /cleanupApprovalDetails\(text\)[\s\S]*showCleanupApprovalCard\(cleanupApproval\)/);
   assert.match(html, /emailCleanup\?'Move to Trash':'Allow'/);
 });
@@ -153,7 +169,7 @@ test("Recipes explain effects, prerequisites, and action safety before starting"
   assert.match(html, /Read-only planning or verification/);
   assert.match(html, /Prepares an automation and asks for any missing schedule details/);
   assert.match(html, /Attach the screenshot in chat after loading this Recipe/);
-  assert.match(html, /Open the page you want Boolean to use/);
+  assert.match(html, /Open the page you want Boollm to use/);
   assert.match(html, /Confirm destructive or external actions/);
   assert.match(html, /Normal in-project edits and verification are allowed/);
   assert.match(html, /Review in chat/);

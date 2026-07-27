@@ -1,4 +1,4 @@
-# Boolean project rules
+# Boollm project rules
 
 ## Architecture
 - Node.js desktop AI workspace. Electron-style shell (C#) hosting a Node backend.

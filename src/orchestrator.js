@@ -116,7 +116,7 @@ export async function finalizeIsolatedAgentRun(id, summary = "") {
   if (status.output.trim()) {
     const add = await execGit(run.workspaceDir, ["add", "-A"]);
     if (add.code !== 0) throw new Error(add.output || "could not stage agent changes");
-    const message = `Boolean agent: ${safeSlug(run.task).replace(/-/g, " ")}`;
+    const message = `Boollm agent: ${safeSlug(run.task).replace(/-/g, " ")}`;
     const committed = await execGit(run.workspaceDir, ["commit", "-m", message], 120000);
     if (committed.code !== 0) throw new Error(committed.output || "could not commit agent changes");
     const head = await execGit(run.workspaceDir, ["rev-parse", "HEAD"]);

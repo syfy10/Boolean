@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AgentController } from "../src/controller.js";
+import { AgentController, isInspectionTool } from "../src/controller.js";
 import { loadProjectRules, projectBrief } from "../src/agent.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -67,7 +67,7 @@ test("controller persists its objective, plan, evidence, and recovery state", ()
 test("action requests are detected but no longer gate the final answer", () => {
   const controller = new AgentController({ objective: "Please send the saved email draft" });
   assert.equal(controller.actionRequired, true, "still classified as an action task");
-  // Boolean used to refuse this answer; the model now decides.
+  // Boollm used to refuse this answer; the model now decides.
   assert.equal(controller.evaluateCompletion("The draft was sent.").complete, true);
 
   controller.noteTool("email_send_draft", { id: "draft-1" }, "sent draft draft-1");
@@ -81,9 +81,9 @@ test("explicit controller action requirement no longer blocks a status answer", 
 });
 
 test("ordinary questions do not require tools", () => {
-  const controller = new AgentController({ objective: "What is a Boolean value?" });
+  const controller = new AgentController({ objective: "What is a Boollm value?" });
   assert.equal(controller.actionRequired, false);
-  assert.equal(controller.evaluateCompletion("A Boolean is true or false.").complete, true);
+  assert.equal(controller.evaluateCompletion("A Boollm is true or false.").complete, true);
 });
 
 test("debug tasks are detected but edits are never blocked", () => {
@@ -338,7 +338,7 @@ test("loop guard recovery allows progress actions but blocks more inspection", (
   assert.equal(controller.allowTool("run_command", { command: "dotnet build" }).allowed, true);
 });
 
-test("loop guard is advisory by default so long tasks keep working", () => {
+test("loop guard allows a longer default inspection window before the emergency stop", () => {
   const controller = new AgentController({
     objective: "Finish building the WinUI app",
     artifactRequired: true,
@@ -358,6 +358,76 @@ test("loop guard is advisory by default so long tasks keep working", () => {
   assert.equal(allowed.allowed, true, allowed.reason);
   // The prompt notes the lack of progress without lecturing the model about it.
   assert.match(controller.prompt(), /several inspections have run/i);
+
+  for (let i = 28; i < 48; i++) {
+    controller.noteTool("read_file", { path: `C:\\demo\\file${i}.cs` }, "read source");
+  }
+  const blocked = controller.allowTool("read_file", { path: "C:\\demo\\OneMorePage.xaml" });
+  assert.equal(blocked.allowed, false);
+  assert.match(blocked.reason, /Tool budget reached/i);
+});
+
+test("emergency loop guard blocks repeated inspection even when strict mode is off", () => {
+  const controller = new AgentController({
+    objective: "Review the project and report what should change",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+
+  for (let i = 0; i < 6; i++) {
+    const args = { query: `layout-${i}`, path: "C:\\demo" };
+    assert.equal(controller.allowTool("search_files", args).allowed, true);
+    controller.noteTool("search_files", args, "matches");
+  }
+
+  const blocked = controller.allowTool("search_files", {
+    query: "one-more-layout-search",
+    path: "C:\\demo"
+  });
+  assert.equal(blocked.allowed, false);
+  assert.match(blocked.reason, /Loop guard/i);
+});
+
+test("connector discovery and read-only MCP calls use the global inspection loop guard", () => {
+  const controller = new AgentController({
+    objective: "Use the connected service to answer the request",
+    actionRequired: true,
+    loopStop: true
+  });
+
+  assert.equal(isInspectionTool("list_connectors", {}), true);
+  assert.equal(isInspectionTool("mcp_list_tools", { connector: "Example" }), true);
+  assert.equal(isInspectionTool("mcp_call_tool", {
+    connector: "Example",
+    tool: "get_accounts",
+    arguments: {}
+  }), true);
+
+  for (let i = 0; i < 2; i++) {
+    const args = { connector: "Example" };
+    assert.equal(controller.allowTool("mcp_list_tools", args).allowed, true);
+    controller.noteTool("mcp_list_tools", args, "tools");
+  }
+  assert.match(controller.allowTool("mcp_list_tools", { connector: "Example" }).reason, /Loop guard/i);
+  assert.equal(controller.snapshot().successfulActionCount, 0);
+});
+
+test("mutating MCP calls remain progress actions rather than inspections", () => {
+  const args = {
+    connector: "Example",
+    tool: "create_issue",
+    arguments: { title: "Bug" }
+  };
+  assert.equal(isInspectionTool("mcp_call_tool", args), false);
+
+  const controller = new AgentController({
+    objective: "Create the requested issue",
+    actionRequired: true,
+    loopStop: true
+  });
+  controller.noteTool("mcp_call_tool", args, "created issue 123");
+  assert.equal(controller.snapshot().successfulActionCount, 1);
+  assert.equal(controller.snapshot().nonProgressCount, 0);
 });
 
 test("working memory tracks temporary processes and exposes a handoff report", () => {
@@ -378,7 +448,7 @@ test("optional visual inspection failure after successful verification does not 
 
   controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
   controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
-  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boollm page loaded");
   controller.noteTool("inspect_page_layout", { selector: "#browser" }, "visible browser error: The JSON value could not be converted to System.String.");
 
   const result = controller.evaluateCompletion("Updated and checked.");
@@ -396,7 +466,7 @@ test("artifact tasks must close temporary background processes before completion
   controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
   controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
   controller.noteTool("run_background", { name: "preview", command: "npm run dev" }, "Started background process 'preview' - running (pid 42).");
-  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boollm page loaded");
 
   const blocked = controller.evaluateCompletion("Done.");
   assert.equal(blocked.complete, false);
@@ -406,10 +476,10 @@ test("artifact tasks must close temporary background processes before completion
   assert.equal(controller.evaluateCompletion("Done.").complete, true);
 });
 
-test("project rules load from BOOLEAN.md and inject into project brief", () => {
+test("project rules load from BOOLLM.md and inject into project brief", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-rules-"));
   try {
-    fs.writeFileSync(path.join(dir, "BOOLEAN.md"), "# My Project\n\nBuild with foo --bar\nNever deploy.");
+    fs.writeFileSync(path.join(dir, "BOOLLM.md"), "# My Project\n\nBuild with foo --bar\nNever deploy.");
     const rules = loadProjectRules(dir);
     assert.match(rules, /PROJECT RULES/);
     assert.match(rules, /Build with foo --bar/);
@@ -447,4 +517,64 @@ test("project rules return empty when no rules file exists", () => {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("remember records model findings into working memory and survives a snapshot round-trip", () => {
+  const c = new AgentController({ objective: "Investigate the crash", artifactRequired: true });
+  c.addNote("root cause is a DPI mismatch in LayoutBrowserPane");
+  assert.match(c.workingMemory(), /Findings recorded:.*DPI mismatch/);
+  const restored = new AgentController({ objective: "Investigate the crash", persisted: c.snapshot() });
+  assert.match(restored.workingMemory(), /DPI mismatch/, "notes persist across snapshot");
+});
+
+test("project rules prefer .boollm/rules.md and preserve legacy rules fallback", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boollm-rules-"));
+  try {
+    fs.mkdirSync(path.join(dir, ".boollm"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".boollm", "rules.md"), "Style: use spaces.");
+    fs.writeFileSync(path.join(dir, "BOOLEAN.md"), "Legacy rules should not win.");
+    const rules = loadProjectRules(dir);
+    assert.match(rules, /from \.boollm\/rules\.md/);
+    assert.match(rules, /use spaces/);
+    assert.doesNotMatch(rules, /Legacy rules/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("autopilot nudges once to verify a changed-but-unchecked build task, then completes", () => {
+  const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p", autopilot: true });
+  c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  const first = c.evaluateCompletion("Fixed it.");
+  assert.equal(first.complete, false, "first completion is held for verification");
+  assert.match(first.reason, /build\/test\/check/i);
+  const second = c.evaluateCompletion("Fixed it.");
+  assert.equal(second.complete, true, "does not loop — completes on the next attempt");
+});
+
+test("without autopilot the verification nudge never fires (neutral relay unchanged)", () => {
+  const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p" });
+  c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
+});
+
+test("autopilot project timelines require real file work before completion", () => {
+  const controller = new AgentController({
+    objective: "Build a tic tac toe game",
+    artifactRequired: true,
+    projectDir: "C:\\demo",
+    autopilot: true
+  });
+  const result = controller.evaluateCompletion("Here is the timeline I would follow.");
+  assert.equal(result.complete, false);
+  assert.match(result.reason, /has not changed any project file/i);
+  assert.equal(controller.phase, "executing");
+});
+
+test("continuationPrompt is silent without autopilot and actionable with it", () => {
+  const off = new AgentController({ objective: "x", artifactRequired: true });
+  assert.equal(off.continuationPrompt("loop guard: repeated the same kind of inspection"), "");
+  const on = new AgentController({ objective: "x", artifactRequired: true, autopilot: true });
+  const p = on.continuationPrompt("loop guard: repeated the same kind of inspection");
+  assert.ok(p.length > 0 && /different concrete step|WORKING MEMORY/i.test(p), "gives real recovery guidance");
 });
