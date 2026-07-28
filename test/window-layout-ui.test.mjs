@@ -55,7 +55,7 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.match(ui, /if\(action==="projects"\)\{ adoptProject\(\); return; \}/);
   assert.match(ui, /let sidebarManualState=null;/);
   assert.match(ui, /const auxiliaryNeedsRoom=auxiliaryPairOpen&&estimatedOpenMainW<620;/);
-  assert.match(ui, /document\.body\.classList\.toggle\("collapsed",auxiliaryNeedsRoom\|\|recipesNeedRoom\s*\?true\s*:\(sidebarManualState===null\?shouldCollapseApprovedSidebar:sidebarManualState\)\);/);
+  assert.match(ui, /document\.body\.classList\.toggle\("collapsed",auxiliaryNeedsRoom\|\|recipesNeedRoom\|\|educationNeedsRoom\s*\?true\s*:\(sidebarManualState===null\?shouldCollapseApprovedSidebar:sidebarManualState\)\);/);
   assert.match(ui, /\$\("panelToggle"\)\.title=sidebarPopover\?"Close projects and chats":sidebarClosed\?"Show projects and chats":"Hide projects and chats";/);
   assert.match(ui, /let navForward=\[\];/);
   assert.match(ui, /navForward\.push\(currentAppView\(\)\);\s*await restoreAppView\(view\);/);
@@ -590,7 +590,7 @@ test("approved sidebar follows window width until the user toggles it", () => {
   assert.match(ui, /--approved-sidebar-w:260px;/);
   assert.match(ui, /const estimatedOpenMainW=currentMainW-\(document\.body\.classList\.contains\("collapsed"\)\?sidebarW:0\);/);
   assert.match(ui, /const shouldCollapseApprovedSidebar=w<=640\|\|auxiliaryNeedsRoom;/);
-  assert.match(ui, /document\.body\.classList\.toggle\("collapsed",auxiliaryNeedsRoom\|\|recipesNeedRoom\s*\?true/);
+  assert.match(ui, /document\.body\.classList\.toggle\("collapsed",auxiliaryNeedsRoom\|\|recipesNeedRoom\|\|educationNeedsRoom\s*\?true/);
   assert.match(ui, /if\(auxiliaryNeedsRoom\) document\.body\.classList\.remove\("sidebar-popover-open"\);/);
 });
 
@@ -631,6 +631,18 @@ test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.onclick=\(\)=>selectNet\(b\.dataset\.net\)\)/);
 });
 
+test("installed local models show measured performance on this PC", () => {
+  assert.match(ui, /const LOCAL_MODEL_PERF_KEY="boollmLocalModelPerformanceV1";/);
+  assert.match(ui, /Not tested on this PC/);
+  assert.match(ui, /tok\/s · responds /);
+  assert.match(ui, /recordLocalModelPerformance\(run\)/);
+  assert.match(ui, /run\.firstTokenAt=performance\.now\(\)/);
+  assert.match(ui, /run\.lastUsage=ev/);
+  assert.match(ui, /installed\?"Installed":"Download"/);
+  assert.match(ui, /#modellist\.local-model-view \.item\.model-rec \.model-performance\{ position:absolute; left:34px; right:4px; bottom:2px;/);
+  assert.match(ui, /await benchmarkInstalledModel\(file\)/);
+});
+
 test("cloud provider setup stays compact and reveals all models after connection", () => {
   assert.match(ui, /class="model-picker-title"><b>AI providers<\/b>/);
   assert.match(ui, /\.menu#modelmenu\{[^}]*width:218px;[^}]*max-height:min\(380px,calc\(100vh - 72px\)\)/s);
@@ -655,7 +667,7 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /toggleApiProvider\(id,name,row,true,true\)/);
   assert.match(ui, /\.api-provider-detail\.inline-models\{[^}]*border-top:1px/s);
   assert.match(ui, /list\.classList\.toggle\("local-model-view",pickerNet!=="online"\)/);
-  assert.match(ui, /#modellist\.local-model-view \.item\.model-rec\{[^}]*min-height:32px/s);
+  assert.match(ui, /#modellist\.local-model-view \.item\.model-rec\{[^}]*min-height:40px/s);
   assert.match(ui, /function localModelCompanyMark\(value\)/);
   assert.match(ui, /const head=appendLibraryHead\(list,"Installed"\);[\s\S]*?appendLibraryHead\(list,"Recommended local"\)/);
   assert.match(ui, /#modellist\.local-model-view \.model-actions\{[^}]*width:94px;[^}]*grid-template-columns:50px 20px 20px;/s);
@@ -829,6 +841,12 @@ test("native shell places the window inside the monitor work area", () => {
   assert.match(ui, /winCmd\("maxtoggle"\);/);
 });
 
+test("native shell completes the border across the custom title bar", () => {
+  assert.match(shell, /readonly Panel _topOutline = new\(\) \{ Dock = DockStyle\.Top, Height = 1, TabStop = false \};/);
+  assert.match(shell, /Controls\.Add\(_topOutline\);\s*_topOutline\.BringToFront\(\);/);
+  assert.match(shell, /_topOutline\.BackColor = p\.BtnBorder;/);
+});
+
 test("side chat user bubbles keep readable foreground contrast in dark mode", () => {
   assert.match(ui, /\.side-chat-msg\.user\{[^}]*color:var\(--accent-text\);[^}]*background:var\(--accent\);/s);
   assert.match(ui, /:root\[data-theme="dark"\]\{[\s\S]*?--accent:#ececec; --accent-text:#181818;/);
@@ -933,6 +951,15 @@ test("message metadata and actions appear on mouse hover and selected touch mess
   assert.match(ui, /col\.addEventListener\("keydown",\(e\)=>\{[\s\S]*?toggleMessageControls\(e\.target\);/);
 });
 
+test("AI responses offer neutral local helpful and correction feedback", () => {
+  assert.match(ui, /data-act="feedback-up"[^>]*title="Helpful"/);
+  assert.match(ui, /data-act="feedback-down"[^>]*title="Not helpful or incorrect"/);
+  assert.match(ui, /\.msg-foot \.response-feedback\{ color:var\(--dim\); opacity:\.72; \}/);
+  assert.match(ui, /fetch\("\/api\/preferences\/feedback"/);
+  assert.match(ui, /This feedback stays on this PC\./);
+  assert.doesNotMatch(ui, /\.response-feedback[^}]*#[0-9a-f]{3,8}/i);
+});
+
 test("local chats hide token counts and reserve the message action row", () => {
   assert.match(ui, /body:not\(\.online-mode\) \.msg-foot \.usage-inline\{ display:none; \}/);
   assert.match(ui, /\.msg-foot\{[^}]*min-height:18px;[^}]*max-height:24px;[^}]*margin-top:1px;[^}]*transition:opacity \.12s;/);
@@ -970,6 +997,34 @@ test("Markets closes the projects pane once on entry and signed-out accounts exp
   assert.match(ui, /id="accountAuthText">Sign in or sign up<\/span>/);
   assert.match(ui, /if\(auth\) auth\.textContent=cloud\.signedIn\?"Log out":"Sign in or sign up";/);
   assert.match(ui, /if\(authNote\) authNote\.hidden=!!cloud\.signedIn;/);
+});
+
+test("Education closes Projects and Chats when the workspace opens", () => {
+  assert.match(ui, /const enteringEducation=ws==="education"&&ws!==activeWsTab;/);
+  assert.match(ui, /if\(enteringEducation&&!document\.body\.classList\.contains\("collapsed"\)\)\{[\s\S]*?educationSidebarAutoClosed=true;[\s\S]*?classList\.add\("collapsed"\)[\s\S]*?classList\.remove\("sidebar-popover-open"\)[\s\S]*?syncPanelButtons\(\);/);
+  assert.match(ui, /sidebarOpen:educationSidebarAutoClosed\?true:!document\.body\.classList\.contains\("collapsed"\)/);
+  assert.match(ui, /else if \(ws === "education"\) \{[\s\S]*?educationSidebarAutoClosed=false;scheduleResponsiveClasses\(\); \}/);
+});
+
+test("Markets dark mode uses the shared Boollm canvas and card blacks", () => {
+  assert.match(ui, /body\.markets-open \.markets-shell\{\s*--market-bg:var\(--approved-canvas\);\s*--market-card:var\(--approved-card\);\s*--market-card-2:var\(--card\);/);
+  assert.match(ui, /body\.markets-open \.workspace-tabs,[\s\S]*?body\.markets-open \.market-bottom-tape\{\s*background:var\(--approved-canvas\);/);
+  assert.match(ui, /body\.markets-open \.market-watch,[\s\S]*?body\.markets-open \.market-ai-summary\{\s*background:var\(--approved-card\);/);
+});
+
+test("Education offers saved practice exams with both feedback modes and topic results", () => {
+  assert.match(ui, /id="educationWorkspaceTab" data-ws="education" title="Practice exams" hidden aria-hidden="true"/);
+  assert.match(ui, /const educationExams=\{/);
+  for (const exam of ["SHSAT","TACHS","HSPT","ISEE","SSAT","Regents","SAT","ACT","IQ reasoning practice"]) {
+    assert.match(ui, new RegExp(exam));
+  }
+  assert.match(ui, /<option value="each">After each question<\/option><option value="end">After the full test<\/option>/);
+  assert.match(ui, /id="educationGrade"/);
+  assert.match(ui, /sat:\[11,12\]/);
+  assert.match(ui, /const EDUCATION_SAVE_KEY="boollmEducationPracticeV1"/);
+  assert.match(ui, /function educationShowResults\(\)/);
+  assert.match(ui, /Questions in Boollm are newly generated practice items, not copied secure test questions/);
+  assert.match(ui, /body\.education-open #chat,body\.education-open \.composer-wrap\{ display:none!important; \}/);
 });
 
 test("project timelines appear only for chats explicitly bound to a folder", () => {

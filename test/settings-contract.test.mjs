@@ -129,6 +129,12 @@ test("Notepad and Memory is a searchable, editable local control center", () => 
   assert.match(serverSource, /updatePreference\(String\(body\.id \|\| ""\), String\(body\.text \|\| ""\)\)/);
 });
 
+test("policy covers local response learning and Education score limits", () => {
+  assert.match(uiSource, /Optional thumbs-up\/down ratings, correction notes, response excerpts, and learned behavior preferences stay on this PC/);
+  assert.match(uiSource, /Education is for practice and general learning only/);
+  assert.match(serverSource, /p === "\/api\/preferences\/feedback"/);
+});
+
 test("first-run setup does not promise automatic paid-provider routing", () => {
   assert.doesNotMatch(uiSource, /Both \(smart routing\)/);
   assert.match(uiSource, /will not switch providers or paid APIs without your choice/);

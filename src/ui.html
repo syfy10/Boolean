@@ -1178,6 +1178,8 @@
   .msg-foot .actbtn{ position:relative; width:17px; height:17px; padding:0; border:0; border-radius:5px; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:8px/1 var(--ui); cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .msg-foot .actbtn:hover,.msg-foot .actbtn:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
   .msg-foot .actbtn svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
+  .msg-foot .response-feedback{ color:var(--dim); opacity:.72; }
+  .msg-foot .response-feedback.selected{ color:var(--text); opacity:1; background:var(--hover); box-shadow:inset 0 0 0 1px var(--border); }
   .msg-foot .actbtn.action-done{ opacity:1; background:color-mix(in srgb,var(--text) 7%,transparent); }
   .msg-foot .actbtn.action-done::after,.msg-copy.action-done::after{ content:attr(data-feedback); position:absolute; left:50%; bottom:calc(100% + 4px); transform:translateX(-50%); z-index:3; padding:2px 6px; border:1px solid var(--border); border-radius:999px; background:var(--bg); color:var(--dim); font:10px/1.2 var(--ui); white-space:nowrap; box-shadow:0 4px 14px rgba(0,0,0,.08); pointer-events:none; }
   .change-summary{ display:inline-flex; align-items:center; gap:5px; min-width:0; color:var(--dim); font:11px/1.2 var(--ui); white-space:nowrap; }
@@ -1658,12 +1660,13 @@
   .api-provider-detail.inline-models .api-model-search{ margin:1px 3px 2px; width:calc(100% - 6px); padding:4px 5px; font-size:9px; }
   .api-provider-detail.inline-models .api-model-row{ min-height:24px; padding:3px 5px; font-size:9.5px; border-radius:5px; }
   .api-provider-detail.inline-models .api-model-row small{ font-size:8px; }
-  #modellist.local-model-view .item.model-rec{ min-height:32px; padding:4px; gap:6px; border-radius:0;
+  #modellist.local-model-view .item.model-rec{ position:relative; min-height:40px; padding:3px 4px 13px; gap:6px; border-radius:0;
     border-bottom:1px solid color-mix(in srgb,var(--text) 9%,var(--border)); }
   #modellist.local-model-view .item.model-rec .model-line{ flex:1; display:grid; grid-template-columns:minmax(62px,.85fr) minmax(0,1.15fr);
     align-items:center; column-gap:5px; line-height:1.1; }
   #modellist.local-model-view .item.model-rec .model-line b{ font-size:9.5px; }
   #modellist.local-model-view .item.model-rec .model-line small{ margin:0; font-size:7.5px; }
+  #modellist.local-model-view .item.model-rec .model-performance{ position:absolute; left:34px; right:4px; bottom:2px; width:auto; margin:0; font-size:7.5px; }
   #modellist.local-model-view .model-actions{ flex:0 0 94px; width:94px; display:grid; grid-template-columns:50px 20px 20px;
     align-items:center; justify-content:start; gap:2px; }
   #modellist.local-model-view .model-dl{ grid-column:1; width:50px; min-width:50px; height:22px; padding:0 3px;
@@ -1745,6 +1748,8 @@
   .model-card{ border:0; border-radius:9px; background:var(--bubble); padding:8px 9px; cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--text); }
   .model-card:hover{ background:var(--hover); }
   .model-card .model-line{ flex:1; min-width:0; padding-right:6px; }
+  .model-performance{ display:block; margin-top:3px; color:var(--dim); font:8px/1.2 var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .model-performance.fast{ color:var(--green); }
   .model-card .model-dl{ min-width:66px; height:24px; border-radius:999px; display:grid; place-items:center; background:var(--bg); padding:0 9px; text-align:center; white-space:nowrap; }
   .model-card.installed .model-dl{ color:var(--dim); }
   .model-card.selected{ background:color-mix(in srgb,var(--green) 10%,transparent); box-shadow:inset 2px 0 0 var(--green); }
@@ -2209,6 +2214,106 @@
   .recipes-panel{ width:100%; min-height:0; flex:1; margin:0 0 var(--app-footer-h); padding:10px var(--content-x) 18px; display:none; background:var(--bg); overflow:hidden; overscroll-behavior:contain; }
   body.recipes-open .recipes-panel{ display:flex; }
   body.recipes-open #chat,body.recipes-open .composer-wrap{ display:none !important; }
+  .education-panel{ width:100%; min-height:0; flex:1; margin:0 0 var(--app-footer-h); padding:10px var(--content-x) 18px; display:none; background:var(--bg); overflow:auto; }
+  body.education-open .education-panel{ display:block; }
+  body.education-open #chat,body.education-open .composer-wrap{ display:none!important; }
+  body.education-open #cmdBar,body.education-open #banner,body.education-open .proj-dashboard,
+  body.education-open #taskStepper,body.education-open #ctxChips,body.education-open #actionOffers{ display:none!important; }
+  body.education-open .terminal-drawer{ transform:translateY(100%)!important; }
+  .education-shell{ width:min(980px,100%); min-height:100%; margin:0 auto; color:var(--text); }
+  .education-head{ display:flex; align-items:flex-start; gap:12px; margin-bottom:10px; }
+  .education-head div{ flex:1; min-width:0; }
+  .education-head h2{ margin:0; font:700 19px/1.2 var(--ui); }
+  .education-head p{ margin:3px 0 0; color:var(--dim); font:11.5px/1.4 var(--ui); }
+  .education-card{ border:1px solid var(--border); border-radius:12px; background:var(--card); padding:14px; }
+  .education-setup-grid{ display:grid; grid-template-columns:.9fr 1.35fr .65fr 1.05fr; gap:10px; }
+  #educationOfficialField{ grid-column:span 2; }
+  .education-field{ display:flex; flex-direction:column; gap:5px; color:var(--dim); font:600 10px var(--ui); }
+  .education-field select{ height:35px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); padding:0 9px; font:12px var(--ui); }
+  .education-blueprint{ margin:12px 0; padding:10px; border-radius:9px; background:var(--bg); color:var(--dim); font:11px/1.5 var(--ui); }
+  .education-blueprint b{ color:var(--text); }
+  .education-actions{ display:flex; align-items:center; gap:8px; }
+  .education-btn{ border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); padding:8px 13px; font:600 11px var(--ui); cursor:pointer; }
+  .education-btn.primary{ background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+  .education-btn:disabled{ opacity:.45; cursor:default; }
+  .education-sources{ margin-top:12px; border-top:1px solid var(--border); padding-top:10px; color:var(--dim); font:10.5px/1.45 var(--ui); }
+  .education-sources a{ color:var(--online); }
+  .education-policy-note{ margin-top:8px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; color:var(--dim); background:var(--bg); font:9px/1.45 var(--ui); }
+  .education-session-head{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+  .education-progress{ flex:1; height:6px; border-radius:999px; background:var(--border); overflow:hidden; }
+  .education-progress span{ display:block; height:100%; background:var(--green); transition:width .18s; }
+  .education-counter{ color:var(--dim); font:10.5px var(--mono); white-space:nowrap; }
+  .education-question-meta{ color:var(--online); font:600 10px var(--ui); margin-bottom:6px; }
+  .education-question{ margin:0 0 12px; font:600 15px/1.5 var(--ui); white-space:pre-wrap; }
+  .education-choices{ display:grid; gap:7px; }
+  .education-choice{ display:flex; align-items:flex-start; gap:9px; width:100%; text-align:left; border:1px solid var(--border); border-radius:9px; background:var(--bg); color:var(--text); padding:9px 10px; font:12px/1.4 var(--ui); cursor:pointer; }
+  .education-choice:hover,.education-choice.selected{ border-color:var(--online); background:color-mix(in srgb,var(--online) 7%,var(--bg)); }
+  .education-choice.correct{ border-color:var(--green); background:color-mix(in srgb,var(--green) 10%,var(--bg)); }
+  .education-choice.wrong{ border-color:#dc3f42; background:color-mix(in srgb,#dc3f42 9%,var(--bg)); }
+  .education-letter{ width:21px; height:21px; flex:0 0 auto; display:grid; place-items:center; border-radius:50%; background:var(--bubble); font:700 10px var(--ui); }
+  .education-explanation{ margin-top:10px; padding:9px 10px; border-left:3px solid var(--green); border-radius:6px; background:var(--bg); color:var(--dim); font:11.5px/1.45 var(--ui); }
+  .education-nav{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:8px; }
+  .education-results-top{ display:grid; grid-template-columns:150px 1fr; gap:14px; align-items:center; }
+  .education-score{ width:124px; height:124px; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--green) var(--score),var(--border) 0); position:relative; }
+  .education-score:after{ content:""; position:absolute; inset:9px; border-radius:50%; background:var(--card); }
+  .education-score div{ position:relative; z-index:1; text-align:center; font:700 25px var(--ui); }
+  .education-score small{ display:block; color:var(--dim); font:9px var(--ui); }
+  .education-topic-row{ display:grid; grid-template-columns:120px 1fr 40px; gap:8px; align-items:center; margin:7px 0; font:10.5px var(--ui); }
+  .education-topic-bar{ height:5px; background:var(--border); border-radius:999px; overflow:hidden; }
+  .education-topic-bar span{ display:block; height:100%; background:var(--online); }
+  .education-review{ margin-top:12px; display:grid; gap:6px; }
+  .education-review details{ border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:8px 10px; font:11px/1.4 var(--ui); }
+  .education-review summary{ cursor:pointer; font-weight:600; }
+  .education-official{ height:calc(100vh - 126px); min-height:520px; display:grid; grid-template-columns:minmax(420px,1fr) 290px; gap:8px; }
+  .education-official[hidden],.education-question-card[hidden],.education-pdf[hidden]{ display:none!important; }
+  .education-question-card{ min-width:0; min-height:0; display:flex; flex-direction:column; border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--card); }
+  .education-question-card-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-bottom:1px solid var(--border); color:var(--dim); font:9.5px var(--ui); }
+  .education-question-card-head b{ color:var(--text); font-size:11px; }
+  .education-question-card-body{ flex:1; min-height:0; display:grid; place-items:center; overflow:auto; padding:clamp(14px,3vw,34px); background:color-mix(in srgb,var(--card) 82%,var(--bg)); }
+  .education-question-card-paper{ width:min(760px,100%); min-height:220px; display:grid; place-items:center; padding:clamp(18px,3vw,34px); border:1px solid color-mix(in srgb,var(--border) 85%,#fff); border-radius:14px; background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.1); }
+  .education-question-card-paper img{ display:block; width:100%; height:auto; max-height:62vh; object-fit:contain; }
+  .education-pdf{ min-width:0; min-height:0; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#555; }
+  .education-pdf iframe{ width:100%; height:100%; border:0; background:#fff; }
+  .education-answer-sheet{ min-width:0; min-height:0; display:flex; flex-direction:column; border:1px solid var(--border); border-radius:10px; background:var(--card); overflow:hidden; }
+  .education-official-head{ padding:10px; border-bottom:1px solid var(--border); }
+  .education-official-head h3{ margin:0; font:700 13px var(--ui); }
+  .education-official-head p{ margin:3px 0 0; color:var(--dim); font:9.5px/1.35 var(--ui); }
+  .education-timer{ margin-top:7px; display:flex; align-items:center; gap:6px; font:10px var(--mono); }
+  .education-timer b{ color:var(--text); font-size:13px; }
+  .education-answer-scroll{ flex:0 0 auto; overflow:auto; padding:10px; }
+  .education-reader-label{ color:var(--online); font:700 11px var(--ui); margin-bottom:7px; }
+  .education-reader-help{ margin-bottom:9px; color:var(--dim); font:10px/1.4 var(--ui); }
+  .education-reader-help b{ color:var(--text); }
+  .education-reader-controls{ display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:0 8px 8px; }
+  .education-reader-controls .education-btn{ padding:7px 5px; }
+  .education-question-map{ flex:1; min-height:58px; overflow:auto; display:grid; grid-template-columns:repeat(6,1fr); align-content:start; gap:4px; padding:8px; border-top:1px solid var(--border); }
+  .education-map-button{ height:27px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--dim); font:600 9px var(--ui); cursor:pointer; }
+  .education-map-button.current{ border-color:var(--online); color:var(--text); box-shadow:inset 0 0 0 1px var(--online); }
+  .education-map-button.answered{ background:color-mix(in srgb,var(--green) 12%,var(--bg)); color:var(--text); }
+  .education-map-button.flagged:after{ content:" •"; color:#e2a22f; }
+  .education-answer-row{ display:grid; grid-template-columns:25px repeat(4,1fr); gap:3px; align-items:center; margin-bottom:4px; font:10px var(--ui); }
+  .education-answer-row>span{ color:var(--dim); text-align:right; padding-right:3px; }
+  .education-answer-row.mixed{ grid-template-columns:67px repeat(4,1fr); }
+  .education-mixed-source{ border:0; background:transparent; color:var(--online); font:8.5px/1.1 var(--ui); cursor:pointer; text-align:left; padding:0 2px; }
+  .education-answer-row label{ height:23px; display:grid; place-items:center; border:1px solid var(--border); border-radius:5px; cursor:pointer; background:var(--bg); }
+  .education-answer-row label:has(input:checked){ border-color:var(--online); background:color-mix(in srgb,var(--online) 12%,var(--bg)); color:var(--text); }
+  .education-answer-row input{ position:absolute; opacity:0; pointer-events:none; }
+  .education-cr-row{ margin:7px 0; padding:7px; border:1px solid var(--border); border-radius:7px; background:var(--bg); }
+  .education-cr-row b{ display:block; font:600 10px var(--ui); }
+  .education-cr-row small{ color:var(--dim); font:9px/1.35 var(--ui); }
+  .education-cr-row select{ width:100%; height:27px; margin-top:5px; border:1px solid var(--border); border-radius:5px; background:var(--card); color:var(--text); font:10px var(--ui); }
+  .education-official-actions{ display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:8px; border-top:1px solid var(--border); }
+  .education-official-actions .education-btn{ padding:7px 5px; }
+  .education-official-note{ grid-column:1/-1; color:var(--dim); font:8.5px/1.35 var(--ui); }
+  .education-official-result{ padding:10px; border-top:1px solid var(--border); font:10px/1.4 var(--ui); }
+  .education-official-result b{ font-size:16px; }
+  .education-mode-note{ color:var(--dim); font:9.5px/1.4 var(--ui); margin-top:6px; }
+  #educationExitTop{ display:none; }
+  body.education-testing .education-head{ position:sticky; top:0; z-index:8; align-items:center; padding:7px 0; margin-bottom:6px; background:var(--bg); }
+  body.education-testing .education-head p{ display:none; }
+  body.education-testing #educationExitTop{ display:inline-flex; flex:0 0 auto; }
+  @media(max-width:780px){ .education-official{ grid-template-columns:1fr; height:auto; }.education-question-card{ grid-row:1; min-height:330px; }.education-answer-sheet{ grid-row:2; height:auto; min-height:390px; }.education-pdf{ grid-row:1; height:58vh; } }
+  @media(max-width:720px){ .education-setup-grid{ grid-template-columns:1fr; }.education-results-top{ grid-template-columns:1fr; }.education-score{ margin:auto; } }
   .recipes-shell{ width:min(1180px,100%); height:100%; min-height:0; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(230px,300px); gap:7px; align-items:stretch; overflow:hidden; }
   .recipes-main,.recipes-detail{ min-width:0; min-height:0; max-height:100%; border:1px solid var(--border); border-radius:8px; background:var(--card); }
   .recipes-role-pills{ display:flex; flex-wrap:wrap; gap:2px 4px; margin-top:3px; }
@@ -3533,7 +3638,48 @@ body:not(.composer-simple) main::after{
   }
   :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .markets-shell{
     --market-bg:var(--approved-canvas);
+    --market-card:var(--approved-card);
+    --market-card-2:var(--card);
     background:var(--approved-canvas);
+  }
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .workspace-tabs,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .markets-head,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-mode-tabs,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-index-strip,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-main,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-chart-toolbar,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-ohlc,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-chart,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-idea-chart,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-lower-grid,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-research-page,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-idea-pane,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-bottom-tape{
+    background:var(--approved-canvas);
+  }
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-watch,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-intel,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-quote,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-security-tabs,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-lower-card,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-scan-pane,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-research-intel,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-cot-stat,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-ai-summary{
+    background:var(--approved-card);
+  }
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-command,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .markets-head button,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-watch-add input,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-watch-add button,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-intel-prompt input,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-actions button,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-options-head select,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-filter-grid select,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-pane-title button,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-pane-title select,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .market-scan-filters button{
+    background:var(--card)!important;
   }
   /* Light Markets is a bright financial workstation, not a recolored dark terminal. */
   :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open main{ background:#eef2f4; color:#172027; }
@@ -4877,6 +5023,7 @@ body:not(.composer-simple) main::after{
   <div class="workspace-tabs" id="workspaceTabs">
     <button class="ws-tab active" data-ws="chat" title="Chat workspace"><span class="ws-dot active"></span>Chat</button>
     <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
+    <button class="ws-tab" id="educationWorkspaceTab" data-ws="education" title="Practice exams" hidden aria-hidden="true"><span class="ws-dot"></span>Education</button>
     <button class="ws-tab" id="marketsWorkspaceTab" data-ws="markets" title="Markets workspace" hidden aria-hidden="true"><span class="ws-dot"></span>Markets</button>
     <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span><span class="ws-label">Preview</span></button>
     <button class="ws-tab" data-ws="recipes" title="Recipe quick-starts"><span class="ws-dot"></span>Recipes</button>
@@ -4972,6 +5119,49 @@ body:not(.composer-simple) main::after{
   <div class="action-offers" id="actionOffers"></div>
 
   <div class="recipes-panel" id="recipesPanel" aria-label="Recipes"></div>
+  <section class="education-panel" id="educationPanel" aria-label="Education practice exams">
+    <div class="education-shell">
+      <header class="education-head"><div><h2>Practice exams</h2><p>Original questions aligned to published exam formats. Your progress and results stay on this PC.</p></div><button class="education-btn" id="educationExitTop" type="button">Save &amp; exit test</button></header>
+      <div class="education-card" id="educationSetup">
+        <div class="education-setup-grid">
+          <label class="education-field">Mode<select id="educationMode"><option value="original">Boollm original practice</option><option value="official">Official released test</option><option value="mixed">Five-year official mix</option></select></label>
+          <label class="education-field">Grade<select id="educationGrade"><option value="" selected>All grades</option><option value="6">Grade 6</option><option value="7">Grade 7</option><option value="8">Grade 8</option><option value="9">Grade 9</option><option value="10">Grade 10</option><option value="11">Grade 11</option><option value="12">Grade 12</option></select></label>
+          <label class="education-field">Exam<select id="educationExam"></select></label>
+          <label class="education-field" id="educationCountField">Questions<select id="educationCount"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>25</option></select></label>
+          <label class="education-field" id="educationFeedbackField">Show answers<select id="educationFeedback"><option value="each">After each question</option><option value="end">After the full test</option></select></label>
+          <label class="education-field" id="educationOfficialField" hidden>Released test<select id="educationOfficialExam"></select></label>
+        </div>
+        <div class="education-blueprint" id="educationBlueprint"></div>
+        <div class="education-actions"><button class="education-btn primary" id="educationStart" type="button">Start practice test</button><button class="education-btn" id="educationResume" type="button" hidden>Resume saved test</button></div>
+        <div class="education-sources" id="educationSources"></div>
+        <div class="education-policy-note">Education is for practice and general learning only. Boollm is not a school, testing authority, psychologist, or score-reporting service. Practice results, explanations, and IQ reasoning exercises are not official, clinical, diagnostic, admissions, placement, graduation, or professional scores. Verify important answers with the applicable school or testing authority.</div>
+      </div>
+      <div class="education-card" id="educationSession" hidden>
+        <div class="education-session-head"><div class="education-progress"><span id="educationProgress"></span></div><span class="education-counter" id="educationCounter"></span></div>
+        <div class="education-question-meta" id="educationQuestionMeta"></div>
+        <div class="education-question" id="educationQuestion"></div>
+        <div class="education-choices" id="educationChoices"></div>
+        <div class="education-explanation" id="educationExplanation" hidden></div>
+        <div class="education-nav"><button class="education-btn" id="educationQuit" type="button">Save &amp; exit</button><button class="education-btn primary" id="educationNext" type="button" disabled>Check answer</button></div>
+      </div>
+      <div class="education-official" id="educationOfficialSession" hidden>
+        <div class="education-question-card" id="educationQuestionCard">
+          <div class="education-question-card-head"><b id="educationCardTitle">Official question</b><span>Presented by Boollm</span></div>
+          <div class="education-question-card-body"><div class="education-question-card-paper"><img id="educationOfficialCard" alt="Official released exam question"></div></div>
+        </div>
+        <div class="education-pdf" id="educationPdfReference" hidden><iframe id="educationOfficialPdf" title="Official released examination"></iframe></div>
+        <div class="education-answer-sheet">
+          <div class="education-official-head"><h3 id="educationOfficialTitle">Official released test</h3><p id="educationOfficialAttribution"></p><div class="education-timer"><span>Time remaining</span><b id="educationOfficialTimer">3:00:00</b><button class="education-btn" id="educationTimerToggle" type="button">Pause</button></div></div>
+          <div class="education-answer-scroll" id="educationOfficialAnswers"></div>
+          <div class="education-reader-controls"><button class="education-btn" id="educationOfficialPrevious" type="button">Previous</button><button class="education-btn" id="educationOfficialNext" type="button">Next</button><button class="education-btn" id="educationOfficialFlag" type="button">Flag question</button><button class="education-btn" id="educationOfficialPage" type="button">View full PDF</button></div>
+          <div class="education-question-map" id="educationOfficialMap" aria-label="Question navigator"></div>
+          <div class="education-official-result" id="educationOfficialResult" hidden></div>
+          <div class="education-official-actions"><button class="education-btn" id="educationOfficialSave" type="button">Save &amp; exit</button><button class="education-btn primary" id="educationOfficialSubmit" type="button">Grade test</button><button class="education-btn" id="educationOfficialBooklet" type="button">Full PDF (optional)</button><button class="education-btn" id="educationOfficialKey" type="button">Official key</button><button class="education-btn" id="educationOfficialRubric" type="button">Rating guide</button><div class="education-official-note">Pick A, B, C, or D directly in Boollm. Multiple-choice answers are graded automatically; written responses use the official rating guide.</div></div>
+        </div>
+      </div>
+      <div class="education-card" id="educationResults" hidden></div>
+    </div>
+  </section>
   <section class="markets-panel" id="marketsPanel" aria-label="Boollm Markets">
     <div class="markets-shell">
       <header class="markets-head">
@@ -5826,7 +6016,7 @@ body:not(.composer-simple) main::after{
   function saveAppFrameState(){
     try{
       localStorage.setItem(APP_FRAME_KEY,JSON.stringify({
-        sidebarOpen:!document.body.classList.contains("collapsed"),
+        sidebarOpen:educationSidebarAutoClosed?true:!document.body.classList.contains("collapsed"),
         notesOpen:document.body.classList.contains("notes-on"),
         workspace:activeWsTab||"chat",
         settingsOpen:$("settingsPanel")?.classList.contains("open")||false,
@@ -5847,6 +6037,7 @@ body:not(.composer-simple) main::after{
   const projectGroups=JSON.parse(localStorage.getItem("boollmProjectGroups")||"{}");
   let sidebarManualState=null;
   let recipesSidebarAutoClosed=false;
+  let educationSidebarAutoClosed=false;
   function updateResponsiveClasses(){
     const w=window.innerWidth;
     if(w>380){
@@ -5860,8 +6051,9 @@ body:not(.composer-simple) main::after{
     const estimatedOpenMainW=currentMainW-(document.body.classList.contains("collapsed")?sidebarW:0);
     const auxiliaryNeedsRoom=auxiliaryPairOpen&&estimatedOpenMainW<620;
     const recipesNeedRoom=document.body.classList.contains("recipes-open")&&recipesSidebarAutoClosed;
+    const educationNeedsRoom=document.body.classList.contains("education-open")&&educationSidebarAutoClosed;
     const shouldCollapseApprovedSidebar=w<=640||auxiliaryNeedsRoom;
-    document.body.classList.toggle("collapsed",auxiliaryNeedsRoom||recipesNeedRoom
+    document.body.classList.toggle("collapsed",auxiliaryNeedsRoom||recipesNeedRoom||educationNeedsRoom
       ?true
       :(sidebarManualState===null?shouldCollapseApprovedSidebar:sidebarManualState));
     if(auxiliaryNeedsRoom) document.body.classList.remove("sidebar-popover-open");
@@ -6370,9 +6562,11 @@ body:not(.composer-simple) main::after{
   const uShareIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3"/><path d="M5 6l3-3 3 3"/><path d="M4 9v3.5A1.5 1.5 0 0 0 5.5 14h5A1.5 1.5 0 0 0 12 12.5V9"/></svg>';
   const uRewindIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8a4 4 0 1 1 1.2 2.85"/><path d="M4 5.2V8h2.8"/></svg>';
   const uSearchIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4"/><path d="M10 10l3.5 3.5"/></svg>';
+  const responseUpIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 7.2 7.8 2.8c.4-.8 1.6-.5 1.6.4v2.6h2.8c1 0 1.7.9 1.5 1.8l-.9 4.5c-.1.7-.8 1.2-1.5 1.2H5.5"/><path d="M2.3 6.8h3.2v6.6H2.3z"/></svg>';
+  const responseDownIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m5.5 8.8 2.3 4.4c.4.8 1.6.5 1.6-.4v-2.6h2.8c1 0 1.7-.9 1.5-1.8l-.9-4.5c-.1-.7-.8-1.2-1.5-1.2H5.5"/><path d="M2.3 2.6h3.2v6.6H2.3z"/></svg>';
   function chatActionButtons(kind){
-    void kind;
     return '<span class="actions">'
+      +(kind==="ai"?'<button class="actbtn msg-act response-feedback" data-act="feedback-up" type="button" title="Helpful" aria-label="Helpful">'+responseUpIcon+'</button><button class="actbtn msg-act response-feedback" data-act="feedback-down" type="button" title="Not helpful or incorrect" aria-label="Not helpful or incorrect">'+responseDownIcon+'</button>':'')
       +'<button class="actbtn msg-act" data-act="copy" type="button" title="Copy" aria-label="Copy">'+uCopyIcon+'</button>'
       +'<button class="actbtn msg-act" data-act="paste" type="button" title="Paste into composer" aria-label="Paste into composer">'+uPasteIcon+'</button>'
       +'<button class="actbtn msg-act" data-act="share" type="button" title="Share" aria-label="Share">'+uShareIcon+'</button>'
@@ -7768,7 +7962,7 @@ body:not(.composer-simple) main::after{
     updateProjLine();
     applyNetMode();
     applyCloudAccount();
-    syncMarketsAccess();
+    syncAccountWorkspaceAccess();
     if(!threadId) threadId=state.activeThreadId;
     lastThreadSignature=JSON.stringify((state.threads||[]).map(t=>[t.id,t.title,t.updatedAt,t.pinned,t.pendingTask?.state]));
     renderThreads();
@@ -7800,7 +7994,7 @@ body:not(.composer-simple) main::after{
         $("banner").style.display=state.backendUp?"none":"";
         $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.";
         applyMode();
-        syncMarketsAccess();
+        syncAccountWorkspaceAccess();
         updateCompareButton();
         if(forceThreads||nextSignature!==lastThreadSignature){
           lastThreadSignature=nextSignature;
@@ -7885,7 +8079,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.57"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.58"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -8019,16 +8213,15 @@ body:not(.composer-simple) main::after{
     return state.cloudBackend?.signedIn===true;
   }
 
-  function syncMarketsAccess(){
-    const tab=$("marketsWorkspaceTab");
+  function syncAccountWorkspaceAccess(){
     const allowed=marketsAccessAllowed();
-    if(tab){
-      tab.hidden=!allowed;
-      tab.setAttribute("aria-hidden",String(!allowed));
-    }
+    ["educationWorkspaceTab","marketsWorkspaceTab"].forEach(id=>{
+      const tab=$(id);
+      if(tab){tab.hidden=!allowed;tab.setAttribute("aria-hidden",String(!allowed));}
+    });
     const current=document.querySelector(".ws-tab.active")?.dataset.ws||activeWsTab;
-    if(!allowed&&current==="markets"){
-      closeWorkspaceTab("markets");
+    if(!allowed&&["education","markets"].includes(current)){
+      closeWorkspaceTab(current);
       previousWsTab="chat";
       markWorkspaceTab("chat");
     }
@@ -8420,6 +8613,63 @@ body:not(.composer-simple) main::after{
   const localModelInfo=(file)=>(state.models||[]).find(m=>m.installed!==false&&m.name===file);
   const installedModel=(file)=>!!localModelInfo(file);
   const catalogModel=(rec)=>({ id:rec.id, name:rec.file, file:rec.file, size:rec.size, note:rec.note, installed:false });
+  const LOCAL_MODEL_PERF_KEY="boollmLocalModelPerformanceV1";
+  const activeModelBenchmarks=new Set();
+  function localModelPerformance(){
+    try{ return JSON.parse(localStorage.getItem(LOCAL_MODEL_PERF_KEY)||"{}")||{}; }catch{ return {}; }
+  }
+  function localModelSpeedRating(tps){
+    return tps>=15?"Fast":tps>=7?"Good":tps>=3?"Usable":"Slow";
+  }
+  function localModelResponseLabel(ms){
+    if(ms<1000) return "<1 sec";
+    if(ms<2000) return "~1–2 sec";
+    if(ms<4000) return "~2–4 sec";
+    if(ms<8000) return "~4–8 sec";
+    return "~"+Math.max(8,Math.round(ms/1000))+" sec";
+  }
+  function localModelPerformanceMarkup(file){
+    if(activeModelBenchmarks.has(file)) return '<small class="model-performance">Testing speed…</small>';
+    const perf=localModelPerformance()[file];
+    if(!perf?.tps||!perf?.firstTokenMs) return '<small class="model-performance">Not tested on this PC</small>';
+    const rating=localModelSpeedRating(perf.tps);
+    const speed=perf.tps>=10?perf.tps.toFixed(0):perf.tps.toFixed(1);
+    return '<small class="model-performance '+(rating==="Fast"?"fast":"")+'" title="Measured from recent local answers on this PC">'+esc(speed)+' tok/s · responds '+esc(localModelResponseLabel(perf.firstTokenMs))+' · '+esc(rating)+'</small>';
+  }
+  function saveLocalModelPerformanceSample(file,sample){
+    if(!file||!sample?.tps||!sample?.firstTokenMs) return;
+    const saved=localModelPerformance();
+    const previous=saved[file];
+    saved[file]=previous
+      ?{tps:(previous.tps*2+sample.tps)/3,firstTokenMs:(previous.firstTokenMs*2+sample.firstTokenMs)/3,at:sample.at}
+      :sample;
+    try{ localStorage.setItem(LOCAL_MODEL_PERF_KEY,JSON.stringify(saved)); }catch{}
+  }
+  function recordLocalModelPerformance(activeRun){
+    if(activeRun?.provider!=="local"||activeRun.compare||activeRun.steps||!activeRun.firstTokenAt||!activeRun.model) return;
+    const finished=performance.now();
+    const output=Number(activeRun.lastUsage?.output)||Math.max(1,Math.ceil(String(activeRun.raw||"").length/4));
+    const generationMs=Math.max(1,finished-activeRun.firstTokenAt);
+    saveLocalModelPerformanceSample(activeRun.model,{tps:output/(generationMs/1000),firstTokenMs:activeRun.firstTokenAt-activeRun.perfStart,at:Date.now()});
+  }
+  async function benchmarkInstalledModel(file){
+    if(!file||activeModelBenchmarks.has(file)) return false;
+    activeModelBenchmarks.add(file);
+    if($("modelmenu").classList.contains("open")) renderModelList();
+    try{
+      const response=await fetch("/api/models/benchmark",{method:"POST",body:JSON.stringify({file})});
+      const result=await response.json();
+      if(!response.ok||!result.ok) throw new Error(result.error||"speed test failed");
+      saveLocalModelPerformanceSample(file,{tps:Number(result.tps),firstTokenMs:Number(result.firstTokenMs),at:Number(result.measuredAt)||Date.now()});
+      return true;
+    }catch(err){
+      console.warn("Local model speed test failed",err);
+      return false;
+    }finally{
+      activeModelBenchmarks.delete(file);
+      if($("modelmenu").classList.contains("open")) renderModelList();
+    }
+  }
   async function selectLocalModel(file){
     markExplicitProviderChoice("local");
     state.model=file;
@@ -8446,9 +8696,11 @@ body:not(.composer-simple) main::after{
           const ev=JSON.parse(line);
           if(ev.type==="progress") banner.innerHTML='<span class="spinner"></span><span>'+verb+esc(downloadId)+": "+ev.pct+"% ("+ev.mb+" MB)</span>";
           else if(ev.type==="error") throw new Error(ev.text); } }
-      banner.innerHTML=(force?"Repaired ":"Downloaded ")+esc(displayName(file));
       await refresh();
       if($("modelmenu").classList.contains("open")) renderModelList();
+      banner.innerHTML="Testing "+esc(displayName(file))+" speed on this PC…";
+      const tested=await benchmarkInstalledModel(file);
+      banner.innerHTML=(force?"Repaired ":"Downloaded ")+esc(displayName(file))+(tested?" · speed tested":" · speed test unavailable");
       return true;
     }catch(err){ banner.innerHTML="download failed: "+esc(err.message); return false; }
     finally{ activeModelDownloads.delete(downloadId); if(item)item.classList.remove("disabled"); }
@@ -8471,9 +8723,9 @@ body:not(.composer-simple) main::after{
     const selected=rec.file===state.model;
     const item=document.createElement("div"); item.className=(compact?"model-card":"item model-rec")+(installed?" installed":"")+(selected?" selected":"")+(needsRepair?" needs-repair":"");
     item.title=needsRepair?(info.healthReason||"Model file needs repair"):(installed?"Use "+rec.name:rec.note);
-    const action=needsRepair?"Repair":(installed?(selected?"Selected":"Use"):"Download");
+    const action=needsRepair?"Repair":(installed?"Installed":"Download");
     const actionMarkup=installed?esc(action):'<span>Download</span><small>'+esc(rec.size)+'</small>';
-    item.innerHTML=localModelCompanyMark(rec.name+" "+rec.label)+'<span class="model-line"><b>'+esc(rec.name)+'</b><small>'+esc(rec.label)+" - "+esc(rec.note)+'</small></span><span class="model-actions"><span class="model-dl'+(installed?"":" download")+'">'+actionMarkup+'</span>'+(installed?'<button class="model-mini repair" type="button" title="Redownload model" aria-label="Redownload model">&#8635;</button><button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button>':'')+'</span>';
+    item.innerHTML=localModelCompanyMark(rec.name+" "+rec.label)+'<span class="model-line"><b>'+esc(rec.name)+'</b><small>'+esc(rec.label)+" - "+esc(rec.note)+'</small>'+(installed?localModelPerformanceMarkup(rec.file):'')+'</span><span class="model-actions"><span class="model-dl'+(installed?"":" download")+'">'+actionMarkup+'</span>'+(installed?'<button class="model-mini repair" type="button" title="Redownload model" aria-label="Redownload model">&#8635;</button><button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button>':'')+'</span>';
     item.onclick=()=>needsRepair?redownloadInstalledModel(rec.file,item):(installed?selectLocalModel(rec.file):pullModel(catalogModel(rec),item));
     item.querySelector(".repair")?.addEventListener("click",e=>{ e.stopPropagation(); redownloadInstalledModel(rec.file,item); });
     item.querySelector(".remove")?.addEventListener("click",e=>{ e.stopPropagation(); removeInstalledModel(rec.file,item); });
@@ -8487,7 +8739,7 @@ body:not(.composer-simple) main::after{
     const item=document.createElement("div");
     item.className=(compact?"model-card":"item model-rec")+(selected?" selected":"")+(bad?" needs-repair":"");
     item.title=bad?(model.healthReason||"Model file needs repair"):(model.vision?"Vision-capable (matching .mmproj found)":"Use "+displayName(model.name));
-    item.innerHTML=localModelCompanyMark(model.name)+'<span class="model-line"><b>'+esc(displayName(model.name))+'</b><small>'+(model.vision?"Vision - screenshots and images":"Local GGUF model")+(bad?' - needs a clean copy':'')+'</small></span><span class="model-actions"><span class="model-dl">'+(bad?"Repair":(selected?"Selected":"Use"))+'</span>'+(bad?'<button class="model-mini repair" type="button" title="Repair model" aria-label="Repair model">&#8635;</button>':'')+'<button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button></span>';
+    item.innerHTML=localModelCompanyMark(model.name)+'<span class="model-line"><b>'+esc(displayName(model.name))+'</b><small>'+(model.vision?"Vision - screenshots and images":"Local GGUF model")+(bad?' - needs a clean copy':'')+'</small>'+(!bad?localModelPerformanceMarkup(model.name):'')+'</span><span class="model-actions"><span class="model-dl">'+(bad?"Repair":"Installed")+'</span>'+(bad?'<button class="model-mini repair" type="button" title="Repair model" aria-label="Repair model">&#8635;</button>':'')+'<button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button></span>';
     item.onclick=bad?()=>redownloadInstalledModel(model.name,item):()=>selectLocalModel(model.name);
     item.querySelector(".repair")?.addEventListener("click",e=>{ e.stopPropagation(); redownloadInstalledModel(model.name,item); });
     item.querySelector(".remove")?.addEventListener("click",e=>{ e.stopPropagation(); removeInstalledModel(model.name,item); });
@@ -9967,6 +10219,22 @@ body:not(.composer-simple) main::after{
     autosize();
     sendMessage();
   }
+  async function saveResponseFeedback(btn,msg,rating){
+    if(!btn||!msg) return;
+    let reason="";
+    if(rating==="down"){
+      const answer=await appPrompt("What should Boollm improve?","Examples: Incorrect answer, too long, too short, wrong tone, or write the correction Boollm should remember. This feedback stays on this PC.","Feedback","",600);
+      if(answer===null) return;
+      reason=String(answer||"").trim();
+    }
+    const response=await fetch("/api/preferences/feedback",{method:"POST",body:JSON.stringify({
+      rating,reason,response:chatNodeText(msg),provider:msg.dataset.provider||"",model:msg.dataset.model||""
+    })});
+    if(!response.ok){tempToast("Could not save response feedback.");return;}
+    msg.querySelectorAll(".response-feedback").forEach(item=>item.classList.toggle("selected",item===btn));
+    markActionDone(btn,rating==="up"?"Helpful":"Saved locally");
+    await loadMemoryRules();
+  }
   function toggleMessageControls(msg,force){
     if(!msg) return;
     const open=force===undefined?!msg.classList.contains("message-controls-open"):!!force;
@@ -10011,6 +10279,8 @@ body:not(.composer-simple) main::after{
         shareChatText(text).then(()=>markActionDone(actionBtn,"✓")).catch(()=>tempToast("Could not share this entry."));
       } else if(action==="retry"){
         retryChatNode(msg);
+      } else if(action==="feedback-up"||action==="feedback-down"){
+        saveResponseFeedback(actionBtn,msg,action==="feedback-up"?"up":"down").catch(()=>tempToast("Could not save response feedback."));
       }
       return;
     }
@@ -10789,7 +11059,7 @@ body:not(.composer-simple) main::after{
     }
     else if(ev.type==="token"){
       run.raw+=ev.text;
-      if(!run.firstTokenSeen){ run.firstTokenSeen=true; perfMark("firstToken",run.perfStart||performance.now()); }
+      if(!run.firstTokenSeen){ run.firstTokenSeen=true; run.firstTokenAt=performance.now(); perfMark("firstToken",run.perfStart||performance.now()); }
       if(showing) scheduleStreamPaint();
     }
     else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertToolAbove(ev.entry); updateFileChip(ev.entry); captureTerminalFromStep(ev.entry); run.status="working…"; ensureStatusEl(); } }
@@ -10801,7 +11071,7 @@ body:not(.composer-simple) main::after{
       if(showing) renderPendingApprovals();
       else { tempToast("Boollm is waiting for approval in that task."); notify("Boollm needs approval", ev.summary||"Click to review the pending action."); }
     }
-    else if(ev.type==="answer"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(showing && run.raw.trim()){ if(streamPaintFrame){ cancelAnimationFrame(streamPaintFrame); streamPaintFrame=0; } ensureLiveAI(); run.liveAI.classList.remove("streaming"); run.liveAI.querySelector(".stream-caret")?.remove(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
+    else if(ev.type==="answer"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; recordLocalModelPerformance(run); if(showing && run.raw.trim()){ if(streamPaintFrame){ cancelAnimationFrame(streamPaintFrame); streamPaintFrame=0; } ensureLiveAI(); run.liveAI.classList.remove("streaming"); run.liveAI.querySelector(".stream-caret")?.remove(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
     else if(ev.type==="compareStart"){
       const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
       Object.assign(item,{raw:"",provider:ev.provider,model:ev.model,aiLabel:ev.aiLabel});
@@ -10837,7 +11107,7 @@ body:not(.composer-simple) main::after{
       else executeBrowserControl(ev.id,ev.command);
     }
     else if(ev.type==="notepadControl"){ setBoollmActivity(ev.command?.action==="write"?"Saving to notes":"Working"); executeNotepadControl(ev.id,ev.command); }
-    else if(ev.type==="usage"){ if(showing){ const u=makeUsage(ev); if(u) insertAbove(u); } }
+    else if(ev.type==="usage"){ run.lastUsage=ev; if(showing){ const u=makeUsage(ev); if(u) insertAbove(u); } }
     else if(ev.type==="budget"){
       if(ev.level==="exceeded") tempToast("Monthly budget exceeded: $"+(ev.spent||0).toFixed(2)+" of $"+(ev.limit||0).toFixed(2)+". Cloud models are paused. Raise the budget in Settings or switch to a local model.");
       else if(ev.level==="warning") tempToast("Approaching monthly budget: "+(ev.pct||0)+"% of $"+(ev.limit||0).toFixed(2)+" used.");
@@ -11040,6 +11310,7 @@ body:not(.composer-simple) main::after{
     }
     sidebarHoverPreview=false;
     if(document.body.classList.contains("recipes-open")) recipesSidebarAutoClosed=false;
+    if(document.body.classList.contains("education-open")) educationSidebarAutoClosed=false;
     if(document.body.classList.contains("sidebar-popup-mode")){
       document.body.classList.add("collapsed");
       sidebarManualState=true;
@@ -11537,6 +11808,11 @@ Boollm can be used locally without an account. Cloud AI uses an API key you supp
 4. MARKETS: EDUCATIONAL USE ONLY
 The Markets workspace requires Boollm sign-in. Quotes, charts, scanners, trade ideas, options, news, filings, COT data, alerts, calculations, and AI summaries are for general educational and informational purposes only. They are not financial, investment, brokerage, trading, tax, or legal advice and are not a recommendation to buy, sell, hold, or trade anything. Market information may be delayed, indicative, incomplete, inaccurate, or unavailable, and AI analysis can be wrong. Verify important information independently. You are solely responsible for every financial decision and all resulting gains, losses, fees, taxes, and obligations. Trading can result in loss of all capital. To the maximum extent permitted by law, Boollm, saz3 Labs, and their developers are not liable for trading or investment losses.
 
+4A. EDUCATION AND LOCAL RESPONSE FEEDBACK
+Education is for practice and general learning only. Boollm is not a school, testing authority, psychologist, or score-reporting service. Practice results, explanations, and IQ reasoning exercises are not official, clinical, diagnostic, admissions, placement, graduation, or professional scores. AI questions, grading, and explanations can be wrong; verify important information with the applicable school or testing authority.
+
+Optional thumbs-up/down ratings, correction notes, response excerpts, and learned behavior preferences stay on this PC. Boollm may reuse explicit corrections and repeated style feedback as future prompt context; it does not retrain the underlying model. Learned preferences can be reviewed, edited, cleared, or disabled in Settings.
+
 5. PRIVACY
 Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web research, image generation, remote MCP or HTTP-agent connections, scheduled webhooks, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Signed-in Boollm administrators also synchronize notepad content and safe app preferences, such as layout, theme, notepad color, and browser state, through the Boollm account service so they are available on their other computers. Provider API keys and connector tokens remain local unless Boollm later adds a separate encrypted key-vault feature. Scheduled online actions send their configured task and relevant context when they run. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boollm or otherwise supports that use.
 
@@ -11559,6 +11835,7 @@ Boollm's local mode runs entirely on your computer. No telemetry, analytics, tra
 
 WHAT STAYS ON YOUR COMPUTER
 - Conversations and chat history saved locally
+- Optional response ratings, correction notes, response excerpts, and learned behavior preferences
 - AI model files in your user profile under .saz/models
 - Any bundled starter model included with the installer
 - Settings and API keys in .saz/config.json
@@ -11593,6 +11870,7 @@ Data leaves only when you choose features that require it:
 12. Image generation: prompts, source images, masks, and related instructions are sent to the online image provider you select. Locally generated or edited files stay on this PC unless you send them elsewhere.
 13. Admin sync: signed-in administrators send a notepad and safe-preferences snapshot to Boollm's account service over HTTPS so notes, layout, theme, notepad color, and browser state can merge across computers. API keys and connector tokens are not synced. Local saving continues if sync is unavailable. Signing out stops synchronization without deleting local notes.
 14. Markets: the Markets workspace and its local API remain unavailable until you sign in to a Boollm account. When used, ticker symbols, ranges, option expirations, scanner filters, and related requests are sent to selected market-data, news, filings, or research providers. Those providers receive ordinary connection metadata such as IP address and user-agent. Provider API keys stay local and authenticate directly with those providers. Returned market content may be cached locally, may be delayed or inaccurate, and is provided only for educational and informational use.
+15. Local feedback and Education: thumbs-up/down ratings, optional correction text, response excerpts, Education practice progress, and results stay on this PC. Boollm may reuse explicit corrections and repeated style feedback as local prompt context. This does not retrain the underlying model. Education practice and IQ reasoning results are not official, clinical, diagnostic, admissions, placement, or graduation scores.
 
 THIRD-PARTY SERVICES
 Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, Stripe, Yahoo Finance, Alpha Vantage, Alpaca, Massive, CFTC, exchange, and other market-data or news-service terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boollm or otherwise supports the user's use.
@@ -13426,7 +13704,7 @@ Optional bundled starter model:
     updateAppBack();
     if(savedAppFrame){
       openNotes(!!savedAppFrame.notesOpen,{remember:false,focus:false});
-      const rememberedWorkspace=["chat","code","preview","recipes","automations"].includes(savedAppFrame.workspace)
+      const rememberedWorkspace=["chat","code","education","preview","recipes","automations"].includes(savedAppFrame.workspace)
         ?savedAppFrame.workspace:"chat";
       if(rememberedWorkspace!=="chat") setTimeout(()=>setWorkspaceTab(rememberedWorkspace),0);
       if(savedAppFrame.settingsOpen) setTimeout(()=>openSettings(savedAppFrame.settingsSection||null,{remember:false}),0);
@@ -13486,12 +13764,14 @@ Optional bundled starter model:
       recipesSidebarAutoClosed=false;
       scheduleResponsiveClasses();
     }
+    else if (ws === "education") { educationOfficialSave();clearInterval(educationOfficialClock);educationOfficialClock=null;document.body.classList.remove("education-open","education-testing");educationSidebarAutoClosed=false;scheduleResponsiveClasses(); }
     else if (ws === "git" || ws === "automations") { closeSettingsPanel(); }
   }
   function markWorkspaceTab(ws) {
     activeWsTab = ws || "chat";
     document.body.classList.toggle("workspace-chat", activeWsTab === "chat");
     document.body.classList.toggle("markets-open", activeWsTab === "markets");
+    document.body.classList.toggle("education-open", activeWsTab === "education");
     document.querySelectorAll(".ws-tab").forEach(tab => {
       const active = tab.dataset.ws === activeWsTab;
       tab.classList.toggle("active", active);
@@ -13516,6 +13796,363 @@ Optional bundled starter model:
     else if(!threadId&&latest) await openThread(latest);
     else scrollDown(true);
   }
+  const EDUCATION_SAVE_KEY="boollmEducationPracticeV1";
+  const educationExams={
+    grade6:{name:"Grade 6 skill practice",sections:["Reading","Language","Math","Science","Data"],blueprint:"Grade 6 practice across reading, language, ratios, arithmetic, introductory equations, science, and data analysis.",source:["New York State learning standards","https://www.nysed.gov/standards-instruction"]},
+    grade7:{name:"Grade 7 skill practice",sections:["Reading","Language","Math","Science","Data"],blueprint:"Grade 7 practice across reading, language, proportional reasoning, expressions, geometry, science, and data analysis.",source:["New York State learning standards","https://www.nysed.gov/standards-instruction"]},
+    iseeMiddle:{name:"ISEE — Middle Level",sections:["Verbal","Quantitative","Reading","Math"],blueprint:"Middle Level ISEE-style verbal reasoning, quantitative reasoning, reading comprehension, and mathematics achievement.",source:["ERB official ISEE preparation","https://www.erblearn.org/families/isee-preparation"]},
+    ssatMiddle:{name:"SSAT — Middle Level",sections:["Verbal","Quantitative","Reading"],blueprint:"Middle Level SSAT-style verbal, quantitative, and reading practice. This practice does not apply an official scaled score.",source:["Official SSAT practice","https://www.ssat.org/prepare/practice-online"]},
+    shsat8:{name:"SHSAT — Grade 8",sections:["ELA","Math"],blueprint:"Specialized High Schools admissions practice covering revising/editing, reading comprehension, and mathematics.",source:["NYC Public Schools SHSAT handbooks","https://www.schools.nyc.gov/enrollment/enroll-grade-by-grade/specialized-high-schools"]},
+    shsat9:{name:"SHSAT — Grade 9",sections:["ELA","Math"],blueprint:"Transfer-admission practice with grade-9 reading, revising/editing, algebra, geometry, and advanced arithmetic.",source:["NYC Public Schools SHSAT handbooks","https://www.schools.nyc.gov/enrollment/enroll-grade-by-grade/specialized-high-schools"]},
+    tachs:{name:"TACHS",sections:["Reading","Language","Math","Ability"],blueprint:"Catholic high-school admission practice across reading, written expression, mathematics, and reasoning ability.",source:["Official TACHS information","https://www.tachsinfo.com/"]},
+    hspt:{name:"HSPT — High School Placement Test",sections:["Verbal","Quantitative","Reading","Math","Language"],blueprint:"High School Placement Test-style verbal, quantitative, reading, mathematics, and language skills.",source:["Scholastic Testing Service HSPT","https://www.ststesting.com/hspt/"]},
+    isee:{name:"ISEE — Upper Level",sections:["Verbal","Quantitative","Reading","Math"],blueprint:"Upper Level ISEE-style verbal reasoning, quantitative reasoning, reading comprehension, and mathematics achievement.",source:["ERB official ISEE preparation","https://www.erblearn.org/families/isee-preparation"]},
+    ssat:{name:"SSAT — Upper Level",sections:["Verbal","Quantitative","Reading"],blueprint:"Upper Level SSAT-style verbal, quantitative, and reading practice. This practice does not apply an official scaled score.",source:["Official SSAT practice","https://www.ssat.org/prepare/practice-online"]},
+    regentsAlgebra:{name:"Regents — Algebra I",sections:["Algebra","Data"],blueprint:"New York State Algebra I practice based on released-exam topic patterns, including equations, functions, statistics, and modeling.",source:["NYSED released Regents exams","https://www.nysedregents.org/algebraone/"]},
+    regentsGeometry:{name:"Regents — Geometry",sections:["Geometry","Algebra"],blueprint:"New York State Geometry practice covering congruence, similarity, coordinate geometry, circles, and proof reasoning.",source:["NYSED released Regents exams","https://www.nysedregents.org/geometryre/"]},
+    regentsEla:{name:"Regents — English Language Arts",sections:["Reading","Language"],blueprint:"New York State ELA practice with original passages, close reading, argument, and language questions.",source:["NYSED released Regents exams","https://www.nysedregents.org/hsela/"]},
+    regentsScience:{name:"Regents — Living Environment",sections:["Science","Data"],blueprint:"New York State life-science practice covering cells, genetics, evolution, ecology, and scientific analysis.",source:["NYSED released Regents exams","https://www.nysedregents.org/livingenvironment/"]},
+    regentsHistory:{name:"Regents — U.S. History",sections:["Social Studies","Reading"],blueprint:"New York State U.S. History practice emphasizing evidence, chronology, civics, and document analysis.",source:["NYSED released Regents exams","https://www.nysedregents.org/ushistorygov/"]},
+    psat:{name:"PSAT/NMSQT",sections:["Reading","Language","Math","Data"],blueprint:"Digital PSAT/NMSQT-style Reading and Writing plus Math practice. This short nonadaptive test does not produce an official scaled score.",source:["College Board official PSAT practice","https://satsuite.collegeboard.org/psat-nmsqt/preparing"]},
+    sat:{name:"SAT",sections:["Reading","Language","Math","Data"],blueprint:"Digital SAT-style Reading and Writing plus Math practice. This short nonadaptive test does not produce an official 400–1600 score.",source:["College Board official SAT practice","https://satsuite.collegeboard.org/practice"]},
+    act:{name:"ACT",sections:["English","Math","Reading","Science"],blueprint:"ACT-style English, mathematics, reading, and science practice. This short test does not produce an official 1–36 score.",source:["ACT official test preparation","https://www.act.org/content/act/en/products-and-services/the-act/test-preparation.html"]},
+    iq:{name:"IQ reasoning practice",sections:["Patterns","Logic","Verbal","Quantitative"],blueprint:"Untimed reasoning practice covering patterns, logic, verbal analogies, and quantitative relationships. This is educational practice only and does not provide a clinical, diagnostic, or professionally administered IQ score.",source:["Boollm original reasoning practice","https://boollm.com/"]},
+    apCalc:{name:"AP — Calculus AB",sections:["Calculus","Algebra"],blueprint:"Short AP Calculus AB concept practice. It is not a full multiple-choice/free-response simulation and does not produce an official AP score.",source:["College Board AP Calculus AB","https://apstudents.collegeboard.org/courses/ap-calculus-ab"]},
+    apBio:{name:"AP — Biology",sections:["Science","Data"],blueprint:"Short AP Biology concept and data-analysis practice. It is not a full multiple-choice/free-response simulation and does not produce an official AP score.",source:["College Board AP Biology","https://apstudents.collegeboard.org/courses/ap-biology"]},
+    apUsh:{name:"AP — United States History",sections:["Social Studies","Reading"],blueprint:"Short AP U.S. History evidence and source-analysis practice. It is not a full multiple-choice/free-response simulation and does not produce an official AP score.",source:["College Board AP U.S. History","https://apstudents.collegeboard.org/courses/ap-united-states-history"]}
+  };
+  const educationExamGrades={
+    grade6:[6],grade7:[7],iseeMiddle:[6,7],ssatMiddle:[6,7],
+    shsat8:[8],shsat9:[9],tachs:[8],hspt:[8],isee:[8],ssat:[8],
+    regentsAlgebra:[8,9,10],regentsGeometry:[9,10,11],regentsEla:[11],
+    regentsScience:[8,9,10],regentsHistory:[11],
+    psat:[10,11],sat:[11,12],act:[11,12],iq:[6,7,8,9,10,11,12],
+    apCalc:[10,11,12],apBio:[10,11,12],apUsh:[10,11,12]
+  };
+  let educationRun=null,educationOfficialCatalog=null,educationOfficialRun=null,educationOfficialClock=null;
+  const EDUCATION_OFFICIAL_SAVE_KEY="boollmEducationOfficialV1";
+  const educationLetters=["A","B","C","D"];
+  function educationRng(seed){let value=(seed||1)>>>0;return()=>((value=Math.imul(1664525,value)+1013904223>>>0)/4294967296);}
+  function educationShuffle(values,random){for(let i=values.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[values[i],values[j]]=[values[j],values[i]];}return values;}
+  function educationMakeQuestion(topic,index,random){
+    const a=3+Math.floor(random()*12),b=2+Math.floor(random()*9),c=2+Math.floor(random()*6);
+    let prompt,answer,choices,explanation;
+    if(topic==="Calculus"){
+      prompt=`If f(x) = ${a}x² + ${b}x, what is f′(x)?`;answer=`${2*a}x + ${b}`;choices=[answer,`${a}x + ${b}`,`${2*a}x`,`${a}x² + ${b}`];explanation=`Apply the power rule: the derivative of ${a}x² is ${2*a}x, and the derivative of ${b}x is ${b}.`;
+    }else if(["Math","Quantitative","Algebra"].includes(topic)){
+      const kind=index%4;
+      if(kind===0){prompt=`Solve for x: ${a}x + ${b} = ${a*b+b}.`;answer=String(b);choices=[b,b+1,b-1,a].map(String);explanation=`Subtract ${b} from both sides, then divide by ${a}. x = ${b}.`;}
+      else if(kind===1){const total=a*b;prompt=`A student reads ${a} pages each day for ${b} days. What fraction of ${total*2} pages has the student read?`;answer="1/2";choices=["1/2","1/3","2/3","3/4"];explanation=`The student reads ${total} pages. ${total}/${total*2} simplifies to 1/2.`;}
+      else if(kind===2){prompt=`A line has slope ${c} and passes through (1, ${a}). What is its y-value when x = 3?`;answer=String(a+2*c);choices=[a+2*c,a+c,a+3*c,a-c].map(String);explanation=`Moving from x = 1 to x = 3 increases x by 2, so y increases by 2 × ${c}.`;}
+      else{const pct=10*c;prompt=`A ${pct}% discount is applied to an item costing $${a*10}. What is the discount amount?`;answer=`$${a*c}`;choices=[`$${a*c}`,`$${a+c}`,`$${a*10-c}`,`$${c*10}`];explanation=`${pct}% of $${a*10} is ${c/10} × ${a*10} = $${a*c}.`;}
+    }else if(topic==="Geometry"){
+      const kind=index%3;
+      if(kind===0){prompt=`A rectangle is ${a} units long and ${b} units wide. What is its area?`;answer=String(a*b);choices=[a*b,2*(a+b),a+b,a*b*2].map(String);explanation=`Area of a rectangle is length × width: ${a} × ${b} = ${a*b}.`;}
+      else if(kind===1){prompt=`Two angles of a triangle measure ${a+30}° and ${b+40}°. What is the third angle?`;answer=`${110-a-b}°`;choices=[110-a-b,180-a-b,90-a-b,a+b].map(v=>`${v}°`);explanation=`Triangle angles total 180°. Subtract ${a+30}° and ${b+40}°.`;}
+      else{prompt=`A right triangle has legs ${c*3} and ${c*4}. What is the hypotenuse?`;answer=String(c*5);choices=[c*5,c*6,c*7,c*4].map(String);explanation=`This is a scaled 3–4–5 right triangle, so the hypotenuse is ${c*5}.`;}
+    }else if(topic==="Data"||topic==="Science"){
+      const values=[a,a+2,a+4,a+6];
+      if(topic==="Data"){prompt=`What is the mean of ${values.join(", ")}?`;answer=String(a+3);choices=[a+3,a+2,a+4,a+6].map(String);explanation=`Add the four values and divide by 4. The mean is ${a+3}.`;}
+      else{prompt="A plant is placed near a window and bends toward the light. Which response best explains this observation?";answer="Phototropism changes growth toward the light source.";choices=[answer,"The plant converts all oxygen into carbon dioxide.","Gravity stops acting on the plant.","The plant's genes are permanently replaced by sunlight."];explanation="Phototropism is directional plant growth in response to light.";}
+    }else if(topic==="Social Studies"){
+      prompt="Which principle is best illustrated when a court rules that a law violates the Constitution?";
+      answer="Judicial review";choices=[answer,"Federal taxation","Popular sovereignty by referendum","Executive privilege"];explanation="Judicial review allows courts to evaluate whether laws are constitutional.";
+    }else if(["Language","English"].includes(topic)){
+      const kinds=[
+        {p:"Choose the sentence with correct subject–verb agreement.",a:"The collection of maps is stored upstairs.",c:["The collection of maps is stored upstairs.","The collection of maps are stored upstairs.","The maps collection are stored upstairs.","The collection of map were stored upstairs."],e:"The subject is singular: collection. The correct verb is is."},
+        {p:"Which revision is most concise?",a:"Because the road was icy, school opened late.",c:["Because the road was icy, school opened late.","Due to the fact that the road was icy, school opened late.","School opened late on account of the road being icy in nature.","The icy road was the reason why school opened at a late time."],e:"The correct choice states the same idea clearly without unnecessary words."}
+      ][index%2];prompt=kinds.p;answer=kinds.a;choices=kinds.c;explanation=kinds.e;
+    }else if(topic==="Patterns"){
+      const start=2+Math.floor(random()*5),step=2+Math.floor(random()*4);
+      prompt=`Which number comes next? ${start}, ${start+step}, ${start+step*2}, ${start+step*3}, ?`;
+      answer=String(start+step*4);choices=[answer,String(start+step*4+1),String(start+step*5),String(start+step*3+1)];explanation=`The pattern adds ${step} each time, so the next number is ${start+step*4}.`;
+    }else if(topic==="Logic"){
+      const kinds=[
+        {p:"All tulips are flowers. Some flowers are yellow. Which conclusion must be true?",a:"All tulips are flowers.",c:["All tulips are flowers.","All tulips are yellow.","No yellow things are tulips.","Every flower is a tulip."],e:"The first statement directly guarantees that every tulip is a flower; the color of tulips is not established."},
+        {p:"Maya is taller than Lee. Lee is taller than Sam. Who must be the shortest?",a:"Sam",c:["Sam","Lee","Maya","It cannot be determined"],e:"The ordering is Maya, then Lee, then Sam, so Sam must be shortest."}
+      ][index%2];prompt=kinds.p;answer=kinds.a;choices=kinds.c;explanation=kinds.e;
+    }else if(topic==="Verbal"||topic==="Ability"){
+      const kinds=[
+        {p:"BOOK is to READING as FORK is to:",a:"eating",c:["eating","drawing","sleeping","measuring"],e:"A book is commonly used for reading; a fork is commonly used for eating."},
+        {p:"Which word is most nearly opposite in meaning to SCARCE?",a:"abundant",c:["abundant","hidden","fragile","distant"],e:"Scarce means limited or rare; abundant means plentiful."}
+      ][index%2];prompt=kinds.p;answer=kinds.a;choices=kinds.c;explanation=kinds.e;
+    }else{
+      const passages=[
+        ["Mina arrived early to rehearse, but the auditorium was locked. Instead of leaving, she practiced her speech quietly on the steps until the custodian arrived.","Which statement best describes Mina?","She is persistent.","She dislikes public speaking.","She forgot about the rehearsal.","She wants to become a custodian.","Mina adapts to the locked auditorium and continues practicing, showing persistence."],
+        ["The neighborhood garden first occupied one empty lot. After residents shared its vegetables and held weekend workshops, two nearby blocks created gardens of their own.","What can reasonably be inferred?","The first garden encouraged similar community projects.","The workshops ended because no one attended.","Residents preferred empty lots to vegetables.","All three gardens opened on the same day.","The later gardens appeared after the first garden demonstrated benefits and brought residents together."]
+      ][index%2];
+      prompt=`${passages[0]}\n\n${passages[1]}`;answer=passages[2];choices=passages.slice(2,6);explanation=passages[6];
+    }
+    const unique=[...new Set(choices.map(String))];while(unique.length<4)unique.push(`None of these ${unique.length}`);
+    educationShuffle(unique,random);
+    return {id:`q${index+1}`,topic,prompt,choices:unique,answer:unique.indexOf(String(answer)),explanation};
+  }
+  function educationBuildRun(examId,count,feedback){
+    const exam=educationExams[examId],seed=(Date.now()^(count<<8))>>>0,random=educationRng(seed);
+    const questions=Array.from({length:count},(_,index)=>educationMakeQuestion(exam.sections[index%exam.sections.length],index,random));
+    return {examId,count,feedback,seed,questions,answers:Array(count).fill(null),index:0,checked:false,startedAt:Date.now()};
+  }
+  function educationSave(){try{educationRun?localStorage.setItem(EDUCATION_SAVE_KEY,JSON.stringify(educationRun)):localStorage.removeItem(EDUCATION_SAVE_KEY);}catch{}}
+  function educationSaved(){try{return JSON.parse(localStorage.getItem(EDUCATION_SAVE_KEY)||"null");}catch{return null;}}
+  const educationOfficialSaved=()=>{try{return JSON.parse(localStorage.getItem(EDUCATION_OFFICIAL_SAVE_KEY)||"null");}catch{return null;}};
+  function educationOfficialSave(){
+    try{educationOfficialRun?localStorage.setItem(EDUCATION_OFFICIAL_SAVE_KEY,JSON.stringify(educationOfficialRun)):localStorage.removeItem(EDUCATION_OFFICIAL_SAVE_KEY);}catch{}
+  }
+  function educationOfficialRecords(subject=$("educationExam").value){
+    return (educationOfficialCatalog?.exams||[]).filter(exam=>exam.subject===subject).sort((a,b)=>b.year-a.year||b.administration.localeCompare(a.administration));
+  }
+  function educationSyncExamOptions(){
+    let mode=$("educationMode").value;
+    const current=$("educationExam").value,gradeValue=$("educationGrade").value,grade=Number(gradeValue),allGrades=!gradeValue;
+    $("educationMode").querySelectorAll('option[value="official"],option[value="mixed"]').forEach(option=>option.disabled=!allGrades&&grade<8);
+    if(!allGrades&&grade<8&&mode!=="original"){mode="original";$("educationMode").value=mode;}
+    const officialSubjects=[...new Set((educationOfficialCatalog?.exams||[]).map(exam=>exam.subject))];
+    let entries=mode==="original"
+      ?Object.entries(educationExams)
+      :officialSubjects.filter(id=>mode!=="mixed"||["regentsAlgebra","regentsGeometry","regentsScience"].includes(id)).map(id=>[id,educationExams[id]]).filter(([,exam])=>exam);
+    if(!allGrades)entries=entries.filter(([id])=>(educationExamGrades[id]||[]).includes(grade));
+    $("educationExam").innerHTML=entries.map(([id,exam])=>`<option value="${id}">${esc(exam.name)}</option>`).join("");
+    if(entries.some(([id])=>id===current))$("educationExam").value=current;
+    educationSyncReleasedOptions();
+  }
+  function educationSyncReleasedOptions(){
+    const records=educationOfficialRecords();
+    $("educationOfficialExam").innerHTML=records.map(exam=>`<option value="${exam.id}">${esc(exam.label)} · ${exam.questionCount} questions</option>`).join("");
+  }
+  function educationRenderSetup(){
+    const mode=$("educationMode").value,exam=educationExams[$("educationExam").value];
+    if(!exam)return;
+    const official=mode==="official",mixed=mode==="mixed",record=educationOfficialRecords().find(item=>item.id===$("educationOfficialExam").value)||educationOfficialRecords()[0];
+    $("educationOfficialField").hidden=!official;
+    $("educationCountField").hidden=official;
+    $("educationFeedbackField").hidden=official||mixed;
+    $("educationStart").textContent=official?"Start full official test":mixed?"Start five-year MC mix":"Start practice test";
+    if(official&&record){
+      $("educationBlueprint").innerHTML=`<b>${esc(record.name)} · ${esc(record.label)}</b><br>Full released examination: ${record.questionCount} questions, ${record.multipleChoiceCount} automatically graded multiple-choice items, and ${record.questionCount-record.multipleChoiceCount} rubric-scored written responses. Official time: ${record.durationMinutes} minutes.`;
+      $("educationSources").innerHTML=`Official examination, key, rating guide, and conversion chart from <a href="${esc(record.sourcePage)}" data-url="${esc(record.sourcePage)}">NYSED</a>. ${esc(record.attribution)} Free educational use with attribution under the <a href="${esc(educationOfficialCatalog.termsUrl)}" data-url="${esc(educationOfficialCatalog.termsUrl)}">NYSED Terms of Use</a>.`;
+    }else if(mixed){
+      const records=educationOfficialRecords(),available=records.map(item=>item.year).join(", ");
+      $("educationBlueprint").innerHTML=`<b>${esc(exam.name)} · Five-year official multiple-choice mix</b><br>Draws an equal rotating sample from released administrations (${esc(available)}). Each answer retains its source exam and official question number. Full written-response sections remain available in Official Released Test mode.`;
+      $("educationSources").innerHTML=`Questions remain inside their original NYSED PDFs and are graded with official answer keys. Source: <a href="${esc(exam.source[1])}" data-url="${esc(exam.source[1])}">${esc(exam.source[0])}</a>.`;
+    }else{
+      $("educationBlueprint").innerHTML=`<b>${esc(exam.name)}</b><br>${esc(exam.blueprint)}<br><b>Sections:</b> ${esc(exam.sections.join(" · "))}`;
+      $("educationSources").innerHTML=`Format reference: <a href="${esc(exam.source[1])}" data-url="${esc(exam.source[1])}">${esc(exam.source[0])}</a>. Questions in Boollm are newly generated practice items, not copied secure test questions.`;
+    }
+    const saved=educationOfficialSaved();
+    $("educationResume").hidden=official||mixed?!saved:!educationSaved();
+    if(saved&&(official||mixed))$("educationResume").textContent="Resume saved official test";
+    else $("educationResume").textContent="Resume saved test";
+  }
+  function educationShowSession(){
+    $("educationSetup").hidden=true;$("educationResults").hidden=true;$("educationSession").hidden=false;
+    const q=educationRun.questions[educationRun.index],selected=educationRun.answers[educationRun.index];
+    $("educationProgress").style.width=`${(educationRun.index+1)/educationRun.count*100}%`;
+    $("educationCounter").textContent=`${educationRun.index+1} / ${educationRun.count}`;
+    $("educationQuestionMeta").textContent=`${educationExams[educationRun.examId].name} · ${q.topic}`;
+    $("educationQuestion").textContent=q.prompt;
+    $("educationChoices").innerHTML=q.choices.map((choice,index)=>`<button class="education-choice${selected===index?" selected":""}" data-choice="${index}" type="button"><span class="education-letter">${educationLetters[index]}</span><span>${esc(choice)}</span></button>`).join("");
+    $("educationExplanation").hidden=true;$("educationExplanation").textContent="";
+    educationRun.checked=false;$("educationNext").disabled=selected===null;$("educationNext").textContent=educationRun.feedback==="each"?"Check answer":(educationRun.index===educationRun.count-1?"See results":"Next question");
+    $("educationChoices").querySelectorAll("button").forEach(button=>button.onclick=()=>{educationRun.answers[educationRun.index]=Number(button.dataset.choice);educationSave();educationShowSession();});
+  }
+  function educationCheckOrNext(){
+    const q=educationRun.questions[educationRun.index],selected=educationRun.answers[educationRun.index];
+    if(!educationRun.checked&&educationRun.feedback==="each"){
+      educationRun.checked=true;
+      $("educationChoices").querySelectorAll("button").forEach((button,index)=>{button.disabled=true;button.classList.toggle("correct",index===q.answer);button.classList.toggle("wrong",index===selected&&index!==q.answer);});
+      $("educationExplanation").hidden=false;$("educationExplanation").textContent=(selected===q.answer?"Correct. ":"Not quite. ")+q.explanation;
+      $("educationNext").textContent=educationRun.index===educationRun.count-1?"See results":"Next question";return;
+    }
+    if(educationRun.index<educationRun.count-1){educationRun.index++;educationSave();educationShowSession();}else educationShowResults();
+  }
+  function educationShowResults(){
+    const correct=educationRun.questions.reduce((sum,q,index)=>sum+(educationRun.answers[index]===q.answer?1:0),0),pct=Math.round(correct/educationRun.count*100);
+    const topics={};educationRun.questions.forEach((q,index)=>{const row=topics[q.topic]||(topics[q.topic]={correct:0,total:0});row.total++;if(educationRun.answers[index]===q.answer)row.correct++;});
+    $("educationSession").hidden=true;$("educationSetup").hidden=true;$("educationResults").hidden=false;
+    $("educationResults").innerHTML=`<div class="education-results-top"><div class="education-score" style="--score:${pct}%"><div>${pct}%<small>${correct} of ${educationRun.count} correct</small></div></div><div><h2>${esc(educationExams[educationRun.examId].name)} results</h2><p>${pct>=80?"Strong work. Review the missed items and keep practicing.":pct>=60?"Good start. Focus next on the lowest topic score.":"Use the explanations below, then try a shorter focused set."}</p>${Object.entries(topics).map(([topic,row])=>{const value=Math.round(row.correct/row.total*100);return `<div class="education-topic-row"><span>${esc(topic)}</span><div class="education-topic-bar"><span style="width:${value}%"></span></div><b>${value}%</b></div>`}).join("")}</div></div><div class="education-review">${educationRun.questions.map((q,index)=>`<details><summary>${educationRun.answers[index]===q.answer?"✓":"✕"} Question ${index+1} · ${esc(q.topic)}</summary><p>${esc(q.prompt)}</p><p><b>Your answer:</b> ${educationRun.answers[index]===null?"No answer":esc(q.choices[educationRun.answers[index]])}<br><b>Correct answer:</b> ${esc(q.choices[q.answer])}</p><p>${esc(q.explanation)}</p></details>`).join("")}</div><div class="education-actions" style="margin-top:12px"><button class="education-btn primary" id="educationAgain" type="button">Practice again</button><button class="education-btn" id="educationDone" type="button">Done</button></div>`;
+    localStorage.removeItem(EDUCATION_SAVE_KEY);
+    $("educationAgain").onclick=()=>{$("educationResults").hidden=true;$("educationSetup").hidden=false;educationRenderSetup();};
+    $("educationDone").onclick=()=>setWorkspaceTab("chat");
+  }
+  function educationOfficialRecord(){
+    const id=educationOfficialRun?.mode==="mixed"?(educationOfficialRun.activeExamId||educationOfficialRun.items?.[0]?.examId):educationOfficialRun?.examId;
+    return (educationOfficialCatalog?.exams||[]).find(exam=>exam.id===id);
+  }
+  function educationOfficialPdf(kind="exam",index=0){
+    const record=educationOfficialRecord();if(!record)return;
+    const current=Math.max(1,Number(educationOfficialRun?.currentQuestion||1));
+    const item=educationOfficialRun?.mode==="mixed"?educationOfficialRun.items?.[current-1]:null;
+    const officialNumber=item?.question||current;
+    const page=Number(record.questionPages?.[String(officialNumber)]||1);
+    const fragment=kind==="exam"?`#page=${page}&zoom=page-width&toolbar=1`:"#toolbar=1&view=FitH";
+    $("educationOfficialPdf").src=`/api/education/pdf?id=${encodeURIComponent(record.id)}&kind=${encodeURIComponent(kind)}&index=${index}${fragment}`;
+    $("educationQuestionCard").hidden=true;
+    $("educationPdfReference").hidden=false;
+    $("educationOfficialPage").textContent="Back to question card";
+  }
+  function educationOfficialCard(){
+    const record=educationOfficialRecord();if(!record)return;
+    const current=Math.max(1,Number(educationOfficialRun?.currentQuestion||1));
+    const item=educationOfficialRun?.mode==="mixed"?educationOfficialRun.items?.[current-1]:null;
+    const officialNumber=item?.question||current;
+    $("educationCardTitle").textContent=`${record.label} · Question ${officialNumber}`;
+    const card=$("educationOfficialCard");
+    card.alt=`${record.label}, official question ${officialNumber}`;
+    card.src=`/api/education/card?id=${encodeURIComponent(record.id)}&number=${officialNumber}`;
+    $("educationPdfReference").hidden=true;
+    $("educationQuestionCard").hidden=false;
+    $("educationOfficialPage").textContent="View full PDF";
+  }
+  function educationOfficialTick(){
+    if(!educationOfficialRun||educationOfficialRun.paused)return;
+    const elapsed=Math.max(0,Math.floor((Date.now()-educationOfficialRun.clockAt)/1000));
+    educationOfficialRun.remaining=Math.max(0,educationOfficialRun.remaining-elapsed);
+    educationOfficialRun.clockAt=Date.now();
+    const seconds=educationOfficialRun.remaining,hours=Math.floor(seconds/3600),minutes=Math.floor(seconds%3600/60),rest=seconds%60;
+    $("educationOfficialTimer").textContent=`${hours}:${String(minutes).padStart(2,"0")}:${String(rest).padStart(2,"0")}`;
+    if(seconds===0){educationOfficialRun.paused=true;$("educationTimerToggle").textContent="Resume";tempToast("Official test time has ended. You can review and grade your answers.");}
+    if(seconds%15===0)educationOfficialSave();
+  }
+  function educationRenderOfficialAnswers({refreshCard=false}={}){
+    let record=educationOfficialRecord(),box=$("educationOfficialAnswers");if(!record)return;
+    const mixed=educationOfficialRun.mode==="mixed",total=mixed?educationOfficialRun.items.length:record.questionCount;
+    educationOfficialRun.currentQuestion=Math.min(total,Math.max(1,Number(educationOfficialRun.currentQuestion||1)));
+    const current=educationOfficialRun.currentQuestion,item=mixed?educationOfficialRun.items[current-1]:null;
+    if(item&&educationOfficialRun.activeExamId!==item.examId){
+      educationOfficialRun.activeExamId=item.examId;
+      record=educationOfficialRecord();
+      refreshCard=true;
+    }
+    const officialNumber=item?.question||current,key=String(current),officialKey=String(officialNumber);
+    const correct=mixed?item.answer:record.answers[officialKey],credit=Number(mixed?item.credit:record.credits[officialKey]||0);
+    const page=Number(record.questionPages?.[officialKey]||1);
+    const source=mixed?`${item.label} · official question ${officialNumber}`:`${record.label} · official question ${officialNumber}`;
+    if(correct){
+      box.innerHTML=`<div class="education-reader-label">Question ${current} of ${total}</div><div class="education-reader-help"><b>${esc(source)}</b><br>Read the official question card, then pick your answer below.</div><div class="education-answer-row"><span>${current}</span>${[1,2,3,4].map(choice=>`<label title="Question ${current}, choice ${choice}"><input type="radio" name="official-${current}" data-official-answer="${current}" value="${choice}"${Number(educationOfficialRun.answers[key])===choice?" checked":""}><i>${educationLetters[choice-1]}</i></label>`).join("")}</div>`;
+    }else{
+      box.innerHTML=`<div class="education-reader-label">Question ${current} of ${total}</div><div class="education-reader-help"><b>${esc(source)} · written response</b><br>Complete your response using the official prompt on page ${page}. During review, compare it with the rating guide and enter the awarded points.</div><div class="education-cr-row"><b>Rubric score for question ${current}</b><select data-official-cr="${current}"><option value="">Not scored</option>${Array.from({length:credit+1},(_,score)=>`<option value="${score}"${String(educationOfficialRun.crScores[key])===String(score)?" selected":""}>${score} of ${credit} points</option>`).join("")}</select></div>`;
+    }
+    box.querySelectorAll("[data-official-answer]").forEach(input=>input.onchange=()=>{educationOfficialRun.answers[input.dataset.officialAnswer]=Number(input.value);educationOfficialSave();educationRenderOfficialMap();});
+    const score=box.querySelector("[data-official-cr]");if(score)score.onchange=()=>{if(score.value==="")delete educationOfficialRun.crScores[key];else educationOfficialRun.crScores[key]=Number(score.value);educationOfficialSave();educationRenderOfficialMap();};
+    $("educationOfficialPrevious").disabled=current<=1;
+    $("educationOfficialNext").disabled=current>=total;
+    $("educationOfficialFlag").textContent=educationOfficialRun.flags?.[key]?"Unflag question":"Flag question";
+    $("educationOfficialAttribution").textContent=`${source}. ${record.attribution}`;
+    educationRenderOfficialMap();
+    if(refreshCard)educationOfficialCard();
+    educationOfficialSave();
+  }
+  function educationRenderOfficialMap(){
+    const record=educationOfficialRecord();if(!record)return;
+    const mixed=educationOfficialRun.mode==="mixed",total=mixed?educationOfficialRun.items.length:record.questionCount,current=Number(educationOfficialRun.currentQuestion||1);
+    $("educationOfficialMap").innerHTML=Array.from({length:total},(_,index)=>{
+      const number=index+1,key=String(number),answered=educationOfficialRun.answers[key]!==undefined||educationOfficialRun.crScores[key]!==undefined;
+      return `<button class="education-map-button${number===current?" current":""}${answered?" answered":""}${educationOfficialRun.flags?.[key]?" flagged":""}" type="button" data-official-jump="${number}" aria-label="Question ${number}">${number}</button>`;
+    }).join("");
+    $("educationOfficialMap").querySelectorAll("[data-official-jump]").forEach(button=>button.onclick=()=>educationMoveOfficial(Number(button.dataset.officialJump)));
+  }
+  function educationMoveOfficial(number){
+    educationOfficialRun.currentQuestion=number;
+    educationRenderOfficialAnswers({refreshCard:true});
+  }
+  function educationStartOfficial(record,resume=null){
+    educationOfficialRun=resume||{mode:"official",examId:record.id,currentQuestion:1,answers:{},crScores:{},flags:{},remaining:record.durationMinutes*60,clockAt:Date.now(),paused:false,startedAt:Date.now()};
+    educationOfficialRun.flags=educationOfficialRun.flags||{};
+    clearInterval(educationOfficialClock);educationOfficialClock=setInterval(educationOfficialTick,1000);
+    document.body.classList.add("education-testing");
+    $("educationSetup").hidden=true;$("educationSession").hidden=true;$("educationResults").hidden=true;$("educationOfficialSession").hidden=false;$("educationOfficialResult").hidden=true;
+    $("educationOfficialTitle").textContent=`${record.name} · ${record.label}`;
+    $("educationOfficialAttribution").textContent=record.attribution;
+    $("educationTimerToggle").textContent=educationOfficialRun.paused?"Resume":"Pause";
+    educationRenderOfficialAnswers();educationOfficialCard();educationOfficialTick();educationOfficialSave();
+  }
+  function educationStartMixed(subject,count,resume=null){
+    const records=educationOfficialRecords(subject);if(!records.length)return;
+    if(resume)educationOfficialRun=resume;
+    else{
+      const pools=records.map(record=>Object.keys(record.answers).map(question=>({examId:record.id,year:record.year,label:record.label,question:Number(question),answer:Number(record.answers[question]),credit:Number(record.credits[question]||1)})));
+      const items=[];
+      for(let index=0;index<count;index++){
+        const pool=pools[index%pools.length],round=Math.floor(index/pools.length),item=pool[(round*7+index)%pool.length];
+        items.push({...item});
+      }
+      educationOfficialRun={mode:"mixed",subject,items,currentQuestion:1,activeExamId:items[0].examId,answers:{},crScores:{},flags:{},remaining:180*60,clockAt:Date.now(),paused:false,startedAt:Date.now()};
+    }
+    educationOfficialRun.flags=educationOfficialRun.flags||{};
+    const record=educationOfficialRecord();clearInterval(educationOfficialClock);educationOfficialClock=setInterval(educationOfficialTick,1000);
+    document.body.classList.add("education-testing");$("educationSetup").hidden=true;$("educationSession").hidden=true;$("educationResults").hidden=true;$("educationOfficialSession").hidden=false;$("educationOfficialResult").hidden=true;
+    $("educationOfficialTitle").textContent=`${educationExams[subject].name} · five-year official MC mix`;
+    $("educationOfficialAttribution").textContent=`Source: ${record.label}. Every item is shown as a focused official question card.`;
+    $("educationTimerToggle").textContent=educationOfficialRun.paused?"Resume":"Pause";
+    educationRenderOfficialAnswers();educationOfficialCard();educationOfficialTick();educationOfficialSave();
+  }
+  function educationGradeOfficial(){
+    const record=educationOfficialRecord();if(!record)return;
+    if(educationOfficialRun.mode==="mixed"){
+      let correct=0,raw=0,maxRaw=0;
+      educationOfficialRun.items.forEach((item,index)=>{maxRaw+=item.credit;if(Number(educationOfficialRun.answers[String(index+1)])===item.answer){correct++;raw+=item.credit;}});
+      educationOfficialRun.paused=true;educationOfficialRun.submittedAt=Date.now();educationOfficialSave();$("educationTimerToggle").textContent="Resume";$("educationOfficialResult").hidden=false;
+      $("educationOfficialResult").innerHTML=`<b>${correct} / ${educationOfficialRun.items.length} correct</b><br>Official multiple-choice raw points: ${raw} / ${maxRaw}. Each result retains its source year and official question number; this mixed set does not receive a Regents scale score.`;
+      return;
+    }
+    let mcCorrect=0,raw=0,maxRaw=0;
+    Object.entries(record.credits).forEach(([number,credit])=>{
+      maxRaw+=Number(credit||0);
+      if(record.answers[number]){
+        if(Number(educationOfficialRun.answers[number])===Number(record.answers[number])){mcCorrect++;raw+=Number(credit||0);}
+      }else raw+=Number(educationOfficialRun.crScores[number]||0);
+    });
+    const written=Object.keys(record.credits).filter(number=>!record.answers[number]),writtenComplete=written.every(number=>educationOfficialRun.crScores[number]!==undefined);
+    const scale=record.scale[String(raw)],answered=Object.keys(educationOfficialRun.answers).length;
+    educationOfficialRun.paused=true;educationOfficialRun.submittedAt=Date.now();educationOfficialSave();
+    $("educationTimerToggle").textContent="Resume";$("educationOfficialResult").hidden=false;
+    const scaleLabel=scale!==undefined?(written.length&&!writtenComplete?` · Projected scale score: ${scale}`:` · Official scale score: ${scale}`):"";
+    $("educationOfficialResult").innerHTML=`<b>${mcCorrect} / ${record.multipleChoiceCount} MC correct</b><br>Raw score: ${raw} / ${maxRaw}${scaleLabel}<br>${answered} multiple-choice answers submitted.${written.length&&!writtenComplete?` ${written.filter(number=>educationOfficialRun.crScores[number]===undefined).length} written responses still need rubric points before the official scale score is final.`:" All sections are scored."}`;
+    $("educationOfficialResult").scrollIntoView({block:"nearest"});
+  }
+  function educationExitOfficial(){
+    educationOfficialSave();clearInterval(educationOfficialClock);educationOfficialClock=null;document.body.classList.remove("education-testing");
+    $("educationOfficialSession").hidden=true;$("educationSetup").hidden=false;educationRenderSetup();
+  }
+  async function ensureEducation(){
+    if(!educationOfficialCatalog){
+      try{const response=await fetch("/api/education/official");educationOfficialCatalog=await response.json();}catch{educationOfficialCatalog={exams:[],termsUrl:"https://www.nysed.gov/terms-of-use"};}
+    }
+    if(!$("educationExam").options.length)educationSyncExamOptions();
+    educationRenderSetup();
+  }
+  $("educationMode").onchange=()=>{educationSyncExamOptions();educationRenderSetup();};
+  $("educationGrade").onchange=()=>{educationSyncExamOptions();educationRenderSetup();};
+  $("educationExam").onchange=()=>{educationSyncReleasedOptions();educationRenderSetup();};
+  $("educationOfficialExam").onchange=educationRenderSetup;
+  $("educationStart").onclick=()=>{
+    const mode=$("educationMode").value;
+    if(mode==="official"){const record=educationOfficialRecords().find(item=>item.id===$("educationOfficialExam").value);if(record)educationStartOfficial(record);return;}
+    if(mode==="mixed"){educationStartMixed($("educationExam").value,Number($("educationCount").value));return;}
+    educationRun=educationBuildRun($("educationExam").value,Number($("educationCount").value),$("educationFeedback").value);educationSave();educationShowSession();
+  };
+  $("educationResume").onclick=()=>{
+    const savedOfficial=educationOfficialSaved();
+    if(["official","mixed"].includes($("educationMode").value)&&savedOfficial){
+      if(savedOfficial.mode==="mixed"){educationStartMixed(savedOfficial.subject,savedOfficial.items.length,savedOfficial);return;}
+      const record=(educationOfficialCatalog?.exams||[]).find(item=>item.id===savedOfficial.examId);if(record)educationStartOfficial(record,savedOfficial);return;
+    }
+    educationRun=educationSaved();if(educationRun?.questions?.length)educationShowSession();
+  };
+  $("educationNext").onclick=educationCheckOrNext;
+  $("educationQuit").onclick=()=>{educationSave();$("educationSession").hidden=true;$("educationSetup").hidden=false;educationRenderSetup();};
+  $("educationTimerToggle").onclick=()=>{educationOfficialTick();educationOfficialRun.paused=!educationOfficialRun.paused;educationOfficialRun.clockAt=Date.now();$("educationTimerToggle").textContent=educationOfficialRun.paused?"Resume":"Pause";educationOfficialSave();};
+  $("educationOfficialPrevious").onclick=()=>educationMoveOfficial(Math.max(1,educationOfficialRun.currentQuestion-1));
+  $("educationOfficialNext").onclick=()=>{const record=educationOfficialRecord(),total=educationOfficialRun.mode==="mixed"?educationOfficialRun.items.length:record.questionCount;educationMoveOfficial(Math.min(total,educationOfficialRun.currentQuestion+1));};
+  $("educationOfficialFlag").onclick=()=>{const key=String(educationOfficialRun.currentQuestion);educationOfficialRun.flags=educationOfficialRun.flags||{};if(educationOfficialRun.flags[key])delete educationOfficialRun.flags[key];else educationOfficialRun.flags[key]=true;educationRenderOfficialAnswers();};
+  $("educationOfficialPage").onclick=()=>$("educationPdfReference").hidden?educationOfficialPdf("exam"):educationOfficialCard();
+  $("educationOfficialSave").onclick=educationExitOfficial;
+  $("educationExitTop").onclick=educationExitOfficial;
+  $("educationOfficialSubmit").onclick=educationGradeOfficial;
+  $("educationOfficialBooklet").onclick=()=>educationOfficialPdf("exam");
+  $("educationOfficialKey").onclick=()=>educationOfficialPdf("key");
+  $("educationOfficialRubric").onclick=()=>educationOfficialPdf("rating",0);
+  $("educationSources").addEventListener("click",event=>{const link=event.target.closest("[data-url]");if(!link)return;event.preventDefault();openUrlInBrowser(link.dataset.url);});
   let marketState={provider:"yahoo",configured:false,selectedSymbol:"AAPL",watchlist:["AAPL","MSFT","NVDA","GOOGL","AMZN"],snapshot:null,dashboard:null,options:null,optionExpiration:"",moverMode:"gainers",range:"6mo",indicators:true,loaded:false,researchMode:"monitor",tradeIdeas:null,cot:null,ideaRange:"6mo"};
   const marketMoney=(value,currency="USD")=>Number.isFinite(Number(value))?new Intl.NumberFormat(undefined,{style:"currency",currency,maximumFractionDigits:2}).format(Number(value)):"--";
   const marketNumber=(value)=>Number.isFinite(Number(value))?Number(value).toLocaleString(undefined,{maximumFractionDigits:2}):"--";
@@ -13977,19 +14614,29 @@ Optional bundled starter model:
   $("marketAiPrompt").onkeydown=event=>{if(event.key==="Enter")$("marketAsk").click();};
   function activateWorkspaceTab(ws) {
     if (!ws) return;
-    if(ws==="markets"&&!marketsAccessAllowed()){
-      syncMarketsAccess();
-      tempToast("Sign in to your Boollm account to use Markets.");
+    if(["education","markets"].includes(ws)&&!marketsAccessAllowed()){
+      syncAccountWorkspaceAccess();
+      tempToast(`Sign in to your Boollm account to use ${ws==="education"?"Education":"Markets"}.`);
       return;
     }
     const tabStarted=performance.now();
     const enteringMarkets=ws==="markets"&&ws!==activeWsTab;
+    const enteringEducation=ws==="education"&&ws!==activeWsTab;
+    if(ws!=="education"&&educationSidebarAutoClosed){educationSidebarAutoClosed=false;scheduleResponsiveClasses();}
     if (ws !== activeWsTab) previousWsTab = activeWsTab || "chat";
     if(enteringMarkets&&!document.body.classList.contains("collapsed")){
       document.body.classList.add("collapsed");
       document.body.classList.remove("sidebar-popover-open");
       sidebarHoverPreview=false;
       sidebarManualState=true;
+      scheduleResponsiveClasses();
+      syncPanelButtons();
+    }
+    if(enteringEducation&&!document.body.classList.contains("collapsed")){
+      educationSidebarAutoClosed=true;
+      document.body.classList.add("collapsed");
+      document.body.classList.remove("sidebar-popover-open");
+      sidebarHoverPreview=false;
       scheduleResponsiveClasses();
       syncPanelButtons();
     }
@@ -14000,6 +14647,7 @@ Optional bundled starter model:
     else if (ws === "browser") { if (SHELL) { document.body.classList.add("browser-on"); syncPanelButtons(); hostPost({type:"browser",cmd:"show"}); } else openBrowser(true); }
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { terminalAutoReveal=true; toggleTerminal(true); tempToast("Terminal opened for code work."); }
+    else if (ws === "education") { ensureEducation(); }
     else if (ws === "markets") { ensureMarkets(); }
     else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
     else if (ws === "recipes") {
@@ -14018,9 +14666,9 @@ Optional bundled starter model:
   }
   function setWorkspaceTab(ws,{remember=true,force=false}={}) {
     if (!ws) return;
-    if(ws==="markets"&&!marketsAccessAllowed()){
-      syncMarketsAccess();
-      tempToast("Sign in to your Boollm account to use Markets.");
+    if(["education","markets"].includes(ws)&&!marketsAccessAllowed()){
+      syncAccountWorkspaceAccess();
+      tempToast(`Sign in to your Boollm account to use ${ws==="education"?"Education":"Markets"}.`);
       return;
     }
     const currentWs = document.querySelector(".ws-tab.active")?.dataset.ws || activeWsTab;

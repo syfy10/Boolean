@@ -366,6 +366,7 @@ sealed class MainForm : Form, IMessageFilter
 
     // layout
     readonly SplitContainer _split = new() { Orientation = Orientation.Vertical, SplitterWidth = 5 };
+    readonly Panel _topOutline = new() { Dock = DockStyle.Top, Height = 1, TabStop = false };
     readonly WebView2 _chat = new() { Dock = DockStyle.Fill };
     // HTML browser chrome (tabs + nav + address + tasks + menu + window controls),
     // served from the core at /browser-chrome. Replaces the old WinForms chrome.
@@ -480,6 +481,11 @@ sealed class MainForm : Form, IMessageFilter
         _split.Panel2.Controls.Add(_browserPane);
         _split.Panel2Collapsed = true; // browser hidden until toggled
         Controls.Add(_split);
+        // DWM does not paint the top edge after WM_NCCALCSIZE gives that frame
+        // to our custom HTML title bar. Keep a one-pixel client outline there
+        // so the border remains continuous on all four window edges.
+        Controls.Add(_topOutline);
+        _topOutline.BringToFront();
         BuildBrowserPill();
         Controls.Add(_startup);
         _startup.BringToFront();
@@ -1358,6 +1364,7 @@ try {
         try { _chat.DefaultBackgroundColor = p.PaneBg; } catch { }
         ApplyDwmChromeColor(p.CanvasBg);
         _split.BackColor = p.Splitter;
+        _topOutline.BackColor = p.BtnBorder;
         _split.Panel1.BackColor = p.CanvasBg;
         // Panel2 paints the reserved browser top band; the browserPane below it
         // keeps its own PaneBg surface.

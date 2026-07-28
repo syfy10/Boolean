@@ -21,6 +21,37 @@ function savePreferences(prefs) {
   fs.writeFileSync(PREF_FILE, JSON.stringify(prefs, null, 2));
 }
 
+export function recordResponseFeedback({ rating, reason = "", response = "", provider = "", model = "" } = {}) {
+  const value = rating === "up" ? "up" : rating === "down" ? "down" : "";
+  if (!value) return false;
+  const prefs = loadPreferences();
+  prefs.feedback = Array.isArray(prefs.feedback) ? prefs.feedback : [];
+  prefs.feedback.unshift({
+    id: `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    rating: value,
+    reason: String(reason || "").replace(/\s+/g, " ").trim().slice(0, 600),
+    response: String(response || "").trim().slice(0, 2000),
+    provider: String(provider || "").slice(0, 80),
+    model: String(model || "").slice(0, 160),
+    createdAt: Date.now()
+  });
+  prefs.feedback = prefs.feedback.slice(0, 200);
+
+  const note = String(reason || "").toLowerCase();
+  if (value === "down" && /\b(too long|shorter|brief|concise)\b/.test(note)) {
+    upsertRule(prefs, "response.short", "Keep answers short by default unless the user asks for more detail.", reason);
+  } else if (value === "down" && /\b(too short|more detail|explain more)\b/.test(note)) {
+    upsertRule(prefs, "response.detailed", "Include more explanation and supporting detail by default.", reason);
+  } else if (value === "down" && /\b(wrong tone|tone|formal|casual)\b/.test(note)) {
+    upsertRule(prefs, "response.tone", `Adjust response tone using this local feedback: ${String(reason).trim().slice(0, 300)}`, reason);
+  } else if (value === "down" && /\b(incorrect|wrong answer|correction|should have)\b/.test(note)) {
+    upsertRule(prefs, `correction.${Date.now()}`, `Use this explicit user correction when relevant: ${String(reason).trim().slice(0, 400)}`, reason);
+  }
+  prefs.rules = (prefs.rules || []).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 30);
+  savePreferences(prefs);
+  return true;
+}
+
 function upsertRule(prefs, id, text, evidence = "") {
   const now = Date.now();
   let rule = prefs.rules.find((r) => r.id === id);

@@ -16,6 +16,8 @@ key-vault feature.
 
 WHAT STAYS ON YOUR COMPUTER
 - Your conversations with the AI
+- Optional thumbs-up/down response feedback, correction notes, and learned
+  behavior preferences stored in .saz\preferences.json
 - AI model files stored in the .saz\models folder in your user profile
 - Any bundled starter model included with the installer
 - Your settings, including any API keys you enter, stored at
@@ -119,6 +121,14 @@ Only in these cases, and only because you set them up:
    news, filings, COT data, and derived educational analysis may be cached
    locally. Market content is educational and informational, may be delayed or
    inaccurate, and is governed by the provider's terms and data licenses.
+15. Local response feedback and Education: thumbs-up/down ratings, optional
+   correction text, response excerpts, Education practice progress, and
+   results stay on this PC. Boollm may add explicit corrections or repeated
+   style feedback to its local learned-preference context. This does not
+   retrain the underlying model. Users can review, edit, clear, or disable
+   learned preferences. Education practice and IQ reasoning results are not
+   official, clinical, diagnostic, admissions, placement, or graduation
+   scores.
 
 THIRD-PARTY PROVIDERS AND CONNECTIONS
 OpenAI, Anthropic, Z.AI, Hugging Face, image providers, MCP/HTTP-agent/API

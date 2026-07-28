@@ -86,6 +86,22 @@ are not liable for trading or investment losses or decisions made using or
 relying on the Software. Third-party market-data licenses, exchange rules,
 attribution requirements, plan limits, and provider terms also apply.
 
+5A. EDUCATION PRACTICE AND LOCAL RESPONSE FEEDBACK
+The Education workspace is for practice and general learning only. Boollm is
+not a school, testing authority, psychologist, counselor, or score-reporting
+service. Practice results, explanations, generated questions, released-exam
+readers, and IQ reasoning exercises are not official, clinical, diagnostic,
+admissions, placement, graduation, or professional scores. AI-generated
+questions, answers, grading, and explanations can be wrong. Verify important
+answers, eligibility rules, schedules, and score requirements with the
+applicable school or testing authority.
+
+Thumbs-up and thumbs-down controls let you provide optional response feedback.
+Feedback, response excerpts, corrections, and learned behavior preferences are
+stored locally on this PC. Boollm may use them as future prompt context; this
+does not retrain or modify the underlying AI model. You can review, edit, or
+delete learned preferences in Settings and can disable preference learning.
+
 6. THIRD-PARTY COMPONENTS AND MODELS
 The Software includes open-source components, including Node.js and llama.cpp.
 AI models are governed by their own licenses and model cards. Some editions of

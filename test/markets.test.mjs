@@ -128,7 +128,7 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
   assert.match(ui, /id="marketsWorkspaceTab"[^>]*data-ws="markets"[^>]*hidden[^>]*aria-hidden="true"/);
   assert.match(ui, /function marketsAccessAllowed\(\)/);
-  assert.match(ui, /ws==="markets"&&!marketsAccessAllowed\(\)/);
+  assert.match(ui, /\["education","markets"\]\.includes\(ws\)&&!marketsAccessAllowed\(\)/);
   assert.match(ui, /Save snapshot to Notepad/);
   assert.match(ui, /Major market indexes|Major market indexes/i);
   assert.match(ui, /Market Movers/i);

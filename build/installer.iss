@@ -3,7 +3,7 @@
 ; Build:  ISCC.exe build\installer.iss
 
 #define AppName "Boollm"
-#define AppVersion "0.9.57"
+#define AppVersion "0.9.58"
 #define AppPublisher "saz3 Labs"
 #define AppExe "Boollm.exe"
 #define CoreExe "Boollm-core.exe"

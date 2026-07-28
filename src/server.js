@@ -19,7 +19,7 @@ import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
 import { handleBrowse, clearCookies } from "./browse.js";
-import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences } from "./preferences.js";
+import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences, recordResponseFeedback } from "./preferences.js";
 import {
   McpHttpError,
   mcpTestConnection as testMcpConnector,
@@ -61,6 +61,7 @@ import { detectLocalServers } from "./local-servers.js";
 import { detectWebsiteTech } from "./tech-detector.js";
 import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
+import officialEducationCatalog from "./education-official.json" with { type: "json" };
 
 function loadAsset(name, devPath) {
   if (sea.isSea && sea.isSea()) {
@@ -74,6 +75,8 @@ function loadAsset(name, devPath) {
 }
 
 const IS_SEA = !!(sea.isSea && sea.isSea());
+const officialEducationById = new Map((officialEducationCatalog.exams || []).map((exam) => [exam.id, exam]));
+const officialEducationPdfCache = new Map();
 let devUiCache = { mtimeMs: -1, html: "" };
 let uiGzipCache = { html: "", gzip: null };
 const loadUiHtml = () => {
@@ -1457,6 +1460,84 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/icon-32.png") {
         res.writeHead(200, { "content-type": "image/png" });
         res.end(icon32);
+        return;
+      }
+      if (req.method === "GET" && p === "/api/education/official") {
+        if (!marketAccessAllowed(config)) {
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
+          return;
+        }
+        json(officialEducationCatalog);
+        return;
+      }
+      if (req.method === "GET" && p === "/api/education/card") {
+        if (!marketAccessAllowed(config)) {
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
+          return;
+        }
+        const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
+        const number = Number(url.searchParams.get("number"));
+        if (!exam || !Number.isInteger(number) || number < 1 || number > Number(exam.questionCount)) {
+          json({ error: "official education question not found" }, 404);
+          return;
+        }
+        const cardPath = IS_SEA
+          ? path.join(path.dirname(process.execPath), "education-cards", exam.id, `${number}.webp`)
+          : appPath("assets", "education-cards", exam.id, `${number}.webp`);
+        if (!fs.existsSync(cardPath)) {
+          json({ error: "official education question card not found" }, 404);
+          return;
+        }
+        res.writeHead(200, {
+          "content-type": "image/webp",
+          "cache-control": "private, max-age=86400",
+          "content-length": fs.statSync(cardPath).size
+        });
+        fs.createReadStream(cardPath).pipe(res);
+        return;
+      }
+      if (req.method === "GET" && p === "/api/education/pdf") {
+        if (!marketAccessAllowed(config)) {
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
+          return;
+        }
+        const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
+        const kind = String(url.searchParams.get("kind") || "exam");
+        const index = Math.max(0, Number(url.searchParams.get("index")) || 0);
+        let sourceUrl = "";
+        if (exam) {
+          if (kind === "exam") sourceUrl = exam.examUrl;
+          else if (kind === "key") sourceUrl = exam.keyUrl;
+          else if (kind === "conversion") sourceUrl = exam.conversionUrl;
+          else if (kind === "rating") sourceUrl = exam.ratingUrls?.[index] || "";
+        }
+        if (!sourceUrl || !/^https:\/\/(?:www\.)?nysedregents\.org\//i.test(sourceUrl)) {
+          json({ error: "official education document not found" }, 404);
+          return;
+        }
+        try {
+          let document = officialEducationPdfCache.get(sourceUrl);
+          if (!document) {
+            const upstream = await fetch(sourceUrl, {
+              headers: { "user-agent": `${APP_NAME}/${APP_VERSION} educational PDF viewer` },
+              signal: AbortSignal.timeout(45000)
+            });
+            if (!upstream.ok) throw new Error(`NYSED returned HTTP ${upstream.status}`);
+            document = Buffer.from(await upstream.arrayBuffer());
+            if (document.length > 30 * 1024 * 1024) throw new Error("official document is too large");
+            if (officialEducationPdfCache.size >= 6) officialEducationPdfCache.delete(officialEducationPdfCache.keys().next().value);
+            officialEducationPdfCache.set(sourceUrl, document);
+          }
+          res.writeHead(200, {
+            "content-type": "application/pdf",
+            "content-length": document.length,
+            "cache-control": "private, max-age=3600",
+            "content-disposition": `inline; filename="${exam.id}-${kind}.pdf"`
+          });
+          res.end(document);
+        } catch (err) {
+          json({ error: err.message || "official document could not be loaded" }, 502);
+        }
         return;
       }
       if (req.method === "GET" && p === "/icon-256.png") {
@@ -3194,6 +3275,45 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
+      if (req.method === "POST" && p === "/api/models/benchmark") {
+        const body = await readBody(req);
+        const file = String(body.file || body.model || "").trim();
+        if (!file || !engine.listLocalModels().includes(file)) {
+          json({ error: "installed local model not found" }, 404);
+          return;
+        }
+        try {
+          const benchmarkConfig = {
+            ...config,
+            provider: "local",
+            local: { ...(config.local || {}), model: file }
+          };
+          const started = performance.now();
+          let firstTokenAt = 0;
+          const target = await resolveTarget(benchmarkConfig);
+          const answer = await chatCompletion(target, [
+            { role: "system", content: "Follow the requested output format exactly." },
+            { role: "user", content: "Write the numbers 1 through 32 separated by single spaces and nothing else." }
+          ], undefined, undefined, () => {
+            if (!firstTokenAt) firstTokenAt = performance.now();
+          });
+          const finished = performance.now();
+          const output = Number(answer?.usage?.output) || Math.max(1, Math.ceil(String(answer?.content || "").length / 4));
+          const generationMs = Math.max(1, finished - (firstTokenAt || started));
+          json({
+            ok: true,
+            file,
+            tps: output / (generationMs / 1000),
+            firstTokenMs: Math.max(1, (firstTokenAt || finished) - started),
+            outputTokens: output,
+            measuredAt: Date.now()
+          });
+        } catch (err) {
+          json({ error: err.message || "local model speed test failed" }, 500);
+        }
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/models/remove") {
         const body = await readBody(req);
         try {
@@ -3408,6 +3528,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/preferences/clear") {
         clearPreferences();
         json({ ok: true });
+        return;
+      }
+      if (req.method === "POST" && p === "/api/preferences/feedback") {
+        const body = await readJson(req);
+        const saved = recordResponseFeedback(body || {});
+        json(saved ? { ok: true } : { error: "invalid feedback" }, saved ? 200 : 400);
         return;
       }
 
@@ -3876,6 +4002,14 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           if (String(answer || "").trim()) {
             const aiLabel = shortAiName(replyProvider, replyModel);
             t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
+            // Usage must reach the UI before `answer`, which is the stream's
+            // terminal record. Local model performance uses the exact output
+            // count together with first-token timing measured on this PC.
+            if (runIn || runOut) {
+              const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst, calls: runCalls };
+              t.log.push(usage);
+              send({ type: "usage", ...usage });
+            }
             send({ type: "answer", text: answer, provider: replyProvider, model: replyModel, aiLabel });
           }
           if (t.pendingTask && !options.inspectSavedTask) {
@@ -3893,9 +4027,6 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             }
           }
           if (runIn || runOut) {
-            const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst, calls: runCalls };
-            t.log.push(usage);
-            send({ type: "usage", ...usage });
             // Budget warning after each turn that records cloud usage
             const budget = checkBudget(config.budgetLimit || 0);
             if (budget.level !== "ok") {

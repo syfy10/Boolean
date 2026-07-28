@@ -10,7 +10,7 @@
   <meta property="og:description" content="Chat, build, browse, and keep notes in one local-first Windows workspace.">
   <meta property="og:image" content="https://boollm.com/boolean/assets/boolean-app-screen.png">
   <link rel="icon" href="./assets/boolean-app-icon-clear.png">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=demo1">
 </head>
 <body>
   <header class="sticky-nav" id="nav">
@@ -23,18 +23,18 @@
         <a href="#how-it-works">How It Works</a>
         <a href="#faq">FAQ</a>
       </nav>
-      <a class="nav-download button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.57/Boollm-setup.exe">Download</a>
+      <a class="nav-download button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.58/Boollm-setup.exe">Download</a>
     </div>
   </header>
 
   <main id="top">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Windows AI workspace <span class="release-label">v0.9.57</span></p>
+        <p class="eyebrow">Windows AI workspace <span class="release-label">v0.9.58</span></p>
         <h1>The AI workspace that runs&nbsp;on your&nbsp;PC.</h1>
         <p class="lead">Chat, build apps, research the web, and manage email &mdash; in one local-first Windows app. Your models, your keys, your machine.</p>
         <div class="actions">
-          <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.57/Boollm-setup.exe">Download for Windows</a>
+          <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.58/Boollm-setup.exe">Download for Windows</a>
           <a class="button ghost" href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">View on GitHub</a>
         </div>
         <p class="release-note">Windows 10/11, x64 <span aria-hidden="true">&middot;</span> Local mode needs no account <span aria-hidden="true">&middot;</span> Free forever</p>
@@ -42,10 +42,11 @@
 
       <div class="app-frame-wrap">
         <p class="demo-hint"><span></span> The live app</p>
-        <div class="app-frame">
+        <button class="app-frame app-frame-button" id="demoOpen" type="button" aria-label="Open the interactive demo">
           <img src="./assets/boolean-app-screen.png" alt="The Boollm workspace running on Windows" width="1200" height="760" loading="eager" decoding="async">
-        </div>
-        <p class="demo-caption">This is the actual Boollm interface.</p>
+          <span class="demo-play"><span class="demo-play-icon" aria-hidden="true">&#9654;</span> Try the live demo</span>
+        </button>
+        <p class="demo-caption">Click to try the real interface, right here &mdash; no download needed.</p>
       </div>
     </section>
 
@@ -224,9 +225,9 @@
           <strong>Source code</strong>
           <span>View repository <b aria-hidden="true">&#8599;</b></span>
         </a>
-        <a href="https://github.com/syfy10/Boolean/releases/tag/v0.9.57" target="_blank" rel="noopener noreferrer">
+        <a href="https://github.com/syfy10/Boolean/releases/tag/v0.9.58" target="_blank" rel="noopener noreferrer">
           <strong>Current release</strong>
-          <span>Boollm v0.9.57 <b aria-hidden="true">&#8599;</b></span>
+          <span>Boollm v0.9.58 <b aria-hidden="true">&#8599;</b></span>
         </a>
         <a href="https://github.com/syfy10/Boolean/issues" target="_blank" rel="noopener noreferrer">
           <strong>Issues</strong>
@@ -290,7 +291,7 @@
         </div>
       </div>
       <div class="footer-actions">
-        <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.57/Boollm-setup.exe">Download v0.9.57</a>
+        <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.58/Boollm-setup.exe">Download v0.9.58</a>
         <nav aria-label="Footer">
           <a href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">GitHub</a>
           <a href="mailto:saz3labs@gmail.com">Contact</a>
@@ -301,6 +302,43 @@
     </div>
   </footer>
 
+  <div class="demo-modal" id="demoModal" hidden>
+    <div class="demo-modal-backdrop" data-demo-close></div>
+    <div class="demo-modal-inner" role="dialog" aria-modal="true" aria-label="Boollm interactive demo">
+      <div class="demo-modal-bar">
+        <span class="demo-modal-title"><span class="dot"></span> Boollm &mdash; live interactive demo <em>(replies are scripted)</em></span>
+        <button class="demo-modal-close" type="button" data-demo-close aria-label="Close demo">&#10005;</button>
+      </div>
+      <div class="demo-modal-frame">
+        <iframe id="demoIframe" title="Boollm interactive demo" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Load the heavy interactive demo only when the visitor asks for it.
+    (function(){
+      var modal=document.getElementById('demoModal');
+      var frame=document.getElementById('demoIframe');
+      var openBtn=document.getElementById('demoOpen');
+      if(!modal||!frame||!openBtn) return;
+      var loaded=false;
+      function open(){
+        if(!loaded){ frame.src='./app-live-demo.html?v=demo1'; loaded=true; }
+        modal.hidden=false;
+        document.body.style.overflow='hidden';
+        document.addEventListener('keydown', onKey);
+      }
+      function close(){
+        modal.hidden=true;
+        document.body.style.overflow='';
+        document.removeEventListener('keydown', onKey);
+      }
+      function onKey(e){ if(e.key==='Escape') close(); }
+      openBtn.addEventListener('click', open);
+      modal.addEventListener('click', function(e){ if(e.target.hasAttribute('data-demo-close')) close(); });
+    })();
+  </script>
 
 </body>
 </html>

@@ -38,6 +38,7 @@ $deadEngineDlls = @(
 Get-ChildItem "$out\engine" -Recurse -File | Where-Object { $deadEngineDlls -contains $_.Name } | Remove-Item -Force
 Copy-Item "$root\templates" "$out\templates" -Recurse -Force
 Copy-Item "$root\assets\saz.ico" "$out\saz.ico" -Force
+Copy-Item "$root\assets\education-cards" "$out\education-cards" -Recurse -Force
 
 # Release builds can provide managed OAuth credentials through a local source
 # JSON file or environment overrides. Do not commit production secrets.
