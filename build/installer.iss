@@ -3,7 +3,7 @@
 ; Build:  ISCC.exe build\installer.iss
 
 #define AppName "Boollm"
-#define AppVersion "0.9.56"
+#define AppVersion "0.9.57"
 #define AppPublisher "saz3 Labs"
 #define AppExe "Boollm.exe"
 #define CoreExe "Boollm-core.exe"
@@ -34,6 +34,15 @@ Source: "..\dist\saz-app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 ; Small Microsoft bootstrapper. It downloads the architecture-matched Evergreen
 ; WebView2 Runtime only on PCs where the Runtime is missing (notably some Win10 PCs).
 Source: "..\dist\prerequisites\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
+
+[InstallDelete]
+; Remove executables and shortcuts left by the pre-Boollm product name. Keeping
+; these beside the renamed app can launch an older build after an upgrade.
+Type: files; Name: "{app}\Boolean.exe"
+Type: files; Name: "{app}\Boolean-core.exe"
+Type: files; Name: "{userprograms}\Boolean.lnk"
+Type: files; Name: "{userprograms}\Boolean (terminal).lnk"
+Type: files; Name: "{userdesktop}\Boolean.lnk"
 
 [Icons]
 Name: "{userprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\saz.ico"; WorkingDir: "{app}"

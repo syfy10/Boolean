@@ -25,9 +25,18 @@ function cloudLabel(target) {
 
 async function chatCompletionWithFallback(config, primaryTarget, messages, tools, signal, onToken, onStatus) {
   let emitted = false;
+  const localRequest = primaryTarget?.provider === "local";
+  let writingStarted = false;
+  if (localRequest) onStatus?.("Model loaded - evaluating your request...");
   const trackedToken = typeof onToken === "function"
     ? (text) => {
-        if (text) emitted = true;
+        if (text) {
+          emitted = true;
+          if (localRequest && !writingStarted) {
+            writingStarted = true;
+            onStatus?.("Writing your answer...");
+          }
+        }
         onToken(text);
       }
     : onToken;
@@ -579,6 +588,12 @@ export function classifyTurnMode(messages, options = {}) {
   return "chat";
 }
 
+export function isLightweightLocalChat(text) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value || value.length > 140) return false;
+  return /^(?:hi|hello|hey|howdy|good (?:morning|afternoon|evening)|thanks|thank you|what can you do(?: for me)?|tell me a (?:short )?(?:story|joke)|how are you)[.!?]*$/i.test(value);
+}
+
 export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false, projectBound = false) {
   // Keep the full catalog visible on every normal main-chat turn. The model
   // should decide whether a tool is useful; Boollm's controller, approvals,
@@ -1052,6 +1067,9 @@ export async function runTurn(ctx, messages) {
     projectDir: ctx.projectDir,
     directAction
   });
+  const lightweightLocalChat = config?.provider === "local"
+    && turnMode === "chat"
+    && isLightweightLocalChat(ctx.latestUserText);
   if (artifactActionRequired && !ctx.projectDir) {
     const answer = "Open a folder or create a project first, then ask me to build or change it. I will keep this as a normal chat and will not create a project workspace automatically.";
     messages.push({ role: "assistant", content: answer });
@@ -1060,7 +1078,7 @@ export async function runTurn(ctx, messages) {
   const controller = createAgentController({
     objective: ctx.objective || ctx.latestUserText,
     taskContext: ctx.taskContext || "",
-    answerOnly: forceChat,
+    answerOnly: forceChat || lightweightLocalChat,
     artifactRequired: artifactActionRequired,
     actionRequired: connectorToolResultRequired || explicitActionToolResultRequired,
     projectDir: ctx.projectDir,
@@ -1213,7 +1231,7 @@ export async function runTurn(ctx, messages) {
   // the lightweight one-call path. Normal main chat continues into the agent
   // loop with the open tool catalog so a routing guess cannot strand the model
   // without a capability it discovers it needs.
-  if (turnMode === "chat" && forceChat) {
+  if (turnMode === "chat" && (forceChat || lightweightLocalChat)) {
     let contextRecoveryAttempted = false;
     let transportRecoveryAttempted = false;
     let textFallbackAttempted = false;

@@ -124,7 +124,7 @@ h3{margin-bottom:8px;font-size:18px;font-weight:620}
 .button.ghost{background:#fff}
 .button.ghost:hover{background:var(--soft)}
 
-/* ===== Real app face (embedded via iframe) ===== */
+/* ===== Real app face (static screenshot) ===== */
 .app-frame-wrap{min-width:0}
 .demo-hint{
   display:flex;
@@ -143,30 +143,77 @@ h3{margin-bottom:8px;font-size:18px;font-weight:620}
   animation:pulse 1.8s ease-out infinite;
 }
 .app-frame{
+  position:relative;
+  width:100%;
+  aspect-ratio:1040 / 660;
   overflow:hidden;
   border:1px solid var(--line);
   border-radius:14px;
   background:#fff;
   box-shadow:var(--shadow);
 }
-.app-frame iframe{
-  display:block;
+/* Static screenshot of the real desktop layout, scaled to fit the frame. */
+.app-frame img{
+  position:absolute;
+  top:0;
+  left:0;
   width:100%;
-  height:440px;
+  height:100%;
+  object-fit:cover;
+  object-position:top left;
   border:0;
+}
+.demo-caption{
+  margin:10px 2px 0;
+  color:var(--muted);
+  font-size:12px;
+  text-align:center;
 }
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(32,189,98,.5)}100%{box-shadow:0 0 0 7px rgba(32,189,98,0)}}
 
+/* Trust band */
+.trust-band{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:center;
+  gap:10px 30px;
+  padding:22px 0 4px;
+  color:var(--muted);
+  font-size:13px;
+}
+.trust-band span{display:inline-flex;align-items:center;gap:5px}
+.trust-band span::before{
+  content:"";
+  width:6px;height:6px;border-radius:50%;
+  background:var(--green);
+  flex-shrink:0;
+}
+.trust-band b{color:var(--text);font-weight:600}
+
 /* Features */
 .features{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:28px;
   padding:52px 0 76px;
   border-top:1px solid var(--line);
 }
-.features article{
-  padding:4px 6px;
+.section-head{margin-bottom:30px}
+.section-head h2{margin-bottom:0}
+.feature-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+}
+.feature-grid article{
+  padding:22px 20px 24px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:#fff;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+.feature-grid article:hover{
+  transform:translateY(-3px);
+  box-shadow:var(--shadow);
+  border-color:#dbe2db;
 }
 .feature-visual{
   position:relative;
@@ -1027,27 +1074,47 @@ h3{margin-bottom:8px;font-size:18px;font-weight:620}
   gap:0;
 }
 .faq-item{
-  padding:18px 0;
   border-bottom:1px solid var(--line);
 }
-.faq-item:last-child{border-bottom:none}
-.faq-item dt{
+.faq-item:first-child{border-top:1px solid var(--line)}
+.faq-item summary{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:18px 2px;
   font-weight:620;
   font-size:15px;
-  margin-bottom:6px;
-  cursor:default;
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
+  transition:color .15s;
 }
-.faq-item dd{
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary::after{
+  content:"+";
+  margin-left:auto;
+  font-size:20px;
+  font-weight:400;
+  line-height:1;
+  color:var(--muted);
+  transition:transform .2s ease,color .2s;
+}
+.faq-item[open] summary::after{transform:rotate(45deg);color:var(--green-dark)}
+.faq-item summary:hover{color:var(--green-dark)}
+.faq-item > p{
   margin:0;
+  padding:0 2px 20px;
   color:var(--muted);
   font-size:15px;
   line-height:1.6;
+  animation:faqIn .22s ease;
 }
-.faq-item dd a{
+.faq-item > p a{
   color:var(--green-dark);
   text-decoration:none;
 }
-.faq-item dd a:hover{text-decoration:underline}
+.faq-item > p a:hover{text-decoration:underline}
+@keyframes faqIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 
 /* Mission / Why Boollm */
 .mission{
@@ -1071,7 +1138,7 @@ h3{margin-bottom:8px;font-size:18px;font-weight:620}
 /* Responsive */
 @media (max-width:900px){
   .hero{grid-template-columns:1fr;gap:32px;padding:44px 0 48px}
-  .features{grid-template-columns:1fr 1fr}
+  .feature-grid{grid-template-columns:1fr 1fr}
   .local-cloud{grid-template-columns:1fr;gap:28px}
   .cloud-flow{max-width:620px}
   .github-section{grid-template-columns:1fr;gap:28px}
@@ -1081,8 +1148,7 @@ h3{margin-bottom:8px;font-size:18px;font-weight:620}
 @media (max-width:640px){
   main,.hero,.hero-copy,.app-frame-wrap,.app-frame{width:100%;min-width:0;max-width:100%}
   .lead,.demo-hint{max-width:100%}
-  .app-frame iframe{height:460px}
-  .features,.req-list{grid-template-columns:1fr}
+  .feature-grid,.req-list{grid-template-columns:1fr}
   .footer-download{flex-direction:column;align-items:flex-start}
   .footer-actions{align-items:flex-start}
   .footer-actions nav{justify-content:flex-start}

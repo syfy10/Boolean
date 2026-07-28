@@ -44,6 +44,7 @@ import {
   verifyAwsConnection, awsResourceList,
   verifyGoogleCloudConnection, googleCloudResourceList
 } from "./cloud-hosting.js";
+import { getCotSnapshot, getMarketDashboard, getMarketSnapshot, getOptionsChain, getTradeIdeas, testMarketSettings } from "./markets.js";
 import {
   createEmailOAuth,
   exchangeEmailCode,
@@ -418,6 +419,10 @@ function publicConnectors(config, managedEmailOAuthClients = {}) {
       lastTestedAt: Number(c.googleCloud?.lastTestedAt || 0)
     }
   };
+}
+
+function marketAccessAllowed(config) {
+  return !!config.cloudBackend?.sessionToken;
 }
 
 function publicImageGeneration(config) {
@@ -2248,6 +2253,135 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
+      if (p.startsWith("/api/markets/") && !marketAccessAllowed(config)) {
+        json({ error: "Sign in to your Boollm account to use Markets." }, 401);
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/markets/settings") {
+        const market = config.connectors?.marketData || {};
+        json({
+          provider: market.provider || "yahoo",
+          configured: !!market.apiKey,
+          selectedSymbol: market.selectedSymbol || "AAPL",
+          watchlist: Array.isArray(market.watchlist) ? market.watchlist : [],
+          optionsProvider: market.optionsProvider || "alpaca",
+          optionsFeed: market.optionsFeed === "opra" ? "opra" : "indicative",
+          alpacaConfigured: !!(market.alpacaKeyId && market.alpacaSecretKey),
+          massiveConfigured: !!market.massiveApiKey,
+          yahooExperimental: true
+        });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/markets/settings") {
+        const body = await readBody(req);
+        const old = config.connectors?.marketData || {};
+        const provider = body.provider === "alphaVantage" ? "alphaVantage" : "yahoo";
+        const cleanSymbol = (value) => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g, "").slice(0, 24);
+        const watchlist = Array.isArray(body.watchlist)
+          ? [...new Set(body.watchlist.map(cleanSymbol).filter(Boolean))].slice(0, 20)
+          : (old.watchlist || []);
+        const apiKey = body.apiKey === "__keep__" ? (old.apiKey || "") : String(body.apiKey || "").trim().slice(0, 500);
+        const next = {
+          provider,
+          apiKey: provider === "alphaVantage" ? apiKey : "",
+          selectedSymbol: cleanSymbol(body.selectedSymbol) || old.selectedSymbol || "AAPL",
+          watchlist: watchlist.length ? watchlist : ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"],
+          optionsProvider: ["alpaca", "massive"].includes(body.optionsProvider) ? body.optionsProvider : (old.optionsProvider || "alpaca"),
+          optionsFeed: body.optionsFeed === "opra" ? "opra" : "indicative",
+          alpacaKeyId: body.alpacaKeyId === "__keep__" ? (old.alpacaKeyId || "") : String(body.alpacaKeyId || "").trim().slice(0, 500),
+          alpacaSecretKey: body.alpacaSecretKey === "__keep__" ? (old.alpacaSecretKey || "") : String(body.alpacaSecretKey || "").trim().slice(0, 500),
+          massiveApiKey: body.massiveApiKey === "__keep__" ? (old.massiveApiKey || "") : String(body.massiveApiKey || "").trim().slice(0, 500)
+        };
+        if (provider === "alphaVantage" && !next.apiKey) {
+          json({ error: "Alpha Vantage API key required." }, 400);
+          return;
+        }
+        if (body.test === true) {
+          try {
+            await testMarketSettings(next);
+            const testOptions = (next.optionsProvider === "alpaca" && next.alpacaKeyId && next.alpacaSecretKey)
+              || (next.optionsProvider === "massive" && next.massiveApiKey);
+            if (testOptions) await getOptionsChain(next, next.selectedSymbol);
+          }
+          catch (error) { json({ error: String(error?.message || error) }, 400); return; }
+        }
+        config.connectors = config.connectors || {};
+        config.connectors.marketData = next;
+        saveConfig(config, { preserveSecrets: false });
+        json({
+          ok: true, provider, configured: !!next.apiKey, selectedSymbol: next.selectedSymbol, watchlist: next.watchlist,
+          optionsProvider: next.optionsProvider, optionsFeed: next.optionsFeed,
+          alpacaConfigured: !!(next.alpacaKeyId && next.alpacaSecretKey), massiveConfigured: !!next.massiveApiKey
+        });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/markets/snapshot") {
+        try {
+          const snapshot = await getMarketSnapshot(
+            config.connectors?.marketData || {},
+            url.searchParams.get("symbol") || "AAPL",
+            url.searchParams.get("range") || "6mo"
+          );
+          json({ ok: true, ...snapshot });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/markets/dashboard") {
+        try {
+          const dashboard = await getMarketDashboard(
+            config.connectors?.marketData || {},
+            url.searchParams.get("symbol") || "AAPL"
+          );
+          json({ ok: true, ...dashboard });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/markets/options") {
+        try {
+          const chain = await getOptionsChain(
+            config.connectors?.marketData || {},
+            url.searchParams.get("symbol") || "AAPL",
+            url.searchParams.get("expiration") || ""
+          );
+          json({ ok: true, ...chain });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/markets/trade-ideas") {
+        try {
+          const ideas = await getTradeIdeas(
+            config.connectors?.marketData || {},
+            url.searchParams.get("symbol") || "AAPL"
+          );
+          json({ ok: true, ...ideas });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/markets/cot") {
+        try {
+          const cot = await getCotSnapshot(url.searchParams.get("market") || "nasdaq");
+          json({ ok: true, ...cot });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/local-data/save") {
         saveConfig(config);
         saveThreads([...threads.values()].filter((thread) => !isBlankNewThread(thread)));
@@ -3281,7 +3415,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/estimate") {
         const body = await readBody(req);
         const t = threads.get(body.threadId) || threads.get(activeThreadId);
-        const budget = config.provider === "local" ? (config.local.ctx || 32768) : 128000;
+        const budget = config.provider === "local" ? (config.local.ctx || 8192) : 128000;
         const hypothetical = [...t.messages];
         if (body.draft) hypothetical.push({ role: "user", content: body.draft });
         json(estimateContext(hypothetical, budget, config.ui?.contextMode || "balanced"));
@@ -3444,7 +3578,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           ? [{ type: "text", text }, ...images.map((image) => ({ type: "image_url", image_url: { url: typeof image === "string" ? image : (image.dataURL || image.url) } }))]
           : text;
         t.messages.push({ role: "user", content });
-        t.log.push({ t: "user", text: userTextOnly(content), images: imagesOf(content), at: Date.now(), compareTargets: targets });
+        t.log.push({ t: "user", text: userTextOnly(content), images: imagesOf(content), at: Date.now(), provider: "compare", compareTargets: targets });
         if (config.ui?.learnedMemory !== false) learnFromUserText(userTextOnly(content));
         autoTitleThread(t, content);
         t.updatedAt = Date.now();
@@ -3509,7 +3643,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             t.pendingTask = null;
           }
         }
-        t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now() });
+        t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now(), provider: effectiveProvider });
         if (config.ui?.learnedMemory !== false) learnFromUserText(visibleUserText);
         autoTitleThread(t, content);
         t.updatedAt = Date.now();
@@ -3589,7 +3723,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             return { ...(saved || {}), conversationDigest: t.memoryDigest };
           })(),
           forceTurnMode: options.forceTurnMode || "",
-          onStatus: (text) => send({ type: "status", text }),
+          onStatus: (text, detail) => send({ type: "status", text, ...(detail || {}) }),
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {
             runIn += u.input || 0; runOut += u.output || 0; runEst = runEst || !!u.estimated;

@@ -11,7 +11,7 @@
 <style>
   :root{
     --bg:#fafafa; --sidebar:#ffffff; --text:#1a1a1a; --dim:#8a8a8a; --border:#ececea;
-    --hover:#f3f3f1; --bubble:#f4f4f1; --user-bubble:#2d2d2d; --user-bubble-text:#ffffff; --ai-bubble:#f7f7f4; --accent:#2d2d2d; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
+    --hover:#f3f3f1; --bubble:#f4f4f1; --user-bubble:#2d2d2d; --user-bubble-text:#ffffff; --local-user-bubble:#343434; --local-user-text:#ffffff; --cloud-user-bubble:#2f7fd3; --cloud-user-text:#ffffff; --ai-bubble:#f7f7f4; --accent:#2d2d2d; --accent-text:#fff; --online:#e86f16; --cloud-bubble:#fff7ed; --cloud-border:#fed7aa; --card:#ffffff;
     --green:#3fb950; --ready:#22a559; --not-ready:#dc3f42; --label:#666;
     --shadow-sm:0 1px 2px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.03);
     --shadow:0 2px 8px rgba(0,0,0,.06),0 1px 3px rgba(0,0,0,.04);
@@ -30,12 +30,12 @@
   /* dark palette, shared by system-dark and explicit dark */
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
       --bg:#181818; --sidebar:#1d1d1d; --text:#ececec; --dim:#8f8f8f; --border:#2a2a2a;
-      --hover:#242424; --bubble:#202020; --user-bubble:#e8e8e8; --user-bubble-text:#181818; --ai-bubble:#202020; --accent:#ececec; --accent-text:#181818; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#202020; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
+      --hover:#242424; --bubble:#202020; --user-bubble:#e8e8e8; --user-bubble-text:#181818; --local-user-bubble:#e2e2e2; --local-user-text:#181818; --cloud-user-bubble:#2f7fd3; --cloud-user-text:#ffffff; --ai-bubble:#202020; --accent:#ececec; --accent-text:#181818; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#202020; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
       --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
       --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06); } }
   :root[data-theme="dark"]{
     --bg:#181818; --sidebar:#1d1d1d; --text:#ececec; --dim:#8f8f8f; --border:#2a2a2a;
-    --hover:#242424; --bubble:#202020; --user-bubble:#e8e8e8; --user-bubble-text:#181818; --ai-bubble:#202020; --accent:#ececec; --accent-text:#181818; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#202020; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
+    --hover:#242424; --bubble:#202020; --user-bubble:#e8e8e8; --user-bubble-text:#181818; --local-user-bubble:#e2e2e2; --local-user-text:#181818; --cloud-user-bubble:#2f7fd3; --cloud-user-text:#ffffff; --ai-bubble:#202020; --accent:#ececec; --accent-text:#181818; --online:#fb923c; --cloud-bubble:#2a211b; --cloud-border:#6b3b20; --card:#202020; --ready:#4ade80; --not-ready:#f87171; --label:#aaa;
     --shadow-sm:0 1px 2px rgba(0,0,0,.2); --shadow:0 2px 8px rgba(0,0,0,.3),0 1px 3px rgba(0,0,0,.2); --shadow-lg:0 8px 32px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2); --shadow-glow:0 0 0 1px rgba(255,255,255,.03),0 4px 16px rgba(0,0,0,.3);
     --glass-bg:rgba(26,26,26,.72); --glass-border:rgba(255,255,255,.06);
   }
@@ -148,6 +148,8 @@
     background:transparent; color:var(--text); cursor:pointer; padding:0 9px; font:600 12.5px var(--ui); text-align:left; }
   .account-menu-row:hover{ background:var(--hover); }
   .account-menu-row svg{ width:16px; height:16px; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; color:var(--dim); }
+  .account-auth-note{ margin:4px 9px 6px; color:var(--dim); font:10px/1.35 var(--ui); }
+  .account-auth-note[hidden]{ display:none; }
   .account-sep{ height:1px; background:var(--line); margin:7px 2px; }
   .account-theme-row{ min-height:42px; display:grid; grid-template-columns:18px minmax(0,84px) 112px; align-items:center; gap:8px;
     padding:4px 8px; color:var(--text); font:600 12.5px var(--ui); }
@@ -164,7 +166,7 @@
   .brand-about{ position:relative; margin-left:1px; width:20px; height:20px; border:0; border-radius:50%; background:transparent; color:var(--dim);
     display:grid; place-items:center; cursor:help; padding:0; }
   .brand-about:hover{ background:var(--hover); color:var(--text); }
-  .brand-about.ready{ color:var(--ready); background:color-mix(in srgb,var(--ready) 10%,transparent); }
+  .brand-about.ready{ color:var(--dim); background:transparent; }
   .brand-about.down{ color:#dc3f42; background:color-mix(in srgb,#dc3f42 8%,transparent); }
   .brand-about svg{ width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   .brand-tip{ position:fixed; left:112px; top:34px; transform:translateY(-2px); z-index:120; width:204px;
@@ -1091,7 +1093,8 @@
   .col::after{ content:""; display:block; height:calc(var(--composer-h,106px) + var(--chat-tail-gap,12px)); flex:0 0 calc(var(--composer-h,106px) + var(--chat-tail-gap,12px)); }
   .msg-time{ font-size:11px; color:var(--dim); display:none; }
   body.show-time .msg-time{ display:block; }
-  body.hide-tokens .usage-line, body.hide-tokens .usage-inline{ display:none; }
+  body.hide-tokens .usage-line, body.hide-tokens .usage-inline,
+  body:not(.online-mode) .msg-foot .usage-inline{ display:none; }
   body.hide-tokens .ctxbar{ display:none; }
   .ctxbar{ padding:0 6px 3px; font-size:11px; color:var(--dim); font-family:var(--mono); }
   .ctxbar:empty{ display:none; }
@@ -1117,15 +1120,15 @@
   body.win-lg .msg-ai{ max-width:min(90%,1280px); }
   .msg-user .body,.msg-ai .body{ --msg-fill:var(--ai-bubble); position:relative; padding:var(--msg-pad); background:var(--msg-fill); box-shadow:var(--shadow-sm); }
   .msg-user .body{ --msg-fill:var(--user-bubble); color:var(--user-bubble-text); border-radius:18px 18px 4px 18px; }
+  .msg-user.local .body{ --msg-fill:var(--local-user-bubble); color:var(--local-user-text); }
+  .msg-user.cloud .body{ --msg-fill:var(--cloud-user-bubble); color:var(--cloud-user-text); }
   .msg-ai .body{ border-radius:18px 18px 18px 4px; }
-  .msg-ai:not(.cloud) .body{ --msg-fill:transparent; border:1px solid color-mix(in srgb,var(--text) 10%,transparent); box-shadow:none; }
+  .msg-ai:not(.cloud) .body{ --msg-fill:transparent; border:0; box-shadow:none; }
   .msg-ai.cloud .body{ --msg-fill:var(--cloud-bubble); border:1px solid var(--cloud-border); }
   .msg-user .body:after,.msg-ai .body:after{ content:""; position:absolute; bottom:0; width:9px; height:11px; background:var(--msg-fill); }
   .msg-user .body:after{ right:-5px; clip-path:polygon(0 0,100% 100%,0 78%); }
   .msg-ai .body:after{ left:-5px; clip-path:polygon(100% 0,0 100%,100% 78%); }
-  .msg-ai:not(.cloud) .body:after{ left:-4px; bottom:2px; width:8px; height:8px; background:var(--bg);
-    border-left:1px solid color-mix(in srgb,var(--text) 13%,transparent);
-    border-bottom:1px solid color-mix(in srgb,var(--text) 13%,transparent); clip-path:none; transform:rotate(45deg); }
+  .msg-ai:not(.cloud) .body:after{ display:none; }
 
   /* ── Collapsible message pairs ── */
   .col{ position:relative; }
@@ -1153,10 +1156,10 @@
   .md-table tbody tr:last-child td{ border-bottom:0; }
   .msg-ai .body>:first-child{ margin-top:0; }
   .msg-ai .body>:last-child{ margin-bottom:0; }
-  .msg-foot{ display:flex; align-items:center; gap:3px; row-gap:1px; min-height:0; max-height:0; margin-top:0; padding:0 3px; color:var(--dim); opacity:0; visibility:hidden; pointer-events:none; font:8.5px/1.15 var(--ui); min-width:0; flex-wrap:wrap; overflow:hidden; transition:opacity .12s,max-height .12s,margin-top .12s; }
-  .msg-user.message-controls-open .msg-foot,.msg-ai.message-controls-open .msg-foot,.msg-user:focus-within .msg-foot,.msg-ai:focus-within .msg-foot{ min-height:12px; max-height:24px; margin-top:1px; opacity:.72; visibility:visible; pointer-events:auto; overflow:visible; }
+  .msg-foot{ display:flex; align-items:center; gap:3px; row-gap:1px; min-height:18px; max-height:24px; margin-top:1px; padding:0 3px; color:var(--dim); opacity:0; visibility:hidden; pointer-events:none; font:8.5px/1.15 var(--ui); min-width:0; flex-wrap:wrap; overflow:visible; transition:opacity .12s; }
+  .msg-user.message-controls-open .msg-foot,.msg-ai.message-controls-open .msg-foot,.msg-user:focus-within .msg-foot,.msg-ai:focus-within .msg-foot{ opacity:.72; visibility:visible; pointer-events:auto; }
   @media (hover:hover) and (pointer:fine){
-    .msg-user:hover .msg-foot,.msg-ai:hover .msg-foot{ min-height:12px; max-height:24px; margin-top:1px; opacity:.72; visibility:visible; pointer-events:auto; overflow:visible; }
+    .msg-user:hover .msg-foot,.msg-ai:hover .msg-foot{ opacity:.72; visibility:visible; pointer-events:auto; }
   }
   .msg-foot:hover{ opacity:.95 !important; }
   .msg-user .msg-foot{ justify-content:flex-end; }
@@ -1171,7 +1174,7 @@
   .msg-sender:after{ content:"·"; margin-left:4px; font-weight:400; }
   .usage-inline{ color:var(--dim); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .msg-foot .usage-inline,.msg-foot .msg-time{ color:inherit; }
-  .msg-foot .actions{ margin-left:auto; display:flex; gap:2px; flex:0 0 auto; flex-wrap:nowrap; }
+  .msg-foot .actions{ margin-left:0; display:flex; gap:2px; flex:0 0 auto; flex-wrap:nowrap; }
   .msg-foot .actbtn{ position:relative; width:17px; height:17px; padding:0; border:0; border-radius:5px; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; font:8px/1 var(--ui); cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .msg-foot .actbtn:hover,.msg-foot .actbtn:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
   .msg-foot .actbtn svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
@@ -1477,6 +1480,11 @@
   .status:not(.side-chat-msg) .spinner{ border-top-color:var(--green); }
   .status:not(.side-chat-msg) .stx{ color:var(--text); font-weight:500; }
   .status:not(.side-chat-msg) .meta{ padding-left:2px; font-family:var(--mono); color:var(--dim); font-size:11.5px; }
+  .status.local-model-load{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; min-width:min(520px,calc(100% - 24px)); }
+  .status.local-model-load .load-progress{ grid-column:2 / -1; display:flex; align-items:center; gap:8px; min-width:0; }
+  .status.local-model-load .load-track{ height:4px; flex:1; min-width:80px; overflow:hidden; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,var(--border)); }
+  .status.local-model-load .load-fill{ display:block; height:100%; width:0; border-radius:inherit; background:var(--green); transition:width .45s ease; }
+  .status.local-model-load .load-pct{ flex:0 0 34px; text-align:right; color:var(--dim); font:10.5px/1 var(--mono); }
   #send{ width:34px; height:34px; flex:0 0 auto; margin-left:0; border:1px solid var(--border); border-radius:50%; background:var(--accent); color:var(--accent-text);
     font-size:14px; font-weight:600; cursor:pointer; display:grid; place-items:center; line-height:1; padding:0;
     box-shadow:var(--shadow-sm); transition:transform var(--t-fast),box-shadow var(--t-fast),opacity var(--t-fast); }
@@ -1840,7 +1848,7 @@
   .connector-filters button{ border:0; border-bottom:2px solid transparent; background:transparent; color:var(--dim);
     padding:6px 1px 7px; font:inherit; font-size:var(--fs-xs); cursor:pointer; }
   .connector-filters button.on{ color:var(--text); border-bottom-color:var(--green); }
-  .connector-table-head,.connector-row{ display:grid; grid-template-columns:minmax(0,1.7fr) minmax(70px,.55fr) minmax(110px,.65fr);
+  .connector-table-head,.connector-row{ display:grid; grid-template-columns:minmax(150px,1.7fr) minmax(100px,.55fr) minmax(104px,.55fr) auto;
     align-items:center; column-gap:12px; }
   .connector-table-head{ color:var(--dim); font-size:var(--fs-xxs); padding:8px 7px 6px; border-bottom:1px solid var(--border); }
   .connector-row{ min-height:45px; padding:5px 7px; border-bottom:1px solid var(--border); font-size:var(--fs-xs); }
@@ -1860,8 +1868,8 @@
   .connector-mark.mcp{ color:var(--green); }
   .connector-label{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .connector-type{ color:var(--dim); white-space:nowrap; }
-  .connector-status{ display:flex; align-items:center; justify-content:space-between; gap:6px; min-width:0; }
-  .connector-state{ color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .connector-status{ display:flex; align-items:center; min-width:0; }
+  .connector-state{ color:var(--dim); white-space:nowrap; }
   .connector-state.ready,.connector-state.error{ display:inline-flex; align-items:center; gap:5px; padding:2px 6px; border-radius:9px; font-weight:600; }
   .connector-state.ready{ color:var(--green); background:color-mix(in srgb,var(--green) 12%,transparent); }
   .connector-state.ready:before,.connector-state.error:before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
@@ -1870,6 +1878,7 @@
   .connector-action{ border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:6px;
     padding:4px 8px; font:inherit; font-size:var(--fs-xxs); cursor:pointer; white-space:nowrap; }
   .connector-action:hover{ background:var(--hover); }
+  .connector-actions{ display:flex; align-items:center; justify-content:flex-end; gap:2px; min-width:0; }
   .connector-remove{ width:22px; height:22px; border:0; border-radius:50%; background:transparent; color:var(--dim); cursor:pointer; }
   .connector-remove:hover{ color:#d14343; background:var(--hover); }
   .connector-empty{ color:var(--dim); font-size:var(--fs-xs); padding:18px 7px; text-align:center; }
@@ -1904,7 +1913,7 @@
   #connectorOverview[hidden],#connectorDetail[hidden]{ display:none; }
   #settingsPanel .thirdparty-provider[hidden]{ display:none; }
   @media(max-width:620px){
-    .connector-table-head,.connector-row{ grid-template-columns:minmax(0,1fr) minmax(108px,.55fr); }
+    .connector-table-head,.connector-row{ grid-template-columns:minmax(0,1fr) minmax(94px,auto) auto; column-gap:7px; }
     .connector-table-head .connector-type,.connector-row .connector-type{ display:none; }
   }
   .zai-key-control{ position:relative; width:min(100%,380px); margin-top:6px; }
@@ -2726,32 +2735,46 @@
     background:var(--approved-card); box-shadow:0 16px 42px rgba(0,0,0,.22);
   }
   body.collapsed.sidebar-popover-open .sidehead{
-    justify-content:flex-start; min-height:64px; margin:10px 12px 6px; padding:10px 12px;
+    justify-content:flex-start; min-height:48px; margin:6px 10px 3px; padding:6px 8px;
   }
   body.collapsed.sidebar-popover-open .sidebar-brand{ display:flex; }
   body.collapsed.sidebar-popover-open .threadlist{ display:flex; }
-  .sidehead{ min-height:64px; margin:10px 12px 6px; padding:10px 12px; border:0; border-radius:var(--radius-lg); }
+  .sidehead{ min-height:48px; margin:6px 10px 3px; padding:6px 8px; border:0; border-radius:var(--radius-lg); }
   .sidebar-brand{ align-items:center; }
   .brand-word{ justify-content:center; gap:3px; }
   .brand-name{ font-size:14px; font-weight:650; }
   .sidehead #footStatus{ display:flex; max-width:150px; }
   .sidehead #footStatus .dot,.sidehead #footStatus #statustext{ display:inline-flex; }
   .brand-about{ margin-left:auto; }
-  .thread-search-wrap{ position:relative; width:calc(100% - 24px); height:32px; margin:0 12px 8px; }
+  .thread-search-wrap{ position:relative; width:calc(100% - 20px); height:28px; margin:0 10px 5px; }
   .thread-search-wrap svg{
-    position:absolute; z-index:1; left:10px; top:50%; width:13px; height:13px; transform:translateY(-50%);
+    position:absolute; z-index:1; left:9px; top:50%; width:12px; height:12px; transform:translateY(-50%);
     fill:none; stroke:var(--dim); stroke-width:1.8; stroke-linecap:round; pointer-events:none;
   }
   #threadSearch{
-    display:block; width:100%; height:32px; margin:0; padding:0 12px 0 30px;
-    border:1px solid var(--border); border-radius:8px; outline:0; background:color-mix(in srgb,var(--bg) 68%,var(--sidebar));
-    color:var(--text); font:12px var(--ui);
+    display:block; width:100%; height:28px; margin:0; padding:0 9px 0 27px;
+    border:1px solid var(--border); border-radius:7px; outline:0; background:color-mix(in srgb,var(--bg) 68%,var(--sidebar));
+    color:var(--text); font:11px var(--ui);
   }
   #threadSearch::placeholder{ color:var(--dim); }
   #threadSearch:focus{ border-color:color-mix(in srgb,var(--green) 55%,var(--border)); }
-  .threadlist{ padding:3px 8px 18px; gap:1px; }
-  .thread{ min-height:26px; padding:4px 10px; border-radius:7px; font-size:12.5px; }
+  .threadlist{ padding:2px 8px 14px; gap:0; }
+  .thread{ min-height:22px; padding:2px 8px; border-radius:6px; font-size:11.5px; }
   .thread.active{ box-shadow:inset 3px 0 0 var(--green); }
+  .workspace-create-row{ gap:4px; padding:1px 5px 3px; }
+  .workspace-create-row .group-create{ min-height:20px; padding:2px 8px; border-radius:7px; font-size:11px; }
+  .grouphead{ min-height:21px; padding:3px 5px 1px; font-size:10.5px; }
+  .project-group-head{ min-height:25px; gap:5px; padding:2px 6px; }
+  .project-group-head .project-folder svg{ width:12px; height:12px; }
+  .project-group-head .project-title{ font-size:11.5px; }
+  .project-group-head .project-tag{ max-width:58px; padding:1px 5px; border-radius:6px; font-size:9px; }
+  .project-group-head .project-when{ width:21px; flex-basis:21px; font-size:9.5px; }
+  .project-group-head .project-status{ width:5px; height:5px; flex-basis:5px; }
+  .project-group-body{ padding:0 0 2px 14px; }
+  .project-group-body .thread{ min-height:22px; padding-left:9px; }
+  .group-create{ min-height:20px; gap:6px; padding:2px 7px; font-size:11px; }
+  .group-create .plus{ font-size:12px; }
+  .personal-chat-head{ margin-top:4px; padding-top:4px; }
 
   .workspace-tabs{
     height:32px; min-height:32px; align-items:stretch; gap:19px; padding:0 6px;
@@ -3156,6 +3179,510 @@ body:not(.composer-simple) main::after{
     box-shadow:none!important;
     pointer-events:none!important;
   }
+  .markets-panel{ display:none; flex:1; min-height:0; margin:0 0 var(--app-footer-h); padding:12px var(--content-x) 18px; overflow:auto; background:var(--bg); }
+  body.markets-open .markets-panel{ display:block; }
+  body.markets-open #chat,body.markets-open .composer-wrap,body.markets-open .cmd-bar,body.markets-open #banner,
+  body.markets-open .proj-dashboard,body.markets-open .task-stepper,body.markets-open .ctx-chips,body.markets-open .action-offers{ display:none!important; }
+  body.markets-open main::after{ display:none; }
+  .markets-shell{ max-width:1280px; margin:0 auto; border:1px solid var(--border); border-radius:14px; overflow:hidden; background:var(--bg); container-type:inline-size; }
+  .markets-head{ display:flex; align-items:center; gap:10px; min-height:52px; padding:9px 14px; border-bottom:1px solid var(--border); }
+  .markets-head h2{ margin:0; font-size:18px; }
+  .markets-head .market-source{ margin-left:auto; font-size:11px; color:var(--dim); }
+  .markets-head button,.markets-head input,.market-watch-add button,.market-watch-add input{ height:30px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); }
+  .markets-head button,.market-watch-add button{ cursor:pointer; padding:0 11px; }
+  .market-index-strip{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); border-bottom:1px solid var(--border); background:var(--sidebar); }
+  .market-index{ min-width:0; padding:8px 12px; border-right:1px solid var(--border); }
+  .market-index:last-child{ border-right:0; }.market-index b{ display:block; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .market-index span{ font-size:10px; }.market-index small{ margin-left:5px; font-size:9px; color:var(--dim); }
+  .markets-grid{ display:grid; grid-template-columns:190px minmax(390px,1fr) 260px; min-height:560px; }
+  .market-watch,.market-intel{ padding:14px; background:var(--sidebar); }
+  .market-watch{ border-right:1px solid var(--border); }
+  .market-intel{ border-left:1px solid var(--border); }
+  .market-watch h3,.market-intel h3,.market-card h3{ margin:0 0 10px; font-size:13px; }
+  .market-watch-list{ display:grid; gap:3px; }
+  .market-watch-row{ width:100%; min-height:42px; display:grid; grid-template-columns:1fr auto; align-items:center; gap:5px; padding:6px 8px; border:0; border-radius:8px; background:transparent; color:var(--text); text-align:left; cursor:pointer; }
+  .market-watch-row:hover,.market-watch-row.active{ background:var(--hover); }
+  .market-watch-row.active{ box-shadow:inset 3px 0 var(--green); }
+  .market-watch-row b{ font-size:12px; }.market-watch-row small{ display:block; color:var(--dim); font-size:10px; }
+  .market-watch-add{ display:flex; gap:5px; margin-top:10px; }.market-watch-add input{ width:100%; min-width:0; padding:0 8px; }
+  .market-main{ min-width:0; padding:14px 16px; }
+  .market-quote{ display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; }
+  .market-quote h1{ margin:0; font-size:22px; }.market-quote p{ margin:3px 0 0; color:var(--dim); font-size:11px; }
+  .market-price{ margin-left:auto; text-align:right; }.market-price b{ display:block; font-size:23px; }.market-up{ color:#1aa34a; }.market-down{ color:#dc3f42; }
+  .market-quote>div:first-child .market-price{ margin-left:0; text-align:left; }
+  .market-chart.expanded{ height:min(560px,68vh); }
+  .market-ma-line{ fill:none; stroke:#6b5cff; stroke-width:1.5; vector-effect:non-scaling-stroke; }
+  .market-chart{ height:270px; border:1px solid var(--border); border-radius:10px; background:linear-gradient(180deg,color-mix(in srgb,var(--green) 5%,transparent),transparent); overflow:hidden; }
+  .market-chart svg{ width:100%; height:100%; display:block; }.market-gridline{ stroke:var(--border); stroke-width:.7; }.market-line{ fill:none; stroke:var(--green); stroke-width:2.3; vector-effect:non-scaling-stroke; }
+  .market-area{ fill:color-mix(in srgb,var(--green) 12%,transparent); }
+  .market-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:10px; }
+  .market-stat{ padding:9px; border:1px solid var(--border); border-radius:9px; }.market-stat small{ display:block; color:var(--dim); font-size:10px; }.market-stat b{ font-size:12px; }
+  .market-card{ margin-top:10px; padding:11px; border:1px solid var(--border); border-radius:10px; }
+  .market-detail-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+  .market-detail-grid div{ min-width:0; }.market-detail-grid small{ display:block; color:var(--dim); font-size:9px; }
+  .market-detail-grid b{ display:block; margin-top:2px; font-size:11px; overflow:hidden; text-overflow:ellipsis; }
+  .market-actions{ display:grid; gap:7px; }.market-actions button{ min-height:36px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); text-align:left; padding:7px 9px; cursor:pointer; }
+  .market-actions button:hover{ background:var(--hover); }.market-actions button.primary{ background:var(--text); color:var(--bg); text-align:center; }
+  .market-note{ font-size:10px; line-height:1.4; color:var(--dim); margin-top:10px; }
+  .market-intel{ overflow:auto; max-height:720px; }.market-intel-section{ padding-top:12px; margin-top:12px; border-top:1px solid var(--border); }
+  .market-intel-tabs{ display:flex; gap:4px; margin-bottom:6px; }.market-intel-tabs button{ flex:1; border:0; border-radius:6px; padding:5px 3px; background:transparent; color:var(--dim); font-size:9px; cursor:pointer; }
+  .market-intel-tabs button.active{ background:var(--hover); color:var(--text); font-weight:700; }
+  .market-mover-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px; padding:6px 2px; border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent); cursor:pointer; }
+  .market-mover-row:last-child{ border-bottom:0; }.market-mover-row b{ font-size:10px; }.market-mover-row small{ display:block; color:var(--dim); font-size:8.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .market-mover-row span{ align-self:center; font-size:10px; font-weight:700; }
+  .market-news-list{ display:grid; gap:1px; }.market-news-row{ display:block; width:100%; padding:7px 2px; border:0; border-bottom:1px solid color-mix(in srgb,var(--border) 70%,transparent); background:transparent; color:var(--text); text-align:left; text-decoration:none; cursor:pointer; }
+  .market-news-row b{ display:block; font-size:10px; line-height:1.3; }.market-news-row small{ display:block; margin-top:3px; color:var(--dim); font-size:8.5px; }
+  .market-empty{ padding:8px 0; color:var(--dim); font-size:10px; }
+  .market-watch-head{ display:grid; grid-template-columns:minmax(0,1fr) 60px 48px; gap:5px; padding:0 8px 5px; color:var(--dim); font-size:8px; text-transform:uppercase; letter-spacing:.04em; }
+  .market-watch-head span:not(:first-child){ text-align:right; }
+  .market-watch-row{ grid-template-columns:minmax(0,1fr) 62px 48px; border-radius:0; border-bottom:1px solid color-mix(in srgb,var(--border) 65%,transparent); }
+  .market-watch-row>span:nth-child(2),.market-watch-row>span:nth-child(3){ text-align:right; font-size:10px; font-variant-numeric:tabular-nums; }
+  .market-chart-toolbar{ display:flex; align-items:center; gap:4px; padding:7px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .market-ranges{ display:flex; align-items:center; gap:2px; }
+  .market-ranges button,.market-chart-tools button{ min-width:29px; height:25px; border:0; border-radius:5px; background:transparent; color:var(--dim); font-size:9px; cursor:pointer; }
+  .market-ranges button.active{ background:color-mix(in srgb,#ff6a00 12%,var(--bg)); color:#e65f00; font-weight:700; }
+  .market-chart-tools{ margin-left:auto; display:flex; align-items:center; gap:4px; }
+  .market-chart-tools button{ min-width:auto; padding:0 7px; }
+  .market-chart{ border-radius:0; border-width:0 0 1px; height:315px; background:var(--bg); position:relative; }
+  .market-candle-up{ fill:#20b26b; stroke:#20b26b; }.market-candle-down{ fill:#ef5a4f; stroke:#ef5a4f; }
+  .market-volume-up{ fill:color-mix(in srgb,#20b26b 48%,transparent); }.market-volume-down{ fill:color-mix(in srgb,#ef5a4f 48%,transparent); }
+  .market-axis-label{ fill:var(--dim); font-size:9px; }
+  .market-ohlc{ display:flex; gap:10px; padding:5px 2px; color:var(--dim); font-size:9px; font-variant-numeric:tabular-nums; }
+  .market-quote-metrics{ margin-left:auto; display:grid; grid-template-columns:repeat(6,minmax(54px,1fr)); gap:12px; }
+  .market-quote-metrics small{ display:block; color:var(--dim); font-size:8px; }.market-quote-metrics b{ display:block; margin-top:2px; font-size:10px; }
+  .market-security-tabs{ display:flex; gap:0; overflow:auto; border-bottom:1px solid var(--border); }
+  .market-security-tabs button{ flex:0 0 auto; height:32px; padding:0 13px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--dim); font-size:9px; cursor:pointer; }
+  .market-security-tabs button.active{ color:var(--text); border-bottom-color:#ff6a00; font-weight:700; }
+  .market-lower-grid{ display:grid; grid-template-columns:1.05fr 1fr; min-height:250px; }
+  .market-lower-card{ min-width:0; padding:10px; border-right:1px solid var(--border); }
+  .market-lower-card:last-child{ border-right:0; }.market-lower-card h3{ margin:0 0 8px; font-size:12px; }
+  .market-financial-table,.market-news-table{ width:100%; border-collapse:collapse; font-size:9px; }
+  .market-financial-table th,.market-financial-table td,.market-news-table td{ padding:5px 6px; border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent); text-align:right; white-space:nowrap; }
+  .market-financial-table th:first-child,.market-financial-table td:first-child,.market-news-table td:nth-child(2){ text-align:left; }
+  .market-financial-table th{ color:var(--dim); font-weight:600; }
+  .market-news-table td:first-child{ width:55px; color:var(--dim); }.market-news-table td:last-child{ width:75px; color:var(--dim); text-align:right; overflow:hidden; text-overflow:ellipsis; max-width:75px; }
+  .market-news-table tr{ cursor:pointer; }.market-news-table tr:hover{ background:var(--hover); }
+  .market-intel-prompt{ display:flex; gap:5px; margin-bottom:10px; }.market-intel-prompt input{ min-width:0; width:100%; height:34px; border:1px solid var(--border); border-radius:7px; padding:0 9px; background:var(--bg); color:var(--text); font-size:10px; }
+  .market-intel-prompt button{ width:36px; border:0; border-radius:7px; background:#ff6a00; color:white; cursor:pointer; }
+  .market-ai-summary{ padding:9px 0; font-size:10px; line-height:1.45; }
+  .market-driver{ padding:9px 0; border-bottom:1px solid color-mix(in srgb,var(--border) 65%,transparent); }.market-driver b{ display:block; font-size:10px; }.market-driver p{ margin:4px 0; color:var(--dim); font-size:9px; line-height:1.4; }.market-driver small{ color:var(--dim); font-size:8px; }
+  .market-context-list{ margin:5px 0 0; padding-left:15px; color:var(--dim); font-size:9px; line-height:1.55; }
+  .market-setup{ display:none; position:absolute; z-index:50; top:34px; right:6px; width:min(310px,calc(100% - 12px)); padding:11px; border:1px solid var(--border); border-radius:10px; background:var(--approved-card,var(--bg)); box-shadow:var(--shadow-lg); }
+  .market-setup.open{ display:block; }.market-setup h3{ margin:0; font-size:13px; }.market-setup-intro{ margin:3px 0 8px; font-size:8px; line-height:1.35; color:var(--dim); }
+  .market-setup-group{ padding:7px; border:1px solid var(--border); border-radius:8px; background:var(--approved-canvas,var(--bg)); }
+  .market-setup-group+.market-setup-group{ margin-top:7px; }
+  .market-setup-group-title{ margin:0 0 5px; color:var(--dim); font-size:8px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+  .market-setup label{ display:block; margin:6px 0 3px; font-size:8px; color:var(--dim); }
+  .market-setup select,.market-setup input{ width:100%; height:29px; border:1px solid var(--border); border-radius:6px; background:var(--approved-card,var(--bg)); color:var(--text); padding:0 8px; font-size:9px; }
+  .market-setup-actions{ display:flex; gap:6px; margin-top:8px; }.market-setup-actions button{ flex:1; height:29px; border:1px solid var(--border); border-radius:6px; cursor:pointer; font-size:9px; }.market-setup-actions .primary{ background:var(--text); color:var(--approved-card,var(--bg)); }
+  #marketSetupStatus{ display:none; margin-top:7px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; background:var(--approved-canvas,var(--bg)); font-size:8px; line-height:1.35; }
+  #marketSetupStatus:not(:empty){ display:block; }
+  #marketSetupStatus.success{ border-color:color-mix(in srgb,var(--green) 45%,var(--border)); background:color-mix(in srgb,var(--green) 9%,var(--approved-card,var(--bg))); color:var(--green); font-weight:700; text-align:center; }
+  .market-setup-footnote{ margin:7px 1px 0; color:var(--dim); font-size:7px; line-height:1.35; }
+  @container(max-width:860px){
+    .markets-grid{ grid-template-columns:160px minmax(0,1fr); }
+    .market-intel{ grid-column:1/-1; border-left:0; border-top:1px solid var(--border); }
+    .market-actions{ grid-template-columns:repeat(5,minmax(0,1fr)); }
+    .market-actions button{ text-align:center; }
+    .market-quote{ flex-wrap:wrap; }.market-quote-metrics{ order:3; width:100%; margin-left:0; }
+    .market-lower-grid{ grid-template-columns:1fr; }.market-lower-card{ border-right:0; border-bottom:1px solid var(--border); }
+  }
+  @container(max-width:610px){
+    .markets-grid{ display:block; min-height:0; }
+    .market-watch{ border-right:0; border-bottom:1px solid var(--border); }
+    .market-watch-list{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .market-main{ padding:12px; }
+    .market-chart{ height:240px; }
+    .market-stats{ grid-template-columns:repeat(2,1fr); }
+    .market-actions{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .market-actions .primary{ grid-column:1/-1; }
+    .market-index-strip{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .market-index{ border-bottom:1px solid var(--border); }
+    .market-detail-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .market-intel{ max-height:none; }
+  }
+  @container(max-width:410px){
+    .markets-head{ flex-wrap:wrap; }
+    .markets-head .market-source{ order:4; width:100%; margin-left:0; }
+    .market-watch-list{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .market-chart{ height:210px; }
+  }
+  /* Markets workstation: dense terminal geometry with mode-specific palettes. */
+  body.markets-open main{ background:#070b0e; color:#e8edf0; }
+  body.markets-open .workspace-tabs{ background:#080c0f; border-bottom-color:#26313a; }
+  body.markets-open .workspace-tabs button{ color:#a8b1b7; }
+  body.markets-open .workspace-tabs button.active{ color:#fff; border-bottom-color:#ff7a00; }
+  body.markets-open .markets-panel{ padding:5px 6px 8px; overflow:auto; background:#070b0e; scrollbar-width:thin; }
+  body.markets-open .markets-shell{
+    --market-bg:#090d10; --market-card:#0d1216; --market-card-2:#10171c; --market-line:#28343c;
+    --market-muted:#8c989f; --market-orange:#ff7900; --market-blue:#35b8ff;
+    display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto auto auto minmax(0,1fr) 24px;
+    max-width:none; width:max(100%,680px); height:max(100%,520px); min-height:520px; margin:0; border:1px solid #303b43;
+    border-radius:0; color:#e8edf0; background:var(--market-bg); font-family:var(--ui);
+  }
+  body.markets-open .markets-head{ grid-column:1; min-height:29px; padding:2px 6px; background:#080c0f; border-bottom-color:var(--market-line); }
+  .market-mode-tabs{ display:flex; grid-column:1; gap:1px; min-height:25px; padding:0 6px; border-bottom:1px solid var(--market-line); background:#080c0f; }
+  .market-mode-tabs button{ padding:0 12px; border:0; border-bottom:2px solid transparent; background:transparent; color:#8c989f; font-size:8px; cursor:pointer; }
+  .market-mode-tabs button.active{ color:#fff; border-bottom-color:#ff7900; font-weight:700; }
+  body.markets-open .markets-head h2{ color:#fff; font-size:11px; }
+  .market-command{ flex:1; height:21px!important; max-width:660px; padding:0 6px; border-color:#313c44!important; border-radius:2px!important; background:#0b1014!important; color:#dfe6ea!important; font-size:8px; }
+  body.markets-open .markets-head .market-source{ color:var(--market-muted); }
+  body.markets-open .markets-head button{ height:21px; padding:0 7px; border-color:#313c44; border-radius:2px; background:#11171b; color:#dce3e7; font-size:7px; }
+  body.markets-open .market-index-strip{ grid-column:1; background:#0a0f13; border-bottom-color:var(--market-line); }
+  body.markets-open .market-index{ padding:2px 6px; border-right-color:var(--market-line); }
+  body.markets-open .market-index b{ font-size:7px; } body.markets-open .market-index span{ font-size:7px; }
+  body.markets-open .markets-grid{ grid-column:1; min-height:0; grid-template-columns:265px minmax(380px,1fr) 265px; overflow:hidden; background:var(--market-bg); }
+  body.markets-open .market-watch,body.markets-open .market-intel{ padding:4px; background:var(--market-card); border-color:var(--market-line); overflow:auto; max-height:none; }
+  body.markets-open .market-watch{ grid-column:1; }
+  body.markets-open .market-main{ grid-column:2; }
+  body.markets-open .market-intel{ grid-column:3; border-top:0; border-left:1px solid var(--market-line); }
+  body.markets-open .market-watch h3,body.markets-open .market-intel h3,body.markets-open .market-card h3{ margin-bottom:5px; color:#ff8b1a; font-size:8px; text-transform:none; }
+  body.markets-open .market-watch-head{ color:#7f8b91; }
+  body.markets-open .market-watch-row{ min-height:18px; padding:1px 3px; color:#e8edf0; border-bottom-color:#243038; }
+  body.markets-open .market-watch-row:hover{ background:#142027; }
+  body.markets-open .market-watch-row.active{ background:#111b20; box-shadow:inset 2px 0 var(--market-orange); }
+  body.markets-open .market-watch-row b{ color:#fff; font-size:8px; line-height:1.05; }
+  body.markets-open .market-watch-row small{ color:#758189; font-size:7px; line-height:1.05; }
+  body.markets-open .market-watch-add input,body.markets-open .market-watch-add button{ background:#0a0f13; border-color:#2b373f; color:#dfe5e8; border-radius:2px; }
+  .market-watch-subpanel{ margin-top:4px; padding-top:4px; border-top:1px solid var(--market-line); }
+  body.markets-open .market-intel-tabs button{ color:#88949a; border-radius:0; border-bottom:1px solid transparent; }
+  body.markets-open .market-intel-tabs button.active{ color:#fff; background:transparent; border-bottom-color:var(--market-orange); }
+  body.markets-open .market-mover-row{ min-height:17px; padding:1px; font-size:7px; line-height:1.05; border-bottom-color:#26323a; }
+  body.markets-open .market-main{ display:flex; flex-direction:column; padding:0; overflow:hidden; background:#090d10; scrollbar-width:thin; }
+  body.markets-open .market-quote{ align-items:center; margin:0; padding:3px 6px; background:#0b1115; border-bottom:1px solid var(--market-line); }
+  body.markets-open .market-quote h1{ font-size:11px; color:#fff; }
+  body.markets-open .market-quote p{ margin-top:0; font-size:7px; color:#8c989f; }
+  body.markets-open .market-price b{ font-size:14px; }
+  body.markets-open .market-quote-metrics{ gap:6px; font-size:7px; }
+  body.markets-open .market-quote-metrics small{ color:#829098; } body.markets-open .market-quote-metrics b{ color:#dfe6e9; }
+  body.markets-open .market-chart-toolbar{ min-height:21px; padding:1px 4px; border-color:var(--market-line); background:#090e12; font-size:7px; }
+  body.markets-open .market-ranges button,body.markets-open .market-chart-tools button{ color:#9ca7ad; border-radius:2px; }
+  body.markets-open .market-ranges button.active{ color:var(--market-orange); background:#25180c; box-shadow:inset 0 -1px var(--market-orange); }
+  body.markets-open .market-ohlc{ padding:1px 5px; color:#56d78a; background:#0a1014; font-size:7px; }
+  body.markets-open .market-chart{ height:158px; border-bottom-color:var(--market-line); background:#080d10; }
+  body.markets-open .market-gridline{ stroke:#1e2a31; } body.markets-open .market-axis-label{ fill:#859198; }
+  body.markets-open .market-security-tabs{ border-color:var(--market-line); background:#0b1115; }
+  body.markets-open .market-security-tabs button{ height:19px; padding:0 5px; font-size:7px; color:#8e999f; } body.markets-open .market-security-tabs button.active{ color:#fff; border-color:var(--market-orange); }
+  body.markets-open .market-lower-grid{ flex:1 1 118px; grid-template-columns:.85fr 1.15fr 1.1fr; height:auto; min-height:118px; overflow:hidden; background:#090d10; }
+  body.markets-open .market-lower-card{ padding:4px; overflow:auto; border-color:var(--market-line); background:#0c1216; scrollbar-width:thin; }
+  body.markets-open .market-lower-card h3{ margin-bottom:4px; color:var(--market-orange); font-size:8px; }
+  body.markets-open .market-financial-table,body.markets-open .market-news-table{ font-size:7px; color:#d8e0e4; }
+  body.markets-open .market-financial-table th,body.markets-open .market-financial-table td,body.markets-open .market-news-table td{ padding:2px 3px; border-bottom-color:#253139; }
+  /* Keep Monitor and Research Desk typography on the same compact 7px scale
+     used by Earnings & Financials. Weight and color preserve hierarchy. */
+  body.markets-open .market-watch,
+  body.markets-open .market-intel,
+  body.markets-open .market-research-page{ font-size:7px; }
+  body.markets-open .market-watch-head,
+  body.markets-open .market-watch-row b,
+  body.markets-open .market-watch-row small,
+  body.markets-open .market-watch-row>span:nth-child(2),
+  body.markets-open .market-watch-row>span:nth-child(3),
+  body.markets-open .market-mover-row,
+  body.markets-open .market-mover-row b,
+  body.markets-open .market-mover-row small,
+  body.markets-open .market-mover-row span,
+  body.markets-open .market-news-row b,
+  body.markets-open .market-news-row small,
+  body.markets-open .market-alert-list>div,
+  body.markets-open .market-ai-summary,
+  body.markets-open .market-driver b,
+  body.markets-open .market-driver p,
+  body.markets-open .market-driver small,
+  body.markets-open .market-context-list,
+  body.markets-open .market-scan-row b,
+  body.markets-open .market-scan-row small,
+  body.markets-open .market-scan-row span,
+  body.markets-open .market-scan-row .scan-price,
+  body.markets-open .market-scan-row .scan-change,
+  body.markets-open .market-scan-row .scan-rank,
+  body.markets-open .market-idea-brief p,
+  body.markets-open .market-research-intel p,
+  body.markets-open .market-research-list,
+  body.markets-open .market-idea-news-row,
+  body.markets-open .market-idea-news-row time{ font-size:7px!important; }
+  .market-api-required{ display:grid; place-items:center; min-height:76px; padding:5px; color:#7f8a91; text-align:center; font-size:7px; line-height:1.25; }
+  .market-api-required b{ color:#d6dde1; }
+  .market-options-head{ display:flex; align-items:center; gap:4px; margin-bottom:3px; }
+  .market-options-head select{ min-width:0; flex:1; height:20px; border:1px solid #2b373f; border-radius:2px; background:#0a0f13; color:#dfe5e8; font-size:7px; padding:0 3px; }
+  .market-options-feed{ max-width:130px; overflow:hidden; color:#42c978; font-size:6.5px; text-overflow:ellipsis; white-space:nowrap; }
+  .market-option-table{ width:100%; border-collapse:collapse; color:#d8e0e4; font-size:6.5px; font-variant-numeric:tabular-nums; }
+  .market-option-table th,.market-option-table td{ padding:2px 3px; border-bottom:1px solid #253139; text-align:right; white-space:nowrap; }
+  .market-option-table th{ position:sticky; top:0; background:#0c1216; color:#7f8b91; font-weight:600; }
+  .market-option-table th:nth-child(4),.market-option-table td:nth-child(4){ background:#11191e; color:#f2a258; font-weight:700; text-align:center; }
+  .market-option-table tr:hover td{ background:#142027; }
+  .market-options-empty{ display:grid; place-items:center; min-height:76px; color:#7f8a91; text-align:center; font-size:7px; line-height:1.35; }
+  .market-options-empty button{ margin-top:4px; border:0; background:transparent; color:#35b8ff; cursor:pointer; font-size:7px; }
+  body.markets-open .market-intel{ overflow:auto; background:#0a0f13; scrollbar-width:thin; }
+  .market-right-block{ padding:3px 0 4px; border-bottom:1px solid var(--market-line); }
+  .market-right-block:last-child{ border-bottom:0; }
+  body.markets-open .market-right-block:first-child .market-news-list{ max-height:105px; overflow:auto; scrollbar-width:thin; }
+  .market-alert-list>div{ display:grid; grid-template-columns:35px minmax(0,1fr) auto; gap:3px; align-items:center; min-height:18px; padding:0 3px; border-top:1px solid #182127; font-size:7px; }
+  .market-alert-list time{ color:#77838a; }.market-alert-list b{ overflow:hidden; color:#c8d1d6; text-overflow:ellipsis; white-space:nowrap; }.market-alert-list span{ color:#43d36e; }
+  body.markets-open .market-news-list{ display:grid!important; }
+  body.markets-open .market-news-row{ color:#dce3e6; border-color:#253139; }
+  body.markets-open .market-news-row{ padding:3px 1px; } body.markets-open .market-news-row b{ font-size:7.5px; } body.markets-open .market-news-row small{ color:#36b9ff; font-size:6.5px; }
+  .market-alert-row{ display:grid; grid-template-columns:48px 1fr auto; gap:6px; padding:5px 0; border-bottom:1px solid #243039; color:#d8dfe3; font-size:8.5px; }
+  .market-alert-row span:last-child{ color:#41d26f; }
+  body.markets-open .market-intel-prompt{ margin-bottom:3px; }
+  body.markets-open .market-intel-prompt input{ height:22px; background:#0c1216; color:#e4eaed; border-color:#2b373f; border-radius:2px; font-size:7px; }
+  body.markets-open .market-intel-prompt button{ border-radius:2px; }
+  body.markets-open .market-ai-summary{ padding:3px 4px; background:#121a1f; border:1px solid #27343c; border-radius:2px; color:#d8e0e4; font-size:7px; line-height:1.25; }
+  body.markets-open .market-intel-section{ margin-top:2px; padding-top:2px; }
+  body.markets-open .market-intel-section>h3{ margin:0 0 1px; font-size:7.5px; line-height:1.2; }
+  body.markets-open .market-driver{ padding:4px 0; border-color:#27343c; }
+  body.markets-open .market-driver b{ display:-webkit-box; overflow:hidden; font-size:7.5px; line-height:1.25; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  body.markets-open .market-driver p{ display:-webkit-box; overflow:hidden; margin:2px 0 1px; color:#829097; font-size:6.5px; line-height:1.25; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+  body.markets-open .market-driver small{ display:block; overflow:hidden; color:#829097; font-size:6px; line-height:1.2; text-overflow:ellipsis; white-space:nowrap; }
+  body.markets-open .market-context-list{ margin:2px 0 0; padding-left:12px; font-size:6.5px; line-height:1.3; }
+  body.markets-open .market-context-list li{ margin:0; padding:0; }
+  body.markets-open .market-actions{ gap:3px; }
+  body.markets-open .market-actions button{ min-height:18px; padding:3px 5px; border-radius:2px; border-color:#2b373f; background:#10171c; color:#cdd6da; font-size:6.5px; line-height:1.15; }
+  body.markets-open .market-note{ margin-top:3px; font-size:6px; line-height:1.25; }
+  .market-bottom-tape{ grid-column:1/-1; display:flex; align-items:center; gap:12px; min-width:0; padding:0 7px; border-top:1px solid #2c3941; background:#080c0f; color:#bac4c9; font-size:7px; overflow:hidden; white-space:nowrap; }
+  .market-bottom-tape b{ color:#47d277; }.market-bottom-tape .down{ color:#f35c55; }.market-bottom-tape .session{ color:#47d277; margin-right:10px; }
+  .market-research-page{ grid-column:1; min-height:0; display:grid; grid-template-columns:265px minmax(380px,1fr) 265px; overflow:auto; background:var(--market-bg); }
+  #marketsWorkspaceTab[hidden]{ display:none!important; }
+  .market-research-page[hidden]{ display:none; }
+  [data-market-page][hidden]{ display:none!important; }
+  .market-scan-pane,.market-research-intel{ min-width:0; padding:7px; overflow:auto; background:var(--market-card); }
+  .market-scan-pane{ border-right:1px solid var(--market-line); }.market-research-intel{ border-left:1px solid var(--market-line); }
+  .market-idea-pane{ min-width:0; padding:8px; overflow:auto; background:var(--market-bg); }
+  .market-pane-title,.market-idea-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding-bottom:6px; border-bottom:1px solid var(--market-line); }
+  .market-pane-title b,.market-idea-head h2{ margin:0; color:#f0f3f5; font-size:10px; }.market-pane-title small,.market-idea-head small{ display:block; margin-top:2px; color:var(--market-muted); font-size:7px; }
+  .market-pane-title button,.market-pane-title select{ height:21px; border:1px solid var(--market-line); border-radius:2px; background:#0b1115; color:#cdd6da; font-size:7px; }
+  .market-scan-filters{ display:flex; gap:2px; padding:6px 0; }.market-scan-filters button{ flex:1; height:21px; border:1px solid var(--market-line); background:#0b1115; color:var(--market-muted); font-size:7px; cursor:pointer; }.market-scan-filters button.active{ color:#ff8b1a; border-color:#8b4b16; }
+  .market-scan-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px; padding:6px 4px; border:0; border-bottom:1px solid var(--market-line); background:transparent; color:#dfe6e9; text-align:left; cursor:pointer; width:100%; }
+  .market-scan-row:hover,.market-scan-row.active{ background:#121b20; box-shadow:inset 2px 0 #ff7900; }.market-scan-row b{ font-size:9px; }.market-scan-row small{ display:block; margin-top:2px; color:var(--market-muted); font-size:7px; }.market-scan-row span{ color:#47d277; font-size:8px; font-weight:700; }
+  .market-idea-head{ justify-content:flex-start; min-height:39px; padding:1px 8px 7px; }.market-idea-head h2{ margin:0; font-size:14px; }.market-security-star{ color:#f5b51b; font-size:17px; }.market-security-name{ display:flex; align-items:baseline; gap:10px; min-width:0; }.market-security-name>span{ color:#c5ced3; font-size:8px; white-space:nowrap; }.market-security-name small{ margin:0; white-space:nowrap; }.market-security-quote{ display:grid; justify-items:end; margin-left:auto; }.market-security-quote b{ color:#f0f3f5; font-size:15px; }.market-security-quote span{ color:#47d277; font-size:8px; }
+  .market-idea-chart{ height:245px; border-bottom:1px solid var(--market-line); background:#080d10; }.market-idea-chart svg{ width:100%; height:100%; display:block; }
+  .market-level-grid{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); border-bottom:1px solid var(--market-line); }.market-level-grid div{ padding:7px; border-right:1px solid var(--market-line); }.market-level-grid div:last-child{ border-right:0; }.market-level-grid small{ display:block; color:var(--market-muted); font-size:7px; }.market-level-grid b{ display:block; margin-top:3px; font-size:9px; }
+  .market-idea-brief{ padding:6px 8px; border-bottom:1px solid var(--market-line); }.market-idea-brief h3,.market-research-intel h3{ margin:0 0 3px; color:#ff8b1a; font-size:8px; }.market-idea-brief p,.market-research-intel p{ margin:0; color:#c7d0d5; font-size:7px; line-height:1.3; }
+  #marketIdeaSignals{ display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; }#marketIdeaSignals span{ padding:3px 5px; border:1px solid var(--market-line); color:#98a5ac; font-size:7px; }
+  .market-cot-card{ padding:8px; }.market-cot-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; padding-top:7px; }.market-cot-stat{ padding:6px; border:1px solid var(--market-line); background:#0c1216; }.market-cot-stat small{ display:block; color:var(--market-muted); font-size:7px; }.market-cot-stat b{ display:block; margin-top:3px; font-size:9px; }
+  .market-research-actions{ display:grid; gap:3px; padding:4px 0; }.market-research-actions button{ min-height:21px; border:1px solid #68747b; border-radius:2px; background:transparent; color:#d8e0e4; font-size:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }.market-research-actions .primary{ background:transparent; border-color:#ff7900; color:#f2f4f5; }
+  .market-research-intel{ padding:6px; }.market-research-intel .market-pane-title{ padding-bottom:4px; }.market-research-intel section{ padding:5px 0; border-top:1px solid var(--market-line); }
+  .market-research-list{ gap:2px!important; font-size:7px!important; line-height:1.22!important; }
+  .market-idea-news-row{ display:grid; grid-template-columns:14px minmax(0,1fr) auto 10px; align-items:center; gap:4px; padding:3px 1px; border-bottom:1px solid var(--market-line); color:#d7e0e4; text-decoration:none; font-size:7px; line-height:1.15; }.market-idea-news-row .source-rank{ display:grid; place-items:center; width:11px; height:11px; border-radius:50%; background:#5b6469; color:#fff; font-size:5px; }.market-idea-news-row b{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.market-idea-news-row time{ color:var(--market-muted); font-size:6px; white-space:nowrap; }.market-idea-news-row .source-open{ color:#b8c1c6; font-size:8px; }
+  .market-filter-grid{ display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:6px 0; }
+  .market-filter-grid label{ display:grid; gap:2px; color:var(--market-muted); font-size:7px; }
+  .market-filter-grid select{ min-width:0; height:22px; padding:0 5px; border:1px solid var(--market-line); border-radius:2px; background:#0b1115; color:#d7e0e4; font-size:7px; }
+  .market-scan-columns{ display:grid; grid-template-columns:minmax(80px,1fr) 52px 44px 28px; gap:3px; padding:4px; border-top:1px solid var(--market-line); border-bottom:1px solid var(--market-line); color:var(--market-muted); font-size:6px; text-transform:uppercase; }
+  .market-scan-meta{ display:flex; justify-content:space-between; gap:8px; padding:4px 6px; border-bottom:1px solid var(--market-line); color:var(--market-muted); font-size:7px; }
+  .market-scan-head-actions{ display:flex; gap:3px; }
+  .market-scan-footer{ width:100%; height:24px; border:0; border-top:1px solid var(--market-line); background:transparent; color:var(--market-muted); font:600 7px/1 inherit; cursor:pointer; }.market-scan-footer:hover{ color:var(--market-text); background:#121b20; }
+  .market-more-filters{ width:100%; min-height:24px; padding:4px 7px; border:0; border-bottom:1px solid var(--market-line); background:transparent; color:var(--market-muted); text-align:left; font-size:8px; }
+  .market-trade-stage{ display:grid; grid-template-columns:minmax(0,1fr) 190px; grid-template-rows:auto auto; min-height:0; border-bottom:1px solid var(--market-line); }
+  .market-trade-stage .market-idea-chart{ grid-column:1; grid-row:1; border-bottom:0; border-right:1px solid var(--market-line); }
+  .market-trade-stage .market-level-grid{ display:flex; grid-column:2; grid-row:1 / span 2; flex-direction:column; border-bottom:0; min-width:0; }
+  .market-trade-stage .market-idea-brief{ grid-column:1; grid-row:2; min-height:54px; border-top:1px solid var(--market-line); border-right:1px solid var(--market-line); border-bottom:0; }
+  .market-trade-stage .market-level-grid div{ min-height:36px; padding:4px 7px; border-right:0; border-bottom:1px solid var(--market-line); }
+  .market-trade-stage .market-level-grid div:last-child{ border-bottom:0; }
+  .market-trade-stage .market-level-grid small{ font-size:7px; text-transform:uppercase; letter-spacing:.04em; }
+  .market-trade-stage .market-level-grid b{ margin-top:1px; font-size:9px; }
+  .market-trade-stage .market-level-grid span{ display:block; margin-top:1px; color:var(--market-muted); font-size:6px; line-height:1.15; }
+  .market-cot-card{ grid-column:1 / -1; border-top:1px solid var(--market-line); }
+  .market-cot-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .market-research-disclaimer{ grid-column:1 / -1; padding:4px 10px; border-top:1px solid var(--market-line); color:var(--market-muted); font-size:7px; }
+  .market-scan-row{ grid-template-columns:minmax(80px,1fr) 52px 44px 28px; align-items:center; }
+  .market-intel-tabs{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) repeat(3,minmax(42px,64px));
+    gap:4px;
+  }
+  .market-intel-tabs button{ flex:unset; }
+  .market-intel-tabs button[data-movers="gainers"]{ grid-column:2; }
+  .market-intel-tabs button[data-movers="losers"]{ grid-column:3; }
+  .market-intel-tabs button[data-movers="active"]{ grid-column:4; }
+  .market-mover-row{
+    grid-template-columns:minmax(0,1fr) repeat(3,minmax(42px,64px));
+    gap:4px;
+  }
+  .market-mover-row .mover-value{ text-align:right; }
+  .market-mover-row .mover-value-gainers{ grid-column:2; }
+  .market-mover-row .mover-value-losers{ grid-column:3; }
+  .market-mover-row .mover-value-active{ grid-column:4; }
+  .market-scan-columns,
+  .market-scan-row{
+    grid-template-columns:minmax(0,1fr) 64px 58px 44px;
+    column-gap:8px;
+    padding-left:6px;
+    padding-right:6px;
+  }
+  .market-scan-columns span:nth-child(n+2){ text-align:right; }
+  .market-scan-row .scan-company{ overflow:hidden; }.market-scan-row .scan-company b,.market-scan-row .scan-company small{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .market-scan-row .scan-price,.market-scan-row .scan-change,.market-scan-row .scan-rank{ text-align:right; font-size:8px; }
+  .market-scan-row .scan-rank{ padding:2px; border:1px solid #316f3b; border-radius:2px; }
+  .market-security-stats{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); border-bottom:1px solid var(--market-line); }
+  .market-security-stats div{ min-width:0; padding:5px 7px; border-right:1px solid var(--market-line); }.market-security-stats div:last-child{ border-right:0; }
+  .market-security-stats small{ display:block; color:var(--market-muted); font-size:6px; text-transform:uppercase; }.market-security-stats b{ display:block; overflow:hidden; margin-top:2px; color:#dce4e8; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+  .market-chart-toolbar{ display:flex; align-items:center; justify-content:space-between; min-height:22px; padding:0 4px; border-bottom:1px solid var(--market-line); color:var(--market-muted); font-size:7px; }
+  .market-chart-toolbar div{ display:flex; height:100%; }.market-chart-toolbar button{ min-width:25px; border:0; border-bottom:2px solid transparent; background:transparent; color:#a8b2b7; font-size:7px; cursor:pointer; }.market-chart-toolbar button.active{ color:#ff8b1a; border-bottom-color:#ff7900; }.market-chart-tools{ margin-left:auto; justify-content:flex-end; }.market-chart-tools button{ min-width:22px; border-left:1px solid var(--market-line); font-size:8px; }.market-chart-tools button:first-child{ min-width:61px; font-size:7px; }
+  .market-idea-chart{ height:244px; }.market-candle-up{ fill:#37c86b; stroke:#37c86b; }.market-candle-down{ fill:#f0524d; stroke:#f0524d; }
+  .market-volume-up{ fill:#285f43; }.market-volume-down{ fill:#633334; }.market-ema20{ fill:none; stroke:#f3c623; stroke-width:1.3; }.market-ema50{ fill:none; stroke:#3c91d8; stroke-width:1.2; }
+  .market-level-line{ stroke-width:1; stroke-dasharray:4 3; }.market-level-label{ font:7px var(--mono); font-weight:700; }
+  .market-axis-label{ fill:var(--market-muted); font:6px var(--mono); }
+  .market-research-list{ display:grid; gap:4px; margin:0; padding:0 0 0 14px; color:#c7d0d5; font-size:8px; line-height:1.35; }.market-research-list li::marker{ color:#ff8b1a; }
+  .market-cot-card{ padding:0; }.market-cot-card>.market-pane-title{ min-height:19px; padding:1px 8px; }.market-cot-card>.market-pane-title small{ display:inline; margin:0 0 0 8px; }.market-cot-card>.market-pane-title>div{ display:flex; align-items:center; }
+  .market-cot-grid{ grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; padding-top:0; border-top:1px solid color-mix(in srgb,var(--market-line) 65%,transparent); }
+  .market-cot-table{ padding:0 7px 2px; border:0; border-right:1px solid color-mix(in srgb,var(--market-line) 65%,transparent); background:transparent; }.market-cot-table:last-child{ border-right:0; }.market-cot-table .cot-head{ display:grid; grid-template-columns:1fr auto auto; gap:9px; padding:2px 0; border-bottom:1px solid color-mix(in srgb,var(--market-line) 60%,transparent); color:var(--market-muted); font-size:5px; line-height:1; text-transform:uppercase; }.market-cot-table .cot-head b{ color:var(--market-muted); }
+  .market-cot-table .cot-row{ display:grid; grid-template-columns:1fr auto auto; gap:9px; min-height:13px; padding:1px 0; color:var(--market-muted); font-size:6px; line-height:1.1; }.market-cot-table .cot-row span{ min-width:44px; text-align:right; }.market-cot-takeaway{ padding:3px 8px; }.market-cot-takeaway b{ color:#dce4e8; font-size:6px; text-transform:uppercase; }.market-cot-takeaway p{ margin:3px 0 0; color:#c7d0d5; font-size:6px; line-height:1.2; }
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open main,
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .markets-panel{
+    background:var(--approved-canvas);
+  }
+  :root:is([data-theme="dark"],[data-visual-theme="dark"]) body.markets-open .markets-shell{
+    --market-bg:var(--approved-canvas);
+    background:var(--approved-canvas);
+  }
+  /* Light Markets is a bright financial workstation, not a recolored dark terminal. */
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open main{ background:#eef2f4; color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .workspace-tabs{ background:#f8fafb; border-bottom-color:#cbd4da; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .workspace-tabs button{ color:#66737b; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .workspace-tabs button.active{ color:#172027; border-bottom-color:#d85f00; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-panel{ background:#eef2f4; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-shell{
+    --market-bg:#f7f9fa; --market-card:#ffffff; --market-card-2:#f1f4f6; --market-line:#cbd4da;
+    --market-muted:#66737b; --market-orange:#d85f00; --market-blue:#0077b6;
+    color:#172027; background:var(--market-bg); border-color:#bfc9cf;
+  }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-head{ background:#f8fafb; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-mode-tabs{ background:#f8fafb; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-mode-tabs button{ color:#66737b; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-mode-tabs button.active{ color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-head h2{ color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-command{ border-color:#bfc9cf!important; background:#fff!important; color:#172027!important; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-head button{ border-color:#bfc9cf; background:#fff; color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-index-strip{ background:#f1f4f6; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-intel{ background:#fff; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch h3,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-intel h3,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-card h3{ color:#b95100; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-row{ color:#26343c; border-bottom-color:#dbe2e6; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-row:hover{ background:#f1f5f7; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-row.active{ background:#fff2e8; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-row b{ color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-row small{ color:#718089; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-add input,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-add button{ background:#fff; border-color:#c5ced4; color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-intel-tabs button.active{ color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-mover-row{ border-bottom-color:#dbe2e6; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-main{ background:#f7f9fa; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-quote{ background:#fff; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-quote h1,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-quote-metrics b{ color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-quote p,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-quote-metrics small{ color:#6f7c84; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-chart-toolbar,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-ohlc,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-chart,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-security-tabs{ background:#fff; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-ranges button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-chart-tools button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-security-tabs button{ color:#5f6d75; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-security-tabs button.active{ color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-ranges button.active{ background:#fff0e3; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-gridline{ stroke:#dce3e7; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-axis-label{ fill:#64727a; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-lower-grid{ background:#eef2f4; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-lower-card{ background:#fff; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-financial-table,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-news-table,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-news-row,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-alert-row{ color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-financial-table th,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-financial-table td,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-news-table td,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-news-row,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-alert-row,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-alert-list>div{ border-color:#dbe2e6; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-alert-list b{ color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-intel-prompt input{ background:#fff; color:#172027; border-color:#c5ced4; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-ai-summary{ background:#f1f5f7; border-color:#cbd4da; color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-driver{ border-color:#dbe2e6; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-actions button{ border-color:#c5ced4; background:#fff; color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-options-head select{ background:#fff; border-color:#c5ced4; color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-option-table{ color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-option-table th{ background:#fff; color:#66737b; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-option-table th:nth-child(4),
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-option-table td:nth-child(4){ background:#fff4ea; color:#b95100; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-option-table th,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-option-table td{ border-bottom-color:#dbe2e6; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-bottom-tape{ border-top-color:#c5ced4; background:#f3f6f7; color:#42515a; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-research-page,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-idea-pane{ background:#f7f9fa; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-scan-pane,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-research-intel{ background:#fff; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-filter-grid select{ background:#fff; color:#26323a; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-security-stats b{ color:#26323a; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-chart-toolbar button{ color:#59666d; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-research-list{ color:#38464e; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-cot-table{ background:#fff; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-cot-table h4,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-cot-table b{ color:#26323a; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-pane-title b,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-idea-head h2{ color:#172027; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-pane-title button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-pane-title select,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-scan-filters button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-research-actions button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-cot-stat{ background:#fff; color:#26343c; border-color:#cbd4da; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-scan-row{ color:#26343c; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-scan-row:hover,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-scan-row.active{ background:#fff2e8; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-idea-chart{ background:#fff; }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-idea-brief p,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-research-intel p,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) .market-idea-news-row{ color:#26343c; }
+  /* Keep the light workstation inside Classic's warm app surface system. */
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open main,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-panel,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-main,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-lower-grid,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-research-page,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-idea-pane{ background:var(--approved-canvas); }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-shell{
+    --market-bg:var(--approved-canvas); --market-card:var(--approved-card); --market-card-2:color-mix(in srgb,var(--approved-card) 82%,var(--approved-canvas));
+    --market-line:var(--border); background:var(--approved-canvas); border-color:var(--border);
+  }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .workspace-tabs,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-head,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-mode-tabs,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-index-strip,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-intel,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-quote,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-chart-toolbar,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-ohlc,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-chart,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-security-tabs,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-lower-card,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-scan-pane,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-research-intel,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-cot-table{ background:var(--approved-card); }
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-command,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .markets-head button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-add input,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-watch-add button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-intel-prompt input,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-actions button,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-options-head select,
+  :root:is([data-theme="light"],[data-visual-theme="light"]) body.markets-open .market-filter-grid select{ background:var(--approved-card)!important; border-color:var(--border)!important; }
+  @container(max-width:1120px){
+    body.markets-open .markets-grid{ grid-template-columns:230px minmax(340px,1fr) 230px; }
+    .market-research-page{ grid-template-columns:230px minmax(340px,1fr) 230px; }
+    body.markets-open .market-quote-metrics{ gap:4px; grid-template-columns:repeat(3,minmax(42px,1fr)); }
+  }
+  @container(max-width:900px){
+    body.markets-open .markets-grid{ grid-template-columns:190px minmax(320px,1fr) 190px; }
+    .market-research-page{ grid-template-columns:190px minmax(320px,1fr) 190px; }
+    body.markets-open .market-quote-metrics{ display:none; }
+  }
+  @container(max-width:720px){
+    body.markets-open .markets-grid{ grid-template-columns:180px minmax(320px,1fr) 180px; }
+    .market-research-page{ grid-template-columns:180px minmax(320px,1fr) 180px; width:680px; }
+  }
 </style>
 </head>
 <body class="workspace-chat">
@@ -3503,7 +4030,7 @@ body:not(.composer-simple) main::after{
               <button type="button" data-connector-filter="connected" role="tab" aria-selected="false">Connected</button>
               <button type="button" data-connector-filter="available" role="tab" aria-selected="false">Not connected</button>
             </div>
-            <div class="connector-table-head"><span>Connection</span><span class="connector-type">Type</span><span>Status</span></div>
+            <div class="connector-table-head"><span>Connection</span><span class="connector-type">Type</span><span>Status</span><span aria-hidden="true"></span></div>
             <div id="connectorRows"></div>
             <div class="connection-notice" id="connectorConnectionNotice" role="status" aria-live="polite"></div>
             <div class="hint" style="margin-top:9px">Connections are optional. Provider terms, limits, and charges apply.</div>
@@ -4084,7 +4611,7 @@ body:not(.composer-simple) main::after{
           <div class="setrow" id="budgetRow"><div>Monthly budget<div class="hint">$0 = no limit. Cloud models pause at the limit; warns at 80%.</div></div>
             <div style="display:flex;align-items:center;gap:4px"><span style="color:var(--dim)">$</span><input type="number" id="budgetLimitInput" min="0" step="0.50" style="width:70px" placeholder="0"></div>
           </div>
-          <div class="hint" id="ctxHint" style="display:none">32,768 tokens</div>
+          <div class="hint" id="ctxHint" style="display:none">8,192 tokens</div>
           <div class="setrow" style="display:block;margin-top:8px;border-top:1px solid var(--line);padding-top:10px">
             <div>API endpoint overrides<div class="hint">Route cloud API calls through a custom base URL (useful for proxies or self-hosted endpoints).</div></div>
             <div style="display:flex;gap:6px;margin-top:4px">
@@ -4300,9 +4827,10 @@ body:not(.composer-simple) main::after{
     </span>
   </div>
   <div class="account-sep"></div>
+  <div class="account-auth-note" id="accountAuthNote">Optional — Boollm works without an account. Your data stays local on this PC.</div>
   <button class="account-menu-row" data-account-action="auth" type="button">
     <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/></svg>
-    <span id="accountAuthText">Sign in</span>
+    <span id="accountAuthText">Sign in or sign up</span>
   </button>
 </div>
 
@@ -4349,6 +4877,7 @@ body:not(.composer-simple) main::after{
   <div class="workspace-tabs" id="workspaceTabs">
     <button class="ws-tab active" data-ws="chat" title="Chat workspace"><span class="ws-dot active"></span>Chat</button>
     <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
+    <button class="ws-tab" id="marketsWorkspaceTab" data-ws="markets" title="Markets workspace" hidden aria-hidden="true"><span class="ws-dot"></span>Markets</button>
     <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span><span class="ws-label">Preview</span></button>
     <button class="ws-tab" data-ws="recipes" title="Recipe quick-starts"><span class="ws-dot"></span>Recipes</button>
     <button class="ws-tab" data-ws="automations" title="Automations workspace"><span class="ws-dot"></span>Automations</button>
@@ -4443,6 +4972,99 @@ body:not(.composer-simple) main::after{
   <div class="action-offers" id="actionOffers"></div>
 
   <div class="recipes-panel" id="recipesPanel" aria-label="Recipes"></div>
+  <section class="markets-panel" id="marketsPanel" aria-label="Boollm Markets">
+    <div class="markets-shell">
+      <header class="markets-head">
+        <h2>Boollm Markets</h2><input class="market-command" id="marketCommand" value="AAPL overview" aria-label="Market command"><span class="market-source" id="marketSource">Loading data source...</span>
+        <button id="marketRefresh" type="button">Refresh</button><button id="marketSettings" type="button">Data source</button>
+        <div class="market-setup" id="marketSetup">
+          <h3>Market data</h3>
+          <p class="market-setup-intro">Connect quotes and options. Keys stay on this PC.</p>
+          <section class="market-setup-group">
+            <div class="market-setup-group-title">Stocks &amp; news</div>
+            <label for="marketProvider">Quote provider</label>
+            <select id="marketProvider"><option value="yahoo">Yahoo Finance (keyless, experimental)</option><option value="alphaVantage">Alpha Vantage (API key)</option></select>
+            <div id="marketKeyWrap"><label for="marketApiKey">Alpha Vantage API key</label><input id="marketApiKey" type="password" autocomplete="off" placeholder="Paste API key"></div>
+          </section>
+          <section class="market-setup-group">
+            <div class="market-setup-group-title">Options</div>
+            <label for="marketOptionsProvider">Options provider</label>
+            <select id="marketOptionsProvider"><option value="alpaca">Alpaca (recommended)</option><option value="massive">Massive (OPRA plans)</option></select>
+            <div id="marketAlpacaWrap"><label for="marketAlpacaKey">Alpaca key ID</label><input id="marketAlpacaKey" type="password" autocomplete="off" placeholder="Paste key ID"><label for="marketAlpacaSecret">Alpaca secret key</label><input id="marketAlpacaSecret" type="password" autocomplete="off" placeholder="Paste secret key"><label for="marketOptionsFeed">Feed</label><select id="marketOptionsFeed"><option value="indicative">Indicative (free; trades delayed 15 min)</option><option value="opra">Real-time OPRA (subscription)</option></select></div>
+            <div id="marketMassiveWrap" style="display:none"><label for="marketMassiveKey">Massive API key</label><input id="marketMassiveKey" type="password" autocomplete="off" placeholder="Paste Massive API key"></div>
+          </section>
+          <div class="market-setup-actions"><button id="marketSetupClose" type="button">Cancel</button><button class="primary" id="marketSetupSave" type="button">Test &amp; save</button></div>
+          <div id="marketSetupStatus" role="status" aria-live="polite"></div>
+          <p class="market-setup-footnote">Yahoo is keyless. Real-time and options coverage depends on the connected provider plan.</p>
+        </div>
+      </header>
+      <nav class="market-mode-tabs" id="marketModeTabs" aria-label="Market tools">
+        <button class="active" type="button" data-market-mode="monitor">Monitor</button>
+        <button type="button" data-market-mode="ideas">Research Desk</button>
+      </nav>
+      <div class="market-index-strip" id="marketIndexes" data-market-page="monitor" aria-label="Major market indexes">
+        <div class="market-empty">Loading market overview...</div>
+      </div>
+      <div class="markets-grid" data-market-page="monitor">
+        <div class="market-watch"><h3>Market Monitor</h3><div class="market-watch-head"><span>Symbol</span><span>Price</span><span>% Chg</span></div><div class="market-watch-list" id="marketWatchlist"></div><div class="market-watch-add"><input id="marketAddSymbol" maxlength="12" placeholder="Add symbol"><button id="marketAddBtn" type="button">+</button></div><section class="market-watch-subpanel"><h3>Market Movers</h3><div class="market-intel-tabs" id="marketMoverTabs"><button class="active" data-movers="gainers">Gainers</button><button data-movers="losers">Losers</button><button data-movers="active">Volume</button></div><div id="marketMovers"><div class="market-empty">Loading movers...</div></div></section></div>
+        <div class="market-main">
+          <div class="market-quote"><div><h1 id="marketTitle">AAPL</h1><p id="marketSubtitle">Market data</p><div class="market-price"><b id="marketPrice">--</b><span id="marketChange">Loading...</span></div></div><div class="market-quote-metrics"><div><small>Open</small><b id="marketOpen">--</b></div><div><small>High</small><b id="marketQuoteHigh">--</b></div><div><small>Low</small><b id="marketQuoteLow">--</b></div><div><small>Prev close</small><b id="marketPrevious">--</b></div><div><small>Volume</small><b id="marketVolume">--</b></div><div><small>Market cap</small><b id="marketCap">--</b></div></div></div>
+          <div class="market-chart-toolbar"><div class="market-ranges" id="marketRanges"><button data-range="1d">1D</button><button data-range="5d">5D</button><button data-range="1mo">1M</button><button data-range="3mo">3M</button><button class="active" data-range="6mo">6M</button><button data-range="ytd">YTD</button><button data-range="1y">1Y</button><button data-range="5y">5Y</button><button data-range="max">Max</button></div><div class="market-chart-tools"><button id="marketIndicators" type="button">Indicators⌄</button><button id="marketChartType" type="button" title="Candlestick chart">▥</button><button id="marketChartFullscreen" type="button" title="Fullscreen chart">⛶</button></div></div>
+          <div class="market-ohlc" id="marketOhlc">O -- H -- L -- C -- Vol --</div>
+          <div class="market-chart" id="marketChart"><svg viewBox="0 0 800 270" preserveAspectRatio="none"></svg></div>
+          <div class="market-security-tabs" id="marketSecurityTabs"><button class="active">Overview</button><button>Financials</button><button>Earnings</button><button>Dividends</button><button>Ownership</button><button id="marketOptionsTab" type="button">Options</button><button id="marketFilings" type="button">SEC Filings</button><button>Events</button></div>
+          <div class="market-lower-grid"><section class="market-lower-card"><h3>Options Chain</h3><div class="market-options-head"><select id="marketOptionExpiration" aria-label="Option expiration"><option>Loading expirations...</option></select><span class="market-options-feed" id="marketOptionsFeedLabel">Loading source...</span></div><div id="marketOptionsChain"><div class="market-options-empty">Loading options...</div></div></section><section class="market-lower-card"><h3>Earnings &amp; Financials <span class="market-note">FY · USD</span></h3><div id="marketFinancials"><div class="market-empty">Loading company financials...</div></div></section><section class="market-lower-card"><h3>News &amp; Filings</h3><div id="marketNewsTable"><div class="market-empty">Loading company news...</div></div></section></div>
+          <div hidden><b id="marketHigh">--</b><b id="marketLow">--</b><b id="marketDayRange">--</b><b id="marketYearRange">--</b><b id="marketStatus">--</b><b id="marketTimezone">--</b><div id="marketContext"></div></div>
+        </div>
+        <div class="market-intel"><section class="market-right-block"><h3>Breaking News</h3><div class="market-news-list" id="marketHeadlines"><div class="market-empty">Loading headlines...</div></div></section><section class="market-right-block"><h3>Alerts</h3><div class="market-alert-list"><div><time>Price</time><b id="marketAlertPrice">Watching selected symbol</b><span>Active</span></div><div><time>Volume</time><b>Unusual-volume monitor</b><span>Delayed</span></div><div><time>Earnings</time><b>Upcoming company events</b><span>Monitor</span></div></div></section><section class="market-right-block market-ai-block"><h3>AI Analyst</h3><div class="market-intel-prompt"><input id="marketAiPrompt" placeholder="Ask about this symbol..."><button id="marketAsk" type="button">➤</button></div><div class="market-ai-summary" id="marketAiSummary">Select a symbol to build a current market brief.</div><div class="market-intel-section"><h3>Key Drivers</h3><div id="marketDrivers"></div></div><div class="market-intel-section"><h3>Market &amp; Sector Context</h3><ul class="market-context-list" id="marketSectorContext"></ul></div></section><div class="market-actions"><button id="marketBrowser">Open quote in Browser</button><button id="marketNews">All news in Browser</button><button id="marketNote">Save snapshot to Notepad</button></div><div class="market-note">AI uses your selected model. Free quotes may be delayed; connected API freshness depends on its plan.</div></div>
+      </div>
+      <section class="market-research-page" id="marketResearchPage" data-mode="ideas" hidden>
+        <div class="market-scan-pane">
+          <div class="market-pane-title"><div><b>Trade Ideas Scanner</b></div><div class="market-scan-head-actions"><button type="button" id="marketScanReset">Reset</button><button type="button" id="marketScanRefresh" aria-label="Refresh scanner">↻</button></div></div>
+          <div class="market-filter-grid">
+            <label>Universe<select id="marketScanUniverse"><option value="all">US large caps</option><option value="active">Most active</option><option value="movers">Top movers</option></select></label>
+            <label>Setup<select id="marketScanSetup"><option value="all">All setups</option><option value="long">Bullish</option><option value="short">Bearish</option><option value="breakout">Breakout</option></select></label>
+            <label>RS rank<select id="marketScanRank"><option value="0">Any rank</option><option value="70">70+</option><option value="80">80+</option><option value="90">90+</option></select></label>
+            <label>Market cap<select id="marketScanCap"><option value="0">Any size</option><option value="10000000000">&gt; $10B</option><option value="100000000000">&gt; $100B</option></select></label>
+            <label>Volatility<select id="marketScanVolatility"><option value="0">Any volatility</option><option value="2">2%+ daily move</option><option value="4">4%+ daily move</option></select></label>
+          </div>
+          <div class="market-scan-columns"><span>Ticker</span><span>Price</span><span>% Chg</span><span>RS</span></div>
+          <div class="market-scan-meta" id="marketScanMeta">Scanning current movers...</div>
+          <div class="market-scan-list" id="marketScanList"><div class="market-empty">Loading candidates...</div></div>
+          <button class="market-scan-footer" id="marketViewFullScanner" type="button">View Full Scanner ↗</button>
+        </div>
+        <main class="market-idea-pane">
+          <div class="market-idea-head"><span class="market-security-star" aria-hidden="true">★</span><div class="market-security-name"><h2 id="marketIdeaTitle">AAPL</h2><span id="marketIdeaCompany">Loading</span><small id="marketIdeaExchange">US</small></div><div class="market-security-quote"><b id="marketIdeaPrice">--</b><span id="marketIdeaChange">--</span></div></div>
+          <div class="market-security-stats" id="marketIdeaStats"></div>
+          <div class="market-chart-toolbar"><div id="marketIdeaRanges"><button data-idea-range="1mo">1M</button><button data-idea-range="3mo">3M</button><button class="active" data-idea-range="6mo">6M</button><button data-idea-range="1y">1Y</button><button data-idea-range="5y">5Y</button></div><div class="market-chart-tools"><button id="marketIdeaIndicators" type="button">Indicators⌄</button><button type="button" aria-label="Candlestick view">◫</button><button type="button" aria-label="Chart comparison">⌁</button><button type="button" aria-label="Draw on chart">✎</button><button type="button" aria-label="Chart settings">⚙</button><button id="marketIdeaFullscreen" type="button" aria-label="Fullscreen chart">⛶</button></div></div>
+          <div class="market-trade-stage">
+            <div class="market-idea-chart" id="marketIdeaChart"><svg viewBox="0 0 800 300" preserveAspectRatio="none"></svg></div>
+            <div class="market-level-grid">
+              <div class="market-plan-setup"><small>Setup</small><b id="marketPlanSetup">Technical setup</b><span id="marketPlanSummary">Waiting for current levels…</span></div>
+              <div><small>Entry zone</small><b class="market-up" id="marketIdeaEntry">--</b><span>Confirmation above the trigger zone</span></div>
+              <div><small>Stop</small><b class="market-down" id="marketIdeaStop">--</b><span>Thesis invalidation level</span></div>
+              <div><small>Target 1</small><b class="market-up" id="marketIdeaTarget1">--</b><span>First measured objective</span></div>
+              <div><small>Target 2</small><b class="market-up" id="marketIdeaTarget2">--</b><span>Extended objective</span></div>
+              <div><small>Risk / reward</small><b id="marketIdeaRisk">--</b><span>Based on the entry midpoint</span></div>
+            </div>
+            <section class="market-idea-brief"><h3 id="marketIdeaSetup">Setup</h3><p id="marketIdeaRationale">Loading the current technical setup...</p><div id="marketIdeaSignals"></div></section>
+          </div>
+        </main>
+        <div class="market-research-intel">
+          <div class="market-pane-title"><div><b>Market Intelligence</b><small>AI analysis with source-backed insights</small></div><small id="marketIntelUpdated">Updating...</small></div>
+          <section><h3>AI Summary</h3><p id="marketIdeaWhy">Waiting for analysis...</p></section>
+          <section><h3>Key Catalysts</h3><ul class="market-research-list" id="marketIdeaCatalysts"></ul></section>
+          <section><h3>Risks</h3><ul class="market-research-list" id="marketIdeaRisks"></ul></section>
+          <section><h3>Top Sources</h3><div id="marketIdeaNews"><div class="market-empty">Loading news...</div></div></section>
+          <div class="market-research-actions"><button class="primary" id="marketIdeaChat" type="button"><span aria-hidden="true">▣</span>Discuss in Chat</button><button id="marketIdeaBrowser" type="button"><span aria-hidden="true">◎</span>Open sources in Browser</button><button id="marketIdeaNote" type="button"><span aria-hidden="true">▤</span>Save to Notepad</button></div>
+          <div class="market-note">Ideas are research, not investment advice. Yahoo data may be delayed; COT data is weekly.</div>
+        </div>
+        <section class="market-cot-card" id="marketCotCard"><div class="market-pane-title"><div><b>COT Snapshot</b><small id="marketCotDate">CFTC weekly positioning</small></div><select id="marketCotMarket"><option value="nasdaq">Nasdaq 100</option><option value="sp500">S&amp;P 500</option><option value="dow">Dow</option><option value="russell">Russell 2000</option></select></div><div class="market-cot-grid" id="marketCotGrid"><div class="market-empty">Loading COT report...</div></div></section>
+        <div class="market-research-disclaimer">Educational information only — not financial advice. Market data may be delayed or inaccurate. Trading involves risk of loss.</div>
+      </section>
+      <footer class="market-bottom-tape" id="marketBottomTape"><span class="session">US Markets · Loading</span></footer>
+    </div>
+  </section>
 
   <!-- Deploy assistant bar -->
   <div class="deploy-bar" id="deployBar" style="display:none">
@@ -5474,17 +6096,21 @@ body:not(.composer-simple) main::after{
   function currentAppView(){
     const settingsOpen=$("settingsPanel").classList.contains("open");
     const section=settingsOpen?document.querySelector("#settingsPanel .sec.open")?.dataset.sec||"":"";
+    const workspace=activeWsTab||document.querySelector(".ws-tab.active")?.dataset.ws||"chat";
+    const marketMode=document.querySelector("[data-market-mode].active")?.dataset.marketMode||"monitor";
     return {
       kind:settingsOpen?"settings":"chat",
       threadId:threadId||state.activeThreadId||null,
       section,
+      workspace,
+      marketMode,
       sidebarOpen:!document.body.classList.contains("collapsed"),
       notesOpen:document.body.classList.contains("notes-on"),
       browserOpen:document.body.classList.contains("browser-on")
     };
   }
   const appViewKey=(view)=>[
-    view?.kind||"chat",view?.threadId||"",view?.section||"",
+    view?.kind||"chat",view?.threadId||"",view?.section||"",view?.workspace||"chat",view?.marketMode||"monitor",
     view?.sidebarOpen?1:0,view?.notesOpen?1:0,view?.browserOpen?1:0
   ].join("|");
   function updateAppBack(){
@@ -5505,7 +6131,7 @@ body:not(.composer-simple) main::after{
   function rememberCurrentView(){
     if(navRestoring)return;
     const view=currentAppView();
-    if(!view.threadId&&view.kind==="chat")return;
+    if(!view.threadId&&view.kind==="chat"&&view.workspace==="chat")return;
     if(appViewKey(navHistory[navHistory.length-1])!==appViewKey(view)) navHistory.push(view);
     navForward=[];
     updateAppBack();
@@ -5521,9 +6147,15 @@ body:not(.composer-simple) main::after{
   async function restoreAppView(view){
     navRestoring=true;
     try{
+      const workspace=view.workspace||"chat";
       if(view.threadId) await openThread(view.threadId,{remember:false});
-      else closeConversationPanels();
+      else if(workspace==="chat") closeConversationPanels();
       if(view.kind==="settings") openSettings(view.section||null,{remember:false});
+      else{
+        if(workspace==="chat") markWorkspaceTab("chat");
+        else setWorkspaceTab(workspace,{remember:false,force:true});
+        if(workspace==="markets") setMarketMode(view.marketMode||"monitor",{remember:false});
+      }
       sidebarManualState=view.sidebarOpen===false;
       document.body.classList.toggle("collapsed",sidebarManualState);
       openNotes(!!view.notesOpen,{remember:false,focus:false});
@@ -5601,7 +6233,7 @@ body:not(.composer-simple) main::after{
   const activeModelDownloads=new Set();
   document.querySelector("main").appendChild($("settingsPanel"));
 
-  function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function esc(s){ return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
   // does this inline-code token look like a project file path?
   function isFilePath(s){
     s=String(s||"").trim();
@@ -5752,9 +6384,10 @@ body:not(.composer-simple) main::after{
       +'<button class="actbtn msg-act" data-act="share" type="button" title="Share" aria-label="Share">⇪</button>'
       +'</span>';
   }
-  function addUser(text, images, at, {parent=col,userIndex=null,quiet=false}={}){
-    const d=document.createElement("div"); d.className="msg-user";
+  function addUser(text, images, at, {parent=col,userIndex=null,quiet=false,provider=state.provider||"local"}={}){
+    const d=document.createElement("div"); const cloud=provider&&provider!=="local"; d.className="msg-user "+(cloud?"cloud":"local");
     d.tabIndex=0; d.setAttribute("aria-expanded","false");
+    d.dataset.provider=provider||"local";
     d._raw=text||"";
     d.dataset.uindex=String(userIndex===null?col.querySelectorAll(".msg-user").length:userIndex);
     const foot='<div class="msg-foot">'
@@ -5770,7 +6403,7 @@ body:not(.composer-simple) main::after{
     return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.tabIndex=0; d.setAttribute("aria-expanded","false"); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span><button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">&#9662;</button>'+chatActionButtons("ai")+'</div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.tabIndex=0; d.setAttribute("aria-expanded","false"); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'<button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">&#9662;</button></div>'; return d; }
   // a screenshot / image the AI produced, shown inline in the transcript
   function makeShot(src, caption){
     const d=document.createElement("div"); d.className="shotcard";
@@ -6414,8 +7047,9 @@ body:not(.composer-simple) main::after{
       const action=row.kind==="api"?(row.selected?"Manage":"Use"):row.kind==="mcp"?(row.connected?"Test":"Reconnect"):cloudKind?(row.connected?"Manage":"Connect"):"Manage";
       item.innerHTML='<div class="connector-name"><span class="connector-mark '+mark.cls+'">'+mark.html+'</span><span class="connector-label">'+esc(row.name)+'</span></div>'+
         '<div class="connector-type">'+esc(row.type)+(row.kind==="mcp"?' · Web':'')+'</div>'+
-        '<div class="connector-status"><span class="connector-state '+statusClass+'">'+status+'</span><span style="display:flex;align-items:center;gap:2px"><button class="connector-action" type="button">'+action+'</button>'+
-        '<button class="connector-remove" type="button" title="Remove" aria-label="Remove '+esc(row.name)+'">×</button></span></div>';
+        '<div class="connector-status"><span class="connector-state '+statusClass+'">'+status+'</span></div>'+
+        '<div class="connector-actions"><button class="connector-action" type="button">'+action+'</button>'+
+        '<button class="connector-remove" type="button" title="Remove" aria-label="Remove '+esc(row.name)+'">×</button></div>';
       item.querySelector(".connector-label").onclick=()=>openConnectorDetail(row.kind,row.api||row.agent||row.server||row.cloudflare||row.cloudHost||null);
       item.querySelector(".connector-action").onclick=async()=>{
         if(row.kind==="api"&&!row.selected){ await fetch("/api/config",{method:"POST",body:JSON.stringify({selectApiConnector:row.id})}); await refresh(); tempToast(row.name+" selected."); return; }
@@ -6594,19 +7228,41 @@ body:not(.composer-simple) main::after{
     document.body.classList.toggle("online-mode", online);
     document.querySelectorAll("#netmode button,#modelNetMode button").forEach(b=>b.classList.toggle("on",(b.dataset.net==="online")===online));
   }
+  let boollmActivityTimer=0;
+  function inferBoollmActivity(value,fallback="Working"){
+    let text="";
+    try{ text=typeof value==="string"?value:JSON.stringify(value||""); }catch{}
+    text=text.toLowerCase();
+    if(/\b(summariz|summary)\b/.test(text)) return "Summarizing";
+    if(/\b(save|saving|write|wrote|append|notepad|note)\b/.test(text)) return "Saving to notes";
+    if(/\b(read|reading|extract|page content|visible_browser_read)\b/.test(text)) return "Reading page";
+    if(/\b(brows|browser|navigate|open url|search|web|fetch|visit)\b/.test(text)) return "Browsing";
+    return fallback;
+  }
+  function setBoollmActivity(text,{temporary=0,ready=true}={}){
+    clearTimeout(boollmActivityTimer);
+    const label=String(text||"Ready");
+    if($("statusdot")) $("statusdot").className="dot"+(ready?"":" down");
+    if($("statustext")) $("statustext").textContent=label;
+    if($("footStatus")){
+      $("footStatus").title="Boollm · "+label;
+      $("footStatus").setAttribute("aria-label","Boollm status: "+label);
+    }
+    if($("railBrandDot")) $("railBrandDot").className="dot"+(ready?"":" down");
+    if($("railBrandStatus")) $("railBrandStatus").textContent=label;
+    if(temporary) boollmActivityTimer=setTimeout(()=>setBoollmActivity(run?inferBoollmActivity(run.status):"Ready"),temporary);
+  }
   function updateReadyStatus(label,shortLabel){
     const ready=providerReadyForRun(state.provider||"local");
-    const text=shortLabel+" "+(ready?"ready":"not ready");
-    if($("statusdot")) $("statusdot").className="dot"+(ready?"":" down");
-    if($("statustext")) $("statustext").textContent=text;
-    if($("footStatus")) $("footStatus").title=label+(ready?" - ready":" - not ready");
+    const text=ready?"Ready":"Not ready";
+    if(!run) setBoollmActivity(text,{ready});
     if($("brandAbout")){
       $("brandAbout").classList.toggle("ready",ready);
       $("brandAbout").classList.toggle("down",!ready);
-      $("brandAbout").setAttribute("aria-label",label+(ready?" ready":" not ready"));
+      $("brandAbout").setAttribute("aria-label","About Boollm and current activity");
     }
-    if($("railBrandDot")) $("railBrandDot").className="dot"+(ready?"":" down");
-    if($("railBrandStatus")) $("railBrandStatus").textContent=text;
+    if(!run&&$("railBrandDot")) $("railBrandDot").className="dot"+(ready?"":" down");
+    if(!run&&$("railBrandStatus")) $("railBrandStatus").textContent=text;
     if($("railBrandReady")) $("railBrandReady").title=label+(ready?" - ready":" - not ready");
   }
   function connectorsState(){
@@ -7051,7 +7707,7 @@ body:not(.composer-simple) main::after{
     saveConnectors();
   }
   function applyContextLength(){
-    const ctx=state.local?.ctx||32768;
+    const ctx=state.local?.ctx||8192;
     let idx=CTX_STEPS.findIndex(v=>v>=ctx);
     if(idx<0) idx=CTX_STEPS.length-1;
     $("ctxLen").value=idx;
@@ -7112,6 +7768,7 @@ body:not(.composer-simple) main::after{
     updateProjLine();
     applyNetMode();
     applyCloudAccount();
+    syncMarketsAccess();
     if(!threadId) threadId=state.activeThreadId;
     lastThreadSignature=JSON.stringify((state.threads||[]).map(t=>[t.id,t.title,t.updatedAt,t.pinned,t.pendingTask?.state]));
     renderThreads();
@@ -7143,6 +7800,7 @@ body:not(.composer-simple) main::after{
         $("banner").style.display=state.backendUp?"none":"";
         $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.";
         applyMode();
+        syncMarketsAccess();
         updateCompareButton();
         if(forceThreads||nextSignature!==lastThreadSignature){
           lastThreadSignature=nextSignature;
@@ -7202,7 +7860,9 @@ body:not(.composer-simple) main::after{
     if(email) email.textContent=accountEmailLabel();
     const avatar=$("accountMenuAvatar");
     if(avatar) avatar.textContent=(String(display||"You").trim()[0]||"B").toUpperCase();
-    if(auth) auth.textContent=cloud.signedIn?"Log out":"Sign in";
+    if(auth) auth.textContent=cloud.signedIn?"Log out":"Sign in or sign up";
+    const authNote=$("accountAuthNote");
+    if(authNote) authNote.hidden=!!cloud.signedIn;
     const selected=state.ui?.theme==="dark"?"dark":"light";
     menu.querySelectorAll("[data-account-theme]").forEach(btn=>btn.classList.toggle("on",btn.dataset.accountTheme===selected));
     const composer=state.ui?.composerStyle==="pill"?"pill":"simple";
@@ -7225,7 +7885,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.56"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.57"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -7353,6 +8013,25 @@ body:not(.composer-simple) main::after{
     tempToast("Signed out.");
     closeAccountMenu();
     await refresh();
+  }
+
+  function marketsAccessAllowed(){
+    return state.cloudBackend?.signedIn===true;
+  }
+
+  function syncMarketsAccess(){
+    const tab=$("marketsWorkspaceTab");
+    const allowed=marketsAccessAllowed();
+    if(tab){
+      tab.hidden=!allowed;
+      tab.setAttribute("aria-hidden",String(!allowed));
+    }
+    const current=document.querySelector(".ws-tab.active")?.dataset.ws||activeWsTab;
+    if(!allowed&&current==="markets"){
+      closeWorkspaceTab("markets");
+      previousWsTab="chat";
+      markWorkspaceTab("chat");
+    }
   }
 
   // ── vision (.mmproj) settings ──
@@ -7607,9 +8286,13 @@ body:not(.composer-simple) main::after{
     }
   }
   function renderLogEntries(log,parent=col){
-    (log||[]).forEach(e=>{
+    (log||[]).forEach((e,index)=>{
       try{
-        if(e.t==="user") addUser(e.text,e.images,e.at,{parent,userIndex:Number.isFinite(e.userIndex)?e.userIndex:null,quiet:true});
+        if(e.t==="user"){
+          const nextAi=(log||[]).slice(index+1).find(item=>item.t==="ai");
+          const provider=e.provider||(nextAi?.provider||"local");
+          addUser(e.text,e.images,e.at,{parent,userIndex:Number.isFinite(e.userIndex)?e.userIndex:null,quiet:true,provider});
+        }
         else if(e.t==="ai" && String(e.text||"").trim()) parent.appendChild(makeAI(e.text,e.at,e.provider,e.model,e.aiLabel));
         else if(e.t==="tool"){ addToolCard(parent,e); if(e.name==="read_file"||e.name==="write_file"||e.name==="edit_file") updateFileChip(e); }
         else if(e.t==="image") parent.appendChild(makeShot(e.src,e.caption));
@@ -9295,7 +9978,7 @@ body:not(.composer-simple) main::after{
   }
   col.addEventListener("click",(e)=>{
     const noteBtn=e.target.closest(".note-save");
-    if(noteBtn){ e.preventDefault(); saveChatMessageToNote(noteBtn); return; }
+    if(noteBtn){ e.preventDefault(); setBoollmActivity("Saving to notes",{temporary:1600}); saveChatMessageToNote(noteBtn); return; }
 
     const collapseBtn=e.target.closest(".msg-collapse-btn");
     if(collapseBtn){
@@ -9752,13 +10435,23 @@ body:not(.composer-simple) main::after{
     if(!run) return;
     if(!run.statusEl||!run.statusEl.isConnected){
       run.statusEl=document.createElement("div"); run.statusEl.className="status"+(shouldShowProjectPlan(run?.controller)&&run?.controller?.plan?.length?" live-plan-output":"");
-      run.statusEl.innerHTML='<span class="spinner"></span><span class="stx"></span><span class="meta"></span>';
+      run.statusEl.innerHTML='<span class="spinner"></span><span class="stx"></span><span class="meta"></span><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span>';
       col.appendChild(run.statusEl);
     }
     const statusText=run.status||"thinking…";
     const statusNode=run.statusEl.querySelector(".stx");
     statusNode.textContent=compactActivityText(statusText);
     statusNode.title=statusText;
+    const load=run.localModelLoad;
+    run.statusEl.classList.toggle("local-model-load",!!load);
+    const progress=run.statusEl.querySelector(".load-progress");
+    if(progress){
+      progress.hidden=!load;
+      if(load){
+        progress.querySelector(".load-fill").style.width=Math.max(0,Math.min(100,Number(load.pct)||0))+"%";
+        progress.querySelector(".load-pct").textContent=(Number(load.pct)||0)+"%";
+      }
+    }
     updateStatusMeta();
     scrollDown();
   }
@@ -9945,11 +10638,12 @@ body:not(.composer-simple) main::after{
     const mode=opts.mode||"chat";
     removeEndActions();
     if(threadId===tid){
-      if(mode==="chat"||mode==="compare"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now()); }
+      if(mode==="chat"||mode==="compare"){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now(),{provider:opts.provider||(mode==="compare"?"compare":state.provider||"local")}); }
       else if(mode==="retry"||mode==="compare-retry"){ removeLastTurnDom(); }
     }
     run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), perfStart:performance.now(), steps:0, provider:state.provider||"local", pendingApprovals:[],
       request:{...opts,images:[...(opts.images||[])]}, holdQueue:false };
+    setBoollmActivity("Working");
     if(opts.provider) run.provider=opts.provider;
     const isCompare=mode==="compare"||mode==="compare-retry";
     if(isCompare) Object.assign(run,{status:"comparing...",compare:true,targets:opts.targets||compareState.targets,slots:[{},{}]});
@@ -10016,6 +10710,7 @@ body:not(.composer-simple) main::after{
     // Release the composer before optional completion UI. A notification,
     // suggestion, or refresh failure must never strand chat in Stop mode.
     run=null; currentAbort=null; updateSendButton();
+    setBoollmActivity(providerReadyForRun(state.provider||"local")?"Ready":"Not ready",{ready:providerReadyForRun(state.provider||"local")});
     try{
       if(threadId===tid) compactCompletedToolCards(col);
       if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
@@ -10076,13 +10771,19 @@ body:not(.composer-simple) main::after{
     if(!run) return;
     const showing=viewingRun();
     if(ev.type==="step") renderThreads();
-    if(ev.type==="status"){ run.status=ev.text; renderThreads(); if(showing) ensureStatusEl(); }
+    if(ev.type==="status"){
+      run.status=ev.text;
+      setBoollmActivity(inferBoollmActivity(ev.text));
+      run.localModelLoad=ev.kind==="local-model-load"?{phase:ev.phase||"",pct:Number(ev.pct)||0,model:ev.model||""}:null;
+      renderThreads(); if(showing) ensureStatusEl();
+    }
     else if(ev.type==="controller"){
       run.controller=ev.controller||null;
       const phase=run.controller?.phase;
       if(phase){
         const labels={planning:"planning the work...",executing:"working...",verifying:"checking the result...",recovering:"recovering from the failed step..."};
         if(labels[phase]) run.status=labels[phase];
+        setBoollmActivity(inferBoollmActivity(run.status));
         renderThreads(); if(showing){ ensureStatusEl(); ensurePlanChecklist(ev.controller); }
       }
     }
@@ -10094,6 +10795,7 @@ body:not(.composer-simple) main::after{
     else if(ev.type==="step"){ run.raw=""; run.liveAI=null; run.steps=(run.steps||0)+1; if(showing){ insertToolAbove(ev.entry); updateFileChip(ev.entry); captureTerminalFromStep(ev.entry); run.status="working…"; ensureStatusEl(); } }
     else if(ev.type==="approval"){
       run.status="waiting for approval...";
+      setBoollmActivity("Working");
       run.pendingApprovals=(run.pendingApprovals||[]).filter(item=>item.id!==ev.id).concat(ev);
       renderThreads();
       if(showing) renderPendingApprovals();
@@ -10129,12 +10831,12 @@ body:not(.composer-simple) main::after{
     else if(ev.type==="tokens"){ run.tokens={input:ev.input,output:ev.output,estimated:ev.estimated}; if(showing) updateStatusMeta(); }
     else if(ev.type==="optimized"){ run.opt=ev; }
     else if(ev.type==="image"){ if(showing) insertAbove(makeShot(ev.src,ev.caption)); }
-    else if(ev.type==="browser"){ if(ev.action==="read") showReading(); else if(ev.action==="open"&&ev.url) aiNavigate(ev.url); }
+    else if(ev.type==="browser"){ if(ev.action==="read"){ setBoollmActivity("Reading page"); showReading(); } else if(ev.action==="open"&&ev.url){ setBoollmActivity("Browsing"); aiNavigate(ev.url); } }
     else if(ev.type==="browserControl"){
       if(SHELL) hostPost({type:"browser",cmd:"control",id:ev.id,command:ev.command});
       else executeBrowserControl(ev.id,ev.command);
     }
-    else if(ev.type==="notepadControl"){ executeNotepadControl(ev.id,ev.command); }
+    else if(ev.type==="notepadControl"){ setBoollmActivity(ev.command?.action==="write"?"Saving to notes":"Working"); executeNotepadControl(ev.id,ev.command); }
     else if(ev.type==="usage"){ if(showing){ const u=makeUsage(ev); if(u) insertAbove(u); } }
     else if(ev.type==="budget"){
       if(ev.level==="exceeded") tempToast("Monthly budget exceeded: $"+(ev.spent||0).toFixed(2)+" of $"+(ev.limit||0).toFixed(2)+". Cloud models are paused. Raise the budget in Settings or switch to a local model.");
@@ -10178,6 +10880,7 @@ body:not(.composer-simple) main::after{
       if(run!==stoppingRun) return;
       run.statusEl?.remove();
       run=null; currentAbort=null;
+      setBoollmActivity(providerReadyForRun(state.provider||"local")?"Ready":"Not ready",{ready:providerReadyForRun(state.provider||"local")});
       updateSendButton();
       renderQueue();
       refreshStatus({forceThreads:true}).catch(()=>{});
@@ -10323,6 +11026,15 @@ body:not(.composer-simple) main::after{
     if(sidebarHoverPreview&&document.body.classList.contains("sidebar-popover-open")){
       document.body.classList.remove("sidebar-popover-open");
       sidebarHoverPreview=false;
+      if(!document.body.classList.contains("sidebar-popup-mode")){
+        document.body.classList.remove("collapsed");
+        sidebarManualState=false;
+        if(SHELL) hostPost({type:"window",action:"growContext"});
+        scheduleResponsiveClasses();
+        syncPanelButtons();
+        saveAppFrameState();
+        return;
+      }
       syncPanelButtons();
       return;
     }
@@ -10822,18 +11534,21 @@ Boollm may store task objectives, plans, debugging evidence, tool results, check
 3. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
 Boollm can be used locally without an account. Cloud AI uses an API key you supply for a supported third-party provider and does not require Boollm sign-in. Provider terms, usage limits, and charges apply. Boollm account sign-in is separate from AI-provider access.
 
-4. PRIVACY
+4. MARKETS: EDUCATIONAL USE ONLY
+The Markets workspace requires Boollm sign-in. Quotes, charts, scanners, trade ideas, options, news, filings, COT data, alerts, calculations, and AI summaries are for general educational and informational purposes only. They are not financial, investment, brokerage, trading, tax, or legal advice and are not a recommendation to buy, sell, hold, or trade anything. Market information may be delayed, indicative, incomplete, inaccurate, or unavailable, and AI analysis can be wrong. Verify important information independently. You are solely responsible for every financial decision and all resulting gains, losses, fees, taxes, and obligations. Trading can result in loss of all capital. To the maximum extent permitted by law, Boollm, saz3 Labs, and their developers are not liable for trading or investment losses.
+
+5. PRIVACY
 Local mode runs on your computer. Data leaves your computer only when you choose features that require it, such as third-party cloud providers, account sign-in, model downloads, web research, image generation, remote MCP or HTTP-agent connections, scheduled webhooks, software updates, installation helpers, or online inspection of screenshots, pages, notes, and project files. Signed-in Boollm administrators also synchronize notepad content and safe app preferences, such as layout, theme, notepad color, and browser state, through the Boollm account service so they are available on their other computers. Provider API keys and connector tokens remain local unless Boollm later adds a separate encrypted key-vault feature. Scheduled online actions send their configured task and relevant context when they run. Third-party provider terms and charges apply. Z.AI Coding Plan access may be used only when Z.AI has approved Boollm or otherwise supports that use.
 
 Optional Gmail and Outlook connectors use OAuth and send mail requests directly from this PC to Google or Microsoft. Draft-only disables sending; otherwise every send requires separate confirmation. Cloudflare Email Service may deliver Boollm account, security, support, or service notices.
 
-5. SOFTWARE UPDATES
+6. SOFTWARE UPDATES
 Boollm may periodically check the saz3 Labs GitHub release service for a newer version. It may download an approved installer in the background, verify its SHA-256 hash, and notify you when it is ready. Installation begins after you close Boollm, and the app may reopen afterward. Key local settings and chat data are backed up before updating.
 
-6. NO WARRANTY
+7. NO WARRANTY
 The Software and cloud features are provided as is and as available, without warranty.
 
-7. LIMITATION OF LIABILITY
+8. LIMITATION OF LIABILITY
 To the maximum extent permitted by law, Boollm, saz3 Labs, and its developers are not liable for damages arising from use of the Software or cloud features.
 `;
   const FALLBACK_PRIVACY=`BOOLLM PRIVACY POLICY
@@ -10877,9 +11592,10 @@ Data leaves only when you choose features that require it:
 11. Scheduled actions: online AI tasks and connector calls send their configured task and relevant context when due. Webhooks receive the payload you configured, and opening a URL contacts that site. Local commands stay on this PC unless the command itself uses the network.
 12. Image generation: prompts, source images, masks, and related instructions are sent to the online image provider you select. Locally generated or edited files stay on this PC unless you send them elsewhere.
 13. Admin sync: signed-in administrators send a notepad and safe-preferences snapshot to Boollm's account service over HTTPS so notes, layout, theme, notepad color, and browser state can merge across computers. API keys and connector tokens are not synced. Local saving continues if sync is unavailable. Signing out stops synchronization without deleting local notes.
+14. Markets: the Markets workspace and its local API remain unavailable until you sign in to a Boollm account. When used, ticker symbols, ranges, option expirations, scanner filters, and related requests are sent to selected market-data, news, filings, or research providers. Those providers receive ordinary connection metadata such as IP address and user-agent. Provider API keys stay local and authenticate directly with those providers. Returned market content may be cached locally, may be delayed or inaccurate, and is provided only for educational and informational use.
 
 THIRD-PARTY SERVICES
-Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, and Stripe terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boollm or otherwise supports the user's use.
+Provider, MCP server, model-hosting, website, search, package, Google, GitHub, Cloudflare, Stripe, Yahoo Finance, Alpha Vantage, Alpaca, Massive, CFTC, exchange, and other market-data or news-service terms and privacy policies apply independently. Z.AI Coding Plan access uses a separate coding endpoint and may be used only when Z.AI has approved Boollm or otherwise supports the user's use.
 
 THIRD-PARTY CLOUD USAGE
 Cloud AI requests use the provider API key selected by the user. Each provider controls its own billing, quotas, retention, and acceptable-use terms. Boollm does not grant free AI tokens or sell token packs in this version.
@@ -11221,6 +11937,7 @@ Optional bundled starter model:
     else if(ui.theme==="dark") root.setAttribute("data-theme","dark");
     else root.removeAttribute("data-theme");
     const resolvedDark=(ui.theme==="dark")||(ui.theme!=="light" && matchMedia("(prefers-color-scheme:dark)").matches);
+    const browserDark=resolvedDark||!!ui.browserDarkMode;
     root.dataset.visualTheme=resolvedDark?"dark":"light";
     root.dataset.colorTheme=selectedColorTheme(ui);
     document.body.classList.remove("fs-small","fs-large");
@@ -11270,8 +11987,19 @@ Optional bundled starter model:
     updateAccountMenu();
     if($("researchMode")) $("researchMode").checked=ui.researchMode===true;
     if($("safeClickConfirm")) $("safeClickConfirm").checked=ui.safeClickConfirm===true;
-    // tell the native shell to match the browser chrome to the current theme
-    if(SHELL){ hostPost({type:"browser",cmd:"theme",dark:resolvedDark,surface:selectedColorTheme(ui),browserDark:!!ui.browserDarkMode}); }
+    // Website rendering follows Boollm's dark theme automatically. The saved
+    // browser toggle can additionally request dark pages while Boollm is light.
+    if(darkPageOn!==browserDark){
+      darkPageOn=browserDark;
+      if($("bDarkPage")){
+        $("bDarkPage").classList.toggle("active",darkPageOn);
+        $("bDarkPage").setAttribute("aria-pressed",darkPageOn?"true":"false");
+        $("bDarkPage").title=darkPageOn?"Turn off website dark mode":"Dark mode for websites";
+      }
+      if(!SHELL){ const tab=curTab(); if(tab?.url) showFrame(tab); }
+    }
+    // tell the native shell to match the browser chrome and websites to the current theme
+    if(SHELL){ hostPost({type:"browser",cmd:"theme",dark:resolvedDark,surface:selectedColorTheme(ui),browserDark}); }
     syncDockHeight();
     $("searchEngine").value=ui.searchEngine||"google";
     const agent=ui.codingAgent||{};
@@ -11360,7 +12088,7 @@ Optional bundled starter model:
   $("usageToggle").onclick=()=>{ const f=$("usageFold"); f.classList.toggle("open"); $("usageCaret").textContent=f.classList.contains("open")?"▾":"▸"; };
   $("ctxLen").oninput=(e)=>{ $("ctxLenLabel").textContent=fmtCtx(CTX_STEPS[Number(e.target.value)])+" tokens"; };
   $("ctxLen").onchange=async(e)=>{
-    const ctx=CTX_STEPS[Number(e.target.value)]||32768;
+    const ctx=CTX_STEPS[Number(e.target.value)]||8192;
     state.local={...(state.local||{}),ctx};
     applyContextLength();
     await fetch("/api/config",{method:"POST",body:JSON.stringify({localCtx:ctx})});
@@ -12109,6 +12837,7 @@ Optional bundled starter model:
   async function executeNotepadControl(id, command){
     try{
       const action=command.action;
+      setBoollmActivity(action==="write"?"Saving to notes":"Working");
       if(action==="read"){
         saveNotes();
         const n=activeNote();
@@ -12139,6 +12868,7 @@ Optional bundled starter model:
   }
   async function executeBrowserControl(id, command){
     try{
+      setBoollmActivity(command.action==="read"?"Reading page":"Browsing");
       if(SHELL){ hostPost({type:"browser",cmd:"control",id,command}); return; }
       const action=command.action;
       if(action==="open"){ openBrowser(true); navigate(command.url); await new Promise(r=>setTimeout(r,900)); const r=await requestText("page"); const u=r?.url||curTab()?.url||command.url||""; await postBrowserControlResult(id,{ok:true,url:u,result:r?("URL: "+r.url+"\nTITLE: "+(r.title||"")+"\n\n"+r.text):("opened visible browser to "+u+"\n\nPage text is not readable yet.")}); return; }
@@ -12528,7 +13258,8 @@ Optional bundled starter model:
     browserManualSize=!!ui.browserW;
     bhist=Array.isArray(ui.browserHistory)?ui.browserHistory.slice():[];
     bbookmarks=Array.isArray(ui.browserBookmarks)?ui.browserBookmarks.slice():[];
-    darkPageOn=!!ui.browserDarkMode;
+    const browserThemeDark=(ui.theme==="dark")||(ui.theme!=="light"&&matchMedia("(prefers-color-scheme:dark)").matches);
+    darkPageOn=browserThemeDark||!!ui.browserDarkMode;
     $("bDarkPage").classList.toggle("active",darkPageOn);
     $("bDarkPage").setAttribute("aria-pressed",darkPageOn?"true":"false");
     $("bDarkPage").title=darkPageOn?"Turn off website dark mode":"Dark mode for websites";
@@ -12537,7 +13268,7 @@ Optional bundled starter model:
     document.body.classList.remove("browser-on");
     renderTabs(); renderBookmarks(); renderProjectPages();
   }
-  function showReading(){ const b=$("bread"); b.classList.add("on"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("on"),2600); }
+  function showReading(){ setBoollmActivity("Reading page",{temporary:2600}); const b=$("bread"); b.classList.add("on"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("on"),2600); }
   // the AI opened a page — mirror it in a dedicated 🤖 tab
   function aiNavigate(url){
     if(SHELL){ hostPost({type:"browser",cmd:"navigate",url}); return; }
@@ -12579,23 +13310,38 @@ Optional bundled starter model:
       windowLayoutMenu.classList.remove("open");
       $("winMax").setAttribute("aria-expanded","false");
     };
-    let windowLayoutClickTimer=0;
+    let windowLayoutHoverTimer=0;
+    let windowLayoutCloseTimer=0;
+    const openWindowLayoutMenu=()=>{
+      clearTimeout(windowLayoutCloseTimer);
+      placeWindowLayoutMenu();
+      windowLayoutMenu.classList.add("open");
+      $("winMax").setAttribute("aria-expanded","true");
+    };
+    const scheduleWindowLayoutClose=()=>{
+      clearTimeout(windowLayoutCloseTimer);
+      windowLayoutCloseTimer=setTimeout(closeWindowLayoutMenu,220);
+    };
     $("winMax").onclick=(e)=>{
       e.stopPropagation();
-      clearTimeout(windowLayoutClickTimer);
-      windowLayoutClickTimer=setTimeout(()=>{
-        const open=windowLayoutMenu.classList.toggle("open");
-        $("winMax").setAttribute("aria-expanded",String(open));
-        if(open){ placeWindowLayoutMenu(); windowLayoutMenu.querySelector(".window-layout-option")?.focus(); }
-      },220);
-    };
-    $("winMax").ondblclick=(e)=>{
-      e.preventDefault();
-      e.stopPropagation();
-      clearTimeout(windowLayoutClickTimer);
       closeWindowLayoutMenu();
       winCmd("maxtoggle");
     };
+    $("winMax").addEventListener("pointerenter",(e)=>{
+      if(e.pointerType==="touch") return;
+      clearTimeout(windowLayoutCloseTimer);
+      clearTimeout(windowLayoutHoverTimer);
+      windowLayoutHoverTimer=setTimeout(openWindowLayoutMenu,450);
+    });
+    $("winMax").addEventListener("pointerleave",()=>{
+      clearTimeout(windowLayoutHoverTimer);
+      scheduleWindowLayoutClose();
+    });
+    windowLayoutMenu.addEventListener("pointerenter",()=>{
+      clearTimeout(windowLayoutCloseTimer);
+      clearTimeout(windowLayoutHoverTimer);
+    });
+    windowLayoutMenu.addEventListener("pointerleave",scheduleWindowLayoutClose);
     windowLayoutMenu.querySelectorAll("[data-window-place]").forEach(button=>button.onclick=()=>{
       winCmd(button.dataset.windowPlace);
       closeWindowLayoutMenu();
@@ -12745,6 +13491,7 @@ Optional bundled starter model:
   function markWorkspaceTab(ws) {
     activeWsTab = ws || "chat";
     document.body.classList.toggle("workspace-chat", activeWsTab === "chat");
+    document.body.classList.toggle("markets-open", activeWsTab === "markets");
     document.querySelectorAll(".ws-tab").forEach(tab => {
       const active = tab.dataset.ws === activeWsTab;
       tab.classList.toggle("active", active);
@@ -12769,10 +13516,483 @@ Optional bundled starter model:
     else if(!threadId&&latest) await openThread(latest);
     else scrollDown(true);
   }
+  let marketState={provider:"yahoo",configured:false,selectedSymbol:"AAPL",watchlist:["AAPL","MSFT","NVDA","GOOGL","AMZN"],snapshot:null,dashboard:null,options:null,optionExpiration:"",moverMode:"gainers",range:"6mo",indicators:true,loaded:false,researchMode:"monitor",tradeIdeas:null,cot:null,ideaRange:"6mo"};
+  const marketMoney=(value,currency="USD")=>Number.isFinite(Number(value))?new Intl.NumberFormat(undefined,{style:"currency",currency,maximumFractionDigits:2}).format(Number(value)):"--";
+  const marketNumber=(value)=>Number.isFinite(Number(value))?Number(value).toLocaleString(undefined,{maximumFractionDigits:2}):"--";
+  const marketCompact=(value)=>value!==null&&value!==undefined&&value!==""&&Number.isFinite(Number(value))?new Intl.NumberFormat(undefined,{notation:"compact",maximumFractionDigits:2}).format(Number(value)):"--";
+  const marketOptionNumber=value=>Number.isFinite(Number(value))?Number(value).toFixed(2):"—";
+  function renderMarketOptions(chain){
+    marketState.options=chain;
+    marketState.optionExpiration=chain?.selectedExpiration||chain?.expirations?.[0]||"";
+    const expiration=$("marketOptionExpiration"), feed=$("marketOptionsFeedLabel"), box=$("marketOptionsChain");
+    const expirations=chain?.expirations||[];
+    expiration.innerHTML=expirations.length?expirations.map(item=>`<option value="${esc(item)}">${esc(item)}</option>`).join(""):"<option>No expirations</option>";
+    expiration.disabled=!expirations.length;
+    if(marketState.optionExpiration)expiration.value=marketState.optionExpiration;
+    feed.textContent=[chain?.source,chain?.feed,chain?.delayed?"delayed/indicative":""].filter(Boolean).join(" · ")||"Source unavailable";
+    const contracts=(chain?.contracts||[]).filter(item=>!marketState.optionExpiration||item.expiration===marketState.optionExpiration);
+    if(!contracts.length){
+      box.innerHTML='<div class="market-options-empty">No contracts were returned for this expiration.<button type="button" id="marketOptionsConfigure">Configure options data</button></div>';
+      $("marketOptionsConfigure").onclick=()=>$("marketSettings").click();
+      return;
+    }
+    const calls=new Map(), puts=new Map();
+    contracts.forEach(item=>(item.side==="put"?puts:calls).set(Number(item.strike),item));
+    let strikes=[...new Set([...calls.keys(),...puts.keys()])].filter(Number.isFinite).sort((a,b)=>a-b);
+    const spot=Number(marketState.snapshot?.price);
+    if(strikes.length>24&&Number.isFinite(spot)){
+      const nearest=strikes.reduce((best,strike,index)=>Math.abs(strike-spot)<Math.abs(strikes[best]-spot)?index:best,0);
+      strikes=strikes.slice(Math.max(0,nearest-12),Math.min(strikes.length,nearest+12));
+    }
+    const cell=(item,key)=>item?marketOptionNumber(item[key]):"—";
+    box.innerHTML=`<table class="market-option-table"><thead><tr><th colspan="3">Calls</th><th>Strike</th><th colspan="3">Puts</th></tr><tr><th>Bid</th><th>Ask</th><th>IV</th><th></th><th>Bid</th><th>Ask</th><th>IV</th></tr></thead><tbody>${strikes.map(strike=>{
+      const call=calls.get(strike),put=puts.get(strike);
+      const title=item=>item?`Volume ${marketNumber(item.volume)} · OI ${marketNumber(item.openInterest)} · Δ ${marketOptionNumber(item.greeks?.delta)}`:"";
+      return `<tr><td title="${esc(title(call))}">${cell(call,"bid")}</td><td>${cell(call,"ask")}</td><td>${call&&Number.isFinite(Number(call.impliedVolatility))?(Number(call.impliedVolatility)*100).toFixed(1)+"%":"—"}</td><td>${marketOptionNumber(strike)}</td><td title="${esc(title(put))}">${cell(put,"bid")}</td><td>${cell(put,"ask")}</td><td>${put&&Number.isFinite(Number(put.impliedVolatility))?(Number(put.impliedVolatility)*100).toFixed(1)+"%":"—"}</td></tr>`;
+    }).join("")}</tbody></table>`;
+  }
+  async function loadMarketOptions(expiration=""){
+    const box=$("marketOptionsChain");
+    box.innerHTML='<div class="market-options-empty">Loading options chain...</div>';
+    try{
+      const query=new URLSearchParams({symbol:marketState.selectedSymbol});
+      if(expiration)query.set("expiration",expiration);
+      const response=await fetch(`/api/markets/options?${query}`), data=await response.json();
+      if(!response.ok)throw new Error(data.error||"Options data failed.");
+      renderMarketOptions(data);
+    }catch(error){
+      $("marketOptionsFeedLabel").textContent="Options unavailable";
+      box.innerHTML=`<div class="market-options-empty">${esc(error.message||"Could not load options data.")}<button type="button" id="marketOptionsConfigure">Configure options data</button></div>`;
+      $("marketOptionsConfigure").onclick=()=>$("marketSettings").click();
+    }
+  }
+  function renderMarketDashboard(){
+    const dashboard=marketState.dashboard||{}, indexes=dashboard.indexes||[], indexBox=$("marketIndexes");
+    const indexNames={"^GSPC":"S&P 500","^DJI":"Dow Jones","^IXIC":"Nasdaq","^RUT":"Russell 2000","^VIX":"VIX"};
+    indexBox.innerHTML=indexes.length?indexes.map(item=>{
+      const change=Number(item.changePercent), cls=change>=0?"market-up":"market-down";
+      return `<div class="market-index"><b>${esc(indexNames[item.symbol]||item.symbol)}</b><span>${esc(marketNumber(item.price))}</span><small class="${cls}">${Number.isFinite(change)?`${change>=0?"+":""}${change.toFixed(2)}%`:"--"}</small></div>`;
+    }).join(""):'<div class="market-empty">Market overview unavailable.</div>';
+    const tape=$("marketBottomTape");
+    if(tape)tape.innerHTML=`<span class="session">US Markets · ${dashboard.marketState||"Delayed"}</span>${indexes.map(item=>{const change=Number(item.changePercent),cls=change>=0?"":"down";return `<span>${esc(indexNames[item.symbol]||item.symbol)} <b class="${cls}">${esc(marketNumber(item.price))} ${Number.isFinite(change)?`${change>=0?"+":""}${change.toFixed(2)}%`:"--"}</b></span>`}).join("")}<span>Auto refresh · ${esc(new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}))}</span>`;
+    const moverList=dashboard.movers?.[marketState.moverMode]||[], moverBox=$("marketMovers");
+    moverBox.innerHTML=moverList.length?moverList.map(item=>{
+      const change=Number(item.changePercent), cls=change>=0?"market-up":"market-down";
+      return `<div class="market-mover-row" data-symbol="${esc(item.symbol)}"><div><b>${esc(item.symbol)}</b><small>${esc(item.name||"")}</small></div><span class="${cls} mover-value mover-value-${marketState.moverMode}">${Number.isFinite(change)?`${change>=0?"+":""}${change.toFixed(2)}%`:"--"}</span></div>`;
+    }).join(""):'<div class="market-empty">Mover data unavailable.</div>';
+    moverBox.querySelectorAll("[data-symbol]").forEach(row=>row.onclick=()=>loadMarketSymbol(row.dataset.symbol));
+    const headlines=dashboard.news||[], newsBox=$("marketHeadlines");
+    newsBox.innerHTML=headlines.length?headlines.map((item,index)=>`<button class="market-news-row" type="button" data-news="${index}"><b>${esc(item.title)}</b><small>${esc(item.publisher||"Source")}${item.publishedAt?` · ${relTime(item.publishedAt)}`:""}</small></button>`).join(""):'<div class="market-empty">No recent headlines returned.</div>';
+    newsBox.querySelectorAll("[data-news]").forEach(button=>button.onclick=()=>openMarketBrowser(headlines[Number(button.dataset.news)]?.url||`https://finance.yahoo.com/quote/${encodeURIComponent(marketState.selectedSymbol)}/news/`));
+    const financials=dashboard.fundamentals||{years:[],metrics:[]}, financeBox=$("marketFinancials");
+    financeBox.innerHTML=financials.years?.length&&financials.metrics?.length?`<table class="market-financial-table"><thead><tr><th>Metric</th>${financials.years.map(year=>`<th>${esc(year)}</th>`).join("")}</tr></thead><tbody>${financials.metrics.map(metric=>`<tr><td>${esc(metric.label)}</td>${financials.years.map(year=>`<td>${esc(metric.values?.[year]?.formatted||"—")}</td>`).join("")}</tr>`).join("")}</tbody></table>`:'<div class="market-empty">Financial history is unavailable from the current source.</div>';
+    const newsTable=$("marketNewsTable");
+    newsTable.innerHTML=headlines.length?`<table class="market-news-table"><tbody>${headlines.slice(0,7).map((item,index)=>`<tr data-table-news="${index}"><td>${item.publishedAt?esc(new Date(item.publishedAt).toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})):"—"}</td><td>${esc(item.title)}</td><td>${esc(item.publisher||"Source")}</td></tr>`).join("")}</tbody></table>`:'<div class="market-empty">No recent company news returned.</div>';
+    newsTable.querySelectorAll("[data-table-news]").forEach(row=>row.onclick=()=>openMarketBrowser(headlines[Number(row.dataset.tableNews)]?.url||""));
+    renderMarketIntelligence();
+  }
+  function renderMarketIntelligence(){
+    const s=marketState.snapshot, headlines=marketState.dashboard?.news||[]; if(!s)return;
+    const pct=Number(s.changePercent), direction=pct>=0?"up":"down", magnitude=Math.abs(pct);
+    $("marketAiSummary").innerHTML=`<b>${esc(s.symbol)} is ${direction} ${magnitude.toFixed(2)}% in the latest delayed snapshot.</b> Review the cited headlines and broader market tape before attributing the move to a single cause.`;
+    const drivers=[
+      headlines[0]?{title:headlines[0].title,body:"Most recent ticker-specific headline returned by the connected market source.",source:headlines[0].publisher}:null,
+      headlines[1]?{title:headlines[1].title,body:"A second current headline that may add company or sector context.",source:headlines[1].publisher}:null,
+      {title:`Trading ${direction} versus previous close`,body:`The latest price is ${marketMoney(s.price,s.currency)}, ${magnitude.toFixed(2)}% ${direction} from ${marketMoney(s.previousClose,s.currency)}.`,source:s.source}
+    ].filter(Boolean);
+    $("marketDrivers").innerHTML=drivers.map(item=>`<div class="market-driver"><b>${esc(item.title)}</b><p>${esc(item.body)}</p><small>Source: ${esc(item.source||"Market data")}</small></div>`).join("");
+    const indexes=marketState.dashboard?.indexes||[], advancing=indexes.filter(item=>Number(item.changePercent)>=0).length;
+    $("marketSectorContext").innerHTML=`<li>${advancing} of ${indexes.length||5} tracked major indexes are positive.</li><li>Latest volume: ${esc(marketCompact(s.volume))}.</li><li>52-week range: ${esc(marketMoney(s.fiftyTwoWeekLow,s.currency))} to ${esc(marketMoney(s.fiftyTwoWeekHigh,s.currency))}.</li>`;
+    $("marketAiPrompt").placeholder=`Why is ${s.symbol} moving today?`;
+    $("marketAlertPrice").textContent=`${s.symbol} ${marketMoney(s.price,s.currency)}`;
+  }
+  $("marketMoverTabs").onclick=(event)=>{
+    const button=event.target.closest("[data-movers]"); if(!button)return;
+    marketState.moverMode=button.dataset.movers;
+    $("marketMoverTabs").querySelectorAll("button").forEach(item=>item.classList.toggle("active",item===button));
+    renderMarketDashboard();
+  };
+  function renderMarketWatchlist(){
+    const box=$("marketWatchlist"); if(!box) return;
+    box.textContent="";
+    const quotes=new Map((marketState.dashboard?.watchlist||[]).map(item=>[item.symbol,item]));
+    marketState.watchlist.forEach(symbol=>{
+      const button=document.createElement("button");
+      button.type="button"; button.className="market-watch-row"+(symbol===marketState.selectedSymbol?" active":"");
+      const left=document.createElement("span"), name=document.createElement("b");
+      const quote=quotes.get(symbol)||(symbol===marketState.selectedSymbol?marketState.snapshot:null);
+      name.textContent=symbol;
+      left.append(name,document.createElement("small")); left.lastChild.textContent=quote?.name||"";
+      const price=document.createElement("span"), changeCell=document.createElement("span");
+      price.textContent=quote?marketMoney(quote.price,quote.currency):"--";
+      const change=Number(quote?.changePercent); changeCell.textContent=Number.isFinite(change)?`${change>=0?"+":""}${change.toFixed(2)}%`:"--";
+      changeCell.className=Number.isFinite(change)?(change>=0?"market-up":"market-down"):"";
+      button.replaceChildren(left,price,changeCell);
+      button.onclick=()=>loadMarketSymbol(symbol); box.append(button);
+    });
+  }
+  function renderMarketChart(snapshot){
+    const svg=$("marketChart")?.querySelector("svg"); if(!svg) return;
+    const points=(snapshot?.points||[]).filter(p=>["open","high","low","close"].every(key=>Number.isFinite(Number(p[key])))).slice(-180);
+    if(points.length<2){ svg.innerHTML='<text x="400" y="135" text-anchor="middle" fill="currentColor" opacity=".55">Chart history unavailable</text>'; return; }
+    const min=Math.min(...points.map(p=>Number(p.low))), max=Math.max(...points.map(p=>Number(p.high))), spread=Math.max(.01,max-min);
+    const maxVolume=Math.max(1,...points.map(p=>Number(p.volume)||0)), chartTop=18, chartBottom=218, volumeTop=228, volumeBottom=263, left=20, right=770;
+    const xStep=(right-left)/points.length, bodyWidth=Math.max(1,Math.min(7,xStep*.62)), y=value=>chartBottom-(Number(value)-min)/spread*(chartBottom-chartTop);
+    const grid=[0,.25,.5,.75,1].map(part=>{const gy=chartTop+part*(chartBottom-chartTop),price=max-part*spread;return `<line class="market-gridline" x1="${left}" y1="${gy}" x2="${right}" y2="${gy}"/><text class="market-axis-label" x="775" y="${gy+3}">${price.toFixed(2)}</text>`}).join("");
+    const candles=points.map((p,index)=>{const x=left+(index+.5)*xStep,up=Number(p.close)>=Number(p.open),cls=up?"market-candle-up":"market-candle-down",top=Math.min(y(p.open),y(p.close)),height=Math.max(1,Math.abs(y(p.close)-y(p.open))),volumeHeight=(Number(p.volume)||0)/maxVolume*(volumeBottom-volumeTop);return `<line class="${cls}" x1="${x}" y1="${y(p.high)}" x2="${x}" y2="${y(p.low)}"/><rect class="${cls}" x="${x-bodyWidth/2}" y="${top}" width="${bodyWidth}" height="${height}"/><rect class="${up?"market-volume-up":"market-volume-down"}" x="${x-bodyWidth/2}" y="${volumeBottom-volumeHeight}" width="${bodyWidth}" height="${volumeHeight}"/>`}).join("");
+    let average="";
+    if(marketState.indicators){
+      average=[{period:20,color:"#ffd21c"},{period:50,color:"#2f8de0"},{period:100,color:"#8e55d8"}].map(({period,color})=>{
+        const span=Math.min(period,points.length), values=points.map((point,index)=>{
+          if(index<span-1)return null;
+          return points.slice(index-span+1,index+1).reduce((sum,item)=>sum+Number(item.close),0)/span;
+        });
+        return `<polyline class="market-ma-line" style="stroke:${color}" points="${values.map((value,index)=>value==null?"":`${left+(index+.5)*xStep},${y(value)}`).filter(Boolean).join(" ")}"/>`;
+      }).join("");
+    }
+    svg.innerHTML=grid+candles+average;
+    const p=points.at(-1); $("marketOhlc").textContent=`O ${marketNumber(p.open)}  H ${marketNumber(p.high)}  L ${marketNumber(p.low)}  C ${marketNumber(p.close)}  Vol ${marketCompact(p.volume)}`;
+  }
+  function renderMarketSnapshot(snapshot){
+    marketState.snapshot=snapshot; const points=snapshot.points||[];
+    const highs=points.map(p=>Number(p.high)).filter(Number.isFinite), lows=points.map(p=>Number(p.low)).filter(Number.isFinite);
+    $("marketTitle").textContent=snapshot.symbol||marketState.selectedSymbol;
+    $("marketSubtitle").textContent=[snapshot.name,snapshot.exchange].filter(Boolean).join(" · ");
+    $("marketPrice").textContent=marketMoney(snapshot.price,snapshot.currency);
+    const change=Number(snapshot.change), pct=Number(snapshot.changePercent), changeEl=$("marketChange");
+    changeEl.textContent=Number.isFinite(change)?`${change>=0?"+":""}${change.toFixed(2)} (${pct>=0?"+":""}${pct.toFixed(2)}%)`:"Change unavailable";
+    changeEl.className=change>=0?"market-up":"market-down";
+    $("marketPrevious").textContent=marketMoney(snapshot.previousClose,snapshot.currency);
+    $("marketOpen").textContent=marketMoney(snapshot.open,snapshot.currency);
+    $("marketQuoteHigh").textContent=marketMoney(snapshot.dayHigh,snapshot.currency);
+    $("marketQuoteLow").textContent=marketMoney(snapshot.dayLow,snapshot.currency);
+    $("marketCap").textContent=marketCompact(snapshot.marketCap);
+    $("marketHigh").textContent=highs.length?marketMoney(Math.max(...highs),snapshot.currency):"--";
+    $("marketLow").textContent=lows.length?marketMoney(Math.min(...lows),snapshot.currency):"--";
+    $("marketVolume").textContent=marketNumber(snapshot.volume??points.at(-1)?.volume);
+    $("marketDayRange").textContent=`${marketMoney(snapshot.dayLow,snapshot.currency)} – ${marketMoney(snapshot.dayHigh,snapshot.currency)}`;
+    $("marketYearRange").textContent=`${marketMoney(snapshot.fiftyTwoWeekLow,snapshot.currency)} – ${marketMoney(snapshot.fiftyTwoWeekHigh,snapshot.currency)}`;
+    $("marketStatus").textContent=snapshot.marketState||"Delayed quote";
+    $("marketTimezone").textContent=snapshot.timezone||"—";
+    $("marketSource").textContent=`${snapshot.source}${snapshot.delayed?" · delayed/indicative":""}`;
+    $("marketContext").textContent=`${snapshot.symbol} is shown from ${snapshot.source}. The chart contains ${points.length} daily observations. Use Ask AI for analysis, or save this exact snapshot to Notepad.`;
+    renderMarketChart(snapshot); renderMarketWatchlist();
+  }
+  async function loadMarketSymbol(symbol){
+    marketState.selectedSymbol=String(symbol||"AAPL").trim().toUpperCase();
+    if($("marketCommand"))$("marketCommand").value=`${marketState.selectedSymbol} overview`;
+    renderMarketWatchlist(); $("marketSource").textContent="Loading "+marketState.selectedSymbol+"...";
+    try{
+      const [snapshotResult,dashboardResult,optionsResult]=await Promise.allSettled([
+        fetch(`/api/markets/snapshot?symbol=${encodeURIComponent(marketState.selectedSymbol)}&range=${encodeURIComponent(marketState.range)}`).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||"Market data failed.");return data;}),
+        fetch(`/api/markets/dashboard?symbol=${encodeURIComponent(marketState.selectedSymbol)}`).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||"Dashboard data failed.");return data;}),
+        fetch(`/api/markets/options?symbol=${encodeURIComponent(marketState.selectedSymbol)}`).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||"Options data failed.");return data;})
+      ]);
+      if(snapshotResult.status!=="fulfilled")throw snapshotResult.reason;
+      renderMarketSnapshot(snapshotResult.value);
+      if(dashboardResult.status==="fulfilled"){marketState.dashboard=dashboardResult.value;renderMarketDashboard();renderMarketWatchlist();}
+      else{$("marketIndexes").innerHTML='<div class="market-empty">Market overview unavailable.</div>';}
+      if(optionsResult.status==="fulfilled")renderMarketOptions(optionsResult.value);
+      else{$("marketOptionsFeedLabel").textContent="Options unavailable";$("marketOptionsChain").innerHTML='<div class="market-options-empty">Connect Alpaca or Massive in Data source, or retry the Yahoo fallback.</div>';}
+    }catch(error){ $("marketSource").textContent="Data unavailable"; $("marketContext").textContent=String(error.message||error); tempToast("Could not load market data."); }
+  }
+  function renderTradeIdeaChart(snapshot){
+    const svg=$("marketIdeaChart")?.querySelector("svg"), points=(snapshot?.points||[]).filter(point=>["open","high","low","close"].every(key=>Number.isFinite(Number(point[key])))).slice(-100);
+    if(!svg||points.length<2)return;
+    const idea=marketState.tradeIdeas?.idea||{}, values=points.flatMap(point=>[Number(point.high),Number(point.low)]), levels=[idea.entryLow,idea.stop,idea.target1,idea.target2].filter(Number.isFinite);
+    const min=Math.min(...values,...levels),max=Math.max(...values,...levels),spread=Math.max(.01,max-min),left=22,right=744,top=14,priceBottom=232,volumeTop=245,volumeBottom=294;
+    const x=index=>left+index/(Math.max(1,points.length-1))*(right-left),y=value=>priceBottom-(value-min)/spread*(priceBottom-top),step=(right-left)/points.length,body=Math.max(1.5,Math.min(6,step*.62));
+    const ema=(period)=>{const k=2/(period+1);let value=Number(points[0].close);return points.map((point,index)=>{if(index)value=(Number(point.close)-value)*k+value;return value;});};
+    const maxVolume=Math.max(1,...points.map(point=>Number(point.volume)||0));
+    const grid=[0,.25,.5,.75,1].map(part=>`<line class="market-gridline" x1="${left}" y1="${top+part*(priceBottom-top)}" x2="${right}" y2="${top+part*(priceBottom-top)}"/><text x="${right+6}" y="${top+part*(priceBottom-top)+3}" class="market-axis-label">${marketMoney(max-part*spread)}</text>`).join("");
+    const candles=points.map((point,index)=>{const cx=x(index),open=y(Number(point.open)),close=y(Number(point.close)),high=y(Number(point.high)),low=y(Number(point.low)),up=Number(point.close)>=Number(point.open),height=Math.max(1,Math.abs(close-open)),vy=volumeBottom-(Number(point.volume)||0)/maxVolume*(volumeBottom-volumeTop);return `<line class="${up?"market-candle-up":"market-candle-down"}" x1="${cx}" y1="${high}" x2="${cx}" y2="${low}"/><rect class="${up?"market-candle-up":"market-candle-down"}" x="${cx-body/2}" y="${Math.min(open,close)}" width="${body}" height="${height}"/><rect class="${up?"market-volume-up":"market-volume-down"}" x="${cx-body/2}" y="${vy}" width="${body}" height="${volumeBottom-vy}"/>`;}).join("");
+    const averageLines=[[20,"market-ema20"],[50,"market-ema50"]].map(([period,cls])=>`<polyline class="${cls}" points="${ema(period).map((value,index)=>`${x(index)},${y(value)}`).join(" ")}"/>`).join("");
+    const planLines=[[idea.entryLow,"ENTRY","#47d277"],[idea.stop,"STOP","#f0524d"],[idea.target1,"TGT1","#47d277"],[idea.target2,"TGT2","#47d277"]].filter(([value])=>Number.isFinite(value)).map(([value,label,color])=>`<line class="market-level-line" x1="${left}" y1="${y(value)}" x2="${right}" y2="${y(value)}" stroke="${color}"/><text class="market-level-label" x="${right-2}" y="${y(value)-3}" text-anchor="end" fill="${color}">${label} ${marketMoney(value)}</text>`).join("");
+    svg.innerHTML=`${grid}${candles}${averageLines}${planLines}`;
+  }
+  function renderTradeResearch(){
+    const payload=marketState.tradeIdeas, idea=payload?.idea;if(!idea)return;
+    $("marketIdeaTitle").textContent=idea.symbol;
+    $("marketIdeaCompany").textContent=idea.name||"";
+    $("marketIdeaExchange").textContent=payload.profile?.exchange||"US";
+    $("marketIdeaPrice").textContent=marketMoney(idea.price);
+    $("marketIdeaChange").textContent=`${Number(idea.changePercent)>=0?"+":""}${Number(idea.changePercent||0).toFixed(2)}%`;
+    $("marketIdeaChange").className=Number(idea.changePercent)>=0?"market-up":"market-down";
+    $("marketIdeaStats").innerHTML=[
+      ["Sector",payload.profile?.sector||"—"],
+      ["Industry",payload.profile?.industry||"—"],
+      ["Market cap",marketCompact(payload.profile?.marketCap)],
+      ["RS rank",idea.confidence],
+      ["Setup",idea.setup]
+    ].map(([label,value])=>`<div><small>${esc(label)}</small><b>${esc(value||"—")}</b></div>`).join("");
+    $("marketIdeaEntry").textContent=`${marketMoney(idea.entryLow)} – ${marketMoney(idea.entryHigh)}`;
+    $("marketIdeaStop").textContent=marketMoney(idea.stop);
+    $("marketIdeaTarget1").textContent=marketMoney(idea.target1);
+    $("marketIdeaTarget2").textContent=marketMoney(idea.target2);
+    $("marketIdeaRisk").textContent=`1 : ${Number(idea.riskReward).toFixed(1)}`;
+    $("marketPlanSetup").textContent=`${idea.direction} · ${idea.setup}`;
+    $("marketPlanSummary").textContent=`${idea.confidence}% technical confidence from the current delayed feed`;
+    $("marketIdeaSetup").textContent=`${idea.direction} setup · ${idea.setup}`;
+    $("marketIdeaRationale").textContent=idea.rationale;
+    $("marketIdeaWhy").textContent=`${idea.symbol} is ${idea.direction.toLowerCase()} biased with EMA 20 at ${marketMoney(idea.ema20)} and EMA 50 at ${marketMoney(idea.ema50)}. The setup is invalid beyond ${marketMoney(idea.stop)}.`;
+    $("marketIdeaCatalysts").innerHTML=[
+      `${idea.direction==="Long"?"Price strength":"Price weakness"} versus the 20- and 50-period trend`,
+      `${idea.confidence} relative-strength score from current movers`,
+      `A decisive move through ${marketMoney(idea.direction==="Long"?idea.twentyDayHigh:idea.twentyDayLow)} can confirm continuation`
+    ].map(item=>`<li>${esc(item)}</li>`).join("");
+    $("marketIdeaRisks").innerHTML=[
+      `The thesis fails beyond the ${marketMoney(idea.stop)} stop`,
+      `Delayed quotes can differ from an executable market price`,
+      `News, earnings, liquidity, and gaps can invalidate technical levels`
+    ].map(item=>`<li>${esc(item)}</li>`).join("");
+    $("marketIdeaSignals").innerHTML=[`ATR ${marketMoney(idea.atr)}`,`20D high ${marketMoney(idea.twentyDayHigh)}`,`20D low ${marketMoney(idea.twentyDayLow)}`,payload.delayed?"Delayed data":"Connected data"].map(item=>`<span>${esc(item)}</span>`).join("");
+    const setup=$("marketScanSetup")?.value||"all",rank=Number($("marketScanRank")?.value||0),cap=Number($("marketScanCap")?.value||0),volatility=Number($("marketScanVolatility")?.value||0);
+    const candidates=(payload.candidates||[]).filter(item=>(setup==="all"||setup==="breakout"&&item.setup==="Breakout"||setup===item.direction.toLowerCase())&&Number(item.score)>=rank&&Number(item.marketCap||0)>=cap&&Math.abs(Number(item.changePercent||0))>=volatility);
+    $("marketScanMeta").innerHTML=`<span>Results: ${candidates.length}</span><span>Updated: ${new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}</span>`;
+    $("marketScanList").innerHTML=candidates.length?candidates.map(item=>`<button class="market-scan-row${item.symbol===idea.symbol?" active":""}" type="button" data-scan-symbol="${esc(item.symbol)}"><span class="scan-company"><b>${esc(item.symbol)}</b><small>${esc(item.name||item.setup||"")}</small></span><span class="scan-price">${esc(marketMoney(item.price))}</span><span class="scan-change ${Number(item.changePercent)>=0?"market-up":"market-down"}">${Number(item.changePercent)>=0?"+":""}${Number(item.changePercent||0).toFixed(2)}%</span><span class="scan-rank">${esc(item.score)}</span></button>`).join(""):'<div class="market-empty">No candidates match these filters.</div>';
+    $("marketIdeaNews").innerHTML=(payload.news||[]).slice(0,5).map((item,index)=>`<a class="market-idea-news-row" href="${esc(item.url)}" data-idea-news="${esc(item.url)}"><span class="source-rank">${index+1}</span><b>${esc(item.title)}</b><time>${item.publishedAt?esc(new Date(item.publishedAt).toLocaleDateString([],{month:"short",day:"numeric"})):esc(item.publisher||"Source")}</time><span class="source-open">↗</span></a>`).join("")||'<div class="market-empty">No recent headlines returned.</div>';
+    $("marketIntelUpdated").textContent=`Updated: ${new Date().toLocaleTimeString([],{hour:"numeric",minute:"2-digit"})}`;
+    renderTradeIdeaChart(marketState.snapshot);
+  }
+  function renderCotSnapshot(){
+    const cot=marketState.cot;if(!cot)return;
+    $("marketCotDate").textContent=`Report Date: ${(cot.reportDate||"latest").slice(0,10)} · Week ending`;
+    const groups=[
+      ["Asset managers",cot.assetManagerLong,cot.assetManagerShort,cot.assetManagerNet,cot.assetManagerWeeklyChange],
+      ["Leveraged funds",cot.leveragedLong,cot.leveragedShort,cot.leveragedNet,cot.leveragedWeeklyChange],
+      ["Dealers",cot.dealerLong,cot.dealerShort,cot.dealerNet,cot.dealerWeeklyChange]
+    ];
+    const table=([label,long,short,net,weekly])=>`<div class="market-cot-table"><div class="cot-head"><b>${esc(label)}</b><span>Position</span><span>Weekly change</span></div><div class="cot-row"><small>Long</small><span>${esc(marketCompact(long))}</span><span class="${Number(weekly)>=0?"market-up":"market-down"}">${Number(weekly)>=0?"+":""}${esc(marketCompact(weekly))}</span></div><div class="cot-row"><small>Short</small><span>${esc(marketCompact(short))}</span><span>—</span></div><div class="cot-row"><small>Net</small><span>${esc(marketCompact(net))}</span><span class="${Number(net)>=0?"market-up":"market-down"}">${Number(net)>=0?"+":""}${esc(marketCompact(net))}</span></div></div>`;
+    const bias=Number(cot.assetManagerNet||0)+Number(cot.leveragedNet||0)+Number(cot.dealerNet||0);
+    $("marketCotGrid").innerHTML=groups.map(table).join("")+`<div class="market-cot-table market-cot-takeaway"><b>COT takeaway</b><p>Net positioning remains <strong class="${bias>=0?"market-up":"market-down"}">${bias>=0?"bullish":"bearish"}</strong> overall. Asset Managers ${Number(cot.assetManagerWeeklyChange)>=0?"increased":"reduced"} longs; Leveraged Funds ${Number(cot.leveragedWeeklyChange)>=0?"added to":"reduced"} positioning; Dealers remain ${Number(cot.dealerNet)>=0?"net long":"net short"}.</p></div>`;
+  }
+  async function loadCotSnapshot(){
+    $("marketCotGrid").innerHTML='<div class="market-empty">Loading CFTC positioning...</div>';
+    try{
+      const response=await fetch(`/api/markets/cot?market=${encodeURIComponent($("marketCotMarket").value)}`),data=await response.json();
+      if(!response.ok)throw new Error(data.error||"COT data failed.");
+      marketState.cot=data;renderCotSnapshot();
+    }catch(error){$("marketCotGrid").innerHTML=`<div class="market-empty">${esc(error.message||"COT data unavailable.")}</div>`;}
+  }
+  async function loadTradeResearch(){
+    $("marketIdeaTitle").textContent=`${marketState.selectedSymbol} · Loading`;
+    $("marketScanList").innerHTML='<div class="market-empty">Scanning current movers...</div>';
+    try{
+      const [ideaResult,snapshotResult]=await Promise.all([
+        fetch(`/api/markets/trade-ideas?symbol=${encodeURIComponent(marketState.selectedSymbol)}`).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||"Trade ideas failed.");return data;}),
+        fetch(`/api/markets/snapshot?symbol=${encodeURIComponent(marketState.selectedSymbol)}&range=${encodeURIComponent(marketState.ideaRange)}`).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||"Chart failed.");return data;})
+      ]);
+      marketState.tradeIdeas=ideaResult;marketState.snapshot=snapshotResult;renderTradeResearch();
+    }catch(error){$("marketIdeaTitle").textContent="Trade ideas unavailable";$("marketIdeaRationale").textContent=String(error.message||error);}
+    if(!marketState.cot)loadCotSnapshot();
+  }
+  function setMarketMode(mode,{remember=true}={}){
+    const currentMode=document.querySelector("[data-market-mode].active")?.dataset.marketMode||"monitor";
+    if(remember&&mode!==currentMode)rememberCurrentView();
+    const research=mode!=="monitor";marketState.researchMode=mode;
+    $("marketModeTabs").querySelectorAll("button").forEach(button=>button.classList.toggle("active",button.dataset.marketMode===mode));
+    document.querySelectorAll('[data-market-page="monitor"]').forEach(element=>element.hidden=research);
+    $("marketResearchPage").hidden=!research;$("marketResearchPage").dataset.mode=mode;
+    if(research){
+      loadTradeResearch();
+    }
+  }
+  async function ensureMarkets(){
+    if(marketState.loaded) return loadMarketSymbol(marketState.selectedSymbol);
+    try{
+      const response=await fetch("/api/markets/settings"), data=await response.json();
+      marketState={...marketState,...data,loaded:true};
+      $("marketProvider").value=marketState.provider; $("marketKeyWrap").style.display=marketState.provider==="alphaVantage"?"":"none";
+      $("marketOptionsProvider").value=marketState.optionsProvider||"alpaca";
+      $("marketOptionsFeed").value=marketState.optionsFeed||"indicative";
+      syncMarketOptionsProvider();
+      renderMarketWatchlist(); await loadMarketSymbol(marketState.selectedSymbol);
+    }catch(error){ $("marketSource").textContent="Market service unavailable"; }
+  }
+  function openMarketBrowser(path){
+    openBrowser(true,{remember:true});
+    setTimeout(()=>navigate(path),SHELL?300:20);
+  }
+  $("marketModeTabs").onclick=event=>{
+    const button=event.target.closest("[data-market-mode]");if(button)setMarketMode(button.dataset.marketMode);
+  };
+  $("marketScanList").onclick=event=>{
+    const row=event.target.closest("[data-scan-symbol]");if(!row)return;
+    marketState.selectedSymbol=row.dataset.scanSymbol;loadTradeResearch();
+  };
+  $("marketScanRefresh").onclick=()=>loadTradeResearch();
+  $("marketScanReset").onclick=()=>{
+    $("marketScanUniverse").value="all";
+    $("marketScanSetup").value="all";
+    $("marketScanRank").value="0";
+    $("marketScanCap").value="0";
+    $("marketScanVolatility").value="0";
+    renderTradeResearch();
+  };
+  ["marketScanUniverse","marketScanSetup","marketScanRank","marketScanCap","marketScanVolatility"].forEach(id=>$(id).onchange=renderTradeResearch);
+  $("marketViewFullScanner").onclick=()=>$("marketScanList").scrollIntoView({block:"nearest",behavior:"smooth"});
+  $("marketIdeaIndicators").onclick=()=>tempToast("EMA 20, EMA 50, and volume are active.");
+  $("marketIdeaFullscreen").onclick=()=>{
+    const stage=document.querySelector(".market-trade-stage");
+    if(document.fullscreenElement)document.exitFullscreen?.();
+    else stage?.requestFullscreen?.();
+  };
+  $("marketIdeaRanges").onclick=async event=>{
+    const button=event.target.closest("[data-idea-range]");if(!button)return;
+    marketState.ideaRange=button.dataset.ideaRange;
+    $("marketIdeaRanges").querySelectorAll("button").forEach(item=>item.classList.toggle("active",item===button));
+    button.disabled=true;
+    try{
+      const response=await fetch(`/api/markets/snapshot?symbol=${encodeURIComponent(marketState.selectedSymbol)}&range=${encodeURIComponent(marketState.ideaRange)}`),data=await response.json();
+      if(!response.ok)throw new Error(data.error||"Chart failed.");
+      marketState.snapshot=data;renderTradeIdeaChart(data);
+    }catch(error){tempToast(String(error.message||error));}finally{button.disabled=false;}
+  };
+  $("marketCotMarket").onchange=loadCotSnapshot;
+  $("marketIdeaNews").onclick=event=>{
+    const link=event.target.closest("[data-idea-news]");if(!link)return;
+    event.preventDefault();openMarketBrowser(link.dataset.ideaNews);
+  };
+  $("marketIdeaBrowser").onclick=()=>openMarketBrowser(`https://finance.yahoo.com/quote/${encodeURIComponent(marketState.selectedSymbol)}`);
+  $("marketIdeaChat").onclick=()=>{
+    const idea=marketState.tradeIdeas?.idea;if(!idea)return;
+    setWorkspaceTab("chat");
+    $("input").value=`Review this ${idea.direction.toLowerCase()} trade idea for ${idea.symbol}: entry ${marketMoney(idea.entryLow)}–${marketMoney(idea.entryHigh)}, stop ${marketMoney(idea.stop)}, targets ${marketMoney(idea.target1)} and ${marketMoney(idea.target2)}. Technical confidence is ${idea.confidence}%. Challenge the thesis, explain catalysts and risks, and tell me what to verify before acting. Data source: ${idea.source}${idea.delayed?" (delayed)":""}.`;
+    $("input").dispatchEvent(new Event("input",{bubbles:true}));$("input").focus();
+  };
+  $("marketIdeaNote").onclick=()=>{
+    const idea=marketState.tradeIdeas?.idea;if(!idea)return;
+    openNotes(true,{remember:true,focus:true});
+    insertPlainNoteText(`Trade idea — ${idea.symbol}\nDirection: ${idea.direction}\nSetup: ${idea.setup}\nEntry: ${marketMoney(idea.entryLow)} – ${marketMoney(idea.entryHigh)}\nStop: ${marketMoney(idea.stop)}\nTargets: ${marketMoney(idea.target1)} / ${marketMoney(idea.target2)}\nConfidence: ${idea.confidence}%\nRationale: ${idea.rationale}\nSource: ${idea.source}${idea.delayed?" (delayed)":""}\nSaved: ${new Date().toLocaleString()}\n\n`);
+    tempToast("Trade idea saved to Notepad.");
+  };
+  $("marketRefresh").onclick=()=>loadMarketSymbol(marketState.selectedSymbol);
+  $("marketCommand").onkeydown=event=>{
+    if(event.key!=="Enter")return;
+    const symbol=event.currentTarget.value.trim().split(/\s+/)[0].replace(/[^A-Za-z0-9.^=-]/g,"");
+    if(symbol)loadMarketSymbol(symbol);
+  };
+  $("marketOptionExpiration").onchange=event=>loadMarketOptions(event.currentTarget.value);
+  $("marketRanges").onclick=event=>{
+    const button=event.target.closest("[data-range]"); if(!button)return;
+    marketState.range=button.dataset.range;
+    $("marketRanges").querySelectorAll("button").forEach(item=>item.classList.toggle("active",item===button));
+    loadMarketSymbol(marketState.selectedSymbol);
+  };
+  $("marketIndicators").onclick=()=>{
+    marketState.indicators=!marketState.indicators;
+    $("marketIndicators").classList.toggle("active",marketState.indicators);
+    $("marketIndicators").textContent=marketState.indicators?"EMA 20/50/100 ✓":"Indicators⌄";
+    renderMarketChart(marketState.snapshot);
+  };
+  $("marketChartType").onclick=()=>tempToast("Candlestick and volume view is active.");
+  $("marketChartFullscreen").onclick=()=>{
+    $("marketChart").classList.toggle("expanded");
+    $("marketChartFullscreen").textContent=$("marketChart").classList.contains("expanded")?"⤢":"⛶";
+  };
+  $("marketSecurityTabs").onclick=event=>{
+    const button=event.target.closest("button"); if(!button)return;
+    if(button.id==="marketFilings")return;
+    $("marketSecurityTabs").querySelectorAll("button").forEach(item=>item.classList.toggle("active",item===button));
+    const label=button.textContent.trim();
+    if(label==="Financials")$("marketFinancials").scrollIntoView({behavior:"smooth",block:"nearest"});
+    else if(label==="Overview")$("marketChart").scrollIntoView({behavior:"smooth",block:"nearest"});
+    else if(label==="Options"){loadMarketOptions(marketState.optionExpiration);$("marketOptionsChain").scrollIntoView({behavior:"smooth",block:"nearest"});}
+    else tempToast(`${label} data will appear when a full-market provider is connected.`);
+  };
+  $("marketSettings").onclick=()=>$("marketSetup").classList.toggle("open");
+  $("marketSetupClose").onclick=()=>$("marketSetup").classList.remove("open");
+  function resetMarketSetupStatus(){
+    $("marketSetupStatus").classList.remove("success");
+    $("marketSetupStatus").textContent="";
+  }
+  $("marketProvider").onchange=()=>{
+    $("marketKeyWrap").style.display=$("marketProvider").value==="alphaVantage"?"":"none";
+    resetMarketSetupStatus();
+  };
+  function syncMarketOptionsProvider(){
+    const alpaca=$("marketOptionsProvider").value==="alpaca";
+    $("marketAlpacaWrap").style.display=alpaca?"":"none";
+    $("marketMassiveWrap").style.display=alpaca?"none":"";
+    resetMarketSetupStatus();
+  }
+  $("marketOptionsProvider").onchange=syncMarketOptionsProvider;
+  $("marketApiKey").oninput=resetMarketSetupStatus;
+  $("marketMassiveKey").oninput=resetMarketSetupStatus;
+  $("marketAlpacaKey").oninput=resetMarketSetupStatus;
+  $("marketAlpacaSecret").oninput=resetMarketSetupStatus;
+  $("marketSetupSave").onclick=async()=>{
+    const provider=$("marketProvider").value, optionsProvider=$("marketOptionsProvider").value, status=$("marketSetupStatus"), button=$("marketSetupSave");
+    button.disabled=true; button.textContent="Testing..."; status.classList.remove("success"); status.textContent="Testing connections...";
+    try{
+      const response=await fetch("/api/markets/settings",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
+        provider,
+        apiKey:provider==="alphaVantage"?($("marketApiKey").value||(marketState.configured?"__keep__":"")):"",
+        selectedSymbol:marketState.selectedSymbol,
+        watchlist:marketState.watchlist,
+        optionsProvider,
+        optionsFeed:$("marketOptionsFeed").value,
+        alpacaKeyId:$("marketAlpacaKey").value||(marketState.alpacaConfigured?"__keep__":""),
+        alpacaSecretKey:$("marketAlpacaSecret").value||(marketState.alpacaConfigured?"__keep__":""),
+        massiveApiKey:$("marketMassiveKey").value||(marketState.massiveConfigured?"__keep__":""),
+        test:true
+      })});
+      const data=await response.json(); if(!response.ok) throw new Error(data.error||"Connection failed.");
+      marketState={...marketState,...data};
+      status.classList.add("success");
+      status.textContent="✓ Connected and saved";
+      await loadMarketSymbol(marketState.selectedSymbol);
+      setTimeout(()=>{
+        $("marketSetup").classList.remove("open");
+        resetMarketSetupStatus();
+      },900);
+    }catch(error){
+      status.classList.remove("success");
+      status.textContent=String(error.message||error);
+    }finally{
+      button.disabled=false;
+      button.textContent="Test & save";
+    }
+  };
+  $("marketAddBtn").onclick=()=>{
+    const symbol=$("marketAddSymbol").value.trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g,"").slice(0,12); if(!symbol)return;
+    if(!marketState.watchlist.includes(symbol))marketState.watchlist.push(symbol); $("marketAddSymbol").value=""; renderMarketWatchlist(); loadMarketSymbol(symbol);
+  };
+  $("marketBrowser").onclick=()=>openMarketBrowser(`https://finance.yahoo.com/quote/${encodeURIComponent(marketState.selectedSymbol)}`);
+  $("marketNews").onclick=()=>openMarketBrowser(`https://finance.yahoo.com/quote/${encodeURIComponent(marketState.selectedSymbol)}/news/`);
+  $("marketFilings").onclick=()=>openMarketBrowser(`https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(marketState.selectedSymbol)}`);
+  $("marketNote").onclick=()=>{
+    const s=marketState.snapshot;if(!s)return;
+    openNotes(true,{remember:true,focus:true});
+    insertPlainNoteText(`Market snapshot — ${s.symbol}\nPrice: ${marketMoney(s.price,s.currency)}\nChange: ${Number(s.change)>=0?"+":""}${Number(s.change||0).toFixed(2)} (${Number(s.changePercent||0).toFixed(2)}%)\nPrevious close: ${marketMoney(s.previousClose,s.currency)}\nSource: ${s.source}${s.delayed?" (delayed/indicative)":""}\nSaved: ${new Date().toLocaleString()}\n\n`);
+    tempToast("Market snapshot saved to Notepad.");
+  };
+  $("marketAsk").onclick=()=>{
+    const s=marketState.snapshot;if(!s)return;
+    const question=$("marketAiPrompt").value.trim()||`Why is ${s.symbol} moving today?`;
+    setWorkspaceTab("chat");
+    $("input").value=`${question}\n\nAnalyze ${s.symbol} using this current snapshot: price ${marketMoney(s.price,s.currency)}, change ${Number(s.change||0).toFixed(2)} (${Number(s.changePercent||0).toFixed(2)}%), previous close ${marketMoney(s.previousClose,s.currency)}, source ${s.source}. Explain likely drivers, risks, and what I should verify next. Do not treat delayed data as real-time.`;
+    $("input").dispatchEvent(new Event("input",{bubbles:true})); $("input").focus();
+  };
+  $("marketAiPrompt").onkeydown=event=>{if(event.key==="Enter")$("marketAsk").click();};
   function activateWorkspaceTab(ws) {
     if (!ws) return;
+    if(ws==="markets"&&!marketsAccessAllowed()){
+      syncMarketsAccess();
+      tempToast("Sign in to your Boollm account to use Markets.");
+      return;
+    }
     const tabStarted=performance.now();
+    const enteringMarkets=ws==="markets"&&ws!==activeWsTab;
     if (ws !== activeWsTab) previousWsTab = activeWsTab || "chat";
+    if(enteringMarkets&&!document.body.classList.contains("collapsed")){
+      document.body.classList.add("collapsed");
+      document.body.classList.remove("sidebar-popover-open");
+      sidebarHoverPreview=false;
+      sidebarManualState=true;
+      scheduleResponsiveClasses();
+      syncPanelButtons();
+    }
     markWorkspaceTab(ws);
     document.body.classList.toggle("recipes-open", ws === "recipes");
     if (!["git","automations"].includes(ws)) closeSettingsPanel();
@@ -12780,6 +14000,7 @@ Optional bundled starter model:
     else if (ws === "browser") { if (SHELL) { document.body.classList.add("browser-on"); syncPanelButtons(); hostPost({type:"browser",cmd:"show"}); } else openBrowser(true); }
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { terminalAutoReveal=true; toggleTerminal(true); tempToast("Terminal opened for code work."); }
+    else if (ws === "markets") { ensureMarkets(); }
     else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
     else if (ws === "recipes") {
       recipesSidebarAutoClosed=!document.body.classList.contains("collapsed");
@@ -12795,11 +14016,17 @@ Optional bundled starter model:
     else if (ws === "automations") { openSettings("scheduled"); }
     requestAnimationFrame(()=>perfMark("tabOpen",tabStarted));
   }
-  function setWorkspaceTab(ws) {
+  function setWorkspaceTab(ws,{remember=true,force=false}={}) {
     if (!ws) return;
+    if(ws==="markets"&&!marketsAccessAllowed()){
+      syncMarketsAccess();
+      tempToast("Sign in to your Boollm account to use Markets.");
+      return;
+    }
     const currentWs = document.querySelector(".ws-tab.active")?.dataset.ws || activeWsTab;
+    if(remember&&ws!==currentWs)rememberCurrentView();
     if (ws === "chat" && currentWs !== "chat") closeWorkspaceTab(currentWs);
-    if (ws === currentWs && ws !== "chat") {
+    if (!force&&ws === currentWs && ws !== "chat") {
       closeWorkspaceTab(ws);
       previousWsTab = "chat";
       markWorkspaceTab("chat");
@@ -15186,6 +16413,7 @@ Optional bundled starter model:
   }
   function sendBrowserTask(task,meta={}){
     if(task==="email_more"){ openEmailRecipes("email-briefing"); return; }
+    setBoollmActivity(/summar|email_summary/.test(task)?"Summarizing":"Browsing");
     const prompt=browserTaskPrompt(task,meta.page||"",meta.url||"");
     pendingBrowserTask={task,prompt,url:meta.url||"",title:meta.title||"",at:Date.now()};
     $("input").value=prompt;

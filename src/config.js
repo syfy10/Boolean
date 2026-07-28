@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.56";
+export const APP_VERSION = "0.9.57";
 export const APP_DISPLAY_VERSION = "v0.09.55";
 export const APP_NAME = "Boollm";
 export const APP_TAGLINE = "local AI workspace.";
@@ -47,7 +47,7 @@ const DEFAULTS = {
   local: {
     model: "",            // gguf filename in ~/.saz/models
     port: 8783,
-    ctx: 32768,           // context window; auto-trimmed so prompts never overflow it
+    ctx: 8192,            // fast first-load default; advanced users can raise it
     mmprojMap: {},        // model file -> vision projector (.mmproj) file ("" = explicitly none)
     visionTestMap: {}     // "model|mmproj" -> { ok, message, at }
   },
@@ -151,6 +151,12 @@ const DEFAULTS = {
     googleCloud: {
       serviceAccount: null, connected: false, projectId: "", projectName: "",
       clientEmail: "", lastTestedAt: 0
+    },
+    marketData: {
+      provider: "yahoo", apiKey: "", selectedSymbol: "AAPL",
+      watchlist: ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA"],
+      optionsProvider: "alpaca", optionsFeed: "indicative",
+      alpacaKeyId: "", alpacaSecretKey: "", massiveApiKey: ""
     },
     email: {
       draftOnly: true,
@@ -355,6 +361,15 @@ export function preserveSavedApiKeys(next, previous) {
       nextCloudflare.token = previousCloudflare.token;
     }
   }
+  const nextMarkets = next.connectors?.marketData;
+  const previousMarkets = previous.connectors?.marketData;
+  if (nextMarkets && previousMarkets) {
+    for (const key of ["apiKey", "alpacaKeyId", "alpacaSecretKey", "massiveApiKey"]) {
+      if (!nonEmptyString(nextMarkets[key]) && nonEmptyString(previousMarkets[key])) {
+        nextMarkets[key] = previousMarkets[key];
+      }
+    }
+  }
   for (const [kind, secrets] of [
     ["azure", ["clientSecret"]],
     ["aws", ["secretAccessKey", "sessionToken"]],
@@ -413,7 +428,7 @@ export function preserveSavedConnections(next, previous) {
   if (!next.connectors.cloudflare && previous.connectors.cloudflare) {
     next.connectors.cloudflare = structuredClone(previous.connectors.cloudflare);
   }
-  for (const kind of ["azure", "aws", "googleCloud"]) {
+  for (const kind of ["azure", "aws", "googleCloud", "marketData"]) {
     if (!next.connectors[kind] && previous.connectors[kind]) {
       next.connectors[kind] = structuredClone(previous.connectors[kind]);
     }
@@ -481,8 +496,8 @@ export function loadConfig() {
       if (!["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"].includes(cfg.zaiCoding.model)) cfg.zaiCoding.model = "GLM-4.7";
       // Ollama support was removed â€” fall back to the built-in local engine
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
-      // migrate configs saved before the context-window increase (8192 â†’ 32768)
-      if (!cfg.local.ctx) cfg.local.ctx = 32768;
+      // Missing legacy values use the practical first-load default.
+      if (!cfg.local.ctx) cfg.local.ctx = 8192;
       let migrated = recovered;
       if (cfg.ui.colorTheme !== "classic") {
         cfg.ui.colorTheme = "classic";

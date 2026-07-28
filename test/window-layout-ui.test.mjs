@@ -13,7 +13,7 @@ test("maximize control offers left, maximize, and right window layouts", () => {
   assert.deepEqual(options, ["snapleft", "max", "snapright"]);
   assert.match(ui, /id="windowLayoutMenu" role="menu"/);
   assert.match(ui, /document\.body\.appendChild\(windowLayoutMenu\)/);
-  assert.match(ui, /windowLayoutMenu\.classList\.toggle\("open"\)/);
+  assert.match(ui, /windowLayoutMenu\.classList\.add\("open"\)/);
   assert.match(ui, /if\(e\.key==="Escape"\) closeWindowLayoutMenu\(\)/);
 });
 
@@ -33,7 +33,7 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.match(ui, /body\.collapsed\.rail-expanded \.rail-main\{ padding:4px 7px; \}/);
   assert.match(ui, /body\.collapsed\.rail-expanded \.rail-footer\{ flex-direction:row; align-items:stretch; gap:0; border-top:1px solid var\(--border\); padding:0; \}/);
   assert.match(ui, /if\(\$\("railBrandDot"\)\) \$\("railBrandDot"\)\.className="dot"\+\(ready\?"":" down"\);/);
-  assert.match(ui, /if\(\$\("railBrandStatus"\)\) \$\("railBrandStatus"\)\.textContent=text;/);
+  assert.match(ui, /if\(\$\("railBrandStatus"\)\) \$\("railBrandStatus"\)\.textContent=label;/);
   assert.match(ui, /body\.collapsed\.rail-expanded \.rail-label\{ display:block; \}/);
   assert.match(ui, /id="panelToggle"[\s\S]*id="appBack"[\s\S]*id="netmode"/);
   assert.match(ui, /id="appBack" title="Go back"[\s\S]*id="appForward" title="Go forward"[\s\S]*id="netmode"/);
@@ -412,8 +412,9 @@ test("native browser split uses the approved gray header and bottom frame", () =
 test("browser dark mode is persistent and reaches both browser implementations", () => {
   assert.match(ui, /id="bDarkPage" title="Dark mode for websites" aria-pressed="false"/);
   assert.match(ui, /setUi\(\{browserDarkMode:darkPageOn\}\)/);
-  assert.match(ui, /darkPageOn=!!ui\.browserDarkMode/);
-  assert.match(ui, /browserDark:!!ui\.browserDarkMode/);
+  assert.match(ui, /const browserDark=resolvedDark\|\|!!ui\.browserDarkMode/);
+  assert.match(ui, /darkPageOn=browserThemeDark\|\|!!ui\.browserDarkMode/);
+  assert.match(ui, /cmd:"theme",dark:resolvedDark,surface:selectedColorTheme\(ui\),browserDark/);
   assert.match(ui, /d\.type==="shellBrowserDarkMode"[\s\S]*?setUi\(\{browserDarkMode:!!d\.enabled\}\)/);
   assert.match(server, /id="darkPage" title="Dark mode for websites" aria-pressed="false"/);
   assert.match(server, /act\("darkPage"\)/);
@@ -461,6 +462,10 @@ test("new chat and copy conversation live beside open-and-read in the command ba
   assert.doesNotMatch(ui, /body\.chat-micro #newchat|body\.chat-micro #copyall/);
 });
 
+test("clicking a wide-window sidebar preview docks it beside the app rail", () => {
+  assert.match(ui, /if\(sidebarHoverPreview&&document\.body\.classList\.contains\("sidebar-popover-open"\)\)\{[\s\S]*?if\(!document\.body\.classList\.contains\("sidebar-popup-mode"\)\)\{[\s\S]*?document\.body\.classList\.remove\("collapsed"\);[\s\S]*?sidebarManualState=false;[\s\S]*?saveAppFrameState\(\);[\s\S]*?return;/);
+});
+
 test("the rail is grouped, context is wired, and the bottom gap is opaque", () => {
   assert.match(ui, /data-rail="browser"[\s\S]*data-rail="context" title="Context panel"[\s\S]*data-rail="notes"/);
   assert.match(ui, /data-rail="notes"[\s\S]*class="rail-separator"[\s\S]*data-rail="git"[\s\S]*data-rail="recipes"[\s\S]*data-rail="automations"/);
@@ -494,11 +499,11 @@ test("workspace card shows the selected API model's real readiness", () => {
 });
 
 test("workspace card is borderless and chat search has a leading icon", () => {
-  assert.match(ui, /\.sidehead\{ min-height:64px;[\s\S]*?border:0; border-radius:var\(--radius-lg\); \}/);
+  assert.match(ui, /\.sidehead\{ min-height:48px;[\s\S]*?border:0; border-radius:var\(--radius-lg\); \}/);
   assert.doesNotMatch(ui, /\.sidebar-brand::before/);
   assert.match(ui, /<div class="thread-search-wrap">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"/);
-  assert.match(ui, /\.thread-search-wrap svg\{[\s\S]*?left:10px;[\s\S]*?stroke:var\(--dim\);/);
-  assert.match(ui, /#threadSearch\{[\s\S]*?padding:0 12px 0 30px;/);
+  assert.match(ui, /\.thread-search-wrap svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
+  assert.match(ui, /display:block; width:100%; height:28px; margin:0; padding:0 9px 0 27px;/);
 });
 
 test("About email and connection rows use recognizable service marks", () => {
@@ -513,6 +518,14 @@ test("About email and connection rows use recognizable service marks", () => {
   assert.match(ui, /cloudflare/);
   assert.match(ui, /slack/);
   assert.match(ui, /const mark=connectorBrandMark\(row\)/);
+});
+
+test("connector overview gives status and actions independent non-clipping columns", () => {
+  assert.match(ui, /\.connector-table-head,\.connector-row\{ display:grid; grid-template-columns:minmax\(150px,1\.7fr\) minmax\(100px,\.55fr\) minmax\(104px,\.55fr\) auto;/);
+  assert.match(ui, /<span>Status<\/span><span aria-hidden="true"><\/span>/);
+  assert.match(ui, /class="connector-status"><span class="connector-state/);
+  assert.match(ui, /class="connector-actions"><button class="connector-action"/);
+  assert.match(ui, /\.connector-state\{ color:var\(--dim\); white-space:nowrap; \}/);
 });
 
 test("approved layout keeps gray breathing room below every footer", () => {
@@ -565,7 +578,7 @@ test("Classic is Boollm's only surface foundation", () => {
 test("surface styles reach the native footer and the account identity owns Profile", () => {
   assert.match(ui, /id="accountProfileLink" data-account-action="profile"[^>]*>[\s\S]*?id="accountMenuName"[\s\S]*?id="accountMenuEmail"[\s\S]*?<\/button>/);
   assert.doesNotMatch(ui, /class="account-menu-row" data-account-action="profile"/);
-  assert.match(ui, /hostPost\(\{type:"browser",cmd:"theme",dark:resolvedDark,surface:selectedColorTheme\(ui\),browserDark:!!ui\.browserDarkMode\}\)/);
+  assert.match(ui, /hostPost\(\{type:"browser",cmd:"theme",dark:resolvedDark,surface:selectedColorTheme\(ui\),browserDark\}\)/);
   assert.doesNotMatch(shell, /Palette (?:SoftGlass|GraphiteMist|Clex)|connectedClex|_connectedClex/);
   assert.match(shell, /Padding = new Padding\(0, 0, 0, 12\);[\s\S]*?_split\.SplitterWidth = 5;[\s\S]*?_browserPane\.Radius = 0;[\s\S]*?_browserPane\.BorderColor = Color\.Transparent;/);
   assert.match(shell, /sealed class MainForm : Form, IMessageFilter[\s\S]*?Application\.AddMessageFilter\(this\);[\s\S]*?public bool PreFilterMessage\(ref Message m\)[\s\S]*?Math\.Abs\(point\.X - _split\.SplitterDistance\) <= 5/);
@@ -810,7 +823,9 @@ test("native shell places the window inside the monitor work area", () => {
   assert.match(shell, /case "snapright": SnapWindow\(true\)/);
   assert.match(shell, /Screen\.FromHandle\(Handle\)\.WorkingArea/);
   assert.match(shell, /right \? work\.Right - width : work\.Left/);
-  assert.match(ui, /\$\("winMax"\)\.ondblclick=\(e\)=>\{/);
+  assert.match(ui, /\$\("winMax"\)\.onclick=\(e\)=>\{\s*e\.stopPropagation\(\);\s*closeWindowLayoutMenu\(\);\s*winCmd\("maxtoggle"\);\s*\};/);
+  assert.match(ui, /\$\("winMax"\)\.addEventListener\("pointerenter",\(e\)=>\{/);
+  assert.match(ui, /windowLayoutHoverTimer=setTimeout\(openWindowLayoutMenu,450\)/);
   assert.match(ui, /winCmd\("maxtoggle"\);/);
 });
 
@@ -888,6 +903,16 @@ test("approved chat styling expands AI responses on the surface and keeps user m
   assert.match(ui, /\.stream-caret\{[\s\S]*?animation:streamCaret \.8s steps\(1,end\) infinite;/);
 });
 
+test("local replies are borderless while local and cloud sends use distinct bubbles", () => {
+  assert.match(ui, /\.msg-ai:not\(\.cloud\) \.body\{ --msg-fill:transparent; border:0; box-shadow:none; \}/);
+  assert.match(ui, /\.msg-ai:not\(\.cloud\) \.body:after\{ display:none; \}/);
+  assert.match(ui, /\.msg-user\.local \.body\{ --msg-fill:var\(--local-user-bubble\); color:var\(--local-user-text\); \}/);
+  assert.match(ui, /\.msg-user\.cloud \.body\{ --msg-fill:var\(--cloud-user-bubble\); color:var\(--cloud-user-text\); \}/);
+  assert.match(ui, /--cloud-user-bubble:#2f7fd3; --cloud-user-text:#ffffff;/);
+  assert.match(ui, /function addUser\([^)]*provider=state\.provider\|\|"local"[\s\S]*?d\.className="msg-user "\+\(cloud\?"cloud":"local"\)/);
+  assert.match(ui, /const provider=e\.provider\|\|\(nextAi\?\.provider\|\|"local"\);/);
+});
+
 test("narrow chat renders compact scrollable markdown tables", () => {
   assert.match(ui, /body\.chat-compact\{ --chat-fs:10\.75px!important; --col-gap:4px; \}/);
   assert.match(ui, /\.md-table-wrap\{[^}]*overflow-x:auto;[^}]*border:1px solid var\(--border\);/s);
@@ -896,8 +921,8 @@ test("narrow chat renders compact scrollable markdown tables", () => {
 });
 
 test("message metadata and actions appear on mouse hover and selected touch messages", () => {
-  assert.match(ui, /\.msg-foot\{[^}]*max-height:0;[^}]*opacity:0; visibility:hidden; pointer-events:none;/s);
-  assert.match(ui, /\.msg-user\.message-controls-open \.msg-foot,\.msg-ai\.message-controls-open \.msg-foot,[^{]*\{[^}]*max-height:24px;[^}]*visibility:visible; pointer-events:auto;/s);
+  assert.match(ui, /\.msg-foot\{[^}]*min-height:18px;[^}]*max-height:24px;[^}]*opacity:0; visibility:hidden; pointer-events:none;/s);
+  assert.match(ui, /\.msg-user\.message-controls-open \.msg-foot,\.msg-ai\.message-controls-open \.msg-foot,[^{]*\{[^}]*visibility:visible; pointer-events:auto;/s);
   assert.match(ui, /@media \(hover:hover\) and \(pointer:fine\)\{[\s\S]*?\.msg-user:hover \.msg-foot,\.msg-ai:hover \.msg-foot\{[^}]*visibility:visible; pointer-events:auto;/);
   assert.match(ui, /\.uact\{ width:17px; height:17px;/);
   assert.match(ui, /\.msg-foot \.actbtn\{[^}]*width:17px; height:17px;/);
@@ -906,6 +931,12 @@ test("message metadata and actions appear on mouse hover and selected touch mess
   assert.match(ui, /function toggleMessageControls\(msg,force\)\{[\s\S]*?col\.querySelectorAll\("\.msg-user\.message-controls-open,\.msg-ai\.message-controls-open"\)[\s\S]*?msg\.classList\.toggle\("message-controls-open",open\);/);
   assert.match(ui, /if\(message&&!e\.target\.closest\("a,button,input,textarea,select,summary"\)\)\{\s*toggleMessageControls\(message\);/);
   assert.match(ui, /col\.addEventListener\("keydown",\(e\)=>\{[\s\S]*?toggleMessageControls\(e\.target\);/);
+});
+
+test("local chats hide token counts and reserve the message action row", () => {
+  assert.match(ui, /body:not\(\.online-mode\) \.msg-foot \.usage-inline\{ display:none; \}/);
+  assert.match(ui, /\.msg-foot\{[^}]*min-height:18px;[^}]*max-height:24px;[^}]*margin-top:1px;[^}]*transition:opacity \.12s;/);
+  assert.doesNotMatch(ui, /\.msg-user:hover \.msg-foot,[^{]+\{[^}]*min-height:/);
 });
 
 test("cloud API setup pastes keys and reports verified connection progress", () => {
@@ -929,6 +960,16 @@ test("cloud API setup pastes keys and reports verified connection progress", () 
   assert.match(ui, /if\(\$\("modelmenu"\)\?\.classList\.contains\("open"\)&&!apiWizardInline\) renderModelList\(""\)/);
   assert.match(ui, /if\(!hasKey\)\{\s*apiWizardInline=true;/);
   assert.doesNotMatch(ui, /await new Promise\(resolve=>setTimeout\(resolve,550\)\);\s*renderModelList/);
+});
+
+test("Markets closes the projects pane once on entry and signed-out accounts explain optional login", () => {
+  assert.match(ui, /const enteringMarkets=ws==="markets"&&ws!==activeWsTab;/);
+  assert.match(ui, /if\(enteringMarkets&&!document\.body\.classList\.contains\("collapsed"\)\)\{[\s\S]*?classList\.add\("collapsed"\)[\s\S]*?sidebarManualState=true;[\s\S]*?syncPanelButtons\(\);/);
+  assert.doesNotMatch(ui, /body\.markets-open[^}]*#sidebar[^}]*display:none/);
+  assert.match(ui, /id="accountAuthNote">Optional — Boollm works without an account\. Your data stays local on this PC\.<\/div>/);
+  assert.match(ui, /id="accountAuthText">Sign in or sign up<\/span>/);
+  assert.match(ui, /if\(auth\) auth\.textContent=cloud\.signedIn\?"Log out":"Sign in or sign up";/);
+  assert.match(ui, /if\(authNote\) authNote\.hidden=!!cloud\.signedIn;/);
 });
 
 test("project timelines appear only for chats explicitly bound to a folder", () => {
@@ -980,4 +1021,19 @@ test("successful run_project opens the local preview in the built-in browser", (
   assert.match(ui, /openRunProjectPreview\(entry\);/);
   assert.match(shell, /case "navigate":/);
   assert.match(shell, /AddTab\(u, activate: true, navigate: true\);/);
+});
+
+test("Boollm brand reports live work activity without provider-specific status text", () => {
+  assert.match(ui, /function setBoollmActivity\(text,\{temporary=0,ready=true\}=\{\}\)/);
+  for (const label of ["Ready", "Working", "Reading page", "Browsing", "Saving to notes", "Summarizing"]) {
+    assert.ok(ui.includes(`"${label}"`), `missing Boollm activity label: ${label}`);
+  }
+  assert.match(ui, /if\(!run\) setBoollmActivity\(text,\{ready\}\)/);
+  assert.match(ui, /setBoollmActivity\("Working"\);\s*if\(opts\.provider\)/);
+  assert.match(ui, /setBoollmActivity\(inferBoollmActivity\(ev\.text\)\)/);
+  assert.match(ui, /setBoollmActivity\(ev\.command\?\.action==="write"\?"Saving to notes":"Working"\)/);
+  assert.match(ui, /function showReading\(\)\{ setBoollmActivity\("Reading page",\{temporary:2600\}\)/);
+  assert.match(ui, /setBoollmActivity\(\/summar\|email_summary\/\.test\(task\)\?"Summarizing":"Browsing"\)/);
+  assert.match(ui, /\.brand-about\.ready\{ color:var\(--dim\); background:transparent; \}/);
+  assert.doesNotMatch(ui, /const text=ready\?shortLabel\+" ready":"Not ready"/);
 });

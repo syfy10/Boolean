@@ -23,29 +23,38 @@
         <a href="#how-it-works">How It Works</a>
         <a href="#faq">FAQ</a>
       </nav>
-      <a class="nav-download button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.56/Boollm-setup.exe">Download</a>
+      <a class="nav-download button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.57/Boollm-setup.exe">Download</a>
     </div>
   </header>
 
   <main id="top">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Windows AI workspace <span class="release-label">v0.9.56</span></p>
-        <h1>Boollm</h1>
-        <p class="lead">A local-first workspace for chat, coding agents, web research, connected email, notes, and supported GGUF models—all in one responsive Windows app.</p>
+        <p class="eyebrow">Windows AI workspace <span class="release-label">v0.9.57</span></p>
+        <h1>The AI workspace that runs&nbsp;on your&nbsp;PC.</h1>
+        <p class="lead">Chat, build apps, research the web, and manage email &mdash; in one local-first Windows app. Your models, your keys, your machine.</p>
         <div class="actions">
-          <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.56/Boollm-setup.exe">Download v0.9.56</a>
+          <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.57/Boollm-setup.exe">Download for Windows</a>
           <a class="button ghost" href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">View on GitHub</a>
         </div>
-        <p class="release-note">Windows 10/11, x64 <span aria-hidden="true">&middot;</span> Local mode needs no account</p>
+        <p class="release-note">Windows 10/11, x64 <span aria-hidden="true">&middot;</span> Local mode needs no account <span aria-hidden="true">&middot;</span> Free forever</p>
       </div>
 
       <div class="app-frame-wrap">
-        <p class="demo-hint"><span></span> What you see is what you get</p>
+        <p class="demo-hint"><span></span> The live app</p>
         <div class="app-frame">
-          <iframe src="./app-preview.html" title="Boollm app preview"></iframe>
+          <img src="./assets/boolean-app-screen.png" alt="The Boollm workspace running on Windows" width="1200" height="760" loading="eager" decoding="async">
         </div>
+        <p class="demo-caption">This is the actual Boollm interface.</p>
       </div>
+    </section>
+
+    <section class="trust-band" aria-label="Why people choose Boollm">
+      <span><b>Local-first</b> by default</span>
+      <span><b>No telemetry</b>, no tracking</span>
+      <span><b>Free</b> &mdash; no paywalls</span>
+      <span><b>Bring your own</b> API keys</span>
+      <span><b>Open</b> on GitHub</span>
     </section>
 
     <section class="mission" id="why-boolean">
@@ -76,7 +85,7 @@
           <span class="step-num">3</span>
           <div>
             <strong>Start chatting or point it at a project folder</strong>
-            <p>Ask questions, research the web, edit code, build apps â€” all from one window.</p>
+            <p>Ask questions, research the web, edit code, build apps &mdash; all from one window.</p>
           </div>
         </li>
       </ol>
@@ -144,58 +153,64 @@
     </section>
 
     <section class="features" id="features">
-      <article>
-        <div class="feature-visual chat-visual" aria-hidden="true">
-          <span class="chat-card"><i></i></span>
-          <b class="code-mark">&lt;/&gt;</b>
-          <em class="mail-mark"></em>
-        </div>
-        <h3>Main chat plus Side chat</h3>
-        <p>Keep long project work in the main conversation while a compact answer-only Side chat handles quick questions.</p>
-      </article>
-      <article>
-        <div class="feature-visual notes-visual" aria-hidden="true">
-          <span></span><span></span><span></span><i></i>
-        </div>
-        <h3>Browser and notepad built in</h3>
-        <p>Research beside chat, keep drafts and snippets in Notepad, and let the responsive split workspace resize or hide panels when space gets tight.</p>
-      </article>
-      <article>
-        <div class="feature-visual local-visual" aria-hidden="true">
-          <span></span><b>1</b><b>0</b><i></i>
-        </div>
-        <h3>Local-first by design</h3>
-        <p>Run supported GGUF models on your PC. Provider keys, projects, chats, and notes remain under your control.</p>
-      </article>
-      <article>
-        <div class="feature-visual doc-visual" aria-hidden="true">
-          <b class="doc-icon">DOC</b>
-          <i></i>
-        </div>
-        <h3>Your workspace, your surface</h3>
-        <p>Choose Paper Minimal, Soft Glass, or Graphite Mist, then manage models, privacy, shortcuts, notifications, and updates from one control center.</p>
-      </article>
-      <article>
-        <div class="feature-visual agent-visual" aria-hidden="true">
-          <span></span><span></span><span></span>
-        </div>
-        <h3>Coding agent workflows</h3>
-        <p>Plan, edit, test, debug, and review project changes with durable progress, recovery checkpoints, and isolated agent branches.</p>
-        <pre class="terminal-example"><code>â†’ "Fix the failing test in auth.js"
-  âœŽ Edited src/auth.js (line 42)
-  âœ… 3 tests passing</code></pre>
-      </article>
-      <article>
-        <div class="feature-visual auto-visual" aria-hidden="true">
-          <b class="clock-icon">&#9200;</b>
-          <i></i>
-        </div>
-        <h3>Connect and automate</h3>
-        <p>Connect Gmail or Outlook, preview email recipes safely, schedule tasks and webhooks, research with citations, and work with GitHub issues and PRs.</p>
-        <pre class="terminal-example"><code>â†’ "Research the best React state library"
-  ðŸ“„ Opened 4 sources Â· Cited [1][2][3]
-  âœ… Summary saved to notepad</code></pre>
-      </article>
+      <div class="section-head">
+        <p class="eyebrow">Everything in one window</p>
+        <h2>One workspace. All of your work.</h2>
+      </div>
+      <div class="feature-grid">
+        <article>
+          <div class="feature-visual chat-visual" aria-hidden="true">
+            <span class="chat-card"><i></i></span>
+            <b class="code-mark">&lt;/&gt;</b>
+            <em class="mail-mark"></em>
+          </div>
+          <h3>Main chat plus Side chat</h3>
+          <p>Keep long project work in the main conversation while a compact answer-only Side chat handles quick questions.</p>
+        </article>
+        <article>
+          <div class="feature-visual notes-visual" aria-hidden="true">
+            <span></span><span></span><span></span><i></i>
+          </div>
+          <h3>Browser and notepad built in</h3>
+          <p>Research beside chat, keep drafts and snippets in Notepad, and let the responsive split workspace resize or hide panels when space gets tight.</p>
+        </article>
+        <article>
+          <div class="feature-visual local-visual" aria-hidden="true">
+            <span></span><b>1</b><b>0</b><i></i>
+          </div>
+          <h3>Local-first by design</h3>
+          <p>Run supported GGUF models on your PC. Provider keys, projects, chats, and notes remain under your control.</p>
+        </article>
+        <article>
+          <div class="feature-visual doc-visual" aria-hidden="true">
+            <b class="doc-icon">DOC</b>
+            <i></i>
+          </div>
+          <h3>Your workspace, your surface</h3>
+          <p>Choose Paper Minimal, Soft Glass, or Graphite Mist, then manage models, privacy, shortcuts, notifications, and updates from one control center.</p>
+        </article>
+        <article>
+          <div class="feature-visual agent-visual" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <h3>Coding agent workflows</h3>
+          <p>Plan, edit, test, debug, and review project changes with durable progress, recovery checkpoints, and isolated agent branches.</p>
+          <pre class="terminal-example"><code>&rarr; "Fix the failing test in auth.js"
+  &#9998; Edited src/auth.js (line 42)
+  &#9989; 3 tests passing</code></pre>
+        </article>
+        <article>
+          <div class="feature-visual auto-visual" aria-hidden="true">
+            <b class="clock-icon">&#9200;</b>
+            <i></i>
+          </div>
+          <h3>Connect and automate</h3>
+          <p>Connect Gmail or Outlook, preview email recipes safely, schedule tasks and webhooks, research with citations, and work with GitHub issues and PRs.</p>
+          <pre class="terminal-example"><code>&rarr; "Research the best React state library"
+  &#128196; Opened 4 sources &middot; Cited [1][2][3]
+  &#9989; Summary saved to notepad</code></pre>
+        </article>
+      </div>
     </section>
 
     <section class="github-section" id="github">
@@ -209,9 +224,9 @@
           <strong>Source code</strong>
           <span>View repository <b aria-hidden="true">&#8599;</b></span>
         </a>
-        <a href="https://github.com/syfy10/Boolean/releases/tag/v0.9.56" target="_blank" rel="noopener noreferrer">
+        <a href="https://github.com/syfy10/Boolean/releases/tag/v0.9.57" target="_blank" rel="noopener noreferrer">
           <strong>Current release</strong>
-          <span>Boollm v0.9.56 <b aria-hidden="true">&#8599;</b></span>
+          <span>Boollm v0.9.57 <b aria-hidden="true">&#8599;</b></span>
         </a>
         <a href="https://github.com/syfy10/Boolean/issues" target="_blank" rel="noopener noreferrer">
           <strong>Issues</strong>
@@ -237,28 +252,28 @@
     <section class="faq-section" id="faq">
       <p class="eyebrow">FAQ</p>
       <h2>Common questions.</h2>
-      <dl class="faq-list">
-        <div class="faq-item">
-          <dt>Does it need Node.js or Python installed?</dt>
-          <dd>No. Boollm ships its own Node.js runtime. You don't need to install anything else.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>Does it phone home?</dt>
-          <dd>No. Boollm is local-first. It only talks to the internet when you explicitly use a cloud provider or browse the web. No telemetry, no tracking.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>Can I use my own models?</dt>
-          <dd>Yes. Boollm supports standard GGUF models. Download any compatible model or point it at your own file.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>Is it open source?</dt>
-          <dd>The source is available on GitHub. Use and distribution are governed by Boollm's included license terms: <a href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">Boollm on GitHub</a>.</dd>
-        </div>
-        <div class="faq-item">
-          <dt>What about macOS or Linux?</dt>
-          <dd>Boollm is built for Windows 10/11 (x64). The shell uses .NET WinForms and WebView2; there are no current plans for other platforms.</dd>
-        </div>
-      </dl>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary>Does it need Node.js or Python installed?</summary>
+          <p>No. Boollm ships its own Node.js runtime. You don't need to install anything else.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does it phone home?</summary>
+          <p>No. Boollm is local-first. It only talks to the internet when you explicitly use a cloud provider or browse the web. No telemetry, no tracking.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Can I use my own models?</summary>
+          <p>Yes. Boollm supports standard GGUF models. Download any compatible model or point it at your own file.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is it open source?</summary>
+          <p>The source is available on GitHub. Use and distribution are governed by Boollm's included license terms: <a href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">Boollm on GitHub</a>.</p>
+        </details>
+        <details class="faq-item">
+          <summary>What about macOS or Linux?</summary>
+          <p>Boollm is built for Windows 10/11 (x64). The shell uses .NET WinForms and WebView2; there are no current plans for other platforms.</p>
+        </details>
+      </div>
     </section>
 
   </main>
@@ -275,7 +290,7 @@
         </div>
       </div>
       <div class="footer-actions">
-        <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.56/Boollm-setup.exe">Download v0.9.56</a>
+        <a class="button primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.57/Boollm-setup.exe">Download v0.9.57</a>
         <nav aria-label="Footer">
           <a href="https://github.com/syfy10/Boolean" target="_blank" rel="noopener noreferrer">GitHub</a>
           <a href="mailto:saz3labs@gmail.com">Contact</a>
@@ -285,6 +300,7 @@
       </div>
     </div>
   </footer>
+
 
 </body>
 </html>

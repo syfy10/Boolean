@@ -460,6 +460,28 @@ let child = null;
 let runningModel = null;
 let runningMmproj = null;
 let runningCtx = null;
+const ensureStatusListeners = new Set();
+let lastEnsureStatus = null;
+
+function broadcastEnsureStatus(text, detail) {
+  lastEnsureStatus = { text, detail };
+  for (const listener of ensureStatusListeners) {
+    try { listener(text, detail); } catch { /* status reporting must not stop inference */ }
+  }
+}
+
+export function localLoadProgressFromLine(value) {
+  const line = String(value || "").trim();
+  if (!line) return null;
+  const explicit = line.match(/\b(\d{1,3}(?:\.\d+)?)\s*%/);
+  if (explicit) return { phase: "loading", pct: Math.max(1, Math.min(95, Math.round(Number(explicit[1])))) };
+  if (/load_tensors|loading model tensors|offload.*layer/i.test(line)) return { phase: "loading model", pct: 55 };
+  if (/llama_model_load|model loader|loaded meta data|loading model/i.test(line)) return { phase: "reading model", pct: 35 };
+  if (/kv cache|llama_context|context.*(?:init|size)|allocat.*context/i.test(line)) return { phase: "preparing context", pct: 75 };
+  if (/warmup|warming up/i.test(line)) return { phase: "warming up", pct: 88 };
+  if (/server is listening|listening at|model loaded|http server/i.test(line)) return { phase: "starting server", pct: 95 };
+  return null;
+}
 
 async function healthy(port) {
   try {
@@ -477,9 +499,25 @@ async function healthy(port) {
  */
 let ensuring = null;
 export async function ensureRunning(config, onStatus = () => {}) {
-  while (ensuring) { try { await ensuring; } catch { /* previous caller reports its own error */ } }
-  ensuring = ensureRunningNow(config, onStatus);
-  try { return await ensuring; } finally { ensuring = null; }
+  ensureStatusListeners.add(onStatus);
+  try {
+    if (!ensuring) {
+      lastEnsureStatus = null;
+      const task = ensureRunningNow(config, broadcastEnsureStatus);
+      ensuring = task;
+      task.finally(() => {
+        if (ensuring === task) {
+          ensuring = null;
+          lastEnsureStatus = null;
+        }
+      }).catch(() => {});
+    } else if (lastEnsureStatus) {
+      onStatus(lastEnsureStatus.text, lastEnsureStatus.detail);
+    }
+    return await ensuring;
+  } finally {
+    ensureStatusListeners.delete(onStatus);
+  }
 }
 
 async function ensureRunningNow(config, onStatus = () => {}) {
@@ -531,7 +569,13 @@ async function ensureRunningNow(config, onStatus = () => {}) {
   }
 
   const start = (ctxSize, label = "") => {
-    onStatus(`loading ${model} into memory${label} (first response takes a moment)...`);
+    let reportedPct = 15;
+    const reportLoad = (text, phase, pct) => {
+      if (pct < reportedPct) return;
+      reportedPct = pct;
+      onStatus(text, { kind: "local-model-load", model, phase, pct, staged: true });
+    };
+    reportLoad(`Opening ${model}${label}...`, "opening model", 15);
     child = spawn(exe, [
       "-m", modelPath,
       "--port", String(port),
@@ -540,7 +584,18 @@ async function ensureRunningNow(config, onStatus = () => {}) {
       "--jinja",
       ...(mmproj ? ["--mmproj", path.join(MODELS_DIR, mmproj)] : []),
       ...(catalogEntry?.args || [])
-    ], { stdio: "ignore", windowsHide: true, detached: true });
+    ], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true, detached: true });
+    let engineLogBuffer = "";
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (chunk) => {
+      engineLogBuffer += chunk;
+      const lines = engineLogBuffer.split(/\r?\n/);
+      engineLogBuffer = lines.pop() || "";
+      for (const line of lines) {
+        const progress = localLoadProgressFromLine(line);
+        if (progress) reportLoad(`${progress.phase} for ${model}...`, progress.phase, progress.pct);
+      }
+    });
     child.on("exit", () => { child = null; runningModel = null; runningMmproj = null; runningCtx = null; });
     runningModel = model;
     runningMmproj = mmproj;
@@ -550,7 +605,10 @@ async function ensureRunningNow(config, onStatus = () => {}) {
   const waitReady = async () => {
     // wait for the model to load (CPU load of a 7B can take ~a minute)
     for (let i = 0; i < 240; i++) {
-      if (await healthy(port)) return true;
+      if (await healthy(port)) {
+        onStatus(`${model} is ready.`, { kind: "local-model-load", model, phase: "ready", pct: 100, staged: true });
+        return true;
+      }
       if (!child) return false;
       await new Promise((r) => setTimeout(r, 500));
     }
@@ -585,6 +643,7 @@ export function stopEngine() {
 
 export function keepEngineAliveOnExit() {
   if (child && !child.killed) {
+    child.stderr?.unref?.();
     child.unref?.();
     child = null;
   }

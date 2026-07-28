@@ -44,6 +44,8 @@ You are responsible for:
   (g) reviewing email recipients and contents before approving any send action.
   (h) reviewing scheduled tasks, webhooks, and unattended actions before
       enabling them and removing them when they are no longer needed.
+  (i) independently verifying market information and making your own financial,
+      investment, tax, and trading decisions.
 
 4. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
 Boollm can be used locally without an account. Cloud AI uses an API key you
@@ -59,7 +61,32 @@ Boollm later adds a separate encrypted key-vault feature. Local notes continue
 to be saved on each computer. The Privacy Policy describes the synchronized
 fields and limits.
 
-5. THIRD-PARTY COMPONENTS AND MODELS
+5. MARKET DATA, EDUCATIONAL USE, AND NO FINANCIAL ADVICE
+Markets and all related quotes, charts, scanners, trade ideas, options data,
+news, filings, COT information, alerts, calculations, AI summaries, and other
+market content are provided solely for general educational and informational
+purposes. They are not financial, investment, brokerage, trading, tax, legal,
+or other professional advice; are not a recommendation or solicitation to buy,
+sell, hold, or trade any security or instrument; and must not be used as the
+sole basis for a financial decision.
+
+Market information may be delayed, indicative, estimated, incomplete,
+inaccurate, unavailable, or subject to provider corrections. AI-generated
+market analysis can be wrong or omit material facts. Boollm does not execute
+trades, act as a broker, investment adviser, fiduciary, exchange, or market-data
+vendor, or guarantee prices, availability, returns, outcomes, or fitness for a
+particular strategy. You must verify important information with an authorized
+market-data source and consult qualified professionals when appropriate.
+
+You are solely responsible for your trading and investment decisions and for
+all resulting gains, losses, taxes, fees, and obligations. Trading and
+investing involve substantial risk, including possible loss of all capital. To
+the maximum extent permitted by law, Boollm, saz3 Labs, and their developers
+are not liable for trading or investment losses or decisions made using or
+relying on the Software. Third-party market-data licenses, exchange rules,
+attribution requirements, plan limits, and provider terms also apply.
+
+6. THIRD-PARTY COMPONENTS AND MODELS
 The Software includes open-source components, including Node.js and llama.cpp.
 AI models are governed by their own licenses and model cards. Some editions of
 Boollm may include a small starter AI model so the app can answer basic
@@ -77,7 +104,7 @@ that service. API keys and connector tokens do not grant rights beyond the
 provider's own plan and terms. In particular, Z.AI Coding Plan access may be
 used only if Z.AI has approved Boollm or otherwise supports that use.
 
-6. SYSTEM REQUIREMENTS AND INCLUDED RUNTIMES
+7. SYSTEM REQUIREMENTS AND INCLUDED RUNTIMES
 Boollm is intended for Windows 10 or Windows 11 on x64 PCs. The installer
 includes the Boollm app, embedded Node.js backend, local llama.cpp CPU
 inference engine, and required app-local runtime DLLs. Users do not need to
@@ -114,7 +141,7 @@ separate confirmation that Auto-approve cannot bypass. Provider terms apply.
 Boollm may use Cloudflare Email Service for transactional account, security,
 support, and service notices.
 
-7. PRIVACY
+8. PRIVACY
 See the accompanying PRIVACY.txt. In short: local mode runs on your computer.
 Data leaves your computer only when you choose features that require it, such
 as cloud providers, Boollm account sign-in, model downloads, web research,
@@ -127,7 +154,7 @@ sync. Scheduled online actions send their configured task and relevant context w
 email connectors send OAuth and mail requests directly to Google or Microsoft;
 transactional Boollm notices may be delivered through Cloudflare Email Service.
 
-8. SOFTWARE UPDATES
+9. SOFTWARE UPDATES
 Boollm may periodically contact the saz3 Labs GitHub release service to check
 for a newer version. When an update is available, Boollm may download the
 installer in the background, verify its SHA-256 hash, and notify you when it is
@@ -135,14 +162,14 @@ ready. Installation begins after you close Boollm, and the app may reopen when
 installation finishes. Boollm backs up key local settings and chat data before
 updating. Internet access and local disk space are required for this feature.
 
-9. NO WARRANTY
+10. NO WARRANTY
 THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
 KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR
 A PARTICULAR PURPOSE, ACCURACY, SECURITY, OR NON-INFRINGEMENT. Boollm does
 not warrant that the Software or cloud features will be error-free, secure,
 available, uninterrupted, or compatible with every model, website, or provider.
 
-10. LIMITATION OF LIABILITY
+11. LIMITATION OF LIABILITY
 TO THE MAXIMUM EXTENT PERMITTED BY LAW, BOOLLM, SAZ3 LABS, AND ITS DEVELOPERS
 ARE NOT LIABLE FOR DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
 EXEMPLARY DAMAGES, INCLUDING LOSS OF DATA, LOSS OF PROFITS, BUSINESS
@@ -152,16 +179,16 @@ FOUND DESPITE THE ABOVE, TOTAL AGGREGATE LIABILITY SHALL NOT EXCEED THE
 AMOUNT YOU PAID FOR THE SOFTWARE OR CLOUD SERVICE IN THE 30 DAYS BEFORE THE
 CLAIM.
 
-11. INDEMNIFICATION
+12. INDEMNIFICATION
 You agree to indemnify and hold harmless Boollm, saz3 Labs, and its developers
 from claims, damages, or expenses arising from your use or misuse of the
 Software.
 
-12. TERMINATION
+13. TERMINATION
 This license terminates automatically if you breach it. Upon termination you
 must uninstall the Software and stop using related Boollm account services.
 
-13. GENERAL
+14. GENERAL
 If any provision of this agreement is held unenforceable, the remainder remains
 in effect. This agreement is the entire agreement regarding the Software and
 supersedes any prior understanding.
