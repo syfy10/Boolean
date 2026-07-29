@@ -1,4 +1,4 @@
-"""Build the free NYSED released-exam catalog used by Boollm Education.
+"""Build the free NYSED released-exam catalog used by Boolean Education.
 
 The generated JSON contains links and scoring metadata, not copied exam text.
 Run from the repository root with the bundled Codex Python runtime.
@@ -70,7 +70,7 @@ class LinkParser(HTMLParser):
 
 
 def get_bytes(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": "Boollm education catalog"})
+    request = urllib.request.Request(url, headers={"User-Agent": "Boolean education catalog"})
     with urllib.request.urlopen(request, timeout=45) as response:
         return response.read()
 

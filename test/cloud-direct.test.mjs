@@ -5,8 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, focusedMessagesForTurn, isExplicitTaskContinuation, isTaskRefinement, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
-import { chatCompletion } from "../src/providers.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, fitToContext, focusedMessagesForTurn, isExplicitTaskContinuation, isTaskRefinement, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { chatCompletion, normalizeMessagesForProvider } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
   const err = new Error('400: {"error":{"message":"request exceeds the available context size (8192 tokens)","n_ctx":8192}}');
@@ -63,7 +63,7 @@ test("controller loop stops render as a compact user-facing pause", () => {
   assert.doesNotMatch(answer, /controller|loop guard|checkpointed|Do not inspect/i);
 });
 
-test("third-party provider 401 responses do not affect Boollm account sign-in", async (t) => {
+test("third-party provider 401 responses do not affect Boolean account sign-in", async (t) => {
   const server = http.createServer(async (req, res) => {
     for await (const _chunk of req) { /* consume request */ }
     res.writeHead(401, { "content-type": "application/json" });
@@ -420,7 +420,7 @@ test("the model receives topic changes without deterministic routing", async (t)
   assert.equal(requestBody.messages.at(-1).content, "stock news");
   assert.ok(requestBody.tools.some((tool) => tool.function.name === "research_web"));
   assert.ok(requestBody.tools.some((tool) => tool.function.name === "mcp_list_tools"), "research turns should retain the open catalog");
-  assert.doesNotMatch(requestBody.messages[0].content, /TOOL DEFINITIONS|Boollm includes local GGUF models|mcp_list_tools/i, "research turns should not carry the full agent controller prompt");
+  assert.doesNotMatch(requestBody.messages[0].content, /TOOL DEFINITIONS|Boolean includes local GGUF models|mcp_list_tools/i, "research turns should not carry the full agent controller prompt");
   assert.deepEqual(steps, [], "the app must not force a tool before the model requests one");
   assert.equal(messages.at(-1).content, answer);
 });
@@ -442,7 +442,7 @@ test("ordinary main-chat turns receive non-project tools without an implicit wor
   const config = {
     provider: "openai",
     openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "chat-test", apiKey: "test" },
-    projectsDir: "C:\\Users\\S10\\Documents\\Boollm",
+    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
     autoApprove: true,
     ui: { contextMode: "balanced", learnedMemory: false },
     connectors: { mcp: [{ name: "Robinhood", enabled: true }], agents: [] }
@@ -467,7 +467,7 @@ test("ordinary main-chat turns receive non-project tools without an implicit wor
   assert.ok(!requestBody.tools.some((tool) => tool.function.name === "create_project"));
   assert.ok(!requestBody.tools.some((tool) => tool.function.name === "read_file"));
   assert.ok(!requestBody.tools.some((tool) => tool.function.name === "write_file"));
-  assert.match(requestBody.messages[0].content, /BOOLLM OPERATING POLICY/);
+  assert.match(requestBody.messages[0].content, /BOOLEAN OPERATING POLICY/);
   assert.match(requestBody.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
 });
@@ -487,7 +487,7 @@ test("side chat stays answer-only even when its wording resembles an action", as
   const config = {
     provider: "openai",
     openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "side-chat-test", apiKey: "test" },
-    projectsDir: "C:\\Users\\S10\\Documents\\Boollm",
+    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
     autoApprove: true,
     ui: { contextMode: "balanced", learnedMemory: false }
   };
@@ -529,6 +529,54 @@ test("turn classifier shapes context without withholding the tool catalog", () =
   assert.equal(classifyTurnMode([{ role: "user", content: "Call read_file for package.json" }]), "inspect");
   assert.equal(classifyTurnMode([{ role: "user", content: "Call write_file to update package.json" }]), "action");
   assert.equal(classifyTurnMode([{ role: "user", content: "Call email_cleanup_preview for Gmail" }]), "connector");
+});
+
+test("trimmed local context keeps one leading system message for strict Qwen templates", () => {
+  const fitted = fitToContext([
+    { role: "system", content: "You are Boolean." },
+    { role: "user", content: "Earlier decision: use the compact layout. " + "detail ".repeat(5000) },
+    { role: "assistant", content: "I will preserve that decision. " + "result ".repeat(5000) },
+    { role: "user", content: "Continue with the same layout." }
+  ], 4096, "balanced");
+
+  assert.equal(fitted.msgs[0].role, "system");
+  assert.equal(fitted.msgs.filter((message) => message.role === "system").length, 1);
+  assert.match(fitted.msgs[0].content, /CONTEXT SUMMARY/);
+});
+
+test("provider normalization merges misplaced system turns into one leading message", () => {
+  const normalized = normalizeMessagesForProvider([
+    { role: "system", content: "Primary instructions" },
+    { role: "user", content: "Hello" },
+    { role: "system", content: "Earlier-context summary" },
+    { role: "assistant", content: "Hi" }
+  ]);
+
+  assert.deepEqual(normalized.map((message) => message.role), ["system", "user", "assistant"]);
+  assert.match(normalized[0].content, /Primary instructions[\s\S]*Earlier-context summary/);
+});
+
+test("local template failures return a short retry message instead of raw Jinja output", async (t) => {
+  const server = http.createServer(async (req, res) => {
+    for await (const _chunk of req) { /* consume request */ }
+    res.writeHead(400, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: { message: "Unable to generate parser for this template. Jinja Exception: System message must be at the beginning." } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  await assert.rejects(
+    chatCompletion({
+      base: `http://127.0.0.1:${server.address().port}`,
+      apiKey: "local",
+      model: "qwen-test",
+      provider: "local",
+      noStream: true
+    }, [{ role: "user", content: "hello" }]),
+    (err) => err.code === "local_template_order"
+      && /repaired the message order/i.test(err.message)
+      && !/Jinja|parser/i.test(err.message)
+  );
 });
 
 test("ordinary chats cannot create or operate on a project workspace", () => {
@@ -712,7 +760,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
     remaining: 240
   });
   assert.equal(classifyTurnMode(secondConfirmation), "connector");
-  assert.match(systemPrompt("", true), /BOOLLM OPERATING POLICY/);
+  assert.match(systemPrompt("", true), /BOOLEAN OPERATING POLICY/);
 
   assert.equal(emailCleanupContinuationAction([
     { role: "system", content: "system" },
@@ -724,7 +772,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
 
 test("explicit no-change project questions do not require artifact edits", () => {
   const messages = [
-    { role: "system", content: systemPrompt("C:\\Users\\S10\\Documents\\Boollm", true, { ui: { learnedMemory: false } }) },
+    { role: "system", content: systemPrompt("C:\\Users\\S10\\Documents\\Boolean", true, { ui: { learnedMemory: false } }) },
     { role: "user", content: "dont make any changes just tell me about this project" }
   ];
 
@@ -732,7 +780,7 @@ test("explicit no-change project questions do not require artifact edits", () =>
   assert.equal(classifyTurnMode(messages, {
     latestText: "dont make any changes just tell me about this project",
     artifactActionRequired: requiresArtifactAction(messages),
-    projectDir: "C:\\Users\\S10\\Documents\\Boollm"
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
   }), "inspect", "project overview uses read-only tools without action completion gates");
 });
 
@@ -875,7 +923,7 @@ test("clear artifact requests accept the API model's own response without an act
   assert.equal(answer, "Here are the steps you can follow to make the game yourself.");
   assert.equal(calls, 1);
   assert.deepEqual(steps, []);
-  assert.match(nudgedRequest.messages[0].content, /BOOLLM OPERATING POLICY/);
+  assert.match(nudgedRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
   assert.match(nudgedRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.equal(nudgedRequest.tool_choice, undefined);
   assert.equal(protocolRequest, null);
@@ -1091,7 +1139,7 @@ test("an empty response after tool work continues instead of silently stopping",
   assert.equal(calls, 7);
   assert.deepEqual(steps, ["list_dir"]);
   assert.match(statuses.join("\n"), /paused before finishing.*continuing/i);
-  assert.match(continuationRequest.messages[0].content, /BOOLLM OPERATING POLICY/);
+  assert.match(continuationRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
   assert.match(continuationRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(continuationRequest.messages.map((message) => message.content || "").join("\n"), /CONTINUE REQUIRED|Do not wait for me to press Continue/i);
 });

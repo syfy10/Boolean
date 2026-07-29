@@ -21,7 +21,7 @@ test("explicit model installation wording is allowed", () => {
   assert.equal(explicitModelInstallRequest("download the best local coding model"), true);
   assert.equal(explicitModelInstallRequest("please switch me to Qwen2.5-Coder-7B"), true);
   assert.equal(explicitModelInstallRequest("can you get that model for me?"), true);
-  assert.equal(explicitModelInstallRequest("move the downloaded model to Boollm"), true);
+  assert.equal(explicitModelInstallRequest("move the downloaded model to Boolean"), true);
 });
 
 test("public model install requires explicit wording before approval", async () => {

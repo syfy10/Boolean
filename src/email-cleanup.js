@@ -172,7 +172,7 @@ export function publicCleanupPlan(plan) {
     categories: plan.categories,
     candidateSamples: sample(plan.candidates),
     protectedSamples: sample(plan.protected, 6),
-    safety: "Preview only. Nothing was changed. Permanent deletion is not available in Boollm."
+    safety: "Preview only. Nothing was changed. Permanent deletion is not available in Boolean."
   };
 }
 

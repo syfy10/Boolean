@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 
 const MCP_PROTOCOL_VERSION = "2025-06-18";
-const MCP_CLIENT_INFO = { name: "Boollm", version: "1.0" };
+const MCP_CLIENT_INFO = { name: "Boolean", version: "1.0" };
 
 export class McpHttpError extends Error {
   constructor(message, { status = 0, authHeader = "", body = "" } = {}) {
@@ -185,7 +185,7 @@ export async function mcpTestConnection(connector, { onRefresh } = {}) {
     });
     if (list.data?.error) throw new Error(list.data.error.message || "the server rejected tools/list");
     const tools = Array.isArray(list.data?.result?.tools) ? list.data.result.tools : [];
-    if (!tools.length) throw Object.assign(new Error("connected, but this MCP server exposes no tools Boollm can use"), {
+    if (!tools.length) throw Object.assign(new Error("connected, but this MCP server exposes no tools Boolean can use"), {
       mcpStatus: MCP_STATUS.NO_TOOLS
     });
     return {
@@ -263,7 +263,7 @@ export async function registerMcpOAuthClient(registrationEndpoint, redirectUri) 
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
     body: JSON.stringify({
-      client_name: "Boollm",
+      client_name: "Boolean",
       redirect_uris: [redirectUri],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],

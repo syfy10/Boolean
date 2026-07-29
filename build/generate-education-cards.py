@@ -60,7 +60,7 @@ def trim_question(card: Image.Image) -> Image.Image:
 
 
 def get_bytes(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": "Boollm education card builder"})
+    request = urllib.request.Request(url, headers={"User-Agent": "Boolean education card builder"})
     with urllib.request.urlopen(request, timeout=60) as response:
         return response.read()
 

@@ -29,7 +29,7 @@ test("isolated agent worktrees produce durable, selectively applied results", as
   });
   git(root, "init");
   git(root, "config", "user.email", "boolean-test@example.invalid");
-  git(root, "config", "user.name", "Boollm Test");
+  git(root, "config", "user.name", "Boolean Test");
   fs.writeFileSync(path.join(root, "demo.txt"), "base\n");
   git(root, "add", "demo.txt");
   git(root, "commit", "-m", "initial");

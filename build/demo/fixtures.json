@@ -1,102 +1,7 @@
 {
  "/api/state": {
-  "appName": "Boollm",
-  "version": "0.9.56",
-  "displayVersion": "v0.9.58",
-  "tagline": "local AI workspace.",
   "provider": "local",
-  "providers": [
-   "local",
-   "openai",
-   "claude",
-   "google",
-   "xai",
-   "deepseek",
-   "qwen",
-   "baidu",
-   "bytedance",
-   "glm",
-   "zaiCoding",
-   "kimi",
-   "customApi"
-  ],
-  "models": [
-   {
-    "name": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-    "installed": true,
-    "healthy": true,
-    "healthReason": "",
-    "vision": false
-   },
-   {
-    "name": "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
-    "installed": true,
-    "healthy": true,
-    "healthReason": "",
-    "vision": false
-   },
-   {
-    "name": "Qwen3.5-4B-Q4_K_M.gguf",
-    "installed": true,
-    "healthy": true,
-    "healthReason": "",
-    "vision": false
-   },
-   {
-    "name": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-    "id": "qwen2.5-7b",
-    "size": "4.7 GB",
-    "note": "Default balanced chat model (recommended 8 GB RAM)",
-    "installed": false
-   },
-   {
-    "name": "google_gemma-4-E4B-it-Q4_K_M.gguf",
-    "id": "gemma4-e4b",
-    "size": "5.2 GB",
-    "note": "Google model with strong small-model chat quality (recommended 8 GB RAM)",
-    "installed": false
-   },
-   {
-    "name": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-    "id": "llama3.1-8b",
-    "size": "4.9 GB",
-    "note": "Meta Llama option for general chat and reasoning (recommended 8 GB RAM)",
-    "installed": true,
-    "healthy": true
-   },
-   {
-    "name": "Qwen_Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
-    "id": "qwen2.5-vl-7b",
-    "size": "6+ GB",
-    "note": "Vision model for screenshots and images; downloads matching projector too (recommended 12 GB RAM)",
-    "installed": false
-   }
-  ],
-  "providerModels": {
-   "local": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-   "openai": "gpt-5.5",
-   "claude": "claude-sonnet-5",
-   "google": "gemini-3.6-flash",
-   "xai": "grok-4.5",
-   "deepseek": "deepseek-chat",
-   "qwen": "qwen3.7-plus",
-   "baidu": "ernie-5.0",
-   "bytedance": "doubao-seed-1-6-251015",
-   "glm": "glm-5-turbo",
-   "zaiCoding": "GLM-5.1",
-   "kimi": "kimi-k2.5",
-   "customApi": ""
-  },
-  "cloudFallback": {
-   "enabled": false,
-   "provider": "",
-   "model": ""
-  },
   "model": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-  "autoApprove": true,
-  "local": {
-   "ctx": 8192
-  },
   "backendUp": true,
   "providerReady": {
    "local": true,
@@ -112,20 +17,6 @@
    "zaiCoding": false,
    "kimi": false,
    "customApi": false
-  },
-  "cloud": {
-   "openai": "OpenAI",
-   "google": "Google AI (Gemini)",
-   "xai": "xAI (Grok)",
-   "deepseek": "DeepSeek",
-   "qwen": "Alibaba Cloud (Qwen)",
-   "baidu": "Baidu Qianfan (ERNIE)",
-   "bytedance": "ByteDance ModelArk (Doubao)",
-   "glm": "GLM (Z.ai)",
-   "zaiCoding": "Z.AI Coding Plan",
-   "claude": "Claude (Anthropic)",
-   "kimi": "Moonshot AI (Kimi)",
-   "customApi": "Custom API"
   },
   "keys": {
    "openai": false,
@@ -148,18 +39,9 @@
    "hasKey": false
   },
   "thirdParty": {},
-  "projectsDir": "C:/Users/you/Documents",
-  "referenceModel": "gpt-5.1",
-  "budgetLimit": 0,
   "connectors": {
    "apis": [],
    "mcp": []
-  },
-  "imageGeneration": {
-   "provider": "openai",
-   "model": "gpt-image-1",
-   "size": "1024x1024",
-   "providers": []
   },
   "cloudBackend": {
    "url": "",
@@ -167,107 +49,14 @@
    "user": null,
    "tokens": null
   },
-  "browseBase": "http://127.0.0.1:58409",
-  "vision": {
-   "model": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-   "mmproj": null,
-   "source": "none",
-   "candidates": [],
-   "supported": false,
-   "compatible": null,
-   "tested": null,
-   "reason": "This model is text-only. Select a vision-capable model and its matching .mmproj file."
-  },
-  "ui": {
-   "theme": "light",
-   "colorTheme": "classic",
-   "composerStyle": "pill",
-   "fontSize": "medium",
-   "density": "compact",
-   "notepadTheme": "yellow",
-   "browserSummaryAutoSave": true,
-   "showTimestamps": true,
-   "showTokens": true,
-   "showOnboarding": false,
-   "onboarded": true,
-   "autoSave": true,
-   "keepLocalWarm": true,
-   "collapseLogs": true,
-   "referenceChatMemory": true,
-   "learnedMemory": true,
-   "notifications": false,
-   "autoRouteModels": true,
-   "modelRouting": {
-    "selected": "chat"
-   },
-   "contextMode": "balanced",
-   "codingAgent": {
-    "mode": "refactor",
-    "autoTest": true,
-    "stopLoop": false,
-    "maxRetries": 3,
-    "budget": "large",
-    "autoCommit": false,
-    "autopilot": true,
-    "routing": "auto"
-   },
-   "browserOpen": false,
-   "cleanStartup": true,
-   "browserW": 425,
-   "notepadW": 387,
-   "contextW": 240,
-   "browserTabs": [],
-   "aiBrowser": true,
-   "systemActions": true,
-   "searchEngine": "google",
-   "researchPolicy": "authoritative",
-   "browserPerms": {
-    "downloads": true,
-    "camera": false,
-    "mic": false,
-    "geo": false
-   },
-   "browserHistory": [],
-   "expandedSections": [],
-   "shortcuts": {
-    "custom": {},
-    "conflicts": []
-   },
-   "voice": {
-    "enabled": false,
-    "tts": false,
-    "autoPunct": true,
-    "lang": "en-US",
-    "speed": 1
-   },
-   "notif": {
-    "inApp": true,
-    "desktop": false,
-    "sound": false,
-    "volume": 50,
-    "budgetWarn": true,
-    "errors": true
-   },
-   "privacy": {
-    "retention": "local",
-    "clipboard": true,
-    "masking": true,
-    "telemetry": false,
-    "encryption": false
-   },
-   "apiOverrides": {},
-   "proxy": "",
-   "browserBookmarks": [],
-   "bottomLayout": "classic",
-   "browserDarkMode": false,
-   "notepadOpen": false
-  },
-  "eulaAccepted": true,
+  "budgetLimit": 0,
+  "autoApprove": true,
+  "projectsDir": "C:/Users/you/Documents",
   "threads": [
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785252904120,
+    "updatedAt": 1785329093899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -277,7 +66,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785080104120,
+    "updatedAt": 1785156293899,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -287,7 +76,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785216904120,
+    "updatedAt": 1785293093899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -297,7 +86,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785213304120,
+    "updatedAt": 1785289493899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -307,7 +96,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785209704120,
+    "updatedAt": 1785285893899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -317,7 +106,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785206104120,
+    "updatedAt": 1785282293899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -327,7 +116,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785173704120,
+    "updatedAt": 1785249893899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -336,11 +125,40 @@
    }
   ],
   "activeThreadId": "demo-new",
-  "activeThread": null
+  "activeThread": null,
+  "eulaAccepted": true,
+  "ui": {
+   "onboarded": true,
+   "showOnboarding": false,
+   "browserOpen": false,
+   "notepadOpen": false,
+   "browserHistory": [],
+   "browserBookmarks": [],
+   "browserTabs": []
+  },
+  "appName": "Boolean",
+  "version": "0.9.56",
+  "displayVersion": "v0.9.59",
+  "providers": [
+   "local",
+   "openai",
+   "claude",
+   "google",
+   "glm"
+  ],
+  "models": [
+   {
+    "name": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+    "installed": true,
+    "healthy": true,
+    "healthReason": "",
+    "vision": false
+   }
+  ],
+  "providerModels": {},
+  "cloud": {}
  },
  "/api/status": {
-  "version": "0.9.56",
-  "displayVersion": "v0.9.58",
   "provider": "local",
   "model": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
   "autoApprove": true,
@@ -364,7 +182,7 @@
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785252904120,
+    "updatedAt": 1785329093899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -374,7 +192,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785080104120,
+    "updatedAt": 1785156293899,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -384,7 +202,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785216904120,
+    "updatedAt": 1785293093899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -394,7 +212,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785213304120,
+    "updatedAt": 1785289493899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -404,7 +222,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785209704120,
+    "updatedAt": 1785285893899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -414,7 +232,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785206104120,
+    "updatedAt": 1785282293899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -424,7 +242,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785173704120,
+    "updatedAt": 1785249893899,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -436,109 +254,12 @@
   "activeThread": null
  },
  "/api/about": {
-  "appName": "Boollm",
-  "version": "0.9.56",
-  "displayVersion": "v0.9.58",
+  "appName": "Boolean",
+  "version": "0.9.59",
+  "displayVersion": "v0.9.59",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
-  "branch": "main",
-  "sourceAvailable": true,
-  "commit": {
-   "hash": "d5891da",
-   "date": "2026-07-28",
-   "subject": "Release Boollm 0.9.58"
-  },
-  "recentCommits": [
-   {
-    "hash": "d5891da",
-    "date": "2026-07-28",
-    "subject": "Release Boollm 0.9.58"
-   },
-   {
-    "hash": "68ebc57",
-    "date": "2026-07-27",
-    "subject": "Release Boollm 0.9.56"
-   },
-   {
-    "hash": "25e8369",
-    "date": "2026-07-24",
-    "subject": "Release Boolean 0.9.55"
-   },
-   {
-    "hash": "0875d20",
-    "date": "2026-07-24",
-    "subject": "Release Boolean 0.9.54"
-   },
-   {
-    "hash": "5533320",
-    "date": "2026-07-24",
-    "subject": "Release Boolean 0.9.53"
-   },
-   {
-    "hash": "2748211",
-    "date": "2026-07-24",
-    "subject": "Release Boolean 0.9.52"
-   }
-  ],
-  "releases": [
-   {
-    "version": "0.9.54",
-    "date": "2026-07-24",
-    "title": "Responsive workspace and personal surfaces",
-    "details": [
-     "Refined the native split workspace so Projects, Chat, Notepad, and Browser resize and hide cleanly across compact and maximized windows.",
-     "Added Paper Minimal, Soft Glass, and Graphite Mist surface styles with consistent light and dark panel colors.",
-     "Simplified Boollm identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
-    ]
-   },
-   {
-    "version": "0.9.49",
-    "date": "2026-07-23",
-    "title": "Reliable task continuation",
-    "details": [
-     "Recognizes natural continuation requests such as start please, yes start building it, begin building, and next step without dropping the saved task.",
-     "Removed an incomplete local relay path that could not safely or reliably provide the paired remote-control experience.",
-     "Documented the secure Cloudflare relay, outbound desktop connection, device pairing, and end-to-end encryption required for future phone control."
-    ]
-   },
-   {
-    "version": "0.9.48",
-    "date": "2026-07-23",
-    "title": "Reliable layouts, connections, and task progress",
-    "details": [
-     "Kept Recipes and Email actions visible with bounded, independently scrolling columns and a pinned action row.",
-     "Preserved saved API, MCP, agent, Gmail, and Outlook connection records during ordinary app updates and partial settings saves.",
-     "Made coding checklists hide noisy live output by default, kept manually hidden ClearFix output closed, and respected Windows snapped layouts when opening Browser or Notepad."
-    ]
-   },
-   {
-    "version": "0.9.45",
-    "date": "2026-07-23",
-    "title": "Task progress and workspace reliability",
-    "details": [
-     "Added a persistent coding-task checklist with live planning, working, and verification states.",
-     "Improved native window layout, browser split sizing, and readiness status colors."
-    ]
-   },
-   {
-    "version": "0.9.44",
-    "date": "2026-07-22",
-    "title": "Smarter context and compact UI",
-    "details": [
-     "Added context usage controls and automatic summaries for longer conversations.",
-     "Refined Settings spacing, Side chat scaling, and narrow-window behavior."
-    ]
-   },
-   {
-    "version": "0.9.42",
-    "date": "2026-07-21",
-    "title": "Browser, email, and workflow polish",
-    "details": [
-     "Improved embedded-browser controls and responsive workspace layouts.",
-     "Expanded email recipes and safer connected-account workflows."
-    ]
-   }
-  ]
+  "sourceAvailable": true
  },
  "/api/skills": {
   "skills": []

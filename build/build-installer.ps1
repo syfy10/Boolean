@@ -1,4 +1,4 @@
-# Builds dist\Boollm-setup.exe (requires dist\saz.exe from build-exe.ps1
+# Builds dist\Boolean-setup.exe (requires dist\saz.exe from build-exe.ps1
 # and Inno Setup: winget install JRSoftware.InnoSetup)
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
@@ -10,7 +10,7 @@ $iscc = @(
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 if (-not $iscc) { throw "Inno Setup not found. Install with: winget install JRSoftware.InnoSetup" }
-if (-not (Test-Path "$root\dist\saz-app\Boollm.exe")) { throw "dist\saz-app missing. Run build\build-shell.ps1 first." }
+if (-not (Test-Path "$root\dist\saz-app\Boolean.exe")) { throw "dist\saz-app missing. Run build\build-shell.ps1 first." }
 
 $prereqDir = Join-Path $root "dist\prerequisites"
 $webViewBootstrapper = Join-Path $prereqDir "MicrosoftEdgeWebview2Setup.exe"
@@ -30,8 +30,8 @@ if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notm
 & $iscc "$root\build\installer.iss"
 if ($LASTEXITCODE -ne 0) { throw "installer build failed" }
 
-$size = [math]::Round((Get-Item "$root\dist\Boollm-setup.exe").Length / 1MB, 1)
-Write-Host "done: dist\Boollm-setup.exe ($size MB)"
+$size = [math]::Round((Get-Item "$root\dist\Boolean-setup.exe").Length / 1MB, 1)
+Write-Host "done: dist\Boolean-setup.exe ($size MB)"
 
 & powershell -ExecutionPolicy Bypass -File "$root\build\make-update-manifest.ps1"
 if ($LASTEXITCODE -ne 0) { throw "update manifest generation failed" }

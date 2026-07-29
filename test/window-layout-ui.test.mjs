@@ -7,6 +7,19 @@ const shell = fs.readFileSync(new URL("../shell/Program.cs", import.meta.url), "
 const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
 const browse = fs.readFileSync(new URL("../src/browse.js", import.meta.url), "utf8");
 const config = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
+const website = fs.readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+const installer = fs.readFileSync(new URL("../build/installer.iss", import.meta.url), "utf8");
+
+test("product branding is Boolean while the website remains boollm.com", () => {
+  assert.match(ui, /<title>Boolean<\/title>/);
+  assert.match(ui, /<div class="brand-name">Boolean<\/div>/);
+  assert.doesNotMatch(ui, />Boollm</);
+  assert.match(shell, /Text = "Boolean"/);
+  assert.match(installer, /#define AppName "Boolean"/);
+  assert.match(installer, /OutputBaseFilename=Boolean-setup/);
+  assert.match(website, /https:\/\/boollm\.com\//);
+  assert.doesNotMatch(website, /https:\/\/boolean\.com\//i);
+});
 
 test("maximize control offers left, maximize, and right window layouts", () => {
   const options = [...ui.matchAll(/data-window-place="([^"]+)"/g)].map((match) => match[1]);
@@ -27,7 +40,7 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.doesNotMatch(ui, /data-rail="sidechat"/);
   assert.doesNotMatch(ui, /data-rail="toggle"/);
   assert.match(ui, /#sideRail,body\.collapsed #sideRail,body\.collapsed\.rail-expanded #sideRail\{[\s\S]*?display:flex;[\s\S]*?flex:0 0 37px;[\s\S]*?opacity:1; pointer-events:auto;/);
-  assert.match(ui, /<div class="rail-brand sidebar-brand" aria-hidden="true">[\s\S]*<div class="brand-name">Boollm<\/div>[\s\S]*id="railBrandReady"[\s\S]*id="railBrandDot"[\s\S]*id="railBrandStatus"[\s\S]*class="brand-about"/);
+  assert.match(ui, /<div class="rail-brand sidebar-brand" aria-hidden="true">[\s\S]*<div class="brand-name">Boolean<\/div>[\s\S]*id="railBrandReady"[\s\S]*id="railBrandDot"[\s\S]*id="railBrandStatus"[\s\S]*class="brand-about"/);
   assert.match(ui, /body\.collapsed\.rail-expanded \.rail-brand\{ display:flex; \}/);
   assert.match(ui, /\.rail-brand\{[^}]*min-height:52px;[^}]*padding:7px 8px;/s);
   assert.match(ui, /body\.collapsed\.rail-expanded \.rail-main\{ padding:4px 7px; \}/);
@@ -43,7 +56,7 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.match(ui, /data-rail="git" title="Git" aria-label="Git"[\s\S]*<span class="rail-label">Git<\/span>/);
   assert.match(ui, /<div class="rail-stack rail-main">/);
   assert.match(ui, /<div class="rail-stack rail-footer">[\s\S]*data-rail="settings"[\s\S]*class="rail-user"/);
-  assert.match(ui, /class="rail-user-initial">B<\/span><span class="rail-user-name">Boollm<\/span>/);
+  assert.match(ui, /class="rail-user-initial">B<\/span><span class="rail-user-name">Boolean<\/span>/);
   assert.doesNotMatch(ui, /id="railReadyStatus"/);
   assert.doesNotMatch(ui, /id="railStatusText"/);
   assert.doesNotMatch(ui, /class="rail-ready"/);
@@ -69,12 +82,12 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.match(ui, /<button class="side-chat-launch" id="sideChatToggle" title="Open side AI chat"/);
 });
 
-test("compact rail uses the matching notepad icon and Boollm search", () => {
+test("compact rail uses the matching notepad icon and Boolean search", () => {
   assert.match(ui, /data-rail="notes" title="Notepad" aria-label="Notepad"/);
   assert.match(ui, /data-rail="notes"[\s\S]*viewBox="0 0 64 64"[\s\S]*class="notepad-paper"/);
   assert.match(ui, /\.rail-btn\[data-rail="notes"\] \.notepad-paper/);
-  assert.match(ui, /data-rail="search" title="Search Boollm" aria-label="Search Boollm"/);
-  assert.match(ui, /placeholder="Search Boollm\.\.\. chats, projects, commands\.\.\."/);
+  assert.match(ui, /data-rail="search" title="Search Boolean" aria-label="Search Boolean"/);
+  assert.match(ui, /placeholder="Search Boolean\.\.\. chats, projects, commands\.\.\."/);
   assert.match(ui, /function cmdRecentThreads\(query\)/);
   assert.match(ui, /id: "chat:" \+ t\.id/);
   assert.ok(ui.indexOf('id="cmdPalette"') < ui.indexOf("<script>"), "search palette must exist before handlers bind");
@@ -90,30 +103,22 @@ test("open project folder uses the standard Windows folder picker", () => {
   assert.doesNotMatch(shell, /FileName = "Select this folder"/);
 });
 
-test("recipes keep both columns bounded with independently scrollable content and visible actions", () => {
-  assert.match(
-    ui,
-    /\.recipes-panel\{[^}]*overflow:hidden;/s
-  );
-  assert.match(
-    ui,
-    /\.recipes-shell\{[^}]*height:100%;[^}]*min-height:0;[^}]*align-items:stretch;[^}]*overflow:hidden;/s
-  );
-  assert.match(
-    ui,
-    /\.recipe-grid\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s
-  );
-  assert.match(
-    ui,
-    /\.recipes-detail\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s
-  );
-  assert.match(ui, /\.recipe-card\{[^}]*min-height:52px;/s);
-  assert.match(ui, /\.recipe-card small\{[^}]*text-overflow:ellipsis; white-space:nowrap;/s);
-  assert.match(
-    ui,
-    /\.recipe-actions\{[^}]*position:sticky;[^}]*bottom:0;/s
-  );
-  assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.recipes-panel\{ overflow-y:auto; \}[\s\S]*?\.recipes-shell\{ height:auto; min-height:100%; grid-template-columns:1fr; overflow:visible; \}/s);
+test("recipes use a flat category rail, recipe list, and detail editor", () => {
+  const rail=ui.indexOf('class="recipes-category-rail"');
+  const list=ui.indexOf('class="recipes-main"');
+  const detail=ui.indexOf('class="recipes-detail" id="recipeDetail"');
+  assert.ok(rail>=0&&rail<list&&list<detail);
+  assert.match(ui,/\.recipes-panel\{[^}]*overflow:hidden;[^}]*container-type:inline-size;/s);
+  assert.match(ui,/\.recipes-shell\{[^}]*grid-template-columns:minmax\(112px,148px\) minmax\(190px,270px\) minmax\(0,1fr\);[^}]*gap:0;[^}]*overflow:hidden;/s);
+  assert.match(ui,/\.recipes-category-rail\{[^}]*border-right:1px solid var\(--border\);[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s);
+  assert.match(ui,/\.recipes-main\{[^}]*overflow:hidden;[^}]*border-right:1px solid var\(--border\);/s);
+  assert.match(ui,/\.recipes-role-pills\{[^}]*flex-direction:column;/s);
+  assert.match(ui,/\.recipe-grid\{[^}]*grid-template-columns:1fr;[^}]*overflow-y:auto;/s);
+  assert.match(ui,/\.recipe-card\{[^}]*border:0;[^}]*border-bottom:1px solid var\(--border\);[^}]*border-radius:0;[^}]*background:transparent;/s);
+  assert.match(ui,/\.recipes-detail\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s);
+  assert.match(ui,/\.recipe-actions\{[^}]*position:sticky;[^}]*bottom:0;/s);
+  assert.match(ui,/@container\(max-width:640px\)\{[\s\S]*?\.recipes-shell\{ grid-template-columns:96px minmax\(0,1fr\); grid-template-rows:minmax\(180px,42%\) minmax\(0,1fr\); \}/s);
+  assert.doesNotMatch(ui,/recipes-close|recipesClose/);
 });
 
 test("completed plan checklists keep raw agent output hidden until requested", () => {
@@ -178,15 +183,15 @@ test("composer footer does not duplicate settings gear", () => {
 test("settings and account stay on the rail while status moves into the sidebar footer", () => {
   assert.doesNotMatch(ui, /<aside id="sidebar">[\s\S]*<div class="sidefoot-nav">[\s\S]*id="topSettings"/);
   assert.doesNotMatch(ui, /composer-footer-nav/);
-  assert.match(ui, /<div class="app-footer" aria-label="App footer">\s*<div class="sidefoot-nav" aria-label="Settings and account">[\s\S]*id="topSettings" title="Settings" aria-label="Settings"[\s\S]*id="cloudSignIn" title="Sign in to your Boollm account" aria-label="Account"/);
+  assert.match(ui, /<div class="app-footer" aria-label="App footer">\s*<div class="sidefoot-nav" aria-label="Settings and account">[\s\S]*id="topSettings" title="Settings" aria-label="Settings"[\s\S]*id="cloudSignIn" title="Sign in to your Boolean account" aria-label="Account"/);
   assert.match(ui, /\.sidefoot-nav\{[^}]*display:flex;[^}]*background:transparent;[^}]*box-shadow:none;/s);
   assert.match(ui, /--app-footer-h:28px/);
   assert.match(ui, /if\(approvedFooter&&approvedSidebar\) approvedSidebar\.insertBefore\(approvedFooter,approvedSidefoot\|\|null\);/);
   assert.match(ui, /\.app-footer\{[\s\S]*?left:8px; right:8px; bottom:7px;[\s\S]*?border:0; background:var\(--sidebar\);/);
   assert.match(ui, /\.app-footer \.sidefoot-nav,\.app-footer-version\{ display:none; \}/);
-  assert.match(ui, /id="footerVersion" aria-label="Boollm version"/);
+  assert.match(ui, /id="footerVersion" aria-label="Boolean version"/);
   assert.match(ui, /\.app-footer-version\{[^}]*margin-left:auto;[^}]*font:7\.5px\/1 var\(--mono\);/s);
-  assert.match(ui, /if\(\$\("footerVersion"\)\) \$\("footerVersion"\)\.textContent="Boollm "\+\(state\.displayVersion/);
+  assert.match(ui, /if\(\$\("footerVersion"\)\) \$\("footerVersion"\)\.textContent="Boolean "\+\(state\.displayVersion/);
   assert.match(ui, /if\(info\) info\.innerHTML="";/);
   assert.doesNotMatch(ui, /composer-brand/);
   assert.doesNotMatch(ui, /\.composer-tools > \.sidefoot-nav\{ display:flex; \}/);
@@ -242,7 +247,7 @@ test("readiness dots keep green ready and red down states", () => {
   assert.match(ui, /\.app-footer \.cmd-chip-dot\.ok\{ background:var\(--green\); \}/);
 });
 
-test("duplicate sidebar footer status is hidden because readiness lives under Boollm", () => {
+test("duplicate sidebar footer status is hidden because readiness lives under Boolean", () => {
   assert.match(ui, /<div class="app-footer" aria-label="App footer">[\s\S]*id="cmdProjectStatus"/);
   assert.match(ui, /\.workspace-tabs \.cmd-status\{ display:none; \}/);
   assert.match(ui, /\.app-footer\{[\s\S]*?display:none !important;[\s\S]*?background:var\(--sidebar\);/);
@@ -308,13 +313,21 @@ test("workspace navigation and commands compact before they overflow", () => {
   assert.match(ui, /@media\(max-width:900px\)\{[\s\S]*?\.ws-tab\{ padding-inline:5px; font-size:12px; \}/);
   assert.match(ui, /@media\(max-width:900px\)\{[\s\S]*?\.cmd-bar \.cmd-input\{ min-width:80px; font-size:11px; \}/);
   assert.match(ui, /@media\(max-width:760px\)\{[\s\S]*?body\.composer-simple \.composer-tools \.anchor:has\(#modelbtn\)\{ margin-left:4px; \}/);
-  assert.match(ui, /@media\(max-width:760px\)\{[\s\S]*?\.composer-tools \.modelbtn\{ max-width:54px; padding-inline:2px; \}/);
+  assert.match(ui, /@media\(max-width:760px\)\{[\s\S]*?\.composer-tools \.modelbtn\{ max-width:68px; padding-inline:2px; \}/);
   assert.match(ui, /\.msg-ai \.body code\{ white-space:normal; overflow-wrap:anywhere; word-break:break-word; \}/);
-  assert.match(shell, /MinimumSize = new Size\(Math\.Min\(720, Math\.Max\(600,/);
+  assert.match(shell, /MinimumSize = new Size\(Math\.Min\(900, Math\.Max\(600,/);
+  assert.match(shell, /Math\.Min\(540, Math\.Max\(480, wa\.Height - 16\)\)/);
+  assert.match(shell, /double scale = Math\.Max\(1d, DeviceDpi \/ 96d\);/);
+  assert.match(shell, /Math\.Min\(\(int\)Math\.Round\(900 \* scale\), availableWidth\)/);
+  assert.match(shell, /Math\.Min\(\(int\)Math\.Round\(540 \* scale\), availableHeight\)/);
+  assert.match(shell, /protected override void OnHandleCreated\(EventArgs e\)[\s\S]*?ApplyDpiMinimumSize\(\);/);
+  assert.match(shell, /protected override void OnDpiChanged\(DpiChangedEventArgs e\)[\s\S]*?ApplyDpiMinimumSize\(\);/);
+  assert.doesNotMatch(shell, /MinimumSize = new Size\(Math\.Min\(1180,/);
   assert.match(ui, /body\.chat-xs #sideRail,[\s\S]*?display:none; width:0; min-width:0; flex-basis:0; opacity:0; pointer-events:none;/);
   assert.match(ui, /body\.chat-xs\.rail-menu-open #sideRail,[\s\S]*?display:flex!important; position:fixed;/);
   assert.doesNotMatch(ui, /body\.shell\.notes-on #notesPanel\{ display:none!important; \}/);
-  assert.match(ui, /document\.body\.classList\.toggle\("chat-compact",mainW<720\);/);
+  assert.match(ui, /const chatW=effectiveChatWidth\(mainW\);/);
+  assert.match(ui, /document\.body\.classList\.toggle\("chat-compact",chatW<720\);/);
   assert.match(ui, /body\.chat-compact \.ws-tab\{ padding-inline:4px; gap:4px; font-size:11px; \}/);
   assert.match(ui, /body\.chat-compact \.cmd-bar \.cmd-input\{ min-width:64px; font-size:10px;/);
   assert.match(ui, /body\.chat-compact \.cmd-bar \.cmd-btn:not\(\.primary\) span\{ display:none; \}/);
@@ -350,11 +363,18 @@ test("the native app opens as a large centered workspace", () => {
 
 test("native window and workspace panes restore their last closed layout", () => {
   assert.match(shell, /"saz3", "window-layout\.json"/);
-  assert.match(shell, /RestoreWindowLayout\(\);\s*Opacity = 0;/);
+  assert.match(shell, /bool _windowLayoutRestored;/);
+  assert.match(shell, /protected override void OnHandleCreated\(EventArgs e\)[\s\S]*?ApplyDpiMinimumSize\(\);[\s\S]*?if \(_windowLayoutRestored\) return;[\s\S]*?_windowLayoutRestored = true;[\s\S]*?RestoreWindowLayout\(\);/);
+  assert.match(shell, /Top\s+= wa\.Top \+ \(wa\.Height - Height\) \/ 2;\s*Opacity = 0;/);
   assert.match(shell, /FormClosing \+= \(_, __\) => SaveWindowLayout\(\);/);
   assert.match(shell, /WindowState == FormWindowState\.Normal \? Bounds : RestoreBounds/);
   assert.match(shell, /Maximized = WindowState == FormWindowState\.Maximized/);
   assert.match(shell, /BrowserOpen = _browserOpen/);
+  assert.match(shell, /bool savedFillsWorkArea =\s*saved\.Width >= work\.Width - 24 &&\s*saved\.Height >= work\.Height - 24;/);
+  assert.match(shell, /savedFillsWorkArea\s*\? Math\.Clamp\(\(int\)Math\.Round\(work\.Width \* 0\.90\), minWidth, work\.Width\)/);
+  assert.match(shell, /savedFillsWorkArea\s*\? Math\.Clamp\(\(int\)Math\.Round\(work\.Height \* 0\.90\), minHeight, work\.Height\)/);
+  assert.match(shell, /work\.Left \+ \(work\.Width - width\) \/ 2/);
+  assert.match(shell, /work\.Top \+ \(work\.Height - height\) \/ 2/);
   assert.match(shell, /if \(_restoreBrowserOpen\)\s*BeginInvoke\(new Action\(\(\) => ToggleBrowser\(true\)\)\);/);
   assert.match(ui, /const APP_FRAME_KEY="booleanAppFrame";/);
   assert.match(ui, /sidebarOpen:!document\.body\.classList\.contains\("collapsed"\)/);
@@ -382,10 +402,12 @@ test("new users start with the rounded composer and API key entry has a real tex
 
 test("compact composer dropdowns escape the footer tool-row clip", () => {
   assert.match(ui, /\.composer-tools:has\(\.menu\.open\)\{ overflow:visible; \}/);
+  assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools\{ height:32px; gap:5px; overflow:hidden; \}/);
+  assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools:has\(\.menu\.open\)\{ overflow:visible; \}/);
   assert.match(ui, /\.composer-tools \.anchor:has\(\.menu\.open\)\{ z-index:31; \}/);
 });
 
-test("native browser split uses the approved gray header and bottom frame", () => {
+test("native browser split uses the approved gray header without a separate bottom frame", () => {
   assert.match(shell, /const int BrowserTopInset = 38;/);
   assert.match(shell, /readonly RoundedPanel _browserPane = new\(\) \{ Dock = DockStyle\.Fill, Radius = 0 \};/);
   assert.match(shell, /readonly WebView2 _chromeView = new\(\) \{ Dock = DockStyle\.Top, Height = 116 \};/);
@@ -395,18 +417,27 @@ test("native browser split uses the approved gray header and bottom frame", () =
   assert.match(shell, /Palette\(Color CanvasBg, Color PaneBg, Color BarBg/);
   assert.match(shell, /public static Palette Light => new\(\s*Color\.FromArgb\(245, 245, 243\), Color\.FromArgb\(251, 251, 250\), Color\.FromArgb\(245, 245, 243\)/);
   assert.doesNotMatch(shell, /Palette (?:SoftGlass|GraphiteMist)/);
-  assert.match(shell, /Padding = new Padding\(0, 0, 0, 12\);/);
+  assert.match(shell, /Padding = Padding\.Empty;/);
   assert.match(shell, /BackColor = p\.CanvasBg;/);
   assert.match(shell, /_split\.Panel1\.BackColor = p\.CanvasBg;/);
   assert.match(shell, /_split\.Panel2\.BackColor = p\.CanvasBg;/);
   assert.match(shell, /ApplyDwmChromeColor\(p\.CanvasBg\);/);
-  assert.match(ui, /--approved-canvas:#e4e4e4;/);
-  assert.match(ui, /body\.shell\.workspace-chat\{ padding-bottom:0; \}/);
+  assert.match(ui, /--approved-canvas:#f2f2f0;/);
+  assert.match(ui, /body\.shell\{ --approved-bottom-gap:0px; padding-bottom:0!important; \}/);
   assert.match(ui, /body\.shell::after\{ display:none; \}/);
   assert.match(ui, /:root\[data-color-theme="classic"\] #notesPanel,[\s\S]*?:root\[data-color-theme="classic"\] #ctxZone,[\s\S]*?:root\[data-color-theme="classic"\] #browser\{[\s\S]*?border:0!important;[\s\S]*?border-radius:0!important;[\s\S]*?outline:0!important;[\s\S]*?box-shadow:none!important;/);
   assert.match(shell, /void ShowBrowserPill\(\)\s*\{[\s\S]*?_browserPill\.Visible = false;/);
   assert.match(ui, /#browserPill\{\s*display:none !important;\s*\}/);
   assert.match(ui, /body\.collapsed:not\(\.sidebar-popover-open\) aside\{\s*display:none; min-width:0; margin:0; padding:0; border:0; background:transparent;/);
+});
+
+test("native browser close hides the browser panel without closing Boolean", () => {
+  assert.ok(server.includes('<button class="ico close" id="browserClose" title="Close browser panel" aria-label="Close browser panel">&#xE8BB;</button>'));
+  assert.ok(server.includes('$("browserClose").onclick = function(){ act("hideBrowser"); };'));
+  assert.doesNotMatch(server, /class="ico close" data-w="close"/);
+  assert.match(shell, /case "hideBrowser": ToggleBrowser\(false\); break;/);
+  assert.match(shell, /case "close": Close\(\); break;/);
+  assert.match(ui, /\$\("winClose"\)\.onclick=\(\)=>winCmd\("close"\)/);
 });
 
 test("browser dark mode is persistent and reaches both browser implementations", () => {
@@ -453,11 +484,12 @@ test("hidden compact rail is available from a floating hamburger menu", () => {
   assert.match(ui, /document\.body\.classList\.remove\("rail-expanded","rail-menu-open"\);/);
 });
 
-test("new chat and copy conversation live beside open-and-read in the command bar", () => {
-  assert.match(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*id="newchat" title="New chat"[\s\S]*id="copyall" title="Copy whole conversation"[\s\S]*id="cmdFile" title="Open and read a file"/);
+test("new chat lives beside Local and Cloud while conversation actions remain in the command bar", () => {
+  assert.match(ui, /<div class="netseg" id="netmode">[\s\S]*?<\/div>\s*<button class="icon-btn" id="newchat" title="New chat"/);
+  assert.match(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*id="copyall" title="Copy whole conversation"[\s\S]*id="cmdFile" title="Open and read a file"/);
+  assert.doesNotMatch(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*?id="newchat"/);
   assert.doesNotMatch(ui, /data-rail="new-chat"/);
   assert.doesNotMatch(ui, /data-rail="copy-chat"/);
-  assert.doesNotMatch(ui, /<button class="icon-btn" id="newchat"/);
   assert.doesNotMatch(ui, /<button class="icon-btn" id="copyall"/);
   assert.doesNotMatch(ui, /body\.chat-micro #newchat|body\.chat-micro #copyall/);
 });
@@ -477,20 +509,23 @@ test("the rail is grouped, context is wired, and the bottom gap is opaque", () =
 });
 
 test("narrow chat contains its header messages and composer without clipping", () => {
-  assert.match(ui, /document\.body\.classList\.toggle\("chat-xxs",mainW<560\);/);
+  assert.match(ui, /function effectiveChatWidth\(fallback\)\{[\s\S]*?--workspace-chat-width[\s\S]*?getBoundingClientRect\(\)\.width;/);
+  assert.match(ui, /document\.body\.classList\.toggle\("chat-xxs",chatW<560\);/);
   assert.match(ui, /body\.chat-xxs \.topbar\{ padding:0 6px; justify-content:flex-start; \}/);
   assert.match(ui, /body\.chat-xxs \.winctl\{ margin-left:auto; \}/);
   assert.match(ui, /#appBack\{ display:grid; \}[\s\S]*?#appBack:disabled\{ opacity:\.42; cursor:default; \}/);
-  assert.match(ui, /document\.body\.classList\.toggle\("chat-micro",mainW<360\);/);
+  assert.match(ui, /document\.body\.classList\.toggle\("chat-micro",chatW<360\);/);
   assert.match(ui, /body\.chat-micro #appForward,[\s\S]*?body\.chat-micro #ctxToggle\{ display:none; \}/);
   assert.doesNotMatch(ui, /body\.browser-on\.chat-micro \.topbar #(?:newchat|copyall)/);
   assert.match(ui, /@media\(max-width:700px\)\{[\s\S]*?main,#chat,\.col\{ min-width:0; max-width:100%; overflow-x:hidden; box-sizing:border-box; \}/);
   assert.match(ui, /\.msg-user,\.msg-ai,body\.win-lg \.msg-user,body\.win-lg \.msg-ai\{[\s\S]*?max-width:min\(88%,calc\(100% - 12px\)\);/);
   assert.match(ui, /\.composer-wrap,body\.composer-simple \.composer-wrap,[\s\S]*?\.composer-tools\{ min-width:0; max-width:100%; box-sizing:border-box; \}/);
+  assert.match(ui, /body\.chat-xxs:not\(\.composer-simple\) \.composer-tools #modetxt,[\s\S]*?\.modebtn \.chev\{ display:none; \}/);
+  assert.match(ui, /body\.chat-micro:not\(\.composer-simple\) \.composer-tools \.modelbtn \.chev,[\s\S]*?#snipbtn\{ display:none; \}/);
 });
 
 test("workspace card shows the selected API model's real readiness", () => {
-  assert.match(ui, /id="brandAbout" role="button" tabindex="0" aria-label="About Boollm and AI readiness"/);
+  assert.match(ui, /id="brandAbout" role="button" tabindex="0" aria-label="About Boolean and AI readiness"/);
   assert.match(ui, /<path d="M12 11v6"\/><path d="M12 7\.5h\.01"\/>/);
   assert.match(ui, /\.sidehead #footStatus \.dot,\.sidehead #footStatus #statustext\{ display:inline-flex; \}/);
   assert.doesNotMatch(ui, /\.sidehead #footStatus::after\{ content:"Local AI workspace"; \}/);
@@ -498,12 +533,23 @@ test("workspace card shows the selected API model's real readiness", () => {
   assert.match(ui, /\$\("brandAbout"\)\.classList\.toggle\("ready",ready\);/);
 });
 
-test("workspace card is borderless and chat search has a leading icon", () => {
-  assert.match(ui, /\.sidehead\{ min-height:48px;[\s\S]*?border:0; border-radius:var\(--radius-lg\); \}/);
+test("workspace card, create actions, search, and account match the approved grouped sidebar", () => {
+  assert.match(ui, /\.sidehead\{ min-height:48px;[\s\S]*?border:1px solid var\(--border\);[\s\S]*?background:var\(--sidebar\); \}/);
   assert.doesNotMatch(ui, /\.sidebar-brand::before/);
-  assert.match(ui, /<div class="thread-search-wrap">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"/);
+  assert.equal((ui.match(/<svg class="sidebar-brand-mark" viewBox="0 0 40 40"/g)||[]).length,2);
+  assert.match(ui, /\.sidebar-brand-mark circle\{ fill:currentColor; \}/);
+  assert.match(ui, /<svg class="sidebar-brand-mark"[\s\S]*?<circle cx="20" cy="20" r="3\.8"\/>[\s\S]*?<\/svg>/);
+  assert.match(ui, /id="sidebarNewProject"[\s\S]*?<span>Project<\/span>/);
+  assert.doesNotMatch(ui, /id="sidebarNewChat"/);
+  assert.match(ui, /\.workspace-create-row\{ display:grid; grid-template-columns:1fr;/);
+  assert.match(ui, /<div class="thread-search-wrap">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"[^>]*placeholder="Search chats and files"/);
   assert.match(ui, /\.thread-search-wrap svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
-  assert.match(ui, /display:block; width:100%; height:28px; margin:0; padding:0 9px 0 27px;/);
+  assert.match(ui, /display:block; width:100%; height:30px; margin:0; padding:0 9px 0 27px;/);
+  assert.match(ui, /id="sidebarAccount"[\s\S]*?id="sidebarAccountAvatar"[\s\S]*?id="sidebarAccountName"[\s\S]*?id="sidebarAccountLabel"/);
+  assert.match(ui, /\$\("sidebarAccount"\)\.onclick=toggleAccountMenu/);
+  assert.match(ui, /body:not\(\.collapsed\) #sideRail \.rail-user,\s*body\.collapsed\.sidebar-popover-open #sideRail \.rail-user\{ display:none!important; \}/);
+  assert.doesNotMatch(ui, /data-account-composer|id="composerStyleSeg"|Chat input style/);
+  assert.match(ui, /document\.body\.classList\.remove\("composer-simple"\)/);
 });
 
 test("About email and connection rows use recognizable service marks", () => {
@@ -530,13 +576,13 @@ test("connector overview gives status and actions independent non-clipping colum
 
 test("approved layout keeps gray breathing room below every footer", () => {
   assert.match(ui, /--approved-bottom-gap:20px;/);
-  assert.match(ui, /--approved-card:#fafaf9;/);
+  assert.match(ui, /--approved-card:#f8f8f6;/);
   assert.match(ui, /\.col\{ width:100%; max-width:none; gap:8px; background:var\(--approved-canvas\); \}/);
   assert.match(ui, /body,body\.shell\{[\s\S]*?padding:calc\(var\(--approved-topbar-h\) \+ var\(--approved-gap\)\) var\(--approved-gap\) var\(--approved-bottom-gap\) 4px;/);
 });
 
 test("projects chats and browser use one shared pane background", () => {
-  assert.match(ui, /--approved-card:#fafaf9;/);
+  assert.match(ui, /--approved-card:#f8f8f6;/);
   assert.match(ui, /aside,body\.shell aside\{[\s\S]*?background:var\(--approved-card\);/);
   assert.match(ui, /#chat\{[\s\S]*?background:var\(--approved-canvas\);/);
   assert.match(server, /background:#fafaf9;color:#1a1a1a/);
@@ -545,7 +591,7 @@ test("projects chats and browser use one shared pane background", () => {
   assert.match(shell, /_themeSurface = "classic";[\s\S]*?return Palette\.Light;/);
 });
 
-test("Classic is Boollm's only surface foundation", () => {
+test("Classic is Boolean's only surface foundation", () => {
   assert.doesNotMatch(ui, /id="colorThemeSeg"|id="brandThemeMenu"|id="brandThemeButton"|data-account-surface/);
   assert.doesNotMatch(ui, /soft-gloss|paper-minimal|graphite-mist|>Clex</);
   assert.match(ui, /function selectedColorTheme\(\)\{ return "classic"; \}/);
@@ -553,7 +599,7 @@ test("Classic is Boollm's only surface foundation", () => {
   assert.match(config, /if \(cfg\.ui\.colorTheme !== "classic"\)[\s\S]*?cfg\.ui\.colorTheme = "classic"/);
   assert.match(ui, /root\.dataset\.visualTheme=resolvedDark\?"dark":"light";[\s\S]*?root\.dataset\.colorTheme=selectedColorTheme\(ui\);/);
   assert.match(ui, /\["theme","colorTheme","composerStyle"/);
-  assert.match(ui, /:root\[data-visual-theme="light"\]\[data-color-theme="classic"\][\s\S]*?--approved-canvas:#f5f5f3; --approved-card:#fbfbfa;/);
+  assert.match(ui, /:root\[data-visual-theme="light"\]\[data-color-theme="classic"\][\s\S]*?--approved-canvas:#f5f5f3; --approved-card:#f7f7f5;/);
   assert.match(ui, /:root\[data-visual-theme="dark"\]\[data-color-theme="classic"\][\s\S]*?--approved-canvas:#181818; --approved-card:#1c1c1c;/);
   assert.match(ui, /:root\[data-color-theme="classic"\] aside,[\s\S]*?data-color-theme="classic"\] body\.shell aside,[\s\S]*?data-color-theme="classic"\] #browser\{[\s\S]*?border:0!important;[\s\S]*?border-radius:0!important;[\s\S]*?outline:0!important;[\s\S]*?box-shadow:none!important;/);
   assert.match(ui, /:root\[data-color-theme="classic"\] aside,[\s\S]*?data-color-theme="classic"\] body\.shell aside\{[\s\S]*?background:var\(--approved-canvas\)!important;/);
@@ -570,7 +616,7 @@ test("Classic is Boollm's only surface foundation", () => {
   assert.match(ui, /body\.browser-on:not\(\.shell\) #browser\{ width:var\(--bw,320px\)!important; min-width:270px!important; flex-basis:var\(--bw,320px\); \}/);
   assert.match(ui, /body\.notes-on:not\(\.shell\) #notesPanel\{ width:var\(--nw,280px\); min-width:250px; flex-basis:var\(--nw,280px\); \}/);
   assert.match(ui, /#notesPanel\{ width:var\(--nw,clamp\(260px,32vw,360px\)\); flex:0 0 var\(--nw,clamp\(260px,32vw,360px\)\);/);
-  assert.match(ui, /const chatXs=document\.body\.classList\.contains\("chat-xs"\);\s*document\.body\.classList\.toggle\("chat-xs",chatXs\?mainW<470:mainW<430\);/);
+  assert.match(ui, /const chatXs=document\.body\.classList\.contains\("chat-xs"\);\s*document\.body\.classList\.toggle\("chat-xs",chatXs\?chatW<470:chatW<430\);/);
   assert.match(ui, /body\.pane-resizing #notesPanel,[\s\S]*?body\.pane-resizing main,body\.pane-resizing aside\{ transition:none!important; \}/);
   assert.match(ui, /if\(!browserManualSize\) fitBrowserSplit\(\);/);
 });
@@ -580,7 +626,7 @@ test("surface styles reach the native footer and the account identity owns Profi
   assert.doesNotMatch(ui, /class="account-menu-row" data-account-action="profile"/);
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"theme",dark:resolvedDark,surface:selectedColorTheme\(ui\),browserDark\}\)/);
   assert.doesNotMatch(shell, /Palette (?:SoftGlass|GraphiteMist|Clex)|connectedClex|_connectedClex/);
-  assert.match(shell, /Padding = new Padding\(0, 0, 0, 12\);[\s\S]*?_split\.SplitterWidth = 5;[\s\S]*?_browserPane\.Radius = 0;[\s\S]*?_browserPane\.BorderColor = Color\.Transparent;/);
+  assert.match(shell, /Padding = Padding\.Empty;[\s\S]*?_split\.SplitterWidth = 5;[\s\S]*?_browserPane\.Radius = 0;[\s\S]*?_browserPane\.BorderColor = Color\.Transparent;/);
   assert.match(shell, /sealed class MainForm : Form, IMessageFilter[\s\S]*?Application\.AddMessageFilter\(this\);[\s\S]*?public bool PreFilterMessage\(ref Message m\)[\s\S]*?Math\.Abs\(point\.X - _split\.SplitterDistance\) <= 5/);
   assert.match(shell, /string surface = "classic";/);
   assert.match(shell, /_themeSurface = "classic";[\s\S]*?pal = Palette\.Light;/);
@@ -623,9 +669,12 @@ test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /const pickerNet=modelPickerNet\|\|\(state\.provider==="local"\?"local":"online"\);/);
   assert.match(ui, /if\(pickerNet==="online"\)\{/);
   assert.match(ui, /const activeModelName=\(\)=>\{[\s\S]*?provider==="local"\?displayName\(state\.model\):providerModelName\(provider\)/);
-  assert.match(ui, /\$\("modelname"\)\.textContent=nm\?shortAiName\(state\.provider,nm\):"Model"/);
+  assert.match(ui, /function setComposerModelDisplay\(modelName\)\{/);
+  assert.match(ui, /state\.provider==="local"\s*\?localModelCompanyMark\(modelName\|\|""\)\s*:providerMark\(state\.provider/);
+  assert.match(ui, /\.modelbtn #modelname \.local-company-mark,[\s\S]*?width:1em; height:1em;/);
+  assert.match(ui, /target\.innerHTML=mark;\s*target\.setAttribute\("aria-label",modelName\|\|"Select a model"\)/);
   assert.match(ui, /\$\("providersel"\)\.onchange=async\(e\)=>\{[\s\S]*?const provider=e\.target\.value;[\s\S]*?JSON\.stringify\(\{provider\}\)/);
-  assert.match(ui, /modelPickerNet="online";[\s\S]*?const firstMissing=\$\("modellist"\)\?\.querySelector\("\.api-provider\.missing"\);[\s\S]*?Boollm will stay on Local until it is saved\./);
+  assert.match(ui, /modelPickerNet="online";[\s\S]*?const firstMissing=\$\("modellist"\)\?\.querySelector\("\.api-provider\.missing"\);[\s\S]*?Boolean will stay on Local until it is saved\./);
   assert.doesNotMatch(ui, /else if\(providerReadyForRun\("local"\)\) prov="local"/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.classList\.toggle\("on"/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.onclick=\(\)=>selectNet\(b\.dataset\.net\)\)/);
@@ -764,7 +813,7 @@ test("simple composer keeps only compact action icons above the input", () => {
 test("compact Auto and model controls open visible dropdowns", () => {
   assert.match(ui, /\.composer-wrap:has\(\.menu\.open\),body\.composer-simple \.composer-wrap:has\(\.menu\.open\)\{ overflow:visible; z-index:30; \}/);
   assert.match(ui, /body\.composer-simple \.composer-tools \.modebtn,\s*body\.composer-simple \.composer-tools \.modelbtn\{[\s\S]*?height:18px; min-height:18px;[\s\S]*?border-radius:0;[\s\S]*?background:transparent; box-shadow:none; font:9px\/1 var\(--ui\);/);
-  assert.match(ui, /body\.composer-simple \.composer-tools \.modelbtn\{ max-width:54px; \}/);
+  assert.match(ui, /body\.composer-simple \.composer-tools \.modelbtn\{ max-width:74px; \}/);
   assert.match(ui, /body\.composer-simple\.online-mode \.composer-tools \.modelbtn\{\s*border-radius:0; background:transparent; box-shadow:none;/);
   assert.match(ui, /\$\("modelbtn"\)\.onclick=\(e\)=>\{ e\.stopPropagation\(\);[\s\S]*openModelSelector\(\); \};/);
   assert.match(ui, /\$\("modebtn"\)\.onclick=\(e\)=>\{ e\.stopPropagation\(\);[\s\S]*\$\("modemenu"\)\.classList\.toggle\("open"\); \};/);
@@ -839,6 +888,26 @@ test("native shell places the window inside the monitor work area", () => {
   assert.match(ui, /\$\("winMax"\)\.addEventListener\("pointerenter",\(e\)=>\{/);
   assert.match(ui, /windowLayoutHoverTimer=setTimeout\(openWindowLayoutMenu,450\)/);
   assert.match(ui, /winCmd\("maxtoggle"\);/);
+  assert.match(shell, /type = "shellWindowState",\s*maximized = WindowState == FormWindowState\.Maximized/);
+  assert.match(shell, /PushChromeState\(\); \/\/ keep the chrome's maximize\/restore glyph in sync\s*PushWindowState\(\);/);
+  assert.match(ui, /const setNativeWindowState=\(maximized\)=>\{/);
+  assert.match(ui, /const label=maximized\?"Restore window":"Window layout";/);
+  assert.match(ui, /d\.type==="shellWindowState"\)\{ setNativeWindowState\(!!d\.maximized\); \}/);
+});
+
+test("borderless native shell exposes resize hit zones on every edge and corner", () => {
+  assert.match(shell, /WS_THICKFRAME = 0x40000/);
+  assert.match(shell, /const int WM_NCCALCSIZE = 0x0083, WM_NCHITTEST = 0x0084, HTCLIENT = 1;/);
+  assert.match(shell, /m\.Msg == WM_NCHITTEST && WindowState != FormWindowState\.Maximized/);
+  assert.match(shell, /int grip = Math\.Max\(8, \(int\)Math\.Round\(8 \* DeviceDpi \/ 96d\)\);/);
+  assert.match(shell, /m\.Result = \(IntPtr\)hit/);
+  const hitBody = shell.slice(shell.indexOf("int ResizeHitTest"), shell.indexOf("protected override void WndProc"));
+  for (const code of ["HTLEFT","HTRIGHT","HTTOP","HTBOTTOM","HTTOPLEFT","HTTOPRIGHT","HTBOTTOMLEFT","HTBOTTOMRIGHT"]) {
+    assert.match(hitBody, new RegExp(`return ${code};`));
+  }
+  for (const corner of ["HTTOPLEFT","HTTOPRIGHT","HTBOTTOMLEFT","HTBOTTOMRIGHT"]) {
+    assert.ok(hitBody.indexOf(`return ${corner};`) < hitBody.indexOf("return HTLEFT;"));
+  }
 });
 
 test("native shell completes the border across the custom title bar", () => {
@@ -847,13 +916,19 @@ test("native shell completes the border across the custom title bar", () => {
   assert.match(shell, /_topOutline\.BackColor = p\.BtnBorder;/);
 });
 
+test("native shell does not leave a differently colored footer below the WebView", () => {
+  assert.match(shell, /Let the themed content reach the bottom edge/);
+  assert.match(shell, /The WebView owns the complete bottom surface in both themes/);
+  assert.doesNotMatch(shell, /Padding = new Padding\(0, 0, 0, 12\)/);
+});
+
 test("side chat user bubbles keep readable foreground contrast in dark mode", () => {
   assert.match(ui, /\.side-chat-msg\.user\{[^}]*color:var\(--accent-text\);[^}]*background:var\(--accent\);/s);
   assert.match(ui, /:root\[data-theme="dark"\]\{[\s\S]*?--accent:#ececec; --accent-text:#181818;/);
 });
 
 test("round composer uses the compact floating card layout without changing line mode", () => {
-  assert.match(ui, /body:not\(\.composer-simple\) \.composer-wrap\{[^}]*min-height:124px;[^}]*border-radius:24px;[^}]*box-shadow:0 6px 20px/s);
+  assert.match(ui, /body:not\(\.composer-simple\) \.composer-wrap\{[^}]*min-height:124px;[^}]*border-radius:24px;[^}]*box-shadow:0 3px 12px/s);
   assert.match(ui, /body:not\(\.composer-simple\) main::after\{\s*bottom:0; height:152px;[\s\S]*?var\(--approved-canvas\) 92%,transparent\) 24px/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer textarea\{[^}]*min-height:48px;[^}]*font:15px\/1\.45 var\(--ui\)/s);
   assert.match(ui, /id="composerPrompt">Ask anything\.\.\.<\/span><textarea id="input" rows="1" placeholder="Ask anything\.\.\."/);
@@ -875,6 +950,7 @@ test("touching top navigation once opens it without hover toggling it closed", (
 });
 
 test("composer sends with Enter and inserts a line with Shift Enter", () => {
+  assert.match(ui, /let key=typeof event\.key==="string"\?event\.key:"";\s*if\(!key\)return parts\.join\("\+"\);/);
   assert.match(ui, /\{ id:"send_message", label:"Send message", keys:"Enter" \}/);
   assert.match(ui, /\{ id:"newline", label:"New line", keys:"Shift\+Enter" \}/);
   assert.match(ui, /if\(e\.isComposing\) return;/);
@@ -912,7 +988,7 @@ test("approved chat styling expands AI responses on the surface and keeps user m
   assert.match(ui, /main,body\.shell main\{[\s\S]*?background:var\(--approved-canvas\); border:0; border-radius:0; box-shadow:none;/);
   assert.match(ui, /\/\* Seamless chat: header, transcript, and composer share one quiet surface\. \*\/\s*#chat\{[\s\S]*?border:0;[\s\S]*?border-radius:0; background:var\(--approved-canvas\); box-shadow:none;/);
   assert.match(ui, /\.col\{ width:100%; max-width:none; gap:8px; background:var\(--approved-canvas\); \}/);
-  assert.match(ui, /body:not\(\.composer-simple\) \.composer-wrap\{[\s\S]*?background:var\(--approved-card\); box-shadow:0 6px 20px/);
+  assert.match(ui, /body:not\(\.composer-simple\) \.composer-wrap\{[\s\S]*?background:var\(--approved-card\); box-shadow:0 3px 12px/);
   assert.match(ui, /\.workspace-tabs\{[\s\S]*?border-bottom:1px solid var\(--border\); background:transparent;/);
   assert.match(ui, /\.msg-user,body\.win-lg \.msg-user\{ max-width:min\(78%,720px\); \}/);
   assert.match(ui, /\.msg-ai,body\.win-lg \.msg-ai\{\s*align-self:stretch; width:100%; max-width:100%;/);
@@ -993,7 +1069,7 @@ test("Markets closes the projects pane once on entry and signed-out accounts exp
   assert.match(ui, /const enteringMarkets=ws==="markets"&&ws!==activeWsTab;/);
   assert.match(ui, /if\(enteringMarkets&&!document\.body\.classList\.contains\("collapsed"\)\)\{[\s\S]*?classList\.add\("collapsed"\)[\s\S]*?sidebarManualState=true;[\s\S]*?syncPanelButtons\(\);/);
   assert.doesNotMatch(ui, /body\.markets-open[^}]*#sidebar[^}]*display:none/);
-  assert.match(ui, /id="accountAuthNote">Optional — Boollm works without an account\. Your data stays local on this PC\.<\/div>/);
+  assert.match(ui, /id="accountAuthNote">Optional — Boolean works without an account\. Your data stays local on this PC\.<\/div>/);
   assert.match(ui, /id="accountAuthText">Sign in or sign up<\/span>/);
   assert.match(ui, /if\(auth\) auth\.textContent=cloud\.signedIn\?"Log out":"Sign in or sign up";/);
   assert.match(ui, /if\(authNote\) authNote\.hidden=!!cloud\.signedIn;/);
@@ -1006,14 +1082,14 @@ test("Education closes Projects and Chats when the workspace opens", () => {
   assert.match(ui, /else if \(ws === "education"\) \{[\s\S]*?educationSidebarAutoClosed=false;scheduleResponsiveClasses\(\); \}/);
 });
 
-test("Markets dark mode uses the shared Boollm canvas and card blacks", () => {
+test("Markets dark mode uses the shared Boolean canvas and card blacks", () => {
   assert.match(ui, /body\.markets-open \.markets-shell\{\s*--market-bg:var\(--approved-canvas\);\s*--market-card:var\(--approved-card\);\s*--market-card-2:var\(--card\);/);
   assert.match(ui, /body\.markets-open \.workspace-tabs,[\s\S]*?body\.markets-open \.market-bottom-tape\{\s*background:var\(--approved-canvas\);/);
   assert.match(ui, /body\.markets-open \.market-watch,[\s\S]*?body\.markets-open \.market-ai-summary\{\s*background:var\(--approved-card\);/);
 });
 
 test("Education offers saved practice exams with both feedback modes and topic results", () => {
-  assert.match(ui, /id="educationWorkspaceTab" data-ws="education" title="Practice exams" hidden aria-hidden="true"/);
+  assert.match(ui, /id="educationWorkspaceTab"[^>]*data-workspace-page="education"[^>]*hidden[^>]*aria-hidden="true"/);
   assert.match(ui, /const educationExams=\{/);
   for (const exam of ["SHSAT","TACHS","HSPT","ISEE","SSAT","Regents","SAT","ACT","IQ reasoning practice"]) {
     assert.match(ui, new RegExp(exam));
@@ -1023,21 +1099,235 @@ test("Education offers saved practice exams with both feedback modes and topic r
   assert.match(ui, /sat:\[11,12\]/);
   assert.match(ui, /const EDUCATION_SAVE_KEY="boollmEducationPracticeV1"/);
   assert.match(ui, /function educationShowResults\(\)/);
-  assert.match(ui, /Questions in Boollm are newly generated practice items, not copied secure test questions/);
-  assert.match(ui, /body\.education-open #chat,body\.education-open \.composer-wrap\{ display:none!important; \}/);
+  assert.match(ui, /Questions in Boolean are newly generated practice items, not copied secure test questions/);
+  assert.match(ui, /body\.education-open #chat,body\.markets-open #chat,body\.recipes-open #chat\{ display:block!important; \}/);
+});
+
+test("Education uses the compact four-step exam workbench", () => {
+  assert.match(ui,/id="educationSteps" aria-label="Practice steps"/);
+  for(const [step,label] of [["choose","Choose exam"],["options","Set options"],["practice","Practice"],["results","Results"]]){
+    assert.match(ui,new RegExp(`data-education-step="${step}"[\\s\\S]*?>${label}<`));
+  }
+  assert.match(ui,/class="education-exam-list" id="educationExamList" role="listbox"/);
+  assert.match(ui,/class="education-selected-exam" id="educationSelectedExam"/);
+  assert.equal((ui.match(/id="educationExam"/g)||[]).length,1);
+  assert.match(ui,/\.education-workbench\{[^}]*grid-template-columns:126px minmax\(0,1fr\);/s);
+  assert.match(ui,/#educationSetup\.education-setup-flat\{[^}]*grid-template-columns:minmax\(220px,\.85fr\) minmax\(300px,1\.15fr\);[^}]*border:0;/s);
+  assert.match(ui,/\.education-exam-column,\.education-detail-column\{[^}]*overflow-y:auto;/s);
+  assert.match(ui,/function educationRenderExamList\(\)[\s\S]*?Array\.from\(select\.options\)[\s\S]*?data-education-exam/);
+  assert.match(ui,/select\.value=button\.dataset\.educationExam;[\s\S]*?educationSyncReleasedOptions\(\);[\s\S]*?educationSetStep\("options"\);[\s\S]*?educationRenderSetup\(\)/);
+  assert.match(ui,/function educationShowSession\(\)\{[\s\S]*?educationSetStep\("practice"\)/);
+  assert.match(ui,/function educationShowResults\(\)\{[\s\S]*?educationSetStep\("results"\)/);
+});
+
+test("Explore replaces the three standalone workspace links after Automations", () => {
+  const navStart=ui.indexOf('<div class="workspace-tabs" id="workspaceTabs">');
+  const navEnd=ui.indexOf("</div>",navStart);
+  const nav=ui.slice(navStart,navEnd);
+  assert.ok(navStart>=0&&navEnd>navStart,"main workspace navigation should exist");
+  const exploreTag=nav.match(/<button[^>]*id="exploreWorkspaceTab"[^>]*data-ws="explore"[^>]*>/)?.[0]||"";
+  assert.ok(exploreTag,"Explore should be the single launcher for the grouped workspace");
+  assert.doesNotMatch(exploreTag,/hidden|aria-hidden/);
+  assert.match(nav,/id="exploreWorkspaceTab"[\s\S]*?Explore[\s\S]*?<\/button>/);
+  assert.ok(nav.indexOf('data-ws="automations"')<nav.indexOf('id="exploreWorkspaceTab"'),"Explore should follow Automations");
+  assert.doesNotMatch(nav,/data-ws="education"|data-ws="markets"|data-ws="recipes"/);
+  assert.doesNotMatch(nav,/id="educationWorkspaceTab"|id="marketsWorkspaceTab"|id="recipesWorkspaceTab"/);
+});
+
+test("Markets, Education, and Recipes share internal tabs in one flat workspace header", () => {
+  for (const id of ["workspaceFloatBar","workspaceFloatTabs","workspaceFloatTheme","workspaceFloatExpand","workspaceFloatClose"]) {
+    assert.equal((ui.match(new RegExp(`id="${id}"`,"g"))||[]).length,1,`${id} should exist once in the shared workspace chrome`);
+  }
+  const headerStart=ui.indexOf('id="workspaceFloatBar"');
+  const headerEnd=ui.indexOf("</header>",headerStart);
+  const contentStart=ui.indexOf('class="workspace-float-content"',headerEnd);
+  const header=ui.slice(headerStart,headerEnd);
+  assert.ok(headerStart>=0&&headerEnd>headerStart&&contentStart>headerEnd,"shared chrome should precede the flat page content");
+  let previous=-1;
+  for (const id of ["workspaceFloatTabs","workspaceFloatTheme","workspaceFloatExpand","workspaceFloatClose"]) {
+    const next=header.indexOf(`id="${id}"`);
+    assert.ok(next>previous,`${id} should keep the approved shared-header order`);
+    previous=next;
+  }
+  const tabsStart=header.indexOf('id="workspaceFloatTabs"');
+  const tabsEnd=header.indexOf("</nav>",tabsStart);
+  const tabs=header.slice(tabsStart,tabsEnd);
+  let tabPrevious=-1;
+  for(const page of ["markets","education","recipes"]){
+    const next=tabs.indexOf(`data-workspace-page="${page}"`);
+    assert.ok(next>tabPrevious,`${page} should remain in the approved internal-tab order`);
+    tabPrevious=next;
+  }
+  assert.equal((tabs.match(/data-workspace-page="/g)||[]).length,3,"the Explore pane should expose exactly three page tabs");
+  const initializeWorkspace=ui.slice(ui.indexOf("function initializeWorkspaceFloat"),ui.indexOf("initializeWorkspaceFloat();"));
+  assert.match(initializeWorkspace,/\$\("workspaceFloatTabs"\)\?\.addEventListener\("click",event=>\{/);
+  assert.match(initializeWorkspace,/const tab=event\.target\.closest\("\[data-workspace-page\]"\)/);
+  assert.match(initializeWorkspace,/const page=tab\.dataset\.workspacePage/);
+  assert.match(initializeWorkspace,/setWorkspaceTab\((?:page|tab\.dataset\.workspacePage)\)/,"the internal tabs should activate their existing workspace pages");
+  const showWorkspace=ui.slice(ui.indexOf("function showWorkspaceFloat"),ui.indexOf("function beginWorkspaceLayoutSwitch"));
+  assert.match(showWorkspace,/\$\("workspaceFloatTabs"\)\?\.querySelectorAll\("\[data-workspace-page\]"\)/);
+  assert.match(showWorkspace,/tab\.classList\.toggle\("active",active\)/);
+  assert.match(showWorkspace,/tab\.setAttribute\("aria-selected",String\(active\)\)/);
+  assert.match(ui,/\.workspace-float\{[^}]*border-radius:18px;/s);
+  assert.match(ui,/\.workspace-float-bar\{[^}]*flex:0 0 36px;[^}]*min-height:36px;[^}]*border-bottom:0;[^}]*background:var\(--approved-card,var\(--card\)\);/s);
+  assert.match(ui,/\.workspace-float-page-tab\{[^}]*height:28px;[^}]*font:600 12px\/1\.2 var\(--ui\);/s);
+  assert.match(ui,/\.workspace-float-page-tab\.active\{[^}]*border-color:transparent; background:var\(--hover\); color:var\(--text\);[^}]*box-shadow:none;/s);
+  assert.match(ui,/id="workspaceFloatTheme"[^>]*>&#x263E;<\/button>/);
+  assert.match(ui,/\.workspace-float-actions button\{[^}]*width:30px; height:30px;[^}]*font:18px\/1 "Segoe UI Symbol"/s);
+  assert.match(ui,/\.workspace-float-content\{[^}]*padding:0;[^}]*overflow:hidden;[^}]*background:var\(--approved-card,var\(--card\)\);/s);
+  assert.match(ui,/\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[^}]*margin:0;[^}]*padding:0!important;[^}]*border:0!important;[^}]*border-radius:0!important;[^}]*box-shadow:none!important;/s);
+  assert.match(ui,/\.workspace-float \.education-shell,\.workspace-float \.recipes-shell\{[^}]*width:100%; height:100%;[^}]*margin:0; border:0; border-radius:0;[^}]*box-shadow:none;/s);
+  assert.match(ui,/\.workspace-float \.markets-shell\.market-flat\{[^}]*margin:0;[^}]*border:0; border-radius:0;[^}]*box-shadow:none;/s);
+  assert.match(ui,/#educationSetup\.education-setup-flat\{[^}]*border:0!important;[^}]*border-radius:0!important;[^}]*background:transparent!important;[^}]*box-shadow:none!important;/s);
+  assert.match(ui,/\.recipes-shell\{[^}]*width:100%; height:100%;[^}]*margin:0;[^}]*gap:0;[^}]*overflow:hidden;/s);
+  assert.match(ui,/\.recipes-category-rail,\.recipes-main,\.recipes-detail\{[^}]*background:transparent;/s);
+  assert.match(ui,/\.recipe-card\{[^}]*border:0;[^}]*border-radius:0;[^}]*background:transparent;/s);
+  assert.match(showWorkspace,/frame\.dataset\.workspace=ws/);
+});
+
+test("Education, Markets, and Recipes open in a shared floating resizable workspace while Browser stays unchanged", () => {
+  assert.match(ui, /class="workspace-float" id="workspaceFloat" role="dialog"/);
+  const floatContentIndex=ui.indexOf('class="workspace-float-content"');
+  const recipesPanelIndex=ui.indexOf('id="recipesPanel"');
+  const resizeHandleIndex=ui.indexOf('data-workspace-resize="w"');
+  assert.ok(floatContentIndex>=0&&recipesPanelIndex>floatContentIndex&&recipesPanelIndex<resizeHandleIndex);
+  assert.match(ui, /id="workspaceFloatBar"/);
+  assert.match(ui, /id="workspaceFloatTheme"[^>]*aria-label="Switch workspace to dark mode"/);
+  assert.match(ui, /id="workspaceFloatExpand"[^>]*aria-label="Expand workspace"/);
+  assert.match(ui, /id="workspaceFloatClose"[^>]*aria-label="Close workspace"/);
+  assert.match(ui, /const WORKSPACE_THEME_KEY="booleanWorkspaceThemeV1"/);
+  assert.match(ui, /function applyWorkspaceTheme\(theme,\{save=false\}=\{\}\)/);
+  assert.match(ui, /theme\.onclick=\(\)=>\{[\s\S]*?applyWorkspaceTheme\(frame\.dataset\.workspaceTheme==="dark"\?"light":"dark",\{save:true\}\)/);
+  assert.match(ui, /data-workspace-resize="w"/);
+  for (const edge of ["n","e","s","ne","se","sw","nw"]) assert.doesNotMatch(ui, new RegExp(`data-workspace-resize="${edge}"`));
+  assert.match(ui, /body\.education-open \.workspace-float,body\.markets-open \.workspace-float,body\.recipes-open \.workspace-float\{ display:flex; \}/);
+  assert.match(ui, /\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[^}]*width:100%; height:100%; min-height:0; margin:0;[^}]*box-sizing:border-box;/s);
+  assert.match(ui, /body\.recipes-open \.workspace-float \.recipes-panel\{ display:flex; \}/);
+  assert.match(ui, /\.workspace-float\.maximized\{ inset:78px 8px 4px 44px!important;/);
+  assert.match(ui, /const WORKSPACE_FLOAT_KEY="booleanWorkspaceDockWidthV4"/);
+  assert.match(ui, /function constrainWorkspaceFloatWidth\(/);
+  assert.match(ui, /top:78px; right:8px; bottom:4px/);
+  assert.match(ui, /function setWorkspaceFloatMaximized\(/);
+  assert.match(ui, /function showWorkspaceFloat\(ws\)/);
+  assert.match(ui, /if\(frame\.classList\.contains\("maximized"\)\)syncWorkspaceChatReservation\(\);\s*else restoreWorkspaceFloatWidth\(\);/);
+  assert.match(ui, /window\.addEventListener\("resize",\(\)=>\{[\s\S]*?!\["education","markets","recipes"\]\.includes\(activeWsTab\)\)return;/);
+  assert.match(ui, /applyWorkspaceFloatWidth\(saved\|\|innerWidth\)/);
+  assert.match(ui, /right:narrow\?4:8,bottom:4/);
+  assert.match(ui, /\.workspace-float\{[^}]*min-width:0; min-height:0;/s);
+  assert.match(ui, /if\(innerWidth<=760\)return Math\.max\(0,innerWidth-bounds\.left-bounds\.right\)/);
+  assert.match(ui, /const mainLeft=document\.querySelector\("main"\)\?\.getBoundingClientRect\(\)\.left\|\|bounds\.left;/);
+  assert.match(ui, /const compact=innerWidth<=980;/);
+  assert.match(ui, /const minChatWidth=compact\?160:180;/);
+  assert.match(ui, /const maxWidth=Math\.max\(0,available-chatGap-minChatWidth\);/);
+  assert.match(ui, /const minWidth=Math\.min\(60,maxWidth\);/);
+  assert.match(ui, /frame\.classList\.toggle\("compact-strip",nextWidth<150\)/);
+  assert.match(ui, /\.workspace-float\.compact-strip:not\(\.maximized\) \.workspace-float-bar\{ justify-content:flex-end; padding-left:22px; \}/);
+  assert.match(ui, /\.workspace-float\.compact-strip:not\(\.maximized\) \.workspace-float-tabs,[\s\S]*?#workspaceFloatExpand\{ display:none; \}/);
+  assert.match(ui, /\.workspace-float\.compact-strip:not\(\.maximized\) \.workspace-float-actions\{ flex:0 0 auto; \}/);
+  assert.match(ui, /\.workspace-float\.compact-strip:not\(\.maximized\) \.workspace-float-content\{ visibility:hidden; pointer-events:none; \}/);
+  assert.match(ui, /\.workspace-resize-handle\.w\{[\s\S]*?left:0;[\s\S]*?width:22px;[\s\S]*?cursor:ew-resize;/);
+  assert.match(ui, /const mainLeft=document\.querySelector\("main"\)\?\.getBoundingClientRect\(\)\.left\|\|0;/);
+  assert.match(ui, /function syncWorkspaceChatReservation\(\)/);
+  assert.match(ui, /const chatWidth=Math\.max\(0,Math\.round\(rect\.left-mainLeft-12\)\);/);
+  assert.match(ui, /style\.setProperty\("--workspace-chat-width",next\)/);
+  assert.match(ui, /classList\.toggle\("workspace-chat-covered",covered\)/);
+  assert.match(ui, /if\(frame\.classList\.contains\("maximized"\)\)\{syncWorkspaceChatReservation\(\);return;\}/);
+  assert.match(ui, /new ResizeObserver\(\(\)=>\{[\s\S]*?\["education","markets","recipes"\]\.includes\(activeWsTab\)[\s\S]*?else syncWorkspaceChatReservation\(\);/);
+  assert.match(ui, /function scheduleResponsiveClasses\(\)\{[\s\S]*?cancelAnimationFrame\(responsiveClassesFrame\);[\s\S]*?responsiveClassesFrame=requestAnimationFrame/);
+  assert.match(ui, /new ResizeObserver\(scheduleResponsiveClasses\)\.observe\(document\.querySelector\("main"\)\)/);
+  assert.match(ui, /function beginWorkspaceLayoutSwitch\(\)/);
+  assert.match(ui, /body\.workspace-layout-switching aside,[\s\S]*?transition:none!important;/);
+  assert.match(ui, /\.workspace-resize-handle\.w\{[\s\S]*?width:22px;[\s\S]*?cursor:ew-resize;/);
+  assert.match(ui, /\.workspace-resize-handle\.w::after\{[\s\S]*?height:54px;[\s\S]*?opacity:\.45;/);
+  assert.match(ui, /workspaceFloatGesture=\{startX:event\.clientX,width:rect\.width,pointerId:event\.pointerId,handle\}/);
+  assert.match(ui, /queueWorkspaceFloatWidth\(drag\.width-\(event\.clientX-drag\.startX\)\)/);
+  assert.doesNotMatch(ui, /handle\.onpointermove=/);
+  assert.match(ui, /handle\.onpointercancel=finishResize/);
+  assert.match(ui, /box-shadow:0 8px 28px rgba\(0,0,0,\.12\)/);
+  assert.match(ui, /border-right:1px solid color-mix\(in srgb,var\(--border\) 72%,transparent\)/);
+  assert.match(ui, /body\.education-open #chat,body\.markets-open #chat,body\.recipes-open #chat\{[\s\S]*?width:var\(--workspace-chat-width,360px\)/);
+  assert.match(ui, /body\.education-open #chat,body\.markets-open #chat,body\.recipes-open #chat\{[^}]*overflow-x:hidden; overflow-y:auto; overscroll-behavior-y:contain;/s);
+  assert.doesNotMatch(ui, /body\.education-open #chat,body\.markets-open #chat,body\.recipes-open #chat\{[^}]*overflow:hidden;/s);
+  assert.match(ui, /body\.workspace-chat-covered #chat,[\s\S]*?body\.workspace-chat-covered \.composer-wrap,[\s\S]*?visibility:hidden!important; pointer-events:none!important;/);
+  assert.match(ui, /body\.education-open \.composer-wrap,body\.markets-open \.composer-wrap,[\s\S]*?body\.recipes-open \.composer-wrap,[\s\S]*?width:var\(--workspace-chat-width,360px\)/);
+  assert.match(ui, /body\.education-open main::after,body\.markets-open main::after,body\.recipes-open main::after\{[\s\S]*?display:block!important; left:0; right:auto; width:var\(--workspace-chat-width,360px\);/);
+  assert.doesNotMatch(ui, /body\.education-open main::after\{ display:none!important; \}/);
+  assert.match(ui, /\.workspace-float\[data-workspace-theme="light"\]\{[\s\S]*?--approved-canvas:#f5f5f3; --approved-card:#fbfbfa;/);
+  assert.match(ui, /\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[\s\S]*?background:var\(--approved-card,var\(--card\)\);/);
+  assert.match(ui, /\.workspace-float \.recipes-shell,[\s\S]*?\.workspace-float \.recipe-actions\{ background:var\(--approved-card,var\(--card\)\); \}/);
+  assert.match(ui, /id="workspaceFloatTheme"[^>]*>&#x263E;<\/button>/);
+  assert.match(ui, /\.workspace-float-actions button\{[^}]*width:30px; height:30px;[^}]*font:18px\/1 "Segoe UI Symbol"/s);
+  assert.doesNotMatch(ui, /body\.recipes-open #chat,body\.recipes-open \.composer-wrap\{ display:none !important; \}/);
+  assert.doesNotMatch(ui, /body\.composer-simple\.recipes-open \.composer-wrap\{ display:none !important; \}/);
+  assert.match(ui, /close\.onclick=\(\)=>setWorkspaceTab\("chat"\)/);
+  assert.match(ui, /else\{\s*document\.body\.classList\.remove\("workspace-chat-covered"\);\s*document\.body\.style\.removeProperty\("--workspace-chat-width"\);\s*scheduleResponsiveClasses\(\);/);
+  assert.match(ui, /workspaceFloatGesture=\{startX:event\.clientX,width:rect\.width,pointerId:event\.pointerId,handle\}/);
+  assert.doesNotMatch(ui, /workspaceFloatGesture=\{kind:"move"/);
+  assert.match(ui, /if\(\["education","markets","recipes"\]\.includes\(activeWsTab\)\)showWorkspaceFloat\(activeWsTab\)/);
+  assert.match(ui, /id="workspaceFloatTabs"[^>]*role="tablist"[^>]*aria-label="Explore pages"/);
+  assert.match(ui, /data-workspace-page="markets"[\s\S]*data-workspace-page="education"[\s\S]*data-workspace-page="recipes"/);
+  assert.match(ui, /document\.body\.classList\.toggle\("recipes-open", activeWsTab === "recipes"\)/);
+  const workspaceSetter=ui.slice(ui.indexOf("function setWorkspaceTab"),ui.indexOf('document.querySelectorAll(".ws-tab")'));
+  assert.doesNotMatch(workspaceSetter, /requestAnimationFrame\(\(\)=>markWorkspaceTab\("chat"\)\)/);
+  assert.match(ui,/function openExploreWorkspace\(\)\{\s*if\(EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)\{\s*setWorkspaceTab\("chat"\);\s*return;/);
+  assert.doesNotMatch(ui, /body\.browser-on \.workspace-float/);
+});
+
+test("every Grade 7 practice supports a 250-question session", () => {
+  assert.match(ui, /educationQuestionCounts=examId=>educationExamGrades\[examId\]\?\.includes\(7\)\?\[5,10,15,20,25,50,100,150,200,250\]/);
+  for (const exam of ["grade7","iseeMiddle","ssatMiddle","hspt","iq"]) {
+    assert.match(ui, new RegExp(`${exam}:\\{name:[^\\n]+up to 250 Boolean original questions per session`));
+  }
+  assert.match(ui, /teas:\{name:"ATI TEAS"/);
+  assert.match(ui, /hesiA2:\{name:"HESI A2"/);
+  assert.match(ui, /hspt:\[7,8\]/);
+  assert.match(ui, /teas:\[12\],hesiA2:\[12\]/);
+  assert.match(ui, /safeCount=allowed\.includes\(Number\(count\)\)\?Number\(count\):10/);
+  assert.match(ui, /answers:Array\(safeCount\)\.fill\(null\)/);
+});
+
+test("Education stays compact, unfaded, and always has an exit", () => {
+  assert.doesNotMatch(ui, /body\.education-open main::after\{ display:none!important; \}/);
+  assert.match(ui, /body\.education-open main::after,body\.markets-open main::after,body\.recipes-open main::after\{[\s\S]*?display:block!important;/);
+  assert.match(ui, /\.education-field\[hidden\]\{ display:none!important; \}/);
+  assert.match(ui, /#educationExitTop\{ display:inline-flex; flex:0 0 auto; \}/);
+  assert.match(ui, /function educationExitFromTop\(\)/);
+  assert.match(ui, /\$\("educationExitTop"\)\.onclick=educationExitFromTop/);
+  assert.match(ui, /body\.education-testing \.education-shell\{ height:100%; min-height:0; display:flex; flex-direction:column; \}/);
+  assert.match(ui, /\.education-official\{ height:100%; min-height:0;/);
+  assert.match(ui, /\.education-question-map\{ flex:1; min-height:48px; overflow:auto; display:grid; grid-template-columns:repeat\(7,1fr\)/);
 });
 
 test("project timelines appear only for chats explicitly bound to a folder", () => {
   assert.match(ui, /function shouldShowProjectPlan\(snapshot\)[\s\S]*?thread\?\.kind==="project"[\s\S]*?!!thread\?\.projectDir/);
 });
 
-test("projects and chats use the compact 1A accordion sidebar", () => {
+test("projects and chats use the compact nested accordion sidebar", () => {
   assert.match(ui, /\.project-accordion\{ border-top:1px solid var\(--border\); \}/);
   assert.match(ui, /\.project-group-head\{ display:flex; align-items:center; gap:7px;/);
+  assert.match(ui, /\.project-group-body\{ position:relative; margin-left:11px;[\s\S]*?border-left:1px solid var\(--border\); \}/);
+  assert.match(ui, /\.project-group-body \.thread::before\{[\s\S]*?border-bottom:1px solid var\(--border\);/);
   assert.match(ui, /head\.setAttribute\("aria-expanded",String\(open\)\)/);
   assert.match(ui, /makeThreadRow\(t,\{projectChat:true,label:"Project chat"\}\)/);
   assert.ok(ui.includes(`chatHead.innerHTML='<span>Personal chats</span><span class="gcount">'+chats.length+'</span>'`));
   assert.match(ui, /const projectGroups=JSON\.parse\(localStorage\.getItem\("boollmProjectGroups"\)\|\|"{}"\)/);
+  assert.doesNotMatch(ui, /createRow\.append\(createProjectButton,openFolderButton\)/);
+  assert.doesNotMatch(ui, /newChatButton\.innerHTML='<span class="plus">\+<\/span><span>New chat<\/span>'/);
+});
+
+test("wide Chat shows a Codex-style utility rail with Explore links", () => {
+  assert.match(ui, /id="chatUtilityPanel" aria-label="Chat workspace details"/);
+  for (const page of ["markets","education","recipes"]) {
+    assert.match(ui,new RegExp(`data-chat-utility-workspace="${page}"`));
+  }
+  assert.match(ui,/\.chat-utility-panel\{[\s\S]*?position:absolute;[\s\S]*?right:10px; bottom:12px; width:260px;/);
+  assert.match(ui,/body\.chat-utility-room\.workspace-chat \.chat-utility-panel\{ display:block; \}/);
+  assert.match(ui,/body\.chat-utility-room\.workspace-chat #chat\{ padding-right:calc\(var\(--content-x\) \+ 280px\); \}/);
+  assert.match(ui,/document\.body\.classList\.contains\("workspace-chat"\)&&!utilityBlocked&&mainW>=1120/);
+  assert.match(ui,/button\.addEventListener\("click",\(\)=>setWorkspaceTab\(button\.dataset\.chatUtilityWorkspace\)\)/);
+  assert.match(ui,/function syncChatUtilityContent\(\)/);
+  assert.match(ui,/id="chatUtilityProject" hidden/);
+  assert.match(ui,/id="chatUtilitySources"/);
 });
 
 test("native browser keeps a usable split width and auto-fits narrow pages", () => {
@@ -1078,17 +1368,17 @@ test("successful run_project opens the local preview in the built-in browser", (
   assert.match(shell, /AddTab\(u, activate: true, navigate: true\);/);
 });
 
-test("Boollm brand reports live work activity without provider-specific status text", () => {
-  assert.match(ui, /function setBoollmActivity\(text,\{temporary=0,ready=true\}=\{\}\)/);
+test("Boolean brand reports live work activity without provider-specific status text", () => {
+  assert.match(ui, /function setBooleanActivity\(text,\{temporary=0,ready=true\}=\{\}\)/);
   for (const label of ["Ready", "Working", "Reading page", "Browsing", "Saving to notes", "Summarizing"]) {
-    assert.ok(ui.includes(`"${label}"`), `missing Boollm activity label: ${label}`);
+    assert.ok(ui.includes(`"${label}"`), `missing Boolean activity label: ${label}`);
   }
-  assert.match(ui, /if\(!run\) setBoollmActivity\(text,\{ready\}\)/);
-  assert.match(ui, /setBoollmActivity\("Working"\);\s*if\(opts\.provider\)/);
-  assert.match(ui, /setBoollmActivity\(inferBoollmActivity\(ev\.text\)\)/);
-  assert.match(ui, /setBoollmActivity\(ev\.command\?\.action==="write"\?"Saving to notes":"Working"\)/);
-  assert.match(ui, /function showReading\(\)\{ setBoollmActivity\("Reading page",\{temporary:2600\}\)/);
-  assert.match(ui, /setBoollmActivity\(\/summar\|email_summary\/\.test\(task\)\?"Summarizing":"Browsing"\)/);
+  assert.match(ui, /if\(!run\) setBooleanActivity\(text,\{ready\}\)/);
+  assert.match(ui, /setBooleanActivity\("Working"\);\s*if\(opts\.provider\)/);
+  assert.match(ui, /setBooleanActivity\(inferBooleanActivity\(ev\.text\)\)/);
+  assert.match(ui, /setBooleanActivity\(ev\.command\?\.action==="write"\?"Saving to notes":"Working"\)/);
+  assert.match(ui, /function showReading\(\)\{ setBooleanActivity\("Reading page",\{temporary:2600\}\)/);
+  assert.match(ui, /setBooleanActivity\(\/summar\|email_summary\/\.test\(task\)\?"Summarizing":"Browsing"\)/);
   assert.match(ui, /\.brand-about\.ready\{ color:var\(--dim\); background:transparent; \}/);
   assert.doesNotMatch(ui, /const text=ready\?shortLabel\+" ready":"Not ready"/);
 });

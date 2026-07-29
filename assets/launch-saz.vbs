@@ -1,4 +1,4 @@
-' Launches Boollm's app window with no console window.
+' Launches Boolean's app window with no console window.
 ' The server exits by itself when the app window is closed.
 Dim sh, fso, dir
 Set sh = CreateObject("WScript.Shell")

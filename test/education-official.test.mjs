@@ -47,7 +47,7 @@ test("Education requires an account and filters exams by student grade", () => {
   assert.match(ui, /iq:\[6,7,8,9,10,11,12\]/);
   assert.match(ui, /\["education","markets"\]\.includes\(ws\)&&!marketsAccessAllowed\(\)/);
   assert.match(ui, /\["educationWorkspaceTab","marketsWorkspaceTab"\]/);
-  assert.match(server, /Sign in to your Boollm account to use Education\./);
+  assert.match(server, /Sign in to your Boolean account to use Education\./);
 });
 
 test("Education covers grades 6 through 12 and keeps test exit visible", () => {
@@ -56,8 +56,8 @@ test("Education covers grades 6 through 12 and keeps test exit visible", () => {
   }
   assert.match(ui, /grade6:\[6\],grade7:\[7\],iseeMiddle:\[6,7\],ssatMiddle:\[6,7\]/);
   assert.match(ui, /id="educationExitTop"[^>]*>Save &amp; exit test<\/button>/);
-  assert.match(ui, /body\.education-testing #educationExitTop\{ display:inline-flex;/);
-  assert.match(ui, /\$\("educationExitTop"\)\.onclick=educationExitOfficial/);
+  assert.match(ui, /#educationExitTop\{ display:inline-flex; flex:0 0 auto; \}/);
+  assert.match(ui, /\$\("educationExitTop"\)\.onclick=educationExitFromTop/);
   assert.match(ui, /option\.disabled=!allGrades&&grade<8/);
 });
 
@@ -76,7 +76,7 @@ test("official exams use a focused one-question reader with navigation and flags
   assert.match(ui, /Read the official question card, then pick your answer below/);
 });
 
-test("every official question has a generated Boollm card", () => {
+test("every official question has a generated Boolean card", () => {
   const cardsRoot = new URL("../assets/education-cards/", import.meta.url);
   for (const exam of catalog.exams) {
     for (let number = 1; number <= exam.questionCount; number++) {

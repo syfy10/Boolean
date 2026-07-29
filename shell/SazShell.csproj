@@ -6,11 +6,11 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>Boollm</AssemblyName>
+    <AssemblyName>Boolean</AssemblyName>
     <RootNamespace>SazShell</RootNamespace>
-    <Version>0.9.58</Version>
-    <FileVersion>0.9.58.0</FileVersion>
-    <AssemblyVersion>0.9.58.0</AssemblyVersion>
+    <Version>0.9.59</Version>
+    <FileVersion>0.9.59.0</FileVersion>
+    <AssemblyVersion>0.9.59.0</AssemblyVersion>
     <ApplicationIcon>..\assets\saz.ico</ApplicationIcon>
     <!-- single self-contained file is produced by the publish step in build-shell.ps1 -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>

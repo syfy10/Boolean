@@ -25,7 +25,7 @@ export const PLATFORM_TOOL_DEFINITIONS = [
     scope: enumProp(["changes", "repository"]),
     profile: enumProp(["standard", "security"])
   }),
-  tool("manage_skill", "List, inspect, install, or remove reusable Boollm skills. Skill installs are local folders containing skill.json and require approval.", {
+  tool("manage_skill", "List, inspect, install, or remove reusable Boolean skills. Skill installs are local folders containing skill.json and require approval.", {
     operation: enumProp(["list", "inspect", "install", "remove", "use", "run_hook"]),
     id: strProp("Skill id"),
     source: strProp("Absolute local skill folder to install"),
@@ -49,7 +49,7 @@ export const PLATFORM_TOOL_DEFINITIONS = [
     body: strProp("Optional webhook body"),
     cwd: strProp("Optional command working directory")
   }, ["operation"]),
-  tool("create_artifact", "Create a real DOCX, XLSX, PPTX, or PDF file locally using Boollm's dependency-free artifact writer.", {
+  tool("create_artifact", "Create a real DOCX, XLSX, PPTX, or PDF file locally using Boolean's dependency-free artifact writer.", {
     type: enumProp(["docx", "xlsx", "pptx", "pdf"]),
     path: strProp("Output file path"),
     title: strProp("Artifact title"),

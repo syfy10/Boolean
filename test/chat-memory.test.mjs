@@ -7,9 +7,9 @@ test("local chat memory retrieves relevant saved conversation excerpts", () => {
   const threads = [
     {
       id: "current",
-      title: "Boollm polish",
+      title: "Boolean polish",
       kind: "project",
-      projectDir: "C:\\Users\\S10\\Documents\\Boollm",
+      projectDir: "C:\\Users\\S10\\Documents\\Boolean",
       updatedAt: Date.now(),
       messages: [
         { role: "system", content: "system" },
@@ -35,13 +35,13 @@ test("local chat memory retrieves relevant saved conversation excerpts", () => {
   const memory = buildLocalChatMemory(threads, {
     currentThreadId: "current",
     latestText: "what did i tell you about deploy and saved keys?",
-    projectDir: "C:\\Users\\S10\\Documents\\Boollm"
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
   });
 
   assert.match(memory, /CURRENT THREAD MEMORY/);
   assert.match(memory, /dont build and deploy anything until i say it/i);
   assert.match(memory, /preserve saved keys/i);
-  assert.match(memory, /Boollm polish/);
+  assert.match(memory, /Boolean polish/);
 });
 
 test("local chat memory skips blank starter chats", () => {
@@ -78,9 +78,9 @@ test("local chat memory summarizes chat log entries when messages are trimmed", 
     },
     {
       id: "browser",
-      title: "Boollm browser layout",
+      title: "Boolean browser layout",
       kind: "project",
-      projectDir: "C:\\Users\\S10\\Documents\\Boollm",
+      projectDir: "C:\\Users\\S10\\Documents\\Boolean",
       updatedAt: now - 1000,
       messages: [{ role: "system", content: "system" }],
       log: [
@@ -91,12 +91,12 @@ test("local chat memory summarizes chat log entries when messages are trimmed", 
   ], {
     currentThreadId: "active",
     latestText: "check open chats and remember the browser layout work",
-    projectDir: "C:\\Users\\S10\\Documents\\Boollm"
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
   });
 
   assert.match(memory, /RECENT SAVED CHATS/);
   assert.match(memory, /active chat "Email draft"/);
-  assert.match(memory, /Thread "Boollm browser layout"/);
+  assert.match(memory, /Thread "Boolean browser layout"/);
   assert.match(memory, /page actions bar/i);
   assert.match(memory, /multi-tab extract/i);
 });
@@ -104,9 +104,9 @@ test("local chat memory summarizes chat log entries when messages are trimmed", 
 test("local chat memory keeps durable answers corrections and decisions after trimming", () => {
   const memory = buildLocalChatMemory([{
     id: "durable",
-    title: "Boollm execution rules",
+    title: "Boolean execution rules",
     kind: "project",
-    projectDir: "C:\\Users\\S10\\Documents\\Boollm",
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean",
     updatedAt: Date.now(),
     messages: [{ role: "system", content: "system" }, { role: "user", content: "remember our execution rules" }],
     memoryDigest: {
@@ -118,7 +118,7 @@ test("local chat memory keeps durable answers corrections and decisions after tr
   }], {
     currentThreadId: "durable",
     latestText: "what did we decide about task routing?",
-    projectDir: "C:\\Users\\S10\\Documents\\Boollm"
+    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
   });
 
   assert.match(memory, /Fix task routing and completion/);

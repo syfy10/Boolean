@@ -126,13 +126,18 @@ test("CFTC rows become a compact weekly positioning snapshot", () => {
 test("Markets workspace connects data, browser, notes, and API-key setup", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
   const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
-  assert.match(ui, /id="marketsWorkspaceTab"[^>]*data-ws="markets"[^>]*hidden[^>]*aria-hidden="true"/);
+  const navStart=ui.indexOf('<div class="workspace-tabs" id="workspaceTabs">');
+  const navEnd=ui.indexOf("</div>",navStart);
+  const mainNav=ui.slice(navStart,navEnd);
+  assert.match(mainNav, /id="exploreWorkspaceTab"[^>]*data-ws="explore"/);
+  assert.doesNotMatch(mainNav, /data-ws="markets"|id="marketsWorkspaceTab"/);
   assert.match(ui, /function marketsAccessAllowed\(\)/);
   assert.match(ui, /\["education","markets"\]\.includes\(ws\)&&!marketsAccessAllowed\(\)/);
   assert.match(ui, /Save snapshot to Notepad/);
   assert.match(ui, /Major market indexes|Major market indexes/i);
   assert.match(ui, /Market Movers/i);
-  assert.match(ui, /News &amp; Filings/);
+  assert.match(ui, /Breaking News/);
+  assert.doesNotMatch(ui, />News &amp; Filings</);
   assert.match(ui, /marketRanges/);
   assert.match(ui, /marketFinancials/);
   assert.match(ui, /marketDrivers/);
@@ -179,7 +184,116 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   assert.match(server, /\/api\/markets\/trade-ideas/);
   assert.match(server, /\/api\/markets\/cot/);
   assert.match(server, /p\.startsWith\("\/api\/markets\/"\) && !marketAccessAllowed\(config\)/);
-  assert.match(server, /Sign in to your Boollm account to use Markets\./);
+  assert.match(server, /Sign in to your Boolean account to use Markets\./);
+});
+
+test("Markets uses the selected flat floating-workspace layout", () => {
+  const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  assert.match(ui,/class="markets-shell market-flat"/);
+  assert.match(ui,/\.workspace-float \.markets-shell\.market-flat\{[^}]*border:0;[^}]*border-radius:0;[^}]*box-shadow:none;/s);
+  assert.match(ui,/\.workspace-float \.markets-shell\.market-flat\{[^}]*width:max\(100%,910px\);[^}]*overflow:hidden;/s);
+  assert.match(ui,/\.markets-panel\{[^}]*overflow:auto;/s);
+  const headerStart=ui.indexOf('<header class="markets-head">');
+  const headerEnd=ui.indexOf("</header>",headerStart);
+  const header=ui.slice(headerStart,headerEnd);
+  assert.ok(headerStart>=0&&headerEnd>headerStart,"Markets should retain its flat page header");
+  assert.doesNotMatch(header,/<h2>|Boolean Markets/);
+  assert.doesNotMatch(header,/id="marketCommand"/);
+  assert.doesNotMatch(header,/id="marketSource"|market-source-wrap|market-source-info/);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-index\{[^}]*min-height:34px;[^}]*padding:3px 12px;/s);
+  const toolsStart=ui.indexOf('<nav class="market-mode-tabs" id="marketModeTabs"');
+  const toolsEnd=ui.indexOf("</nav>",toolsStart);
+  const tools=ui.slice(toolsStart,toolsEnd);
+  assert.ok(toolsStart>=0&&toolsEnd>toolsStart,"Markets should retain its Monitor and Research Desk row");
+  let previous=-1;
+  for(const token of ['data-market-mode="monitor"','data-market-mode="ideas"','id="marketCommand"']){
+    const next=tools.indexOf(token);
+    assert.ok(next>previous,`${token} should remain on the shared Markets tool row`);
+    previous=next;
+  }
+  assert.match(tools,/class="market-search-box"/);
+  assert.match(tools,/id="marketRefresh"/);
+  assert.match(tools,/id="marketSettings"[^>]*aria-label="Market data settings"/);
+  assert.doesNotMatch(tools,/id="marketSource"|Yahoo Finance \(experimental\)|delayed\/indicative/);
+  assert.doesNotMatch(ui,/id="marketSource"/);
+  assert.doesNotMatch(ui,/\$\("marketSource"\)\.textContent/,"removed provider copy must not leave a missing-element write behind");
+  assert.match(ui,/\.workspace-float \.market-flat \.markets-grid\{ grid-template-columns:230px minmax\(380px,1fr\) 265px;/);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-watch,[\s\S]*?\.workspace-float \.market-flat \.market-right-block\{[\s\S]*?background:var\(--approved-card,var\(--card\)\)!important;[\s\S]*?box-shadow:none!important;/);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-chart-sentiment\{[^}]*grid-template-columns:1fr;/);
+});
+
+test("Markets retains the monitor, intelligence, and Research Desk feature set", () => {
+  const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  for (const id of [
+    "marketCommand","marketRefresh","marketSettings","marketSetup","marketSetupSave",
+    "marketModeTabs","marketIndexes","marketWatchlist","marketAddSymbol","marketAddBtn","marketMoverTabs","marketMovers",
+    "marketTitle","marketRanges","marketIndicators","marketChartType","marketChartFullscreen","marketChart",
+    "marketSentimentGauge","marketSentimentComponents","marketSecurityTabs","marketFinancials",
+    "marketHeadlines","marketAlertPrice","marketAiPrompt","marketAsk","marketAiSummary","marketDrivers",
+    "marketSectorContext","marketBrowser","marketNews","marketNote","marketBottomTape","marketResearchPage",
+    "marketScanReset","marketScanRefresh","marketScanUniverse","marketScanSetup","marketScanRank","marketScanCap",
+    "marketScanVolatility","marketScanList","marketViewFullScanner","marketIdeaRanges","marketIdeaIndicators",
+    "marketIdeaFullscreen","marketIdeaChart","marketPlanSetup","marketIdeaWhy","marketIdeaCatalysts","marketIdeaRisks",
+    "marketIdeaNews","marketIdeaChat","marketIdeaBrowser","marketIdeaNote","marketCotCard","marketCotMarket","marketCotGrid"
+  ]) assert.match(ui, new RegExp(`id="${id}"`), `${id} should remain in Markets`);
+  assert.match(ui,/data-market-mode="monitor"/);
+  assert.match(ui,/data-market-mode="ideas"/);
+  assert.match(ui,/Discuss in Chat/);
+  assert.match(ui,/Open (?:quote|sources) in Browser/);
+  assert.match(ui,/Save to Notepad/);
+  for (const id of [
+    "marketModeTabs","marketMoverTabs","marketScanRefresh","marketScanReset","marketIdeaRanges",
+    "marketIdeaIndicators","marketIdeaFullscreen","marketCotMarket","marketRefresh","marketCommand",
+    "marketRanges","marketIndicators","marketChartType","marketChartFullscreen","marketSecurityTabs",
+    "marketSettings","marketSetupSave","marketAddBtn","marketBrowser","marketNews","marketNote",
+    "marketAsk","marketAiPrompt","marketIdeaBrowser","marketIdeaChat","marketIdeaNote"
+  ]) assert.match(ui,new RegExp(`\\$\\("${id}"\\)\\.(?:onclick|onchange|onkeydown)=`),`${id} should keep its interaction binding`);
+  assert.match(ui,/\["marketScanUniverse","marketScanSetup","marketScanRank","marketScanCap","marketScanVolatility"\]\.forEach\(id=>\$\(id\)\.onchange=renderTradeResearch\)/);
+  assert.doesNotMatch(ui,/>News &amp; Filings</);
+  assert.doesNotMatch(ui,/id="marketNewsTable"/);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-lower-grid\{[^}]*grid-template-columns:1fr 1fr;/);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-mover-row \.mover-value\{[^}]*text-align:center;[^}]*font-size:9px!important;/);
+});
+
+test("Markets keeps the bottom ticker after both page bodies and in the final grid row", () => {
+  const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  const shellStart=ui.indexOf('<div class="markets-shell market-flat">');
+  const monitorStart=ui.indexOf('<div class="markets-grid"',shellStart);
+  const researchStart=ui.indexOf('id="marketResearchPage"',monitorStart);
+  const tickerStart=ui.indexOf('id="marketBottomTape"',researchStart);
+  const shellEnd=ui.indexOf("</section>",tickerStart);
+  assert.ok(
+    shellStart>=0&&monitorStart>shellStart&&researchStart>monitorStart&&tickerStart>researchStart&&shellEnd>tickerStart,
+    "the ticker must stay after the Monitor and Research Desk content in the Markets shell"
+  );
+  assert.match(ui,/\.market-bottom-tape\{[^}]*grid-row:5;/s);
+  assert.match(ui,/\.markets-shell\{[^}]*grid-template-rows:auto auto auto minmax\(0,1fr\) 24px;/s);
+});
+
+test("Markets shows a transparent local composite instead of an options card", () => {
+  const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  assert.match(ui, /\.workspace-float \.market-flat \.market-chart-sentiment\{[^}]*grid-template-columns:1fr;/);
+  assert.match(ui, /Boolean Sentiment/);
+  assert.match(ui, /Sentiment &amp; Sources/);
+  assert.match(ui, /function marketCompositeSentiment\(\)/);
+  assert.match(ui, /Price action/);
+  assert.match(ui, /Price \+ volume/);
+  assert.match(ui, /Boolean news tone/);
+  assert.match(ui, /Filing fundamentals/);
+  assert.match(ui, /Missing inputs are excluded and remaining weights are normalized/);
+  assert.match(ui, /No social or crowd data/);
+  assert.match(ui, /data-market-section="earnings"/);
+  assert.match(ui, /finance\.yahoo\.com\/quote\/\$\{symbol\}\/analysis/);
+  assert.match(ui, /finance\.yahoo\.com\/quote\/\$\{symbol\}\/history\/\?filter=div/);
+  assert.match(ui, /finance\.yahoo\.com\/quote\/\$\{symbol\}\/holders/);
+  assert.match(ui, /sec\.gov\/edgar\/search/);
+  assert.match(ui, /nasdaq\.com\/market-activity\/stocks/);
+  assert.match(ui, /market-sentiment-source-meta/);
+  assert.match(ui, /role="link" tabindex="0"/);
+  assert.doesNotMatch(ui, /<h3>Options Chain<\/h3>/);
+  assert.doesNotMatch(ui, /<button id="marketOptionsTab"/);
+  const loadSymbol = ui.slice(ui.indexOf("async function loadMarketSymbol"), ui.indexOf("function renderTradeIdeaChart"));
+  assert.doesNotMatch(loadSymbol, /\/api\/markets\/options/);
 });
 
 test("Markets intelligence keeps drivers, context, and actions compact", () => {

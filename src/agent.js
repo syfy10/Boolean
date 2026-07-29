@@ -90,19 +90,19 @@ export function systemPrompt(projectsDir = "", fullAccess = false, config = null
   return cleanSystemPrompt(projectsDir, fullAccess, connectorSummary(config), "");
 }
 
-// Prefer Boollm project rules, while retaining the two legacy Boolean paths
+// Prefer Boolean project rules, while retaining the two legacy Boollm paths
 // so existing projects continue to work after the product rename.
-// Boollm the project's coding style, commands, architecture, and constraints
+// These files teach the project's coding style, commands, architecture, and constraints
 // so it doesn't need to re-discover them every turn. Capped to 4 KB.
 const MAX_RULES_BYTES = 4096;
 export function loadProjectRules(projectDir) {
   try {
     if (!projectDir || !fs.existsSync(projectDir)) return "";
     const candidates = [
-      path.join(projectDir, "BOOLLM.md"),
-      path.join(projectDir, ".boollm", "rules.md"),
       path.join(projectDir, "BOOLEAN.md"),
-      path.join(projectDir, ".boolean", "rules.md")
+      path.join(projectDir, ".boolean", "rules.md"),
+      path.join(projectDir, "BOOLLM.md"),
+      path.join(projectDir, ".boollm", "rules.md")
     ];
     for (const candidate of candidates) {
       if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
@@ -112,7 +112,7 @@ export function loadProjectRules(projectDir) {
         text = text.replace(/^#\s+.+\r?\n?/, "").trim();
         if (text.length > MAX_RULES_BYTES) text = text.slice(0, MAX_RULES_BYTES) + "\n…(rules truncated)";
         const relative = path.relative(projectDir, candidate).replaceAll("\\", "/");
-        const label = relative === "BOOLEAN.md" || relative === ".boolean/rules.md"
+        const label = relative === "BOOLLM.md" || relative === ".boollm/rules.md"
           ? `${relative} (legacy)`
           : relative;
         return `PROJECT RULES (from ${label}):\n${text}`;
@@ -235,7 +235,7 @@ function withTurnModeSystem(messages, mode, config) {
   const systemIndex = copy.findIndex((message) => message?.role === "system");
   if (systemIndex >= 0) {
     const existing = String(copy[systemIndex].content || "").trim();
-    if (!existing.includes("BOOLLM OPERATING POLICY")) {
+    if (!existing.includes("BOOLEAN OPERATING POLICY")) {
       copy[systemIndex].content = existing ? `${existing}\n\n${policy}` : policy;
     }
   } else {
@@ -596,7 +596,7 @@ export function isLightweightLocalChat(text) {
 
 export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false, projectBound = false) {
   // Keep the full catalog visible on every normal main-chat turn. The model
-  // should decide whether a tool is useful; Boollm's controller, approvals,
+  // should decide whether a tool is useful; Boolean's controller, approvals,
   // and tool implementations remain the authority for whether a requested
   // action may execute. Project filesystem tools are the one deliberate
   // boundary: the user must first create or open a project from the UI.
@@ -698,7 +698,7 @@ function withRecentTaskStatusMemory(focused, fullMessages) {
 }
 
 // Keep the model in charge of implementation details, but recognize the narrow
-// case where a user clearly asked Boollm to produce a software/file artifact.
+// case where a user clearly asked Boolean to produce a software/file artifact.
 // This is used only to retry a model that answered with a tutorial and made no
 // tool call; it does not route or execute an action itself.
 export function requiresArtifactAction(messages) {
@@ -934,7 +934,7 @@ function clipMsg(m, maxChars) {
  * (aggressive — cap context small and clip large tool outputs).
  * Returns { msgs, sentTokens, fullTokens, budget }.
  */
-function fitToContext(messages, budgetTokens, mode = "balanced") {
+export function fitToContext(messages, budgetTokens, mode = "balanced") {
   const source = [...messages];
   const fullTokens = approxTokens(source);
   const reserve = fitReserveForMode(mode);
@@ -969,8 +969,16 @@ function fitToContext(messages, budgetTokens, mode = "balanced") {
   // Inject a rolling summary of dropped context so key decisions/corrections survive
   const droppedSummary = summarizeDropped(droppedMessages);
   if (droppedSummary) {
-    const summaryNote = { role: "system", content: droppedSummary };
-    return done([system, summaryNote, ...rest]);
+    // Several llama.cpp chat templates (including Qwen) allow exactly one
+    // system message and require it to be the first item. Keep the summary in
+    // that first message instead of creating a second system turn.
+    const mergedSystem = {
+      ...system,
+      content: [typeof system?.content === "string" ? system.content.trim() : "", droppedSummary.trim()]
+        .filter(Boolean)
+        .join("\n\n")
+    };
+    return done([mergedSystem, ...rest]);
   }
   return done([system, ...rest]);
 }
@@ -1045,7 +1053,7 @@ function directActionAnswer(action, result) {
  * @returns {Promise<string>} the model's final answer
  */
 export async function runTurn(ctx, messages) {
-  // The provider still owns the answer and tool choices. Boollm supplies the
+  // The provider still owns the answer and tool choices. Boolean supplies the
   // operating policy and enforces hard permission boundaries, but does not
   // replace a model's substantive response with an opinionated workflow.
   const { config, onStatus, onToken, onStep, onUsage, signal } = ctx;
@@ -1541,7 +1549,7 @@ export async function runTurn(ctx, messages) {
           : "the model returned no answer - retrying...");
         continue;
       }
-      throw new Error("The model returned an empty response repeatedly after Boollm retried automatically. The task remains checkpointed.");
+      throw new Error("The model returned an empty response repeatedly after Boolean retried automatically. The task remains checkpointed.");
     }
 
     // The model announced an inspection or action ("let me read the files now")

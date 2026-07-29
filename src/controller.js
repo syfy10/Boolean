@@ -203,7 +203,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     if (/\b(?:clean|cleanup|trash|spam|old mail|old email)\b/.test(task)) {
       return [
         { step: "Verify the connected mailbox", status: "in_progress" },
-        { step: "Open the mailbox in Boollm browser", status: "pending" },
+        { step: "Open the mailbox in Boolean browser", status: "pending" },
         { step: "Apply protection rules", status: "pending" },
         { step: "Scan and group cleanup candidates", status: "pending" },
         { step: "Review the read-only cleanup plan", status: "pending" },
@@ -213,7 +213,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     }
     return [
       { step: "Verify the connected mailbox", status: "in_progress" },
-      { step: "Open the relevant email in Boollm browser", status: "pending" },
+      { step: "Open the relevant email in Boolean browser", status: "pending" },
       { step: "Read the requested conversation or messages", status: "pending" },
       { step: "Prepare the requested email result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
@@ -225,7 +225,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
       { step: "Create the implementation plan", status: "pending" },
       { step: "Build the requested experience", status: "pending" },
       { step: "Run the project locally", status: "pending" },
-      { step: "Open the result in Boollm browser", status: "pending" },
+      { step: "Open the result in Boolean browser", status: "pending" },
       { step: "Run checks and inspect the result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
     ];
@@ -243,7 +243,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
   if (/\b(?:browser|web page|page|site|research|search the web|look up)\b/.test(task)) {
     return [
       { step: "Confirm the requested page or research target", status: "in_progress" },
-      { step: "Open the target in Boollm browser", status: "pending" },
+      { step: "Open the target in Boolean browser", status: "pending" },
       { step: "Inspect the relevant content", status: "pending" },
       { step: "Complete the requested browser task", status: "pending" },
       { step: "Report the verified result", status: "pending" }
@@ -574,7 +574,7 @@ export class AgentController {
     const next = this.plan.find((item) => item.status === "in_progress")?.step ||
       this.plan.find((item) => item.status === "pending")?.step || "Answer or report the completed result.";
     const lines = [
-      "BOOLLM WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
+      "BOOLEAN WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
       `Objective: ${cleanText(this.objective || "Complete the latest request.", 700)}`,
       `Mode: ${this.contract.mode}; browser: ${this.contract.browserPolicy}; deploy: ${this.contract.deployAllowed ? "allowed" : "blocked unless explicitly requested"}.`,
       this.contract.allowedRoots.length ? `Allowed workspace roots: ${this.contract.allowedRoots.join(" | ")}` : "",
@@ -617,7 +617,7 @@ export class AgentController {
   prompt() {
     const lines = [
       this.workingMemory(),
-      "BOOLLM TASK CONTROLLER:",
+      "BOOLEAN TASK CONTROLLER:",
       `Phase: ${this.phase}.`
     ];
     if (this.plan.length) {
@@ -901,7 +901,7 @@ export class AgentController {
     return this.snapshot();
   }
 
-  // The model decides when a task is finished. Boollm no longer refuses a final
+  // The model decides when a task is finished. Boolean no longer refuses a final
   // answer for missing evidence — the only hard requirement is that an answer exists.
   // A still-running background process is the one soft nudge worth keeping, because
   // leaving one behind makes a finished task look stuck.

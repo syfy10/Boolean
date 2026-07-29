@@ -41,7 +41,7 @@ test("MCP approval copy distinguishes reads from account-changing actions", () =
   assert.match(uiSource, /Read-only MCP calls follow your approval mode/);
   assert.match(uiSource, /Trades, orders, transfers, deletes/);
   assert.match(toolsSource, /mcpToolRequiresExplicitApproval/);
-  assert.doesNotMatch(toolsSource, /Boollm always asks the user to confirm MCP actions/);
+  assert.doesNotMatch(toolsSource, /Boolean always asks the user to confirm MCP actions/);
 });
 
 test("settings defaults are independent and never enable paid-provider switching", () => {
@@ -83,7 +83,7 @@ test("settings UI does not expose unsupported voice, telemetry, or encryption sw
 test("reset and destructive delete are separate guarded operations", () => {
   assert.match(serverSource, /p === "\/api\/settings\/reset"/);
   assert.match(serverSource, /p === "\/api\/delete-all-data"/);
-  assert.match(serverSource, /DELETE ALL BOOLLM DATA/);
+  assert.match(serverSource, /DELETE ALL BOOLEAN DATA/);
   assert.match(uiSource, /Accounts, API keys, email connections, chats, and projects are preserved/);
   assert.match(uiSource, /permanently removes chats, learned behavior, preferences, API keys, OAuth accounts, and connector credentials/);
 });
@@ -120,7 +120,7 @@ test("Notepad and Memory is a searchable, editable local control center", () => 
   assert.match(uiSource, /id="learningStatus"/);
   assert.match(uiSource, /id="memoryRuleCount"/);
   assert.match(uiSource, /id="memorySearch"[^>]*placeholder="Search saved preferences"/);
-  assert.match(uiSource, /Review exactly what Boollm will reuse\. Edit or forget any item\./);
+  assert.match(uiSource, /Review exactly what Boolean will reuse\. Edit or forget any item\./);
   assert.match(uiSource, /data-action="edit"/);
   assert.match(uiSource, /data-action="forget"/);
   assert.match(uiSource, /View saved example/);
@@ -129,11 +129,12 @@ test("Notepad and Memory is a searchable, editable local control center", () => 
   assert.match(serverSource, /updatePreference\(String\(body\.id \|\| ""\), String\(body\.text \|\| ""\)\)/);
 });
 
-test("policy covers local response learning and Education score limits", () => {
-  assert.match(uiSource, /Optional thumbs-up\/down ratings, correction notes, response excerpts, and learned behavior preferences stay on this PC/);
-  assert.match(uiSource, /Education is for practice and general learning only/);
-  assert.match(serverSource, /p === "\/api\/preferences\/feedback"/);
-});
+  test("policy covers local response learning and Education score limits", () => {
+    assert.match(uiSource, /Optional thumbs-up\/down ratings, correction notes, response excerpts, and learned behavior preferences stay on this PC/);
+    assert.match(uiSource, /Education is for practice and general learning only/);
+    assert.match(serverSource, /p === "\/api\/preferences\/feedback"[\s\S]{0,120}await readBody\(req\)/);
+    assert.match(uiSource, /const response=await fetch\("\/api\/preferences\/feedback"/);
+  });
 
 test("first-run setup does not promise automatic paid-provider routing", () => {
   assert.doesNotMatch(uiSource, /Both \(smart routing\)/);

@@ -1,4 +1,4 @@
-// Local HTTP server hosting the Boollm UI and bridging it to the agent loop.
+// Local HTTP server hosting the Boolean UI and bridging it to the agent loop.
 // NDJSON streaming for chat; approvals round-trip to the browser as events.
 // Multi-thread conversation store, per-thread stop/abort, image attachments.
 import http from "node:http";
@@ -107,7 +107,7 @@ const ABOUT_RELEASES = [
     details: [
       "Refined the native split workspace so Projects, Chat, Notepad, and Browser resize and hide cleanly across compact and maximized windows.",
       "Added Paper Minimal, Soft Glass, and Graphite Mist surface styles with consistent light and dark panel colors.",
-      "Simplified Boollm identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
+      "Simplified Boolean identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
     ]
   },
   {
@@ -256,7 +256,7 @@ async function cloudRequest(config, endpoint, options = {}) {
     if (res.status === 401 && options.auth !== false) {
       config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
       saveConfig(config);
-      const err = new Error("Your Boollm account session expired. Sign in again to continue.");
+      const err = new Error("Your Boolean account session expired. Sign in again to continue.");
       err.status = 401;
       err.code = "cloud_auth_required";
       throw err;
@@ -870,7 +870,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       <div class="wc">
         <button class="ico" data-w="min" title="Minimize">&#xE921;</button>
         <button class="ico" id="wmax" data-w="maxtoggle" title="Maximize">&#xE922;</button>
-        <button class="ico close" data-w="close" title="Close">&#xE8BB;</button>
+        <button class="ico close" id="browserClose" title="Close browser panel" aria-label="Close browser panel">&#xE8BB;</button>
       </div>
     </div>
     <div class="row r-nav">
@@ -926,6 +926,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     $("darkPage").onclick = function(){ act("darkPage"); };
     $("add").onclick    = function(){ act("newTab"); };
     $("full").onclick   = function(){ act("hideChat"); };
+    $("browserClose").onclick = function(){ act("hideBrowser"); };
     document.querySelectorAll(".wc [data-w]").forEach(function(b){
       b.onclick = function(){ win(b.dataset.w); };
     });
@@ -1464,7 +1465,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
       if (req.method === "GET" && p === "/api/education/official") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boollm account to use Education." }, 401);
+          json({ error: "Sign in to your Boolean account to use Education." }, 401);
           return;
         }
         json(officialEducationCatalog);
@@ -1472,7 +1473,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
       if (req.method === "GET" && p === "/api/education/card") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boollm account to use Education." }, 401);
+          json({ error: "Sign in to your Boolean account to use Education." }, 401);
           return;
         }
         const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
@@ -1498,7 +1499,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
       if (req.method === "GET" && p === "/api/education/pdf") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boollm account to use Education." }, 401);
+          json({ error: "Sign in to your Boolean account to use Education." }, 401);
           return;
         }
         const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
@@ -1548,7 +1549,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/manifest.json") {
         res.writeHead(200, { "content-type": "application/manifest+json" });
         res.end(JSON.stringify({
-          name: APP_NAME, short_name: "Boollm", description: APP_TAGLINE,
+          name: APP_NAME, short_name: "Boolean", description: APP_TAGLINE,
           start_url: "/", display: "standalone",
           background_color: "#17181a", theme_color: "#17181a",
           icons: [
@@ -1888,7 +1889,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (req.method === "GET" && p === "/api/top-prompts") {
-        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLLM CONTROLLER)/i;
+        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLEAN CONTROLLER)/i;
         const counts = new Map();
         for (const t of threads.values()) {
           for (const m of t.messages || []) {
@@ -2335,7 +2336,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (p.startsWith("/api/markets/") && !marketAccessAllowed(config)) {
-        json({ error: "Sign in to your Boollm account to use Markets." }, 401);
+        json({ error: "Sign in to your Boolean account to use Markets." }, 401);
         return;
       }
 
@@ -2512,8 +2513,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
       if (req.method === "POST" && p === "/api/delete-all-data") {
         const body = await readBody(req);
-        if (body.confirm !== "DELETE ALL BOOLLM DATA") {
-          json({ ok: false, error: "Type DELETE ALL BOOLLM DATA to confirm." }, 400);
+        if (body.confirm !== "DELETE ALL BOOLEAN DATA") {
+          json({ ok: false, error: "Type DELETE ALL BOOLEAN DATA to confirm." }, 400);
           return;
         }
         for (const thread of threads.values()) {
@@ -2747,7 +2748,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingCloudflareOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect Cloudflare again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect Cloudflare again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -2783,8 +2784,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.accounts = verified.accounts;
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
           res.end(oauthResultPage("Cloudflare connected", selected
-            ? `${selected.name} is ready in Boollm. This window will close.`
-            : "Cloudflare approved access. Return to Boollm and choose an account.", true));
+            ? `${selected.name} is ready in Boolean. This window will close.`
+            : "Cloudflare approved access. Return to Boolean and choose an account.", true));
         } catch (error) {
           transaction.status = "error";
           transaction.error = error.message || "Cloudflare authorization failed.";
@@ -2925,7 +2926,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingMcpOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boollm and try connecting again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boolean and try connecting again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -2939,7 +2940,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boollm.", false));
+          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boolean.", false));
           return;
         }
         try {
@@ -2975,7 +2976,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.toolCount = result.toolCount;
           transaction.tools = result.tools.map((tool) => tool.name).filter(Boolean);
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boollm. This window will close.`, true));
+          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boolean. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
@@ -2987,7 +2988,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect", "Return to Boollm and try again.", false));
+          res.end(oauthResultPage("Could not connect", "Return to Boolean and try again.", false));
         }
         return;
       }
@@ -3014,7 +3015,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           const label = provider === "gmail" ? "Google" : "Microsoft";
           return json({
             error: mode === "managed"
-              ? `${label} sign-in is not provisioned in this Boollm build. Open Advanced setup to add a public client ID.`
+              ? `${label} sign-in is not provisioned in this Boolean build. Open Advanced setup to add a public client ID.`
               : `Enter the ${label} OAuth public client ID first.`,
             code: "email_oauth_setup_required",
             provider,
@@ -3072,7 +3073,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingEmailOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect the email account again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect the email account again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -3129,12 +3130,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.status = "complete";
           transaction.account = connection.account;
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boollm. This window will close.`, true));
+          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boolean. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boollm and check the OAuth client settings.`, false));
+          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boolean and check the OAuth client settings.`, false));
         }
         return;
       }
@@ -3430,7 +3431,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           try {
             const response = await fetch(parsed.toString(), {
               signal: controller.signal,
-              headers: { "user-agent": "Boollm Website Tech Detector" }
+              headers: { "user-agent": "Boolean Website Tech Detector" }
             });
             finalUrl = response.url || finalUrl;
             headers = Object.fromEntries(response.headers.entries());
@@ -3531,7 +3532,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
       if (req.method === "POST" && p === "/api/preferences/feedback") {
-        const body = await readJson(req);
+        const body = await readBody(req);
         const saved = recordResponseFeedback(body || {});
         json(saved ? { ok: true } : { error: "invalid feedback" }, saved ? 200 : 400);
         return;
@@ -4194,7 +4195,7 @@ export function openAppWindow(url) {
     const dir = path.dirname(process.execPath);
     script = path.join(dir, "set-window-icon.ps1");
     icon = path.join(dir, "saz.ico");
-    if (!fs.existsSync(icon)) icon = path.join(dir, "Boollm.exe"); // fall back to exe icon
+    if (!fs.existsSync(icon)) icon = path.join(dir, "Boolean.exe"); // fall back to exe icon
   } else {
     script = appPath("assets", "set-window-icon.ps1");
     icon = appPath("assets", "saz.ico");

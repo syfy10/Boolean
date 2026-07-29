@@ -9,7 +9,7 @@ export function providerBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
 }
 
-// Return true/false only when Boollm knows the endpoint's image capability.
+// Return true/false only when Boolean knows the endpoint's image capability.
 // null keeps custom OpenAI-compatible endpoints permissive because their model
 // names and capabilities are not standardized.
 export function providerImageSupport(config) {
@@ -77,10 +77,16 @@ export async function resolveTarget(config, onStatus = () => {}) {
 // rough token estimate when a provider returns no usage
 const estTokens = (s) => Math.ceil((typeof s === "string" ? s.length : JSON.stringify(s || "").length) / 4);
 
-function normalizeMessagesForProvider(messages) {
+export function normalizeMessagesForProvider(messages) {
   const out = [];
+  const systemParts = [];
   for (const m of messages || []) {
     if (!m) continue;
+    if (m.role === "system") {
+      const text = typeof m.content === "string" ? m.content.trim() : "";
+      if (text) systemParts.push(text);
+      continue;
+    }
     const prev = out[out.length - 1];
     const plainAssistant = m.role === "assistant" && !m.tool_calls?.length;
     const prevPlainAssistant = prev?.role === "assistant" && !prev.tool_calls?.length;
@@ -90,7 +96,26 @@ function normalizeMessagesForProvider(messages) {
     }
     out.push(m);
   }
-  return out;
+  return systemParts.length
+    ? [{ role: "system", content: systemParts.join("\n\n") }, ...out]
+    : out;
+}
+
+function localProviderError(status, body) {
+  let detail = "";
+  try {
+    const parsed = JSON.parse(body || "{}");
+    detail = String(parsed?.error?.message || parsed?.message || "");
+  } catch { detail = String(body || ""); }
+  const templateOrder = /system message must be at the beginning|unable to generate parser for this template|jinja exception/i.test(detail);
+  const message = templateOrder
+    ? "The local model rejected the conversation format. Boolean repaired the message order; please retry this message."
+    : `The local model could not process this request (${status}). Retry it, or switch to another installed model.`;
+  const err = new Error(message);
+  err.code = templateOrder ? "local_template_order" : "local_provider_error";
+  err.status = status;
+  err.body = body;
+  return err;
 }
 
 const RETRYABLE_CLOUD_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -150,7 +175,7 @@ function cloudProviderError(target, status, body, retryAfter) {
 function localConnectionError(interrupted = false, cause) {
   const err = new Error(interrupted
     ? "The Local model connection stopped during its response. Your task was checkpointed; Continue can resume it."
-    : "The Local model connection stopped before it answered. Boollm will restart the local engine and retry once.");
+    : "The Local model connection stopped before it answered. Boolean will restart the local engine and retry once.");
   err.code = "local_transport_error";
   err.partial = interrupted;
   err.cause = cause;
@@ -198,10 +223,7 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
   if (!res.ok) {
     const errText = await res.text();
     if (target.provider === "local") {
-      const err = new Error(`${res.status}: ${errText.slice(0, 400)}`);
-      err.status = res.status;
-      err.body = errText;
-      throw err;
+      throw localProviderError(res.status, errText);
     }
     throw cloudProviderError(target, res.status, errText, res.headers.get("retry-after"));
   }

@@ -7,7 +7,7 @@ import { BOOLEAN_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js"
 const agent = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
 const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
 
-test("Boollm sends a provider-neutral operating policy and no fabricated persona", () => {
+test("Boolean sends a provider-neutral operating policy and no fabricated persona", () => {
   const prompt = systemPrompt("C:\\Projects", true, {
     ui: { codingAgent: { mode: "deep", autoTest: true, autoCommit: true } }
   });
@@ -28,7 +28,7 @@ test("Boollm sends a provider-neutral operating policy and no fabricated persona
   assert.match(agent, /CURRENT TASK CONTRACT/);
   assert.match(server, /function currentAppContext\([^)]*\) \{\s*return "";/);
   for (const fabricatedPersona of [
-    "You are Boollm",
+    "You are Boolean",
     "Always agree with the user",
     "Reveal your chain of thought",
     "Pretend every task succeeded"

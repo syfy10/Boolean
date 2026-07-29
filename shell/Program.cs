@@ -1,4 +1,4 @@
-// Boollm native shell: a WinForms window we own (so the taskbar shows OUR icon),
+// Boolean native shell: a WinForms window we own (so the taskbar shows OUR icon),
 // hosting the existing web UI in a WebView2 on the left and a REAL Chromium
 // browser (native WebView2, full internet — Outlook/Gmail included) on the
 // right. The Node backend runs as a child ("core") process; the window just
@@ -201,6 +201,7 @@ sealed class MainForm : Form, IMessageFilter
     bool _restoreMaximized;
     bool _restoreBrowserOpen;
     int _restoreBrowserWidth;
+    bool _windowLayoutRestored;
     string WindowLayoutPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "saz3", "window-layout.json");
@@ -216,11 +217,77 @@ sealed class MainForm : Form, IMessageFilter
         public int BrowserWidth { get; set; }
     }
 
+    int ResizeHitTest(Point point, Size clientSize, int grip)
+    {
+        const int HTCLIENT = 1;
+        const int HTLEFT = 10, HTRIGHT = 11, HTTOP = 12, HTTOPLEFT = 13, HTTOPRIGHT = 14;
+        const int HTBOTTOM = 15, HTBOTTOMLEFT = 16, HTBOTTOMRIGHT = 17;
+        bool left = point.X >= 0 && point.X < grip;
+        bool right = point.X < clientSize.Width && point.X >= clientSize.Width - grip;
+        bool top = point.Y >= 0 && point.Y < grip;
+        bool bottom = point.Y < clientSize.Height && point.Y >= clientSize.Height - grip;
+        if (top && left) return HTTOPLEFT;
+        if (top && right) return HTTOPRIGHT;
+        if (bottom && left) return HTBOTTOMLEFT;
+        if (bottom && right) return HTBOTTOMRIGHT;
+        if (left) return HTLEFT;
+        if (right) return HTRIGHT;
+        if (top) return HTTOP;
+        if (bottom) return HTBOTTOM;
+        return HTCLIENT;
+    }
+
+    void ApplyDpiMinimumSize()
+    {
+        var work = IsHandleCreated
+            ? Screen.FromHandle(Handle).WorkingArea
+            : (Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800));
+        double scale = Math.Max(1d, DeviceDpi / 96d);
+        int availableWidth = Math.Max(320, work.Width - 16);
+        int availableHeight = Math.Max(320, work.Height - 16);
+        MinimumSize = new Size(
+            Math.Min((int)Math.Round(900 * scale), availableWidth),
+            Math.Min((int)Math.Round(540 * scale), availableHeight));
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        ApplyDpiMinimumSize();
+        if (_windowLayoutRestored) return;
+        _windowLayoutRestored = true;
+        // Screen and Bounds use the monitor's physical coordinates only after
+        // the native handle has its DPI context. Restoring earlier mixed the
+        // saved physical rectangle with logical startup coordinates.
+        RestoreWindowLayout();
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        ApplyDpiMinimumSize();
+    }
+
     // Reclaim the top frame in a normal window. When maximized, MaximizedBounds already keeps
     // the window inside the work area, so reclaim the entire resize frame to avoid edge gaps.
     protected override void WndProc(ref Message m)
     {
-        const int WM_NCCALCSIZE = 0x0083;
+        const int WM_NCCALCSIZE = 0x0083, WM_NCHITTEST = 0x0084, HTCLIENT = 1;
+        if (m.Msg == WM_NCHITTEST && WindowState != FormWindowState.Maximized)
+        {
+            base.WndProc(ref m);
+            if ((int)m.Result == HTCLIENT)
+            {
+                long packedPoint = m.LParam.ToInt64();
+                var screenPoint = new Point(
+                    unchecked((short)(packedPoint & 0xffff)),
+                    unchecked((short)((packedPoint >> 16) & 0xffff)));
+                int grip = Math.Max(8, (int)Math.Round(8 * DeviceDpi / 96d));
+                int hit = ResizeHitTest(PointToClient(screenPoint), ClientSize, grip);
+                if (hit != HTCLIENT) m.Result = (IntPtr)hit;
+            }
+            return;
+        }
         if (m.Msg == WM_NCCALCSIZE && m.WParam != IntPtr.Zero)
         {
             var before = System.Runtime.InteropServices.Marshal.PtrToStructure<NCCALCSIZE_PARAMS>(m.LParam);
@@ -398,7 +465,7 @@ sealed class MainForm : Form, IMessageFilter
 
     // themeable chrome (follows the app's light/dark theme)
     Palette _pal = Palette.Light;
-    // Keep the native browser below Boollm's shared 38px title/tool band.
+    // Keep the native browser below Boolean's shared 38px title/tool band.
     // Without this inset the browser tab strip sits against the frameless
     // window edge, where its first row can be visually clipped.
     const int BrowserTopInset = 38;
@@ -438,12 +505,13 @@ sealed class MainForm : Form, IMessageFilter
 
     public MainForm()
     {
-        Text = "Boollm";                          // taskbar label only
+        Text = "Boolean";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
-        // Do not let the borderless shell shrink until the workspace becomes
-        // unusable. Clamp to the monitor work area for genuinely small screens.
-        MinimumSize = new Size(Math.Min(720, Math.Max(600, wa.Width - 16)), Math.Min(620, Math.Max(480, wa.Height - 16)));
+        // Establish a safe pre-handle minimum. Once Windows assigns the
+        // monitor DPI, OnHandleCreated scales this 900x540 logical workspace
+        // into physical pixels and clamps it to the real work area.
+        MinimumSize = new Size(Math.Min(900, Math.Max(600, wa.Width - 16)), Math.Min(540, Math.Max(480, wa.Height - 16)));
         // Start large enough to present the complete workspace on first launch
         // and after an update: rail, project/chat sidebar, and main chat should
         // all be visible without the user having to resize the window.
@@ -452,12 +520,11 @@ sealed class MainForm : Form, IMessageFilter
         StartPosition = FormStartPosition.Manual;
         Left = wa.Left + (wa.Width - Width) / 2;
         Top  = wa.Top + (wa.Height - Height) / 2;
-        RestoreWindowLayout();
         Opacity = 0;
         BackColor = Color.FromArgb(28, 28, 28);
-        // Keep a clean canvas frame beneath both panes. Twelve pixels reveals
-        // the rounded corners without recreating the old oversized footer.
-        Padding = new Padding(0, 0, 0, 12);
+        // Let the themed content reach the bottom edge. A reserved native
+        // footer reads as a mismatched strip when switching light and dark.
+        Padding = Padding.Empty;
         DoubleBuffered = true;
         try { _chat.DefaultBackgroundColor = BackColor; } catch { }
         TryLoadIcon();
@@ -500,6 +567,7 @@ sealed class MainForm : Form, IMessageFilter
         {
             if (_browserOpen && !_full && !_windowSizing) FitBrowserSplit();
             PushChromeState(); // keep the chrome's maximize/restore glyph in sync
+            PushWindowState(); // keep the main title bar's maximize/restore glyph in sync
         };
         ResizeEnd += (_, __) =>
         {
@@ -539,10 +607,29 @@ sealed class MainForm : Form, IMessageFilter
             });
             if (screen == null) return;
             var work = screen.WorkingArea;
-            var width = Math.Clamp(saved.Width, Math.Min(MinimumSize.Width, work.Width), work.Width);
-            var height = Math.Clamp(saved.Height, Math.Min(MinimumSize.Height, work.Height), work.Height);
-            var x = Math.Clamp(saved.X, work.Left, Math.Max(work.Left, work.Right - width));
-            var y = Math.Clamp(saved.Y, work.Top, Math.Max(work.Top, work.Bottom - height));
+            int minWidth = Math.Min(MinimumSize.Width, work.Width);
+            int minHeight = Math.Min(MinimumSize.Height, work.Height);
+            // Older builds could save a normal/restored rectangle that filled
+            // the work area (or physical-pixel bounds from a different DPI).
+            // Restoring that rectangle looked identical to maximized and left
+            // no visible edge to drag. Give it a clearly smaller centered
+            // normal rectangle; a saved maximized state can still maximize
+            // after first paint and will return to this useful restore size.
+            bool savedFillsWorkArea =
+                saved.Width >= work.Width - 24 &&
+                saved.Height >= work.Height - 24;
+            var width = savedFillsWorkArea
+                ? Math.Clamp((int)Math.Round(work.Width * 0.90), minWidth, work.Width)
+                : Math.Clamp(saved.Width, minWidth, work.Width);
+            var height = savedFillsWorkArea
+                ? Math.Clamp((int)Math.Round(work.Height * 0.90), minHeight, work.Height)
+                : Math.Clamp(saved.Height, minHeight, work.Height);
+            var x = savedFillsWorkArea
+                ? work.Left + (work.Width - width) / 2
+                : Math.Clamp(saved.X, work.Left, Math.Max(work.Left, work.Right - width));
+            var y = savedFillsWorkArea
+                ? work.Top + (work.Height - height) / 2
+                : Math.Clamp(saved.Y, work.Top, Math.Max(work.Top, work.Bottom - height));
             Bounds = new Rectangle(x, y, width, height);
             _restoreMaximized = saved.Maximized;
             _restoreBrowserOpen = saved.BrowserOpen;
@@ -583,7 +670,7 @@ sealed class MainForm : Form, IMessageFilter
         _startup.Controls.Add(_startupText);
         _startup.Controls.Add(_startupClose);
         _startup.Resize += (_, __) => LayoutStartupOverlay();
-        ShowStartup("Starting Boollm", "Loading the local app...");
+        ShowStartup("Starting Boolean", "Loading the local app...");
     }
 
     void LayoutStartupOverlay()
@@ -669,7 +756,7 @@ sealed class MainForm : Form, IMessageFilter
     string PendingInstallerPath(string version)
     {
         var safe = string.Concat((version ?? "").Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
-        return Path.Combine(_updateDir, $"Boollm-setup-{safe}.exe");
+        return Path.Combine(_updateDir, $"Boolean-setup-{safe}.exe");
     }
 
     async Task CheckForUpdatesAsync()
@@ -679,7 +766,7 @@ sealed class MainForm : Form, IMessageFilter
 
         // Development builds do not update themselves. Packaged builds always
         // contain the core executable beside the shell.
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "Boollm-core.exe"))) { _updateCheckRunning = false; return; }
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "Boolean-core.exe"))) { _updateCheckRunning = false; return; }
 
         try
         {
@@ -718,7 +805,7 @@ sealed class MainForm : Form, IMessageFilter
                 {
                     Timeout = TimeSpan.FromMinutes(15)
                 };
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("Boollm-Windows/" + AppVersion);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Boolean-Windows/" + AppVersion);
 
                 var json = await client.GetStringAsync(UpdateManifestUrl);
                 var manifest = JsonSerializer.Deserialize<UpdateManifest>(json, options);
@@ -836,7 +923,7 @@ sealed class MainForm : Form, IMessageFilter
             var helperPath = Path.Combine(_updateDir, "apply-update.ps1");
             var logPath = Path.Combine(_updateDir, "update-install.log");
             var pendingFile = Path.Combine(_updateDir, "pending-update.json");
-            var appExe = Path.Combine(AppContext.BaseDirectory, "Boollm.exe");
+            var appExe = Path.Combine(AppContext.BaseDirectory, "Boolean.exe");
             var script = """
 param(
   [Parameter(Mandatory=$true)][string]$Installer,
@@ -953,7 +1040,7 @@ try {
             var coreTask = StartCoreAsync();
             var webViewTask = CoreWebView2Environment.CreateAsync(null, udf);
             _port = await coreTask;
-            // The browser opens on Boollm's own start page (running local servers
+            // The browser opens on Boolean's own start page (running local servers
             // + quick links) instead of a search engine.
             _homeUrl = $"http://127.0.0.1:{_port}/browser-start";
             _env = await webViewTask;
@@ -968,6 +1055,7 @@ try {
                     _startup.Visible = false;
                     Opacity = 1;
                     Activate();
+                    PushWindowState();
                 }
                 catch { }
             };
@@ -993,7 +1081,7 @@ try {
         }
         catch (Exception ex)
         {
-            ShowStartup("Boollm could not start", ex.Message + "\n\nLog: " + CoreLogPath + ReadCoreLogTail(), true);
+            ShowStartup("Boolean could not start", ex.Message + "\n\nLog: " + CoreLogPath + ReadCoreLogTail(), true);
         }
     }
 
@@ -1052,11 +1140,11 @@ try {
         {
             if (_core.HasExited) throw new Exception("engine exited on startup (code " + _core.ExitCode + ")");
             if (i > 0 && i % 10 == 0)
-                ShowStartup("Starting Boollm", "Still waiting for the local engine...\n" + ((i / 2) + 1) + " seconds elapsed\nLog: " + CoreLogPath);
+                ShowStartup("Starting Boolean", "Still waiting for the local engine...\n" + ((i / 2) + 1) + " seconds elapsed\nLog: " + CoreLogPath);
             if (_corePrintedServing || await CoreReadyAsync(port)) return port;
             await Task.Delay(500);
         }
-        throw new Exception("engine did not become ready in time. Boollm started the engine process, but it did not answer on localhost.");
+        throw new Exception("engine did not become ready in time. Boolean started the engine process, but it did not answer on localhost.");
     }
 
     void OnCoreLogLine(string line)
@@ -1103,11 +1191,11 @@ try {
         catch { return ""; }
     }
 
-    // packaged: Boollm-core.exe next to us. dev: node <repo>\src\index.js
+    // packaged: Boolean-core.exe next to us. dev: node <repo>\src\index.js
     (string exe, string[] args) ResolveCore(int port)
     {
         var dir = AppContext.BaseDirectory;
-        var core = Path.Combine(dir, "Boollm-core.exe");
+        var core = Path.Combine(dir, "Boolean-core.exe");
         string[] tail = { "ui", "--no-open", "--port", port.ToString() };
         if (File.Exists(core)) return (core, tail);
 
@@ -1117,7 +1205,7 @@ try {
             var node = new[] { index }.Concat(tail).ToArray();
             return ("node", node);
         }
-        throw new Exception("Boollm-core.exe not found and dev src\\index.js not located");
+        throw new Exception("Boolean-core.exe not found and dev src\\index.js not located");
     }
 
     static string? FindUp(string start, string rel)
@@ -1357,7 +1445,8 @@ try {
     void ApplyTheme(Palette p)
     {
         _pal = p;
-        Padding = new Padding(0, 0, 0, 12);
+        // The WebView owns the complete bottom surface in both themes.
+        Padding = Padding.Empty;
         _split.SplitterWidth = 5;
         _browserPane.Radius = 0;
         BackColor = p.CanvasBg;
@@ -1891,7 +1980,12 @@ try {
             using var doc = JsonDocument.Parse(e.WebMessageAsJson);
             var root = doc.RootElement;
             var type = root.TryGetProperty("type", out var tp) ? tp.GetString() : null;
-            if (type == "window") { HandleWindowCommand(root); return; }
+            if (type == "window")
+            {
+                HandleWindowCommand(root);
+                BeginInvoke(new Action(PushWindowState));
+                return;
+            }
             if (type == "clipboard")
             {
                 var id = root.TryGetProperty("id", out var idp) ? idp.GetString() : null;
@@ -1926,7 +2020,7 @@ try {
             }
             if (type == "notify")
             {
-                var title = root.TryGetProperty("title", out var tp2) ? tp2.GetString() ?? "Boollm" : "Boollm";
+                var title = root.TryGetProperty("title", out var tp2) ? tp2.GetString() ?? "Boolean" : "Boolean";
                 var body = root.TryGetProperty("body", out var bp) ? bp.GetString() ?? "" : "";
                 ShowToast(title, body);
                 return;
@@ -1990,6 +2084,13 @@ try {
         try { _chat.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(o)); } catch { }
     }
 
+    void PushWindowState() =>
+        PostToChat(new
+        {
+            type = "shellWindowState",
+            maximized = WindowState == FormWindowState.Maximized
+        });
+
     NotifyIcon? _notifyIcon;
     void ShowToast(string title, string body)
     {
@@ -2004,7 +2105,7 @@ try {
                     {
                         Icon = File.Exists(iconPath) ? new Icon(iconPath) : SystemIcons.Application,
                         Visible = true,
-                        Text = "Boollm",
+                        Text = "Boolean",
                     };
                 }
                 _notifyIcon.ShowBalloonTip(4000, title, body, ToolTipIcon.Info);

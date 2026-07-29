@@ -7,7 +7,7 @@ const jsonFetch = async (url, options = {}) => {
     ...options,
     headers: {
       accept: "application/json",
-      "user-agent": "Boollm/0.9 markets workspace",
+      "user-agent": "Boolean/0.9 markets workspace",
       ...(options.headers || {})
     },
     signal: AbortSignal.timeout(15_000)

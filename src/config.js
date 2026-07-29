@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.58";
-export const APP_DISPLAY_VERSION = "v0.9.58";
-export const APP_NAME = "Boollm";
+export const APP_VERSION = "0.9.59";
+export const APP_DISPLAY_VERSION = "v0.9.59";
+export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
 export const AI_BEHAVIOR_VERSION = 2;
@@ -126,7 +126,7 @@ const DEFAULTS = {
   // EULA version the user accepted ("" = not yet accepted)
   eulaAccepted: "",
   // where generated projects are saved (user can change)
-  projectsDir: path.join(os.homedir(), "Documents", "Boollm"),
+  projectsDir: path.join(os.homedir(), "Documents", "Boolean"),
   // reference model for the "estimated savings" figure
   referenceModel: "gpt-5.1",
   // monthly cloud spending budget in USD. 0 = no limit. UI warns at 80%+.
@@ -511,7 +511,7 @@ export function loadConfig() {
       const oldProjects = path.join(os.homedir(), "Documents", "SAZ3 Projects");
       const loxaProjects = path.join(os.homedir(), "Documents", "Loxa Projects");
       const booleanProjects = path.join(os.homedir(), "Documents", "Boolean Projects");
-      const newProjects = path.join(os.homedir(), "Documents", "Boollm");
+      const newProjects = path.join(os.homedir(), "Documents", "Boolean");
       if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects) { cfg.projectsDir = newProjects; migrated = true; }
       if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
         cfg.aiBehaviorVersion = AI_BEHAVIOR_VERSION;

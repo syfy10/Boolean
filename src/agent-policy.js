@@ -1,4 +1,4 @@
-// Boollm's operating policy is intentionally provider-neutral. It describes
+// Boolean's operating policy is intentionally provider-neutral. It describes
 // task boundaries and evidence standards without prescribing a persona,
 // writing style, or private chain-of-thought format.
 export const BOOLEAN_AGENT_RULES = Object.freeze([
@@ -38,7 +38,7 @@ export const BOOLEAN_AGENT_RULES = Object.freeze([
 
 export function booleanAgentPolicy() {
   return [
-    "BOOLLM OPERATING POLICY",
+    "BOOLEAN OPERATING POLICY",
     ...BOOLEAN_AGENT_RULES.map((rule, index) => `${index + 1}. ${rule}`)
   ].join("\n");
 }

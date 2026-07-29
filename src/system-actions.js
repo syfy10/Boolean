@@ -28,7 +28,7 @@ const SETTINGS = Object.freeze({
 
 const RESUME_OR_STATUS_ONLY = /^(?:continue|resume|keep going|go on|finish|finish it|try again|retry|go ahead|carry on|keep working|move forward|do it|yes do it|ok do it|okay do it|check now|please continue|continue where you left off|can you do (?:this|it)(?: now| or not| or now)?)\b/i;
 const STATUS_QUESTION = /\b(?:are you|r u|you)\s+(?:still\s+)?(?:checking|working|running|doing|stuck|stopped)\b|\b(?:what happened|why did (?:it|you) stop|did (?:it|you) stop|what are you doing|where are we|status update|give me status|can move forward)\b/i;
-const TRANSCRIPT_MARKER = /(?:^|\n)\s*(?:You|GPT|GLM|AI|Boollm|Qwen|Claude|Codex)\s*:/i;
+const TRANSCRIPT_MARKER = /(?:^|\n)\s*(?:You|GPT|GLM|AI|Boolean|Qwen|Claude|Codex)\s*:/i;
 
 function directActionSource(input) {
   const raw = String(input || "").trim();
@@ -53,11 +53,11 @@ export function detectWindowsSettingsRequest(input) {
   const source = directActionSource(input);
   if (!source) return null;
   // Connector/Recipe instructions can contain phrases such as "email open in
-  // Boollm's browser" and "connected account". Those describe mailbox
+  // Boolean's browser" and "connected account". Those describe mailbox
   // context; they are not requests to open the Windows Accounts page.
   if (/\bemail_cleanup_(?:preview|trash|undo)\b/i.test(source)
     || /\bconnected (?:gmail|outlook|email) account\b/i.test(source)
-    || /\bemail open in (?:Boollm|Boolean)(?:'s)? browser\b/i.test(source)) {
+    || /\bemail open in (?:Boolean|Boolean)(?:'s)? browser\b/i.test(source)) {
     return null;
   }
   const normalize = (value) => String(value || "")
@@ -119,7 +119,7 @@ export const SYSTEM_ACTION_DEFINITIONS = [
     type: "function",
     function: {
       name: "windows_settings_open",
-      description: "Open an exact Windows Settings page. Use when the user asks to view or change a Windows setting that Boollm cannot safely change directly.",
+      description: "Open an exact Windows Settings page. Use when the user asks to view or change a Windows setting that Boolean cannot safely change directly.",
       parameters: {
         type: "object",
         properties: {

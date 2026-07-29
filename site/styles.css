@@ -1171,7 +1171,7 @@ h3{margin-bottom:8px;font-size:18px;font-weight:620}
 .faq-item > p a:hover{text-decoration:underline}
 @keyframes faqIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 
-/* Mission / Why Boollm */
+/* Mission / Why Boolean */
 .mission{
   text-align:center;
   padding:56px 0 52px;

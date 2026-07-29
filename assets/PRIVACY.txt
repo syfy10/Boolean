@@ -1,17 +1,17 @@
-BOOLLM PRIVACY POLICY
-Boollm - Version 1.2, July 17, 2026
+BOOLEAN PRIVACY POLICY
+Boolean - Version 1.2, July 17, 2026
 
 THE SHORT VERSION
-Boollm's local mode runs entirely on your computer. No telemetry, no
+Boolean's local mode runs entirely on your computer. No telemetry, no
 analytics, no tracking, no crash reports. Your code, prompts, and files stay
 on your machine unless YOU choose a feature that needs the internet, such as
 cloud AI, Google Sign-In, model downloads, web research, image generation, or
 installation tools. Connecting a remote MCP server, HTTP agent, API connector,
 or sending a screenshot, page, note, or project file to an online provider also
 uses the network. Scheduled online actions use the network when they run. For
-signed-in Boollm administrators, sync is enabled so notes and safe app
+signed-in Boolean administrators, sync is enabled so notes and safe app
 preferences can follow the same admin account across computers. API keys and
-connector tokens remain local unless Boollm later adds a separate encrypted
+connector tokens remain local unless Boolean later adds a separate encrypted
 key-vault feature.
 
 WHAT STAYS ON YOUR COMPUTER
@@ -25,13 +25,13 @@ WHAT STAYS ON YOUR COMPUTER
   Safe preferences such as theme, layout, notepad color, and browser state may
   sync for signed-in administrators, but API keys do not.
 - Remote MCP server addresses and any Bearer tokens you save; connector
-  secrets are stored locally and are not returned by Boollm's state API
+  secrets are stored locally and are not returned by Boolean's state API
 - HTTP-agent and API connector addresses and credentials you save; protect
   these credentials like passwords
 - Optional Gmail and Outlook OAuth client IDs, access/refresh tokens, and the
   connected account label. These stay in .saz\config.json on your PC and are
-  not sent to Boollm's account service.
-- Your Boollm account session token after Google Sign-In, stored locally so the
+  not sent to Boolean's account service.
+- Your Boolean account session token after Google Sign-In, stored locally so the
   app can stay signed in; sign out to remove it
 - Your notepad content, except when signed in as an administrator with admin
   sync enabled
@@ -45,11 +45,11 @@ WHAT STAYS ON YOUR COMPUTER
   containing action names, time, result, and limited non-secret details such as
   a package ID or Settings page
 
-WHAT BOOLLM RECEIVES
-When you use only local models, Boollm receives nothing and works with the
+WHAT BOOLEAN RECEIVES
+When you use only local models, Boolean receives nothing and works with the
 network cable unplugged.
 
-If you choose optional Boollm account sign-in, Boollm's account service may
+If you choose optional Boolean account sign-in, Boolean's account service may
 receive and store the minimum identity and session data needed for the account:
 - Google account identifier, email, display name, and profile image
 - session records used to keep you signed in
@@ -58,8 +58,8 @@ receive and store the minimum identity and session data needed for the account:
   such as theme, layout, notepad color, and browser state
 
 The Markets workspace is hidden and its local API is unavailable until a
-Boollm account session is signed in. This access check uses the locally stored
-Boollm session state. Signing in does not make market data private or local;
+Boolean account session is signed in. This access check uses the locally stored
+Boolean session state. Signing in does not make market data private or local;
 the market providers described below still receive their own requests.
 
 WHEN DATA DOES LEAVE YOUR MACHINE
@@ -67,34 +67,34 @@ Only in these cases, and only because you set them up:
 1. Cloud providers: if you add a provider API key and select that provider,
    your prompts and relevant context are sent to that provider's servers,
    governed by that provider's privacy policy.
-2. Boollm account: Google Sign-In and session requests are sent to Boollm's
+2. Boolean account: Google Sign-In and session requests are sent to Boolean's
    account service. AI prompts are not routed through account sign-in.
 3. Model downloads: downloading a model contacts the hosting service, such as
    Hugging Face, to fetch the file. Importing a model from a local drive
    contacts nothing.
-4. Web browsing/research: if you ask Boollm to browse, search, or verify
+4. Web browsing/research: if you ask Boolean to browse, search, or verify
    current information, requests, queries, and selected page content are sent
    to the sites, search engines, or research services involved.
-5. Software installation helpers: if you ask Boollm to install software, tools
+5. Software installation helpers: if you ask Boolean to install software, tools
    such as winget contact their own servers.
-6. Software updates: Boollm periodically requests a small update manifest from
-   the saz3 Labs GitHub repository. If an update is available, Boollm may
+6. Software updates: Boolean periodically requests a small update manifest from
+   the saz3 Labs GitHub repository. If an update is available, Boolean may
    download its installer from an approved GitHub release URL and verify its
    SHA-256 hash before installation.
 7. Remote MCP, HTTP-agent, and API connectors: when you enable a connection,
-   Boollm sends protocol requests, relevant task content, tool arguments, and
+   Boolean sends protocol requests, relevant task content, tool arguments, and
    configured credentials to that service. Its privacy policy and terms apply.
 8. Screenshots, browser pages, notes, and project files: these remain local when
    used with a local model. If you ask an online model or remote connector to
    inspect them, the selected content is sent to that provider or connector.
 9. Optional Gmail or Outlook connectors: when you connect an account, OAuth and
-   mail requests go directly from Boollm on your PC to Google or Microsoft.
-   Boollm may read the messages you request and create drafts in that account.
+   mail requests go directly from Boolean on your PC to Google or Microsoft.
+   Boolean may read the messages you request and create drafts in that account.
    Sending is disabled while Draft-only is on and otherwise always requires a
    separate confirmation. Mail tokens and message contents are not routed
-   through Boollm's Cloudflare account service.
+   through Boolean's Cloudflare account service.
 10. Transactional messages: saz3 Labs may use Cloudflare Email Service to send
-   Boollm account, security, support, or service notices. Cloudflare receives
+   Boolean account, security, support, or service notices. Cloudflare receives
    the recipient address and message data required to deliver those notices.
 11. Scheduled actions: online AI tasks and connector calls send their configured
    task and relevant context when due. Webhooks receive the payload you
@@ -103,15 +103,15 @@ Only in these cases, and only because you set them up:
 12. Image generation: prompts, source images, masks, and related instructions
    are sent to the online image provider you select. Generated or edited files
    remain local unless you send them elsewhere.
-13. Admin sync: when a Boollm administrator is signed in, Boollm sends the
-   administrator's notepad and safe-preferences snapshot to the Boollm account
+13. Admin sync: when a Boolean administrator is signed in, Boolean sends the
+   administrator's notepad and safe-preferences snapshot to the Boolean account
    service over HTTPS and stores it in the account database. This allows notes,
    layout, theme, notepad color, and browser state to merge across computers
    signed in to that admin account. API keys and connector tokens are not
    synced. Local saving continues if sync is unavailable. Embedded images count
    toward the sync size limit. Signing out stops synchronization but does not
    erase local notes.
-14. Markets: when a signed-in user opens or refreshes Markets, Boollm sends
+14. Markets: when a signed-in user opens or refreshes Markets, Boolean sends
    ticker symbols, ranges, option expirations, scanner filters, and related
    requests to the market-data, news, filings, or research providers selected
    by the user or used as an experimental fallback. Those providers receive
@@ -123,7 +123,7 @@ Only in these cases, and only because you set them up:
    inaccurate, and is governed by the provider's terms and data licenses.
 15. Local response feedback and Education: thumbs-up/down ratings, optional
    correction text, response excerpts, Education practice progress, and
-   results stay on this PC. Boollm may add explicit corrections or repeated
+   results stay on this PC. Boolean may add explicit corrections or repeated
    style feedback to its local learned-preference context. This does not
    retrain the underlying model. Users can review, edit, clear, or disable
    learned preferences. Education practice and IQ reasoning results are not
@@ -138,7 +138,7 @@ CFTC, exchanges, and other market-data or news sources are independent
 services. Their own terms,
 retention rules, charges, and privacy policies apply. Z.AI's Coding Plan uses
 its separate coding endpoint and may be used only when Z.AI has approved
-Boollm or otherwise supports the user's use. Boollm does not represent that
+Boolean or otherwise supports the user's use. Boolean does not represent that
 every subscription permits third-party use.
 
 SOFTWARE UPDATE DATA
@@ -147,20 +147,20 @@ address, app version, and user-agent, to GitHub or its delivery infrastructure.
 Update checks do not upload your chats, prompts, files, notepad content, API
 keys, or local model data. Admin sync is a separate account feature and is not
 part of update checking. Before installing an update after the app
-closes, Boollm backs up key local settings and chat data on your computer.
+closes, Boolean backs up key local settings and chat data on your computer.
 
 THIRD-PARTY CLOUD USAGE
 Cloud AI requests use the provider API key selected by the user. Each provider
-controls its own billing, quotas, retention, and acceptable-use terms. Boollm
+controls its own billing, quotas, retention, and acceptable-use terms. Boolean
 does not grant free AI tokens or sell token packs in this version.
 
-SOFTWARE NEEDED TO RUN BOOLLM
-The standard Windows install is designed to be self-contained. Boollm bundles
+SOFTWARE NEEDED TO RUN BOOLEAN
+The standard Windows install is designed to be self-contained. Boolean bundles
 its app runtime, embedded Node.js backend, llama.cpp CPU engine, and required
 app-local runtime DLLs. You do not need to install Node.js, .NET, Ollama,
 Python, or the Microsoft Visual C++ Redistributable for the standard local app.
 
-Boollm uses Microsoft Edge WebView2 for the app window and built-in browser.
+Boolean uses Microsoft Edge WebView2 for the app window and built-in browser.
 Most Windows 11 PCs already include it. If WebView2 is missing, Windows or the
 installer/store may need to install the WebView2 Runtime.
 
@@ -175,12 +175,12 @@ MINIMUM SYSTEM REQUIREMENTS
   on lower-end PCs, but answer quality and tool reliability are limited.
 
 CHILDREN
-Boollm is a developer tool and is not directed at children under 13.
+Boolean is a developer tool and is not directed at children under 13.
 
 CHANGES
 Future versions of this policy ship with the software itself and may also be
-published with the Boollm account service when account features are used.
+published with the Boolean account service when account features are used.
 
 CONTACT
-Boollm is developed by saz3 Labs.
+Boolean is developed by saz3 Labs.
 saz3labs@gmail.com

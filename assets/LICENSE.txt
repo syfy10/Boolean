@@ -1,12 +1,12 @@
-BOOLLM END USER LICENSE AGREEMENT
-Boollm - Version 1.2, July 17, 2026
+BOOLEAN END USER LICENSE AGREEMENT
+Boolean - Version 1.2, July 17, 2026
 
-IMPORTANT: READ CAREFULLY BEFORE INSTALLING OR USING BOOLLM.
-By installing or using Boollm ("the Software"), you agree to be bound by this
+IMPORTANT: READ CAREFULLY BEFORE INSTALLING OR USING BOOLEAN.
+By installing or using Boolean ("the Software"), you agree to be bound by this
 agreement. If you do not agree, do not install or use the Software.
 
 1. LICENSE
-Boollm, developed by saz3 Labs, grants you a personal, non-exclusive,
+Boolean, developed by saz3 Labs, grants you a personal, non-exclusive,
 non-transferable license to install and use the Software on computers you own
 or control. You may copy the installer for personal backup and offline
 installation purposes.
@@ -22,10 +22,10 @@ may run without individual review, and you accept all consequences.
 
 Some Windows System Actions are deliberately stricter than normal Full access.
 Software installation and administrator-level network changes always require a
-separate confirmation and may show a Windows UAC prompt. Boollm does not run
+separate confirmation and may show a Windows UAC prompt. Boolean does not run
 permanently as administrator and does not bypass Windows consent prompts.
 
-Boollm may store task objectives, plans, debugging evidence, tool results,
+Boolean may store task objectives, plans, debugging evidence, tool results,
 checkpoints, schedules, selected models, and approval settings locally so work
 can continue after an interruption or run at a scheduled time. Scheduled and
 unattended actions can execute later without the user actively typing. You are
@@ -38,7 +38,7 @@ You are responsible for:
   (c) complying with laws that apply to your use of the Software;
   (d) the terms and licenses of any AI model you download, import, or use;
   (e) the terms of any third-party API, model provider, website, payment
-      provider, or cloud service you connect or use through Boollm.
+      provider, or cloud service you connect or use through Boolean.
   (f) reviewing what project files, screenshots, browser content, notes, or
       tool arguments are sent to any online provider or remote MCP server.
   (g) reviewing email recipients and contents before approving any send action.
@@ -48,16 +48,16 @@ You are responsible for:
       investment, tax, and trading decisions.
 
 4. OPTIONAL ACCOUNTS AND CLOUD PROVIDERS
-Boollm can be used locally without an account. Cloud AI uses an API key you
-supply for a supported third-party provider and does not require Boollm
+Boolean can be used locally without an account. Cloud AI uses an API key you
+supply for a supported third-party provider and does not require Boolean
 sign-in. The provider controls its billing, quotas, retention, and acceptable-
-use terms. Boollm does not grant free AI tokens or sell token packs in this
-version. Optional Boollm account sign-in is separate from AI-provider access.
-Signed-in Boollm administrators may synchronize notepad content and safe app
+use terms. Boolean does not grant free AI tokens or sell token packs in this
+version. Optional Boolean account sign-in is separate from AI-provider access.
+Signed-in Boolean administrators may synchronize notepad content and safe app
 preferences, such as layout, theme, notepad color, and browser state, through
-the Boollm account service so they are available on other computers using the
+the Boolean account service so they are available on other computers using the
 same admin account. Provider API keys and connector tokens remain local unless
-Boollm later adds a separate encrypted key-vault feature. Local notes continue
+Boolean later adds a separate encrypted key-vault feature. Local notes continue
 to be saved on each computer. The Privacy Policy describes the synchronized
 fields and limits.
 
@@ -72,7 +72,7 @@ sole basis for a financial decision.
 
 Market information may be delayed, indicative, estimated, incomplete,
 inaccurate, unavailable, or subject to provider corrections. AI-generated
-market analysis can be wrong or omit material facts. Boollm does not execute
+market analysis can be wrong or omit material facts. Boolean does not execute
 trades, act as a broker, investment adviser, fiduciary, exchange, or market-data
 vendor, or guarantee prices, availability, returns, outcomes, or fitness for a
 particular strategy. You must verify important information with an authorized
@@ -81,13 +81,13 @@ market-data source and consult qualified professionals when appropriate.
 You are solely responsible for your trading and investment decisions and for
 all resulting gains, losses, taxes, fees, and obligations. Trading and
 investing involve substantial risk, including possible loss of all capital. To
-the maximum extent permitted by law, Boollm, saz3 Labs, and their developers
+the maximum extent permitted by law, Boolean, saz3 Labs, and their developers
 are not liable for trading or investment losses or decisions made using or
 relying on the Software. Third-party market-data licenses, exchange rules,
 attribution requirements, plan limits, and provider terms also apply.
 
 5A. EDUCATION PRACTICE AND LOCAL RESPONSE FEEDBACK
-The Education workspace is for practice and general learning only. Boollm is
+The Education workspace is for practice and general learning only. Boolean is
 not a school, testing authority, psychologist, counselor, or score-reporting
 service. Practice results, explanations, generated questions, released-exam
 readers, and IQ reasoning exercises are not official, clinical, diagnostic,
@@ -98,41 +98,41 @@ applicable school or testing authority.
 
 Thumbs-up and thumbs-down controls let you provide optional response feedback.
 Feedback, response excerpts, corrections, and learned behavior preferences are
-stored locally on this PC. Boollm may use them as future prompt context; this
+stored locally on this PC. Boolean may use them as future prompt context; this
 does not retrain or modify the underlying AI model. You can review, edit, or
 delete learned preferences in Settings and can disable preference learning.
 
 6. THIRD-PARTY COMPONENTS AND MODELS
 The Software includes open-source components, including Node.js and llama.cpp.
 AI models are governed by their own licenses and model cards. Some editions of
-Boollm may include a small starter AI model so the app can answer basic
+Boolean may include a small starter AI model so the app can answer basic
 prompts immediately after installation. If included, that starter model is a
-third-party model, not owned by Boollm or saz3 Labs.
+third-party model, not owned by Boolean or saz3 Labs.
 
 You are responsible for reviewing and complying with the license for any
 bundled, downloaded, imported, or cloud-hosted model before using it for your
 own purposes.
 
 Remote MCP servers, HTTP agents, API connectors, and API providers are
-independent third parties. Connecting one authorizes Boollm to send protocol
+independent third parties. Connecting one authorizes Boolean to send protocol
 requests, relevant task content, tool arguments, and configured credentials to
 that service. API keys and connector tokens do not grant rights beyond the
 provider's own plan and terms. In particular, Z.AI Coding Plan access may be
-used only if Z.AI has approved Boollm or otherwise supports that use.
+used only if Z.AI has approved Boolean or otherwise supports that use.
 
 7. SYSTEM REQUIREMENTS AND INCLUDED RUNTIMES
-Boollm is intended for Windows 10 or Windows 11 on x64 PCs. The installer
-includes the Boollm app, embedded Node.js backend, local llama.cpp CPU
+Boolean is intended for Windows 10 or Windows 11 on x64 PCs. The installer
+includes the Boolean app, embedded Node.js backend, local llama.cpp CPU
 inference engine, and required app-local runtime DLLs. Users do not need to
 install Node.js, .NET, Ollama, Python, or the Microsoft Visual C++
 Redistributable to run the standard local version.
 
-Boollm uses Microsoft Edge WebView2 for the app window and built-in browser.
+Boolean uses Microsoft Edge WebView2 for the app window and built-in browser.
 Most Windows 11 PCs already include WebView2. If WebView2 is missing, Windows
-or the installer/store may need to install the WebView2 Runtime before Boollm
+or the installer/store may need to install the WebView2 Runtime before Boolean
 can display its interface.
 
-Minimum system requirements depend on how Boollm is used:
+Minimum system requirements depend on how Boolean is used:
   (a) Cloud mode: 4 GB RAM, internet connection, WebView2, and a supported
       third-party provider API key.
   (b) Lightest local LLM mode: 8 GB RAM recommended, 2 GB free disk space, and
@@ -144,49 +144,49 @@ Minimum system requirements depend on how Boollm is used:
 
 Optional features may require additional software or services only if you
 choose them. Examples include internet access for web browsing or model
-downloads, optional Google Sign-In for a Boollm account, cloud provider API
+downloads, optional Google Sign-In for a Boolean account, cloud provider API
 keys, and system tools such as
-winget, git, npm, or dotnet only when you ask Boollm to run workflows that
+winget, git, npm, or dotnet only when you ask Boolean to run workflows that
 depend on those tools.
 
 Optional Gmail and Outlook connectors use OAuth credentials configured by the
-user and provider-granted permissions. They are separate from Boollm account
-sign-in. Boollm may read requested mail and create drafts. Draft-only mode
+user and provider-granted permissions. They are separate from Boolean account
+sign-in. Boolean may read requested mail and create drafts. Draft-only mode
 disables sending; if the user disables Draft-only, every send still requires a
 separate confirmation that Auto-approve cannot bypass. Provider terms apply.
-Boollm may use Cloudflare Email Service for transactional account, security,
+Boolean may use Cloudflare Email Service for transactional account, security,
 support, and service notices.
 
 8. PRIVACY
 See the accompanying PRIVACY.txt. In short: local mode runs on your computer.
 Data leaves your computer only when you choose features that require it, such
-as cloud providers, Boollm account sign-in, model downloads, web research,
+as cloud providers, Boolean account sign-in, model downloads, web research,
 image generation, remote MCP or HTTP-agent connections, scheduled webhooks,
 software updates, installation helpers, or online inspection of screenshots,
 pages, notes, and project files. Signed-in administrator accounts also send
-notepad content and safe app preferences to Boollm's account service for
+notepad content and safe app preferences to Boolean's account service for
 cross-computer sync. API keys and connector tokens are not included in that
 sync. Scheduled online actions send their configured task and relevant context when they run. Optional
 email connectors send OAuth and mail requests directly to Google or Microsoft;
-transactional Boollm notices may be delivered through Cloudflare Email Service.
+transactional Boolean notices may be delivered through Cloudflare Email Service.
 
 9. SOFTWARE UPDATES
-Boollm may periodically contact the saz3 Labs GitHub release service to check
-for a newer version. When an update is available, Boollm may download the
+Boolean may periodically contact the saz3 Labs GitHub release service to check
+for a newer version. When an update is available, Boolean may download the
 installer in the background, verify its SHA-256 hash, and notify you when it is
-ready. Installation begins after you close Boollm, and the app may reopen when
-installation finishes. Boollm backs up key local settings and chat data before
+ready. Installation begins after you close Boolean, and the app may reopen when
+installation finishes. Boolean backs up key local settings and chat data before
 updating. Internet access and local disk space are required for this feature.
 
 10. NO WARRANTY
 THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
 KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR
-A PARTICULAR PURPOSE, ACCURACY, SECURITY, OR NON-INFRINGEMENT. Boollm does
+A PARTICULAR PURPOSE, ACCURACY, SECURITY, OR NON-INFRINGEMENT. Boolean does
 not warrant that the Software or cloud features will be error-free, secure,
 available, uninterrupted, or compatible with every model, website, or provider.
 
 11. LIMITATION OF LIABILITY
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, BOOLLM, SAZ3 LABS, AND ITS DEVELOPERS
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, BOOLEAN, SAZ3 LABS, AND ITS DEVELOPERS
 ARE NOT LIABLE FOR DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
 EXEMPLARY DAMAGES, INCLUDING LOSS OF DATA, LOSS OF PROFITS, BUSINESS
 INTERRUPTION, TOKEN LOSS, PROVIDER CHARGES, OR DAMAGE TO COMPUTER SYSTEMS,
@@ -196,13 +196,13 @@ AMOUNT YOU PAID FOR THE SOFTWARE OR CLOUD SERVICE IN THE 30 DAYS BEFORE THE
 CLAIM.
 
 12. INDEMNIFICATION
-You agree to indemnify and hold harmless Boollm, saz3 Labs, and its developers
+You agree to indemnify and hold harmless Boolean, saz3 Labs, and its developers
 from claims, damages, or expenses arising from your use or misuse of the
 Software.
 
 13. TERMINATION
 This license terminates automatically if you breach it. Upon termination you
-must uninstall the Software and stop using related Boollm account services.
+must uninstall the Software and stop using related Boolean account services.
 
 14. GENERAL
 If any provision of this agreement is held unenforceable, the remainder remains

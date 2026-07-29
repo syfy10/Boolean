@@ -66,7 +66,7 @@ test("Google Cloud exchanges a service-account JWT and selects its project", asy
   global.fetch = async (url, options = {}) => {
     calls.push({ url: String(url), options });
     if (String(url).includes("oauth2.googleapis.com/token")) return jsonResponse({ access_token: "google-token" });
-    return jsonResponse({ projects: [{ projectId: "project-1", name: "Boollm Hosting", lifecycleState: "ACTIVE" }] });
+    return jsonResponse({ projects: [{ projectId: "project-1", name: "Boolean Hosting", lifecycleState: "ACTIVE" }] });
   };
   try {
     const verified = await verifyGoogleCloudConnection({ serviceAccount });

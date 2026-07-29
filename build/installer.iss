@@ -1,12 +1,12 @@
-; Inno Setup script for Boollm - per-user install (no admin needed),
+; Inno Setup script for Boolean - per-user install (no admin needed),
 ; adds the app to PATH, creates Start-menu entry, full uninstaller.
 ; Build:  ISCC.exe build\installer.iss
 
-#define AppName "Boollm"
-#define AppVersion "0.9.58"
+#define AppName "Boolean"
+#define AppVersion "0.9.59"
 #define AppPublisher "saz3 Labs"
-#define AppExe "Boollm.exe"
-#define CoreExe "Boollm-core.exe"
+#define AppExe "Boolean.exe"
+#define CoreExe "Boolean-core.exe"
 
 [Setup]
 AppId={{3D9A7B42-C1E6-4F8A-9B2D-E5F0A3C81D67}
@@ -17,7 +17,7 @@ DefaultDirName={userpf}\{#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=Boollm-setup
+OutputBaseFilename=Boolean-setup
 Compression=lzma2
 SolidCompression=yes
 ChangesEnvironment=yes
@@ -28,7 +28,7 @@ UninstallDisplayIcon={app}\{#AppExe}
 LicenseFile=..\assets\LICENSE.txt
 
 [Files]
-; the whole native-shell distribution (Boollm.exe shell + Boollm-core.exe backend +
+; the whole native-shell distribution (Boolean.exe shell + Boolean-core.exe backend +
 ; engine + templates + docs), produced by build\build-shell.ps1
 Source: "..\dist\saz-app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Small Microsoft bootstrapper. It downloads the architecture-matched Evergreen
@@ -36,13 +36,13 @@ Source: "..\dist\saz-app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 Source: "..\dist\prerequisites\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
 
 [InstallDelete]
-; Remove executables and shortcuts left by the pre-Boollm product name. Keeping
-; these beside the renamed app can launch an older build after an upgrade.
-Type: files; Name: "{app}\Boolean.exe"
-Type: files; Name: "{app}\Boolean-core.exe"
-Type: files; Name: "{userprograms}\Boolean.lnk"
-Type: files; Name: "{userprograms}\Boolean (terminal).lnk"
-Type: files; Name: "{userdesktop}\Boolean.lnk"
+; Remove executables and shortcuts left by the temporary Boollm product name.
+; Keeping these beside the restored Boolean app can launch an older build.
+Type: files; Name: "{app}\Boollm.exe"
+Type: files; Name: "{app}\Boollm-core.exe"
+Type: files; Name: "{userprograms}\Boollm.lnk"
+Type: files; Name: "{userprograms}\Boollm (terminal).lnk"
+Type: files; Name: "{userdesktop}\Boollm.lnk"
 
 [Icons]
 Name: "{userprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{app}\saz.ico"; WorkingDir: "{app}"
@@ -53,7 +53,7 @@ Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; IconFilename: "{a
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"
 
 [Registry]
-; add install dir to the user PATH so Boollm-core works in any terminal
+; add install dir to the user PATH so Boolean-core works in any terminal
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; \
   ValueData: "{olddata};{app}"; Check: NeedsAddPath(ExpandConstant('{app}'))
 
@@ -101,13 +101,13 @@ begin
   ExtractTemporaryFile('MicrosoftEdgeWebview2Setup.exe');
   Bootstrapper := ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe');
   WizardForm.StatusLabel.Caption :=
-    'Installing the Microsoft WebView2 Runtime required by Boollm...';
+    'Installing the Microsoft WebView2 Runtime required by Boolean...';
 
   if not Exec(Bootstrapper, '/silent /install', '', SW_HIDE,
     ewWaitUntilTerminated, ResultCode) then
   begin
     Result :=
-      'Boollm needs the Microsoft Edge WebView2 Runtime, but setup could not ' +
+      'Boolean needs the Microsoft Edge WebView2 Runtime, but setup could not ' +
       'start the Microsoft installer. Check your internet connection and try again.';
     exit;
   end;
@@ -116,24 +116,24 @@ begin
     Result :=
       'Microsoft Edge WebView2 Runtime could not be installed (error ' +
       IntToStr(ResultCode) + '). Check your internet connection or ask your PC ' +
-      'administrator to allow WebView2, then run Boollm setup again.';
+      'administrator to allow WebView2, then run Boolean setup again.';
 end;
 
-procedure StopBoollmProcesses(IncludeApp: Boolean);
+procedure StopBooleanProcesses(IncludeApp: Boolean);
 var
   ResultCode: Integer;
   Script: string;
 begin
   Exec('taskkill.exe', '/F /T /IM saz.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /T /IM saz-core.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec('taskkill.exe', '/F /T /IM Boollm.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec('taskkill.exe', '/F /T /IM Boollm-core.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /T /IM Boolean.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill.exe', '/F /T /IM Boolean-core.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /T /IM Boolean.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /T /IM Boolean-core.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill.exe', '/F /T /IM llama-server.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Script :=
     '$roots=@(' +
-    '[Environment]::GetFolderPath(''LocalApplicationData'') + ''\Programs\Boollm'',' +
+    '[Environment]::GetFolderPath(''LocalApplicationData'') + ''\Programs\Boolean'',' +
     '[Environment]::GetFolderPath(''LocalApplicationData'') + ''\Programs\Boolean'',' +
     '[Environment]::GetFolderPath(''LocalApplicationData'') + ''\Programs\LocalLM'',' +
     '[Environment]::GetFolderPath(''LocalApplicationData'') + ''\Programs\Saz''' +
@@ -142,7 +142,7 @@ begin
     Script := Script + '$roots += ''' + ExpandConstant('{app}') + '''; ';
   Script := Script +
     'for($i=0;$i -lt 24;$i++){ ' +
-    '$procs=Get-Process Boollm,Boollm-core,Boolean,Boolean-core,saz,saz-core,llama-server -ErrorAction SilentlyContinue | Where-Object { ' +
+    '$procs=Get-Process Boolean,Boolean-core,Boolean,Boolean-core,saz,saz-core,llama-server -ErrorAction SilentlyContinue | Where-Object { ' +
     'try{$p=$_.Path}catch{$p=$null}; ' +
     '$p -and ($roots | Where-Object { $p.StartsWith($_,[StringComparison]::OrdinalIgnoreCase) }) ' +
     '}; ' +
@@ -156,14 +156,14 @@ end;
 
 function InitializeSetup(): Boolean;
 begin
-  StopBoollmProcesses(False);
+  StopBooleanProcesses(False);
   Result := True;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then
-    StopBoollmProcesses(True);
+    StopBooleanProcesses(True);
 end;
 
 function NeedsAddPath(Param: string): boolean;
@@ -195,7 +195,7 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
-    StopBoollmProcesses(True);
+    StopBooleanProcesses(True);
   if CurUninstallStep = usPostUninstall then
     RemovePath(ExpandConstant('{app}'));
 end;
