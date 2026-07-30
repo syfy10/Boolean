@@ -330,17 +330,37 @@ export async function readEmail(providerName, connection, save, id) {
   return { id: row.id, threadId: row.conversationId, from: row.from?.emailAddress?.address || "", to: (row.toRecipients || []).map((x) => x.emailAddress?.address).filter(Boolean).join(", "), subject: row.subject || "", messageId: row.internetMessageId || "", body: row.body?.content || "" };
 }
 
-function gmailMime({ to, subject, text, inReplyTo = "", references = "" }) {
+function htmlEscape(value) {
+  return String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function gmailMime({ to, subject, text, attachment = null, inReplyTo = "", references = "" }) {
   const headers = [
     `To: ${cleanHeader(to)}`,
     `Subject: ${cleanHeader(subject)}`,
-    "MIME-Version: 1.0",
-    "Content-Type: text/plain; charset=UTF-8",
-    "Content-Transfer-Encoding: 8bit"
+    "MIME-Version: 1.0"
   ];
   if (inReplyTo) headers.push(`In-Reply-To: ${cleanHeader(inReplyTo)}`);
   if (references) headers.push(`References: ${cleanHeader(references)}`);
-  return b64url(`${headers.join("\r\n")}\r\n\r\n${String(text || "")}`);
+  if (!attachment?.data) {
+    headers.push("Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit");
+    return b64url(`${headers.join("\r\n")}\r\n\r\n${String(text || "")}`);
+  }
+  const boundary=`boolean-${crypto.randomBytes(10).toString("hex")}`,inline=attachment.inline===true&&String(attachment.type||"").startsWith("image/");
+  headers.push(`Content-Type: multipart/${inline?"related":"mixed"}; boundary="${boundary}"`);
+  const first=inline
+    ?[`--${boundary}`,"Content-Type: text/html; charset=UTF-8","Content-Transfer-Encoding: 8bit","",`<div style="white-space:pre-wrap">${htmlEscape(text)}</div><p><img src="cid:boolean-inline-image" alt="${htmlEscape(attachment.name||"Image")}"></p>`]
+    :[`--${boundary}`,"Content-Type: text/plain; charset=UTF-8","Content-Transfer-Encoding: 8bit","",String(text||"")];
+  const file=[
+    `--${boundary}`,
+    `Content-Type: ${cleanHeader(attachment.type||"application/octet-stream")}; name="${cleanHeader(attachment.name||"attachment")}"`,
+    "Content-Transfer-Encoding: base64",
+    `${inline?"Content-ID: <boolean-inline-image>\r\nContent-Disposition: inline":"Content-Disposition: attachment"}; filename="${cleanHeader(attachment.name||"attachment")}"`,
+    "",
+    String(attachment.data||"").replace(/\s+/g,"").match(/.{1,76}/g)?.join("\r\n")||"",
+    `--${boundary}--`
+  ];
+  return b64url(`${headers.join("\r\n")}\r\n\r\n${[...first,...file].join("\r\n")}`);
 }
 
 export async function createEmailDraft(providerName, connection, save, draft) {
@@ -351,9 +371,16 @@ export async function createEmailDraft(providerName, connection, save, draft) {
     });
     return { id: data.id, messageId: data.message?.id || "", provider: providerName };
   }
+  const attachment=draft.attachment?.data?draft.attachment:null;
+  const inline=attachment?.inline===true&&String(attachment.type||"").startsWith("image/");
   const data = await api(providerName, connection, save, "https://graph.microsoft.com/v1.0/me/messages", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ subject: cleanHeader(draft.subject), body: { contentType: "Text", content: String(draft.text || "") }, toRecipients: String(draft.to || "").split(/[;,]/).map((address) => address.trim()).filter(Boolean).map((address) => ({ emailAddress: { address } })) })
+    body: JSON.stringify({
+      subject: cleanHeader(draft.subject),
+      body: { contentType: inline?"HTML":"Text", content: inline?`<div style="white-space:pre-wrap">${htmlEscape(draft.text)}</div><p><img src="cid:boolean-inline-image" alt="${htmlEscape(attachment.name||"Image")}"></p>`:String(draft.text||"") },
+      toRecipients: String(draft.to || "").split(/[;,]/).map((address) => address.trim()).filter(Boolean).map((address) => ({ emailAddress: { address } })),
+      ...(attachment?{attachments:[{"@odata.type":"#microsoft.graph.fileAttachment",name:String(attachment.name||"attachment"),contentType:String(attachment.type||"application/octet-stream"),contentBytes:String(attachment.data||""),isInline:inline,contentId:inline?"boolean-inline-image":undefined}]}:{})
+    })
   });
   return { id: data.id, provider: providerName };
 }

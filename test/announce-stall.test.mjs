@@ -89,6 +89,6 @@ test("inspect context does not mistake compatibility tool results for the user r
 test("unfinished action announcements are retried even after earlier tool work", () => {
   const source = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
   assert.match(source, /const MAX_ANNOUNCE_NUDGES = 2;/);
-  assert.match(source, /if \(activeToolDefinitions\.length && !signal\?\.aborted[\s\S]*?announcesUnperformedAction\(assistantContent\)\)/);
+  assert.match(source, /if \(!compatibilityMode && activeToolDefinitions\.length && !signal\?\.aborted[\s\S]*?announcesUnperformedAction\(assistantContent\)\)/);
   assert.doesNotMatch(source, /activeToolDefinitions\.length && !completedToolWork && !signal\?\.aborted/);
 });

@@ -4,6 +4,12 @@ import path from "node:path";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
 import { resolveTarget, resolveProviderTarget, chatCompletion } from "./providers.js";
 import { CLOUD } from "./config.js";
+import {
+  modelCapabilityProfile,
+  nativeToolSupport,
+  parseBooleanPatch,
+  recordNativeToolSupport
+} from "./model-capabilities.js";
 import { summarizeLearnedPreferences } from "./preferences.js";
 import { detectWindowsSettingsRequest } from "./system-actions.js";
 import { createAgentController } from "./controller.js";
@@ -176,6 +182,19 @@ const ARTIFACT_TOOL_NAMES = new Set([
 ]);
 const ARTIFACT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => ARTIFACT_TOOL_NAMES.has(tool.function.name));
 const RESEARCH_TOOL_NAMES = new Set(["web_search", "research_web"]);
+const SALES_RESEARCH_TOOL_NAMES = new Set([
+  "web_search",
+  "research_web",
+  "browser_open",
+  "browser_click",
+  "visible_browser_open",
+  "visible_browser_control"
+]);
+const SALES_RESEARCH_FAILURE = /\b(?:no results?|empty|failed|failure|unavailable|network|timed out|could not|unable|blocked|error)\b/i;
+const SALES_RESEARCH_TOTAL_LIMIT = 8;
+const SALES_RESEARCH_FAILURE_LIMIT = 2;
+const SALES_PRIMARY_EVIDENCE_CONTRADICTION = /\b(?:could not|couldn't|unable to|failed to|did not)\s+(?:load|open|access|retrieve|verify|read|confirm)[\s\S]{0,90}\b(?:site|website|domain|page|greenscan)|\b(?:site|website|domain)\s+(?:was\s+)?(?:not confirmed|unavailable|unverified)|\binferred from (?:the )?domain\b|\b(?:not even|no)\s+confirmation[\s\S]{0,90}\b(?:site|website|domain|greenscan)|\bsite not confirmed\b/i;
+const SALES_PLAN_SECTION = /^(?:(?:#{1,4}\s+)|(?:\*\*\s*))?([1-5])[.)-]\s+/gmi;
 const RESEARCH_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => RESEARCH_TOOL_NAMES.has(tool.function.name));
 const INSPECT_TOOL_NAMES = new Set([
   "list_dir", "read_file", "find_files", "search_files", "find_symbol",
@@ -185,6 +204,10 @@ const INSPECT_TOOL_NAMES = new Set([
   "windows_system_info", "remember"
 ]);
 const INSPECT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => INSPECT_TOOL_NAMES.has(tool.function.name));
+const COMPATIBILITY_INSPECT_TOOL_NAMES = new Set([
+  "list_dir", "read_file", "find_files", "search_files", "find_symbol",
+  "git_status", "git_diff", "remember"
+]);
 const ACTION_TOOL_NAMES = new Set(TOOL_DEFINITIONS
   .map((tool) => String(tool.function?.name || "").toLowerCase())
   .filter((name) => name && !RESEARCH_TOOL_NAMES.has(name)));
@@ -255,11 +278,12 @@ function fallbackToolPrompt(definitions = TOOL_DEFINITIONS, options = {}) {
       }));
   return [
     "",
-    "TOOL PROTOCOL: To use a tool, reply with ONLY a fenced block like this:",
+    "LIMITED INSPECTION PROTOCOL: To inspect evidence, reply with ONLY one fenced block like this:",
     "```tool",
     '{"name": "run_command", "arguments": {"command": "Get-Date"}}',
     "```",
-    "Then wait for the result before continuing. When you no longer need tools, answer normally.",
+    "Bare JSON, trailing JSON, prose instructions, and mutation commands are not executed.",
+    "You may inspect at most twice. Then use the saved evidence and answer or return one Boolean patch.",
     compact ? "Available tools (name: purpose). Use the obvious JSON arguments for the selected tool:" : "Available tools (JSON schema):",
     compact ? tools.map((line) => `- ${line}`).join("\n") : JSON.stringify(tools, null, 2)
   ].join("\n");
@@ -274,26 +298,60 @@ function withFallbackToolProtocol(messages, definitions = TOOL_DEFINITIONS, opti
   return copy;
 }
 
+function patchModePrompt(reviewOnly = false) {
+  if (reviewOnly) {
+    return [
+      "",
+      "BOOLEAN REVIEW MODE: This model has no native tool access. Review the available evidence and answer plainly.",
+      "Do not claim to edit files, run commands, browse, test, or deploy."
+    ].join("\n");
+  }
+  return [
+    "",
+    "BOOLEAN PATCH MODE: This model has no native mutation, terminal, browser, or deploy tools.",
+    "To change files, return exactly ONE fenced boolean_patch block and no vague editing instructions:",
+    "```boolean_patch",
+    '{"edits":[{"path":"src/file.js","old":"exact existing text","new":"exact replacement"}]}',
+    "```",
+    "For a new file use {\"path\":\"relative/path\",\"content\":\"complete file content\"}.",
+    "Paths must be relative to the open project. Existing-file old text must match exactly and uniquely.",
+    "Boolean validates the complete patch before applying any edit. Do not claim tests, terminal work, browsing, or deployment."
+  ].join("\n");
+}
+
+function withCompatibilityProtocol(messages, definitions, options = {}) {
+  const copy = messages.map((message) => ({ ...message }));
+  const systemIndex = copy.findIndex((message) => message?.role === "system");
+  const protocol = [
+    patchModePrompt(options.reviewOnly === true),
+    definitions.length ? fallbackToolPrompt(definitions, { compact: true }) : ""
+  ].filter(Boolean).join("\n");
+  if (systemIndex >= 0 && !/BOOLEAN (?:PATCH|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
+    copy[systemIndex].content = `${copy[systemIndex].content}\n${protocol}`;
+  }
+  return copy;
+}
+
 const KNOWN_TOOLS = new Set(TOOL_DEFINITIONS.map((t) => t.function.name));
 
 // Small models often emit tool calls as a fenced JSON block in plain text even
 // when native tool calling is available, so this is checked in both modes.
-function parseFallbackToolCall(text) {
+function parseFallbackToolCall(text, options = {}) {
   const candidates = [];
   const fenced = text.match(/```(?:tool|json)?\s*\n?(\{[\s\S]*?\})\s*```/);
   if (fenced) candidates.push(fenced[1]);
-  // bare JSON: the whole message is just the tool-call object
   const trimmed = text.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) candidates.push(trimmed);
-  // Some small models write prose, then append a raw JSON tool call. Use the
-  // final object when it contains a known tool name.
-  const trailing = trimmed.match(/(\{[\s\S]*"name"\s*:\s*"(?:[^"]+)"[\s\S]*\})\s*$/);
-  if (trailing) candidates.push(trailing[1]);
+  if (!options.strict) {
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) candidates.push(trimmed);
+    const trailing = trimmed.match(/(\{[\s\S]*"name"\s*:\s*"(?:[^"]+)"[\s\S]*\})\s*$/);
+    if (trailing) candidates.push(trailing[1]);
+  }
+  const allowed = options.allowedNames instanceof Set ? options.allowedNames : KNOWN_TOOLS;
 
   for (const candidate of candidates) {
     try {
       const obj = JSON.parse(candidate);
-      if (obj && KNOWN_TOOLS.has(obj.name)) {
+      if (obj && KNOWN_TOOLS.has(obj.name) && allowed.has(obj.name)) {
         return { name: obj.name, arguments: obj.arguments || obj.parameters || {} };
       }
     } catch {
@@ -301,6 +359,33 @@ function parseFallbackToolCall(text) {
     }
   }
   return null;
+}
+
+function compatibilityToolDefinitions(definitions = []) {
+  return definitions.filter((tool) => COMPATIBILITY_INSPECT_TOOL_NAMES.has(String(tool.function?.name || "")));
+}
+
+function preflightBooleanPatch(edits) {
+  for (const edit of edits) {
+    if (edit.kind === "create") {
+      if (fs.existsSync(edit.absolute)) throw new Error(`Patch refused: '${edit.path}' already exists.`);
+      continue;
+    }
+    if (!fs.existsSync(edit.absolute)) throw new Error(`Patch refused: '${edit.path}' does not exist.`);
+    const current = fs.readFileSync(edit.absolute, "utf8");
+    const occurrences = current.split(edit.old).length - 1;
+    if (occurrences !== 1) {
+      throw new Error(`Patch refused: exact old text in '${edit.path}' matched ${occurrences} times; expected exactly once.`);
+    }
+  }
+}
+
+function saveCapabilityResult(config, target, supported, reason, onCapabilityChange) {
+  const previous = nativeToolSupport(config, target);
+  recordNativeToolSupport(config, target, supported, reason);
+  if (previous !== supported) {
+    try { onCapabilityChange?.(config.modelCapabilities); } catch { /* capability caching must not block a task */ }
+  }
 }
 
 function convertNativeToolHistoryToText(messages) {
@@ -455,7 +540,7 @@ function plainMessageText(message) {
   return "";
 }
 
-const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setup|finish|fix|edit|update|write)\b/i;
+const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setup|finish|fix|edit|update|write|change|modify)\b/i;
 const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|project|program|script|code|file|folder|desktop tool|server)\b/i;
 const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:it|that|all that)(?:\s+for me)?\b/i;
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
@@ -1062,7 +1147,7 @@ export async function runTurn(ctx, messages) {
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   ctx.latestUserText = plainMessageText(latestUser);
   const forceChat = ctx.forceTurnMode === "chat";
-  const artifactActionRequired = forceChat ? false : requiresArtifactAction(messages);
+  const artifactActionRequired = forceChat || ctx.forceNoArtifact === true ? false : requiresArtifactAction(messages);
   const connectorActionRequired = forceChat ? false : requiresConnectorContinuationAction(messages);
   const connectorToolResultRequired = forceChat ? false : requiresConnectorToolResult(messages);
   const explicitActionToolResultRequired = forceChat ? false : requiresExplicitActionToolResult(messages);
@@ -1105,6 +1190,11 @@ export async function runTurn(ctx, messages) {
     controller.noteTool(name, args, result);
     publishController();
   };
+  let salesResearchCalls = 0;
+  let salesResearchClosed = false;
+  let salesEvidenceCorrectionAttempts = 0;
+  let salesPrimaryEvidence = "";
+  const salesResearchFailures = new Map();
   const executeControllerTool = async (name, args) => {
     // `remember` is a no-side-effect memory write handled by the controller; it is
     // never loop-guarded and never touches the filesystem.
@@ -1113,6 +1203,18 @@ export async function runTurn(ctx, messages) {
       controller.addNote(note);
       publishController();
       return note ? `Noted: ${note}` : "Nothing to remember.";
+    }
+    const salesResearchTool = ctx.salesWorkflow === true && SALES_RESEARCH_TOOL_NAMES.has(name);
+    if (salesResearchTool) {
+      const failures = salesResearchFailures.get(name) || 0;
+      if (salesResearchClosed || salesResearchCalls >= SALES_RESEARCH_TOTAL_LIMIT) {
+        salesResearchClosed = true;
+        return "Sales research budget reached. Do not call another research or browser tool. Finish the prospect plan now from the collected evidence, label anything unverified, and complete the Personalize and Approve sections.";
+      }
+      if (failures >= SALES_RESEARCH_FAILURE_LIMIT) {
+        return `The ${name} research path has already failed twice. Do not retry this mechanism. Use evidence already collected or one different available mechanism, then finish the plan with unverified items labeled.`;
+      }
+      salesResearchCalls++;
     }
     const gate = controller.allowTool(name, args);
     if (!gate.allowed) {
@@ -1124,7 +1226,15 @@ export async function runTurn(ctx, messages) {
       return `error: ${gate.reason}`;
     }
     try {
-      return await executeTool(name, args, ctx);
+      const result = await executeTool(name, args, ctx);
+      if (salesResearchTool && /browser_open|visible_browser_open/.test(name)
+          && /\bHTTP\s+2\d\d\b/i.test(String(result || ""))) {
+        salesPrimaryEvidence = String(result || "").slice(0, 6000);
+      }
+      if (salesResearchTool && SALES_RESEARCH_FAILURE.test(String(result || ""))) {
+        salesResearchFailures.set(name, (salesResearchFailures.get(name) || 0) + 1);
+      }
+      return result;
     } catch (err) {
       if (err?.name === "AbortError" || signal?.aborted) throw err;
       const result = recoverableToolErrorResult(name, err);
@@ -1202,8 +1312,16 @@ export async function runTurn(ctx, messages) {
   }
   let localRecoveryAttempted = false;
   let localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
-  let useNativeTools = !localCompactTools;
+  let capabilityProfile = modelCapabilityProfile(config, target);
+  let compatibilityMode = localCompactTools || capabilityProfile.mode === "patch" || capabilityProfile.mode === "review";
+  let reviewOnlyCompatibility = capabilityProfile.mode === "review";
+  let useNativeTools = !compatibilityMode;
   let compactToolProtocol = localCompactTools;
+  if (compatibilityMode && artifactActionRequired) {
+    onStatus(reviewOnlyCompatibility
+      ? `${target.model || "This model"} is in review/chat-only mode`
+      : `${target.model || "This model"} has limited coding support - using exact Patch mode`);
+  }
   const emitUsage = (msg, usedTarget = target) => {
     if (msg?.usage) controller.addUsage(msg.usage);
     if (onUsage && msg?.usage) onUsage({ provider: usedTarget.provider || config.provider, model: usedTarget.model, ...msg.usage });
@@ -1311,6 +1429,9 @@ export async function runTurn(ctx, messages) {
   let announceNudges = 0;
   let forceToolCallNext = false;
   let activeToolDefinitions = [];
+  let compatibilityInspectionCount = 0;
+  let compatibilityPatchApplied = false;
+  let compatibilityPatchErrors = 0;
   // Autopilot re-enables the controller's auto-continue (verify/recover) loop even
   // in neutral-relay mode; with it off, behavior is unchanged (0 = model owns the loop).
   const autopilot = config?.ui?.codingAgent?.autopilot === true;
@@ -1371,8 +1492,15 @@ export async function runTurn(ctx, messages) {
       const availableTools = forceChat
         ? []
         : toolDefinitionsForTurnMode(turnMode, artifactActionRequired, completedToolWork, !!ctx.projectDir);
-      activeToolDefinitions = availableTools;
-      if (!useNativeTools && availableTools.length) {
+      const compatibilityInspections = compatibilityMode && compatibilityInspectionCount < 2 && !compatibilityPatchApplied
+        ? compatibilityToolDefinitions(availableTools)
+        : [];
+      activeToolDefinitions = compatibilityMode ? compatibilityInspections : availableTools;
+      if (compatibilityMode) {
+        modelMessages = withCompatibilityProtocol(modelMessages, compatibilityInspections, {
+          reviewOnly: reviewOnlyCompatibility
+        });
+      } else if (!useNativeTools && availableTools.length) {
         modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: compactToolProtocol });
       }
       const requireInitialNativeTool = connectorActionRequired;
@@ -1407,6 +1535,8 @@ export async function runTurn(ctx, messages) {
           if (reportedLimit <= 8192) {
             localCompactTools = true;
             useNativeTools = false;
+            compatibilityMode = true;
+            reviewOnlyCompatibility = false;
           }
         }
         const limitBudget = reportedLimit
@@ -1434,22 +1564,20 @@ export async function runTurn(ctx, messages) {
       const rejectedNativePrompt = useNativeTools && looksLikeRejectedNativeToolPrompt(err);
       if (useNativeTools && (looksLikeNoToolSupport(err) || malformedNativeCall || rejectedNativePrompt)) {
         useNativeTools = false;
+        compatibilityMode = true;
+        reviewOnlyCompatibility = false;
+        saveCapabilityResult(config, target, false,
+          rejectedNativePrompt ? "provider rejected native tool prompt"
+            : malformedNativeCall ? "model returned malformed native tool call"
+              : "provider reported no native tool support",
+          ctx.onCapabilityChange);
         if (rejectedNativePrompt) compactToolProtocol = true;
         onStatus(rejectedNativePrompt
-          ? "the provider rejected its native tool prompt - retrying with the compatible compact tool catalog..."
+          ? "the provider rejected native tools - switching to limited Patch mode..."
           : malformedNativeCall
-            ? "the model's tool call was malformed - retrying in compatibility mode..."
-            : `model '${target.model}' lacks native tool support — using text protocol`);
+            ? "the model's native tool call was malformed - switching to limited Patch mode..."
+            : `model '${target.model}' lacks native tool support - using limited Patch mode`);
         convertNativeToolHistoryToText(messages);
-        if (messages[0]?.role === "system" && !messages[0].content.includes("TOOL PROTOCOL")) {
-          messages[0] = {
-            role: "system",
-            content: messages[0].content + "\n" + fallbackToolPrompt(
-              activeToolDefinitions.length ? activeToolDefinitions : TOOL_DEFINITIONS,
-              { compact: compactToolProtocol }
-            )
-          };
-        }
         continue;
       }
       throw err;
@@ -1478,9 +1606,13 @@ export async function runTurn(ctx, messages) {
       }
       if (malformedCall) {
         useNativeTools = false;
-        onStatus("the model's tool call was malformed - retrying in compatibility mode...");
+        compatibilityMode = true;
+        reviewOnlyCompatibility = false;
+        saveCapabilityResult(config, target, false, "model returned malformed native tool call", ctx.onCapabilityChange);
+        onStatus("the model's native tool call was malformed - switching to limited Patch mode...");
         continue;
       }
+      saveCapabilityResult(config, target, true, "native tool call completed", ctx.onCapabilityChange);
       messages.push(msg);
       for (const { call, name, args } of parsedCalls) {
         onStatus(`running ${name}…`);
@@ -1509,10 +1641,69 @@ export async function runTurn(ctx, messages) {
 
     const assistantContent = msg.content || "";
 
+    if (compatibilityMode && !reviewOnlyCompatibility && !compatibilityPatchApplied) {
+      try {
+        const edits = parseBooleanPatch(assistantContent, ctx.projectDir);
+        if (edits) {
+          preflightBooleanPatch(edits);
+          messages.push({ role: "assistant", content: assistantContent });
+          const results = [];
+          for (const edit of edits) {
+            const name = edit.kind === "create" ? "write_file" : "edit_file";
+            const args = edit.kind === "create"
+              ? { path: edit.absolute, content: edit.content }
+              : { path: edit.absolute, old_string: edit.old, new_string: edit.new };
+            onStatus(`applying Patch mode edit to ${edit.path}...`);
+            const result = await executeControllerTool(name, args);
+            noteControllerTool(name, args, result);
+            emitStep({ name: "boolean_patch", args: { path: edit.path, kind: edit.kind }, result });
+            results.push(`${edit.path}: ${result}`);
+            if (/^(?:error|blocked|failed|user declined)/i.test(String(result || "").trim())) {
+              throw new Error(`Patch stopped at '${edit.path}': ${String(result || "").trim()}`);
+            }
+          }
+          compatibilityPatchApplied = true;
+          completedToolWork = true;
+          emptyResponseRetries = 0;
+          messages.push({
+            role: "user",
+            content: `BOOLEAN PATCH RESULT:\n${results.join("\n")}\nSummarize only the edits actually applied. Do not claim tests, terminal, browser, or deployment work.`
+          });
+          checkpoint();
+          continue;
+        }
+      } catch (err) {
+        compatibilityPatchErrors++;
+        const reason = String(err?.message || err);
+        if (compatibilityPatchErrors <= 1) {
+          messages.push({ role: "assistant", content: assistantContent });
+          messages.push({
+            role: "user",
+            content: `BOOLEAN PATCH REJECTED: ${reason}\nReturn one corrected fenced boolean_patch block. Do not inspect again or describe a future edit.`
+          });
+          onStatus("the proposed patch did not match the project - requesting one corrected patch...");
+          continue;
+        }
+        const stoppedPatch = `Patch mode stopped without further changes: ${reason} Switch to a native-tool model, provide the exact target text, or continue in review-only mode.`;
+        messages.push({ role: "assistant", content: stoppedPatch });
+        checkpoint();
+        return stoppedPatch;
+      }
+    }
+
     // Text-protocol tool calls (checked in both modes — small models often
     // write a JSON block instead of using native tool calls)
-    const call = activeToolDefinitions.length ? parseFallbackToolCall(assistantContent) : null;
+    const allowedNames = new Set(activeToolDefinitions.map((tool) => tool.function.name));
+    const call = activeToolDefinitions.length
+      ? parseFallbackToolCall(assistantContent, { strict: compatibilityMode, allowedNames })
+      : null;
     if (call) {
+      if (compatibilityMode && compatibilityInspectionCount >= 2) {
+        const stoppedInspecting = "Patch mode stopped after two inspection steps with 0 file changes. Choose Create one patch, Switch model, or Continue review only.";
+        messages.push({ role: "assistant", content: stoppedInspecting });
+        checkpoint();
+        return stoppedInspecting;
+      }
       messages.push({ role: "assistant", content: assistantContent });
       onStatus(`running ${call.name}…`);
       const result = await executeControllerTool(call.name, call.arguments);
@@ -1520,6 +1711,7 @@ export async function runTurn(ctx, messages) {
       const toolResultContent = result;
       emitStep({ name: call.name, args: call.arguments, result });
       completedToolWork = true;
+      if (compatibilityMode) compatibilityInspectionCount++;
       emptyResponseRetries = 0;
       messages.push({
         role: "user",
@@ -1535,6 +1727,27 @@ export async function runTurn(ctx, messages) {
       flushPendingImages();
       checkpoint();
       continue;
+    }
+
+    if (compatibilityMode && !reviewOnlyCompatibility && artifactActionRequired && !compatibilityPatchApplied) {
+      const stoppedPatch = compatibilityInspectionCount >= 2
+        ? "Patch mode stopped after two inspection steps with 0 file changes. Choose Create one patch, Switch model, or Continue review only."
+        : "Patch mode stopped before changing files because the model did not return one exact fenced boolean_patch block. Choose Create one patch, Switch model, or Continue review only.";
+      messages.push({ role: "assistant", content: stoppedPatch });
+      checkpoint();
+      return stoppedPatch;
+    }
+
+    // A successful compatibility patch gets exactly one summary response. Do
+    // not feed that summary into the native-agent verification/continuation
+    // loop because this model cannot run the terminal, browser, or deploy.
+    if (compatibilityPatchApplied && assistantContent.trim()) {
+      controller.updateDigest(assistantContent, ctx.latestUserText || "");
+      controller.evaluateCompletion(assistantContent);
+      messages.push({ role: "assistant", content: assistantContent });
+      publishController();
+      checkpoint();
+      return assistantContent;
     }
 
     // A small model may understand a build request yet answer with a tutorial
@@ -1558,7 +1771,7 @@ export async function runTurn(ctx, messages) {
     // are available and the response is a short bare announcement with nothing
     // done — and push the model to actually take the step instead of accepting
     // the narration as a final answer.
-    if (activeToolDefinitions.length && !signal?.aborted
+    if (!compatibilityMode && activeToolDefinitions.length && !signal?.aborted
         && announceNudges < MAX_ANNOUNCE_NUDGES
         && announcesUnperformedAction(assistantContent)) {
       announceNudges++;
@@ -1578,6 +1791,38 @@ export async function runTurn(ctx, messages) {
       messages.push({ role: "assistant", content: assistantContent });
       messages.push({ role: "user", content: "" });
       onStatus("continuing until the project is finished...");
+      continue;
+    }
+
+    // A failed discovery/search service does not erase primary evidence that
+    // was successfully read from the supplied company website. Sales results
+    // are saved as durable plans, so correct this contradiction before the UI
+    // ever accepts or stores the answer.
+    const salesPlanSections = ctx.salesWorkflow === true
+      ? new Set([...assistantContent.matchAll(SALES_PLAN_SECTION)].map((match) => match[1]))
+      : new Set();
+    const salesPlanIncomplete = ctx.salesWorkflow === true && salesPlanSections.size < 5;
+    if (ctx.salesWorkflow === true && salesPrimaryEvidence
+        && (SALES_PRIMARY_EVIDENCE_CONTRADICTION.test(assistantContent) || salesPlanIncomplete)
+        && salesEvidenceCorrectionAttempts < 2 && !signal?.aborted) {
+      salesEvidenceCorrectionAttempts++;
+      messages.push({ role: "assistant", content: assistantContent });
+      messages.push({
+        role: "user",
+        content: [
+          "EVIDENCE CONSISTENCY CHECK FAILED.",
+          "The supplied company website opened successfully with HTTP 2xx and its primary page evidence is authoritative.",
+          "Rewrite the complete five-section prospect plan now. Use the verified website facts for Understand and Target.",
+          "Use explicit numbered headings 1 through 5: Understand, Target, Research, Personalize, Approve. Do not return a summary instead.",
+          "Do not say the website was unavailable, unverified, inferred from its domain, or not confirmed.",
+          "Mark only outside prospect-company discovery as limited if those searches failed.",
+          "Keep Personalize and Approve complete, state that nothing was sent, and do not call more tools.",
+          "",
+          "VERIFIED PRIMARY WEBSITE EVIDENCE:",
+          salesPrimaryEvidence
+        ].join("\n")
+      });
+      onStatus("correcting the plan against verified website evidence...");
       continue;
     }
 

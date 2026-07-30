@@ -192,11 +192,14 @@ sealed class MainForm : Form, IMessageFilter
 
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
     static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    static extern int DwmGetColorizationColor(out uint colorizationColor, out bool opaqueBlend);
 
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
 
     FormWindowState _lastWindowState = FormWindowState.Normal;
+    bool _windowActive = true;
     bool _frameRefreshQueued;
     bool _restoreMaximized;
     bool _restoreBrowserOpen;
@@ -318,7 +321,8 @@ sealed class MainForm : Form, IMessageFilter
             SetWindowPos(Handle, IntPtr.Zero, 0, 0, 0, 0,
                 SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
             ApplyBorderlessDwm();
-            if (_browserOpen && !_full) BeginInvoke(new Action(FitBrowserSplit));
+            if (WindowState != FormWindowState.Minimized && !_wasMinimized &&
+                _browserOpen && !_full) BeginInvoke(new Action(FitBrowserSplit));
         }));
     }
 
@@ -335,6 +339,34 @@ sealed class MainForm : Form, IMessageFilter
             DwmSetWindowAttribute(Handle, 33 /*DWMWA_WINDOW_CORNER_PREFERENCE*/, ref round, 4);
         }
         catch { }
+    }
+
+    Color TopOutlineColor(Color themedBorder)
+    {
+        // Windows 10 continues to draw the native left, right, and bottom
+        // resize frame, but our reclaimed custom title bar covers its top
+        // edge. Use the same DWM accent there so all four active edges match.
+        // Windows 11 honors DWMWA_BORDER_COLOR, so retain the themed border.
+        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+            return themedBorder;
+        if (!_windowActive)
+            return SystemColors.InactiveBorder;
+        try
+        {
+            if (DwmGetColorizationColor(out uint color, out _) == 0)
+                return Color.FromArgb(
+                    (int)((color >> 16) & 0xff),
+                    (int)((color >> 8) & 0xff),
+                    (int)(color & 0xff));
+        }
+        catch { }
+        return SystemColors.Highlight;
+    }
+
+    void RefreshTopOutline()
+    {
+        _topOutline.BackColor = TopOutlineColor(_pal.BtnBorder);
+        _topOutline.Invalidate();
     }
 
     void ApplyDwmChromeColor(Color color)
@@ -455,6 +487,8 @@ sealed class MainForm : Form, IMessageFilter
     bool _windowSizing;
     bool _fittingBrowserSplit;
     bool _splitHitDragging;
+    bool _wasMinimized;
+    int _lastUsableBrowserWidth;
     int _deviceModeIdx = 0;
     static readonly (string id, string label, int w, int h, bool mobile, string glyph)[] DeviceModes =
     {
@@ -558,6 +592,16 @@ sealed class MainForm : Form, IMessageFilter
         _startup.BringToFront();
 
         Load += OnLoad;
+        Activated += (_, __) =>
+        {
+            _windowActive = true;
+            RefreshTopOutline();
+        };
+        Deactivate += (_, __) =>
+        {
+            _windowActive = false;
+            RefreshTopOutline();
+        };
         // Docking already resizes both WebViews during a border drag. Recomputing
         // SplitterDistance for every WM_SIZE made the panes fight that layout,
         // producing visible shake and exposing an unpainted edge. Fit once when
@@ -565,6 +609,19 @@ sealed class MainForm : Form, IMessageFilter
         ResizeBegin += (_, __) => { _windowSizing = true; };
         Resize += (_, __) =>
         {
+            if (WindowState == FormWindowState.Minimized)
+            {
+                _wasMinimized = true;
+                return;
+            }
+            if (_wasMinimized)
+            {
+                _wasMinimized = false;
+                if (_browserOpen && !_full) BeginInvoke(new Action(RestoreBrowserSplitAfterMinimize));
+                PushChromeState();
+                PushWindowState();
+                return;
+            }
             if (_browserOpen && !_full && !_windowSizing) FitBrowserSplit();
             PushChromeState(); // keep the chrome's maximize/restore glyph in sync
             PushWindowState(); // keep the main title bar's maximize/restore glyph in sync
@@ -1453,7 +1510,7 @@ try {
         try { _chat.DefaultBackgroundColor = p.PaneBg; } catch { }
         ApplyDwmChromeColor(p.CanvasBg);
         _split.BackColor = p.Splitter;
-        _topOutline.BackColor = p.BtnBorder;
+        RefreshTopOutline();
         _split.Panel1.BackColor = p.CanvasBg;
         // Panel2 paints the reserved browser top band; the browserPane below it
         // keeps its own PaneBg surface.
@@ -1513,6 +1570,7 @@ try {
         if (m.Msg == WM_LBUTTONUP && _splitHitDragging)
         {
             _splitHitDragging = false;
+            RememberBrowserSplit();
             Capture = false;
             _split.Cursor = nearSplitter ? Cursors.VSplit : Cursors.Default;
             AutoFitActiveBrowserIfNarrow();
@@ -1896,7 +1954,29 @@ try {
         finally
         {
             _fittingBrowserSplit = false;
+            RememberBrowserSplit();
         }
+    }
+
+    void RememberBrowserSplit()
+    {
+        if (!_browserOpen || _full || _split.Panel2Collapsed ||
+            WindowState == FormWindowState.Minimized || _split.Panel2.Width < 20) return;
+        _lastUsableBrowserWidth = _split.Panel2.Width;
+    }
+
+    void RestoreBrowserSplitAfterMinimize()
+    {
+        if (!_browserOpen || _full || _split.Panel2Collapsed || _split.Width <= 0) return;
+        int available = Math.Max(0, _split.Width - _split.SplitterWidth);
+        if (available < 40) return;
+        int browserWidth = Math.Clamp(
+            _lastUsableBrowserWidth > 0 ? _lastUsableBrowserWidth : available / 2,
+            Math.Min(20, available), Math.Max(20, available - 20));
+        _split.Panel1MinSize = Math.Min(300, Math.Max(20, available - browserWidth));
+        _split.Panel2MinSize = Math.Min(340, Math.Max(20, browserWidth));
+        _split.SplitterDistance = Math.Max(_split.Panel1MinSize, available - browserWidth);
+        BeginInvoke(new Action(AutoFitActiveBrowserIfNarrow));
     }
 
     // When the browser opens in a small window, grow it so the chat side keeps room
@@ -1948,6 +2028,7 @@ try {
             {
                 _split.ResumeLayout(true);
             }
+            RememberBrowserSplit();
             if (ensureTab && _tabs.Count == 0) AddTab(_homeUrl, activate: true, navigate: true);
             var t = Active();
             if (t != null && t.View.CoreWebView2 != null)

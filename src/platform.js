@@ -474,7 +474,7 @@ function officeEntries(type, title, content) {
   ];
 }
 
-function simplePdf(title, content) {
+export function simplePdf(title, content) {
   const escape = (value) => String(value).replace(/[^\x20-\x7e]/g, "?").replace(/([\\()])/g, "\\$1");
   const pageWidth = 612, pageHeight = 792, margin = 54, lineHeight = 15, fontSize = 12;
   const maxChars = 110; // approximate characters that fit within the page width at 12pt Helvetica

@@ -374,6 +374,47 @@ export async function getMarketSnapshot(settings, symbol, requestedRange = "6mo"
   return parseYahooChart(payload, safeSymbol);
 }
 
+const SECTOR_ETFS = [
+  ["XLB", "Materials"], ["XLC", "Communication"], ["XLE", "Energy"],
+  ["XLF", "Financials"], ["XLI", "Industrials"], ["XLK", "Technology"],
+  ["XLP", "Consumer Staples"], ["XLRE", "Real Estate"], ["XLU", "Utilities"],
+  ["XLV", "Health Care"], ["XLY", "Consumer Discretionary"]
+];
+
+const periodReturn = (points, startTime, latestClose) => {
+  const valid = points.filter((point) => Number.isFinite(point.time) && Number.isFinite(Number(point.close)));
+  const before = valid.filter((point) => point.time < startTime).at(-1);
+  const baseline = Number(before?.close ?? valid.find((point) => point.time >= startTime)?.close);
+  return Number.isFinite(baseline) && baseline !== 0 && Number.isFinite(latestClose)
+    ? (latestClose / baseline - 1) * 100
+    : null;
+};
+
+export async function getSectorPerformance() {
+  const now = new Date();
+  const yearStart = Date.UTC(now.getUTCFullYear(), 0, 1);
+  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+  const results = await Promise.allSettled(
+    SECTOR_ETFS.map(([symbol]) => getMarketSnapshot({ provider: "yahoo" }, symbol, "1y"))
+  );
+  return {
+    source: "Yahoo Finance (experimental)",
+    delayed: true,
+    asOf: Date.now(),
+    sectors: results.map((result, index) => {
+      const [symbol, name] = SECTOR_ETFS[index];
+      if (result.status !== "fulfilled") return { symbol, name, ytd: null, mtd: null };
+      const points = result.value.points || [];
+      const latest = Number(points.at(-1)?.close ?? result.value.price);
+      return {
+        symbol, name,
+        ytd: periodReturn(points, yearStart, latest),
+        mtd: periodReturn(points, monthStart, latest)
+      };
+    })
+  };
+}
+
 export async function getMarketDashboard(settings, symbol = "AAPL") {
   const safeSymbol = String(symbol || "AAPL").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g, "").slice(0, 24) || "AAPL";
   const indexSymbols = ["^GSPC", "^DJI", "^IXIC", "^RUT", "^VIX"];

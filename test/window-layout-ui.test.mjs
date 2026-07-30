@@ -5,6 +5,7 @@ import fs from "node:fs";
 const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
 const shell = fs.readFileSync(new URL("../shell/Program.cs", import.meta.url), "utf8");
 const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+const agent = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
 const browse = fs.readFileSync(new URL("../src/browse.js", import.meta.url), "utf8");
 const config = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 const website = fs.readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
@@ -166,7 +167,7 @@ test("browser tabs, address clearing, and device presets stay explicit", () => {
   assert.match(shell, /\("mobile",\s*"Mobile 390 [^"]* 844", 390, 844, true,/);
   assert.match(ui, /id="bAddrClear"[^>]*title="Clear address"/);
   assert.match(ui, /\$\("bAddrClear"\)\?\.addEventListener\("click",\(\)=>\{ bAddr\.value=""/);
-  assert.match(ui, /body\.chat-micro #notesToggle,body\.chat-micro #browserToggle\{ display:grid; \}/);
+  assert.match(ui, /body\.chat-micro #notesToggle,body\.chat-micro #exploreToggle,body\.chat-micro #browserToggle\{ display:grid; \}/);
 });
 
 test("notepad has a functional clipboard paste action", () => {
@@ -341,8 +342,42 @@ test("side chat stays compact and the duplicate browser edge launcher is removed
   assert.match(ui, /body:not\(\.composer-simple\) \.promptline #interruptEdit\{[\s\S]*?right:15px; bottom:52px;[\s\S]*?width:28px; height:28px;/);
 });
 
-test("Settings temporarily closes Projects and Chats without changing the saved sidebar choice", () => {
-  assert.match(ui, /body\.settings-open aside,[\s\S]*?body\.settings-open\.collapsed\.sidebar-popover-open aside\{[\s\S]*?display:none!important;[\s\S]*?width:0!important;[\s\S]*?flex-basis:0!important;[\s\S]*?pointer-events:none!important;/);
+test("Notepad docks beside Explore instead of hiding behind it", () => {
+  assert.match(
+    ui,
+    /body\.notes-on:is\(\.education-open,\.markets-open,\.recipes-open,\.sales-open\) #notesPanel\{[\s\S]*?position:fixed; top:78px; right:8px; bottom:4px;[\s\S]*?border-radius:6px;/
+  );
+  assert.match(
+    ui,
+    /body\.notes-on:is\(\.education-open,\.markets-open,\.recipes-open,\.sales-open\) #ndrag\{[\s\S]*?right:calc\(var\(--nw,clamp\(240px,26vw,320px\)\) \+ 4px\);/
+  );
+  assert.match(
+    ui,
+    /body\.notes-on:is\(\.education-open,\.markets-open,\.recipes-open,\.sales-open\) \.workspace-float\.maximized\{[\s\S]*?right:calc\(var\(--nw,clamp\(240px,26vw,320px\)\) \+ 17px\)!important;/
+  );
+  assert.match(
+    ui,
+    /const notesDocked=!narrow&&document\.body\.classList\.contains\("notes-on"\)&&EXPLORE_WORKSPACES\.includes\(activeWsTab\)/
+  );
+  assert.match(ui, /function syncExploreNotepadDock\(\)\{[\s\S]*?restoreWorkspaceFloatWidth\(\);/);
+  assert.match(
+    ui,
+    /if\(handleId==="ndrag"&&typeof syncExploreNotepadDock==="function"\) syncExploreNotepadDock\(\);/
+  );
+  assert.match(
+    ui,
+    /document\.body\.classList\.toggle\("notes-on",!!on\);\s*if\(workspaceDockReady&&typeof syncExploreNotepadDock==="function"\) syncExploreNotepadDock\(\);/
+  );
+});
+
+test("Settings keeps Projects and Chats available as a visible floating pane", () => {
+  assert.match(ui, /body\.settings-open:not\(\.sidebar-popover-open\) aside\{[\s\S]*?display:none!important;[\s\S]*?width:0!important;[\s\S]*?flex-basis:0!important;[\s\S]*?pointer-events:none!important;/);
+  assert.match(ui, /id="settingsProjectsChats"[^>]*aria-label="Open projects and chats"[^>]*>Projects &amp; chats<\/button>/);
+  assert.match(ui, /\$\("settingsProjectsChats"\)\?\.addEventListener\("click",event=>\{\s*event\.stopPropagation\(\);\s*\$\("panelToggle"\)\?\.click\(\);\s*\}\)/);
+  assert.match(ui, /\.settings-head #settingsProjectsChats\{[^}]*width:auto;[^}]*border:1px solid var\(--border\);/);
+  assert.match(ui, /function syncSidePanelWidth\(\)\{[\s\S]*?scheduleResponsiveClasses\(\);/);
+  assert.match(ui, /if\(document\.body\.classList\.contains\("settings-open"\)\)\{\s*sidebarHoverPreview=false;\s*document\.body\.classList\.add\("collapsed"\);\s*document\.body\.classList\.toggle\("sidebar-popover-open"\);\s*syncPanelButtons\(\);\s*return;/);
+  assert.match(ui, /if\(!sidebarPopupMode&&!document\.body\.classList\.contains\("settings-open"\)\) document\.body\.classList\.remove\("sidebar-popover-open"\);/);
   assert.match(ui, /function prepareWorkspaceForSettings\(sec\)\{\s*document\.body\.classList\.remove\("sidebar-popover-open"\);\s*sidebarHoverPreview=false;/);
   assert.doesNotMatch(ui, /function prepareWorkspaceForSettings\(sec\)\{[\s\S]*?sidebarManualState=true;[\s\S]*?const settingsWs=/);
 });
@@ -376,6 +411,12 @@ test("native window and workspace panes restore their last closed layout", () =>
   assert.match(shell, /work\.Left \+ \(work\.Width - width\) \/ 2/);
   assert.match(shell, /work\.Top \+ \(work\.Height - height\) \/ 2/);
   assert.match(shell, /if \(_restoreBrowserOpen\)\s*BeginInvoke\(new Action\(\(\) => ToggleBrowser\(true\)\)\);/);
+  assert.match(shell, /bool _wasMinimized;\s*int _lastUsableBrowserWidth;/);
+  assert.match(shell, /if \(WindowState == FormWindowState\.Minimized\)\s*\{\s*_wasMinimized = true;\s*return;/);
+  assert.match(shell, /if \(_wasMinimized\)[\s\S]*?RestoreBrowserSplitAfterMinimize/);
+  assert.match(shell, /void RememberBrowserSplit\(\)/);
+  assert.match(shell, /void RestoreBrowserSplitAfterMinimize\(\)/);
+  assert.match(shell, /_split\.ResumeLayout\(true\);\s*\}\s*RememberBrowserSplit\(\);\s*if \(ensureTab/);
   assert.match(ui, /const APP_FRAME_KEY="booleanAppFrame";/);
   assert.match(ui, /sidebarOpen:!document\.body\.classList\.contains\("collapsed"\)/);
   assert.match(ui, /notesOpen:document\.body\.classList\.contains\("notes-on"\)/);
@@ -540,8 +581,9 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /\.sidebar-brand-mark circle\{ fill:currentColor; \}/);
   assert.match(ui, /<svg class="sidebar-brand-mark"[\s\S]*?<circle cx="20" cy="20" r="3\.8"\/>[\s\S]*?<\/svg>/);
   assert.match(ui, /id="sidebarNewProject"[\s\S]*?<span>Project<\/span>/);
-  assert.doesNotMatch(ui, /id="sidebarNewChat"/);
-  assert.match(ui, /\.workspace-create-row\{ display:grid; grid-template-columns:1fr;/);
+  assert.match(ui, /id="sidebarNewChat"[\s\S]*?<span>Chat<\/span>/);
+  assert.match(ui, /\$\("sidebarNewChat"\)\.onclick=newChat/);
+  assert.match(ui, /\.workspace-create-row\{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(ui, /<div class="thread-search-wrap">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"[^>]*placeholder="Search chats and files"/);
   assert.match(ui, /\.thread-search-wrap svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
   assert.match(ui, /display:block; width:100%; height:30px; margin:0; padding:0 9px 0 27px;/);
@@ -550,6 +592,13 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /body:not\(\.collapsed\) #sideRail \.rail-user,\s*body\.collapsed\.sidebar-popover-open #sideRail \.rail-user\{ display:none!important; \}/);
   assert.doesNotMatch(ui, /data-account-composer|id="composerStyleSeg"|Chat input style/);
   assert.match(ui, /document\.body\.classList\.remove\("composer-simple"\)/);
+});
+
+test("major app surfaces share the compact Projects and Chats corner radius", () => {
+  assert.match(ui, /--surface-radius:6px;/);
+  assert.match(ui, /body:not\(\.shell\) aside,[\s\S]*?\.sidebar-account-card,[\s\S]*?\.account-popover,[\s\S]*?body\.browser-on:not\(\.shell\) #browser,[\s\S]*?body\.notes-on:not\(\.shell\) #notesPanel,[\s\S]*?\.workspace-float,[\s\S]*?\.composer-wrap,[\s\S]*?\.app-modal-card,[\s\S]*?border-radius:var\(--surface-radius\);/);
+  assert.match(ui, /Pills,[\s\S]*?round avatars,[\s\S]*?message bubbles,[\s\S]*?compact controls keep their own shape/);
+  assert.match(ui, /@media\(max-width:760px\)\{\s*\.workspace-float\{ border-radius:var\(--surface-radius\); \}/);
 });
 
 test("About email and connection rows use recognizable service marks", () => {
@@ -645,8 +694,9 @@ test("projects and chats respect manual close even when ample width returns", ()
   assert.doesNotMatch(ui, /sidebarManualState=null;\s*document\.body\.classList\.remove\("sidebar-popover-open"\)/);
   assert.match(ui, /sidebarManualState=document\.body\.classList\.contains\("collapsed"\);/);
   assert.match(ui, /body\.notes-on\.browser-on\.chat-micro #notesToggle,[\s\S]*?body\.notes-on\.browser-on\.chat-micro #ctxToggle\{ display:grid!important; \}/);
-  assert.match(ui, /\.topbar \.netseg\{ width:96px; min-width:96px; max-width:96px; height:22px;/);
-  assert.match(ui, /\.topbar \.netseg button\{ flex:1 1 50%; width:46px; min-width:0; height:18px; font-size:10px;/);
+  assert.match(ui, /\.topbar \.netseg\{ width:92px; min-width:92px; max-width:92px; height:24px;[\s\S]*?border:1px solid var\(--border\); border-radius:9px; background:var\(--bubble\); flex:0 0 92px;/);
+  assert.match(ui, /\.topbar \.netseg button\{ width:auto; min-width:0; min-height:18px; height:18px;[\s\S]*?border-radius:7px;[\s\S]*?font:600 7px\/1\.1 var\(--ui\);/);
+  assert.match(ui, /\.topbar \.netseg button\[data-net="online"\]\.on\{ background:var\(--bg\); color:var\(--online\); box-shadow:0 1px 5px rgba\(0,0,0,.10\); \}/);
 });
 
 test("compact navigation rail returns at half the old width requirement", () => {
@@ -670,9 +720,8 @@ test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /if\(pickerNet==="online"\)\{/);
   assert.match(ui, /const activeModelName=\(\)=>\{[\s\S]*?provider==="local"\?displayName\(state\.model\):providerModelName\(provider\)/);
   assert.match(ui, /function setComposerModelDisplay\(modelName\)\{/);
-  assert.match(ui, /state\.provider==="local"\s*\?localModelCompanyMark\(modelName\|\|""\)\s*:providerMark\(state\.provider/);
-  assert.match(ui, /\.modelbtn #modelname \.local-company-mark,[\s\S]*?width:1em; height:1em;/);
-  assert.match(ui, /target\.innerHTML=mark;\s*target\.setAttribute\("aria-label",modelName\|\|"Select a model"\)/);
+  assert.match(ui, /target\.innerHTML=`<span class="model-label-text">\$\{esc\(modelName\|\|"Select a model"\)\}<\/span>`;/);
+  assert.match(ui, /target\.setAttribute\("aria-label",modelName\|\|"Select a model"\)/);
   assert.match(ui, /\$\("providersel"\)\.onchange=async\(e\)=>\{[\s\S]*?const provider=e\.target\.value;[\s\S]*?JSON\.stringify\(\{provider\}\)/);
   assert.match(ui, /modelPickerNet="online";[\s\S]*?const firstMissing=\$\("modellist"\)\?\.querySelector\("\.api-provider\.missing"\);[\s\S]*?Boolean will stay on Local until it is saved\./);
   assert.doesNotMatch(ui, /else if\(providerReadyForRun\("local"\)\) prov="local"/);
@@ -708,6 +757,7 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /className="api-provider-select"/);
   assert.match(ui, /\.api-connected-summary \.model-line\{[^}]*display:grid; grid-template-columns:minmax\(0,1\.35fr\) minmax\(42px,\.65fr\);/s);
   assert.match(ui, /#modelmenu \.model-picker-title\{[^}]*height:30px; min-height:30px;/s);
+  assert.match(ui, /\.menu#modelmenu\{[^}]*border-radius:6px;[^}]*background-clip:padding-box; scrollbar-gutter:stable;/s);
   assert.match(ui, /\.api-provider-select\{[^}]*min-height:32px; height:32px;/s);
   assert.match(ui, /\.api-provider-detail\.connecting \.api-key-form\{[^}]*grid-template-columns:minmax\(0,1fr\) 24px;/s);
   assert.match(ui, /#modelmenu \.api-provider-detail\.connecting \.api-key-form input\{[^}]*min-height:26px; height:26px;/s);
@@ -758,6 +808,10 @@ test("AI model switches have full mouse and touch targets and persist their stat
   assert.match(ui, /toggle\.setAttribute\("aria-checked",String\(toggle\.checked\)\)/);
   assert.match(ui, /Automatic model routing is on\./);
   assert.match(ui, /Backup cloud model is on\./);
+  assert.match(ui, /modelsWrap\.querySelectorAll\("\.api-model-row"\)\.forEach\(candidate=>\{candidate\.classList\.toggle\("selected",candidate===row\);candidate\.querySelector\("small"\)\.textContent=candidate===row\?"Selected":"Use";\}\)/);
+  assert.match(ui, /state\.provider=prov;state\.model=model;state\.providerModels=\{\.\.\.\(state\.providerModels\|\|\{\}\),\[prov\]:model\}/);
+  assert.match(ui, /setComposerModelDisplay\(displayName\(model\)\);updateFooterModelStatus\(\)/);
+  assert.match(ui, /tempToast\("Switched to "\+displayName\(model\)\+"\."\)/);
 });
 
 test("composer hides compare and moves approval beside the model picker", () => {
@@ -892,7 +946,7 @@ test("native shell places the window inside the monitor work area", () => {
   assert.match(shell, /PushChromeState\(\); \/\/ keep the chrome's maximize\/restore glyph in sync\s*PushWindowState\(\);/);
   assert.match(ui, /const setNativeWindowState=\(maximized\)=>\{/);
   assert.match(ui, /const label=maximized\?"Restore window":"Window layout";/);
-  assert.match(ui, /d\.type==="shellWindowState"\)\{ setNativeWindowState\(!!d\.maximized\); \}/);
+  assert.match(ui, /d\.type==="shellWindowState"\)\{[\s\S]*?setNativeWindowState\(!!d\.maximized\);[\s\S]*?restoreWorkspaceFloatWidth\(\);/);
 });
 
 test("borderless native shell exposes resize hit zones on every edge and corner", () => {
@@ -913,7 +967,13 @@ test("borderless native shell exposes resize hit zones on every edge and corner"
 test("native shell completes the border across the custom title bar", () => {
   assert.match(shell, /readonly Panel _topOutline = new\(\) \{ Dock = DockStyle\.Top, Height = 1, TabStop = false \};/);
   assert.match(shell, /Controls\.Add\(_topOutline\);\s*_topOutline\.BringToFront\(\);/);
-  assert.match(shell, /_topOutline\.BackColor = p\.BtnBorder;/);
+  assert.match(shell, /DwmGetColorizationColor\(out uint color, out _\) == 0/);
+  assert.match(shell, /OperatingSystem\.IsWindowsVersionAtLeast\(10, 0, 22000\)/);
+  assert.match(shell, /return SystemColors\.InactiveBorder;/);
+  assert.match(shell, /return SystemColors\.Highlight;/);
+  assert.match(shell, /_topOutline\.BackColor = TopOutlineColor\(_pal\.BtnBorder\);/);
+  assert.match(shell, /Activated \+= \(_, __\) =>[\s\S]*?_windowActive = true;[\s\S]*?RefreshTopOutline\(\);/);
+  assert.match(shell, /Deactivate \+= \(_, __\) =>[\s\S]*?_windowActive = false;[\s\S]*?RefreshTopOutline\(\);/);
 });
 
 test("native shell does not leave a differently colored footer below the WebView", () => {
@@ -1120,21 +1180,18 @@ test("Education uses the compact four-step exam workbench", () => {
   assert.match(ui,/function educationShowResults\(\)\{[\s\S]*?educationSetStep\("results"\)/);
 });
 
-test("Explore replaces the three standalone workspace links after Automations", () => {
+test("Explore uses the top icon instead of a text workspace link", () => {
   const navStart=ui.indexOf('<div class="workspace-tabs" id="workspaceTabs">');
   const navEnd=ui.indexOf("</div>",navStart);
   const nav=ui.slice(navStart,navEnd);
   assert.ok(navStart>=0&&navEnd>navStart,"main workspace navigation should exist");
-  const exploreTag=nav.match(/<button[^>]*id="exploreWorkspaceTab"[^>]*data-ws="explore"[^>]*>/)?.[0]||"";
-  assert.ok(exploreTag,"Explore should be the single launcher for the grouped workspace");
-  assert.doesNotMatch(exploreTag,/hidden|aria-hidden/);
-  assert.match(nav,/id="exploreWorkspaceTab"[\s\S]*?Explore[\s\S]*?<\/button>/);
-  assert.ok(nav.indexOf('data-ws="automations"')<nav.indexOf('id="exploreWorkspaceTab"'),"Explore should follow Automations");
+  assert.doesNotMatch(nav,/id="exploreWorkspaceTab"|data-ws="explore"/);
+  assert.match(ui,/id="exploreToggle"[^>]*aria-label="Toggle Explore"/);
   assert.doesNotMatch(nav,/data-ws="education"|data-ws="markets"|data-ws="recipes"/);
   assert.doesNotMatch(nav,/id="educationWorkspaceTab"|id="marketsWorkspaceTab"|id="recipesWorkspaceTab"/);
 });
 
-test("Markets, Education, and Recipes share internal tabs in one flat workspace header", () => {
+test("Markets, Education, Recipes, and Sales share internal tabs in one flat workspace header", () => {
   for (const id of ["workspaceFloatBar","workspaceFloatTabs","workspaceFloatTheme","workspaceFloatExpand","workspaceFloatClose"]) {
     assert.equal((ui.match(new RegExp(`id="${id}"`,"g"))||[]).length,1,`${id} should exist once in the shared workspace chrome`);
   }
@@ -1153,12 +1210,12 @@ test("Markets, Education, and Recipes share internal tabs in one flat workspace 
   const tabsEnd=header.indexOf("</nav>",tabsStart);
   const tabs=header.slice(tabsStart,tabsEnd);
   let tabPrevious=-1;
-  for(const page of ["markets","education","recipes"]){
+  for(const page of ["markets","education","recipes","sales"]){
     const next=tabs.indexOf(`data-workspace-page="${page}"`);
     assert.ok(next>tabPrevious,`${page} should remain in the approved internal-tab order`);
     tabPrevious=next;
   }
-  assert.equal((tabs.match(/data-workspace-page="/g)||[]).length,3,"the Explore pane should expose exactly three page tabs");
+  assert.equal((tabs.match(/data-workspace-page="/g)||[]).length,4,"the Explore pane should expose exactly four page tabs");
   const initializeWorkspace=ui.slice(ui.indexOf("function initializeWorkspaceFloat"),ui.indexOf("initializeWorkspaceFloat();"));
   assert.match(initializeWorkspace,/\$\("workspaceFloatTabs"\)\?\.addEventListener\("click",event=>\{/);
   assert.match(initializeWorkspace,/const tab=event\.target\.closest\("\[data-workspace-page\]"\)/);
@@ -1169,8 +1226,8 @@ test("Markets, Education, and Recipes share internal tabs in one flat workspace 
   assert.match(showWorkspace,/tab\.classList\.toggle\("active",active\)/);
   assert.match(showWorkspace,/tab\.setAttribute\("aria-selected",String\(active\)\)/);
   assert.match(ui,/\.workspace-float\{[^}]*border-radius:18px;/s);
-  assert.match(ui,/\.workspace-float-bar\{[^}]*flex:0 0 36px;[^}]*min-height:36px;[^}]*border-bottom:0;[^}]*background:var\(--approved-card,var\(--card\)\);/s);
-  assert.match(ui,/\.workspace-float-page-tab\{[^}]*height:28px;[^}]*font:600 12px\/1\.2 var\(--ui\);/s);
+  assert.match(ui,/\.workspace-float-bar\{[^}]*flex:0 0 31px;[^}]*min-height:31px;[^}]*border-bottom:0;[^}]*background:var\(--approved-card,var\(--card\)\);/s);
+  assert.match(ui,/\.workspace-float-page-tab\{[^}]*height:24px;[^}]*font:600 10\.5px\/1\.2 var\(--ui\);/s);
   assert.match(ui,/\.workspace-float-page-tab\.active\{[^}]*border-color:transparent; background:var\(--hover\); color:var\(--text\);[^}]*box-shadow:none;/s);
   assert.match(ui,/id="workspaceFloatTheme"[^>]*>&#x263E;<\/button>/);
   assert.match(ui,/\.workspace-float-actions button\{[^}]*width:30px; height:30px;[^}]*font:18px\/1 "Segoe UI Symbol"/s);
@@ -1210,14 +1267,123 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /function setWorkspaceFloatMaximized\(/);
   assert.match(ui, /function showWorkspaceFloat\(ws\)/);
   assert.match(ui, /if\(frame\.classList\.contains\("maximized"\)\)syncWorkspaceChatReservation\(\);\s*else restoreWorkspaceFloatWidth\(\);/);
-  assert.match(ui, /window\.addEventListener\("resize",\(\)=>\{[\s\S]*?!\["education","markets","recipes"\]\.includes\(activeWsTab\)\)return;/);
+  assert.match(ui, /window\.addEventListener\("resize",\(\)=>\{[\s\S]*?!\["education","markets","recipes"\]\.includes\(activeWsTab\)&&activeWsTab!=="sales"\)return;/);
+  assert.match(ui, /id="salesWorkspaceTab"[^>]*data-workspace-page="sales"[^>]*>[\s\S]*?Sales<span class="workspace-beta">Beta<\/span><\/button>/);
+  assert.match(ui, /id="marketsWorkspaceTab"[^>]*>[\s\S]*?Markets<span class="workspace-beta">Beta<\/span><\/button>/);
+  assert.match(ui, /id="educationWorkspaceTab"[^>]*>[\s\S]*?Education<span class="workspace-beta">Beta<\/span><\/button>/);
+  assert.match(ui, /id="salesQuery"[^>]*inputmode="url"/);
+  assert.match(ui, /id="salesDraft"/);
+  assert.match(ui, /data-sales-mode="website"[\s\S]*data-sales-mode="describe"[\s\S]*data-sales-mode="upload"/);
+  assert.match(ui, /data-sales-signal="Hiring"[\s\S]*data-sales-signal="Recently funded"[\s\S]*data-sales-signal="Tech change"/);
+  assert.match(ui, /Company \| Verification \| Fit score \| Why it fits \| Active buying signal \| Evidence URL \| Checked/);
+  assert.match(ui, /id="salesProgress"[^>]*aria-live="polite"/);
+  assert.match(ui, /data-sales-step="0"[\s\S]*data-sales-step="4"/);
+  assert.match(ui, /id="salesResultsBody"/);
+  assert.match(ui, /id="salesSavePlan"[^>]*>Save plan<\/button>/);
+  assert.match(ui, /id="salesRemovePlan"[^>]*>Remove<\/button>/);
+  assert.match(ui, /id="salesPlanList"/);
+  for(const action of ["open","redo","rename","delete"])assert.match(ui,new RegExp(`data-sales-${action}`));
+  assert.match(ui, /data-sales-pdf/);
+  assert.match(ui, /Open plan PDF/);
+  assert.match(ui, /form\.method="POST";form\.action="\/api\/sales\/plan-pdf";form\.target="_blank"/);
+  assert.match(ui, /document\.body\.appendChild\(form\);form\.submit\(\);form\.remove\(\)/);
+  assert.match(ui, /data-sales-copy/);
+  assert.match(ui, /writeClipboardText\(String\(plan\.result\|\|""\)\.trim\(\)\)/);
+  for(const label of ["Open plan","Open plan PDF","Copy plan","Redo plan","Rename plan","Delete plan"])assert.match(ui,new RegExp(`aria-label="${label}"`));
+  assert.match(ui, /class="sales-plan-icon"/);
+  assert.match(ui, /const SALES_PLANS_KEY="booleanSalesPlansV1"/);
+  assert.match(ui, /function salesResultStates\(answer\)/);
+  assert.match(ui, /const sections=salesResultSections\(text\)/);
+  assert.match(ui, /understand\?"done":text\?"blocked":""/);
+  assert.match(ui, /function salesResultSections\(answer\)/);
+  assert.match(ui, /\(\?:SALES_\)\?STAGE/);
+  assert.match(ui, /function salesResearchEvidence\(section\)/);
+  assert.match(ui, /prospectRows\.every\(row=>\/\\bverified\\b\/i\.test\(row\)/);
+  assert.match(ui, /urls\.length>=prospectRows\.length&&checked&&!limited/);
+  assert.match(ui, /const hasOutreach=hasResearch&&salesSubstantive\(sections\[3\]\)/);
+  assert.match(ui, /const hasApproval=hasOutreach&&salesSubstantive\(sections\[4\]\)/);
+  assert.match(ui, /Template only — verified prospect required/);
+  assert.match(ui, /Approval blocked — verify at least one prospect/);
+  assert.match(ui, /Reserve at least 6 calls for prospect verification/);
+  assert.match(ui, /function renderSalesOutreach\(text\)/);
+  assert.match(ui, /Touch\\s\*\\d\+/);
+  assert.match(ui, /data-sales-email-copy/);
+  assert.match(ui, /data-sales-email-share/);
+  assert.match(ui, /data-sales-email-draft/);
+  assert.match(ui, /data-sales-recipient/);
+  assert.match(ui, /fetch\("\/api\/email\/draft"/);
+  for(const mode of ["single","multiple","csv"])assert.match(ui,new RegExp(`data-sales-recipient-mode="${mode}"`));
+  assert.match(ui, /function salesCsvRows\(text\)/);
+  assert.match(ui, /function salesValidRecipients\(rows\)/);
+  assert.match(ui, /data-sales-attachment-file/);
+  assert.match(ui, /data-sales-inline-image/);
+  assert.match(ui, /fetch\("\/api\/email\/batch-drafts"/);
+  assert.match(ui, /shareChatText\(text\)/);
+  assert.match(ui, /class="sales-email-fields"/);
+  assert.match(ui, /data-sales-placeholder/);
+  assert.match(ui, /salesResultsBody"\)\?\.addEventListener\("input"/);
+  assert.match(ui, /const hasOutreach=hasResearch&&salesSubstantive\(sections\[3\]\)/);
+  assert.match(ui, /Research limited/);
+  assert.match(ui, /function renderSalesClearSummary\(text,index\)/);
+  assert.match(ui, /sales-clear-list/);
+  assert.match(ui, /Make stages 1 and 2 direct and easy to scan/);
+  assert.match(ui, /function renderSalesResearchSummary\(text\)/);
+  assert.match(ui, /View full research details/);
+  assert.match(ui, /no more than 5 short bullets/);
+  assert.match(ui, /function salesNonSelling\(text\)/);
+  assert.match(ui, /Sales readiness: Not currently selling/);
+  for(const action of ["partner","similar","new"])assert.match(ui,new RegExp(`data-sales-alt="${action}"`));
+  assert.match(ui, /function renderSalesPlanBody\(\)/);
+  assert.match(ui, /sales-plan-section/);
+  assert.match(ui, /sales-email-card/);
+  assert.match(ui, /hasOutreach\?"done":text\?"blocked":""/);
+  assert.match(ui, /Plan incomplete — the company was not understood/);
+  assert.match(ui, /data-sales-retry-current/);
+  assert.match(ui, /hasApproval\?"done":text\?"blocked":""/);
+  assert.match(ui, /saveCurrentSalesPlan\(\{automatic:true\}\)/);
+  assert.match(ui, /function clearCurrentSalesPlan\(\)/);
+  assert.match(ui, /Open a folder or create a project first/i);
+  assert.match(ui, /if\(opts\.salesWorkflow\)body\.salesWorkflow=true/);
+  assert.match(server, /forceNoArtifact: body\.salesWorkflow === true/);
+  assert.match(server, /salesWorkflow: body\.salesWorkflow === true/);
+  assert.match(server, /salesWorkflow: options\.salesWorkflow === true/);
+  assert.match(agent, /forceChat \|\| ctx\.forceNoArtifact === true \? false : requiresArtifactAction\(messages\)/);
+  assert.match(agent, /const SALES_RESEARCH_TOTAL_LIMIT = 8/);
+  assert.match(agent, /const SALES_RESEARCH_FAILURE_LIMIT = 2/);
+  assert.match(agent, /const SALES_PRIMARY_EVIDENCE_CONTRADICTION/);
+  assert.match(agent, /const SALES_PLAN_SECTION/);
+  assert.match(agent, /ctx\.salesWorkflow === true && SALES_RESEARCH_TOOL_NAMES\.has\(name\)/);
+  assert.match(agent, /Do not call another research or browser tool/);
+  assert.match(agent, /EVIDENCE CONSISTENCY CHECK FAILED/);
+  assert.match(agent, /salesPlanSections\.size < 5/);
+  assert.match(agent, /correcting the plan against verified website evidence/);
+  assert.match(ui, /at most 12 research or browser tool calls and finish within 5 minutes/);
+  assert.match(ui, /if\(\(mode==="chat"\|\|mode==="compare"\)&&!opts\.salesWorkflow\)/);
+  assert.match(ui, /const salesBackground=run\.request\?\.salesWorkflow===true/);
+  assert.match(ui, /if\(showing&&!salesBackground\) scheduleStreamPaint\(\)/);
+  assert.match(ui, /if\(showing&&!salesBackground\)\{ insertToolAbove\(ev\.entry\)/);
+  assert.match(ui, /function salesWorkflowEvent\(ev\)/);
+  assert.match(ui, /function salesLiveCheckpoint\(note\)/);
+  assert.match(ui, /function salesPrimaryEvidenceCheckpoint\(entry\)/);
+  assert.match(ui, /SALES_STAGE_\(\[1-5\]\)/);
+  assert.match(ui, /salesLiveCheckpoint\(ev\.stepArgs\?\.note/);
+  assert.match(ui, /const statusLabels=\["Understanding the offer","Defining the target","Researching companies","Drafting outreach","Preparing approval"\]/);
+  assert.match(ui, /if\(viewingRun\(\)\)ensureStatusEl\(\)/);
+  assert.match(server, /options\.salesWorkflow === true \? \{ stepArgs: step\.args \|\| \{\} \}/);
+  assert.match(ui, /async function newChat\(options=\{\}\)\{\s*const preserveWorkspace=options\?\.preserveWorkspace===true;[\s\S]*?if\(!preserveWorkspace\)closeConversationPanels\(\);[\s\S]*?return threadId;/);
+  assert.match(ui, /\$\("salesDraft"\)\?\.addEventListener\("click",async\(\)=>\{[\s\S]*?await newChat\(\{preserveWorkspace:true\}\);[\s\S]*?if\(activeWsTab!=="sales"\)markWorkspaceTab\("sales"\);/);
+  assert.match(ui, /startRun\(threadId,\{mode:"chat",[\s\S]*?salesWorkflow:true\}\)/);
+  assert.match(ui, /if\(!run\.request\?\.salesWorkflow\)aiNavigate\(ev\.url\)/);
+  assert.match(ui, /results\.classList\.toggle\("visible",salesWorkflow\.running\|\|!!salesWorkflow\.result\)/);
+  assert.doesNotMatch(ui, /Prospect plan loaded into Chat/);
+  assert.match(ui, /\.sales-panel\{[^}]*height:100%;[^}]*overflow-x:hidden; overflow-y:auto;[^}]*scrollbar-gutter:stable;/s);
+  assert.match(ui, /\.sales-shell\{[^}]*width:min\(1180px,100%\);[^}]*margin:0 auto;[^}]*padding:24px 28px 36px;[^}]*flex:0 0 auto;/s);
   assert.match(ui, /applyWorkspaceFloatWidth\(saved\|\|innerWidth\)/);
-  assert.match(ui, /right:narrow\?4:8,bottom:4/);
+  assert.match(ui, /right:narrow\?4:\(notesDocked\?Math\.round\(noteWidth\)\+17:8\),bottom:4/);
   assert.match(ui, /\.workspace-float\{[^}]*min-width:0; min-height:0;/s);
   assert.match(ui, /if\(innerWidth<=760\)return Math\.max\(0,innerWidth-bounds\.left-bounds\.right\)/);
   assert.match(ui, /const mainLeft=document\.querySelector\("main"\)\?\.getBoundingClientRect\(\)\.left\|\|bounds\.left;/);
-  assert.match(ui, /const compact=innerWidth<=980;/);
-  assert.match(ui, /const minChatWidth=compact\?160:180;/);
+  assert.match(ui, /const minChatWidth=Math\.min\(380,Math\.max\(220,Math\.round\(available\*\.32\)\)\);/);
   assert.match(ui, /const maxWidth=Math\.max\(0,available-chatGap-minChatWidth\);/);
   assert.match(ui, /const minWidth=Math\.min\(60,maxWidth\);/);
   assert.match(ui, /frame\.classList\.toggle\("compact-strip",nextWidth<150\)/);
@@ -1232,7 +1398,10 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /style\.setProperty\("--workspace-chat-width",next\)/);
   assert.match(ui, /classList\.toggle\("workspace-chat-covered",covered\)/);
   assert.match(ui, /if\(frame\.classList\.contains\("maximized"\)\)\{syncWorkspaceChatReservation\(\);return;\}/);
+  assert.match(ui, /if\(innerWidth<500\|\|innerHeight<300\)\{workspaceLayoutSuspended=true;return;\}/);
+  assert.match(ui, /if\(workspaceLayoutSuspended\)\{[\s\S]*?restoreWorkspaceFloatWidth\(\);[\s\S]*?scheduleResponsiveClasses\(\);/);
   assert.match(ui, /new ResizeObserver\(\(\)=>\{[\s\S]*?\["education","markets","recipes"\]\.includes\(activeWsTab\)[\s\S]*?else syncWorkspaceChatReservation\(\);/);
+  assert.match(ui, /document\.addEventListener\("visibilitychange",\(\)=>\{[\s\S]*?restoreWorkspaceFloatWidth\(\);[\s\S]*?scheduleResponsiveClasses\(\);/);
   assert.match(ui, /function scheduleResponsiveClasses\(\)\{[\s\S]*?cancelAnimationFrame\(responsiveClassesFrame\);[\s\S]*?responsiveClassesFrame=requestAnimationFrame/);
   assert.match(ui, /new ResizeObserver\(scheduleResponsiveClasses\)\.observe\(document\.querySelector\("main"\)\)/);
   assert.match(ui, /function beginWorkspaceLayoutSwitch\(\)/);
@@ -1256,6 +1425,10 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[\s\S]*?background:var\(--approved-card,var\(--card\)\);/);
   assert.match(ui, /\.workspace-float \.recipes-shell,[\s\S]*?\.workspace-float \.recipe-actions\{ background:var\(--approved-card,var\(--card\)\); \}/);
   assert.match(ui, /id="workspaceFloatTheme"[^>]*>&#x263E;<\/button>/);
+  assert.match(ui, /id="workspaceFloatMinimize"/);
+  assert.match(ui, /function setWorkspaceFloatMinimized\(minimized/);
+  assert.match(ui, /booleanWorkspaceMinimizedV1/);
+  assert.match(ui, /\.workspace-float\.minimized:not\(\.maximized\)/);
   assert.match(ui, /\.workspace-float-actions button\{[^}]*width:30px; height:30px;[^}]*font:18px\/1 "Segoe UI Symbol"/s);
   assert.doesNotMatch(ui, /body\.recipes-open #chat,body\.recipes-open \.composer-wrap\{ display:none !important; \}/);
   assert.doesNotMatch(ui, /body\.composer-simple\.recipes-open \.composer-wrap\{ display:none !important; \}/);
@@ -1263,9 +1436,9 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /else\{\s*document\.body\.classList\.remove\("workspace-chat-covered"\);\s*document\.body\.style\.removeProperty\("--workspace-chat-width"\);\s*scheduleResponsiveClasses\(\);/);
   assert.match(ui, /workspaceFloatGesture=\{startX:event\.clientX,width:rect\.width,pointerId:event\.pointerId,handle\}/);
   assert.doesNotMatch(ui, /workspaceFloatGesture=\{kind:"move"/);
-  assert.match(ui, /if\(\["education","markets","recipes"\]\.includes\(activeWsTab\)\)showWorkspaceFloat\(activeWsTab\)/);
+  assert.match(ui, /if\(EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)showWorkspaceFloat\(activeWsTab\)/);
   assert.match(ui, /id="workspaceFloatTabs"[^>]*role="tablist"[^>]*aria-label="Explore pages"/);
-  assert.match(ui, /data-workspace-page="markets"[\s\S]*data-workspace-page="education"[\s\S]*data-workspace-page="recipes"/);
+  assert.match(ui, /data-workspace-page="markets"[\s\S]*data-workspace-page="education"[\s\S]*data-workspace-page="recipes"[\s\S]*data-workspace-page="sales"/);
   assert.match(ui, /document\.body\.classList\.toggle\("recipes-open", activeWsTab === "recipes"\)/);
   const workspaceSetter=ui.slice(ui.indexOf("function setWorkspaceTab"),ui.indexOf('document.querySelectorAll(".ws-tab")'));
   assert.doesNotMatch(workspaceSetter, /requestAnimationFrame\(\(\)=>markWorkspaceTab\("chat"\)\)/);
@@ -1312,22 +1485,43 @@ test("projects and chats use the compact nested accordion sidebar", () => {
   assert.ok(ui.includes(`chatHead.innerHTML='<span>Personal chats</span><span class="gcount">'+chats.length+'</span>'`));
   assert.match(ui, /const projectGroups=JSON\.parse\(localStorage\.getItem\("boollmProjectGroups"\)\|\|"{}"\)/);
   assert.doesNotMatch(ui, /createRow\.append\(createProjectButton,openFolderButton\)/);
-  assert.doesNotMatch(ui, /newChatButton\.innerHTML='<span class="plus">\+<\/span><span>New chat<\/span>'/);
 });
 
-test("wide Chat shows a Codex-style utility rail with Explore links", () => {
+test("wide Chat shows a compact workspace control rail", () => {
   assert.match(ui, /id="chatUtilityPanel" aria-label="Chat workspace details"/);
+  assert.match(ui, /id="notesToggle"[\s\S]*?id="exploreToggle"[^>]*aria-label="Toggle Explore"[\s\S]*?id="browserToggle"/);
+  assert.match(ui, /\$\("exploreToggle"\)\.onclick=\(\)=>openExploreWorkspace\(\)/);
   for (const page of ["markets","education","recipes"]) {
     assert.match(ui,new RegExp(`data-chat-utility-workspace="${page}"`));
   }
-  assert.match(ui,/\.chat-utility-panel\{[\s\S]*?position:absolute;[\s\S]*?right:10px; bottom:12px; width:260px;/);
-  assert.match(ui,/body\.chat-utility-room\.workspace-chat \.chat-utility-panel\{ display:block; \}/);
-  assert.match(ui,/body\.chat-utility-room\.workspace-chat #chat\{ padding-right:calc\(var\(--content-x\) \+ 280px\); \}/);
-  assert.match(ui,/document\.body\.classList\.contains\("workspace-chat"\)&&!utilityBlocked&&mainW>=1120/);
+  assert.match(ui,/\.chat-utility-panel\{[\s\S]*?position:absolute;[\s\S]*?right:10px; width:220px; max-height:calc\(100% - 116px\);/);
+  assert.match(ui,/body\.chat-utility-room\.workspace-chat \.chat-utility-panel\{ display:flex; flex-direction:column; \}/);
+  assert.match(ui,/body\.chat-utility-room\.workspace-chat #chat\{ padding-right:calc\(var\(--content-x\) \+ 240px\); \}/);
+  assert.match(ui,/document\.body\.classList\.contains\("workspace-chat"\)&&!utilityBlocked&&mainW>=900/);
+  assert.match(ui,/<div class="chat-utility-section" hidden>[\s\S]*?<span>Explore<\/span>/);
+  assert.match(ui,/<div class="chat-utility-section" hidden>[\s\S]*?<span>Environment<\/span>/);
   assert.match(ui,/button\.addEventListener\("click",\(\)=>setWorkspaceTab\(button\.dataset\.chatUtilityWorkspace\)\)/);
   assert.match(ui,/function syncChatUtilityContent\(\)/);
-  assert.match(ui,/id="chatUtilityProject" hidden/);
+  for(const section of ["Tools","Activity","Environment","Sources"]){
+    assert.match(ui,new RegExp(`<span>${section}<\\/span>`));
+  }
+  for(const id of ["chatUtilityBrowser","chatUtilityNotepad","chatUtilityExplore","chatUtilityTasks","chatUtilityRecent","chatUtilitySettings"]){
+    assert.match(ui,new RegExp(`id="${id}"`));
+  }
+  assert.doesNotMatch(ui,/id="chatUtilityProject"/);
   assert.match(ui,/id="chatUtilitySources"/);
+  assert.match(ui,/\.chat-utility-settings\{[\s\S]*?margin-top:auto/);
+  assert.match(ui,/\$\("chatUtilitySettings"\)\?\.addEventListener\("click",\(\)=>openSettings\(null\)\)/);
+  assert.match(ui,/\$\("chatUtilityExplore"\)\?\.addEventListener\("click",\(\)=>openExploreWorkspace\(\)\)/);
+  assert.match(ui,/\$\("chatUtilityRecent"\)\?\.addEventListener\("click",\(\)=>\{[\s\S]*?personal-chat-head/);
+});
+
+test("closing Browser or Notepad restores the wide Chat workspace rail", () => {
+  assert.match(ui,/function returnToChatAfterAuxiliaryClose\(ws\)\{[\s\S]*?markWorkspaceTab\("chat"\)/);
+  assert.match(ui,/document\.body\.classList\.toggle\("notes-on",!!on\);[\s\S]*?if\(!on\)returnToChatAfterAuxiliaryClose\("notes"\)/);
+  assert.match(ui,/if\(!on\)returnToChatAfterAuxiliaryClose\("browser"\)/);
+  assert.match(ui,/d\.type==="shellBrowser"[\s\S]*?if\(!d\.open\)returnToChatAfterAuxiliaryClose\("browser"\)/);
+  assert.match(ui,/browserCloseTimer=setTimeout\(\(\)=>\{[\s\S]*?scheduleResponsiveClasses\(\)/);
 });
 
 test("native browser keeps a usable split width and auto-fits narrow pages", () => {
@@ -1340,7 +1534,7 @@ test("native browser keeps a usable split width and auto-fits narrow pages", () 
   assert.doesNotMatch(shell, /HideBrowserPill\(\);\s*GrowForBrowser\(\);/);
   assert.match(shell, /int preferredBrowserW = WindowState == FormWindowState\.Maximized\s*\? \(int\)Math\.Round\(available \* 0\.40\)\s*: available \/ 2;/);
   assert.match(shell, /int browserW = Math\.Clamp\(preferredBrowserW, browserMin/);
-  assert.match(shell, /ApplyBorderlessDwm\(\);\s*if \(_browserOpen && !_full\) BeginInvoke\(new Action\(FitBrowserSplit\)\);/);
+  assert.match(shell, /ApplyBorderlessDwm\(\);\s*if \(WindowState != FormWindowState\.Minimized && !_wasMinimized &&\s*_browserOpen && !_full\) BeginInvoke\(new Action\(FitBrowserSplit\)\);/);
   assert.match(shell, /int border = ColorTranslator\.ToWin32\(_pal\.BtnBorder\);\s*DwmSetWindowAttribute\(Handle, 34 \/\*DWMWA_BORDER_COLOR\*\/, ref border, 4\);/);
   assert.doesNotMatch(shell, /DWMWA_COLOR_NONE/);
   assert.match(shell, /readonly WebView2 _chromeView = new\(\) \{ Dock = DockStyle\.Top, Height = 116 \};/);
@@ -1381,4 +1575,31 @@ test("Boolean brand reports live work activity without provider-specific status 
   assert.match(ui, /setBooleanActivity\(\/summar\|email_summary\/\.test\(task\)\?"Summarizing":"Browsing"\)/);
   assert.match(ui, /\.brand-about\.ready\{ color:var\(--dim\); background:transparent; \}/);
   assert.doesNotMatch(ui, /const text=ready\?shortLabel\+" ready":"Not ready"/);
+});
+
+test("Explore visibly shares current Education Markets and Recipes context with Chat", () => {
+  assert.match(ui, /id="workspaceContextChip"[^>]*aria-pressed="true"/);
+  assert.match(ui, /\.workspace-context-chip\.visible\{ display:flex; \}/);
+  assert.match(ui, /function renderActiveWorkspaceContext\(\)/);
+  assert.match(ui, /function buildActiveWorkspaceChatContext\(\)/);
+  assert.match(ui, /const workspaceContext=buildActiveWorkspaceChatContext\(\);/);
+  assert.match(ui, /<active_explore_context workspace="education">/);
+  assert.match(ui, /Question: \$\{educationRun\.index\+1\} of \$\{educationRun\.count\}/);
+  assert.match(ui, /The question has not been checked\. Default to a useful hint and reasoning steps/);
+  assert.match(ui, /<active_explore_context workspace="markets">/);
+  assert.match(ui, /Source: \$\{s\.source\|\|"Unavailable"\}\$\{s\.delayed\?" \(delayed\/indicative\)":""\}/);
+  assert.match(ui, /<active_explore_context workspace="recipes">/);
+  assert.match(ui, /workspaceContextSharing=!workspaceContextSharing/);
+});
+
+test("each new practice attempt randomizes questions while resumes preserve the saved run", () => {
+  assert.match(ui, /function educationAttemptSeed\(\)\{/);
+  assert.match(ui, /globalThis\.crypto\?\.getRandomValues\?\.\(values\)/);
+  assert.match(ui, /const seed=educationAttemptSeed\(\),random=educationRng\(seed\);/);
+  assert.match(ui, /const questions=Array\.from\([\s\S]*?educationShuffle\(questions,random\);/);
+  assert.match(ui, /educationShuffle\(unique,random\);[\s\S]*?answer:unique\.indexOf\(String\(answer\)\)/);
+  assert.match(ui, /available=educationShuffle\(pools\.flat\(\),random\)/);
+  assert.match(ui, /educationOfficialRun=\{mode:"mixed",subject,seed,items/);
+  assert.match(ui, /if\(resume\)educationOfficialRun=resume;/);
+  assert.match(ui, /educationRun=educationSaved\(\);if\(educationRun\?\.questions\?\.length\)educationShowSession\(\);/);
 });

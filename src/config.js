@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.59";
-export const APP_DISPLAY_VERSION = "v0.9.59";
+export const APP_VERSION = "0.9.60";
+export const APP_DISPLAY_VERSION = "v0.9.60";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -44,6 +44,10 @@ const DEFAULTS = {
     provider: "",
     model: ""
   },
+  // Per provider + endpoint + model capability probes. Boolean records native
+  // function support after a real request succeeds or is rejected so a model
+  // is not repeatedly placed into an agent mode it cannot reliably use.
+  modelCapabilities: {},
   local: {
     model: "",            // gguf filename in ~/.saz/models
     port: 8783,
@@ -202,6 +206,7 @@ const DEFAULTS = {
       mode: "quick",          // quick | feature | debug | review | refactor
       autoTest: true,
       stopLoop: false,
+      compatibilityMode: "auto", // auto | patch | review
       maxRetries: 2,
       budget: "normal",       // small | normal | large
       autoCommit: false,

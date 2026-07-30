@@ -15,10 +15,21 @@ import {
 } from "./config.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
+import {
+  capabilityProbeTool,
+  capabilityProbeUnsupportedError,
+  evaluateCapabilityProbeReply,
+  modelCapabilityKey,
+  modelCapabilityProfile,
+  nativeToolSupport,
+  recordNativeToolSupport
+} from "./model-capabilities.js";
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
 import { handleBrowse, clearCookies } from "./browse.js";
+import { executeTool } from "./tools.js";
+import { simplePdf } from "./platform.js";
 import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences, recordResponseFeedback } from "./preferences.js";
 import {
   McpHttpError,
@@ -44,7 +55,7 @@ import {
   verifyAwsConnection, awsResourceList,
   verifyGoogleCloudConnection, googleCloudResourceList
 } from "./cloud-hosting.js";
-import { getCotSnapshot, getMarketDashboard, getMarketSnapshot, getOptionsChain, getTradeIdeas, testMarketSettings } from "./markets.js";
+import { getCotSnapshot, getMarketDashboard, getMarketSnapshot, getOptionsChain, getSectorPerformance, getTradeIdeas, testMarketSettings } from "./markets.js";
 import {
   createEmailOAuth,
   exchangeEmailCode,
@@ -422,6 +433,62 @@ function publicConnectors(config, managedEmailOAuthClients = {}) {
       lastTestedAt: Number(c.googleCloud?.lastTestedAt || 0)
     }
   };
+}
+
+function publicModelCapability(config, vision = null) {
+  const provider = config.provider;
+  const settings = config[provider] || {};
+  return modelCapabilityProfile(config, {
+    provider,
+    model: settings.model || "",
+    base: settings.baseUrl || ""
+  }, { vision });
+}
+
+const modelCapabilityProbes = new Map();
+
+async function probeCurrentModelCapability(config, { force = false } = {}) {
+  const provider = config.provider;
+  const settings = config[provider] || {};
+  const selected = {
+    provider,
+    model: settings.model || "",
+    base: settings.baseUrl || ""
+  };
+  const key = modelCapabilityKey(config, selected);
+  const existing = nativeToolSupport(config, selected);
+  if (!force && typeof existing === "boolean") {
+    return { cached: true, ...publicModelCapability(config) };
+  }
+  if (modelCapabilityProbes.has(key)) return modelCapabilityProbes.get(key);
+  const pending = (async () => {
+    try {
+      const target = await resolveTarget(config);
+      const reply = await chatCompletion({
+        ...target,
+        noStream: true,
+        maxRetries: 1
+      }, [{
+        role: "user",
+        content: "Capability check only. Request the boolean_capability_probe function now. Do not answer in prose."
+      }], [capabilityProbeTool()], AbortSignal.timeout(20000));
+      const result = evaluateCapabilityProbeReply(reply);
+      recordNativeToolSupport(config, selected, result.supported, result.reason);
+      saveConfig(config);
+      return { cached: false, ...publicModelCapability(config) };
+    } catch (error) {
+      if (capabilityProbeUnsupportedError(error)) {
+        recordNativeToolSupport(config, selected, false, "The provider rejected native function tools.");
+        saveConfig(config);
+        return { cached: false, ...publicModelCapability(config) };
+      }
+      throw error;
+    } finally {
+      modelCapabilityProbes.delete(key);
+    }
+  })();
+  modelCapabilityProbes.set(key, pending);
+  return pending;
 }
 
 function marketAccessAllowed(config) {
@@ -1315,6 +1382,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           onImage: (src, caption) => t.log.push({ t: "image", src, caption: caption || "", at: Date.now(), scheduled: true }),
           onController: (controller) => { if (t.pendingTask) t.pendingTask.controller = controller; },
           onCheckpoint: () => { t.updatedAt = Date.now(); persist(); },
+          onCapabilityChange: (modelCapabilities) => {
+            config.modelCapabilities = modelCapabilities;
+            saveConfig(config);
+          },
           onBrowse: () => {},
           visibleBrowser: async () => "The visible browser is unavailable during an unattended scheduled task. Use background web tools instead.",
           captureScreenshot: async () => ({ ok: false, error: "Visible screenshots are unavailable during an unattended scheduled task." }),
@@ -1616,6 +1687,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const activeThreadPage = activeThread
           ? threadPage(activeThread, { tail: url.searchParams.get("tail") || 80 })
           : null;
+        const currentVision = config.provider === "local"
+          ? (() => { try { return engine.visionState(config); } catch { return { supported: false, reason: "unknown" }; } })()
+          : { supported: config.provider !== "zaiCoding", cloud: true };
         json({
           appName: APP_NAME, version: APP_VERSION, displayVersion: APP_DISPLAY_VERSION, tagline: APP_TAGLINE,
           provider: config.provider, providers: PROVIDERS, models,
@@ -1626,6 +1700,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             model: config.cloudFallback?.model || ""
           },
           model: currentModel(config), autoApprove: config.autoApprove,
+          modelCapability: publicModelCapability(config, currentVision.supported),
           local: { ctx: config.local.ctx },
           backendUp: providerReady[config.provider] === true,
           providerReady,
@@ -1651,9 +1726,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           imageGeneration: publicImageGeneration(config),
           cloudBackend: publicCloudBackend(config),
           browseBase,
-          vision: config.provider === "local"
-            ? (() => { try { return engine.visionState(config); } catch { return { supported: false, reason: "unknown" }; } })()
-            : { supported: true, cloud: true },
+          vision: currentVision,
           ui: config.ui,
           eulaAccepted: !!config.eulaAccepted,
           threads: threadList(), activeThreadId,
@@ -1683,6 +1756,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           displayVersion: APP_DISPLAY_VERSION,
           provider: config.provider,
           model: currentModel(config),
+          modelCapability: publicModelCapability(config),
           autoApprove: config.autoApprove,
           backendUp: providerReady[config.provider] === true,
           providerReady,
@@ -1708,6 +1782,21 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         setImmediate(() => engine.ensureRunning(config, () => {}).catch(() => {}));
         json({ ok: true, warming: true });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/model-capabilities/probe") {
+        const body = await readBody(req);
+        try {
+          const result = await probeCurrentModelCapability(config, { force: body.force === true });
+          json({ ok: true, modelCapability: result });
+        } catch (err) {
+          json({
+            error: "capability_probe_failed",
+            message: "Boolean could not complete the safe capability check. No tools were executed.",
+            detail: String(err?.message || err)
+          }, 502);
+        }
         return;
       }
 
@@ -2421,6 +2510,15 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             url.searchParams.get("symbol") || "AAPL"
           );
           json({ ok: true, ...dashboard });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/markets/sectors") {
+        try {
+          json({ ok: true, ...await getSectorPerformance() });
         } catch (error) {
           json({ error: String(error?.message || error) }, 502);
         }
@@ -3214,6 +3312,99 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return json({ ok: true, email: publicEmailConnections(config, managedEmailOAuthClients) });
       }
 
+      if (req.method === "POST" && p === "/api/email/draft") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim().toLowerCase();
+        const accountId = String(body.accountId || "").trim();
+        const to = String(body.to || "").trim();
+        const subject = String(body.subject || "").trim().slice(0, 240);
+        const text = String(body.text || "").trim().slice(0, 50000);
+        const attachment = body.attachment?.data ? {
+          name: String(body.attachment.name || "attachment").replace(/[\r\n"]/g, "").slice(0, 120),
+          type: String(body.attachment.type || "application/octet-stream").slice(0, 120),
+          data: String(body.attachment.data || "").replace(/\s+/g, ""),
+          inline: body.attachment.inline === true
+        } : null;
+        if (!["gmail", "outlook"].includes(provider)) return json({ error: "Choose a connected Gmail or Outlook account." }, 400);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return json({ error: "Enter a valid recipient email address." }, 400);
+        if (!subject || !text) return json({ error: "The email needs a subject and message." }, 400);
+        try {
+          if (attachment && Buffer.byteLength(attachment.data, "base64") > 5 * 1024 * 1024) return json({ error: "Attachments must be 5 MB or smaller." }, 400);
+          const result = await executeTool("email_create_draft", {
+            provider,
+            account_id: accountId,
+            to,
+            subject,
+            text,
+            attachment
+          }, { config });
+          return json({ ok: true, message: String(result || "Email draft created.") });
+        } catch (err) {
+          return json({ error: String(err?.message || "Could not create the email draft.").slice(0, 240) }, 400);
+        }
+      }
+
+      if (req.method === "POST" && p === "/api/email/batch-drafts") {
+        const body = await readBody(req);
+        const provider = String(body.provider || "").trim().toLowerCase();
+        const accountId = String(body.accountId || "").trim();
+        const drafts = Array.isArray(body.drafts) ? body.drafts.slice(0, 50) : [];
+        const attachment = body.attachment?.data ? {
+          name: String(body.attachment.name || "attachment").replace(/[\r\n"]/g, "").slice(0, 120),
+          type: String(body.attachment.type || "application/octet-stream").slice(0, 120),
+          data: String(body.attachment.data || "").replace(/\s+/g, ""),
+          inline: body.attachment.inline === true
+        } : null;
+        if (!["gmail", "outlook"].includes(provider)) return json({ error: "Choose a connected Gmail or Outlook account." }, 400);
+        if (!drafts.length) return json({ error: "Add at least one valid recipient." }, 400);
+        if (attachment && Buffer.byteLength(attachment.data, "base64") > 5 * 1024 * 1024) return json({ error: "Attachments must be 5 MB or smaller." }, 400);
+        const unique = new Set(),valid = [];
+        for (const draft of drafts) {
+          const to = String(draft?.to || "").trim().toLowerCase();
+          const subject = String(draft?.subject || "").trim().slice(0, 240);
+          const text = String(draft?.text || "").trim().slice(0, 50000);
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || unique.has(to) || !subject || !text) continue;
+          unique.add(to);valid.push({ to, subject, text });
+        }
+        if (!valid.length) return json({ error: "No valid, unique recipients were found." }, 400);
+        const created = [],failed = [];
+        for (const draft of valid) {
+          try {
+            await executeTool("email_create_draft", { provider, account_id: accountId, ...draft, attachment }, { config });
+            created.push(draft.to);
+          } catch (err) {
+            failed.push({ to: draft.to, error: String(err?.message || "Draft failed").slice(0, 160) });
+          }
+        }
+        return json({ ok: created.length > 0, created: created.length, failed, total: valid.length });
+      }
+
+      if (req.method === "POST" && p === "/api/sales/plan-pdf") {
+        const contentType = String(req.headers["content-type"] || "").toLowerCase();
+        const body = contentType.includes("application/x-www-form-urlencoded")
+          ? Object.fromEntries(new URLSearchParams(await readRawBody(req)))
+          : await readBody(req);
+        const title = String(body.title || "Prospect plan").trim().slice(0, 160);
+        const raw = String(body.content || "").trim().slice(0, 180000);
+        if (!raw) return json({ error: "This prospect plan has no content to export." }, 400);
+        const content = raw
+          .replace(/^#{1,6}\s+/gm, "")
+          .replace(/\*\*/g, "")
+          .replace(/^>\s?/gm, "")
+          .replace(/^---+\s*$/gm, "")
+          .replace(/\{\{([^{}]+)\}\}/g, "[$1]");
+        const pdf = simplePdf(title, content);
+        const filename = `${title.replace(/[^a-z0-9._-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 80) || "prospect-plan"}.pdf`;
+        res.writeHead(200, {
+          "content-type": "application/pdf",
+          "content-length": pdf.length,
+          "content-disposition": `inline; filename="${filename}"`,
+          "cache-control": "no-store"
+        });
+        res.end(pdf);
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/mcp/test") {
         const body = await readBody(req);
         let url = String(body.url || "").trim();
@@ -3779,6 +3970,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const sideModel = body.sideChat === true ? String(body.sideModel || "").trim() : "";
         return streamRun(t, res, {
           forceTurnMode: body.sideChat === true ? "chat" : "",
+          forceNoArtifact: body.salesWorkflow === true,
+          salesWorkflow: body.salesWorkflow === true,
           provider: sideProvider || requestedProvider,
           model: sideProvider ? sideModel : requestedModel,
           inspectSavedTask
@@ -3850,6 +4043,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             return { ...(saved || {}), conversationDigest: t.memoryDigest };
           })(),
           forceTurnMode: options.forceTurnMode || "",
+          forceNoArtifact: options.forceNoArtifact === true,
+          salesWorkflow: options.salesWorkflow === true,
           onStatus: (text, detail) => send({ type: "status", text, ...(detail || {}) }),
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {
@@ -3862,7 +4057,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           onStep: (step) => {
             const entry = { t: "tool", name: step.name, summary: stepSummary(step.name, step.args), result: step.result };
             t.log.push(entry);
-            send({ type: "step", entry });
+            send({ type: "step", entry, ...(options.salesWorkflow === true ? { stepArgs: step.args || {} } : {}) });
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
             if (/^email_/.test(step.name || "")) {
               const provider = String(step.args?.provider || "").toLowerCase();
@@ -3897,6 +4092,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             if (t.pendingTask && !options.inspectSavedTask) t.pendingTask.updatedAt = Date.now();
             t.updatedAt = Date.now();
             persist();
+          },
+          onCapabilityChange: (modelCapabilities) => {
+            config.modelCapabilities = modelCapabilities;
+            saveConfig(config);
           },
           // the AI opened a page — mirror it in the UI browser panel
           onBrowse: (u) => send({ type: "browser", action: "open", url: u }),

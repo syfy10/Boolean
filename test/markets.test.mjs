@@ -4,7 +4,8 @@ import fs from "node:fs";
 import {
   parseYahooChart, parseYahooNews, parseYahooScreener, parseYahooFundamentals,
   parseAlphaQuote, parseAlphaDaily, parseOccOptionSymbol, parseYahooOptions,
-  parseAlpacaOptions, parseMassiveOptions, massiveConnectionError, buildTradeIdea, parseCftcSnapshot
+  parseAlpacaOptions, parseMassiveOptions, massiveConnectionError, buildTradeIdea, parseCftcSnapshot,
+  getSectorPerformance
 } from "../src/markets.js";
 
 test("Massive connection errors explain key, plan, and rate-limit failures", () => {
@@ -36,6 +37,32 @@ test("Alpha Vantage quote and daily history are normalized", () => {
   } }, "IBM");
   assert.equal(quote.price, 250);
   assert.equal(points[0].close, 250);
+});
+
+test("sector performance uses previous period-end closes for YTD and MTD", async () => {
+  const realFetch=globalThis.fetch;
+  const now=new Date(), year=now.getUTCFullYear(), month=now.getUTCMonth();
+  const timestamps=[
+    Date.UTC(year-1,11,31)/1000,
+    Date.UTC(year,Math.max(0,month-1),28)/1000,
+    Date.UTC(year,month,1)/1000,
+    Date.UTC(year,month,15)/1000
+  ];
+  globalThis.fetch=async url=>({
+    ok:true,
+    text:async()=>JSON.stringify({chart:{result:[{
+      meta:{symbol:decodeURIComponent(String(url).match(/chart\/([^?]+)/)?.[1]||"XLB"),regularMarketPrice:132,regularMarketPreviousClose:131},
+      timestamp:timestamps,
+      indicators:{quote:[{close:[100,120,125,132],open:[100,120,125,132],high:[100,120,125,132],low:[100,120,125,132],volume:[1,1,1,1]}]}
+    }]}})
+  });
+  try{
+    const result=await getSectorPerformance();
+    assert.equal(result.sectors.length,11);
+    assert.equal(result.sectors[0].symbol,"XLB");
+    assert.equal(Math.round(result.sectors[0].ytd),32);
+    assert.equal(Math.round(result.sectors[0].mtd),10);
+  }finally{globalThis.fetch=realFetch;}
 });
 
 test("Yahoo news and market movers become compact dashboard data", () => {
@@ -129,12 +156,19 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   const navStart=ui.indexOf('<div class="workspace-tabs" id="workspaceTabs">');
   const navEnd=ui.indexOf("</div>",navStart);
   const mainNav=ui.slice(navStart,navEnd);
-  assert.match(mainNav, /id="exploreWorkspaceTab"[^>]*data-ws="explore"/);
+  assert.doesNotMatch(mainNav, /id="exploreWorkspaceTab"|data-ws="explore"/);
+  assert.match(ui, /id="exploreToggle"[^>]*aria-label="Toggle Explore"/);
   assert.doesNotMatch(mainNav, /data-ws="markets"|id="marketsWorkspaceTab"/);
   assert.match(ui, /function marketsAccessAllowed\(\)/);
   assert.match(ui, /\["education","markets"\]\.includes\(ws\)&&!marketsAccessAllowed\(\)/);
   assert.match(ui, /Save snapshot to Notepad/);
   assert.match(ui, /Major market indexes|Major market indexes/i);
+  assert.match(ui, /id="marketSectors"[^>]*Sector year-to-date and month-to-date performance/);
+  assert.match(ui, /YTD \$\{percent\(item\.ytd\)\}/);
+  assert.match(ui, /MTD \$\{percent\(item\.mtd\)\}/);
+  assert.match(server, /p === "\/api\/markets\/sectors"/);
+  for(const symbol of ["XLB","XLC","XLE","XLF","XLI","XLK","XLP","XLRE","XLU","XLV","XLY"])assert.match(ui,new RegExp(`"${symbol}"`));
+  assert.match(ui,/\/api\/markets\/snapshot\?symbol=\$\{symbol\}&range=1y/);
   assert.match(ui, /Market Movers/i);
   assert.match(ui, /Breaking News/);
   assert.doesNotMatch(ui, />News &amp; Filings</);
@@ -200,7 +234,18 @@ test("Markets uses the selected flat floating-workspace layout", () => {
   assert.doesNotMatch(header,/<h2>|Boolean Markets/);
   assert.doesNotMatch(header,/id="marketCommand"/);
   assert.doesNotMatch(header,/id="marketSource"|market-source-wrap|market-source-info/);
-  assert.match(ui,/\.workspace-float \.market-flat \.market-index\{[^}]*min-height:34px;[^}]*padding:3px 12px;/s);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-index\{[^}]*height:26px;[^}]*min-height:26px;[^}]*padding:1px 10px;/s);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-sector-strip\{[^}]*min-width:1080px;[^}]*min-height:58px;/s);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-sector-head b\{ font-size:10px; \}/);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-sector-returns\{ grid-template-columns:1fr; gap:2px; margin-top:4px; \}/);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-sector-return\{[^}]*grid-template-columns:27px minmax\(0,1fr\);[^}]*white-space:nowrap;/s);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-sector-return strong\{ font-size:10px; \}/);
+  assert.match(ui,/data-sector-symbol="\$\{esc\(item\.symbol\)\}"/);
+  assert.match(ui,/box\.querySelectorAll\("\[data-sector-symbol\]"\)\.forEach\(button=>button\.onclick=\(\)=>loadMarketSymbol\(button\.dataset\.sectorSymbol\)\)/);
+  assert.match(ui,/marketState\.selectedSymbol=String\(symbol\|\|"AAPL"\)\.trim\(\)\.toUpperCase\(\);\s*renderMarketSectors\(\);/);
+  assert.match(ui,/\.workspace-float\[data-workspace-theme="light"\] \.market-flat \.market-watch-row\.active\{[^}]*color:#172027!important; background:#fff2e8!important;/s);
+  assert.match(ui,/\.workspace-float\[data-workspace-theme="light"\] \.market-flat \.market-watch-row:hover\{ background:#f1f5f7!important; \}/);
+  assert.match(ui,/\.workspace-float\[data-workspace-theme="light"\] \.market-flat \.market-watch-row\.active:hover\{ background:#fff2e8!important; \}/);
   const toolsStart=ui.indexOf('<nav class="market-mode-tabs" id="marketModeTabs"');
   const toolsEnd=ui.indexOf("</nav>",toolsStart);
   const tools=ui.slice(toolsStart,toolsEnd);
@@ -266,8 +311,8 @@ test("Markets keeps the bottom ticker after both page bodies and in the final gr
     shellStart>=0&&monitorStart>shellStart&&researchStart>monitorStart&&tickerStart>researchStart&&shellEnd>tickerStart,
     "the ticker must stay after the Monitor and Research Desk content in the Markets shell"
   );
-  assert.match(ui,/\.market-bottom-tape\{[^}]*grid-row:5;/s);
-  assert.match(ui,/\.markets-shell\{[^}]*grid-template-rows:auto auto auto minmax\(0,1fr\) 24px;/s);
+  assert.match(ui,/\.market-bottom-tape\{[^}]*grid-row:6;/s);
+  assert.match(ui,/\.markets-shell\{[^}]*grid-template-rows:auto auto auto auto minmax\(0,1fr\) 24px;/s);
 });
 
 test("Markets shows a transparent local composite instead of an options card", () => {
