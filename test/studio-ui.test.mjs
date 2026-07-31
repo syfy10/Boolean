@@ -63,10 +63,32 @@ test("Video Ads keeps local export and offers optional saved-key Veo motion",()=
   assert.match(ui,/scene\.assetIndex/);
   assert.match(ui,/image:sourceImage/);
   assert.match(server,/assetLimit/);
+  assert.match(server,/websiteInternalLinks/);
+  assert.match(server,/captureWebsitePageDataUrl/);
+  assert.match(server,/--headless=new/);
+  assert.match(server,/viewportSizes/);
+  assert.match(server,/requestedAssetLimit/);
+  assert.match(server,/assets\.length < requestedLimit/);
   assert.match(server,/data-srcset/);
   assert.match(server,/background\(\?:-image\)\?/);
   assert.match(server,/instance\.image = \{ inlineData/);
   assert.doesNotMatch(server,/numberOfVideos/);
+  assert.match(ui,/booleanStudioAssetQtyV1/);
+  assert.match(ui,/the site had fewer usable images/);
+  assert.match(ui,/fills missing website images with rendered page screenshots/);
+  assert.match(ui,/function removeStudioAsset\(index\)/);
+  assert.match(ui,/data-ad-asset-remove/);
+  assert.match(ui,/data-video-asset-remove/);
+  assert.match(ui,/Visual removed\./);
+  assert.match(ui,/createLinearGradient\(0,h\*\.38,0,h\)/);
+  assert.match(ui,/headlineLines=lines\.slice\(0,2\)/);
+  assert.doesNotMatch(ui,/scene\.kind==="feature"\?\.62:\.28/);
+  assert.match(ui,/id="videoAdAuto"/);
+  assert.match(ui,/function createVideoAdFromWebsite\(automatic=false\)/);
+  assert.match(ui,/id="videoAdTemplate"/);
+  assert.match(ui,/id="videoAdTransition"/);
+  assert.match(ui,/id="videoAdMotion"/);
+  assert.match(ui,/resolvedVideoAdTemplate/);
 });
 
 test("Studio actions reuse fresh workflow chats and local storage",()=>{

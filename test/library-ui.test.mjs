@@ -5,7 +5,8 @@ import fs from "node:fs";
 const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
 
 test("Explore includes a local Research Library", () => {
-  assert.match(ui, /data-workspace-page="library"[\s\S]*?>Library<span class="workspace-beta">Beta<\/span>/);
+  assert.match(ui, /data-workspace-page="library"[\s\S]*?>Library<\/button>/);
+  assert.match(ui, /<span class="workspace-window-beta"[^>]*>Beta<\/span>/);
   assert.match(ui, /id="libraryPanel" aria-label="Research Library"/);
   assert.match(ui, /Save current page/);
   assert.match(ui, /Save current note/);

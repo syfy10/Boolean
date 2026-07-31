@@ -349,7 +349,7 @@ test("side chat stays compact and the duplicate browser edge launcher is removed
 test("Notepad docks beside Explore instead of hiding behind it", () => {
   assert.match(
     ui,
-    /body\.notes-on:is\(\.education-open,\.markets-open,\.recipes-open,\.sales-open\) #notesPanel\{[\s\S]*?position:fixed; top:78px; right:8px; bottom:4px;[\s\S]*?border-radius:6px;/
+    /body\.notes-on:is\(\.education-open,\.markets-open,\.recipes-open,\.sales-open\) #notesPanel\{[\s\S]*?position:fixed; top:78px; right:8px; bottom:var\(--approved-bottom-gap\);[\s\S]*?border-radius:6px;/
   );
   assert.match(
     ui,
@@ -621,6 +621,7 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /\.thread-search-wrap svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
   assert.match(ui, /display:block; width:100%; height:30px; margin:0; padding:0 9px 0 27px;/);
   assert.match(ui, /id="sidebarAccount"[\s\S]*?id="sidebarAccountAvatar"[\s\S]*?id="sidebarAccountName"[\s\S]*?id="sidebarAccountLabel"/);
+  assert.doesNotMatch(ui, /<div class="sidebar-system-row">[\s\S]*?data-sidebar-theme=/);
   assert.match(ui, /\$\("sidebarAccount"\)\.onclick=toggleAccountMenu/);
   assert.match(ui, /body:not\(\.collapsed\) #sideRail \.rail-user,\s*body\.collapsed\.sidebar-popover-open #sideRail \.rail-user\{ display:none!important; \}/);
   assert.doesNotMatch(ui, /data-account-composer|id="composerStyleSeg"|Chat input style/);
@@ -647,7 +648,7 @@ test("sidebar shortcuts avoid duplicate top-bar tools and open real destinations
   assert.doesNotMatch(ui,/\.sidebar-shortcut\[data-sidebar-(?:action|workspace)="(?:tasks|side-chat|markets|sources)"\]\{ color:color-mix/);
   assert.match(ui,/\.sidebar-shortcut svg\{[^}]*stroke:currentColor; stroke-width:1\.55;/);
   assert.match(ui,/\.sidebar-shortcut svg \.icon-field\{ fill:currentColor; fill-opacity:\.08; stroke:none; \}/);
-  assert.match(ui,/#sidebar \.sidebar-shortcut svg\{ width:16px; height:16px; \}/);
+  assert.match(ui,/#sidebar \.sidebar-shortcut svg\{ width:17px; height:17px; \}/);
   for(const shape of ["circle class=\"icon-field\"","rect class=\"icon-field\"","circle class=\"icon-solid\""]) assert.match(shortcuts,new RegExp(shape));
   assert.match(ui,/\.personal-chat-head\{ margin-top:11px; padding-top:4px; \}/);
   assert.match(server,/company\\s\+website[\s\S]*?prospect plan/);
@@ -824,6 +825,8 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /connectedHead\.textContent="Connected"/);
   assert.match(ui, /apiProviderHealth\[prov\]==="ready"/);
   assert.match(ui, /add\.textContent=showApiProviderCatalog\?"Hide available providers":"\+ Add a cloud provider"/);
+  assert.match(ui, /const savedProviders=apiRows\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)\);/);
+  assert.match(ui, /if\(!showApiProviderCatalog&&missing\.length&&\(connected\.length\|\|!savedProviders\.length\)\)/);
   assert.match(ui, /function renderFocusedApiProvider\(prov,label,hasKey\)/);
   assert.match(ui, /className="api-connected-summary"/);
   assert.match(ui, /const selected=state\.provider===id;/);
@@ -1335,17 +1338,17 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /body\.education-open \.workspace-float,body\.markets-open \.workspace-float,body\.recipes-open \.workspace-float,body\.library-open \.workspace-float,body\.studio-open \.workspace-float\{ display:flex; \}/);
   assert.match(ui, /\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[^}]*width:100%; height:100%; min-height:0; margin:0;[^}]*box-sizing:border-box;/s);
   assert.match(ui, /body\.recipes-open \.workspace-float \.recipes-panel\{ display:flex; \}/);
-  assert.match(ui, /\.workspace-float\.maximized\{ inset:78px 8px 4px 44px!important;/);
+  assert.match(ui, /\.workspace-float\.maximized\{ inset:78px 8px var\(--approved-bottom-gap\) 44px!important;/);
   assert.match(ui, /const WORKSPACE_FLOAT_KEY="booleanWorkspaceDockWidthV4"/);
   assert.match(ui, /function constrainWorkspaceFloatWidth\(/);
-  assert.match(ui, /top:78px; right:8px; bottom:4px/);
+  assert.match(ui, /top:78px; right:8px; bottom:var\(--approved-bottom-gap\)/);
   assert.match(ui, /function setWorkspaceFloatMaximized\(/);
   assert.match(ui, /function showWorkspaceFloat\(ws\)/);
   assert.match(ui, /if\(frame\.classList\.contains\("maximized"\)\)syncWorkspaceChatReservation\(\);\s*else restoreWorkspaceFloatWidth\(\);/);
   assert.match(ui, /window\.addEventListener\("resize",\(\)=>\{[\s\S]*?!EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)return;/);
-  assert.match(ui, /id="salesWorkspaceTab"[^>]*data-workspace-page="sales"[^>]*>[\s\S]*?Sales<span class="workspace-beta">Beta<\/span><\/button>/);
-  assert.match(ui, /id="marketsWorkspaceTab"[^>]*>[\s\S]*?Markets<span class="workspace-beta">Beta<\/span><\/button>/);
-  assert.match(ui, /id="educationWorkspaceTab"[^>]*>[\s\S]*?Education<span class="workspace-beta">Beta<\/span><\/button>/);
+  assert.match(ui, /<span class="workspace-window-beta"[^>]*>Beta<\/span>/);
+  assert.doesNotMatch(ui, /class="workspace-float-page-tab"[^>]*>[\s\S]*?<span class="workspace-beta">Beta<\/span><\/button>/);
+  assert.doesNotMatch(ui, /class="sidebar-nav-beta">Beta<\/span>/);
   assert.match(ui, /id="salesQuery"[^>]*inputmode="url"/);
   assert.match(ui, /id="salesDraft"/);
   assert.match(ui, /data-sales-mode="website"[\s\S]*data-sales-mode="describe"[\s\S]*data-sales-mode="upload"/);
@@ -1662,7 +1665,7 @@ test("cloud providers are connected only after their model list loads", () => {
   assert.match(ui, /apiProviderHealth\[prov\]="error"/);
   assert.match(ui, /const connected=visibleApi\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)&&apiProviderHealth\[prov\]==="ready"\)/);
   assert.match(ui, /const attention=visibleApi\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)&&apiProviderHealth\[prov\]==="error"\)/);
-  assert.match(ui, /if\(!showApiProviderCatalog&&missing\.length\)/);
+  assert.match(ui, /if\(!showApiProviderCatalog&&missing\.length&&\(connected\.length\|\|!savedProviders\.length\)\)/);
   assert.match(ui, /attentionHead\.textContent="Needs attention"/);
   assert.match(ui, /health==="error"\?"Could not load models"/);
   assert.match(ui, /health==="error"\?"Reconnect"/);

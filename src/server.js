@@ -4,6 +4,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import crypto from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { spawn, spawnSync } from "node:child_process";
@@ -119,6 +120,26 @@ function websiteMeta(html, baseUrl) {
   return { title, description, imageUrl: resolve(image), logoUrl: resolve(attr(logoTag, "href")), imageUrls, colors };
 }
 
+function websiteInternalLinks(html, baseUrl, limit = 8) {
+  let origin = "";
+  let canonicalBase = "";
+  try { const base = new URL(baseUrl); origin = base.origin; base.hash = ""; canonicalBase = base.toString(); } catch { return []; }
+  const links = [];
+  for (const match of String(html).matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>/gi)) {
+    try {
+      const url = new URL(match[1], baseUrl);
+      url.hash = "";
+      if (url.origin !== origin || !/^https?:$/.test(url.protocol)) continue;
+      if (url.toString() === canonicalBase || /\/cdn-cgi\//i.test(url.pathname)) continue;
+      if (/\.(?:pdf|zip|xml|json|jpe?g|png|gif|webp|svg|mp4|webm)(?:\?|$)/i.test(url.pathname)) continue;
+      if (/\/(?:login|sign-in|signin|account|cart|checkout|privacy|terms)(?:\/|$)/i.test(url.pathname)) continue;
+      if (!links.includes(url.toString())) links.push(url.toString());
+    } catch {}
+    if (links.length >= limit) break;
+  }
+  return links;
+}
+
 async function fetchSmallDataUrl(url) {
   if (!url) return "";
   try {
@@ -130,6 +151,39 @@ async function fetchSmallDataUrl(url) {
     if (bytes.length < 2_000 || bytes.length > 3_000_000) return "";
     return `data:${type.split(";")[0]};base64,${bytes.toString("base64")}`;
   } catch { return ""; }
+}
+
+function edgeExecutable() {
+  if (process.platform !== "win32") return "";
+  const roots = [process.env["PROGRAMFILES(X86)"], process.env.PROGRAMFILES, process.env.LOCALAPPDATA].filter(Boolean);
+  for (const root of roots) {
+    const candidate = path.join(root, "Microsoft", "Edge", "Application", "msedge.exe");
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return "";
+}
+
+async function captureWebsitePageDataUrl(url, width = 1280, height = 720) {
+  const edge = edgeExecutable();
+  if (!edge) return "";
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-studio-"));
+  const output = path.join(folder, "page.png");
+  try {
+    await new Promise(resolve => {
+      const child = spawn(edge, [
+        "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+        `--window-size=${width},${height}`, `--screenshot=${output}`, String(url)
+      ], { windowsHide: true, stdio: "ignore" });
+      const timer = setTimeout(() => { try { child.kill(); } catch {} resolve(); }, 15000);
+      child.once("exit", () => { clearTimeout(timer); resolve(); });
+      child.once("error", () => { clearTimeout(timer); resolve(); });
+    });
+    if (!fs.existsSync(output)) return "";
+    const bytes = fs.readFileSync(output);
+    if (bytes.length < 2_000 || bytes.length > 8_000_000) return "";
+    return `data:image/png;base64,${bytes.toString("base64")}`;
+  } catch { return ""; }
+  finally { try { fs.rmSync(folder, { recursive: true, force: true }); } catch {} }
 }
 
 function loadAsset(name, devPath) {
@@ -364,7 +418,7 @@ function userTextOnly(content) {
   return textOf(content).split(/\n\nCURRENT APP CONTEXT\b/)[0].trim();
 }
 
-function shortThreadTitle(content) {
+export function shortThreadTitle(content) {
   const text = userTextOnly(content);
   const site = text.match(/\bcompany\s+website\s*:\s*(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)(?:\.[a-z0-9.-]+)?/i);
   if (site?.[1]) return `${cap(site[1])} prospect plan`;
@@ -380,7 +434,12 @@ function shortThreadTitle(content) {
   if (/\b(power\s*bi|powerbi)\b/.test(low)) return /recap|summar|report/.test(low) ? "PowerBI recap" : "PowerBI review";
   if (/\b(weather|forecast|temperature)\b/.test(low)) return "Weather";
   if (/\b(news|headlines|latest)\b/.test(low)) return "News search";
-  if (/\b(email|reply|respond|outlook|gmail)\b/.test(low)) return "Email draft";
+  if (/\b(email|reply|respond|outlook|gmail)\b/.test(low)) {
+    if (/\b(clean|cleanup|trash|inbox)\b/.test(low)) return "Email cleanup";
+    if (/\b(summarize|summary|briefing)\b/.test(low)) return "Email summary";
+    const topic = firstTopic(clean.replace(/\b(email|emails|e-mail|draft|write|compose|reply|respond|message|outlook|gmail|send|create)\b/gi, ""), 4);
+    return topic ? ("Email " + topic).slice(0, 42) : "Email draft";
+  }
   if (/\bnotepad|notes?\b/.test(low)) return "Notepad";
   if (/\bsnip|screenshot|ocr|vision\b/.test(low)) return "Screen OCR";
   if (/\bsettings?\b/.test(low)) return "Settings";
@@ -407,9 +466,10 @@ function repairAutoNotepadTitle(t) {
   return true;
 }
 
-function repairGenericWorkflowTitle(t) {
-  if (!/^prepare sourced prospect(?: plan)?$/i.test(String(t?.title || "").trim())) return false;
-  const next = shortThreadTitle(firstUserContent(t)).slice(0, 42);
+export function repairGenericWorkflowTitle(t, allThreads = []) {
+  const title = String(t?.title || "").trim();
+  if (!/^(?:(?:build\s+)?prepare sourced prospect(?: plan)?|email draft)(?: \d+)?$/i.test(title)) return false;
+  const next = uniqueThreadTitle(shortThreadTitle(firstUserContent(t)), t, allThreads);
   if (!next || next === "New chat" || next === t.title) return false;
   t.title = next;
   return true;
@@ -1399,7 +1459,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     for (const t of restored) {
       if (t.side !== true && t.title === "Side chat") { t.side = true; repairedTitles = true; }
       if (repairAutoNotepadTitle(t)) repairedTitles = true;
-      if (repairGenericWorkflowTitle(t)) repairedTitles = true;
+      if (repairGenericWorkflowTitle(t, restored)) repairedTitles = true;
       if (!t.kind && isProjectThread(t)) { t.kind = "project"; repairedTitles = true; }
       if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; }
       if (t.pendingTask?.state === "running") {
@@ -3877,14 +3937,46 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const finalUrl = response.url || parsed.toString();
         const meta = websiteMeta(html, finalUrl);
         const requestedLimit = body.assetLimit === "auto" ? 5 : Math.max(1, Math.min(8, Number(body.assetLimit) || 5));
-        const visualUrls = [...new Set([meta.imageUrl, ...meta.imageUrls, meta.logoUrl].filter(Boolean))].slice(0, 24);
-        const downloaded = await Promise.all(visualUrls.map(async url => ({ url, data: await fetchSmallDataUrl(url) })));
-        const assets = [...new Map(downloaded.filter(item => item.data).map(item => [item.data, item])).values()].slice(0, requestedLimit);
+        const visualUrls = [...new Set([meta.imageUrl, ...meta.imageUrls, meta.logoUrl].filter(Boolean))];
+        const pageUrls = websiteInternalLinks(html, finalUrl, 8);
+        if (visualUrls.length < requestedLimit * 2) {
+          const pages = await Promise.all(pageUrls.map(async pageUrl => {
+            try {
+              const page = await fetch(pageUrl, { redirect: "follow", signal: AbortSignal.timeout(7000), headers: { "user-agent": "Mozilla/5.0 Boolean Ad Studio" } });
+              if (!page.ok || !(page.headers.get("content-type") || "").includes("text/html")) return null;
+              const pageFinalUrl = page.url || pageUrl;
+              if (new URL(pageFinalUrl).origin !== new URL(finalUrl).origin) return null;
+              return websiteMeta((await page.text()).slice(0, 1_000_000), pageFinalUrl);
+            } catch { return null; }
+          }));
+          for (const pageMeta of pages.filter(Boolean)) {
+            for (const url of [pageMeta.imageUrl, ...pageMeta.imageUrls, pageMeta.logoUrl].filter(Boolean)) {
+              if (!visualUrls.includes(url)) visualUrls.push(url);
+            }
+          }
+        }
+        const assets = [];
+        for (let offset = 0; offset < Math.min(visualUrls.length, 64) && assets.length < requestedLimit; offset += 8) {
+          const downloaded = await Promise.all(visualUrls.slice(offset, offset + 8).map(async url => ({ url, data: await fetchSmallDataUrl(url) })));
+          for (const item of downloaded) {
+            if (item.data && !assets.some(saved => saved.data === item.data)) assets.push(item);
+            if (assets.length >= requestedLimit) break;
+          }
+        }
+        const captureTargets = [finalUrl, ...pageUrls];
+        const viewportSizes = [[1280, 720], [960, 720], [430, 820]];
+        for (let index = 0; assets.length < requestedLimit && index < requestedLimit * 3; index++) {
+          const target = captureTargets[index % captureTargets.length] || finalUrl;
+          const [width, height] = viewportSizes[Math.floor(index / Math.max(1, captureTargets.length)) % viewportSizes.length];
+          const data = await captureWebsitePageDataUrl(target, width, height);
+          if (data && !assets.some(saved => saved.data === data)) assets.push({ url: `${target}#viewport=${width}x${height}`, data });
+        }
         json({ ok: true, brand: {
           url: finalUrl, domain: new URL(finalUrl).hostname.replace(/^www\./, ""),
           title: meta.title || new URL(finalUrl).hostname.replace(/^www\./, ""),
           description: meta.description || "", colors: meta.colors.length ? meta.colors : ["#2563eb", "#111827", "#ffffff"],
-          asset: assets[0]?.data || "", assets: assets.map(item => item.data), assetSources: assets.map(item => item.url), assetSource: assets[0]?.url || ""
+          asset: assets[0]?.data || "", assets: assets.map(item => item.data), assetSources: assets.map(item => item.url), assetSource: assets[0]?.url || "",
+          requestedAssetLimit: requestedLimit
         }});
         return;
       }

@@ -215,6 +215,10 @@
   .sidehead .icon-btn{ width:30px; height:30px; border-radius:50%; }
   .sidebar-brand-mark{ width:30px; height:30px; flex:0 0 30px; color:var(--text); overflow:visible; }
   .sidebar-brand-mark circle{ fill:currentColor; }
+  .sidebar-brand-mark circle[r="1.5"]{ opacity:.34; }
+  .sidebar-brand-mark circle[r="2"]{ opacity:.48; }
+  .sidebar-brand-mark circle[r="2.2"]{ opacity:.58; }
+  .sidebar-brand-mark circle[r="2.7"]{ opacity:.76; }
   .threadlist{ flex:1; min-height:40px; overflow-y:auto; padding:3px 5px; display:flex; flex-direction:column; gap:1px; }
   .thread{ display:flex; align-items:center; gap:7px; min-height:24px; padding:4px 8px; border-radius:var(--radius-sm); cursor:pointer;
     font-size:var(--fs-xs); color:var(--text); white-space:nowrap; overflow:hidden;
@@ -1553,24 +1557,25 @@
   .team-icon{display:none;width:15px;height:15px;flex:0 0 15px}.team-icon svg{display:block;width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .teambtn:hover{ background:var(--hover); color:var(--text); }
   .teambtn.active{ color:var(--green); background:color-mix(in srgb,var(--green) 10%,transparent); }
-  .menu#teammenu{ bottom:44px; right:0; width:286px; padding:10px; gap:7px; }
-  .team-title{ display:flex; align-items:center; justify-content:space-between; font:700 12px var(--ui); padding:1px 2px 4px; }
-  .team-modes{ display:grid; gap:3px; }
-  .team-mode{ display:grid; grid-template-columns:16px 1fr; gap:7px; align-items:start; width:100%; padding:7px;
-    border:1px solid transparent; border-radius:7px; background:transparent; color:var(--text); text-align:left; cursor:pointer; }
+  .menu#teammenu{ position:fixed; bottom:auto; right:auto; width:238px; max-width:calc(100vw - 16px); max-height:min(320px,calc(100vh - 72px)); overflow-y:auto; padding:7px; gap:5px; }
+  .team-title{ display:flex; align-items:center; justify-content:space-between; font:700 11px var(--ui); padding:0 1px 3px; }
+  .team-modes{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3px; }
+  .team-mode{ display:flex; align-items:center; justify-content:center; gap:4px; min-width:0; width:100%; min-height:30px; padding:4px 3px;
+    border:1px solid transparent; border-radius:6px; background:transparent; color:var(--text); text-align:center; cursor:pointer; }
   .team-mode:hover{ background:var(--hover); }
   .team-mode.active{ border-color:color-mix(in srgb,var(--green) 42%,var(--border)); background:color-mix(in srgb,var(--green) 8%,transparent); }
-  .team-mode i{ width:12px; height:12px; margin-top:2px; border-radius:50%; border:1.5px solid var(--muted); }
-  .team-mode.active i{ border:4px solid var(--green); }
-  .team-mode b{ display:block; font-size:11px; }
-  .team-mode small{ display:block; color:var(--dim); font-size:9.5px; line-height:1.35; margin-top:1px; }
-  .team-options{ display:grid; gap:6px; padding-top:7px; border-top:1px solid var(--border); }
+  .team-mode i{ width:9px; height:9px; flex:0 0 9px; border-radius:50%; border:1.5px solid var(--muted); }
+  .team-mode.active i{ border:3px solid var(--green); }
+  .team-mode b{ display:block; overflow:hidden; text-overflow:ellipsis; font-size:9.5px; white-space:nowrap; }
+  .team-mode small{ display:none; }
+  .team-options{ display:grid; grid-template-columns:minmax(0,1fr) minmax(72px,.72fr); gap:5px; padding-top:6px; border-top:1px solid var(--border); }
   .team-options[hidden]{ display:none; }
-  .team-options label{ display:grid; gap:3px; color:var(--dim); font:600 9.5px var(--ui); }
-  .team-options select,.team-options input{ width:100%; height:28px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); padding:0 7px; font:10px var(--ui); }
-  .team-cost{ display:flex; align-items:center; justify-content:space-between; color:var(--dim); font:9.5px var(--ui); }
-  .team-cost b{ color:var(--text); font-size:10px; }
-  .team-note{ color:var(--dim); font:9px/1.35 var(--ui); }
+  .team-options label{ display:grid; min-width:0; gap:2px; color:var(--dim); font:600 8.5px var(--ui); }
+  .team-options label:first-child{ grid-column:1/-1; }
+  .team-options select,.team-options input{ width:100%; min-width:0; height:24px; border:1px solid var(--border); border-radius:5px; background:var(--bg); color:var(--text); padding:0 6px; font:9px var(--ui); }
+  .team-cost{ display:grid; align-content:end; justify-items:end; min-width:0; color:var(--dim); font:8px var(--ui); }
+  .team-cost b{ color:var(--text); font-size:9px; white-space:nowrap; }
+  .team-note{ grid-column:1/-1; color:var(--dim); font:8px/1.3 var(--ui); }
   .compare-title{ display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:600; margin-bottom:9px; }
   .beta-tag{ color:var(--online); font-size:9px; font-weight:600; text-transform:uppercase; }
   .compare-menu-label{ display:block; color:var(--dim); font-size:10px; margin:7px 0 4px; }
@@ -3640,46 +3645,6 @@
   #sidebar .sidebar-account-avatar{ width:30px; height:30px; font-size:11px; }
   #sidebar .sidebar-account-copy b{ font-size:10.5px; }
   #sidebar .sidebar-account-copy small{ font-size:8.75px; }
-  /* Compact Projects/Chats panel: 30% smaller than the previous expanded
-     sidebar while retaining practical pointer targets. */
-  #sidebar .sidehead{ min-height:39px; margin:3px 6px 2px; padding:4px 6px; }
-  #sidebar .sidebar-brand-mark{ width:20px; height:20px; flex-basis:20px; border-radius:5px; }
-  #sidebar .brand-word{ gap:1px; }
-  #sidebar .brand-name{ font-size:11px; }
-  #sidebar .sidehead #footStatus{ max-width:102px; font-size:8px; }
-  #sidebar .brand-about{ width:18px; height:18px; }
-  #sidebar .brand-about svg{ width:11px; height:11px; }
-  #sidebar .workspace-create-row{ grid-template-columns:minmax(0,1fr) 27px; gap:5px; padding:3px 7px 6px; }
-  #sidebar #sidebarNewChat{ min-height:24px; padding-left:9px; font-size:8px; }
-  #sidebar #sidebarNewProject{ min-height:24px; width:27px; }
-  #sidebar #sidebarNewProject svg{ width:12px; height:12px; }
-  #sidebar .sidebar-shortcuts{ margin:0 6px 6px; padding:4px 1px 3px; }
-  #sidebar .sidebar-shortcut{ height:31px; gap:2px; font-size:7px; }
-  #sidebar .sidebar-shortcut svg{ width:16px; height:16px; }
-  #sidebar .sidebar-flyout{ top:36px; left:50px; width:112px; padding:5px; }
-  #sidebar .sidebar-flyout button{ height:24px; padding:0 6px; font-size:8px; }
-  #sidebar .sidebar-flyout button svg{ width:10px; height:10px; }
-  #sidebar .thread-search-wrap{ height:23px; margin:0 7px 11px; width:calc(100% - 14px); }
-  #sidebar #threadSearch{ height:23px; padding-left:21px; padding-right:31px; font-size:8px; }
-  #sidebar .thread-search-wrap svg{ left:7px; width:10px; height:10px; }
-  #sidebar .thread-search-key{ right:4px; height:15px; padding:0 3px; border-radius:3px; font-size:7px; }
-  #sidebar .threadlist{ padding:1px 7px 4px; }
-  #sidebar .grouphead{ min-height:17px; padding:2px 2px 1px; font-size:7.5px; }
-  #sidebar .project-group-head{ min-height:23px; gap:4px; padding:2px 4px; }
-  #sidebar .project-group-head .project-folder svg{ width:10px; height:10px; }
-  #sidebar .project-group-head .project-title{ font-size:8px; }
-  #sidebar .project-group-head::after{ font-size:8px; letter-spacing:.5px; }
-  #sidebar .project-group-body{ margin-left:7px; padding-left:11px; }
-  #sidebar .project-group-body .thread{ min-height:20px; font-size:8px; }
-  #sidebar .thread{ min-height:21px; padding:2px 4px; font-size:8px; }
-  #sidebar .thread .tico svg{ width:10px; height:10px; }
-  #sidebar .thread .twhen{ font-size:7px; }
-  #sidebar .showmore{ min-height:18px; padding-left:4px; font-size:7.5px; }
-  #sidebar > .sidebar-system-row{ display:none!important; }
-  #sidebar .sidebar-account-card{ min-height:31px; margin:2px 7px 5px; padding:3px 5px; grid-template-columns:21px minmax(0,1fr) auto; gap:5px; }
-  #sidebar .sidebar-account-avatar{ width:21px; height:21px; font-size:8px; }
-  #sidebar .sidebar-account-copy b{ font-size:8px; }
-  #sidebar .sidebar-account-copy small{ font-size:7px; }
   .account-popover{ width:184px; padding:6px; border-radius:10px; }
   .account-head{ padding:6px 7px; border-radius:8px; margin-bottom:4px; gap:7px; }
   .account-avatar{ width:25px; height:25px; font-size:10px; }
@@ -4011,13 +3976,13 @@ body:not(.composer-simple) main::after{
   }
   @media(min-width:761px){
     body.notes-on:is(.education-open,.markets-open,.recipes-open,.sales-open) #notesPanel{
-      position:fixed; top:78px; right:8px; bottom:4px; left:auto; z-index:86;
+      position:fixed; top:78px; right:8px; bottom:var(--approved-bottom-gap); left:auto; z-index:86;
       width:var(--nw,clamp(240px,26vw,320px)); min-width:220px; height:auto; max-height:none;
       flex:none; border:1px solid var(--note-border); border-radius:6px; overflow:hidden;
       box-shadow:none; animation:none;
     }
     body.notes-on:is(.education-open,.markets-open,.recipes-open,.sales-open) #ndrag{
-      position:fixed; top:78px; right:calc(var(--nw,clamp(240px,26vw,320px)) + 4px); bottom:4px;
+      position:fixed; top:78px; right:calc(var(--nw,clamp(240px,26vw,320px)) + 4px); bottom:var(--approved-bottom-gap);
       left:auto; width:9px; height:auto; z-index:87; display:block;
     }
     body.notes-on:is(.education-open,.markets-open,.recipes-open,.sales-open) .workspace-float.maximized{
@@ -4058,7 +4023,7 @@ body:not(.composer-simple) main::after{
     .cmd-bar .cmd-input{ min-width:80px; font-size:11px; }
   }
   @media(max-width:760px){
-    :root{ --approved-sidebar-w:151px; }
+    :root{ --approved-sidebar-w:196px; }
     .workspace-tabs{ gap:3px; }
     .ws-tab{ padding:0 5px; }
     .cmd-bar{ gap:3px; }
@@ -4089,7 +4054,7 @@ body:not(.composer-simple) main::after{
     body,body.shell{ gap:5px; padding-left:5px; padding-right:5px; padding-bottom:10px; }
     #sideRail,body.collapsed #sideRail,body.collapsed.rail-expanded #sideRail{ flex-basis:30px; width:30px; min-width:30px; }
     #sideRail .rail-btn,#sideRail .rail-user{ width:27px; height:27px; }
-    aside,body.shell aside{ --approved-sidebar-w:134px; }
+    aside,body.shell aside{ --approved-sidebar-w:196px; }
     body.zone-3 #ctxZone,body.zone-3 #ctxdrag{ display:none; }
     body.notes-on:not(.shell) #notesPanel{ width:var(--nw,260px); min-width:230px; flex-basis:var(--nw,260px); }
     body.browser-on:not(.shell) #browser{ width:var(--bw,280px)!important; min-width:240px!important; flex-basis:var(--bw,280px); }
@@ -4822,7 +4787,7 @@ body:not(.composer-simple) main::after{
   /* Education, Markets, and Recipes use a floating app workspace. The real Browser keeps
      its existing native split-pane behavior. */
   .workspace-float{
-    display:none; position:fixed; z-index:84; top:78px; right:8px; bottom:4px;
+    display:none; position:fixed; z-index:84; top:78px; right:8px; bottom:var(--approved-bottom-gap);
     width:min(1120px,calc(100vw - 368px)); height:auto;
     min-width:0; min-height:0;
     max-width:none; max-height:none;
@@ -4832,7 +4797,7 @@ body:not(.composer-simple) main::after{
   }
   body.education-open .workspace-float,body.markets-open .workspace-float,body.recipes-open .workspace-float,body.library-open .workspace-float,body.studio-open .workspace-float{ display:flex; }
   body.sales-open .workspace-float{ display:flex; }
-  .workspace-float.maximized{ inset:78px 8px 4px 44px!important; width:auto!important; height:auto!important; max-width:none; max-height:none; }
+  .workspace-float.maximized{ inset:78px 8px var(--approved-bottom-gap) 44px!important; width:auto!important; height:auto!important; max-width:none; max-height:none; }
   .workspace-float-bar{
     display:flex; flex:0 0 26px; align-items:center; justify-content:space-between;
     min-height:26px; padding:0 7px 0 6px; border-bottom:0;
@@ -4856,6 +4821,7 @@ body:not(.composer-simple) main::after{
   .workspace-float-page-dot{ width:5px; height:5px; flex:0 0 5px; border-radius:50%; background:var(--dim); opacity:.65; }
   .workspace-float-page-tab.active .workspace-float-page-dot{ background:var(--green); opacity:1; }
   .workspace-beta{ margin-left:auto; padding:1px 3px; border:1px solid color-mix(in srgb,var(--dim) 32%,transparent); border-radius:3px; color:var(--dim); font:700 5.5px/1.2 var(--ui); letter-spacing:.04em; text-transform:uppercase; }
+  .workspace-window-beta{ flex:0 0 auto; margin:0 4px 0 7px; padding:2px 5px; border:1px solid color-mix(in srgb,var(--dim) 36%,transparent); border-radius:4px; color:var(--dim); font:700 6.5px/1 var(--ui); letter-spacing:.05em; text-transform:uppercase; }
   @container(max-width:700px){
     .workspace-float-tabs{ gap:1px; }
     .workspace-float-page-tab{ gap:4px; padding-inline:5px; font-size:9.5px; }
@@ -5360,7 +5326,7 @@ body:not(.composer-simple) main::after{
   .workspace-float.resizing,.workspace-float.resizing *{ user-select:none!important; }
   .workspace-float.maximized .workspace-resize-handle{ display:none; }
   @media(max-width:760px){
-    .workspace-float{ top:72px; right:4px; bottom:4px; left:auto; width:calc(100vw - 8px); height:auto; min-width:0; min-height:320px; max-width:none; max-height:none; border-radius:9px; }
+    .workspace-float{ top:72px; right:4px; bottom:var(--approved-bottom-gap); left:auto; width:calc(100vw - 8px); height:auto; min-width:0; min-height:320px; max-width:none; max-height:none; border-radius:9px; }
     .workspace-float.maximized{ inset:72px 4px 4px!important; }
   }
 
@@ -5500,10 +5466,10 @@ body:not(.composer-simple) main::after{
     </section>
     <section class="sidebar-nav-section">
       <div class="sidebar-nav-title">Explore</div>
-      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="markets"><svg viewBox="0 0 24 24"><path d="M4 19V9M9 19V5M14 19v-7M19 19V3M3 19h18"/></svg><span>Markets</span><span class="sidebar-nav-beta">Beta</span></button>
-      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="education"><svg viewBox="0 0 24 24"><path d="m3 9 9-5 9 5-9 5zM7 12v5c3 2 7 2 10 0v-5"/></svg><span>Education</span><span class="sidebar-nav-beta">Beta</span></button>
-      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="sales"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM8 7V4h8v3M4 12h16"/></svg><span>Sales</span><span class="sidebar-nav-beta">Beta</span></button>
-      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="library"><svg viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM7 16h12"/></svg><span>Library</span><span class="sidebar-nav-beta">Beta</span></button>
+      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="markets"><svg viewBox="0 0 24 24"><path d="M4 19V9M9 19V5M14 19v-7M19 19V3M3 19h18"/></svg><span>Markets</span><span></span></button>
+      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="education"><svg viewBox="0 0 24 24"><path d="m3 9 9-5 9 5-9 5zM7 12v5c3 2 7 2 10 0v-5"/></svg><span>Education</span><span></span></button>
+      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="sales"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM8 7V4h8v3M4 12h16"/></svg><span>Sales</span><span></span></button>
+      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="library"><svg viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM7 16h12"/></svg><span>Library</span><span></span></button>
     </section>
     <section class="sidebar-nav-section">
       <div class="sidebar-nav-title">System</div>
@@ -5511,13 +5477,6 @@ body:not(.composer-simple) main::after{
       <button class="sidebar-nav-item" type="button" data-sidebar-action="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg><span>Settings</span><span></span></button>
     </section>
   </nav>
-  <div class="sidebar-system-row">
-    <span>Theme</span>
-    <span class="sidebar-theme-toggle" aria-label="Theme">
-      <button type="button" data-sidebar-theme="light">Light</button>
-      <button type="button" data-sidebar-theme="dark">Dark</button>
-    </span>
-  </div>
   <button class="sidebar-account-card" id="sidebarAccount" type="button" aria-label="Boolean account">
     <span class="sidebar-account-avatar" id="sidebarAccountAvatar">B</span>
     <span class="sidebar-account-copy"><b id="sidebarAccountName">You</b><small id="sidebarAccountLabel">Local Boolean workspace</small></span>
@@ -6869,13 +6828,14 @@ body:not(.composer-simple) main::after{
   <div class="workspace-float" id="workspaceFloat" role="dialog" aria-modal="false" aria-label="Explore workspace">
     <header class="workspace-float-bar" id="workspaceFloatBar">
       <nav class="workspace-float-tabs" id="workspaceFloatTabs" role="tablist" aria-label="Explore pages">
-        <button class="workspace-float-page-tab active" id="marketsWorkspaceTab" type="button" role="tab" data-workspace-page="markets" aria-controls="marketsPanel" aria-selected="true" hidden aria-hidden="true"><span class="workspace-float-page-dot"></span>Markets<span class="workspace-beta">Beta</span></button>
-        <button class="workspace-float-page-tab" id="educationWorkspaceTab" type="button" role="tab" data-workspace-page="education" aria-controls="educationPanel" aria-selected="false" hidden aria-hidden="true"><span class="workspace-float-page-dot"></span>Education<span class="workspace-beta">Beta</span></button>
+        <button class="workspace-float-page-tab active" id="marketsWorkspaceTab" type="button" role="tab" data-workspace-page="markets" aria-controls="marketsPanel" aria-selected="true" hidden aria-hidden="true"><span class="workspace-float-page-dot"></span>Markets</button>
+        <button class="workspace-float-page-tab" id="educationWorkspaceTab" type="button" role="tab" data-workspace-page="education" aria-controls="educationPanel" aria-selected="false" hidden aria-hidden="true"><span class="workspace-float-page-dot"></span>Education</button>
         <button class="workspace-float-page-tab" id="recipesWorkspaceTab" type="button" role="tab" data-workspace-page="recipes" aria-controls="recipesPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Workflows</button>
-        <button class="workspace-float-page-tab" id="salesWorkspaceTab" type="button" role="tab" data-workspace-page="sales" aria-controls="salesPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Sales<span class="workspace-beta">Beta</span></button>
-        <button class="workspace-float-page-tab" id="libraryWorkspaceTab" type="button" role="tab" data-workspace-page="library" aria-controls="libraryPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Library<span class="workspace-beta">Beta</span></button>
-        <button class="workspace-float-page-tab" id="studioWorkspaceTab" type="button" role="tab" data-workspace-page="studio" aria-controls="studioPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Studio<span class="workspace-beta">Beta</span></button>
+        <button class="workspace-float-page-tab" id="salesWorkspaceTab" type="button" role="tab" data-workspace-page="sales" aria-controls="salesPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Sales</button>
+        <button class="workspace-float-page-tab" id="libraryWorkspaceTab" type="button" role="tab" data-workspace-page="library" aria-controls="libraryPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Library</button>
+        <button class="workspace-float-page-tab" id="studioWorkspaceTab" type="button" role="tab" data-workspace-page="studio" aria-controls="studioPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Studio</button>
       </nav>
+      <span class="workspace-window-beta" title="Explore workspace is in beta">Beta</span>
       <span class="workspace-float-meta-hidden" id="workspaceFloatIcon" data-workspace-icon="markets" aria-hidden="true"></span>
       <span class="workspace-float-meta-hidden" id="workspaceFloatTitle">Explore</span>
       <div class="workspace-float-actions">
@@ -6900,7 +6860,7 @@ body:not(.composer-simple) main::after{
           <article class="studio-card ad-controls">
             <div><h3>Website to ad</h3><p>Capture public brand details and turn them into original, editable ad concepts.</p></div>
             <label class="studio-field wide">Website URL<input id="adSiteUrl" inputmode="url" placeholder="example.com"></label>
-            <div class="studio-actions"><button class="studio-btn primary" id="adAnalyze" type="button">Analyze website</button><label class="studio-field" style="margin:0">Visuals<select id="adAssetQty"><option value="auto">Auto</option><option value="3">3</option><option value="5">5</option><option value="8">8</option></select></label></div>
+            <div class="studio-actions"><button class="studio-btn primary" id="adAnalyze" type="button">Analyze website</button><label class="studio-field" style="margin:0">Page visuals<select id="adAssetQty"><option value="auto">Auto</option><option value="3">3</option><option value="5">5</option><option value="8">8</option></select></label></div>
             <div class="ad-status" id="adStatus">Enter a public website to begin.</div>
             <div class="video-assets"><div class="video-assets-head"><span>Website visuals</span><button class="studio-btn" id="adAssetUploadButton" type="button">Upload</button><input id="adAssetUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></div><div class="video-asset-grid" id="adAssetTray"></div><p class="video-assets-note">Click a visual to use it in this ad.</p></div>
             <label class="studio-field wide">Headline<input id="adHeadline" value="A smarter way to get it done"></label>
@@ -6927,12 +6887,12 @@ body:not(.composer-simple) main::after{
               <label class="studio-field wide">Audience<input id="videoAdAudience" placeholder="Busy founders, local shoppers, new users..."></label>
               <label class="studio-field wide">Offer or action<input id="videoAdOffer" placeholder="Start free, book a demo, shop now..."></label>
             </div>
-            <div class="studio-actions"><button class="studio-btn primary" id="videoAdAnalyze" type="button">Build campaign</button><button class="studio-btn" id="videoAdImprove" type="button">Improve weak scenes</button></div>
+            <div class="studio-actions"><button class="studio-btn primary" id="videoAdAuto" type="button">Auto-generate video ad</button><button class="studio-btn" id="videoAdAnalyze" type="button">Build manually</button><button class="studio-btn" id="videoAdImprove" type="button">Improve scenes</button></div>
             <div class="ad-status" id="videoAdStatus">Analyze a website or use the brand already loaded in Ad Creator.</div>
             <div class="video-variants" id="videoAdVariants"><button class="video-variant" data-video-length="6"><b>6 sec</b>Bumper</button><button class="video-variant active" data-video-length="15"><b>15 sec</b>Skippable</button><button class="video-variant" data-video-length="30"><b>30 sec</b>Story</button></div>
-            <label class="studio-field">Format<select id="videoAdFormat"><option value="landscape">YouTube 16:9</option><option value="story">Shorts 9:16</option><option value="square">Square 1:1</option></select></label>
+            <div class="studio-grid"><label class="studio-field">Format<select id="videoAdFormat"><option value="landscape">YouTube 16:9</option><option value="story">Shorts 9:16</option><option value="square">Square 1:1</option></select></label><label class="studio-field">Video style<select id="videoAdTemplate"><option value="auto">Automatic</option><option value="product">Product demo</option><option value="app">App showcase</option><option value="feature">Feature montage</option><option value="promo">Bold promotion</option></select></label><label class="studio-field">Transition<select id="videoAdTransition"><option value="dissolve">Dissolve</option><option value="slide">Slide</option><option value="zoom">Zoom</option><option value="none">None</option></select></label><label class="studio-field">Image motion<select id="videoAdMotion"><option value="auto">Automatic</option><option value="push">Slow push</option><option value="pan">Gentle pan</option><option value="still">Still</option></select></label></div>
             <select id="videoAdLength" hidden><option value="6">6</option><option value="15" selected>15</option><option value="30">30</option></select>
-            <div class="video-assets"><div class="video-assets-head"><span>Website visuals</span><div class="video-assets-controls"><select id="videoAdAssetQty" aria-label="Visual quantity"><option value="auto">Auto</option><option value="3">3</option><option value="5">5</option><option value="8">8</option></select><button class="studio-btn" id="videoAdAssetUploadButton" type="button">Upload</button><input id="videoAdAssetUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></div></div><div class="video-asset-grid" id="videoAdAssetTray"></div><p class="video-assets-note">Select a scene, then click a visual to assign it. Tiny and duplicate website images are filtered.</p></div>
+            <div class="video-assets"><div class="video-assets-head"><span>Website visuals</span><div class="video-assets-controls"><select id="videoAdAssetQty" aria-label="Page visual quantity"><option value="auto">Auto</option><option value="3">3</option><option value="5">5</option><option value="8">8</option></select><button class="studio-btn" id="videoAdAssetUploadButton" type="button">Upload</button><input id="videoAdAssetUpload" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden></div></div><div class="video-asset-grid" id="videoAdAssetTray"></div><p class="video-assets-note">Select a scene, then click a visual to assign it. Boolean fills missing website images with rendered page screenshots.</p></div>
             <div class="video-ai-motion">
               <div class="video-ai-head"><span>AI motion</span><span class="video-ai-state" id="videoAdVeoState">Not checked</span></div>
               <p class="video-ai-copy" id="videoAdVeoCopy">Uses your saved Google AI key. Gemini chat access and Veo video access are checked separately.</p>
@@ -7367,15 +7327,15 @@ body:not(.composer-simple) main::after{
         <div class="menu" id="teammenu">
           <div class="team-title"><span>AI teamwork</span><span class="beta-tag">Beta</span></div>
           <div class="team-modes">
-            <button class="team-mode" type="button" data-team-mode="solo"><i></i><span><b>Solo</b><small>One model handles the task.</small></span></button>
-            <button class="team-mode" type="button" data-team-mode="assist"><i></i><span><b>Assist</b><small>Lead model plus one low-cost reviewer.</small></span></button>
-            <button class="team-mode" type="button" data-team-mode="team"><i></i><span><b>Team</b><small>Mapper, test analyst, and reviewer work in parallel.</small></span></button>
+            <button class="team-mode" type="button" data-team-mode="solo" title="One model handles the task"><i></i><span><b>Solo</b><small>One model handles the task.</small></span></button>
+            <button class="team-mode" type="button" data-team-mode="assist" title="Lead model plus one low-cost reviewer"><i></i><span><b>Assist</b><small>Lead model plus one low-cost reviewer.</small></span></button>
+            <button class="team-mode" type="button" data-team-mode="team" title="Mapper, test analyst, and reviewer work in parallel"><i></i><span><b>Team</b><small>Mapper, test analyst, and reviewer work in parallel.</small></span></button>
           </div>
           <div class="team-options" id="teamOptions">
             <label>Worker provider<select id="teamWorkerProvider"><option value="auto">Automatic (recommended)</option></select></label>
             <label>Maximum task budget<input id="teamTaskBudget" type="number" min="0" max="100" step="0.10" value="0.50"></label>
             <div class="team-cost"><span>Estimated use</span><b id="teamEstimate">$0.05–$0.50</b></div>
-            <div class="team-note">Low-cost models inspect and review. The selected model remains the lead and owns final edits and verification.</div>
+            <div class="team-note">Low-cost models assist; the selected model stays lead.</div>
           </div>
         </div>
       </div>
@@ -10207,7 +10167,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.61"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.62"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -11265,6 +11225,11 @@ body:not(.composer-simple) main::after{
     modelFilter.oninput=()=>drawModels(modelFilter.value);
     modelFilter.onclick=(e)=>e.stopPropagation();
   }
+  const MODEL_PICKER_PROVIDERS={
+    openai:"OpenAI", google:"Google AI (Gemini)", glm:"GLM (Z.ai)", zaiCoding:"Z.AI Coding Plan",
+    claude:"Anthropic", xai:"xAI (Grok)", deepseek:"DeepSeek", qwen:"Alibaba Cloud (Qwen)",
+    baidu:"Baidu Qianfan (ERNIE)", bytedance:"ByteDance ModelArk (Doubao)", kimi:"Moonshot AI (Kimi)"
+  };
   const PROVIDER_BRAND={ openai:"#10a37f", google:"#4285f4", gemini:"#4285f4", xai:"#111827", grok:"#111827",
     deepseek:"#4d6bfe", qwen:"#615ced", alibaba:"#615ced", baidu:"#2932e1", ernie:"#2932e1",
     bytedance:"#325ab4", doubao:"#325ab4", modelark:"#325ab4", glm:"#ff6a00", zai:"#ff6a00", zhipu:"#ff6a00",
@@ -11343,7 +11308,7 @@ body:not(.composer-simple) main::after{
     list.classList.toggle("local-model-view",pickerNet!=="online");
     document.querySelectorAll("#modelNetMode button").forEach(b=>b.classList.toggle("on",b.dataset.net===pickerNet));
     if(pickerNet==="online"){
-      const apiRows=Object.entries(state.cloud||{});
+      const apiRows=Object.entries({...MODEL_PICKER_PROVIDERS,...(state.cloud||{})});
       const hasApiKey=(prov)=>!!(state.keys&&state.keys[prov]);
       apiRows.filter(([prov])=>hasApiKey(prov)&&!apiProviderHealth[prov]).forEach(([prov])=>verifyApiProviderModels(prov));
       if(openApiProvider){
@@ -11359,7 +11324,8 @@ body:not(.composer-simple) main::after{
       const checking=visibleApi.filter(([prov])=>hasApiKey(prov)&&apiProviderHealth[prov]!=="ready"&&apiProviderHealth[prov]!=="error");
       const attention=visibleApi.filter(([prov])=>hasApiKey(prov)&&apiProviderHealth[prov]==="error");
       const missing=visibleApi.filter(([prov])=>!hasApiKey(prov));
-      if(!showApiProviderCatalog&&missing.length){
+      const savedProviders=apiRows.filter(([prov])=>hasApiKey(prov));
+      if(!showApiProviderCatalog&&missing.length&&(connected.length||!savedProviders.length)){
         openApiProvider=missing[0][0];
         renderFocusedApiProvider(missing[0][0],missing[0][1],false);
         return;
@@ -11551,12 +11517,28 @@ body:not(.composer-simple) main::after{
     const teamwork={...currentTeamwork(),...patch};
     await updateCodingAgent({teamwork});
     renderTeamMenu();
+    requestAnimationFrame(positionTeamMenu);
+  }
+  function positionTeamMenu(){
+    const menu=$("teammenu"), button=$("teambtn"), workspace=document.querySelector("main");
+    if(!menu?.classList.contains("open")||!button||!workspace)return;
+    const buttonRect=button.getBoundingClientRect(), workspaceRect=workspace.getBoundingClientRect();
+    const margin=8, availableWidth=Math.max(180,workspaceRect.width-margin*2);
+    const width=Math.min(238,availableWidth);
+    menu.style.width=Math.round(width)+"px";
+    const left=Math.max(workspaceRect.left+margin,Math.min(buttonRect.right-width,workspaceRect.right-width-margin));
+    menu.style.left=Math.round(left)+"px";
+    const availableHeight=Math.max(150,buttonRect.top-margin*2);
+    menu.style.maxHeight=Math.min(320,availableHeight)+"px";
+    const height=Math.min(menu.offsetHeight||availableHeight,availableHeight);
+    menu.style.top=Math.round(Math.max(margin,buttonRect.top-height-margin))+"px";
   }
   $("teambtn").onclick=(event)=>{
     event.stopPropagation();
     $("plusmenu").classList.remove("open"); $("modemenu").classList.remove("open"); $("modelmenu").classList.remove("open"); $("comparemenu").classList.remove("open");
     $("teammenu").classList.toggle("open");
     renderTeamMenu();
+    requestAnimationFrame(positionTeamMenu);
   };
   document.querySelectorAll("[data-team-mode]").forEach(item=>item.onclick=async(event)=>{
     event.stopPropagation();
@@ -11565,6 +11547,7 @@ body:not(.composer-simple) main::after{
   });
   $("teamWorkerProvider").onchange=()=>saveTeamwork({workerProvider:$("teamWorkerProvider").value});
   $("teamTaskBudget").onchange=()=>saveTeamwork({taskBudget:Math.max(0,Number($("teamTaskBudget").value)||0.5)});
+  window.addEventListener("resize",positionTeamMenu);
   renderTeamMenu();
   function updateFooterModelStatus(){
     const text=$("cmdModelText"), dot=$("cmdModelDot"), chip=$("cmdModelChip");
@@ -19032,6 +19015,7 @@ Optional bundled starter model:
   // Boolean's normal fresh-chat workflow runner and attachment pipeline.
   const STUDIO_BRIEFS_KEY="booleanStudioBriefsV1";
   const STUDIO_FLOWS_KEY="booleanStudioWorkflowsV1";
+  const STUDIO_ASSET_QTY_KEY="booleanStudioAssetQtyV1";
   let adBrand={title:"Your brand",domain:"yourbrand.com",description:"",colors:["#2563eb","#111827","#ffffff"],asset:"",assets:[]};
   let adVariation=0;
   let videoAdScenes=[],videoAdScene=0,videoAdPlaying=false,videoAdFrame=0,videoAdStarted=0,videoAdImages=[],videoAdVeoReady=false,videoAdVeoChecked=false;
@@ -19058,12 +19042,24 @@ Optional bundled starter model:
     palette.innerHTML=adBrand.colors.slice(0,5).map((color,index)=>`<button class="ad-swatch" type="button" data-ad-color="${esc(color)}" title="Use ${esc(color)}" style="background:${esc(color)}" aria-label="Use brand color ${index+1}"></button>`).join("");
     palette.querySelectorAll("[data-ad-color]").forEach(button=>button.onclick=()=>{$("adStage").style.background=button.dataset.adColor;});
   }
+  function removeStudioAsset(index){
+    const assets=adBrand.assets||[];
+    if(index<0||index>=assets.length)return;
+    const removed=assets[index],wasSelected=adBrand.asset===removed;
+    assets.splice(index,1);
+    if(Array.isArray(adBrand.assetSources))adBrand.assetSources.splice(index,1);
+    if(wasSelected||!assets.includes(adBrand.asset))adBrand.asset=assets[Math.min(index,assets.length-1)]||"";
+    videoAdScenes.forEach(scene=>{if(scene.assetIndex===index)scene.assetIndex=Math.min(index,Math.max(0,assets.length-1));else if(scene.assetIndex>index)scene.assetIndex--;});
+    loadVideoAdImages();renderAdAssets();renderVideoAdAssets();renderVideoAdScenes();updateAdPreview();renderVideoAdFrame(videoAdScene,0);
+    tempToast("Visual removed.");
+  }
   function renderAdAssets(){
     const tray=$("adAssetTray"),assets=adBrand.assets?.length?adBrand.assets:[adBrand.asset].filter(Boolean);if(!tray)return;
     if(!assets.length){tray.innerHTML='<p class="video-assets-empty">Analyze a website or upload product images.</p>';return;}
     const selected=Math.max(0,assets.indexOf(adBrand.asset));
-    tray.innerHTML=assets.map((src,index)=>`<button class="video-asset${index===selected?" selected":""}" type="button" data-ad-asset="${index}" title="Use website visual ${index+1}"><img src="${esc(src)}" alt="Website visual ${index+1}"></button>`).join("");
-    tray.querySelectorAll("[data-ad-asset]").forEach(button=>button.onclick=()=>{adBrand.asset=assets[Number(button.dataset.adAsset)]||assets[0];renderAdAssets();updateAdPreview();});
+    tray.innerHTML=assets.map((src,index)=>`<button class="video-asset${index===selected?" selected":""}" type="button" data-ad-asset="${index}" title="Use website visual ${index+1}"><img src="${esc(src)}" alt="Website visual ${index+1}"><span class="video-asset-remove" data-ad-asset-remove="${index}" title="Remove visual" aria-label="Remove visual ${index+1}">&times;</span></button>`).join("");
+    tray.querySelectorAll("[data-ad-asset]").forEach(button=>button.onclick=event=>{if(event.target.closest("[data-ad-asset-remove]"))return;adBrand.asset=assets[Number(button.dataset.adAsset)]||assets[0];renderAdAssets();updateAdPreview();});
+    tray.querySelectorAll("[data-ad-asset-remove]").forEach(button=>button.onclick=event=>{event.stopPropagation();removeStudioAsset(Number(button.dataset.adAssetRemove));});
   }
   function updateAdPreview(){
     $("adPreviewHeadline").textContent=$("adHeadline").value.trim()||"Your headline";
@@ -19097,11 +19093,13 @@ Optional bundled starter model:
     return ["video/mp4;codecs=avc1","video/mp4","video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm"].find(type=>MediaRecorder.isTypeSupported(type))||"";
   }
   function videoAdDims(){const format=$("videoAdFormat")?.value||"landscape";return format==="story"?[540,960]:format==="square"?[720,720]:[960,540];}
+  function resolvedVideoAdTemplate(){const chosen=$("videoAdTemplate")?.value||"auto";if(chosen!=="auto")return chosen;return (adBrand.assetSources||[]).some(source=>String(source).includes("#viewport="))?"app":"product";}
   function buildVideoAdScenes(){
     const name=(adBrand.title||adBrand.domain||"Your brand").replace(/\s*[|–—-].*$/,"").trim(),desc=adBrand.description||"A smarter experience designed around what matters.";
     const length=Number($("videoAdLength")?.value||15),goal=$("videoAdGoal")?.value||"conversion",audience=$("videoAdAudience")?.value.trim()||"people ready for a better way",offer=$("videoAdOffer")?.value.trim()||"Learn more today";
-    const hook=goal==="demo"?`See ${name} in action`:goal==="awareness"?`Meet ${name}`:"Still doing it the hard way?";
-    const benefit=goal==="awareness"?"Built for what comes next":goal==="demo"?"See the difference in seconds":"Get to the result faster";
+    const template=resolvedVideoAdTemplate();
+    const hook=template==="app"?`See ${name} in action`:template==="feature"?`What makes ${name} different`:template==="promo"?"Ready for a better result?":goal==="demo"?`See ${name} in action`:goal==="awareness"?`Meet ${name}`:"Still doing it the hard way?";
+    const benefit=template==="app"?"Everything you need, in one place":template==="feature"?"Designed around what matters":template==="promo"?"Move faster with less friction":goal==="awareness"?"Built for what comes next":goal==="demo"?"See the difference in seconds":"Get to the result faster";
     if(length===6)videoAdScenes=[
       {title:hook,sub:`For ${audience}.`,duration:1.5,kind:"intro"},
       {title:benefit,sub:desc,duration:2.5,kind:"feature"},
@@ -19130,7 +19128,7 @@ Optional bundled starter model:
     const selected=videoAdScenes[videoAdScene]?.assetIndex??0;
     tray.innerHTML=assets.map((src,index)=>`<button class="video-asset${index===selected?" selected":""}" type="button" data-video-asset="${index}" title="Use visual ${index+1} for this scene"><img src="${esc(src)}" alt="Website visual ${index+1}"><span class="video-asset-remove" data-video-asset-remove="${index}" title="Remove visual">&times;</span></button>`).join("");
     tray.querySelectorAll("[data-video-asset]").forEach(button=>button.onclick=event=>{if(event.target.closest("[data-video-asset-remove]"))return;const index=Number(button.dataset.videoAsset);if(videoAdScenes[videoAdScene])videoAdScenes[videoAdScene].assetIndex=index;renderVideoAdAssets();renderVideoAdScenes();renderVideoAdFrame(videoAdScene,0);});
-    tray.querySelectorAll("[data-video-asset-remove]").forEach(button=>button.onclick=event=>{event.stopPropagation();const index=Number(button.dataset.videoAssetRemove);adBrand.assets.splice(index,1);videoAdScenes.forEach(scene=>{if(scene.assetIndex===index)scene.assetIndex=0;else if(scene.assetIndex>index)scene.assetIndex--;});adBrand.asset=adBrand.assets[0]||"";loadVideoAdImages();renderVideoAdAssets();renderVideoAdScenes();renderVideoAdFrame(videoAdScene,0);});
+    tray.querySelectorAll("[data-video-asset-remove]").forEach(button=>button.onclick=event=>{event.stopPropagation();removeStudioAsset(Number(button.dataset.videoAssetRemove));});
   }
   function renderVideoAdScenes(){
     const el=$("videoAdScenes");if(!el)return;
@@ -19162,14 +19160,15 @@ Optional bundled starter model:
   function renderVideoAdFrame(index,progress=0){
     const canvas=$("videoAdCanvas"),ctx=canvas?.getContext("2d"),scene=videoAdScenes[index];if(!ctx||!scene)return;
     const [w,h]=videoAdDims();if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}canvas.style.aspectRatio=`${w}/${h}`;
-    const color=adBrand.colors?.[0]||"#2563eb",image=videoAdImages[scene.assetIndex??(index%Math.max(1,videoAdImages.length))],ease=1-Math.pow(1-Math.min(1,progress*2.2),3);
+    const color=adBrand.colors?.[0]||"#2563eb",image=videoAdImages[scene.assetIndex??(index%Math.max(1,videoAdImages.length))],ease=1-Math.pow(1-Math.min(1,progress*2.2),3),motion=$("videoAdMotion")?.value||"auto",transition=$("videoAdTransition")?.value||"dissolve",animating=videoAdPlaying;
     ctx.fillStyle=color;ctx.fillRect(0,0,w,h);
-    if(image?.complete&&image.naturalWidth){const scale=Math.max(w/image.naturalWidth,h/image.naturalHeight)*(1+.08*progress),dw=image.naturalWidth*scale,dh=image.naturalHeight*scale;ctx.globalAlpha=scene.kind==="feature"?.62:.28;ctx.drawImage(image,(w-dw)/2,(h-dh)/2,dw,dh);ctx.globalAlpha=1;}
-    const grad=ctx.createLinearGradient(0,0,w,h);grad.addColorStop(0,"rgba(0,0,0,.76)");grad.addColorStop(1,"rgba(0,0,0,.08)");ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
-    const pad=w*.085,offset=(1-ease)*45;ctx.fillStyle="rgba(0,0,0,.28)";roundRect(ctx,pad,h*.14-offset,w*.3,32,16);ctx.fillStyle="#fff";ctx.font=`700 ${Math.max(14,w*.018)}px Arial`;ctx.fillText((adBrand.title||adBrand.domain||"YOUR BRAND").toUpperCase().slice(0,30),pad+15,h*.14+22-offset);
-    ctx.font=`800 ${Math.max(38,w*.068)}px Arial`;ctx.textBaseline="top";const words=scene.title.split(/\s+/),lines=[];let line="";for(const word of words){if(ctx.measureText((line+" "+word).trim()).width>w*.78&&line){lines.push(line);line=word;}else line=(line+" "+word).trim();}if(line)lines.push(line);let y=h*.5-offset;for(const text of lines.slice(0,3)){ctx.fillText(text,pad,y);y+=w*.075;}
-    ctx.globalAlpha=Math.min(1,progress*3);ctx.font=`500 ${Math.max(18,w*.026)}px Arial`;const subWords=scene.sub.split(/\s+/),subLines=[];let subLine="";for(const word of subWords){if(ctx.measureText((subLine+" "+word).trim()).width>w*.76&&subLine){subLines.push(subLine);subLine=word;}else subLine=(subLine+" "+word).trim();}if(subLine)subLines.push(subLine);subLines.slice(0,2).forEach((text,i)=>ctx.fillText(text,pad,Math.min(h*.8,y+12)+i*w*.035));ctx.globalAlpha=1;
-    if(scene.kind==="outro"){ctx.fillStyle="#fff";roundRect(ctx,pad,h*.84,w*.2,48,9);ctx.fillStyle="#111";ctx.font=`700 ${Math.max(15,w*.02)}px Arial`;ctx.fillText("LEARN MORE",pad+20,h*.84+15);}
+    if(image?.complete&&image.naturalWidth){const activeMotion=motion==="auto"?(index%2?"pan":"push"):motion,motionProgress=animating?progress:.45,scale=Math.max(w/image.naturalWidth,h/image.naturalHeight)*(1+(activeMotion==="push"?.055*motionProgress:activeMotion==="pan"?.025:0)),dw=image.naturalWidth*scale,dh=image.naturalHeight*scale,panX=activeMotion==="pan"?(motionProgress-.5)*w*.07:0,slideX=animating&&transition==="slide"?(1-ease)*w*.08:0;ctx.globalAlpha=animating&&transition==="dissolve"?Math.min(1,.2+progress*5):1;ctx.drawImage(image,(w-dw)/2+panX+slideX,(h-dh)/2,dw,dh);ctx.globalAlpha=1;}
+    const unit=Math.min(w,h),pad=Math.max(24,w*.055),offset=(1-ease)*18;
+    const grad=ctx.createLinearGradient(0,h*.38,0,h);grad.addColorStop(0,"rgba(0,0,0,0)");grad.addColorStop(.58,"rgba(0,0,0,.18)");grad.addColorStop(1,"rgba(0,0,0,.72)");ctx.fillStyle=grad;ctx.fillRect(0,h*.34,w,h*.66);
+    ctx.font=`700 ${Math.max(13,unit*.025)}px Arial`;ctx.fillStyle="rgba(0,0,0,.58)";const brandWidth=Math.min(w*.42,ctx.measureText((adBrand.title||adBrand.domain||"YOUR BRAND").toUpperCase()).width+44);roundRect(ctx,pad,Math.max(20,h*.07-offset),Math.max(120,brandWidth),Math.max(28,unit*.052),14);ctx.fillStyle="#fff";ctx.textBaseline="middle";ctx.fillText((adBrand.title||adBrand.domain||"YOUR BRAND").toUpperCase().slice(0,30),pad+14,Math.max(20,h*.07-offset)+Math.max(28,unit*.052)/2);
+    ctx.textBaseline="top";ctx.font=`800 ${Math.max(28,unit*.061)}px Arial`;const words=scene.title.split(/\s+/),lines=[];let line="";for(const word of words){if(ctx.measureText((line+" "+word).trim()).width>w*.68&&line){lines.push(line);line=word;}else line=(line+" "+word).trim();}if(line)lines.push(line);const lineHeight=Math.max(34,unit*.072),headlineLines=lines.slice(0,2);let y=h*.64-headlineLines.length*lineHeight-offset;for(const text of headlineLines){ctx.fillText(text,pad,y);y+=lineHeight;}
+    ctx.globalAlpha=.94;ctx.font=`500 ${Math.max(15,unit*.031)}px Arial`;const subWords=scene.sub.split(/\s+/),subLines=[];let subLine="";for(const word of subWords){if(ctx.measureText((subLine+" "+word).trim()).width>w*.68&&subLine){subLines.push(subLine);subLine=word;}else subLine=(subLine+" "+word).trim();}if(subLine)subLines.push(subLine);subLines.slice(0,2).forEach((text,i)=>ctx.fillText(text,pad,Math.min(h*.82,y+8)+i*Math.max(21,unit*.039)));ctx.globalAlpha=1;
+    if(scene.kind==="outro"){const ctaY=h*.86;ctx.fillStyle="#fff";roundRect(ctx,pad,ctaY,Math.min(190,w*.24),Math.max(38,unit*.07),9);ctx.fillStyle="#111";ctx.font=`700 ${Math.max(13,unit*.025)}px Arial`;ctx.textBaseline="middle";ctx.fillText("LEARN MORE",pad+18,ctaY+Math.max(38,unit*.07)/2);}
     ctx.fillStyle="rgba(255,255,255,.8)";ctx.fillRect(0,h-5,w*progress,5);if(progress>.9){ctx.fillStyle=`rgba(0,0,0,${(progress-.9)*6})`;ctx.fillRect(0,0,w,h);}
   }
   function videoAdTimelineAt(seconds){let elapsed=0;for(let i=0;i<videoAdScenes.length;i++){const end=elapsed+videoAdScenes[i].duration;if(seconds<end)return{index:i,progress:(seconds-elapsed)/videoAdScenes[i].duration};elapsed=end;}return{index:videoAdScenes.length-1,progress:1};}
@@ -19271,7 +19270,24 @@ Optional bundled starter model:
       "Keep the result concise and surface any blocker instead of guessing."
     ].join("\n");
   }
+  async function createVideoAdFromWebsite(automatic=false){
+    const input=$("videoAdUrl"),url=input.value.trim()||$("adSiteUrl").value.trim();if(!url){tempToast("Enter a website first.");input.focus();return;}
+    const status=$("videoAdStatus"),button=automatic?$("videoAdAuto"):$("videoAdAnalyze");status.textContent=automatic?"Auto-generating: capturing the site, choosing visuals, and writing scenes...":"Capturing brand assets and writing scenes...";status.classList.add("busy");button.disabled=true;
+    try{
+      const response=await fetch("/api/studio/site-brand",{method:"POST",body:JSON.stringify({url,assetLimit:$("videoAdAssetQty")?.value||"auto"})}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"Could not analyze website.");
+      adBrand=data.brand;$("adSiteUrl").value=url;renderAdPalette();updateAdPreview();buildVideoAdScenes();
+      if(automatic){improveVideoAdScenes();videoAdScenes.forEach((scene,index)=>scene.assetIndex=index%Math.max(1,adBrand.assets.length));loadVideoAdImages();renderVideoAdAssets();renderVideoAdScenes();renderVideoAdFrame(0,0);}
+      const wanted=adBrand.requestedAssetLimit||adBrand.assets.length;status.textContent=`${automatic?"Video ad ready":"Storyboard ready"} · ${adBrand.title} · ${adBrand.assets.length} of ${wanted} visual${wanted===1?"":"s"}`;
+      if(automatic)setTimeout(()=>{if(!videoAdPlaying)playVideoAdPreview();},250);
+    }catch(error){status.textContent=error.message||"Could not build storyboard.";}finally{status.classList.remove("busy");button.disabled=false;}
+  }
   function initializeStudio(){
+    const savedAssetQty=localStorage.getItem(STUDIO_ASSET_QTY_KEY)||"auto";
+    [$("adAssetQty"),$("videoAdAssetQty")].forEach(select=>{if(select&&[...select.options].some(option=>option.value===savedAssetQty))select.value=savedAssetQty;});
+    [$("adAssetQty"),$("videoAdAssetQty")].forEach(select=>select?.addEventListener("change",()=>{
+      localStorage.setItem(STUDIO_ASSET_QTY_KEY,select.value);
+      [$("adAssetQty"),$("videoAdAssetQty")].forEach(other=>{if(other&&other!==select)other.value=select.value;});
+    }));
     $("studioTabs")?.addEventListener("click",event=>{
       const button=event.target.closest("[data-studio-view]");if(!button)return;
       document.querySelectorAll("[data-studio-view]").forEach(item=>item.classList.toggle("active",item===button));
@@ -19286,7 +19302,7 @@ Optional bundled starter model:
     $("adAnalyze")?.addEventListener("click",async()=>{
       const url=$("adSiteUrl").value.trim();if(!url){tempToast("Enter a website first.");return;}
       const status=$("adStatus"),button=$("adAnalyze");status.textContent="Visiting the website and collecting brand details...";status.classList.add("busy");button.disabled=true;
-      try{const response=await fetch("/api/studio/site-brand",{method:"POST",body:JSON.stringify({url,assetLimit:$("adAssetQty")?.value||"auto"})}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"Could not analyze website.");adBrand=data.brand;renderAdPalette();renderAdAssets();makeAdVariation();buildVideoAdScenes();status.textContent=`Captured ${adBrand.title} · ${adBrand.domain} · ${adBrand.assets.length} visual${adBrand.assets.length===1?"":"s"}`;}
+      try{const response=await fetch("/api/studio/site-brand",{method:"POST",body:JSON.stringify({url,assetLimit:$("adAssetQty")?.value||"auto"})}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"Could not analyze website.");adBrand=data.brand;renderAdPalette();renderAdAssets();makeAdVariation();buildVideoAdScenes();const wanted=adBrand.requestedAssetLimit||adBrand.assets.length;status.textContent=`Captured ${adBrand.title} · ${adBrand.domain} · ${adBrand.assets.length} of ${wanted} requested visual${wanted===1?"":"s"}${adBrand.assets.length<wanted?" (the site had fewer usable images)":""}`;}
       catch(error){status.textContent=error.message||"Could not analyze that website.";}finally{status.classList.remove("busy");button.disabled=false;}
     });
     ["adHeadline","adBody","adCta","adFormat"].forEach(id=>$(id)?.addEventListener(id==="adFormat"?"change":"input",updateAdPreview));
@@ -19294,14 +19310,15 @@ Optional bundled starter model:
     $("adRegenerate")?.addEventListener("click",makeAdVariation);$("adExport")?.addEventListener("click",exportAdPng);
     $("adAssetUploadButton")?.addEventListener("click",()=>$("adAssetUpload")?.click());
     $("adAssetUpload")?.addEventListener("change",async event=>{const files=[...event.target.files].slice(0,8),added=[];for(const file of files){if(!/^image\/(?:png|jpeg|webp)$/.test(file.type)||file.size>10_000_000)continue;const source=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>resolve("");reader.readAsDataURL(file);});if(source)added.push(source);}adBrand.assets=[...new Set([...(adBrand.assets||[]),...added])].slice(0,12);if(added.length)adBrand.asset=added[0];renderAdAssets();updateAdPreview();$("adStatus").textContent=added.length?`Added ${added.length} visual${added.length===1?"":"s"}. Click one to use it.`:"No supported images were added.";event.target.value="";});
-    $("videoAdAnalyze")?.addEventListener("click",async()=>{const input=$("videoAdUrl"),url=input.value.trim()||$("adSiteUrl").value.trim();if(!url){tempToast("Enter a website first.");return;}const status=$("videoAdStatus"),button=$("videoAdAnalyze");status.textContent="Capturing brand assets and writing five scenes...";status.classList.add("busy");button.disabled=true;try{const response=await fetch("/api/studio/site-brand",{method:"POST",body:JSON.stringify({url,assetLimit:$("videoAdAssetQty")?.value||"auto"})}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||"Could not analyze website.");adBrand=data.brand;$("adSiteUrl").value=url;renderAdPalette();updateAdPreview();buildVideoAdScenes();status.textContent=`Storyboard ready · ${adBrand.title} · ${adBrand.assets.length} visual${adBrand.assets.length===1?"":"s"}`;}catch(error){status.textContent=error.message||"Could not build storyboard.";}finally{status.classList.remove("busy");button.disabled=false;}});
+    $("videoAdAuto")?.addEventListener("click",()=>createVideoAdFromWebsite(true));
+    $("videoAdAnalyze")?.addEventListener("click",()=>createVideoAdFromWebsite(false));
     $("videoAdAssetUploadButton")?.addEventListener("click",()=>$("videoAdAssetUpload")?.click());
     $("videoAdAssetUpload")?.addEventListener("change",async event=>{const files=[...event.target.files].slice(0,8),added=[];for(const file of files){if(!/^image\/(?:png|jpeg|webp)$/.test(file.type)||file.size>10_000_000)continue;const source=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>resolve("");reader.readAsDataURL(file);});if(source)added.push(source);}adBrand.assets=[...new Set([...(adBrand.assets||[]),...added])].slice(0,12);adBrand.asset=adBrand.assets[0]||"";loadVideoAdImages();videoAdScenes.forEach((scene,index)=>{if(scene.assetIndex==null)scene.assetIndex=index%Math.max(1,adBrand.assets.length);});renderVideoAdAssets();renderVideoAdScenes();renderVideoAdFrame(videoAdScene,0);$("videoAdStatus").textContent=added.length?`Added ${added.length} visual${added.length===1?"":"s"}. Select a scene, then choose its image.`:"No supported images were added.";event.target.value="";});
     $("videoAdPlay")?.addEventListener("click",playVideoAdPreview);$("videoAdExport")?.addEventListener("click",exportVideoAd);$("videoAdVeo")?.addEventListener("click",()=>generateVideoAdAiScene(false));
     $("videoAdVeoConfirmRun")?.addEventListener("click",()=>generateVideoAdAiScene(true));$("videoAdVeoCancel")?.addEventListener("click",()=>$("videoAdVeoConfirm").classList.remove("visible"));
     $("videoAdVeo") && ($("videoAdVeo").disabled=true);
     $("videoAdVeoCheck")?.addEventListener("click",event=>{if(event.currentTarget.dataset.action==="settings"){openSettings("model");return;}checkVideoAdVeoAccess();});
-    $("videoAdFormat")?.addEventListener("change",()=>renderVideoAdFrame(videoAdScene,0));$("videoAdLength")?.addEventListener("change",buildVideoAdScenes);
+    $("videoAdFormat")?.addEventListener("change",()=>renderVideoAdFrame(videoAdScene,0));$("videoAdLength")?.addEventListener("change",buildVideoAdScenes);$("videoAdTemplate")?.addEventListener("change",buildVideoAdScenes);["videoAdTransition","videoAdMotion"].forEach(id=>$(id)?.addEventListener("change",()=>renderVideoAdFrame(videoAdScene,0)));
     $("videoAdVariants")?.addEventListener("click",event=>{const button=event.target.closest("[data-video-length]");if(!button)return;$("videoAdLength").value=button.dataset.videoLength;document.querySelectorAll("[data-video-length]").forEach(item=>item.classList.toggle("active",item===button));buildVideoAdScenes();});
     ["videoAdGoal","videoAdTone"].forEach(id=>$(id)?.addEventListener("change",buildVideoAdScenes));["videoAdAudience","videoAdOffer"].forEach(id=>$(id)?.addEventListener("input",renderVideoAdScore));
     $("videoAdImprove")?.addEventListener("click",improveVideoAdScenes);

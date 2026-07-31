@@ -187,6 +187,11 @@ test("a stalled specialist times out instead of blocking the team forever", asyn
 test("teamwork controls are compact, persisted, and shown beside the model selector", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
   assert.match(ui, /id="teamAnchor"[\s\S]*id="teambtn"[\s\S]*id="teammenu"/);
+  assert.match(ui, /\.menu#teammenu\{[^}]*position:fixed;[^}]*width:238px;[^}]*max-width:calc\(100vw - 16px\);[^}]*padding:7px;/);
+  assert.match(ui, /\.team-modes\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\);/);
+  assert.match(ui, /\.team-options\{[^}]*grid-template-columns:minmax\(0,1fr\) minmax\(72px,\.72fr\);/);
+  assert.match(ui, /\.team-mode small\{ display:none; \}/);
+  assert.match(ui, /function positionTeamMenu\(\)[\s\S]*?availableWidth=Math\.max\(180,workspaceRect\.width-margin\*2\)[\s\S]*?menu\.style\.left=/);
   assert.match(ui, /data-team-mode="solo"[\s\S]*data-team-mode="assist"[\s\S]*data-team-mode="team"/);
   assert.match(ui, /id="teamWorkerProvider"/);
   assert.match(ui, /id="teamTaskBudget"/);
