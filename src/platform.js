@@ -143,6 +143,9 @@ async function githubWorkflow(args, ctx) {
 
 export async function ghStatus(ctx) {
   const cwd = projectDir(ctx);
+  const versionResult = await runProcess("gh", ["--version"], { cwd, timeoutMs: 5000 });
+  const installed = versionResult.code === 0;
+  if (!installed) return { installed: false, authenticated: false, user: null, repo: null, raw: versionResult.output || "GitHub CLI is not installed." };
   const authResult = await runProcess("gh", ["auth", "status", "--show-token"], { cwd, timeoutMs: 10000 });
   const authenticated = authResult.code === 0;
   let repo = null;
@@ -157,7 +160,7 @@ export async function ghStatus(ctx) {
     const userResult = await runProcess("gh", ["api", "user", "--jq", ".login"], { cwd, timeoutMs: 10000 });
     if (userResult.code === 0) user = userResult.output.trim();
   }
-  return { installed: true, authenticated, user, repo, raw: authenticated ? "" : authResult.output };
+  return { installed, authenticated, user, repo, raw: authenticated ? "" : authResult.output };
 }
 
 const REVIEW_EXTENSIONS = new Set([".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".cs", ".java", ".go", ".rs", ".php", ".rb", ".ps1", ".html"]);

@@ -98,6 +98,7 @@ test("compact rail uses the matching notepad icon and Boolean search", () => {
 });
 
 test("open project folder uses the standard Windows folder picker", () => {
+  assert.match(ui, /list\.appendChild\(accordion\);[\s\S]*className="project-open-action"[\s\S]*setAttribute\("aria-label","Open project folder"\)[\s\S]*openProject\.onclick=adoptProject;[\s\S]*list\.appendChild\(openProject\);[\s\S]*const chatHead=/);
   assert.match(shell, /using var dialog = new FolderBrowserDialog/);
   assert.match(shell, /AutoUpgradeEnabled = true/);
   assert.match(shell, /UseDescriptionForTitle = true/);
@@ -1567,33 +1568,26 @@ test("projects and chats use the compact nested accordion sidebar", () => {
   assert.doesNotMatch(ui, /createRow\.append\(createProjectButton,openFolderButton\)/);
 });
 
-test("wide Chat shows a compact workspace control rail", () => {
+test("wide Chat shows a Codex-inspired Boolean workspace rail", () => {
   assert.match(ui, /id="chatUtilityPanel" aria-label="Chat workspace details"/);
   assert.match(ui, /id="notesToggle"[\s\S]*?id="exploreToggle"[^>]*aria-label="Toggle Explore"[\s\S]*?id="browserToggle"/);
   assert.match(ui, /\$\("exploreToggle"\)\.onclick=\(\)=>openExploreWorkspace\(\)/);
-  for (const page of ["markets","education","recipes"]) {
-    assert.match(ui,new RegExp(`data-chat-utility-workspace="${page}"`));
-  }
-  assert.match(ui,/\.chat-utility-panel\{[\s\S]*?position:absolute;[\s\S]*?right:10px; width:220px; max-height:calc\(100% - 116px\);/);
+  assert.match(ui,/\.chat-utility-panel\{[\s\S]*?position:absolute;[\s\S]*?right:12px; width:250px; max-height:calc\(100% - 126px\);/);
   assert.match(ui,/body\.chat-utility-room\.workspace-chat \.chat-utility-panel\{ display:flex; flex-direction:column; \}/);
-  assert.match(ui,/body\.chat-utility-room\.workspace-chat #chat\{ padding-right:calc\(var\(--content-x\) \+ 240px\); \}/);
+  assert.match(ui,/body\.chat-utility-room\.workspace-chat #chat\{ padding-right:calc\(var\(--content-x\) \+ 272px\); \}/);
   assert.match(ui,/document\.body\.classList\.contains\("workspace-chat"\)&&!utilityBlocked&&mainW>=900/);
-  assert.match(ui,/<div class="chat-utility-section" hidden>[\s\S]*?<span>Explore<\/span>/);
-  assert.match(ui,/<div class="chat-utility-section" hidden>[\s\S]*?<span>Environment<\/span>/);
-  assert.match(ui,/button\.addEventListener\("click",\(\)=>setWorkspaceTab\(button\.dataset\.chatUtilityWorkspace\)\)/);
   assert.match(ui,/function syncChatUtilityContent\(\)/);
-  for(const section of ["Tools","Activity","Environment","Sources"]){
+  for(const section of ["Environment","Background processes","Browser","Sources"]){
     assert.match(ui,new RegExp(`<span>${section}<\\/span>`));
   }
-  for(const id of ["chatUtilityBrowser","chatUtilityNotepad","chatUtilityExplore","chatUtilityTasks","chatUtilityRecent","chatUtilitySettings"]){
+  for(const id of ["chatUtilityChanges","chatUtilityMode","chatUtilityBranch","chatUtilityCommit","chatUtilityCompare","chatUtilityProcesses","chatUtilityBrowser","chatUtilitySources","chatUtilitySettings"]){
     assert.match(ui,new RegExp(`id="${id}"`));
   }
   assert.doesNotMatch(ui,/id="chatUtilityProject"/);
-  assert.match(ui,/id="chatUtilitySources"/);
   assert.match(ui,/\.chat-utility-settings\{[\s\S]*?margin-top:auto/);
   assert.match(ui,/\$\("chatUtilitySettings"\)\?\.addEventListener\("click",\(\)=>openSettings\(null\)\)/);
-  assert.match(ui,/\$\("chatUtilityExplore"\)\?\.addEventListener\("click",\(\)=>openExploreWorkspace\(\)\)/);
-  assert.match(ui,/\$\("chatUtilityRecent"\)\?\.addEventListener\("click",\(\)=>\{[\s\S]*?personal-chat-head/);
+  assert.match(ui,/\$\("chatUtilityCommit"\)\?\.addEventListener\("click",\(\)=>\$\("cmdCommit"\)\?\.click\(\)\)/);
+  assert.match(ui,/github\.repo\.url\+"\/compare"/);
 });
 
 test("closing Browser or Notepad restores the wide Chat workspace rail", () => {

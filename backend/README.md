@@ -24,6 +24,8 @@ Implemented:
   bans, roles, usage statistics, and account deletion
 - Cloudflare Email Service binding for Boollm transactional messages; it is
   separate from users' optional Gmail and Outlook inbox connectors
+- admin-only encrypted vault backup for API keys, OAuth records, and connector
+  credentials; D1 stores AES-GCM ciphertext rather than plaintext credentials
 
 Coming next:
 
@@ -85,6 +87,7 @@ Set Cloudflare secrets:
 ```powershell
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put VAULT_ENCRYPTION_KEY
 ```
 
 Enable Email Sending for the `boollm.com` zone before deploying the email
@@ -132,6 +135,7 @@ Authorization: Bearer SESSION_TOKEN
 |---|---|---|
 | `GOOGLE_CLIENT_ID` | secret | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | secret | Google OAuth client secret |
+| `VAULT_ENCRYPTION_KEY` | secret | 32+ character key used to encrypt admin credential backups before D1 storage |
 | `ALLOWED_ORIGINS` | var | comma-separated app origins allowed by CORS |
 | `ADMIN_EMAILS` | var | comma-separated Google account emails promoted to admin with unlimited tokens |
 | `PUBLIC_APP_URL` | var | public Boollm/app URL for future billing redirects |
@@ -149,6 +153,7 @@ Authorization: Bearer SESSION_TOKEN
 | `/auth/google/callback` | GET | Google OAuth redirect |
 | `/auth/device/status?device_id=...` | GET | poll login status |
 | `/me` | GET | current user and token balance |
+| `/vault` | GET/PUT | admin-only encrypted API key and connection backup |
 | `/tokens/debit` | POST | authenticated token debit with balance, expiry, and daily-cap enforcement |
 | `/chat/completions` | POST | authenticated OpenAI-compatible cloud chat stream |
 | `/auth/logout` | POST | revoke current session |

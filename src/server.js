@@ -32,6 +32,7 @@ import { handleBrowse, clearCookies } from "./browse.js";
 import { executeTool } from "./tools.js";
 import { simplePdf } from "./platform.js";
 import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences, recordResponseFeedback } from "./preferences.js";
+import { cloudVaultSnapshot, cloudVaultSummary, mergeCloudVault } from "./cloud-vault.js";
 import {
   McpHttpError,
   mcpTestConnection as testMcpConnector,
@@ -464,6 +465,70 @@ function repairAutoNotepadTitle(t) {
   if (!next || next === "New chat" || next === t.title) return false;
   t.title = next;
   return true;
+}
+
+function adminCloudVaultEnabled(config) {
+  const cloud = config.cloudBackend || {};
+  const user = cloud.user || {};
+  return !!cloud.sessionToken && (user.role === "admin" || user.is_admin === true);
+}
+
+function launchGithubGuide(action, projectDir) {
+  const intro = "$Host.UI.RawUI.WindowTitle='Boolean GitHub setup'; Write-Host 'Boolean GitHub setup' -ForegroundColor Green;";
+  let script;
+  if (action === "install") {
+    script = `${intro} Write-Host 'Installing the official GitHub CLI...'; winget install --id GitHub.cli --exact --accept-source-agreements --accept-package-agreements; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub CLI installed. Return to Boolean and press Connect GitHub.' -ForegroundColor Green } else { Write-Host 'Installation did not finish. You can retry from Boolean.' -ForegroundColor Red }; Read-Host 'Press Enter to close'`;
+  } else if (action === "connect") {
+    script = `${intro} Write-Host 'A secure GitHub sign-in page will open. Follow the browser instructions.'; gh auth login --hostname github.com --git-protocol https --web; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub connected. You can return to Boolean.' -ForegroundColor Green } else { Write-Host 'GitHub sign-in did not finish. You can retry from Boolean.' -ForegroundColor Red }; Start-Sleep -Seconds 4`;
+  } else if (action === "disconnect") {
+    script = `${intro} gh auth logout --hostname github.com; Write-Host 'Return to Boolean when finished.'; Start-Sleep -Seconds 3`;
+  } else if (action === "switch") {
+    script = `${intro} Write-Host 'Choose the current account to sign out, then sign in to the other account.'; gh auth logout --hostname github.com; gh auth login --hostname github.com --git-protocol https --web; Write-Host 'Return to Boolean when finished.'; Start-Sleep -Seconds 4`;
+  } else throw new Error("Unsupported GitHub setup action.");
+  const child = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
+    cwd: projectDir, detached: true, stdio: "ignore", windowsHide: false
+  });
+  child.unref();
+}
+
+function githubSetupCommand(command, args, cwd) {
+  const result = spawnSync(command, args, { cwd, windowsHide: true, encoding: "utf8", timeout: 120000, maxBuffer: 1024 * 1024 });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(String(result.stderr || result.stdout || `${command} failed.`).trim());
+  return String(result.stdout || "").trim();
+}
+
+function ensureGitRepository(cwd) {
+  const existing = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd, windowsHide: true, encoding: "utf8" });
+  if (existing.status !== 0) githubSetupCommand("git", ["init"], cwd);
+}
+
+async function writeCloudVault(config, revision, retry = true) {
+  const payload = cloudVaultSnapshot(config);
+  try {
+    const result = await cloudRequest(config, "/vault", {
+      method: "PUT",
+      body: JSON.stringify({ payload, revision: Number(revision || 0) })
+    });
+    return { ...result, ...cloudVaultSummary(payload) };
+  } catch (err) {
+    if (retry && err.status === 409) return writeCloudVault(config, Number(err.data?.revision || 0), false);
+    throw err;
+  }
+}
+
+async function syncCloudVault(config, { merge = true } = {}) {
+  if (!adminCloudVaultEnabled(config)) {
+    const err = new Error("Encrypted cloud vault is available to signed-in admin accounts.");
+    err.status = 403;
+    throw err;
+  }
+  const remote = await cloudRequest(config, "/vault", { method: "GET" });
+  if (merge && remote.payload && typeof remote.payload === "object") {
+    const result = mergeCloudVault(config, remote.payload);
+    if (result.changed) saveConfig(config, { preserveSecrets: false, preserveConnections: false });
+  }
+  return writeCloudVault(config, Number(remote.revision || 0));
 }
 
 export function repairGenericWorkflowTitle(t, allThreads = []) {
@@ -2013,6 +2078,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             tokens: data.tokens || null
           };
           saveConfig(config);
+          if (data.user?.role === "admin" || data.user?.is_admin === true) {
+            try { await syncCloudVault(config, { merge: true }); } catch { /* sign-in still succeeds if vault setup is incomplete */ }
+          }
         }
         json({ ...data, session_token: data.session_token ? "__saved__" : undefined });
         return;
@@ -2089,6 +2157,39 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           const status = await ghStatus({ projectDir: config.projectsDir, config });
           json(status);
         } catch (err) { json({ installed: false, authenticated: false, error: err.message }); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/github/setup") {
+        try {
+          const body = await readBody(req);
+          const action = String(body.action || "");
+          const projectDir = path.resolve(config.projectsDir || process.cwd());
+          if (["install", "connect", "disconnect", "switch"].includes(action)) {
+            launchGithubGuide(action, projectDir);
+            json({ ok: true, started: true, action });
+            return;
+          }
+          if (action === "repo_create") {
+            const name = String(body.name || "").trim();
+            const visibility = body.visibility === "public" ? "public" : "private";
+            if (!/^[A-Za-z0-9_.-]{1,100}$/.test(name)) return json({ error: "Use a repository name with letters, numbers, dots, dashes, or underscores." }, 400);
+            ensureGitRepository(projectDir);
+            githubSetupCommand("gh", ["repo", "create", name, `--${visibility}`, "--source", projectDir, "--remote", "origin", "--push"], projectDir);
+            json({ ok: true, action, message: `Created ${name} on GitHub.` });
+            return;
+          }
+          if (action === "repo_connect") {
+            const url = String(body.url || "").trim();
+            if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\.git)?$/i.test(url)) return json({ error: "Enter a complete GitHub repository URL." }, 400);
+            ensureGitRepository(projectDir);
+            const remote = spawnSync("git", ["remote", "get-url", "origin"], { cwd: projectDir, windowsHide: true, encoding: "utf8" });
+            githubSetupCommand("git", remote.status === 0 ? ["remote", "set-url", "origin", url] : ["remote", "add", "origin", url], projectDir);
+            json({ ok: true, action, message: "Connected this project to the GitHub repository." });
+            return;
+          }
+          json({ error: "Unsupported GitHub setup action." }, 400);
+        } catch (err) { json({ error: err.message }, 500); }
         return;
       }
 
@@ -2225,6 +2326,18 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/api/actions") {
         const query = url.searchParams.get("q") || "";
         json({ ok: true, actions: query ? searchActions(query) : listActions() });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/cloud/vault/sync") {
+        try { json({ ok: true, ...(await syncCloudVault(config, { merge: true })) }); }
+        catch (err) { json(err?.data || { error: "cloud_vault_unavailable", message: err.message }, err.status || 502); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/cloud/vault/push") {
+        try { json({ ok: true, ...(await syncCloudVault(config, { merge: false })) }); }
+        catch (err) { json(err?.data || { error: "cloud_vault_unavailable", message: err.message }, err.status || 502); }
         return;
       }
 
@@ -2601,6 +2714,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           preserveSecrets: !explicitSecretRemoval,
           preserveConnections: !explicitConnectionRemoval
         });
+        if (adminCloudVaultEnabled(config)) syncCloudVault(config, { merge: false }).catch(() => {});
         json({ ok: true });
         return;
       }
@@ -2669,6 +2783,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         config.connectors = config.connectors || {};
         config.connectors.marketData = next;
         saveConfig(config, { preserveSecrets: false });
+        if (adminCloudVaultEnabled(config)) syncCloudVault(config, { merge: false }).catch(() => {});
         json({
           ok: true, provider, configured: !!next.apiKey, selectedSymbol: next.selectedSymbol, watchlist: next.watchlist,
           optionsProvider: next.optionsProvider, optionsFeed: next.optionsFeed,

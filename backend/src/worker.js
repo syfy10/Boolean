@@ -78,6 +78,16 @@ async function route(request, env) {
     return putAdminNotepad(request, env, session);
   }
 
+  if (path === "/vault" && request.method === "GET") {
+    const session = await requireAdmin(request, env);
+    return getAdminVault(request, env, session);
+  }
+
+  if (path === "/vault" && request.method === "PUT") {
+    const session = await requireAdmin(request, env);
+    return putAdminVault(request, env, session);
+  }
+
   if (path === "/chat/completions" && request.method === "POST") {
     return chatCompletions(request, env);
   }
@@ -204,6 +214,91 @@ async function putAdminNotepad(request, env, session) {
      ON CONFLICT(user_id) DO UPDATE SET payload = excluded.payload, revision = excluded.revision, updated_at = excluded.updated_at`
   ).bind(session.user.id, encoded, revision, updatedAt).run();
   return json({ ok: true, revision, updated_at: updatedAt }, 200, request, env);
+}
+
+async function getAdminVault(request, env, session) {
+  requireVaultSecret(env);
+  const row = await env.DB.prepare(
+    "SELECT ciphertext, iv, revision, updated_at FROM cloud_credential_vaults WHERE user_id = ?"
+  ).bind(session.user.id).first();
+  if (!row) return json({ payload: { version: 1, providers: {}, connectors: {} }, revision: 0, updated_at: 0 }, 200, request, env);
+  const payload = await decryptVaultPayload(row, env);
+  return json({ payload, revision: Number(row.revision || 0), updated_at: Number(row.updated_at || 0) }, 200, request, env);
+}
+
+async function putAdminVault(request, env, session) {
+  requireVaultSecret(env);
+  const body = await request.json().catch(() => ({}));
+  const payload = sanitizeVaultPayload(body.payload);
+  const encoded = JSON.stringify(payload);
+  if (new TextEncoder().encode(encoded).byteLength > 500_000) {
+    return json({ error: "vault_too_large", message: "Encrypted connection backup must be smaller than 500 KB." }, 413, request, env);
+  }
+  const existing = await env.DB.prepare(
+    "SELECT revision, updated_at FROM cloud_credential_vaults WHERE user_id = ?"
+  ).bind(session.user.id).first();
+  const revision = Number(existing?.revision || 0);
+  const expected = Math.max(0, Math.floor(Number(body.revision || 0)));
+  if (revision !== expected) {
+    return json({ error: "vault_conflict", message: "A newer encrypted backup is available.", revision, updated_at: Number(existing?.updated_at || 0) }, 409, request, env);
+  }
+  const encrypted = await encryptVaultPayload(encoded, env);
+  const nextRevision = revision + 1;
+  const updatedAt = now();
+  await env.DB.prepare(
+    `INSERT INTO cloud_credential_vaults (user_id, ciphertext, iv, revision, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv,
+       revision = excluded.revision, updated_at = excluded.updated_at`
+  ).bind(session.user.id, encrypted.ciphertext, encrypted.iv, nextRevision, updatedAt).run();
+  return json({ ok: true, revision: nextRevision, updated_at: updatedAt }, 200, request, env);
+}
+
+function sanitizeVaultPayload(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    version: 1,
+    providers: source.providers && typeof source.providers === "object" ? source.providers : {},
+    connectors: source.connectors && typeof source.connectors === "object" ? source.connectors : {}
+  };
+}
+
+function requireVaultSecret(env) {
+  if (String(env.VAULT_ENCRYPTION_KEY || "").length < 32) throw httpError("encrypted_vault_not_configured", 503);
+}
+
+async function vaultCryptoKey(env) {
+  const material = new TextEncoder().encode(String(env.VAULT_ENCRYPTION_KEY));
+  const digest = await crypto.subtle.digest("SHA-256", material);
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  const binary = atob(String(value || ""));
+  return Uint8Array.from(binary, char => char.charCodeAt(0));
+}
+
+async function encryptVaultPayload(encoded, env) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await vaultCryptoKey(env);
+  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(encoded));
+  return { ciphertext: bytesToBase64(new Uint8Array(ciphertext)), iv: bytesToBase64(iv) };
+}
+
+async function decryptVaultPayload(row, env) {
+  try {
+    const key = await vaultCryptoKey(env);
+    const clear = await crypto.subtle.decrypt({ name: "AES-GCM", iv: base64ToBytes(row.iv) }, key, base64ToBytes(row.ciphertext));
+    return sanitizeVaultPayload(JSON.parse(new TextDecoder().decode(clear)));
+  } catch {
+    throw httpError("encrypted_vault_unreadable", 500);
+  }
 }
 
 function sanitizeNotepadPayload(body) {

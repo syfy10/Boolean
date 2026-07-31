@@ -138,7 +138,7 @@
   },
   "appName": "Boolean",
   "version": "0.9.56",
-  "displayVersion": "v0.9.62",
+  "displayVersion": "v0.9.63",
   "providers": [
    "local",
    "openai",
@@ -255,8 +255,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.62",
-  "displayVersion": "v0.9.62",
+  "version": "0.9.63",
+  "displayVersion": "v0.9.63",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true
