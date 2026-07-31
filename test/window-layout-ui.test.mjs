@@ -57,7 +57,9 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.match(ui, /data-rail="git" title="Git" aria-label="Git"[\s\S]*<span class="rail-label">Git<\/span>/);
   assert.match(ui, /<div class="rail-stack rail-main">/);
   assert.match(ui, /<div class="rail-stack rail-footer">[\s\S]*data-rail="settings"[\s\S]*class="rail-user"/);
-  assert.match(ui, /class="rail-user-initial">B<\/span><span class="rail-user-name">Boolean<\/span>/);
+  assert.match(ui, /class="rail-user-initial">B<\/span><span class="rail-user-copy"><span class="rail-user-name">Boolean<\/span><span class="rail-user-email">Local Boolean workspace<\/span><\/span>/);
+  assert.match(ui, /body\.rail-menu-open #sideRail \.rail-user,[\s\S]*?grid-template-columns:24px minmax\(0,1fr\);[\s\S]*?justify-content:start;/);
+  assert.match(ui, /body\.rail-menu-open #sideRail \.rail-user-copy\{ display:grid;[\s\S]*?body\.rail-menu-open #sideRail \.rail-user-email\{ display:block;/);
   assert.doesNotMatch(ui, /id="railReadyStatus"/);
   assert.doesNotMatch(ui, /id="railStatusText"/);
   assert.doesNotMatch(ui, /class="rail-ready"/);
@@ -118,7 +120,9 @@ test("recipes use a flat category rail, recipe list, and detail editor", () => {
   assert.match(ui,/\.recipe-card\{[^}]*border:0;[^}]*border-bottom:1px solid var\(--border\);[^}]*border-radius:0;[^}]*background:transparent;/s);
   assert.match(ui,/\.recipes-detail\{[^}]*overflow-x:hidden;[^}]*overflow-y:auto;/s);
   assert.match(ui,/\.recipe-actions\{[^}]*position:sticky;[^}]*bottom:0;/s);
-  assert.match(ui,/@container\(max-width:640px\)\{[\s\S]*?\.recipes-shell\{ grid-template-columns:96px minmax\(0,1fr\); grid-template-rows:minmax\(180px,42%\) minmax\(0,1fr\); \}/s);
+  assert.match(ui,/@container\(max-width:640px\)\{[\s\S]*?\.recipes-shell\{ grid-template-columns:minmax\(168px,31%\) minmax\(0,1fr\); grid-template-rows:auto minmax\(0,1fr\); \}/s);
+  assert.match(ui,/@container\(max-width:640px\)\{[\s\S]*?\.recipes-category-rail\{[^}]*grid-column:1\/-1; grid-row:1; flex-direction:row;[^}]*overflow-x:auto; overflow-y:hidden;/s);
+  assert.match(ui,/@container\(max-width:640px\)\{[\s\S]*?\.recipes-main\{ grid-column:1; grid-row:2;[^}]*border-right:1px solid var\(--border\);[\s\S]*?\.recipes-detail\{ grid-column:2; grid-row:2;/s);
   assert.doesNotMatch(ui,/recipes-close|recipesClose/);
 });
 
@@ -370,6 +374,19 @@ test("Notepad docks beside Explore instead of hiding behind it", () => {
   );
 });
 
+test("a new Sales run clears stale completion metadata", () => {
+  assert.match(
+    ui,
+    /if\(resultsMeta\)resultsMeta\.textContent=salesWorkflow\.running\s*\?\s*"Researching now"\s*:\s*salesWorkflow\.completedAt/
+  );
+  assert.match(ui, /savePlan\.disabled=salesWorkflow\.running\|\|!salesWorkflow\.result/);
+  assert.match(ui, /if\(removePlan\)removePlan\.disabled=salesWorkflow\.running/);
+  assert.match(
+    ui,
+    /salesWorkflow=\{running:true,stage:0,states:\[\],partialSections:\[\],detail:"Starting a new Sales chat\.\.\.",result:"",blocked:false,startedAt:Date\.now\(\),completedAt:0,planId:"",\.\.\.workflowMeta\}/
+  );
+});
+
 test("Settings keeps Projects and Chats available as a visible floating pane", () => {
   assert.match(ui, /body\.settings-open:not\(\.sidebar-popover-open\) aside\{[\s\S]*?display:none!important;[\s\S]*?width:0!important;[\s\S]*?flex-basis:0!important;[\s\S]*?pointer-events:none!important;/);
   assert.match(ui, /id="settingsProjectsChats"[^>]*aria-label="Open projects and chats"[^>]*>Projects &amp; chats<\/button>/);
@@ -448,6 +465,13 @@ test("compact composer dropdowns escape the footer tool-row clip", () => {
   assert.match(ui, /\.composer-tools \.anchor:has\(\.menu\.open\)\{ z-index:31; \}/);
 });
 
+test("narrow composer keeps model teamwork and send controls from overlapping", () => {
+  assert.match(ui, /model-label-compact/);
+  assert.match(ui, /body\.chat-xxs \.teambtn \.team-label/);
+  assert.match(ui, /body\.chat-micro #micbtn\{ display:none; \}/);
+  assert.match(ui, /#teamAnchor\{ order:21;/);
+});
+
 test("native browser split uses the approved gray header without a separate bottom frame", () => {
   assert.match(shell, /const int BrowserTopInset = 38;/);
   assert.match(shell, /readonly RoundedPanel _browserPane = new\(\) \{ Dock = DockStyle\.Fill, Radius = 0 \};/);
@@ -513,21 +537,29 @@ test("hidden compact rail is available from a floating hamburger menu", () => {
   assert.match(ui, /id="railMenuToggle" title="Open navigation menu" aria-label="Open navigation menu" aria-expanded="false"/);
   assert.match(ui, /#railMenuToggle\{ display:grid; \}/);
   assert.match(ui, /@media\(max-width:760px\)\{[\s\S]*?#railMenuToggle\{ display:grid; \}/);
-  assert.match(ui, /body\.rail-menu-open #sideRail,[\s\S]*?body\.collapsed\.rail-menu-open #sideRail\{[\s\S]*?display:flex !important; position:fixed; z-index:130; left:8px; top:42px;/);
-  assert.match(ui, /\$\("railMenuToggle"\)\?\.addEventListener\("pointerenter",[\s\S]*?railHoverPreview=true;[\s\S]*?classList\.add\("rail-menu-open"\)/);
+  assert.match(ui, /body\.rail-menu-open #sideRail,[\s\S]*?body\.collapsed\.rail-menu-open #sideRail\{[\s\S]*?display:flex!important; position:fixed; z-index:130; left:8px; top:42px;[\s\S]*?width:148px;/);
+  assert.match(ui, /body\.rail-menu-open #sideRail,\s*body:not\(\.collapsed\)\.rail-menu-open #sideRail,\s*body\.collapsed\.rail-menu-open #sideRail\{/);
+  assert.match(ui, /\$\("railMenuToggle"\)\?\.addEventListener\("pointerenter",[\s\S]*?openNavigationMenu\(\{preview:true\}\)/);
   assert.match(ui, /\$\("panelToggle"\)\?\.addEventListener\("pointerenter",[\s\S]*?sidebarHoverPreview=true;[\s\S]*?classList\.add\("sidebar-popover-open"\)/);
   assert.match(ui, /accountRailButton\?\.addEventListener\("pointerenter",[\s\S]*?accountHoverPreview=true;[\s\S]*?\$\("accountMenu"\)\?\.classList\.add\("open"\)/);
   assert.match(ui, /setTimeout\(\(\)=>\{[\s\S]*?railHoverPreview[\s\S]*?\},220\)/);
   assert.match(ui, /\$\("railMenuToggle"\)\?\.addEventListener\("click"/);
   assert.match(ui, /body\.rail-manual-hidden:not\(\.rail-menu-open\) #sideRail\{[\s\S]*?display:none !important;/);
-  assert.match(ui, /if\(docked\)\{[\s\S]*?classList\.add\("rail-manual-hidden"\);[\s\S]*?classList\.remove\("rail-menu-open"\);/);
-  assert.match(ui, /classList\.contains\("rail-manual-hidden"\)[\s\S]*?window\.innerWidth>760[\s\S]*?classList\.remove\("rail-manual-hidden"\);/);
-  assert.match(ui, /document\.body\.classList\.remove\("rail-expanded","rail-menu-open"\);/);
+  assert.match(ui, /function compactNavigationVisible\(\)\{[\s\S]*?style\?\.pointerEvents!=="none"&&style\?\.position!=="fixed";/);
+  assert.match(ui, /if\(document\.body\.classList\.contains\("rail-menu-open"\)\|\|compactNavigationVisible\(\)\)\{\s*document\.body\.classList\.add\("rail-manual-hidden"\);\s*closeNavigationMenu\(\);\s*\}else openNavigationMenu\(\);/);
+  assert.match(ui, /body:not\(\.collapsed\)\.rail-menu-open #sideRail\{ left:calc\(var\(--approved-sidebar-w\) \+ 8px\); \}/);
+  assert.match(ui, /body\.rail-menu-open\.rail-menu-docked #sideRail,[\s\S]*?position:relative;[\s\S]*?flex:0 0 148px;/);
+  assert.match(ui, /body\.rail-menu-open #sideRail \.rail-label\{ display:block; font-size:10px; \}/);
+  assert.match(ui, /classList\.remove\("rail-expanded","rail-menu-open","rail-menu-docked"\)/);
 });
 
 test("new chat lives beside Local and Cloud while conversation actions remain in the command bar", () => {
   assert.match(ui, /<div class="netseg" id="netmode">[\s\S]*?<\/div>\s*<button class="icon-btn" id="newchat" title="New chat"/);
   assert.match(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*id="copyall" title="Copy whole conversation"[\s\S]*id="cmdFile" title="Open and read a file"/);
+  assert.match(ui, /function wholeConversationText\(\)/);
+  assert.match(ui, /node\.classList\.contains\("model-error"\).*?"Error: "/s);
+  assert.match(ui, /node\.classList\.contains\("toolcard"\)/);
+  assert.match(ui, /Array\.from\(col\.children\)\.forEach/);
   assert.doesNotMatch(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*?id="newchat"/);
   assert.doesNotMatch(ui, /data-rail="new-chat"/);
   assert.doesNotMatch(ui, /data-rail="copy-chat"/);
@@ -567,7 +599,7 @@ test("narrow chat contains its header messages and composer without clipping", (
 
 test("workspace card shows the selected API model's real readiness", () => {
   assert.match(ui, /id="brandAbout" role="button" tabindex="0" aria-label="About Boolean and AI readiness"/);
-  assert.match(ui, /<path d="M12 11v6"\/><path d="M12 7\.5h\.01"\/>/);
+  assert.match(ui, /<path d="m7 9 5 5 5-5"\/>/);
   assert.match(ui, /\.sidehead #footStatus \.dot,\.sidehead #footStatus #statustext\{ display:inline-flex; \}/);
   assert.doesNotMatch(ui, /\.sidehead #footStatus::after\{ content:"Local AI workspace"; \}/);
   assert.match(ui, /function updateReadyStatus\(label,shortLabel\)\{\s*const ready=providerReadyForRun\(state\.provider\|\|"local"\);/);
@@ -575,16 +607,17 @@ test("workspace card shows the selected API model's real readiness", () => {
 });
 
 test("workspace card, create actions, search, and account match the approved grouped sidebar", () => {
-  assert.match(ui, /\.sidehead\{ min-height:48px;[\s\S]*?border:1px solid var\(--border\);[\s\S]*?background:var\(--sidebar\); \}/);
+  assert.match(ui, /\.sidehead\{ min-height:55px;[\s\S]*?border:0;[\s\S]*?background:transparent; \}/);
   assert.doesNotMatch(ui, /\.sidebar-brand::before/);
   assert.equal((ui.match(/<svg class="sidebar-brand-mark" viewBox="0 0 40 40"/g)||[]).length,2);
   assert.match(ui, /\.sidebar-brand-mark circle\{ fill:currentColor; \}/);
   assert.match(ui, /<svg class="sidebar-brand-mark"[\s\S]*?<circle cx="20" cy="20" r="3\.8"\/>[\s\S]*?<\/svg>/);
   assert.match(ui, /id="sidebarNewProject"[\s\S]*?<span>Project<\/span>/);
-  assert.match(ui, /id="sidebarNewChat"[\s\S]*?<span>Chat<\/span>/);
+  assert.match(ui, /id="sidebarNewChat"[\s\S]*?<span>New chat<\/span>/);
   assert.match(ui, /\$\("sidebarNewChat"\)\.onclick=newChat/);
   assert.match(ui, /\.workspace-create-row\{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(ui, /<div class="thread-search-wrap">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"[^>]*placeholder="Search chats and files"/);
+  assert.match(ui, /<div class="thread-search-wrap">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"[^>]*placeholder="Search projects and chats"/);
+  assert.match(ui, /<span class="thread-search-key" aria-hidden="true">Ctrl K<\/span>/);
   assert.match(ui, /\.thread-search-wrap svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
   assert.match(ui, /display:block; width:100%; height:30px; margin:0; padding:0 9px 0 27px;/);
   assert.match(ui, /id="sidebarAccount"[\s\S]*?id="sidebarAccountAvatar"[\s\S]*?id="sidebarAccountName"[\s\S]*?id="sidebarAccountLabel"/);
@@ -592,6 +625,48 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /body:not\(\.collapsed\) #sideRail \.rail-user,\s*body\.collapsed\.sidebar-popover-open #sideRail \.rail-user\{ display:none!important; \}/);
   assert.doesNotMatch(ui, /data-account-composer|id="composerStyleSeg"|Chat input style/);
   assert.match(ui, /document\.body\.classList\.remove\("composer-simple"\)/);
+});
+
+test("sidebar shortcuts avoid duplicate top-bar tools and open real destinations", () => {
+  const shortcuts=ui.slice(ui.indexOf('id="sidebarShortcuts"'),ui.indexOf('<div class="thread-search-wrap">'));
+  for(const action of ["tasks","side-chat","sources"]) {
+    assert.match(shortcuts,new RegExp(`data-sidebar-action="${action}"`));
+  }
+  assert.match(shortcuts,/data-sidebar-workspace="markets"/);
+  assert.match(shortcuts,/data-sidebar-menu="more"/);
+  assert.doesNotMatch(shortcuts,/data-sidebar-action="browser"|data-sidebar-action="notes"|data-sidebar-action="recipes"|data-sidebar-menu="explore"/);
+  const more=shortcuts.slice(shortcuts.indexOf('data-sidebar-flyout="more"'));
+  for(const action of ["files","changes","models","settings"]) assert.match(more,new RegExp(`data-sidebar-action="${action}"`));
+  assert.doesNotMatch(more,/data-sidebar-workspace="code"|data-sidebar-workspace="preview"|data-sidebar-workspace="automations"/);
+  assert.match(ui,/if\(action==="tasks"\)\{ toggleBgAgent\(\); \}/);
+  assert.match(ui,/else if\(action==="side-chat"\)\{ setSideChatOpen/);
+  assert.match(ui,/else if\(action==="files"\)\{ setWorkspaceTab\("code"\); \}/);
+  assert.match(ui,/else if\(action==="changes"\)\{ setWorkspaceTab\("git"\); \}/);
+  assert.match(ui,/else if\(action==="models"\)\{ openSettings\("model"\); \}/);
+  assert.match(ui,/else if\(action==="sources"\)\{ \$\("ctxToggle"\)\?\.click\(\); \}/);
+  assert.doesNotMatch(ui,/\.sidebar-shortcut\[data-sidebar-(?:action|workspace)="(?:tasks|side-chat|markets|sources)"\]\{ color:color-mix/);
+  assert.match(ui,/\.sidebar-shortcut svg\{[^}]*stroke:currentColor; stroke-width:1\.55;/);
+  assert.match(ui,/\.sidebar-shortcut svg \.icon-field\{ fill:currentColor; fill-opacity:\.08; stroke:none; \}/);
+  assert.match(ui,/#sidebar \.sidebar-shortcut svg\{ width:16px; height:16px; \}/);
+  for(const shape of ["circle class=\"icon-field\"","rect class=\"icon-field\"","circle class=\"icon-solid\""]) assert.match(shortcuts,new RegExp(shape));
+  assert.match(ui,/\.personal-chat-head\{ margin-top:11px; padding-top:4px; \}/);
+  assert.match(server,/company\\s\+website[\s\S]*?prospect plan/);
+  assert.match(server,/function uniqueThreadTitle\(title, t, allThreads\)/);
+  assert.match(server,/autoTitleThread\(t, content, threads\.values\(\)\)/);
+});
+
+test("account Settings and the compact provider picker match the approved utility panels", () => {
+  const account=ui.slice(ui.indexOf('id="accountMenu"'),ui.indexOf("<main>"));
+  assert.match(account,/data-account-action="settings"[\s\S]*?Settings/);
+  assert.match(ui,/else if\(action==="settings"\) openSettings\(null\)/);
+  const modelMenu=ui.slice(ui.indexOf('id="modelmenu"'),ui.indexOf('id="micbtn"'));
+  assert.doesNotMatch(modelMenu,/AI providers/);
+  assert.match(ui,/\.menu#modelmenu\{[\s\S]*?padding:32px 6px 6px;/);
+  assert.match(ui,/\.api-section-head\{ padding:1px 7px 3px; color:var\(--label\); font-size:10px; font-weight:400;/);
+  assert.match(ui,/\.api-provider-select\{ width:calc\(100% - 20px\); min-height:27px; height:27px; margin:2px 10px 5px;/);
+  assert.doesNotMatch(ui,/Where do I get a key\?/);
+  assert.match(ui,/\.menu#modelmenu\{[^}]*padding:32px 6px 6px;/s);
+  assert.match(ui,/\.menu \.model-head\{ min-height:20px;[^}]*font-size:10px; font-weight:400;/s);
 });
 
 test("major app surfaces share the compact Projects and Chats corner radius", () => {
@@ -682,7 +757,7 @@ test("surface styles reach the native footer and the account identity owns Profi
 });
 
 test("approved sidebar follows window width until the user toggles it", () => {
-  assert.match(ui, /--approved-sidebar-w:260px;/);
+  assert.match(ui, /--approved-sidebar-w:196px;/);
   assert.match(ui, /const estimatedOpenMainW=currentMainW-\(document\.body\.classList\.contains\("collapsed"\)\?sidebarW:0\);/);
   assert.match(ui, /const shouldCollapseApprovedSidebar=w<=640\|\|auxiliaryNeedsRoom;/);
   assert.match(ui, /document\.body\.classList\.toggle\("collapsed",auxiliaryNeedsRoom\|\|recipesNeedRoom\|\|educationNeedsRoom\s*\?true/);
@@ -702,7 +777,7 @@ test("projects and chats respect manual close even when ample width returns", ()
 test("compact navigation rail returns at half the old width requirement", () => {
   assert.match(ui, /@media\(min-width:681px\) and \(max-width:760px\)\{[\s\S]*?#sideRail,body\.collapsed #sideRail,body\.collapsed\.rail-expanded #sideRail\{[\s\S]*?display:flex; flex-basis:30px; width:30px; min-width:30px;/);
   assert.doesNotMatch(ui, /@media\(min-width:681px\) and \(max-width:760px\)\{[\s\S]*?#railMenuToggle\{ display:none; \}/);
-  assert.match(ui, /if\(w>380\)\{\s*document\.body\.classList\.remove\("rail-menu-open"\);/);
+  assert.doesNotMatch(ui, /if\(w>380\)\{\s*document\.body\.classList\.remove\("rail-menu-open"\);/);
 });
 
 test("model picker includes the local cloud toggle and stays synced", () => {
@@ -720,7 +795,7 @@ test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /if\(pickerNet==="online"\)\{/);
   assert.match(ui, /const activeModelName=\(\)=>\{[\s\S]*?provider==="local"\?displayName\(state\.model\):providerModelName\(provider\)/);
   assert.match(ui, /function setComposerModelDisplay\(modelName\)\{/);
-  assert.match(ui, /target\.innerHTML=`<span class="model-label-text">\$\{esc\(modelName\|\|"Select a model"\)\}<\/span>`;/);
+  assert.match(ui, /target\.innerHTML=`<span class="model-label-text">\$\{esc\(full\)\}<\/span><span class="model-label-compact">\$\{esc\(compact\|\|full\)\}<\/span>`;/);
   assert.match(ui, /target\.setAttribute\("aria-label",modelName\|\|"Select a model"\)/);
   assert.match(ui, /\$\("providersel"\)\.onchange=async\(e\)=>\{[\s\S]*?const provider=e\.target\.value;[\s\S]*?JSON\.stringify\(\{provider\}\)/);
   assert.match(ui, /modelPickerNet="online";[\s\S]*?const firstMissing=\$\("modellist"\)\?\.querySelector\("\.api-provider\.missing"\);[\s\S]*?Boolean will stay on Local until it is saved\./);
@@ -742,11 +817,12 @@ test("installed local models show measured performance on this PC", () => {
 });
 
 test("cloud provider setup stays compact and reveals all models after connection", () => {
-  assert.match(ui, /class="model-picker-title"><b>AI providers<\/b>/);
+  assert.doesNotMatch(ui, /class="model-picker-title"><b>AI providers<\/b>/);
   assert.match(ui, /\.menu#modelmenu\{[^}]*width:218px;[^}]*max-height:min\(380px,calc\(100vh - 72px\)\)/s);
   assert.doesNotMatch(ui, /class="model-search-toggle"|id="modelSearchToggle"/);
   assert.match(ui, /<input id="modelsearch" type="hidden" value="">/);
   assert.match(ui, /connectedHead\.textContent="Connected"/);
+  assert.match(ui, /apiProviderHealth\[prov\]==="ready"/);
   assert.match(ui, /add\.textContent=showApiProviderCatalog\?"Hide available providers":"\+ Add a cloud provider"/);
   assert.match(ui, /function renderFocusedApiProvider\(prov,label,hasKey\)/);
   assert.match(ui, /className="api-connected-summary"/);
@@ -758,12 +834,13 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /\.api-connected-summary \.model-line\{[^}]*display:grid; grid-template-columns:minmax\(0,1\.35fr\) minmax\(42px,\.65fr\);/s);
   assert.match(ui, /#modelmenu \.model-picker-title\{[^}]*height:30px; min-height:30px;/s);
   assert.match(ui, /\.menu#modelmenu\{[^}]*border-radius:6px;[^}]*background-clip:padding-box; scrollbar-gutter:stable;/s);
-  assert.match(ui, /\.api-provider-select\{[^}]*min-height:32px; height:32px;/s);
+  assert.match(ui, /\.api-provider-select\{[^}]*min-height:27px; height:27px;/s);
   assert.match(ui, /\.api-provider-detail\.connecting \.api-key-form\{[^}]*grid-template-columns:minmax\(0,1fr\) 24px;/s);
   assert.match(ui, /#modelmenu \.api-provider-detail\.connecting \.api-key-form input\{[^}]*min-height:26px; height:26px;/s);
   assert.match(ui, /\.api-provider-detail\.connecting \.api-key-save\{[^}]*min-height:24px; height:24px;/s);
   assert.match(ui, /role="button" tabindex="0" aria-expanded="false"/);
   assert.match(ui, /toggleApiProvider\(id,name,row,true,true\)/);
+  assert.match(ui, /tempToast\("Switched to "\+displayName\(model\)\+"\."\);\s*await refresh\(\);\s*inlineOpenApiProvider="";\s*openApiProvider="";\s*showApiProviderCatalog=false;\s*renderModelList\(""\);/);
   assert.match(ui, /\.api-provider-detail\.inline-models\{[^}]*border-top:1px/s);
   assert.match(ui, /list\.classList\.toggle\("local-model-view",pickerNet!=="online"\)/);
   assert.match(ui, /#modellist\.local-model-view \.item\.model-rec\{[^}]*min-height:40px/s);
@@ -777,7 +854,7 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /\.api-plan-badge\{[^}]*font:700 5\.8px\/1 var\(--ui\)/s);
   assert.match(ui, /\.api-provider-option \.api-mark\{ flex:0 0 auto; width:14px; height:14px;/);
   assert.match(ui, /\.api-provider-option \.api-badge\{ flex:0 0 auto; width:14px; height:14px;/);
-  assert.match(ui, /\.api-provider-select \.api-mark\{ width:14px; height:14px;/);
+  assert.match(ui, /\.api-provider-select \.api-mark\{ width:13px; height:13px;/);
   assert.match(ui, /qwen:\{fill:true,svg:'<svg[^']*qwenMarkGradient/);
   assert.match(ui, /const actionMarkup=installed\?esc\(action\):'<span>Download<\/span><small>'\+esc\(rec\.size\)/);
   assert.match(ui, /class="model-dl'\+\(installed\?"":" download"\)/);
@@ -792,7 +869,7 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /if\(!e\.target\.closest\("#modelmenu \.api-row-menu,#modelmenu \.api-row-more"\)\) closeRowMenus\(\)/);
   assert.match(ui, /e\.key==="Escape"&&document\.querySelector\("#modelmenu \.api-row-menu"\)[\s\S]*?closeRowMenus\(\{restoreFocus:true\}\)/);
   assert.match(ui, /modelsHead\.textContent="Available models"/);
-  assert.match(ui, /setApiConnectionState\(form,"success",label\+" connected"\);[\s\S]*?showInlineApiModels\(form,prov,label,verifiedModels\)/);
+  assert.match(ui, /await verifyApiProviderModels\(prov\);[\s\S]*?if\(!verifiedModels\.length\)[\s\S]*?showInlineApiModels\(form,prov,label,verifiedModels\)/);
   assert.match(ui, /\.api-model-list\{ max-height:260px; overflow:auto; \}/);
 });
 
@@ -964,16 +1041,12 @@ test("borderless native shell exposes resize hit zones on every edge and corner"
   }
 });
 
-test("native shell completes the border across the custom title bar", () => {
-  assert.match(shell, /readonly Panel _topOutline = new\(\) \{ Dock = DockStyle\.Top, Height = 1, TabStop = false \};/);
+test("native shell completes the Windows 11 border without adding a Windows 10 top line", () => {
+  assert.match(shell, /readonly Panel _topOutline = new\(\) \{ Dock = DockStyle\.Top, Height = 1, TabStop = false, Visible = false \};/);
   assert.match(shell, /Controls\.Add\(_topOutline\);\s*_topOutline\.BringToFront\(\);/);
-  assert.match(shell, /DwmGetColorizationColor\(out uint color, out _\) == 0/);
-  assert.match(shell, /OperatingSystem\.IsWindowsVersionAtLeast\(10, 0, 22000\)/);
-  assert.match(shell, /return SystemColors\.InactiveBorder;/);
-  assert.match(shell, /return SystemColors\.Highlight;/);
-  assert.match(shell, /_topOutline\.BackColor = TopOutlineColor\(_pal\.BtnBorder\);/);
-  assert.match(shell, /Activated \+= \(_, __\) =>[\s\S]*?_windowActive = true;[\s\S]*?RefreshTopOutline\(\);/);
-  assert.match(shell, /Deactivate \+= \(_, __\) =>[\s\S]*?_windowActive = false;[\s\S]*?RefreshTopOutline\(\);/);
+  assert.match(shell, /bool show = OperatingSystem\.IsWindowsVersionAtLeast\(10, 0, 22000\);\s*_topOutline\.Visible = show;\s*if \(!show\) return;/);
+  assert.match(shell, /_topOutline\.BackColor = _pal\.BtnBorder;/);
+  assert.doesNotMatch(shell, /DwmGetColorizationColor/);
 });
 
 test("native shell does not leave a differently colored footer below the WebView", () => {
@@ -1108,7 +1181,9 @@ test("cloud API setup pastes keys and reports verified connection progress", () 
   assert.doesNotMatch(ui, /class="api-key-icon eye"[^>]*title="Show key"/);
   assert.match(ui, /fetch\("\/api\/provider-test",\{method:"POST",body:JSON\.stringify\(\{provider:prov,key\}\)\}\)/);
   assert.match(ui, /setApiConnectionState\(form,"connecting","Connecting securely\.\.\."\)/);
-  assert.match(ui, /setApiConnectionState\(form,"success",label\+" connected"\)/);
+  assert.match(ui, /setApiConnectionState\(form,"model-connecting","API key saved\. Loading models\.\.\."\)/);
+  assert.match(ui, /await verifyApiProviderModels\(prov\)/);
+  assert.match(ui, /setApiConnectionState\(form,"error","API key saved, but models could not load"\)/);
   assert.match(ui, /\.api-step\.connecting i::after\{[^}]*position:absolute; left:50%; top:50%;[^}]*animation:apiConnectSpin \.9s linear infinite;/s);
   assert.match(ui, /@keyframes apiConnectSpin\{[\s\S]*?translate\(-50%,-50%\) rotate\(0deg\)[\s\S]*?translate\(-50%,-50%\) rotate\(360deg\)/);
   assert.match(ui, /\.api-connect-status\.success::before\{[^}]*width:11px; height:11px;/s);
@@ -1191,7 +1266,7 @@ test("Explore uses the top icon instead of a text workspace link", () => {
   assert.doesNotMatch(nav,/id="educationWorkspaceTab"|id="marketsWorkspaceTab"|id="recipesWorkspaceTab"/);
 });
 
-test("Markets, Education, Recipes, and Sales share internal tabs in one flat workspace header", () => {
+test("Explore pages share internal tabs in one flat workspace header", () => {
   for (const id of ["workspaceFloatBar","workspaceFloatTabs","workspaceFloatTheme","workspaceFloatExpand","workspaceFloatClose"]) {
     assert.equal((ui.match(new RegExp(`id="${id}"`,"g"))||[]).length,1,`${id} should exist once in the shared workspace chrome`);
   }
@@ -1210,12 +1285,12 @@ test("Markets, Education, Recipes, and Sales share internal tabs in one flat wor
   const tabsEnd=header.indexOf("</nav>",tabsStart);
   const tabs=header.slice(tabsStart,tabsEnd);
   let tabPrevious=-1;
-  for(const page of ["markets","education","recipes","sales"]){
+  for(const page of ["markets","education","recipes","sales","library"]){
     const next=tabs.indexOf(`data-workspace-page="${page}"`);
     assert.ok(next>tabPrevious,`${page} should remain in the approved internal-tab order`);
     tabPrevious=next;
   }
-  assert.equal((tabs.match(/data-workspace-page="/g)||[]).length,4,"the Explore pane should expose exactly four page tabs");
+  assert.equal((tabs.match(/data-workspace-page="/g)||[]).length,6,"the Explore pane should expose exactly six page tabs");
   const initializeWorkspace=ui.slice(ui.indexOf("function initializeWorkspaceFloat"),ui.indexOf("initializeWorkspaceFloat();"));
   assert.match(initializeWorkspace,/\$\("workspaceFloatTabs"\)\?\.addEventListener\("click",event=>\{/);
   assert.match(initializeWorkspace,/const tab=event\.target\.closest\("\[data-workspace-page\]"\)/);
@@ -1226,11 +1301,11 @@ test("Markets, Education, Recipes, and Sales share internal tabs in one flat wor
   assert.match(showWorkspace,/tab\.classList\.toggle\("active",active\)/);
   assert.match(showWorkspace,/tab\.setAttribute\("aria-selected",String\(active\)\)/);
   assert.match(ui,/\.workspace-float\{[^}]*border-radius:18px;/s);
-  assert.match(ui,/\.workspace-float-bar\{[^}]*flex:0 0 31px;[^}]*min-height:31px;[^}]*border-bottom:0;[^}]*background:var\(--approved-card,var\(--card\)\);/s);
-  assert.match(ui,/\.workspace-float-page-tab\{[^}]*height:24px;[^}]*font:600 10\.5px\/1\.2 var\(--ui\);/s);
+  assert.match(ui,/\.workspace-float-bar\{[^}]*flex:0 0 26px;[^}]*min-height:26px;[^}]*border-bottom:0;[^}]*background:var\(--approved-card,var\(--card\)\);/s);
+  assert.match(ui,/\.workspace-float-page-tab\{[^}]*height:20px;[^}]*font:600 9px\/1\.2 var\(--ui\);/s);
   assert.match(ui,/\.workspace-float-page-tab\.active\{[^}]*border-color:transparent; background:var\(--hover\); color:var\(--text\);[^}]*box-shadow:none;/s);
   assert.match(ui,/id="workspaceFloatTheme"[^>]*>&#x263E;<\/button>/);
-  assert.match(ui,/\.workspace-float-actions button\{[^}]*width:30px; height:30px;[^}]*font:18px\/1 "Segoe UI Symbol"/s);
+  assert.match(ui,/\.workspace-float-actions button\{[^}]*width:26px; height:26px;[^}]*font:15px\/1 "Segoe UI Symbol"/s);
   assert.match(ui,/\.workspace-float-content\{[^}]*padding:0;[^}]*overflow:hidden;[^}]*background:var\(--approved-card,var\(--card\)\);/s);
   assert.match(ui,/\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[^}]*margin:0;[^}]*padding:0!important;[^}]*border:0!important;[^}]*border-radius:0!important;[^}]*box-shadow:none!important;/s);
   assert.match(ui,/\.workspace-float \.education-shell,\.workspace-float \.recipes-shell\{[^}]*width:100%; height:100%;[^}]*margin:0; border:0; border-radius:0;[^}]*box-shadow:none;/s);
@@ -1257,7 +1332,7 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /theme\.onclick=\(\)=>\{[\s\S]*?applyWorkspaceTheme\(frame\.dataset\.workspaceTheme==="dark"\?"light":"dark",\{save:true\}\)/);
   assert.match(ui, /data-workspace-resize="w"/);
   for (const edge of ["n","e","s","ne","se","sw","nw"]) assert.doesNotMatch(ui, new RegExp(`data-workspace-resize="${edge}"`));
-  assert.match(ui, /body\.education-open \.workspace-float,body\.markets-open \.workspace-float,body\.recipes-open \.workspace-float\{ display:flex; \}/);
+  assert.match(ui, /body\.education-open \.workspace-float,body\.markets-open \.workspace-float,body\.recipes-open \.workspace-float,body\.library-open \.workspace-float,body\.studio-open \.workspace-float\{ display:flex; \}/);
   assert.match(ui, /\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[^}]*width:100%; height:100%; min-height:0; margin:0;[^}]*box-sizing:border-box;/s);
   assert.match(ui, /body\.recipes-open \.workspace-float \.recipes-panel\{ display:flex; \}/);
   assert.match(ui, /\.workspace-float\.maximized\{ inset:78px 8px 4px 44px!important;/);
@@ -1267,7 +1342,7 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /function setWorkspaceFloatMaximized\(/);
   assert.match(ui, /function showWorkspaceFloat\(ws\)/);
   assert.match(ui, /if\(frame\.classList\.contains\("maximized"\)\)syncWorkspaceChatReservation\(\);\s*else restoreWorkspaceFloatWidth\(\);/);
-  assert.match(ui, /window\.addEventListener\("resize",\(\)=>\{[\s\S]*?!\["education","markets","recipes"\]\.includes\(activeWsTab\)&&activeWsTab!=="sales"\)return;/);
+  assert.match(ui, /window\.addEventListener\("resize",\(\)=>\{[\s\S]*?!EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)return;/);
   assert.match(ui, /id="salesWorkspaceTab"[^>]*data-workspace-page="sales"[^>]*>[\s\S]*?Sales<span class="workspace-beta">Beta<\/span><\/button>/);
   assert.match(ui, /id="marketsWorkspaceTab"[^>]*>[\s\S]*?Markets<span class="workspace-beta">Beta<\/span><\/button>/);
   assert.match(ui, /id="educationWorkspaceTab"[^>]*>[\s\S]*?Education<span class="workspace-beta">Beta<\/span><\/button>/);
@@ -1358,10 +1433,11 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(agent, /salesPlanSections\.size < 5/);
   assert.match(agent, /correcting the plan against verified website evidence/);
   assert.match(ui, /at most 12 research or browser tool calls and finish within 5 minutes/);
-  assert.match(ui, /if\(\(mode==="chat"\|\|mode==="compare"\)&&!opts\.salesWorkflow\)/);
+  assert.match(ui, /if\(\(mode==="chat"\|\|mode==="compare"\)&&!opts\.salesWorkflow&&!opts\.workflowRun\)/);
   assert.match(ui, /const salesBackground=run\.request\?\.salesWorkflow===true/);
-  assert.match(ui, /if\(showing&&!salesBackground\) scheduleStreamPaint\(\)/);
-  assert.match(ui, /if\(showing&&!salesBackground\)\{ insertToolAbove\(ev\.entry\)/);
+  assert.match(ui, /const workspaceBackground=salesBackground\|\|workflowBackground/);
+  assert.match(ui, /if\(showing&&!workspaceBackground\) scheduleStreamPaint\(\)/);
+  assert.match(ui, /if\(showing&&!workspaceBackground\)\{ insertToolAbove\(ev\.entry\)/);
   assert.match(ui, /function salesWorkflowEvent\(ev\)/);
   assert.match(ui, /function salesLiveCheckpoint\(note\)/);
   assert.match(ui, /function salesPrimaryEvidenceCheckpoint\(entry\)/);
@@ -1369,11 +1445,11 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /salesLiveCheckpoint\(ev\.stepArgs\?\.note/);
   assert.match(ui, /const statusLabels=\["Understanding the offer","Defining the target","Researching companies","Drafting outreach","Preparing approval"\]/);
   assert.match(ui, /if\(viewingRun\(\)\)ensureStatusEl\(\)/);
-  assert.match(server, /options\.salesWorkflow === true \? \{ stepArgs: step\.args \|\| \{\} \}/);
+  assert.match(server, /options\.salesWorkflow === true \|\| options\.workflowRun === true\) \? \{ stepArgs: step\.args \|\| \{\} \}/);
   assert.match(ui, /async function newChat\(options=\{\}\)\{\s*const preserveWorkspace=options\?\.preserveWorkspace===true;[\s\S]*?if\(!preserveWorkspace\)closeConversationPanels\(\);[\s\S]*?return threadId;/);
   assert.match(ui, /\$\("salesDraft"\)\?\.addEventListener\("click",async\(\)=>\{[\s\S]*?await newChat\(\{preserveWorkspace:true\}\);[\s\S]*?if\(activeWsTab!=="sales"\)markWorkspaceTab\("sales"\);/);
   assert.match(ui, /startRun\(threadId,\{mode:"chat",[\s\S]*?salesWorkflow:true\}\)/);
-  assert.match(ui, /if\(!run\.request\?\.salesWorkflow\)aiNavigate\(ev\.url\)/);
+  assert.match(ui, /if\(!workspaceBackground\)aiNavigate\(ev\.url\)/);
   assert.match(ui, /results\.classList\.toggle\("visible",salesWorkflow\.running\|\|!!salesWorkflow\.result\)/);
   assert.doesNotMatch(ui, /Prospect plan loaded into Chat/);
   assert.match(ui, /\.sales-panel\{[^}]*height:100%;[^}]*overflow-x:hidden; overflow-y:auto;[^}]*scrollbar-gutter:stable;/s);
@@ -1400,7 +1476,7 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /if\(frame\.classList\.contains\("maximized"\)\)\{syncWorkspaceChatReservation\(\);return;\}/);
   assert.match(ui, /if\(innerWidth<500\|\|innerHeight<300\)\{workspaceLayoutSuspended=true;return;\}/);
   assert.match(ui, /if\(workspaceLayoutSuspended\)\{[\s\S]*?restoreWorkspaceFloatWidth\(\);[\s\S]*?scheduleResponsiveClasses\(\);/);
-  assert.match(ui, /new ResizeObserver\(\(\)=>\{[\s\S]*?\["education","markets","recipes"\]\.includes\(activeWsTab\)[\s\S]*?else syncWorkspaceChatReservation\(\);/);
+  assert.match(ui, /new ResizeObserver\(\(\)=>\{[\s\S]*?!EXPLORE_WORKSPACES\.includes\(activeWsTab\)[\s\S]*?else syncWorkspaceChatReservation\(\);/);
   assert.match(ui, /document\.addEventListener\("visibilitychange",\(\)=>\{[\s\S]*?restoreWorkspaceFloatWidth\(\);[\s\S]*?scheduleResponsiveClasses\(\);/);
   assert.match(ui, /function scheduleResponsiveClasses\(\)\{[\s\S]*?cancelAnimationFrame\(responsiveClassesFrame\);[\s\S]*?responsiveClassesFrame=requestAnimationFrame/);
   assert.match(ui, /new ResizeObserver\(scheduleResponsiveClasses\)\.observe\(document\.querySelector\("main"\)\)/);
@@ -1425,11 +1501,8 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /\.workspace-float \.education-panel,\.workspace-float \.markets-panel,\.workspace-float \.recipes-panel\{[\s\S]*?background:var\(--approved-card,var\(--card\)\);/);
   assert.match(ui, /\.workspace-float \.recipes-shell,[\s\S]*?\.workspace-float \.recipe-actions\{ background:var\(--approved-card,var\(--card\)\); \}/);
   assert.match(ui, /id="workspaceFloatTheme"[^>]*>&#x263E;<\/button>/);
-  assert.match(ui, /id="workspaceFloatMinimize"/);
-  assert.match(ui, /function setWorkspaceFloatMinimized\(minimized/);
-  assert.match(ui, /booleanWorkspaceMinimizedV1/);
-  assert.match(ui, /\.workspace-float\.minimized:not\(\.maximized\)/);
-  assert.match(ui, /\.workspace-float-actions button\{[^}]*width:30px; height:30px;[^}]*font:18px\/1 "Segoe UI Symbol"/s);
+  assert.doesNotMatch(ui, /id="workspaceFloatMinimize"/);
+  assert.match(ui, /\.workspace-float-actions button\{[^}]*width:26px; height:26px;[^}]*font:15px\/1 "Segoe UI Symbol"/s);
   assert.doesNotMatch(ui, /body\.recipes-open #chat,body\.recipes-open \.composer-wrap\{ display:none !important; \}/);
   assert.doesNotMatch(ui, /body\.composer-simple\.recipes-open \.composer-wrap\{ display:none !important; \}/);
   assert.match(ui, /close\.onclick=\(\)=>setWorkspaceTab\("chat"\)/);
@@ -1483,6 +1556,10 @@ test("projects and chats use the compact nested accordion sidebar", () => {
   assert.match(ui, /head\.setAttribute\("aria-expanded",String\(open\)\)/);
   assert.match(ui, /makeThreadRow\(t,\{projectChat:true,label:"Project chat"\}\)/);
   assert.ok(ui.includes(`chatHead.innerHTML='<span>Personal chats</span><span class="gcount">'+chats.length+'</span>'`));
+  assert.match(ui,/const shown=personalChatsExpanded\?chats:chats\.slice\(0,THREAD_GROUP_LIMIT\)/);
+  assert.match(ui,/more\.textContent=personalChatsExpanded\?"Show less":"Show more"/);
+  assert.match(ui,/more\.setAttribute\("aria-label",personalChatsExpanded\?"Show only recent personal chats":"Show all "\+chats\.length\+" personal chats"\)/);
+  assert.match(ui,/className="personal-chat-more"/);
   assert.match(ui, /const projectGroups=JSON\.parse\(localStorage\.getItem\("boollmProjectGroups"\)\|\|"{}"\)/);
   assert.doesNotMatch(ui, /createRow\.append\(createProjectButton,openFolderButton\)/);
 });
@@ -1575,6 +1652,21 @@ test("Boolean brand reports live work activity without provider-specific status 
   assert.match(ui, /setBooleanActivity\(\/summar\|email_summary\/\.test\(task\)\?"Summarizing":"Browsing"\)/);
   assert.match(ui, /\.brand-about\.ready\{ color:var\(--dim\); background:transparent; \}/);
   assert.doesNotMatch(ui, /const text=ready\?shortLabel\+" ready":"Not ready"/);
+});
+
+test("cloud providers are connected only after their model list loads", () => {
+  assert.match(ui, /const apiProviderHealth=\{\};/);
+  assert.match(ui, /async function verifyApiProviderModels\(prov\)/);
+  assert.match(ui, /if\(!res\.ok\|\|!models\.length\) throw new Error/);
+  assert.match(ui, /apiProviderHealth\[prov\]="ready"/);
+  assert.match(ui, /apiProviderHealth\[prov\]="error"/);
+  assert.match(ui, /const connected=visibleApi\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)&&apiProviderHealth\[prov\]==="ready"\)/);
+  assert.match(ui, /const attention=visibleApi\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)&&apiProviderHealth\[prov\]==="error"\)/);
+  assert.match(ui, /if\(!showApiProviderCatalog&&missing\.length\)/);
+  assert.match(ui, /attentionHead\.textContent="Needs attention"/);
+  assert.match(ui, /health==="error"\?"Could not load models"/);
+  assert.match(ui, /health==="error"\?"Reconnect"/);
+  assert.match(ui, /API key saved, but models could not load\. Check the key or reconnect\./);
 });
 
 test("Explore visibly shares current Education Markets and Recipes context with Chat", () => {

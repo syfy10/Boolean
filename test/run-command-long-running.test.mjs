@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { executeTool } from "../src/tools.js";
+import { executeTool, inferDesktopProject } from "../src/tools.js";
 
 test("run_command refuses dev servers that should be backgrounded", async () => {
   const base = path.join(os.tmpdir(), "saz-long-running-" + Date.now());
@@ -22,4 +22,34 @@ test("run_command refuses dev servers that should be backgrounded", async () => 
   assert.equal(approved, false);
   assert.match(result, /long-running dev server/i);
   assert.match(result, /run_background/i);
+});
+
+test("run_command refuses foreground desktop launches that would block the task", async (t) => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-desktop-run-"));
+  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(base, "SnipIt.csproj"), '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><UseWPF>true</UseWPF></PropertyGroup></Project>');
+  let approved = false;
+  const result = await executeTool("run_command", {
+    command: '& ".\\bin\\Debug\\net8.0-windows\\SnipIt.exe" 2>&1 | Out-String'
+  }, {
+    projectDir: base,
+    config: { commandTimeoutMs: 60_000 },
+    approve: async () => { approved = true; return true; }
+  });
+  assert.equal(approved, false);
+  assert.match(result, /desktop GUI in the foreground/i);
+  assert.match(result, /run_project/i);
+});
+
+test("existing WPF folders are inferred as runnable desktop projects", (t) => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-desktop-infer-"));
+  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  const project = path.join(base, "SnipIt.csproj");
+  fs.writeFileSync(project, '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><UseWPF>true</UseWPF></PropertyGroup></Project>');
+  assert.deepEqual(inferDesktopProject(base), {
+    type: "desktop",
+    run: `dotnet run --project "${project}"`,
+    executable: "",
+    inferred: true
+  });
 });

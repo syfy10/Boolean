@@ -120,12 +120,12 @@ export function modelCapabilityProfile(config, target = {}, options = {}) {
     label: mode === "native"
       ? "Full coding"
       : mode === "patch"
-        ? "Limited coding"
+        ? "Compatible coding"
         : mode === "review"
           ? "Review/chat only"
           : "Checking tool support",
     warning: mode === "patch"
-      ? "This model can review code and propose patches, but it does not support Boolean's native tools. File edits use Patch mode; terminal, browser actions, and deployment require a tool-capable model."
+      ? "This model does not use native function calls. Boolean provides coding, terminal, browser, and deployment tools through its validated compatibility bridge."
         : mode === "review"
           ? "This model is restricted to review and chat. It cannot edit files, use the terminal or browser, or deploy."
           : "",
@@ -135,10 +135,10 @@ export function modelCapabilityProfile(config, target = {}, options = {}) {
     capabilities: {
       chat: true,
       review: true,
-      fileEdit: mode === "patch" ? "patch" : nativeAgent,
-      terminal: nativeAgent,
-      browser: nativeAgent,
-      deploy: nativeAgent,
+      fileEdit: mode === "patch" ? true : nativeAgent,
+      terminal: mode === "patch" ? true : nativeAgent,
+      browser: mode === "patch" ? true : nativeAgent,
+      deploy: mode === "patch" ? true : nativeAgent,
       vision
     }
   };
@@ -148,7 +148,7 @@ export function validateBooleanPatch(value, projectDir) {
   const edits = Array.isArray(value?.edits) ? value.edits : [];
   if (!projectDir) throw new Error("Patch mode requires an open project.");
   if (!edits.length) throw new Error("The Boolean patch contains no edits.");
-  if (edits.length > 8) throw new Error("A Boolean patch may contain at most 8 edits.");
+  if (edits.length > 100) throw new Error("A Boolean patch may contain at most 100 edits.");
   const root = path.resolve(projectDir);
   const files = new Set();
   const normalized = edits.map((edit, index) => {
@@ -160,7 +160,7 @@ export function validateBooleanPatch(value, projectDir) {
       throw new Error(`Patch edit ${index + 1} points outside the open project.`);
     }
     files.add(absolute.toLowerCase());
-    if (files.size > 4) throw new Error("A Boolean patch may change at most 4 files.");
+    if (files.size > 40) throw new Error("A Boolean patch may change at most 40 files.");
     if (typeof edit.old === "string" && typeof edit.new === "string" && edit.old.length) {
       if (edit.old.length + edit.new.length > 120_000) throw new Error(`Patch edit ${index + 1} is too large.`);
       return { kind: "replace", path: relative, absolute, old: edit.old, new: edit.new };

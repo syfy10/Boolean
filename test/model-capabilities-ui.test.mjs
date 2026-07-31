@@ -26,10 +26,10 @@ test("unknown selected models receive one safe cached capability probe with a ma
   assert.match(server, /evaluateCapabilityProbeReply/);
 });
 
-test("coding-agent settings offer automatic, exact-patch, and review-only compatibility modes", () => {
+test("coding-agent settings offer automatic, compatibility-bridge, and review-only modes", () => {
   assert.match(ui, /id="agentCompatibilityMode"/);
   assert.match(ui, /value="auto">Auto/);
-  assert.match(ui, /value="patch">Force Patch/);
+  assert.match(ui, /value="patch">Compatibility bridge/);
   assert.match(ui, /value="review">Review only/);
   assert.match(ui, /updateCodingAgent\(\{compatibilityMode:e\.target\.value\}\)/);
 });

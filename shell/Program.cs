@@ -192,14 +192,10 @@ sealed class MainForm : Form, IMessageFilter
 
     [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
     static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
-    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
-    static extern int DwmGetColorizationColor(out uint colorizationColor, out bool opaqueBlend);
-
     [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
     static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
 
     FormWindowState _lastWindowState = FormWindowState.Normal;
-    bool _windowActive = true;
     bool _frameRefreshQueued;
     bool _restoreMaximized;
     bool _restoreBrowserOpen;
@@ -341,31 +337,16 @@ sealed class MainForm : Form, IMessageFilter
         catch { }
     }
 
-    Color TopOutlineColor(Color themedBorder)
-    {
-        // Windows 10 continues to draw the native left, right, and bottom
-        // resize frame, but our reclaimed custom title bar covers its top
-        // edge. Use the same DWM accent there so all four active edges match.
-        // Windows 11 honors DWMWA_BORDER_COLOR, so retain the themed border.
-        if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
-            return themedBorder;
-        if (!_windowActive)
-            return SystemColors.InactiveBorder;
-        try
-        {
-            if (DwmGetColorizationColor(out uint color, out _) == 0)
-                return Color.FromArgb(
-                    (int)((color >> 16) & 0xff),
-                    (int)((color >> 8) & 0xff),
-                    (int)(color & 0xff));
-        }
-        catch { }
-        return SystemColors.Highlight;
-    }
-
     void RefreshTopOutline()
     {
-        _topOutline.BackColor = TopOutlineColor(_pal.BtnBorder);
+        // Windows 11 honors the themed DWM border on every side, so complete
+        // that border across the reclaimed custom title bar. Windows 10 can
+        // omit the other three visible edges; drawing only this client-side
+        // strip produces an unmatched white/accent line in dark mode.
+        bool show = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
+        _topOutline.Visible = show;
+        if (!show) return;
+        _topOutline.BackColor = _pal.BtnBorder;
         _topOutline.Invalidate();
     }
 
@@ -465,7 +446,7 @@ sealed class MainForm : Form, IMessageFilter
 
     // layout
     readonly SplitContainer _split = new() { Orientation = Orientation.Vertical, SplitterWidth = 5 };
-    readonly Panel _topOutline = new() { Dock = DockStyle.Top, Height = 1, TabStop = false };
+    readonly Panel _topOutline = new() { Dock = DockStyle.Top, Height = 1, TabStop = false, Visible = false };
     readonly WebView2 _chat = new() { Dock = DockStyle.Fill };
     // HTML browser chrome (tabs + nav + address + tasks + menu + window controls),
     // served from the core at /browser-chrome. Replaces the old WinForms chrome.
@@ -582,9 +563,9 @@ sealed class MainForm : Form, IMessageFilter
         _split.Panel2.Controls.Add(_browserPane);
         _split.Panel2Collapsed = true; // browser hidden until toggled
         Controls.Add(_split);
-        // DWM does not paint the top edge after WM_NCCALCSIZE gives that frame
-        // to our custom HTML title bar. Keep a one-pixel client outline there
-        // so the border remains continuous on all four window edges.
+        // Windows 11 uses this to complete its themed DWM outline across the
+        // custom title bar. RefreshTopOutline keeps it hidden on Windows 10,
+        // where a lone client-side top line does not match the other edges.
         Controls.Add(_topOutline);
         _topOutline.BringToFront();
         BuildBrowserPill();
@@ -592,16 +573,6 @@ sealed class MainForm : Form, IMessageFilter
         _startup.BringToFront();
 
         Load += OnLoad;
-        Activated += (_, __) =>
-        {
-            _windowActive = true;
-            RefreshTopOutline();
-        };
-        Deactivate += (_, __) =>
-        {
-            _windowActive = false;
-            RefreshTopOutline();
-        };
         // Docking already resizes both WebViews during a border drag. Recomputing
         // SplitterDistance for every WM_SIZE made the panes fight that layout,
         // producing visible shake and exposing an unpainted edge. Fit once when

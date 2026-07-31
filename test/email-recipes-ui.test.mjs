@@ -98,7 +98,9 @@ test("email recipes keep the selected AI and start in a fresh chat", () => {
   assert.doesNotMatch(html, /id="emailLocalOnly"/);
   assert.doesNotMatch(html, /Use local AI for email content/);
   assert.match(html, /currentAiLabel\(\)/);
-  assert.match(html, /forceNew:true,title/);
+  assert.match(html, /await startWorkflowTask\(recipe,prompt,ai\)/);
+  assert.match(html, /await newChat\(\{preserveWorkspace:true\}\)/);
+  assert.match(html, /loadWorkflowDraft\(recipe,prompt\)/);
 });
 
 test("open-email recipes can use the signed-in visible browser session", () => {

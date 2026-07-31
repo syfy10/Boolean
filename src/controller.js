@@ -1,4 +1,12 @@
 import path from "node:path";
+import {
+  appendTaskRunEvent,
+  compactTaskRun,
+  createTaskRun,
+  publicTaskRun,
+  syncTaskRunFromController,
+  taskRunToolEvent
+} from "./task-runs.js";
 
 const MUTATION_TOOLS = new Set([
   "write_file", "edit_file", "undo_last_edit", "git_restore",
@@ -14,7 +22,7 @@ const VERIFICATION_TOOLS = new Set([
 ]);
 
 const INSPECTION_TOOLS = new Set([
-  "list_dir", "read_file", "find_files", "search_files", "find_symbol",
+  "list_dir", "read_file", "find_files", "search_files", "repository_map", "find_symbol",
   "git_status", "git_diff", "read_page", "visible_browser_read",
   "list_connectors", "mcp_list_tools"
 ]);
@@ -156,10 +164,13 @@ function commandMayReferenceExternalToolchain(command, candidate) {
 }
 
 function inferContract(options, saved) {
-  const source = `${options.taskContext || ""}\n${options.objective || saved.objective || ""}`;
+  const objective = options.objective || saved.objective || "";
+  const source = `${options.taskContext || ""}\n${objective}`;
   const noDeploy = /\b(?:do not|don't|never|no)\s+(?:deploy|publish|push)\b/i.test(source);
+  const effectiveAccessMode = String(options.effectiveAccessMode || "").toLowerCase();
   let mode = saved.mode || "general";
   if (/\b(?:read[- ]only|do not (?:edit|change|write)|don't (?:edit|change|write))\b/i.test(source)) mode = "read_only";
+  else if (effectiveAccessMode === "full_access") mode = options.projectDir || saved.projectBound ? "project_edit" : "general";
   else if (/\bsandbox(?:\s+(?:only|folder))?\b/i.test(source)) mode = "sandbox_edit";
   else if (!noDeploy && /\b(?:deploy|publish|push)\b/i.test(options.objective || "")) mode = "deploy";
   else if (options.projectDir || saved.projectBound) mode = "project_edit";
@@ -464,7 +475,25 @@ export class AgentController {
     // tool; they surface in workingMemory even after older chat is trimmed.
     this.notes = Array.isArray(saved.notes) ? saved.notes.map((n) => cleanText(n, 300)).filter(Boolean).slice(-12) : [];
     this.verificationNudged = saved.verificationNudged === true;
+    this.teamWorkers = saved.teamWorkers && typeof saved.teamWorkers === "object"
+      ? Object.fromEntries(Object.entries(saved.teamWorkers).slice(0, 8).map(([role, worker]) => [cleanText(role, 80), {
+          role: cleanText(worker?.role || role, 80), provider: cleanText(worker?.provider, 60), model: cleanText(worker?.model, 120),
+          state: ["working", "retrying", "done", "failed"].includes(worker?.state) ? worker.state : "failed",
+          attempt: Math.max(1, Number(worker?.attempt) || 1), detail: cleanText(worker?.detail, 500), updatedAt: Number(worker?.updatedAt) || Date.now()
+        }]))
+      : {};
     this.updatedAt = Date.now();
+    this.taskRun = createTaskRun({
+      objective: this.objective,
+      startedAt: this.startedAt,
+      persisted: saved.taskRun
+    });
+    if (!this.taskRun.events.length) {
+      appendTaskRunEvent(this.taskRun, {
+        type: "run.started", status: "active", title: "Task started", detail: this.objective
+      });
+    }
+    syncTaskRunFromController(this.taskRun, this);
 
     // Per-thread rolling digest: tracks answers given, corrections received,
     // and active topics so workingMemory can surface them even when chat is trimmed.
@@ -524,7 +553,10 @@ export class AgentController {
       updatedAt: this.updatedAt,
       conversationDigest: this.conversationDigest,
       notes: [...this.notes],
-      verificationNudged: this.verificationNudged
+      verificationNudged: this.verificationNudged,
+      teamWorkers: Object.fromEntries(Object.entries(this.teamWorkers).map(([role, worker]) => [role, { ...worker }])),
+      taskRun: publicTaskRun(this.taskRun),
+      compaction: compactTaskRun(this.taskRun, this)
     };
   }
 
@@ -536,6 +568,31 @@ export class AgentController {
       this.notes = this.notes.slice(-12);
       this.updatedAt = Date.now();
     }
+    return this.snapshot();
+  }
+
+  /** Persist specialist lifecycle without counting it as lead tool work. */
+  noteTeamWorker(worker = {}, detail = "") {
+    const role = cleanText(worker.role || "Specialist", 80);
+    const state = ["working", "retrying", "done", "failed"].includes(worker.state) ? worker.state : "working";
+    const entry = {
+      role,
+      provider: cleanText(worker.provider, 60),
+      model: cleanText(worker.model, 120),
+      state,
+      attempt: Math.max(1, Number(worker.attempt) || 1),
+      detail: cleanText(detail, 500),
+      updatedAt: Date.now()
+    };
+    this.teamWorkers[role] = entry;
+    this.updatedAt = entry.updatedAt;
+    appendTaskRunEvent(this.taskRun, {
+      type: `team.worker.${state}`,
+      status: state === "failed" ? "failed" : state === "done" ? "done" : "active",
+      title: `${role} ${state === "retrying" ? "retrying" : state}`,
+      detail: entry.detail || `${entry.model || entry.provider || "Model"} ${state}`,
+      details: { role, provider: entry.provider, model: entry.model, attempt: entry.attempt }
+    }, { dedupe: false });
     return this.snapshot();
   }
 
@@ -715,6 +772,9 @@ export class AgentController {
     this.consecutiveFailures++;
     this.lastFailure = `${name} blocked: ${cleanText(reason, 420)}`;
     this.phase = isLoopBlock(reason) ? "recovering" : "blocked";
+    appendTaskRunEvent(this.taskRun, {
+      type: "permission.blocked", status: "failed", title: `${name.replaceAll("_", " ")} blocked`, detail: reason
+    });
     return {
       count: this.blockedToolCount,
       repeated: this.blockedActionCounts[fingerprint],
@@ -732,6 +792,7 @@ export class AgentController {
     if (coarseFingerprint) this.actionCounts[coarseFingerprint] = (this.actionCounts[coarseFingerprint] || 0) + 1;
     this.recentActions.push(`${name}: ${cleanText(fileArgument(args) || args.command || result, 220)}`);
     this.recentActions = this.recentActions.slice(-10);
+    taskRunToolEvent(this.taskRun, name, args, result, isFailure(result));
 
     if (name === "run_background" && !isFailure(result)) {
       const started = String(result || "").match(/Started background process ['\"]([^'\"]+)['\"]/i)?.[1] || cleanText(args.name, 80);
@@ -745,6 +806,7 @@ export class AgentController {
     if (name === "update_plan" && Array.isArray(args.steps) && args.steps.length) {
       this.plan = normalizePlan(args.steps, this.projectBound, this.debugRequired, this.objective);
       this.phase = "executing";
+      syncTaskRunFromController(this.taskRun, this);
       return this.snapshot();
     }
 
@@ -872,6 +934,7 @@ export class AgentController {
       }
     }
     advanceTaskPlanForTool(this.plan, name);
+    syncTaskRunFromController(this.taskRun, this);
     return this.snapshot();
   }
 
@@ -898,6 +961,7 @@ export class AgentController {
   cancel() {
     this.cancelRequested = true;
     this.updatedAt = Date.now();
+    appendTaskRunEvent(this.taskRun, { type: "run.paused", status: "waiting", title: "Task paused", detail: "Paused by the user." });
     return this.snapshot();
   }
 
@@ -932,6 +996,8 @@ export class AgentController {
     this.phase = "completed";
     for (const item of this.plan) item.status = "done";
     this.updatedAt = Date.now();
+    syncTaskRunFromController(this.taskRun, this);
+    appendTaskRunEvent(this.taskRun, { type: "run.completed", status: "done", title: "Task completed", detail: "The requested work is ready." });
     return { complete: true, reason: "Done." };
   }
 

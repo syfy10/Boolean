@@ -979,10 +979,10 @@ test("malformed native tool-call server errors retry without surfacing a 500", a
   assert.equal(calls, 4);
   assert.equal(requests[0].tools.length > 0, true);
   assert.equal(requests[3].tools, undefined);
-  assert.match(statuses.join("\n"), /malformed.*limited Patch mode/i);
+  assert.match(statuses.join("\n"), /malformed.*compatibility tool bridge/i);
 });
 
-test("Z.AI prompt-parameter rejection retries in strict Patch compatibility mode", async (t) => {
+test("Z.AI prompt-parameter rejection retries through the compatibility tool bridge", async (t) => {
   let calls = 0;
   const requests = [];
   const server = http.createServer(async (req, res) => {
@@ -1031,11 +1031,11 @@ test("Z.AI prompt-parameter rejection retries in strict Patch compatibility mode
   assert.equal(calls, 2);
   assert.equal(requests[0].tools.length > 0, true);
   assert.equal(requests[1].tools, undefined);
-  assert.match(requests[1].messages[0].content, /BOOLEAN PATCH MODE/);
-  assert.match(requests[1].messages[0].content, /LIMITED INSPECTION PROTOCOL/);
+  assert.match(requests[1].messages[0].content, /BOOLEAN COMPATIBILITY MODE/);
+  assert.match(requests[1].messages[0].content, /COMPATIBILITY TOOL PROTOCOL/);
   assert.match(requests[1].messages[0].content, /Available tools \(name: purpose\)/);
   assert.doesNotMatch(requests[1].messages[0].content, /Available tools \(JSON schema\)/);
-  assert.match(statuses.join("\n"), /rejected native tools.*limited Patch mode/i);
+  assert.match(statuses.join("\n"), /rejected native tools.*compatibility tool bridge/i);
 });
 
 test("malformed native tool arguments are never executed as empty arguments", async (t) => {

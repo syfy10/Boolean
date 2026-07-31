@@ -532,6 +532,131 @@ export function buildTradeIdea(snapshot) {
   };
 }
 
+export const BACKTEST_STRATEGIES = Object.freeze([
+  { key: "buyHold", name: "Buy & Hold", description: "Own the symbol for the full test period." },
+  { key: "movingAverage", name: "Moving-average crossover", description: "Own while the fast average is above the slow average." },
+  { key: "momentum", name: "Momentum", description: "Own while price is above its lookback close." },
+  { key: "meanReversion", name: "Mean reversion", description: "Buy statistically weak closes and exit near the mean." },
+  { key: "breakout", name: "Breakout", description: "Buy a new lookback high and exit below the lookback low." }
+]);
+
+export function runStrategyBacktest(snapshot, options = {}) {
+  const points = (snapshot?.points || [])
+    .map((point) => ({ ...point, time: Number(point.time), close: Number(point.close) }))
+    .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.close) && point.close > 0)
+    .sort((a, b) => a.time - b.time);
+  if (points.length < 30) throw new Error("At least 30 price observations are required for a backtest.");
+
+  const strategy = BACKTEST_STRATEGIES.find((item) => item.key === options.strategy)?.key || "movingAverage";
+  const startingCapital = Math.max(1, Number(options.startingCapital) || 10_000);
+  const costRate = Math.max(0, Number(options.costBps) || 0) / 10_000;
+  const fast = Math.max(2, Math.round(Number(options.fast) || 20));
+  const slow = Math.max(fast + 1, Math.round(Number(options.slow) || 50));
+  const lookback = Math.max(5, Math.round(Number(options.lookback) || 20));
+  const zEntry = Math.max(.25, Number(options.zEntry) || 1);
+  const closes = points.map((point) => point.close);
+  const positions = new Array(points.length).fill(0);
+  const averageAt = (index, period) => {
+    if (index + 1 < period) return null;
+    const values = closes.slice(index + 1 - period, index + 1);
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  };
+  let held = strategy === "buyHold" ? 1 : 0;
+  for (let index = 0; index < points.length; index += 1) {
+    if (strategy === "movingAverage") {
+      const fastAverage = averageAt(index, fast);
+      const slowAverage = averageAt(index, slow);
+      if (fastAverage !== null && slowAverage !== null) held = fastAverage > slowAverage ? 1 : 0;
+    } else if (strategy === "momentum" && index >= lookback) {
+      held = closes[index] > closes[index - lookback] ? 1 : 0;
+    } else if (strategy === "meanReversion" && index + 1 >= lookback) {
+      const values = closes.slice(index + 1 - lookback, index + 1);
+      const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+      const deviation = Math.sqrt(variance);
+      const zScore = deviation ? (closes[index] - mean) / deviation : 0;
+      if (!held && zScore <= -zEntry) held = 1;
+      else if (held && zScore >= 0) held = 0;
+    } else if (strategy === "breakout" && index >= lookback) {
+      const prior = closes.slice(index - lookback, index);
+      if (!held && closes[index] > Math.max(...prior)) held = 1;
+      else if (held && closes[index] < Math.min(...prior)) held = 0;
+    }
+    positions[index] = held;
+  }
+
+  let equity = startingCapital;
+  let benchmark = startingCapital;
+  let previousPosition = 0;
+  let tradeEntry = null;
+  const returns = [];
+  const closedTradeReturns = [];
+  const trades = [];
+  const equityCurve = [{ time: points[0].time, equity, benchmark }];
+  for (let index = 1; index < points.length; index += 1) {
+    const position = positions[index - 1];
+    const priceReturn = closes[index] / closes[index - 1] - 1;
+    const changed = position !== previousPosition;
+    const strategyReturn = position * priceReturn - (changed ? costRate : 0);
+    equity *= 1 + strategyReturn;
+    benchmark *= 1 + priceReturn;
+    returns.push(strategyReturn);
+    if (changed) {
+      const side = position ? "Buy" : "Sell";
+      trades.push({ time: points[index].time, side, price: closes[index] });
+      if (position) tradeEntry = closes[index] * (1 + costRate);
+      else if (tradeEntry) {
+        closedTradeReturns.push((closes[index] * (1 - costRate)) / tradeEntry - 1);
+        tradeEntry = null;
+      }
+    }
+    previousPosition = position;
+    equityCurve.push({ time: points[index].time, equity, benchmark });
+  }
+  if (previousPosition && tradeEntry) closedTradeReturns.push(closes.at(-1) / tradeEntry - 1);
+
+  const timeScale = points[1].time > 10_000_000_000 ? 1 : 1000;
+  const intervals = points.slice(1).map((point, index) => (point.time - points[index].time) * timeScale / 86_400_000);
+  const sortedIntervals = [...intervals].sort((a, b) => a - b);
+  const medianDays = sortedIntervals[Math.floor(sortedIntervals.length / 2)] || 1;
+  const periodsPerYear = medianDays > 20 ? 12 : medianDays > 3 ? 52 : 252;
+  const meanReturn = returns.reduce((sum, value) => sum + value, 0) / Math.max(1, returns.length);
+  const variance = returns.reduce((sum, value) => sum + (value - meanReturn) ** 2, 0) / Math.max(1, returns.length - 1);
+  const volatility = Math.sqrt(variance) * Math.sqrt(periodsPerYear);
+  const years = Math.max(1 / periodsPerYear, returns.length / periodsPerYear);
+  let peak = startingCapital;
+  let maxDrawdown = 0;
+  equityCurve.forEach((point) => {
+    peak = Math.max(peak, point.equity);
+    maxDrawdown = Math.min(maxDrawdown, point.equity / peak - 1);
+  });
+  const label = BACKTEST_STRATEGIES.find((item) => item.key === strategy);
+  return {
+    strategy,
+    strategyName: label.name,
+    strategyDescription: label.description,
+    symbol: String(snapshot?.symbol || options.symbol || "").toUpperCase(),
+    source: snapshot?.source || "",
+    delayed: !!snapshot?.delayed,
+    startingCapital,
+    endingEquity: equity,
+    totalReturn: (equity / startingCapital - 1) * 100,
+    benchmarkReturn: (benchmark / startingCapital - 1) * 100,
+    annualizedReturn: ((equity / startingCapital) ** (1 / years) - 1) * 100,
+    volatility: volatility * 100,
+    sharpe: volatility ? meanReturn * periodsPerYear / volatility : 0,
+    maxDrawdown: maxDrawdown * 100,
+    winRate: closedTradeReturns.length ? closedTradeReturns.filter((value) => value > 0).length / closedTradeReturns.length * 100 : 0,
+    tradeCount: trades.filter((trade) => trade.side === "Buy").length,
+    exposure: positions.reduce((sum, value) => sum + value, 0) / positions.length * 100,
+    startTime: points[0].time,
+    endTime: points.at(-1).time,
+    observationCount: points.length,
+    equityCurve,
+    trades
+  };
+}
+
 export async function getTradeIdeas(settings, symbol = "AAPL") {
   const dashboard = await getMarketDashboard(settings, symbol);
   const candidates = [...(dashboard.movers?.gainers || []), ...(dashboard.movers?.active || [])]

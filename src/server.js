@@ -25,7 +25,7 @@ import {
   recordNativeToolSupport
 } from "./model-capabilities.js";
 import * as engine from "./engine.js";
-import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend } from "./usage.js";
+import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend, costOf } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
 import { handleBrowse, clearCookies } from "./browse.js";
 import { executeTool } from "./tools.js";
@@ -55,7 +55,7 @@ import {
   verifyAwsConnection, awsResourceList,
   verifyGoogleCloudConnection, googleCloudResourceList
 } from "./cloud-hosting.js";
-import { getCotSnapshot, getMarketDashboard, getMarketSnapshot, getOptionsChain, getSectorPerformance, getTradeIdeas, testMarketSettings } from "./markets.js";
+import { getCotSnapshot, getMarketDashboard, getMarketSnapshot, getOptionsChain, getSectorPerformance, getTradeIdeas, runStrategyBacktest, testMarketSettings } from "./markets.js";
 import {
   createEmailOAuth,
   exchangeEmailCode,
@@ -73,6 +73,64 @@ import { detectWebsiteTech } from "./tech-detector.js";
 import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
 import officialEducationCatalog from "./education-official.json" with { type: "json" };
+import { listActions, searchActions } from "./actions.js";
+
+const studioVideoOperations = new Map();
+
+function decodeHtmlText(value = "") {
+  return String(value)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim();
+}
+
+function websiteMeta(html, baseUrl) {
+  const attr = (tag, name) => new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`, "i").exec(tag)?.[1] || "";
+  const metas = [...String(html).matchAll(/<meta\b[^>]*>/gi)].map(match => match[0]);
+  const pickMeta = (...names) => {
+    const wanted = names.map(name => name.toLowerCase());
+    for (const tag of metas) {
+      const key = (attr(tag, "property") || attr(tag, "name")).toLowerCase();
+      if (wanted.includes(key)) return decodeHtmlText(attr(tag, "content"));
+    }
+    return "";
+  };
+  const title = pickMeta("og:title", "twitter:title") || decodeHtmlText(/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]);
+  const description = pickMeta("og:description", "twitter:description", "description");
+  const image = pickMeta("og:image", "twitter:image");
+  const theme = pickMeta("theme-color");
+  const links = [...String(html).matchAll(/<link\b[^>]*>/gi)].map(match => match[0]);
+  const logoTag = links.find(tag => /(?:icon|apple-touch-icon)/i.test(attr(tag, "rel"))) || "";
+  const resolve = value => { try { return value ? new URL(value, baseUrl).toString() : ""; } catch { return ""; } };
+  const colorHits = [...String(html).matchAll(/#[0-9a-f]{6}\b/gi)].map(match => match[0].toLowerCase());
+  const srcsetFirst = value => String(value || "").split(",").map(item => item.trim().split(/\s+/)[0]).filter(Boolean).at(-1) || "";
+  const imageTags = [...String(html).matchAll(/<(?:img|source)\b[^>]*>/gi)].map(match => match[0]);
+  const tagImages = imageTags.flatMap(tag => [
+    attr(tag, "src"), attr(tag, "data-src"), attr(tag, "data-lazy-src"),
+    srcsetFirst(attr(tag, "srcset") || attr(tag, "data-srcset"))
+  ]);
+  const cssImages = [...String(html).matchAll(/(?:background(?:-image)?\s*:[^;}]*)?url\(\s*["']?([^"')]+)["']?\s*\)/gi)].map(match => match[1]);
+  const jsonImages = [...String(html).matchAll(/["'](?:image|imageUrl|thumbnailUrl|contentUrl)["']\s*:\s*["']([^"']+)["']/gi)].map(match => match[1]);
+  const imageUrls = [...new Set([...tagImages, ...cssImages, ...jsonImages].map(resolve).filter(Boolean))].filter(url => {
+    const value = url.toLowerCase();
+    return !/\.(?:svg)(?:\?|$)/.test(value) && !/(?:pixel|spacer|tracking|analytics|favicon|emoji|sprite)[._/-]/.test(value);
+  }).slice(0, 40);
+  const colors = [...new Set([theme, ...colorHits].filter(value => /^#[0-9a-f]{6}$/i.test(value)))].slice(0, 5);
+  return { title, description, imageUrl: resolve(image), logoUrl: resolve(attr(logoTag, "href")), imageUrls, colors };
+}
+
+async function fetchSmallDataUrl(url) {
+  if (!url) return "";
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Boolean Ad Studio" } });
+    const type = response.headers.get("content-type") || "";
+    const size = Number(response.headers.get("content-length") || 0);
+    if (!response.ok || !type.startsWith("image/") || type.includes("svg") || size > 3_000_000) return "";
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length < 2_000 || bytes.length > 3_000_000) return "";
+    return `data:${type.split(";")[0]};base64,${bytes.toString("base64")}`;
+  } catch { return ""; }
+}
 
 function loadAsset(name, devPath) {
   if (sea.isSea && sea.isSea()) {
@@ -308,6 +366,8 @@ function userTextOnly(content) {
 
 function shortThreadTitle(content) {
   const text = userTextOnly(content);
+  const site = text.match(/\bcompany\s+website\s*:\s*(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+)(?:\.[a-z0-9.-]+)?/i);
+  if (site?.[1]) return `${cap(site[1])} prospect plan`;
   const clean = text
     .replace(/https?:\/\/\S+/gi, "")
     .replace(/[^\w\s$%.-]/g, " ")
@@ -324,7 +384,10 @@ function shortThreadTitle(content) {
   if (/\bnotepad|notes?\b/.test(low)) return "Notepad";
   if (/\bsnip|screenshot|ocr|vision\b/.test(low)) return "Screen OCR";
   if (/\bsettings?\b/.test(low)) return "Settings";
-  if (/\bbrowser\b/.test(low)) return "Browser";
+  if (/\bbrowser\b/.test(low)) {
+    const topic = firstTopic(clean.replace(/\b(browser|use|open|current|page|context|boolean|summarize|research)\b/gi, ""), 4);
+    return topic || "Web research";
+  }
   if (/\bpackage|deploy|installer|install\b/.test(low)) return "Package build";
   if (/\bfix|bug|error|issue\b/.test(low)) return "Fix " + firstTopic(clean.replace(/\b(can you|please|fix|bug|error|issue|this|it|the)\b/gi, ""));
   if (/\bbuild|create|make|app|project\b/.test(low)) return "Build " + firstTopic(clean.replace(/\b(can you|please|build|create|make|me|a|an|the)\b/gi, ""));
@@ -337,11 +400,34 @@ function firstUserContent(t) {
 }
 
 function repairAutoNotepadTitle(t) {
-  if (t?.title !== "Notepad") return false;
+  if (!["Notepad", "Browser"].includes(t?.title)) return false;
   const next = shortThreadTitle(firstUserContent(t)).slice(0, 42);
-  if (!next || next === "New chat" || next === "Notepad") return false;
+  if (!next || next === "New chat" || next === t.title) return false;
   t.title = next;
   return true;
+}
+
+function repairGenericWorkflowTitle(t) {
+  if (!/^prepare sourced prospect(?: plan)?$/i.test(String(t?.title || "").trim())) return false;
+  const next = shortThreadTitle(firstUserContent(t)).slice(0, 42);
+  if (!next || next === "New chat" || next === t.title) return false;
+  t.title = next;
+  return true;
+}
+
+function uniqueThreadTitle(title, t, allThreads) {
+  const base = String(title || "").trim().slice(0, 42);
+  if (!base) return base;
+  const used = new Set([...allThreads]
+    .filter((other) => other && other !== t)
+    .map((other) => String(other.title || "").trim().toLowerCase()));
+  if (!used.has(base.toLowerCase())) return base;
+  for (let number = 2; number < 100; number += 1) {
+    const suffix = ` ${number}`;
+    const candidate = base.slice(0, 42 - suffix.length).trimEnd() + suffix;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+  return base;
 }
 
 function shouldAutoTitleThread(t) {
@@ -349,9 +435,9 @@ function shouldAutoTitleThread(t) {
   return !title || ["New chat", "Side chat", "New project", "Untitled project", "Project"].includes(title);
 }
 
-function autoTitleThread(t, content) {
+function autoTitleThread(t, content, allThreads = []) {
   if (!t || !shouldAutoTitleThread(t)) return false;
-  const next = shortThreadTitle(content).slice(0, 42);
+  const next = uniqueThreadTitle(shortThreadTitle(content), t, allThreads);
   if (!next || next === "New chat") return false;
   t.title = next;
   return true;
@@ -1223,6 +1309,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       recentActions: Array.isArray(controller.recentActions)
         ? controller.recentActions.slice(-10).map((item) => String(item || "").slice(0, 260))
         : [],
+      taskRun: controller.taskRun && typeof controller.taskRun === "object" ? controller.taskRun : null,
+      compaction: controller.compaction && typeof controller.compaction === "object" ? controller.compaction : null,
       inspectionCount: Math.max(0, Number(controller.inspectionCount) || 0),
       mutationCount: Math.max(0, Number(controller.mutationCount) || 0),
       lastVerification: Math.max(0, Number(controller.lastVerification) || 0)
@@ -1311,6 +1399,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     for (const t of restored) {
       if (t.side !== true && t.title === "Side chat") { t.side = true; repairedTitles = true; }
       if (repairAutoNotepadTitle(t)) repairedTitles = true;
+      if (repairGenericWorkflowTitle(t)) repairedTitles = true;
       if (!t.kind && isProjectThread(t)) { t.kind = "project"; repairedTitles = true; }
       if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; }
       if (t.pendingTask?.state === "running") {
@@ -1319,6 +1408,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         repairedTitles = true;
       }
       threads.set(t.id, { ...t, abort: null });
+    }
+    for (const t of restored) {
+      if (t.kind === "project") continue;
+      const unique = uniqueThreadTitle(t.title, t, restored);
+      if (unique !== t.title) { t.title = unique; repairedTitles = true; }
+      const saved = threads.get(t.id);
+      if (saved) saved.title = t.title;
     }
     activeThreadId = restored.sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
     if (repairedTitles) persist();
@@ -2065,7 +2161,39 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
+      // ── Semantic actions and capability search ──
+      if (req.method === "GET" && p === "/api/actions") {
+        const query = url.searchParams.get("q") || "";
+        json({ ok: true, actions: query ? searchActions(query) : listActions() });
+        return;
+      }
+
       // ── Diagnostics ──
+      if (req.method === "GET" && p === "/api/diagnostics/export") {
+        const active = threads.get(activeThreadId);
+        const report = {
+          format: "boolean-diagnostics",
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          app: { name: APP_NAME, version: APP_VERSION, packaged: IS_SEA, platform: process.platform, arch: process.arch },
+          runtime: { node: process.version, uptimeSeconds: Math.round(process.uptime()), activeChats },
+          model: {
+            provider: String(config.provider || "local"),
+            model: String(currentModel(config) || "").slice(0, 160),
+            autoApprove: config.autoApprove === true
+          },
+          task: publicPendingTask(active?.pendingTask),
+          capabilities: listActions().map((action) => action.capability)
+        };
+        const body = JSON.stringify(report, null, 2);
+        res.writeHead(200, {
+          "content-type": "application/json; charset=utf-8",
+          "content-disposition": `attachment; filename="boolean-diagnostics-${Date.now()}.json"`,
+          "cache-control": "no-store"
+        });
+        res.end(body);
+        return;
+      }
       if (req.method === "GET" && p === "/api/diagnostics") {
         const results = {};
         const spawnCheck = (cmd, args) => {
@@ -2548,6 +2676,19 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           json({ ok: true, ...ideas });
         } catch (error) {
           json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/markets/backtest") {
+        try {
+          const body = await readBody(req);
+          const symbol = String(body.symbol || "AAPL").slice(0, 16);
+          const range = ["6mo", "1y", "5y", "max"].includes(body.range) ? body.range : "5y";
+          const snapshot = await getMarketSnapshot(config.connectors?.marketData || {}, symbol, range);
+          json({ ok: true, ...runStrategyBacktest(snapshot, { ...body, symbol }) });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 400);
         }
         return;
       }
@@ -3722,6 +3863,93 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         json({ ok: true });
         return;
       }
+      if (req.method === "POST" && p === "/api/studio/site-brand") {
+        const body = await readBody(req);
+        let raw = String(body.url || "").trim();
+        if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+        const parsed = new URL(raw);
+        if (!/^https?:$/.test(parsed.protocol) || /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|\[?::1)/i.test(parsed.hostname)) {
+          throw new Error("Enter a public http or https website.");
+        }
+        const response = await fetch(parsed.toString(), { redirect: "follow", signal: AbortSignal.timeout(10000), headers: { "user-agent": "Mozilla/5.0 Boolean Ad Studio" } });
+        if (!response.ok) throw new Error(`Website returned ${response.status}.`);
+        const html = (await response.text()).slice(0, 2_000_000);
+        const finalUrl = response.url || parsed.toString();
+        const meta = websiteMeta(html, finalUrl);
+        const requestedLimit = body.assetLimit === "auto" ? 5 : Math.max(1, Math.min(8, Number(body.assetLimit) || 5));
+        const visualUrls = [...new Set([meta.imageUrl, ...meta.imageUrls, meta.logoUrl].filter(Boolean))].slice(0, 24);
+        const downloaded = await Promise.all(visualUrls.map(async url => ({ url, data: await fetchSmallDataUrl(url) })));
+        const assets = [...new Map(downloaded.filter(item => item.data).map(item => [item.data, item])).values()].slice(0, requestedLimit);
+        json({ ok: true, brand: {
+          url: finalUrl, domain: new URL(finalUrl).hostname.replace(/^www\./, ""),
+          title: meta.title || new URL(finalUrl).hostname.replace(/^www\./, ""),
+          description: meta.description || "", colors: meta.colors.length ? meta.colors : ["#2563eb", "#111827", "#ffffff"],
+          asset: assets[0]?.data || "", assets: assets.map(item => item.data), assetSources: assets.map(item => item.url), assetSource: assets[0]?.url || ""
+        }});
+        return;
+      }
+      if (req.method === "POST" && p === "/api/studio/veo/start") {
+        const body = await readBody(req);
+        if (!config.google?.apiKey) { json({ error: "Connect Google AI in Settings before using AI motion." }, 401); return; }
+        const prompt = String(body.prompt || "").trim().slice(0, 4000);
+        if (!prompt) { json({ error: "A scene prompt is required." }, 400); return; }
+        const aspectRatio = body.aspectRatio === "9:16" ? "9:16" : "16:9";
+        const imageMatch = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=]+)$/i.exec(String(body.image || ""));
+        const instance = { prompt };
+        if (imageMatch && imageMatch[2].length <= 16_000_000) instance.image = { inlineData: { mimeType: imageMatch[1].toLowerCase(), data: imageMatch[2] } };
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-fast-generate-preview:predictLongRunning", {
+          method: "POST", signal: AbortSignal.timeout(30000),
+          headers: { "content-type": "application/json", "x-goog-api-key": config.google.apiKey },
+          body: JSON.stringify({ instances: [instance], parameters: { aspectRatio, resolution: "720p" } })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.name) { json({ error: data?.error?.message || `Google video generation returned ${response.status}.` }, response.status || 502); return; }
+        const id = crypto.randomUUID();
+        studioVideoOperations.set(id, { name: data.name, createdAt: Date.now(), videoUri: "" });
+        json({ ok: true, id, status: "running" }); return;
+      }
+      if (req.method === "GET" && p === "/api/studio/veo/capability") {
+        if (!config.google?.apiKey) {
+          json({ ok: true, connected: false, ready: false, status: "missing_key", model: config.google?.model || "" }); return;
+        }
+        try {
+          const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000", {
+            signal: AbortSignal.timeout(20000), headers: { "x-goog-api-key": config.google.apiKey }
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            json({ ok: true, connected: true, ready: false, status: response.status === 401 || response.status === 403 ? "invalid_key" : "check_failed", detail: data?.error?.message || "Google AI could not verify this key.", model: config.google.model || "" }); return;
+          }
+          const models = (data.models || []).map(item => String(item.name || "").replace(/^models\//, ""));
+          const veoModel = models.find(name => name === "veo-3.1-fast-generate-preview") || models.find(name => /^veo-3\.1.*generate/i.test(name)) || "";
+          json({ ok: true, connected: true, ready: !!veoModel, status: veoModel ? "available" : "veo_unavailable", veoModel, model: config.google.model || "" }); return;
+        } catch (error) {
+          json({ ok: true, connected: true, ready: false, status: "check_failed", detail: error.message || "Could not reach Google AI.", model: config.google.model || "" }); return;
+        }
+      }
+      if (req.method === "GET" && p === "/api/studio/veo/status") {
+        const id = String(url.searchParams.get("id") || ""), operation = studioVideoOperations.get(id);
+        if (!operation) { json({ error: "Video job not found." }, 404); return; }
+        if (operation.videoUri) { json({ ok: true, status: "ready", download: `/api/studio/veo/file?id=${encodeURIComponent(id)}` }); return; }
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${operation.name}`, { signal: AbortSignal.timeout(20000), headers: { "x-goog-api-key": config.google.apiKey } });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) { json({ error: data?.error?.message || "Could not check the Google video job." }, response.status || 502); return; }
+        if (!data.done) { json({ ok: true, status: "running" }); return; }
+        if (data.error) { studioVideoOperations.delete(id); json({ error: data.error.message || "Google could not generate this scene." }, 502); return; }
+        operation.videoUri = data?.response?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri || "";
+        if (!operation.videoUri) { studioVideoOperations.delete(id); json({ error: "Google finished without returning a video." }, 502); return; }
+        json({ ok: true, status: "ready", download: `/api/studio/veo/file?id=${encodeURIComponent(id)}` }); return;
+      }
+      if (req.method === "GET" && p === "/api/studio/veo/file") {
+        const id = String(url.searchParams.get("id") || ""), operation = studioVideoOperations.get(id);
+        if (!operation?.videoUri || !config.google?.apiKey) { json({ error: "Generated video is unavailable." }, 404); return; }
+        const response = await fetch(operation.videoUri, { redirect: "follow", signal: AbortSignal.timeout(60000), headers: { "x-goog-api-key": config.google.apiKey } });
+        if (!response.ok) { json({ error: "Could not download the generated video." }, 502); return; }
+        res.writeHead(200, { "content-type": response.headers.get("content-type") || "video/mp4", "content-disposition": "attachment; filename=boolean-ai-scene.mp4", "cache-control": "no-store" });
+        const reader = response.body.getReader();
+        while (true) { const { done, value } = await reader.read(); if (done) break; res.write(value); }
+        res.end(); studioVideoOperations.delete(id); return;
+      }
       if (req.method === "POST" && p === "/api/preferences/feedback") {
         const body = await readBody(req);
         const saved = recordResponseFeedback(body || {});
@@ -3898,7 +4126,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         t.messages.push({ role: "user", content });
         t.log.push({ t: "user", text: userTextOnly(content), images: imagesOf(content), at: Date.now(), provider: "compare", compareTargets: targets });
         if (config.ui?.learnedMemory !== false) learnFromUserText(userTextOnly(content));
-        autoTitleThread(t, content);
+        autoTitleThread(t, content, threads.values());
         t.updatedAt = Date.now();
         persist();
         return streamCompare(t, targets, res);
@@ -3963,7 +4191,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         t.log.push({ t: "user", text: visibleUserText, images: imagesOf(content), at: Date.now(), provider: effectiveProvider });
         if (config.ui?.learnedMemory !== false) learnFromUserText(visibleUserText);
-        autoTitleThread(t, content);
+        autoTitleThread(t, content, threads.values());
         t.updatedAt = Date.now();
         persist();
         const sideProvider = body.sideChat === true && PROVIDERS.includes(String(body.sideProvider || "")) ? String(body.sideProvider) : "";
@@ -3972,6 +4200,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           forceTurnMode: body.sideChat === true ? "chat" : "",
           forceNoArtifact: body.salesWorkflow === true,
           salesWorkflow: body.salesWorkflow === true,
+          workflowRun: body.workflowRun === true,
           provider: sideProvider || requestedProvider,
           model: sideProvider ? sideModel : requestedModel,
           inspectSavedTask
@@ -4029,7 +4258,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
         const abort = new AbortController();
         t.abort = abort;
-        let runIn = 0, runOut = 0, runEst = false, runCalls = 0;
+        let runIn = 0, runOut = 0, runEst = false, runCalls = 0, teamUsageSeen = false;
+        const runUsageByWorker = new Map();
         const ctx = {
           config: runConfig,
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
@@ -4045,19 +4275,31 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           forceTurnMode: options.forceTurnMode || "",
           forceNoArtifact: options.forceNoArtifact === true,
           salesWorkflow: options.salesWorkflow === true,
+          workflowRun: options.workflowRun === true,
           onStatus: (text, detail) => send({ type: "status", text, ...(detail || {}) }),
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {
             runIn += u.input || 0; runOut += u.output || 0; runEst = runEst || !!u.estimated;
             if ((u.input || 0) || (u.output || 0)) runCalls++;
-            if (u.model) replyModel = u.model;
+            if (u.model && !u.teamWorker) replyModel = u.model;
+            const role = u.teamWorker ? String(u.role || "Specialist") : "Lead";
+            const attempt = u.teamWorker ? Math.max(1, Number(u.attempt) || 1) : 1;
+            const usageKey = `${role}\u0000${u.provider || ""}\u0000${u.model || ""}\u0000${attempt}`;
+            const workerUsage = runUsageByWorker.get(usageKey) || { role, provider: u.provider || "", model: u.model || "", attempt, input: 0, output: 0, calls: 0, estimated: false };
+            workerUsage.input += u.input || 0;
+            workerUsage.output += u.output || 0;
+            workerUsage.calls += ((u.input || 0) || (u.output || 0)) ? 1 : 0;
+            workerUsage.estimated = workerUsage.estimated || !!u.estimated;
+            runUsageByWorker.set(usageKey, workerUsage);
+            teamUsageSeen = teamUsageSeen || !!u.teamWorker;
             recordUsage(u.provider, u.model, u.input || 0, u.output || 0);
-            send({ type: "tokens", input: runIn, output: runOut, estimated: runEst, calls: runCalls });
+            const breakdown = teamUsageSeen ? [...runUsageByWorker.values()].map((item) => ({ ...item, cost: costOf(item.input, item.output, item.model) })) : undefined;
+            send({ type: "tokens", input: runIn, output: runOut, estimated: runEst, calls: runCalls, ...(breakdown ? { breakdown } : {}) });
           },
           onStep: (step) => {
-            const entry = { t: "tool", name: step.name, summary: stepSummary(step.name, step.args), result: step.result };
+            const entry = { t: "tool", name: step.name, args: step.args || {}, summary: stepSummary(step.name, step.args), result: step.result };
             t.log.push(entry);
-            send({ type: "step", entry, ...(options.salesWorkflow === true ? { stepArgs: step.args || {} } : {}) });
+            send({ type: "step", entry, ...((options.salesWorkflow === true || options.workflowRun === true) ? { stepArgs: step.args || {} } : {}) });
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
             if (/^email_/.test(step.name || "")) {
               const provider = String(step.args?.provider || "").toLowerCase();
@@ -4206,7 +4448,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             // terminal record. Local model performance uses the exact output
             // count together with first-token timing measured on this PC.
             if (runIn || runOut) {
-              const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst, calls: runCalls };
+              const breakdown = teamUsageSeen ? [...runUsageByWorker.values()].map((item) => ({ ...item, cost: costOf(item.input, item.output, item.model) })) : undefined;
+              const usage = { t: "usage", input: runIn, output: runOut, estimated: runEst, calls: runCalls, ...(breakdown ? { breakdown } : {}) };
               t.log.push(usage);
               send({ type: "usage", ...usage });
             }

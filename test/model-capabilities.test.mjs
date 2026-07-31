@@ -26,19 +26,19 @@ function config(overrides = {}) {
   };
 }
 
-test("GLM-5-Turbo on the Z.AI Coding Plan defaults to limited Patch mode", () => {
+test("GLM-5-Turbo on the Z.AI Coding Plan uses the compatibility tool bridge", () => {
   const cfg = config();
   const target = { provider: "zaiCoding", base: cfg.zaiCoding.baseUrl, model: cfg.zaiCoding.model };
   const profile = modelCapabilityProfile(cfg, target, { vision: false });
   assert.equal(nativeToolSupport(cfg, target), false);
   assert.equal(profile.mode, "patch");
-  assert.equal(profile.label, "Limited coding");
-  assert.equal(profile.capabilities.fileEdit, "patch");
-  assert.equal(profile.capabilities.terminal, false);
-  assert.equal(profile.capabilities.browser, false);
-  assert.equal(profile.capabilities.deploy, false);
+  assert.equal(profile.label, "Compatible coding");
+  assert.equal(profile.capabilities.fileEdit, true);
+  assert.equal(profile.capabilities.terminal, true);
+  assert.equal(profile.capabilities.browser, true);
+  assert.equal(profile.capabilities.deploy, true);
   assert.equal(profile.capabilities.vision, false);
-  assert.match(profile.warning, /does not support Boolean's native tools/i);
+  assert.match(profile.warning, /validated compatibility bridge/i);
 });
 
 test("capability records are scoped to provider endpoint and model and override inference", () => {

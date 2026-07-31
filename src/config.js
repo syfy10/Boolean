@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.60";
-export const APP_DISPLAY_VERSION = "v0.9.60";
+export const APP_VERSION = "0.9.61";
+export const APP_DISPLAY_VERSION = "v0.9.61";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -102,7 +102,7 @@ const DEFAULTS = {
     approvedUse: false
   },
   claude: {
-    // Anthropic's OpenAI-compatible endpoint â€” same chat/completions shape
+    // Anthropic's OpenAI-compatible endpoint - same chat/completions shape
     baseUrl: "https://api.anthropic.com/v1",
     model: "claude-sonnet-5",
     apiKey: ""
@@ -201,7 +201,7 @@ const DEFAULTS = {
     notifications: false,
     autoRouteModels: false,   // automatically select the configured model route for each task type
     modelRouting: { selected: "chat" },
-    contextMode: "balanced",  // minimal | balanced | full â€” Context Optimizer
+    contextMode: "balanced",  // minimal | balanced | full - Context Optimizer
     codingAgent: {
       mode: "quick",          // quick | feature | debug | review | refactor
       autoTest: true,
@@ -211,7 +211,14 @@ const DEFAULTS = {
       budget: "normal",       // small | normal | large
       autoCommit: false,
       autopilot: true,        // active controller: auto-continue, plan/verify/recover loop (helps weaker models stay on task)
-      routing: "auto"         // auto | local-only | cloud-plan (route the first planning step to the cloud model, execute locally)
+      routing: "auto",        // auto | local-only | cloud-plan (route the first planning step to the cloud model, execute locally)
+      teamwork: {
+        mode: "solo",         // solo | assist | team
+        workerProvider: "auto",
+        maxWorkers: 3,
+        useLowCost: true,
+        taskBudget: 0.50
+      }
     },
     browserOpen: false,       // in-app browser panel visible
     cleanStartup: true,       // open with sidebar/workspace tabs/panels closed
@@ -221,7 +228,7 @@ const DEFAULTS = {
     browserTabs: [],          // [{url,title}] restored on launch
     aiBrowser: true,          // allow the AI to browse the web (search/open/click/forms)
     systemActions: true,      // typed Windows inspection/settings/package actions
-    searchEngine: "google",   // google | bing | duckduckgo â€” address-bar searches
+    searchEngine: "google",   // google | bing | duckduckgo - address-bar searches
     researchPolicy: "authoritative",
     browserPerms: { downloads: true, camera: false, mic: false, geo: false },
     browserHistory: [],       // [{url,title,at}] capped at 100
@@ -499,7 +506,7 @@ export function loadConfig() {
       // Coding Plan traffic must always use Z.AI's dedicated endpoint.
       cfg.zaiCoding.baseUrl = DEFAULTS.zaiCoding.baseUrl;
       if (!["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"].includes(cfg.zaiCoding.model)) cfg.zaiCoding.model = "GLM-4.7";
-      // Ollama support was removed â€” fall back to the built-in local engine
+      // Ollama support was removed - fall back to the built-in local engine
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
       // Missing legacy values use the practical first-load default.
       if (!cfg.local.ctx) cfg.local.ctx = 8192;

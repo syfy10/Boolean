@@ -162,8 +162,8 @@ export function projectBrief(projectDir) {
       "",
       "",
       `PROJECT: This chat is bound to the folder ${projectDir}.`,
-      "Work on the files in THIS folder. Read a file with read_file before changing it,",
-      "edit with write_file, and verify changes with run_command before claiming success."
+      "Work on the files in THIS folder. For multi-file tasks, use repository_map to rank the relevant files,",
+      "then inspect exact symbols or line ranges, prefer edit_file for targeted changes, and verify with run_command before claiming success."
     ];
     const rules = loadProjectRules(projectDir);
     if (rules) header.push(rules);
@@ -197,7 +197,7 @@ const SALES_PRIMARY_EVIDENCE_CONTRADICTION = /\b(?:could not|couldn't|unable to|
 const SALES_PLAN_SECTION = /^(?:(?:#{1,4}\s+)|(?:\*\*\s*))?([1-5])[.)-]\s+/gmi;
 const RESEARCH_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => RESEARCH_TOOL_NAMES.has(tool.function.name));
 const INSPECT_TOOL_NAMES = new Set([
-  "list_dir", "read_file", "find_files", "search_files", "find_symbol",
+  "list_dir", "read_file", "find_files", "search_files", "repository_map", "find_symbol",
   "git_status", "git_diff", "git_log", "list_subagent_results", "read_process",
   "read_page", "inspect_page_layout", "screenshot_page", "visible_browser_read",
   "list_connectors", "mcp_list_tools", "cloudflare_list_resources", "cloud_hosting_list_resources", "notepad_read", "email_list", "email_read",
@@ -205,7 +205,7 @@ const INSPECT_TOOL_NAMES = new Set([
 ]);
 const INSPECT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => INSPECT_TOOL_NAMES.has(tool.function.name));
 const COMPATIBILITY_INSPECT_TOOL_NAMES = new Set([
-  "list_dir", "read_file", "find_files", "search_files", "find_symbol",
+  "list_dir", "read_file", "find_files", "search_files", "repository_map", "find_symbol",
   "git_status", "git_diff", "remember"
 ]);
 const ACTION_TOOL_NAMES = new Set(TOOL_DEFINITIONS
@@ -216,7 +216,7 @@ const ACTION_TOOL_NAMES = new Set(TOOL_DEFINITIONS
 // project or operate on config.projectsDir as an implicit workspace.
 const PROJECT_WORKSPACE_TOOL_NAMES = new Set([
   "create_project", "list_dir", "read_file", "write_file", "run_project",
-  "run_command", "find_files", "search_files", "find_symbol", "git_status",
+  "run_command", "find_files", "search_files", "repository_map", "find_symbol", "git_status",
   "git_diff", "git_log", "github_workflow", "run_guarded",
   "record_debug_evidence", "run_subagent", "list_subagent_results",
   "apply_subagent_result", "discard_subagent_result"
@@ -278,12 +278,12 @@ function fallbackToolPrompt(definitions = TOOL_DEFINITIONS, options = {}) {
       }));
   return [
     "",
-    "LIMITED INSPECTION PROTOCOL: To inspect evidence, reply with ONLY one fenced block like this:",
+    "COMPATIBILITY TOOL PROTOCOL: To use a Boolean tool, reply with ONLY one fenced block like this:",
     "```tool",
     '{"name": "run_command", "arguments": {"command": "Get-Date"}}',
     "```",
     "Bare JSON, trailing JSON, prose instructions, and mutation commands are not executed.",
-    "You may inspect at most twice. Then use the saved evidence and answer or return one Boolean patch.",
+    "Continue using the available tools as needed to complete and verify the requested outcome. Boolean's shared loop guard pauses repeated calls that stop making progress.",
     compact ? "Available tools (name: purpose). Use the obvious JSON arguments for the selected tool:" : "Available tools (JSON schema):",
     compact ? tools.map((line) => `- ${line}`).join("\n") : JSON.stringify(tools, null, 2)
   ].join("\n");
@@ -308,14 +308,15 @@ function patchModePrompt(reviewOnly = false) {
   }
   return [
     "",
-    "BOOLEAN PATCH MODE: This model has no native mutation, terminal, browser, or deploy tools.",
+    "BOOLEAN COMPATIBILITY MODE: This model uses Boolean's validated text tool bridge instead of native function calls.",
+    "Use the provided fenced tool-call protocol to inspect files, edit, run terminal commands, browse, test, and deploy when the task and approval policy allow it.",
     "To change files, return exactly ONE fenced boolean_patch block and no vague editing instructions:",
     "```boolean_patch",
     '{"edits":[{"path":"src/file.js","old":"exact existing text","new":"exact replacement"}]}',
     "```",
     "For a new file use {\"path\":\"relative/path\",\"content\":\"complete file content\"}.",
     "Paths must be relative to the open project. Existing-file old text must match exactly and uniquely.",
-    "Boolean validates the complete patch before applying any edit. Do not claim tests, terminal work, browsing, or deployment."
+    "Boolean validates the complete patch before applying any edit. After editing, use the provided tools to test and verify the result."
   ].join("\n");
 }
 
@@ -326,7 +327,7 @@ function withCompatibilityProtocol(messages, definitions, options = {}) {
     patchModePrompt(options.reviewOnly === true),
     definitions.length ? fallbackToolPrompt(definitions, { compact: true }) : ""
   ].filter(Boolean).join("\n");
-  if (systemIndex >= 0 && !/BOOLEAN (?:PATCH|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
+  if (systemIndex >= 0 && !/BOOLEAN (?:COMPATIBILITY|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
     copy[systemIndex].content = `${copy[systemIndex].content}\n${protocol}`;
   }
   return copy;
@@ -1129,6 +1130,52 @@ function directActionAnswer(action, result) {
   return lines.join("\n");
 }
 
+export function teamworkAssignments(config = {}) {
+  const teamwork = config?.ui?.codingAgent?.teamwork || {};
+  const mode = ["assist", "team"].includes(String(teamwork.mode || "").toLowerCase())
+    ? String(teamwork.mode).toLowerCase()
+    : "solo";
+  if (mode === "solo") return [];
+  const primary = String(config.provider || "local");
+  const connected = Object.keys(CLOUD).filter((provider) => {
+    const entry = config?.[provider] || {};
+    return !!entry.apiKey && !!entry.model;
+  });
+  if (primary === "local" && config?.local?.model) connected.unshift("local");
+  else if (primary && !connected.includes(primary)) connected.unshift(primary);
+  const costRank = (provider) => {
+    if (provider === "local") return 0;
+    const model = String(config?.[provider]?.model || "").toLowerCase();
+    if (/\b(?:nano|mini|flash-lite|lite|haiku|small)\b/.test(model)) return 1;
+    if (/\b(?:flash|turbo|fast)\b/.test(model)) return 2;
+    return 3;
+  };
+  if (teamwork.useLowCost !== false) connected.sort((a, b) => costRank(a) - costRank(b));
+  const preferred = String(teamwork.workerProvider || "auto");
+  const ordered = [
+    ...(preferred !== "auto" && connected.includes(preferred) ? [preferred] : []),
+    ...connected.filter((provider) => provider !== primary),
+    primary
+  ].filter((provider, index, all) => provider && all.indexOf(provider) === index);
+  if (!ordered.length) return [];
+  const roles = mode === "assist"
+    ? [{ role: "Reviewer", task: "Map the likely files and tests, identify risks, and give the lead a concise implementation recommendation. Do not edit files." }]
+    : [
+        { role: "Mapper", task: "Map the repository around the request. Identify exact files, symbols, existing patterns, and likely dependencies. Do not edit files." },
+        { role: "Test analyst", task: "Inspect the relevant tests and failure paths. Propose exact reproduction and verification checks. Do not edit files." },
+        { role: "Reviewer", task: "Review the requested change for architecture, regressions, security, and edge cases. Give the lead specific recommendations. Do not edit files." }
+      ];
+  const count = mode === "assist" ? 1 : Math.max(2, Math.min(3, Number(teamwork.maxWorkers) || 3));
+  return roles.slice(0, count).map((item, index) => {
+    const provider = ordered[index % ordered.length];
+    return {
+      ...item,
+      provider,
+      model: provider === "local" ? String(config?.local?.model || config?.model || "") : String(config?.[provider]?.model || "")
+    };
+  });
+}
+
 /**
  * Run one user turn through the agent loop, executing tools until the model
  * produces a final text answer.
@@ -1175,6 +1222,7 @@ export async function runTurn(ctx, messages) {
     artifactRequired: artifactActionRequired,
     actionRequired: connectorToolResultRequired || explicitActionToolResultRequired,
     projectDir: ctx.projectDir,
+    effectiveAccessMode: ctx.config?.autoApprove === true ? "full_access" : "ask",
     loopStop: ctx.config?.ui?.codingAgent?.stopLoop === true,
     autopilot: ctx.config?.ui?.codingAgent?.autopilot === true,
     persisted: ctx.controllerState,
@@ -1296,6 +1344,79 @@ export async function runTurn(ctx, messages) {
   }
 
   let bootstrapContext = "";
+  const teamAssignments = !ctx.subagentDepth && artifactActionRequired && ctx.projectDir
+    ? teamworkAssignments(config)
+    : [];
+  if (teamAssignments.length) {
+    const teamMode = String(config?.ui?.codingAgent?.teamwork?.mode || "assist");
+    const recordTeamWorker = (assignment, state, detail, attempt = 1) => {
+      const worker = { role: assignment.role, provider: assignment.provider, model: assignment.model, state, attempt };
+      controller.noteTeamWorker(worker, detail);
+      publishController();
+      emitStep({ name: "team_worker", args: worker, result: detail });
+    };
+    const fallbackFor = (assignment) => teamAssignments.find((candidate) =>
+      candidate.provider !== assignment.provider && candidate.model
+    ) || null;
+    onStatus(`${teamMode === "team" ? "Team" : "Assist"} starting ${teamAssignments.length} specialist${teamAssignments.length === 1 ? "" : "s"}...`);
+    const reports = await Promise.all(teamAssignments.map(async (assignment) => {
+      const label = `${assignment.role} · ${assignment.model || assignment.provider}`;
+      recordTeamWorker(assignment, "working", `${label} started`, 1);
+      const task = [
+        `You are the ${assignment.role} supporting a lead coding agent.`,
+        `User objective: ${ctx.latestUserText}`,
+        assignment.task,
+        "Use repository_map and targeted inspection when useful. Return a concise evidence-backed handoff for the lead."
+      ].join("\n\n");
+      try {
+        const answer = await runSubagent(ctx, task, {
+          provider: assignment.provider,
+          model: assignment.model,
+          role: assignment.role,
+          attempt: 1,
+          silentSteps: true
+        });
+        const report = String(answer || "No report returned.").slice(0, 6000);
+        recordTeamWorker(assignment, "done", report.slice(0, 4000), 1);
+        return `### ${label}\nStatus: completed on attempt 1.\n${report}`;
+      } catch (err) {
+        const reason = String(err?.message || err);
+        const fallback = ctx.signal?.aborted ? null : fallbackFor(assignment);
+        if (!fallback) {
+          recordTeamWorker(assignment, "failed", reason, 1);
+          return `### ${label}\nStatus: unavailable after attempt 1.\nWorker unavailable: ${reason}`;
+        }
+        const retry = { ...fallback, role: assignment.role, task: assignment.task };
+        const retryLabel = `${retry.role} · ${retry.model || retry.provider}`;
+        recordTeamWorker(retry, "retrying", `First provider failed: ${reason}`, 2);
+        try {
+          const answer = await runSubagent(ctx, task, {
+            provider: retry.provider,
+            model: retry.model,
+            role: retry.role,
+            attempt: 2,
+            silentSteps: true
+          });
+          const report = String(answer || "No report returned.").slice(0, 6000);
+          recordTeamWorker(retry, "done", report.slice(0, 4000), 2);
+          return `### ${retryLabel}\nStatus: completed using fallback attempt 2 after ${label} failed.\n${report}`;
+        } catch (retryErr) {
+          const retryReason = String(retryErr?.message || retryErr);
+          recordTeamWorker(retry, "failed", retryReason, 2);
+          return `### ${retryLabel}\nStatus: unavailable after fallback attempt 2.\nFirst failure: ${reason}\nFallback failure: ${retryReason}`;
+        }
+      }
+    }));
+    messages.push({
+      role: "user",
+      content: [
+        "BOOLEAN TEAM HANDOFF",
+        "These specialists worked in parallel. Use their evidence, resolve disagreements yourself, make the implementation, and run final verification. Do not merely repeat their reports.",
+        ...reports
+      ].join("\n\n")
+    });
+    onStatus("specialist reports ready - lead model is integrating them...");
+  }
   let target = await resolveTarget(config, onStatus);
   // Model routing: with routing="cloud-plan", the first planning step runs on the
   // configured cloud model (stronger reasoning), then execution continues locally.
@@ -1320,7 +1441,7 @@ export async function runTurn(ctx, messages) {
   if (compatibilityMode && artifactActionRequired) {
     onStatus(reviewOnlyCompatibility
       ? `${target.model || "This model"} is in review/chat-only mode`
-      : `${target.model || "This model"} has limited coding support - using exact Patch mode`);
+      : `${target.model || "This model"} is using Boolean's compatibility tool bridge`);
   }
   const emitUsage = (msg, usedTarget = target) => {
     if (msg?.usage) controller.addUsage(msg.usage);
@@ -1432,6 +1553,7 @@ export async function runTurn(ctx, messages) {
   let compatibilityInspectionCount = 0;
   let compatibilityPatchApplied = false;
   let compatibilityPatchErrors = 0;
+  const MAX_COMPATIBILITY_PATCH_RETRIES = 3;
   // Autopilot re-enables the controller's auto-continue (verify/recover) loop even
   // in neutral-relay mode; with it off, behavior is unchanged (0 = model owns the loop).
   const autopilot = config?.ui?.codingAgent?.autopilot === true;
@@ -1492,8 +1614,8 @@ export async function runTurn(ctx, messages) {
       const availableTools = forceChat
         ? []
         : toolDefinitionsForTurnMode(turnMode, artifactActionRequired, completedToolWork, !!ctx.projectDir);
-      const compatibilityInspections = compatibilityMode && compatibilityInspectionCount < 2 && !compatibilityPatchApplied
-        ? compatibilityToolDefinitions(availableTools)
+      const compatibilityInspections = compatibilityMode && !reviewOnlyCompatibility
+        ? availableTools
         : [];
       activeToolDefinitions = compatibilityMode ? compatibilityInspections : availableTools;
       if (compatibilityMode) {
@@ -1573,10 +1695,10 @@ export async function runTurn(ctx, messages) {
           ctx.onCapabilityChange);
         if (rejectedNativePrompt) compactToolProtocol = true;
         onStatus(rejectedNativePrompt
-          ? "the provider rejected native tools - switching to limited Patch mode..."
+          ? "the provider rejected native tools - switching to the compatibility tool bridge..."
           : malformedNativeCall
-            ? "the model's native tool call was malformed - switching to limited Patch mode..."
-            : `model '${target.model}' lacks native tool support - using limited Patch mode`);
+            ? "the model's native tool call was malformed - switching to the compatibility tool bridge..."
+            : `model '${target.model}' lacks native tool support - using the compatibility tool bridge`);
         convertNativeToolHistoryToText(messages);
         continue;
       }
@@ -1609,7 +1731,7 @@ export async function runTurn(ctx, messages) {
         compatibilityMode = true;
         reviewOnlyCompatibility = false;
         saveCapabilityResult(config, target, false, "model returned malformed native tool call", ctx.onCapabilityChange);
-        onStatus("the model's native tool call was malformed - switching to limited Patch mode...");
+        onStatus("the model's native tool call was malformed - switching to the compatibility tool bridge...");
         continue;
       }
       saveCapabilityResult(config, target, true, "native tool call completed", ctx.onCapabilityChange);
@@ -1653,7 +1775,7 @@ export async function runTurn(ctx, messages) {
             const args = edit.kind === "create"
               ? { path: edit.absolute, content: edit.content }
               : { path: edit.absolute, old_string: edit.old, new_string: edit.new };
-            onStatus(`applying Patch mode edit to ${edit.path}...`);
+            onStatus(`applying compatibility edit to ${edit.path}...`);
             const result = await executeControllerTool(name, args);
             noteControllerTool(name, args, result);
             emitStep({ name: "boolean_patch", args: { path: edit.path, kind: edit.kind }, result });
@@ -1667,7 +1789,7 @@ export async function runTurn(ctx, messages) {
           emptyResponseRetries = 0;
           messages.push({
             role: "user",
-            content: `BOOLEAN PATCH RESULT:\n${results.join("\n")}\nSummarize only the edits actually applied. Do not claim tests, terminal, browser, or deployment work.`
+            content: `BOOLEAN PATCH RESULT:\n${results.join("\n")}\nContinue the task. Use the compatibility tools to run the requested tests and verification before summarizing.`
           });
           checkpoint();
           continue;
@@ -1675,19 +1797,24 @@ export async function runTurn(ctx, messages) {
       } catch (err) {
         compatibilityPatchErrors++;
         const reason = String(err?.message || err);
-        if (compatibilityPatchErrors <= 1) {
+        if (compatibilityPatchErrors < MAX_COMPATIBILITY_PATCH_RETRIES) {
           messages.push({ role: "assistant", content: assistantContent });
           messages.push({
             role: "user",
-            content: `BOOLEAN PATCH REJECTED: ${reason}\nReturn one corrected fenced boolean_patch block. Do not inspect again or describe a future edit.`
+            content: `BOOLEAN PATCH REJECTED (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES}): ${reason}\nUse the saved evidence to return one corrected fenced boolean_patch block, or use read_file/edit_file through the compatibility tool protocol if the exact target changed.`
           });
-          onStatus("the proposed patch did not match the project - requesting one corrected patch...");
+          onStatus(`the proposed patch did not match the project - recovering (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES})...`);
           continue;
         }
-        const stoppedPatch = `Patch mode stopped without further changes: ${reason} Switch to a native-tool model, provide the exact target text, or continue in review-only mode.`;
-        messages.push({ role: "assistant", content: stoppedPatch });
+        compatibilityPatchApplied = true;
+        messages.push({ role: "assistant", content: assistantContent });
+        messages.push({
+          role: "user",
+          content: `BOOLEAN PATCH RECOVERY: ${reason}\nThe bulk patch path was exhausted, but the task is still active. Use repository_map, read_file, and edit_file through the compatibility tool protocol to make smaller grounded edits, then run verification. Do not repeat the rejected patch.`
+        });
+        onStatus("switching from the rejected bulk patch to smaller grounded edits...");
         checkpoint();
-        return stoppedPatch;
+        continue;
       }
     }
 
@@ -1698,12 +1825,6 @@ export async function runTurn(ctx, messages) {
       ? parseFallbackToolCall(assistantContent, { strict: compatibilityMode, allowedNames })
       : null;
     if (call) {
-      if (compatibilityMode && compatibilityInspectionCount >= 2) {
-        const stoppedInspecting = "Patch mode stopped after two inspection steps with 0 file changes. Choose Create one patch, Switch model, or Continue review only.";
-        messages.push({ role: "assistant", content: stoppedInspecting });
-        checkpoint();
-        return stoppedInspecting;
-      }
       messages.push({ role: "assistant", content: assistantContent });
       onStatus(`running ${call.name}…`);
       const result = await executeControllerTool(call.name, call.arguments);
@@ -1727,27 +1848,6 @@ export async function runTurn(ctx, messages) {
       flushPendingImages();
       checkpoint();
       continue;
-    }
-
-    if (compatibilityMode && !reviewOnlyCompatibility && artifactActionRequired && !compatibilityPatchApplied) {
-      const stoppedPatch = compatibilityInspectionCount >= 2
-        ? "Patch mode stopped after two inspection steps with 0 file changes. Choose Create one patch, Switch model, or Continue review only."
-        : "Patch mode stopped before changing files because the model did not return one exact fenced boolean_patch block. Choose Create one patch, Switch model, or Continue review only.";
-      messages.push({ role: "assistant", content: stoppedPatch });
-      checkpoint();
-      return stoppedPatch;
-    }
-
-    // A successful compatibility patch gets exactly one summary response. Do
-    // not feed that summary into the native-agent verification/continuation
-    // loop because this model cannot run the terminal, browser, or deploy.
-    if (compatibilityPatchApplied && assistantContent.trim()) {
-      controller.updateDigest(assistantContent, ctx.latestUserText || "");
-      controller.evaluateCompletion(assistantContent);
-      messages.push({ role: "assistant", content: assistantContent });
-      publishController();
-      checkpoint();
-      return assistantContent;
     }
 
     // A small model may understand a build request yet answer with a tutorial
@@ -1855,13 +1955,42 @@ export async function runTurn(ctx, messages) {
  */
 export async function runSubagent(parentCtx, task, options = {}) {
   const cfg = parentCtx.config || {};
-  const workspaceDir = options.workspaceDir || cfg.projectsDir;
-  const childConfig = workspaceDir === cfg.projectsDir ? cfg : { ...cfg, projectsDir: workspaceDir };
+  const workspaceDir = options.workspaceDir || parentCtx.projectDir || cfg.projectsDir;
+  const provider = options.provider && (options.provider === "local" || CLOUD[options.provider])
+    ? options.provider
+    : cfg.provider;
+  const providerEntry = provider && cfg[provider] ? {
+    [provider]: { ...cfg[provider], ...(options.model ? { model: options.model } : {}) }
+  } : {};
+  const childConfig = {
+    ...cfg,
+    ...providerEntry,
+    provider,
+    projectsDir: workspaceDir,
+    ui: {
+      ...(cfg.ui || {}),
+      codingAgent: {
+        ...(cfg.ui?.codingAgent || {}),
+        budget: Number(cfg.ui?.codingAgent?.teamwork?.taskBudget || 0.5) <= 0.25
+          ? "small"
+          : Number(cfg.ui?.codingAgent?.teamwork?.taskBudget || 0.5) <= 1 ? "normal" : "large",
+        teamwork: { ...(cfg.ui?.codingAgent?.teamwork || {}), mode: "solo" }
+      }
+    }
+  };
   const sys = "";
   const messages = [
     { role: "system", content: sys },
     { role: "user", content: String(task || "").trim() }
   ];
+  const workerAbort = new AbortController();
+  const timeoutMs = Math.max(100, Number(options.timeoutMs) || 90_000);
+  const timeout = setTimeout(() => workerAbort.abort(new Error("Specialist timed out")), timeoutMs);
+  const abortFromParent = () => workerAbort.abort(parentCtx.signal?.reason || new Error("Lead task stopped"));
+  if (parentCtx.signal) {
+    if (parentCtx.signal.aborted) abortFromParent();
+    else parentCtx.signal.addEventListener("abort", abortFromParent, { once: true });
+  }
   const childCtx = {
     ...parentCtx,
     config: childConfig,
@@ -1872,7 +2001,28 @@ export async function runSubagent(parentCtx, task, options = {}) {
     pendingImages: [],
     runSubagent: null,             // no nesting
     subagentDepth: (parentCtx.subagentDepth || 0) + 1,
-    onStatus: (t) => parentCtx.onStatus?.(`sub-agent: ${t}`)
+    signal: workerAbort.signal,
+    onStep: options.silentSteps ? null : parentCtx.onStep,
+    onStatus: (t) => parentCtx.onStatus?.(`${options.role || "sub-agent"}: ${t}`),
+    onUsage: (usage) => parentCtx.onUsage?.({
+      ...usage,
+      role: options.role || "Specialist",
+      attempt: Math.max(1, Number(options.attempt) || 1),
+      teamWorker: true
+    }),
+    onController: null,            // workers cannot overwrite the lead's durable controller
+    onCheckpoint: null             // only the lead owns the durable task heartbeat
   };
-  return await runTurn(childCtx, messages);
+  try {
+    const answer = await runTurn(childCtx, messages);
+    if (workerAbort.signal.aborted) {
+      throw workerAbort.signal.reason instanceof Error
+        ? workerAbort.signal.reason
+        : new Error("Specialist stopped");
+    }
+    return answer;
+  } finally {
+    clearTimeout(timeout);
+    parentCtx.signal?.removeEventListener?.("abort", abortFromParent);
+  }
 }

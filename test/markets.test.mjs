@@ -5,8 +5,41 @@ import {
   parseYahooChart, parseYahooNews, parseYahooScreener, parseYahooFundamentals,
   parseAlphaQuote, parseAlphaDaily, parseOccOptionSymbol, parseYahooOptions,
   parseAlpacaOptions, parseMassiveOptions, massiveConnectionError, buildTradeIdea, parseCftcSnapshot,
-  getSectorPerformance
+  getSectorPerformance, runStrategyBacktest, BACKTEST_STRATEGIES
 } from "../src/markets.js";
+
+test("Strategy Lab exposes five understandable presets", () => {
+  assert.deepEqual(BACKTEST_STRATEGIES.map((item) => item.key), [
+    "buyHold", "movingAverage", "momentum", "meanReversion", "breakout"
+  ]);
+});
+
+test("backtests use next-bar signals, include costs, and report benchmark risk", () => {
+  const points = Array.from({ length: 90 }, (_, index) => ({
+    time: Date.UTC(2026, 0, index + 1),
+    close: index < 45 ? 100 + index : 145 - (index - 45) * .6
+  }));
+  const noCost = runStrategyBacktest({ symbol: "TEST", source: "Fixture", points }, {
+    strategy: "movingAverage", fast: 5, slow: 15, costBps: 0
+  });
+  const withCost = runStrategyBacktest({ symbol: "TEST", source: "Fixture", points }, {
+    strategy: "movingAverage", fast: 5, slow: 15, costBps: 25
+  });
+  assert.equal(noCost.symbol, "TEST");
+  assert.ok(noCost.tradeCount >= 1);
+  assert.ok(noCost.equityCurve.length === points.length);
+  assert.ok(Number.isFinite(noCost.sharpe));
+  assert.ok(noCost.maxDrawdown <= 0);
+  assert.ok(withCost.endingEquity < noCost.endingEquity);
+  assert.ok(Number.isFinite(noCost.benchmarkReturn));
+});
+
+test("backtests reject histories too short to be meaningful", () => {
+  assert.throws(() => runStrategyBacktest({
+    symbol: "SHORT",
+    points: Array.from({ length: 10 }, (_, index) => ({ time: index + 1, close: 100 + index }))
+  }), /At least 30/);
+});
 
 test("Massive connection errors explain key, plan, and rate-limit failures", () => {
   assert.match(massiveConnectionError({ status: 401 }), /rejected this API key/i);
@@ -225,7 +258,7 @@ test("Markets uses the selected flat floating-workspace layout", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
   assert.match(ui,/class="markets-shell market-flat"/);
   assert.match(ui,/\.workspace-float \.markets-shell\.market-flat\{[^}]*border:0;[^}]*border-radius:0;[^}]*box-shadow:none;/s);
-  assert.match(ui,/\.workspace-float \.markets-shell\.market-flat\{[^}]*width:max\(100%,910px\);[^}]*overflow:hidden;/s);
+  assert.match(ui,/\.workspace-float \.markets-shell\.market-flat\{[^}]*width:100%;[^}]*min-width:0;[^}]*overflow:hidden;/s);
   assert.match(ui,/\.markets-panel\{[^}]*overflow:auto;/s);
   const headerStart=ui.indexOf('<header class="markets-head">');
   const headerEnd=ui.indexOf("</header>",headerStart);
@@ -235,7 +268,7 @@ test("Markets uses the selected flat floating-workspace layout", () => {
   assert.doesNotMatch(header,/id="marketCommand"/);
   assert.doesNotMatch(header,/id="marketSource"|market-source-wrap|market-source-info/);
   assert.match(ui,/\.workspace-float \.market-flat \.market-index\{[^}]*height:26px;[^}]*min-height:26px;[^}]*padding:1px 10px;/s);
-  assert.match(ui,/\.workspace-float \.market-flat \.market-sector-strip\{[^}]*min-width:1080px;[^}]*min-height:58px;/s);
+  assert.match(ui,/\.workspace-float \.market-flat \.market-sector-strip\{[^}]*width:100%; min-width:0; min-height:58px;[^}]*grid-template-columns:repeat\(11,minmax\(0,1fr\)\);/s);
   assert.match(ui,/\.workspace-float \.market-flat \.market-sector-head b\{ font-size:10px; \}/);
   assert.match(ui,/\.workspace-float \.market-flat \.market-sector-returns\{ grid-template-columns:1fr; gap:2px; margin-top:4px; \}/);
   assert.match(ui,/\.workspace-float \.market-flat \.market-sector-return\{[^}]*grid-template-columns:27px minmax\(0,1fr\);[^}]*white-space:nowrap;/s);
@@ -298,6 +331,24 @@ test("Markets retains the monitor, intelligence, and Research Desk feature set",
   assert.doesNotMatch(ui,/id="marketNewsTable"/);
   assert.match(ui,/\.workspace-float \.market-flat \.market-lower-grid\{[^}]*grid-template-columns:1fr 1fr;/);
   assert.match(ui,/\.workspace-float \.market-flat \.market-mover-row \.mover-value\{[^}]*text-align:center;[^}]*font-size:9px!important;/);
+});
+
+test("Strategy Lab runs five local presets with benchmark metrics and saved reruns", () => {
+  const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  assert.match(ui,/data-market-mode="strategy">Strategy Lab/);
+  for(const id of ["marketStrategyPage","strategySymbol","strategyPreset","strategyRange","strategyCapital","strategyCost","strategyRun","strategyMetrics","strategyChart","strategySave","strategySavedList"]){
+    assert.match(ui,new RegExp(`id="${id}"`));
+  }
+  for(const preset of ["buyHold","movingAverage","momentum","meanReversion","breakout"]){
+    assert.match(ui,new RegExp(`value="${preset}"`));
+  }
+  assert.match(ui,/Educational backtest only/);
+  assert.match(ui,/This never places an order or connects to a broker/);
+  assert.match(ui,/booleanMarketStrategies/);
+  assert.match(ui,/Signals execute on the next observation/);
+  assert.match(server,/POST" && p === "\/api\/markets\/backtest"/);
+  assert.match(server,/runStrategyBacktest\(snapshot/);
 });
 
 test("Markets keeps the bottom ticker after both page bodies and in the final grid row", () => {

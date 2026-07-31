@@ -365,6 +365,21 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "repository_map",
+      description:
+        "Build a compact Aider-style map of the project before a multi-file coding change. " +
+        "Ranks relevant source files from the task/query and lists important definitions and imports without reading whole files. " +
+        "Use this to choose exact files, then use find_symbol/search_files and targeted read_file slices.",
+      parameters: { type: "object", properties: {
+        query: { type: "string", description: "Task, bug symptom, feature, or symbols to rank the map around" },
+        path: { type: "string", description: "Project directory to map. Default: project folder" },
+        limit: { type: "integer", description: "Maximum relevant files to return, from 5 to 40. Default 18." }
+      }, required: ["query"] }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "find_symbol",
       description:
         "Find where a symbol (function, class, variable, type) is DEFINED and used across the project. " +
@@ -1026,6 +1041,44 @@ function isLikelyLongRunningCommand(command) {
     || /\b(?:node|bun|deno)\s+(?:serve|server|dev)\b/.test(text);
 }
 
+function desktopProjectFile(dir) {
+  try {
+    return fs.readdirSync(dir)
+      .filter((name) => /\.(?:csproj|vbproj)$/i.test(name))
+      .map((name) => path.join(dir, name))
+      .find((file) => /<(?:UseWPF|UseWindowsForms)>\s*true\s*<\//i.test(fs.readFileSync(file, "utf8"))) || "";
+  } catch { return ""; }
+}
+
+export function isLikelyForegroundDesktopCommand(command, cwd) {
+  const text = String(command || "").trim();
+  if (!desktopProjectFile(cwd)) return false;
+  return /(?:^|[;&|\s])(?:dotnet\s+run\b|&?\s*["']?[^\r\n]*\.exe["']?(?:\s|$))/i.test(text)
+    && !/\b(?:Start-Process|run_background)\b/i.test(text);
+}
+
+export function inferDesktopProject(dir) {
+  const projectFile = desktopProjectFile(dir);
+  if (!projectFile) return null;
+  const candidates = [];
+  for (const configuration of ["Release", "Debug"]) {
+    const root = path.join(dir, "bin", configuration);
+    if (!fs.existsSync(root)) continue;
+    for (const file of listFilesRec(root, [])) {
+      if (/\.exe$/i.test(file)) candidates.push(file);
+    }
+  }
+  candidates.sort((a, b) => {
+    try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch { return 0; }
+  });
+  return {
+    type: "desktop",
+    run: candidates[0] || `dotnet run --project "${projectFile}"`,
+    executable: candidates[0] || "",
+    inferred: true
+  };
+}
+
 function listFilesRec(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
@@ -1582,20 +1635,23 @@ const previews = {}; // dir -> child process, so re-running replaces the old one
 
 async function runProject(args, ctx, base) {
   const name = path.basename(String(args.name || ""));
-  const dir = path.join(base, name);
+  const dir = path.basename(base).toLowerCase() === name.toLowerCase() ? base : path.join(base, name);
   const metaPath = path.join(dir, "saz.project.json");
-  if (!fs.existsSync(metaPath)) {
-    return `error: no project named '${name}'. Create it first with create_project.`;
-  }
   let meta;
-  try { meta = JSON.parse(fs.readFileSync(metaPath, "utf8")); } catch { return "error: project metadata is unreadable"; }
+  if (fs.existsSync(metaPath)) {
+    try { meta = JSON.parse(fs.readFileSync(metaPath, "utf8")); } catch { return "error: project metadata is unreadable"; }
+  } else {
+    meta = inferDesktopProject(dir);
+    if (!meta) return `error: no runnable project named '${name}'. Create it first with create_project or open its project folder.`;
+  }
   const ok = await ctx.approve(`run project '${name}': ${meta.run}`);
   if (!ok) return "user declined to run the project";
 
   if (previews[dir] && previews[dir].exitCode === null) { try { previews[dir].kill(); } catch { /* ignore */ } }
 
-  const parts = meta.run.split(" ");
-  const child = spawn(parts[0], parts.slice(1), { cwd: dir, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+  const child = meta.executable
+    ? spawn(meta.executable, [], { cwd: dir, windowsHide: false, detached: false, stdio: ["ignore", "pipe", "pipe"] })
+    : spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", meta.run], { cwd: dir, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
   previews[dir] = child;
   let log = "";
   child.stdout.on("data", (d) => (log += d.toString()));
@@ -1617,7 +1673,7 @@ async function runProject(args, ctx, base) {
   // desktop / no port — the launcher exits after opening the window
   await new Promise((r) => setTimeout(r, 1500));
   if (child.exitCode && child.exitCode !== 0) return `✗ failed to launch:\n${truncate(log)}`;
-  return `✓ ${meta.type} launched (${meta.run}) — the app window should be open.`;
+  return `✓ ${meta.type} launched (${meta.run}) — the native app window is open. Desktop apps do not use the built-in browser preview.`;
 }
 
 async function editFile(args, ctx, resolve) {
@@ -1710,6 +1766,100 @@ function formatDebugEvidence(args) {
 }
 
 // ── symbol-aware code search ──
+const REPOSITORY_MAP_SOURCE_EXT = new Set([
+  ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".cs", ".java", ".go",
+  ".rs", ".rb", ".php", ".swift", ".kt", ".kts", ".cpp", ".cc", ".c", ".h",
+  ".hpp", ".vue", ".svelte", ".html", ".css", ".scss", ".sql"
+]);
+const REPOSITORY_MAP_STOP_WORDS = new Set([
+  "about", "after", "again", "also", "and", "are", "because", "before", "build",
+  "change", "code", "could", "does", "file", "files", "fix", "for", "from", "have",
+  "into", "make", "need", "project", "should", "that", "the", "their", "this",
+  "use", "user", "want", "when", "where", "which", "with", "would"
+]);
+
+function repositoryMapTokens(query) {
+  return [...new Set(String(query || "").toLowerCase().match(/[a-z_$][a-z0-9_$-]{2,}/g) || [])]
+    .filter((token) => !REPOSITORY_MAP_STOP_WORDS.has(token))
+    .slice(0, 24);
+}
+
+function repositoryMapDefinitions(lines) {
+  const out = [];
+  const rx = /^\s*(?:export\s+)?(?:default\s+)?(?:public\s+|private\s+|protected\s+|static\s+|async\s+)*(?:function\*?|class|interface|type|enum|struct|def|func|fn|const|let|var)\s+([A-Za-z_$][\w$]*)|^\s*([A-Za-z_$][\w$]*)\s*[:=]\s*(?:async\s*)?(?:function|\([^)]*\)\s*=>)/;
+  for (let i = 0; i < lines.length && out.length < 12; i++) {
+    const match = lines[i].match(rx);
+    if (!match) continue;
+    const name = match[1] || match[2];
+    if (name && !out.some((item) => item.name === name)) out.push({ name, line: i + 1 });
+  }
+  return out;
+}
+
+function repositoryMap(args, resolve) {
+  const query = String(args.query || "").trim();
+  if (!query) return "error: missing 'query' argument";
+  const root = resolve(args.path || ".");
+  if (!fs.existsSync(root)) return `error: no such directory: ${root}`;
+  const tokens = repositoryMapTokens(query);
+  const requestedLimit = Number(args.limit);
+  const limit = Number.isFinite(requestedLimit) ? Math.max(5, Math.min(40, Math.floor(requestedLimit))) : 18;
+  const records = [];
+  for (const file of projectFiles(root)) {
+    const ext = path.extname(file).toLowerCase();
+    if (!REPOSITORY_MAP_SOURCE_EXT.has(ext)) continue;
+    let text;
+    try {
+      if (fs.statSync(file).size > 1_000_000) continue;
+      text = fs.readFileSync(file, "utf8");
+    } catch { continue; }
+    if (text.includes("\0")) continue;
+    const rel = path.relative(root, file).replace(/\\/g, "/");
+    const relLower = rel.toLowerCase();
+    const textLower = text.toLowerCase();
+    const tokenHits = tokens.filter((token) => relLower.includes(token) || textLower.includes(token));
+    let score = tokenHits.length * 5;
+    for (const token of tokenHits) {
+      if (relLower.includes(token)) score += 9;
+      score += Math.min(textLower.split(token).length - 1, 8);
+    }
+    if (/(?:^|\/)(?:test|tests|spec|__tests__)(?:\/|$)|\.(?:test|spec)\./i.test(rel)) score += 2;
+    if (/(?:^|\/)(?:index|main|app|server|program)\.[^/]+$/i.test(rel)) score += 1;
+    const lines = text.split(/\r?\n/);
+    const definitions = repositoryMapDefinitions(lines);
+    const imports = lines
+      .map((line, index) => ({ line: index + 1, text: line.trim() }))
+      .filter((item) => /^(?:import\b|export\b.+\bfrom\b|const\b.+?=\s*require\(|using\b|from\b.+\bimport\b)/.test(item.text))
+      .slice(0, 5);
+    records.push({ rel, score, tokenHits, definitions, imports });
+  }
+  records.sort((a, b) => b.score - a.score || a.rel.localeCompare(b.rel));
+  const relevant = records.filter((record) => record.score > 0);
+  const selected = (relevant.length ? relevant : records).slice(0, limit);
+  if (!selected.length) return `No source files found under ${root}.`;
+  const body = selected.map((record, index) => {
+    const defs = record.definitions.length
+      ? record.definitions.map((item) => `${item.name}@${item.line}`).join(", ")
+      : "no indexed definitions";
+    const imports = record.imports.length
+      ? record.imports.map((item) => `${item.line}:${item.text.slice(0, 100)}`).join(" | ")
+      : "";
+    return [
+      `${index + 1}. ${record.rel} [score ${record.score}${record.tokenHits.length ? `; matched ${record.tokenHits.join(", ")}` : ""}]`,
+      `   symbols: ${defs}`,
+      imports ? `   imports: ${imports}` : ""
+    ].filter(Boolean).join("\n");
+  });
+  return truncate([
+    `Repository map for: ${query}`,
+    `Root: ${root}`,
+    `Indexed ${records.length} source files; showing ${selected.length} most relevant.`,
+    "Next: inspect exact symbols or line ranges before editing.",
+    "",
+    ...body
+  ].join("\n"));
+}
+
 function findSymbol(args, resolve) {
   const sym = String(args.symbol || "").trim();
   if (!sym || !/^[A-Za-z_$][\w$]*$/.test(sym)) return "error: provide a valid symbol name (an identifier).";
@@ -1938,7 +2088,7 @@ export async function executeTool(name, args, ctx) {
   if (systemResult !== null) return systemResult;
   if (PLATFORM_TOOL_NAMES.has(name)) return await executePlatformTool(name, args, ctx);
   // resolve relative paths and command cwd inside the user's projects folder
-  const base = ctx.config?.projectsDir || process.cwd();
+  const base = ctx.projectDir || ctx.config?.projectsDir || process.cwd();
   fs.mkdirSync(base, { recursive: true });
   const resolve = (p) => (p && path.isAbsolute(p) ? p : path.join(base, p || "."));
   try {
@@ -1954,10 +2104,13 @@ export async function executeTool(name, args, ctx) {
         if (isLikelyLongRunningCommand(normalizedCommand)) {
           return "This looks like a long-running dev server or watcher. Do not run it with run_command because it keeps the chat in Stop/running mode. Use run_background for this command, then read_process to check status, or run_project for Boolean project previews.";
         }
+        if (isLikelyForegroundDesktopCommand(normalizedCommand, base)) {
+          return "This launches a desktop GUI in the foreground and would keep the task stuck until the window closes. Use run_project for the open project, or run_background when you need to keep a custom desktop launch alive.";
+        }
         const shell = args.shell === "cmd" ? "cmd" : "powershell";
         const ok = await ctx.approve(`run [${shell}]: ${args.command}`);
         if (!ok) return "user declined to run this command";
-        return await runCommand(args.command, shell, ctx.config.commandTimeoutMs, base);
+        return await runCommand(args.command, shell, ctx.config?.commandTimeoutMs || 120_000, base);
       }
       case "read_file": {
         if (!args.path) return "error: missing 'path' argument";
@@ -2001,6 +2154,8 @@ export async function executeTool(name, args, ctx) {
         return stopProcess(args);
       case "undo_last_edit":
         return undoLastEdit();
+      case "repository_map":
+        return repositoryMap(args, resolve);
       case "find_symbol":
         return findSymbol(args, resolve);
       case "run_subagent":
