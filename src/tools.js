@@ -2108,9 +2108,37 @@ export async function executeTool(name, args, ctx) {
           return "This launches a desktop GUI in the foreground and would keep the task stuck until the window closes. Use run_project for the open project, or run_background when you need to keep a custom desktop launch alive.";
         }
         const shell = args.shell === "cmd" ? "cmd" : "powershell";
+        // Approval is scoped to this exact command and this one agent run. Some
+        // compatibility models can repeat an identical fenced tool call after
+        // Boolean returns its result. Keep the approved result so a duplicate
+        // call neither asks again nor executes the command twice.
+        const approvalKey = `${shell}\n${String(args.command).trim()}`;
+        const approvals = ctx.commandApprovalState instanceof Map
+          ? ctx.commandApprovalState
+          : (ctx.commandApprovalState = new Map());
+        const prior = approvals.get(approvalKey);
+        if (prior?.state === "completed") {
+          return `Already ran this exact approved command once. Saved result:\n${prior.result}`;
+        }
+        if (prior?.state === "declined") return "user already declined to run this exact command";
         const ok = await ctx.approve(`run [${shell}]: ${args.command}`);
-        if (!ok) return "user declined to run this command";
-        return await runCommand(args.command, shell, ctx.config?.commandTimeoutMs || 120_000, base);
+        if (!ok) {
+          approvals.set(approvalKey, { state: "declined", result: "" });
+          return "user declined to run this command";
+        }
+        approvals.set(approvalKey, { state: "approved", result: "" });
+        try {
+          const result = await runCommand(args.command, shell, ctx.config?.commandTimeoutMs || 120_000, base);
+          approvals.set(approvalKey, { state: "completed", result });
+          return result;
+        } catch (error) {
+          // A command that actually started has consumed its one-time grant.
+          // Preserve the failure for duplicate model calls instead of asking
+          // the user to approve the same failed command indefinitely.
+          const result = `error: ${error?.message || error}`;
+          approvals.set(approvalKey, { state: "completed", result });
+          throw error;
+        }
       }
       case "read_file": {
         if (!args.path) return "error: missing 'path' argument";

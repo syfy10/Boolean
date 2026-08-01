@@ -60,7 +60,7 @@ state.ui = { ...(stateCap.ui || {}), onboarded: true, showOnboarding: false, bro
 // Provide sane fallbacks if capture was empty.
 state.appName ??= "Boolean";
 state.version ??= "0.9.56";
-state.displayVersion ??= "v0.9.63";
+state.displayVersion ??= "v0.9.64";
 state.providers ??= ["local", "openai", "claude", "google", "glm"];
 state.models ??= [];
 // Ensure the selected local model is present and installed so the app reports
@@ -88,7 +88,7 @@ const status = {
 };
 
 // ---- about (public repo info; safe to keep, but strip any local paths) ----
-const about = readCap("about.json", { appName: "Boolean", version: "0.9.63", displayVersion: "v0.9.63", channel: "Stable", repository: "https://github.com/syfy10/Boolean", sourceAvailable: true });
+const about = readCap("about.json", { appName: "Boolean", version: "0.9.64", displayVersion: "v0.9.64", channel: "Stable", repository: "https://github.com/syfy10/Boolean", sourceAvailable: true });
 
 const fixtures = {
   "/api/state": state,

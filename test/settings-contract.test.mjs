@@ -44,6 +44,14 @@ test("MCP approval copy distinguishes reads from account-changing actions", () =
   assert.doesNotMatch(toolsSource, /Boolean always asks the user to confirm MCP actions/);
 });
 
+test("Coding Agent exposes persisted Auto Quick and Plan first planning modes", () => {
+  assert.match(uiSource, /id="planningModeGrid"/);
+  assert.match(uiSource, /data-planning-mode="auto"[\s\S]*data-planning-mode="quick"[\s\S]*data-planning-mode="plan-first"/);
+  assert.match(uiSource, /updateCodingAgent\(\{planningMode:button\.dataset\.planningMode\|\|"auto"\}\)/);
+  assert.match(uiSource, /planningMode:\["auto","quick","plan-first"\]/);
+  assert.equal(defaultUiSettings().codingAgent.planningMode, "auto");
+});
+
 test("settings defaults are independent and never enable paid-provider switching", () => {
   const first = defaultUiSettings();
   const second = defaultUiSettings();

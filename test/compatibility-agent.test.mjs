@@ -57,7 +57,7 @@ test("compatibility models can patch files and continue through terminal verific
       };
     if (call === 2) return {
       role: "assistant",
-      content: '```tool\n{"name":"run_command","arguments":{"command":"node -e \\"console.log(2)\\""}}\n```'
+      content: '```tool\n{"name":"run_command","arguments":{"command":"node --check app.js"}}\n```'
     };
     return { role: "assistant", content: "Applied the patch and verified it with the terminal." };
   });
@@ -87,7 +87,7 @@ test("compatibility models can patch files and continue through terminal verific
   assert.ok(steps.some((step) => step.name === "run_command"));
 });
 
-test("compatibility models use the shared loop guard instead of a two-inspection coding limit", async (t) => {
+test("compatibility models stop repeated inspection and report the unmet change", async (t) => {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-patch-loop-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
   fs.writeFileSync(path.join(projectDir, "app.js"), "const value = 1;\n");
@@ -111,7 +111,7 @@ test("compatibility models use the shared loop guard instead of a two-inspection
     onCheckpoint() {}
   }, messages);
 
-  assert.match(answer, /paused to avoid repeating the same checks/i);
+  assert.match(answer, /has not changed any project file/i);
   assert.ok(mock.calls() >= 3);
   assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 1;\n");
   assert.match(mock.requests[0].messages[0].content, /run_command:/);
@@ -142,7 +142,7 @@ test("compatibility models never execute bare or trailing JSON mutations", async
     onCheckpoint() {}
   }, messages);
 
-  assert.match(answer, /I will edit it now/);
+  assert.match(answer, /paused: This project task has not changed any project file/i);
   assert.ok(mock.calls() >= 1);
   assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 1;\n");
 });

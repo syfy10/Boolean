@@ -80,6 +80,7 @@ const estTokens = (s) => Math.ceil((typeof s === "string" ? s.length : JSON.stri
 export function normalizeMessagesForProvider(messages) {
   const out = [];
   const systemParts = [];
+  const source = [];
   for (const m of messages || []) {
     if (!m) continue;
     if (m.role === "system") {
@@ -87,6 +88,36 @@ export function normalizeMessagesForProvider(messages) {
       if (text) systemParts.push(text);
       continue;
     }
+    source.push(m);
+  }
+  // OpenAI-compatible providers reject an orphan tool result, or an assistant
+  // tool-call turn whose complete set of results was lost during trimming or
+  // recovery. Keep valid transactions atomically and omit only malformed tool
+  // protocol records; the visible saved transcript remains untouched.
+  const repaired = [];
+  for (let index = 0; index < source.length; index++) {
+    const message = source[index];
+    if (message.role === "assistant" && message.tool_calls?.length) {
+      const expected = message.tool_calls.map((call) => String(call?.id || "")).filter(Boolean);
+      const results = [];
+      let next = index + 1;
+      while (next < source.length && source[next]?.role === "tool") results.push(source[next++]);
+      const resultIds = results.map((result) => String(result?.tool_call_id || ""));
+      const complete = expected.length === message.tool_calls.length
+        && results.length === expected.length
+        && expected.every((id) => resultIds.filter((resultId) => resultId === id).length === 1)
+        && resultIds.every((id) => expected.includes(id));
+      if (complete) repaired.push(message, ...results);
+      else if (typeof message.content === "string" && message.content.trim()) {
+        repaired.push({ role: "assistant", content: message.content });
+      }
+      index = next - 1;
+      continue;
+    }
+    if (message.role === "tool") continue;
+    repaired.push(message);
+  }
+  for (const m of repaired) {
     const prev = out[out.length - 1];
     const plainAssistant = m.role === "assistant" && !m.tool_calls?.length;
     const prevPlainAssistant = prev?.role === "assistant" && !prev.tool_calls?.length;
@@ -377,13 +408,7 @@ export function clearProviderModelCache(provider = "") {
 function usableProviderModels(provider, ids, selected = "") {
   let models = [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
   if (provider === "zaiCoding") {
-    const supported = new Map([
-      ["glm-5.1", "GLM-5.1"],
-      ["glm-5-turbo", "GLM-5-Turbo"],
-      ["glm-4.7", "GLM-4.7"],
-      ["glm-4.5-air", "GLM-4.5-Air"]
-    ]);
-    models = models.map((id) => supported.get(id.toLowerCase())).filter(Boolean);
+    models = models.filter((id) => /^glm-/i.test(id));
   }
   if (provider === "openai") {
     const incompatible = /(?:audio|realtime|transcrib|tts|whisper|image|dall-e|embedding|moderation|sora|search-preview|search-api|deep-research)/i;
@@ -391,7 +416,7 @@ function usableProviderModels(provider, ids, selected = "") {
     models = models.filter((id) => !/-20\d{2}-\d{2}-\d{2}$/.test(id) && !/(?:^|-)\d{4}$/.test(id));
   }
   if (provider === "google") {
-    models = models.filter((id) => /^gemini-/i.test(id) && !/(?:embedding|aqa|imagen|veo|tts|live)/i.test(id));
+    models = models.filter((id) => /^gemini-/i.test(id) && !/(?:embedding|aqa|imagen|veo|tts|live|image)/i.test(id));
   }
   models.sort((a, b) => {
     if (a === selected) return -1;
@@ -399,6 +424,38 @@ function usableProviderModels(provider, ids, selected = "") {
     return b.localeCompare(a, undefined, { numeric: true, sensitivity: "base" });
   });
   return models;
+}
+
+function providerModelsError(provider, status = 0) {
+  const err = new Error(status === 401 || status === 403
+    ? "The saved API key was rejected."
+    : `Could not load ${provider} models${status ? ` (HTTP ${status})` : ""}.`);
+  err.status = status || 502;
+  return err;
+}
+
+async function fetchGoogleModels(settings) {
+  const base = String(settings.baseUrl || "https://generativelanguage.googleapis.com/v1beta/openai")
+    .replace(/\/+$/, "")
+    .replace(/\/openai$/i, "");
+  const ids = [];
+  let pageToken = "";
+  for (let page = 0; page < 10; page++) {
+    const url = new URL(`${base}/models`);
+    url.searchParams.set("key", settings.apiKey);
+    url.searchParams.set("pageSize", "1000");
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw providerModelsError("Google AI", res.status);
+    const data = await res.json();
+    for (const model of data.models || []) {
+      if (!Array.isArray(model.supportedGenerationMethods) || !model.supportedGenerationMethods.includes("generateContent")) continue;
+      ids.push(String(model.name || "").replace(/^models\//, ""));
+    }
+    pageToken = String(data.nextPageToken || "");
+    if (!pageToken) break;
+  }
+  return ids;
 }
 
 /** List models for the ACTIVE provider. Local also returns downloadable catalog. */
@@ -429,20 +486,28 @@ export async function listProviderModels(config, options = {}) {
       return cached?.models || fallbackIds.map((id) => ({ name: id, installed: true }));
     }
     try {
-      const res = await fetch(`${providerBaseUrl(p.baseUrl)}/models`, {
-        headers: { authorization: `Bearer ${p.apiKey}` },
-        signal: AbortSignal.timeout(8000)
-      });
-      if (res.ok) {
+      let discovered = [];
+      if (config.provider === "google") {
+        discovered = await fetchGoogleModels(p);
+      } else {
+        const res = await fetch(`${providerBaseUrl(p.baseUrl)}/models`, {
+          headers: { authorization: `Bearer ${p.apiKey}` },
+          signal: AbortSignal.timeout(8000)
+        });
+        if (!res.ok) throw providerModelsError(config.provider, res.status);
         const data = await res.json();
-        const ids = usableProviderModels(config.provider, (data.data || []).map((m) => m.id), p.model);
-        if (ids.length) {
-          const models = ids.map((id) => ({ name: id, installed: true }));
-          providerModelCache.set(key, { at: now, models });
-          return models;
-        }
+        discovered = (data.data || []).map((m) => m.id);
       }
-    } catch { /* fall back to static list */ }
+      const ids = usableProviderModels(config.provider, discovered, p.model);
+      if (ids.length) {
+        const models = ids.map((id) => ({ name: id, installed: true }));
+        providerModelCache.set(key, { at: now, models });
+        return models;
+      }
+      if (options.strict) throw providerModelsError(config.provider);
+    } catch (err) {
+      if (options.strict) throw err;
+    }
     const models = fallbackIds.map((id) => ({ name: id, installed: true }));
     providerModelCache.set(key, { at: now, models });
     return models;

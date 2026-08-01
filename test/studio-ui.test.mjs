@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 const ui=fs.readFileSync(new URL("../src/ui.html",import.meta.url),"utf8");
 const server=fs.readFileSync(new URL("../src/server.js",import.meta.url),"utf8");
+const shell=fs.readFileSync(new URL("../shell/Program.cs",import.meta.url),"utf8");
 
 test("Explore Studio contains Ad, Draft, Document, and Workflow tools",()=>{
   assert.match(ui,/id="studioWorkspaceTab"/);
@@ -22,6 +23,22 @@ test("Explore Studio contains Ad, Draft, Document, and Workflow tools",()=>{
   assert.match(ui,/id="videoAdScenes"/);
   assert.match(ui,/id="videoAdPlay"/);
   assert.match(ui,/id="videoAdExport"/);
+  assert.match(ui,/id="videoAdOpenFolder"[^>]*hidden>Open Downloads/);
+  assert.match(ui,/AI records the tour/);
+  assert.match(ui,/I record the tour/);
+  assert.match(ui,/id="videoAdRecordStop"/);
+  assert.match(ui,/function startAiStudioTour\(\)/);
+  assert.match(ui,/function startStudioRecording\(mode="manual"\)/);
+  assert.match(ui,/function recordedPlaybackAt\(seconds\)/);
+  assert.match(ui,/drawRecordedVideoFrame\(recordedPlaybackAt\(seconds\)\.frame\)/);
+  assert.match(ui,/cmd:"studioRecordStart"/);
+  assert.match(ui,/d\.type==="studioRecording"/);
+  assert.match(shell,/case "studioRecordStart"/);
+  assert.match(shell,/case "openDownloads"/);
+  assert.match(shell,/Environment\.SpecialFolder\.UserProfile/);
+  assert.match(shell,/Page\.startScreencast/);
+  assert.match(shell,/Page\.screencastFrame/);
+  assert.match(shell,/boolean-studio-cursor/);
   assert.match(ui,/id="videoAdGoal"/);
   assert.match(ui,/data-video-length="6"/);
   assert.match(ui,/data-video-length="15"/);
@@ -57,6 +74,8 @@ test("Video Ads keeps local export and offers optional saved-key Veo motion",()=
   assert.match(ui,/Open Google AI Studio/);
   assert.doesNotMatch(ui,/if\(!confirm\("Generate one 8-second Veo/);
   assert.match(ui,/Download MP4/);
+  assert.match(ui,/function revealVideoDownloadFolder/);
+  assert.match(ui,/saved to Downloads/i);
   assert.match(ui,/id="videoAdAssetQty"/);
   assert.match(ui,/id="videoAdAssetTray"/);
   assert.match(ui,/id="videoAdAssetUpload"/);
@@ -80,8 +99,9 @@ test("Video Ads keeps local export and offers optional saved-key Veo motion",()=
   assert.match(ui,/data-ad-asset-remove/);
   assert.match(ui,/data-video-asset-remove/);
   assert.match(ui,/Visual removed\./);
-  assert.match(ui,/createLinearGradient\(0,h\*\.38,0,h\)/);
-  assert.match(ui,/headlineLines=lines\.slice\(0,2\)/);
+  assert.match(ui,/createLinearGradient\(0,0,0,h\)/);
+  assert.match(ui,/const title=shortPromoLine\(scene\.title,"",6\)/);
+  assert.match(ui,/globalText==="none"&&scene\.kind!=="outro"/);
   assert.doesNotMatch(ui,/scene\.kind==="feature"\?\.62:\.28/);
   assert.match(ui,/id="videoAdAuto"/);
   assert.match(ui,/function createVideoAdFromWebsite\(automatic=false\)/);

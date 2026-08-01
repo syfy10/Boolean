@@ -7,7 +7,8 @@ import {
   createTaskRun,
   publicTaskRun,
   syncTaskRunFromController,
-  taskRunToolEvent
+  taskRunToolEvent,
+  updateTaskRunVisual
 } from "../src/task-runs.js";
 
 test("task runs provide one ordered, sanitized event timeline", () => {
@@ -62,4 +63,27 @@ test("structured compaction separates completed, current, and remaining work", (
   assert.equal(compact.currentStep, "Implement");
   assert.deepEqual(compact.remainingSteps, ["Verify"]);
   assert.deepEqual(compact.verifiedChecks, ["tests passed"]);
+});
+
+test("visual build state is durable and only exposes localhost previews", () => {
+  const run = createTaskRun({ objective: "Build the preview" });
+  updateTaskRunVisual(run, {
+    state: "previewing",
+    previewUrl: "http://localhost:4173/app",
+    cycle: 1,
+    forceEvent: true
+  });
+  const visible = publicTaskRun(run);
+  const compact = compactTaskRun(run);
+  assert.equal(visible.visual.enabled, true);
+  assert.equal(visible.visual.previewUrl, "http://localhost:4173/app");
+  assert.equal(compact.visual.state, "previewing");
+  assert.equal(visible.events.at(-1).type, "visual.preview");
+
+  const restored = createTaskRun({ persisted: visible });
+  assert.equal(restored.visual.cycle, 1);
+  assert.equal(restored.visual.previewUrl, "http://localhost:4173/app");
+
+  updateTaskRunVisual(restored, { state: "previewing", previewUrl: "https://example.com/private" });
+  assert.equal(restored.visual.previewUrl, "", "remote URLs cannot become trusted local previews");
 });

@@ -26,8 +26,42 @@ export function createTaskRun({ id, objective, startedAt, persisted } = {}) {
     updatedAt: Number(saved.updatedAt) || Date.now(),
     completedAt: Number(saved.completedAt) || 0,
     sequence: Math.max(0, Number(saved.sequence) || 0),
-    events: Array.isArray(saved.events) ? saved.events.slice(-MAX_EVENTS).map(normalizeEvent) : []
+    events: Array.isArray(saved.events) ? saved.events.slice(-MAX_EVENTS).map(normalizeEvent) : [],
+    visual: normalizeVisual(saved.visual)
   };
+}
+
+function normalizeVisual(value = {}) {
+  const state = ["idle", "building", "launching", "previewing", "inspecting", "verified", "failed"].includes(value?.state)
+    ? value.state : "idle";
+  return {
+    enabled: value?.enabled === true,
+    state,
+    previewUrl: /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(String(value?.previewUrl || "")) ? clean(value.previewUrl, 500) : "",
+    cycle: Math.max(0, Number(value?.cycle) || 0),
+    updatedAt: Number(value?.updatedAt) || 0,
+    verifiedAt: Number(value?.verifiedAt) || 0
+  };
+}
+
+export function updateTaskRunVisual(run, update = {}) {
+  if (!run || typeof run !== "object") return run;
+  const previous = normalizeVisual(run.visual);
+  const next = normalizeVisual({ ...previous, ...update, enabled: update.enabled ?? true, updatedAt: Date.now() });
+  run.visual = next;
+  run.updatedAt = next.updatedAt;
+  const eventForState = {
+    building: ["visual.building", "active", "Updating the app", "Files changed; the preview will refresh after the next successful run."],
+    launching: ["visual.launching", "active", "Launching preview", next.previewUrl || "Starting the local app."],
+    previewing: ["visual.preview", "active", "Live preview ready", next.previewUrl || "The app is open in Boolean's browser."],
+    inspecting: ["visual.inspecting", "active", "Inspecting the screen", "Boolean is reviewing the rendered result."],
+    verified: ["visual.verified", "done", "Visual check passed", "The latest rendered preview was inspected."],
+    failed: ["visual.failed", "failed", "Preview needs attention", clean(update.detail, 320) || "The visual build step failed."]
+  }[next.state];
+  if (eventForState && (previous.state !== next.state || previous.previewUrl !== next.previewUrl || update.forceEvent)) {
+    appendTaskRunEvent(run, { type: eventForState[0], status: eventForState[1], title: eventForState[2], detail: eventForState[3] });
+  }
+  return run;
 }
 
 function normalizeEvent(event = {}) {
@@ -114,7 +148,8 @@ export function publicTaskRun(run) {
     startedAt: Number(run.startedAt) || 0,
     updatedAt: Number(run.updatedAt) || 0,
     completedAt: Number(run.completedAt) || 0,
-    events: (run.events || []).slice(-80).map(normalizeEvent)
+    events: (run.events || []).slice(-80).map(normalizeEvent),
+    visual: normalizeVisual(run.visual)
   };
 }
 
@@ -133,10 +168,18 @@ export function compactTaskRun(run, controller = {}) {
       role: clean(worker?.role, 80),
       provider: clean(worker?.provider, 60),
       model: clean(worker?.model, 120),
-      state: ["working", "retrying", "done", "failed"].includes(worker?.state) ? worker.state : "failed",
+      state: ["queued", "working", "stalled", "retrying", "draining", "done", "failed", "cancelled"].includes(worker?.state) ? worker.state : "failed",
       attempt: Math.max(1, Number(worker?.attempt) || 1),
-      detail: clean(worker?.detail, 320)
+      detail: clean(worker?.detail, 320),
+      objective: clean(worker?.objective, 320),
+      workspace: clean(worker?.workspace, 500),
+      maxTurns: Math.max(0, Number(worker?.maxTurns) || 0),
+      startedAt: Number(worker?.startedAt) || 0,
+      lastProgressAt: Number(worker?.lastProgressAt) || 0,
+      deadlineAt: Number(worker?.deadlineAt) || 0,
+      finishedAt: Number(worker?.finishedAt) || 0
     })),
+    visual: normalizeVisual(run?.visual),
     failures: events.filter((event) => event.status === "failed").slice(-6).map((event) => clean(`${event.title}: ${event.detail}`, 320))
   };
 }

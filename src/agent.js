@@ -14,6 +14,7 @@ import { summarizeLearnedPreferences } from "./preferences.js";
 import { detectWindowsSettingsRequest } from "./system-actions.js";
 import { createAgentController } from "./controller.js";
 import { booleanAgentPolicy } from "./agent-policy.js";
+import { createCodexOrchestrator } from "./orchestrator.js";
 
 const CLOUD_FALLBACK_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
@@ -64,7 +65,9 @@ async function chatCompletionWithFallback(config, primaryTarget, messages, tools
 const BUDGET_PRESETS = {
   small:  { tokens: 50_000,  timeMs: 120_000 },
   normal: { tokens: 150_000, timeMs: 600_000 },
-  large:  { tokens: 0,       timeMs: 0 }
+  // Long runs still need a hard ceiling. Checkpoint and continue instead of
+  // allowing a stuck paid-cloud loop to spend indefinitely.
+  large:  { tokens: 400_000, timeMs: 1_800_000 }
 };
 function perRunTokenBudget(config) {
   const preset = config?.ui?.codingAgent?.budget || "normal";
@@ -88,12 +91,21 @@ function connectorSummary(config) {
   return parts.join(" | ");
 }
 
-function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned) {
-  return booleanAgentPolicy();
+function planningModePolicy(config = null) {
+  const saved = String(config?.ui?.codingAgent?.planningMode || "auto").toLowerCase();
+  const mode = ["auto", "quick", "plan-first"].includes(saved) ? saved : "auto";
+  const shared = "Inspect relevant project files and existing conventions before asking discoverable questions. Ask only questions whose wrong answer would cause discarded work. A plan is working state, not a reason to delay an answer or a safe implementation.";
+  if (mode === "quick") return `PLANNING MODE: QUICK\n${shared} For small, clear, low-risk changes, implement and verify immediately without stopping for a plan approval.`;
+  if (mode === "plan-first") return `PLANNING MODE: PLAN FIRST\n${shared} Before the first write or external action, present a compact Goal, Blocking questions (0-3, each with a recommended default), Assumptions, and Plan with files and verification. Then stop and wait for one user approval. After approval, execute that plan without requesting the same approval again. If implementation disproves a material assumption, stop and explain the changed evidence before changing direction.`;
+  return `PLANNING MODE: AUTO\n${shared} Work directly on clear requests. For complex work, keep a concise internal checklist and communicate progress, but pause only for a genuinely blocking choice, missing authority, or a risky external action that requires approval.`;
+}
+
+function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned, config = null) {
+  return `${booleanAgentPolicy()}\n\n${planningModePolicy(config)}`;
 }
 
 export function systemPrompt(projectsDir = "", fullAccess = false, config = null) {
-  return cleanSystemPrompt(projectsDir, fullAccess, connectorSummary(config), "");
+  return cleanSystemPrompt(projectsDir, fullAccess, connectorSummary(config), "", config);
 }
 
 // Prefer Boolean project rules, while retaining the two legacy Boollm paths
@@ -1176,6 +1188,56 @@ export function teamworkAssignments(config = {}) {
   });
 }
 
+// Questions about a stopped or paused run must be answered before Boolean
+// resumes it. This intentionally wins over continuation wording in mixed
+// messages such as "so do it, why did you stop?".
+export function isTaskStatusQuestion(text) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value) return false;
+  return /\b(?:what happened|what went wrong|why\s+(?:(?:did|does)\s+)?(?:it|this|that|u|you|boolean)\s+(?:stop|stopped|pause|paused|end|ended|quit)|why\s+(?:was|is)\s+(?:it|this|that)\s+(?:stopped|paused|ended)|(?:are|r)\s+(?:u|you)\s+(?:still\s+)?(?:working|running|stuck|stopped)|(?:tell|explain)\s+me\s+why\s+(?:it|this|that|u|you)\s+(?:stopped|paused|ended))\b/i.test(value);
+}
+
+export function taskStopAnswer(task) {
+  const controller = task?.controller || {};
+  const rawReason = String(controller.lastFailure || "").trim();
+  let reason = rawReason;
+  if (/loop guard|repeated the same kind of inspection|repeated inspection/i.test(rawReason)) {
+    reason = "Boolean's loop guard detected repeated inspections without a progress step, so it paused to prevent an endless loop.";
+  } else if (/tool budget/i.test(rawReason)) {
+    reason = "the run reached its tool budget and paused instead of continuing indefinitely.";
+  } else if (!reason && controller.phase === "blocked") {
+    reason = "the task reached a blocker that it could not safely resolve on its own.";
+  } else if (!reason) {
+    reason = "the previous run ended or was interrupted before it saved a specific failure reason.";
+  }
+  return `It stopped because ${reason}\n\nI did not restart it. Say **Resume** when you want Boolean to continue from the saved checkpoint.`;
+}
+
+export async function runBoundedWorkers(items, limit, handler) {
+  const list = Array.isArray(items) ? items : [];
+  const results = new Array(list.length);
+  let cursor = 0;
+  const width = Math.max(1, Math.min(list.length || 1, Number(limit) || 1));
+  await Promise.all(Array.from({ length: width }, async () => {
+    while (cursor < list.length) {
+      const index = cursor++;
+      results[index] = await handler(list[index], index);
+    }
+  }));
+  return results;
+}
+
+function compactTeamReport(value, maxChars = 2400) {
+  const text = String(value || "No report returned.")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (text.length <= maxChars) return text;
+  const head = text.slice(0, Math.max(600, maxChars - 220));
+  const cut = Math.max(head.lastIndexOf("\n"), head.lastIndexOf(". "));
+  return `${head.slice(0, cut > 500 ? cut + 1 : head.length).trim()}\n\n[Worker report compacted by Boolean; the lead retains the workspace and saved evidence.]`;
+}
+
 /**
  * Run one user turn through the agent loop, executing tools until the model
  * produces a final text answer.
@@ -1188,11 +1250,62 @@ export async function runTurn(ctx, messages) {
   // The provider still owns the answer and tool choices. Boolean supplies the
   // operating policy and enforces hard permission boundaries, but does not
   // replace a model's substantive response with an opinionated workflow.
-  const { config, onStatus, onToken, onStep, onUsage, signal } = ctx;
+  const { config, onStatus, onToken: rawOnToken, onStep, onUsage, signal } = ctx;
   const emitStep = (entry) => { if (onStep) onStep(entry); };
   const checkpoint = () => { if (ctx.onCheckpoint) ctx.onCheckpoint(); };
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
   ctx.latestUserText = plainMessageText(latestUser);
+  const orchestration = createCodexOrchestrator({
+    threadId: ctx.threadId,
+    persisted: ctx.orchestrationState,
+    onEvent: (event, snapshot) => {
+      ctx.orchestrationResult = snapshot;
+      ctx.onOrchestration?.(event, snapshot);
+    }
+  });
+  orchestration.startTurn(ctx.latestUserText, { cwd: ctx.projectDir || "", mode: ctx.forceTurnMode || "auto" });
+  ctx.orchestrationResult = orchestration.snapshot();
+  let agentMessageItem = null;
+  // Supplying a token callback changes several OpenAI-compatible providers to
+  // streaming mode. Preserve the caller's original transport choice; when the
+  // caller does stream, mirror those deltas into the orchestration timeline.
+  const onToken = typeof rawOnToken === "function" ? (delta) => {
+    if (delta) {
+      if (!agentMessageItem) agentMessageItem = orchestration.startItem("agent_message", { title: "Response" });
+      orchestration.delta(agentMessageItem.id, delta);
+    }
+    rawOnToken(delta);
+  } : undefined;
+  ctx.orchestration = orchestration;
+  const finishOrchestration = (answer, status = "completed") => {
+    const value = String(answer || "").trim();
+    if (agentMessageItem) orchestration.completeItem(agentMessageItem.id, { content: value });
+    else if (value) {
+      agentMessageItem = orchestration.startItem("agent_message", { title: "Response", content: value });
+      orchestration.completeItem(agentMessageItem.id, { content: value });
+    }
+    if (status === "interrupted") orchestration.interruptTurn(value || "Interrupted by the user.");
+    else if (status === "failed") orchestration.failTurn(value || "The task failed.");
+    else orchestration.completeTurn(value);
+    return answer;
+  };
+  const wrapApproval = (name) => {
+    const approve = ctx[name];
+    if (typeof approve !== "function") return;
+    ctx[name] = async (summary) => {
+      const item = orchestration.requestApproval(summary, { mode: name });
+      try {
+        const approved = await approve(summary);
+        orchestration.resolveApproval(item.id, approved);
+        return approved;
+      } catch (error) {
+        orchestration.resolveApproval(item.id, false);
+        throw error;
+      }
+    };
+  };
+  wrapApproval("approve");
+  wrapApproval("approveAlways");
   const forceChat = ctx.forceTurnMode === "chat";
   const artifactActionRequired = forceChat || ctx.forceNoArtifact === true ? false : requiresArtifactAction(messages);
   const connectorActionRequired = forceChat ? false : requiresConnectorContinuationAction(messages);
@@ -1213,7 +1326,7 @@ export async function runTurn(ctx, messages) {
   if (artifactActionRequired && !ctx.projectDir) {
     const answer = "Open a folder or create a project first, then ask me to build or change it. I will keep this as a normal chat and will not create a project workspace automatically.";
     messages.push({ role: "assistant", content: answer });
-    return answer;
+    return finishOrchestration(answer);
   }
   const controller = createAgentController({
     objective: ctx.objective || ctx.latestUserText,
@@ -1238,19 +1351,29 @@ export async function runTurn(ctx, messages) {
     controller.noteTool(name, args, result);
     publishController();
   };
+  // Duplicate inspection is a transition to synthesis, not a failure that
+  // should start another recovery cycle.
+  let synthesizeFromExistingEvidence = false;
   let salesResearchCalls = 0;
   let salesResearchClosed = false;
   let salesEvidenceCorrectionAttempts = 0;
   let salesPrimaryEvidence = "";
   const salesResearchFailures = new Map();
   const executeControllerTool = async (name, args) => {
+    const toolItem = orchestration.startItem("tool_call", {
+      title: name.replaceAll("_", " "),
+      detail: String(args?.path || args?.url || args?.command || args?.query || ""),
+      metadata: { tool: name }
+    });
     // `remember` is a no-side-effect memory write handled by the controller; it is
     // never loop-guarded and never touches the filesystem.
     if (name === "remember") {
       const note = String(args?.note || args?.text || "").trim();
       controller.addNote(note);
       publishController();
-      return note ? `Noted: ${note}` : "Nothing to remember.";
+      const result = note ? `Noted: ${note}` : "Nothing to remember.";
+      orchestration.completeItem(toolItem.id, { detail: result });
+      return result;
     }
     const salesResearchTool = ctx.salesWorkflow === true && SALES_RESEARCH_TOOL_NAMES.has(name);
     if (salesResearchTool) {
@@ -1266,11 +1389,20 @@ export async function runTurn(ctx, messages) {
     }
     const gate = controller.allowTool(name, args);
     if (!gate.allowed) {
+      if (gate.synthesize === true) {
+        synthesizeFromExistingEvidence = true;
+        const result = `Enough evidence is already available from the earlier ${name.replaceAll("_", " ")} result. Do not inspect again. Answer the user's request now from the collected evidence, concisely and directly.`;
+        orchestration.completeItem(toolItem.id, { detail: result });
+        return result;
+      }
       const blocked = controller.noteBlockedTool(name, args, gate.reason);
       publishController();
       if (blocked.stop) {
-        return `blocked: ${gate.reason}\nBoolean has blocked repeated attempts. Stop now and explain this blocker plainly instead of trying another equivalent action.`;
+        const result = `blocked: ${gate.reason}\nBoolean has blocked repeated attempts. Stop now and explain this blocker plainly instead of trying another equivalent action.`;
+        orchestration.failItem(toolItem.id, gate.reason);
+        return result;
       }
+      orchestration.failItem(toolItem.id, gate.reason);
       return `error: ${gate.reason}`;
     }
     try {
@@ -1282,10 +1414,12 @@ export async function runTurn(ctx, messages) {
       if (salesResearchTool && SALES_RESEARCH_FAILURE.test(String(result || ""))) {
         salesResearchFailures.set(name, (salesResearchFailures.get(name) || 0) + 1);
       }
+      orchestration.completeItem(toolItem.id, { detail: String(result || "").slice(0, 1200) });
       return result;
     } catch (err) {
       if (err?.name === "AbortError" || signal?.aborted) throw err;
       const result = recoverableToolErrorResult(name, err);
+      orchestration.failItem(toolItem.id, err?.message || err);
       onStatus("the tool needs corrected input - continuing...");
       return result;
     }
@@ -1317,7 +1451,7 @@ export async function runTurn(ctx, messages) {
     const stoppedByController = controllerStopAnswer(result);
     if (stoppedByController) {
       messages.push({ role: "assistant", content: stoppedByController });
-      return stoppedByController;
+      return finishOrchestration(stoppedByController, "failed");
     }
     if (directAction.name === "email_cleanup_trash") {
       const callId = `direct_${Date.now()}`;
@@ -1340,7 +1474,7 @@ export async function runTurn(ctx, messages) {
     controller.updateDigest(answer, ctx.latestUserText || "");
     controller.evaluateCompletion(answer);
     publishController();
-    return answer;
+    return finishOrchestration(answer);
   }
 
   let bootstrapContext = "";
@@ -1349,8 +1483,8 @@ export async function runTurn(ctx, messages) {
     : [];
   if (teamAssignments.length) {
     const teamMode = String(config?.ui?.codingAgent?.teamwork?.mode || "assist");
-    const recordTeamWorker = (assignment, state, detail, attempt = 1) => {
-      const worker = { role: assignment.role, provider: assignment.provider, model: assignment.model, state, attempt };
+    const recordTeamWorker = (assignment, state, detail, attempt = 1, meta = {}) => {
+      const worker = { role: assignment.role, provider: assignment.provider, model: assignment.model, state, attempt, ...meta };
       controller.noteTeamWorker(worker, detail);
       publishController();
       emitStep({ name: "team_worker", args: worker, result: detail });
@@ -1358,15 +1492,24 @@ export async function runTurn(ctx, messages) {
     const fallbackFor = (assignment) => teamAssignments.find((candidate) =>
       candidate.provider !== assignment.provider && candidate.model
     ) || null;
-    onStatus(`${teamMode === "team" ? "Team" : "Assist"} starting ${teamAssignments.length} specialist${teamAssignments.length === 1 ? "" : "s"}...`);
-    const reports = await Promise.all(teamAssignments.map(async (assignment) => {
+    const maxParallel = Math.max(1, Math.min(teamAssignments.length, Number(config?.ui?.codingAgent?.teamwork?.maxWorkers) || 3, 3));
+    const workerBudget = Number(config?.ui?.codingAgent?.teamwork?.taskBudget || 0.5);
+    const workerMaxTurns = workerBudget <= 0.25 ? 4 : workerBudget <= 1 ? 6 : 8;
+    for (const assignment of teamAssignments) {
+      recordTeamWorker(assignment, "queued", "Waiting for an available Team worker slot.", 1, {
+        objective: ctx.latestUserText, workspace: ctx.projectDir, maxTurns: workerMaxTurns
+      });
+    }
+    onStatus(`${teamMode === "team" ? "Team" : "Assist"} running up to ${maxParallel} specialist${maxParallel === 1 ? "" : "s"} in parallel...`);
+    const reports = await runBoundedWorkers(teamAssignments, maxParallel, async (assignment) => {
       const label = `${assignment.role} · ${assignment.model || assignment.provider}`;
-      recordTeamWorker(assignment, "working", `${label} started`, 1);
       const task = [
         `You are the ${assignment.role} supporting a lead coding agent.`,
         `User objective: ${ctx.latestUserText}`,
+        `Exact allowed workspace: ${ctx.projectDir}`,
+        `Worker budget: at most ${workerMaxTurns} model turns. Reuse this workspace; do not search parent folders or rediscover the project.`,
         assignment.task,
-        "Use repository_map and targeted inspection when useful. Return a concise evidence-backed handoff for the lead."
+        "Use repository_map and targeted inspection when useful. Return only a concise evidence-backed handoff: files/symbols, findings, risks, and exact recommended checks."
       ].join("\n\n");
       try {
         const answer = await runSubagent(ctx, task, {
@@ -1374,39 +1517,42 @@ export async function runTurn(ctx, messages) {
           model: assignment.model,
           role: assignment.role,
           attempt: 1,
-          silentSteps: true
+          silentSteps: true,
+          maxTurns: workerMaxTurns,
+          onLifecycle: (state, detail, meta) => recordTeamWorker(assignment, state, detail, 1, meta)
         });
-        const report = String(answer || "No report returned.").slice(0, 6000);
-        recordTeamWorker(assignment, "done", report.slice(0, 4000), 1);
+        const report = compactTeamReport(answer);
+        recordTeamWorker(assignment, "done", report, 1);
         return `### ${label}\nStatus: completed on attempt 1.\n${report}`;
       } catch (err) {
         const reason = String(err?.message || err);
         const fallback = ctx.signal?.aborted ? null : fallbackFor(assignment);
         if (!fallback) {
-          recordTeamWorker(assignment, "failed", reason, 1);
+          recordTeamWorker(assignment, ctx.signal?.aborted ? "cancelled" : "failed", reason, 1);
           return `### ${label}\nStatus: unavailable after attempt 1.\nWorker unavailable: ${reason}`;
         }
         const retry = { ...fallback, role: assignment.role, task: assignment.task };
         const retryLabel = `${retry.role} · ${retry.model || retry.provider}`;
-        recordTeamWorker(retry, "retrying", `First provider failed: ${reason}`, 2);
         try {
           const answer = await runSubagent(ctx, task, {
             provider: retry.provider,
             model: retry.model,
             role: retry.role,
             attempt: 2,
-            silentSteps: true
+            silentSteps: true,
+            maxTurns: workerMaxTurns,
+            onLifecycle: (state, detail, meta) => recordTeamWorker(retry, state === "working" ? "retrying" : state, state === "working" ? `Fallback started after: ${reason}` : detail, 2, meta)
           });
-          const report = String(answer || "No report returned.").slice(0, 6000);
-          recordTeamWorker(retry, "done", report.slice(0, 4000), 2);
+          const report = compactTeamReport(answer);
+          recordTeamWorker(retry, "done", report, 2);
           return `### ${retryLabel}\nStatus: completed using fallback attempt 2 after ${label} failed.\n${report}`;
         } catch (retryErr) {
           const retryReason = String(retryErr?.message || retryErr);
-          recordTeamWorker(retry, "failed", retryReason, 2);
+          recordTeamWorker(retry, ctx.signal?.aborted ? "cancelled" : "failed", retryReason, 2);
           return `### ${retryLabel}\nStatus: unavailable after fallback attempt 2.\nFirst failure: ${reason}\nFallback failure: ${retryReason}`;
         }
       }
-    }));
+    });
     messages.push({
       role: "user",
       content: [
@@ -1443,6 +1589,11 @@ export async function runTurn(ctx, messages) {
       ? `${target.model || "This model"} is in review/chat-only mode`
       : `${target.model || "This model"} is using Boolean's compatibility tool bridge`);
   }
+  if (reviewOnlyCompatibility && (artifactActionRequired || explicitActionToolResultRequired)) {
+    const answer = `${target.model || "The selected model"} is in Review/chat-only mode and cannot use Boolean's terminal, file-edit, browser, or deployment tools. The requested command was not run. Switch to a Full coding or Compatible coding model, then retry the same task; Boolean will not substitute unrelated cloud or connector inspections.`;
+    messages.push({ role: "assistant", content: answer });
+    return finishOrchestration(answer, "failed");
+  }
   const emitUsage = (msg, usedTarget = target) => {
     if (msg?.usage) controller.addUsage(msg.usage);
     if (onUsage && msg?.usage) onUsage({ provider: usedTarget.provider || config.provider, model: usedTarget.model, ...msg.usage });
@@ -1460,7 +1611,7 @@ export async function runTurn(ctx, messages) {
   const stopped = () => {
     const bail = "(stopped by user)";
     messages.push({ role: "assistant", content: bail });
-    return bail;
+    return finishOrchestration(bail, "interrupted");
   };
 
   // a screenshot tool stashes captured images on ctx; surface them to the model
@@ -1511,7 +1662,7 @@ export async function runTurn(ctx, messages) {
         messages.push({ role: "assistant", content: answer });
         publishController();
         checkpoint();
-        return answer;
+        return finishOrchestration(answer);
       } catch (err) {
         if (err?.name === "AbortError" || signal?.aborted) return stopped();
         if (!contextRecoveryAttempted && looksLikeContextOverflow(err) && ctxBudget > 4096) {
@@ -1546,6 +1697,7 @@ export async function runTurn(ctx, messages) {
   let emptyResponseRetries = 0;
   let textOnlyContentFallback = false;
   let autoContinues = 0;
+  let completionNudges = 0;
   let controllerRecoveries = 0;
   let announceNudges = 0;
   let forceToolCallNext = false;
@@ -1557,17 +1709,34 @@ export async function runTurn(ctx, messages) {
   // Autopilot re-enables the controller's auto-continue (verify/recover) loop even
   // in neutral-relay mode; with it off, behavior is unchanged (0 = model owns the loop).
   const autopilot = config?.ui?.codingAgent?.autopilot === true;
-  const MAX_AUTO_CONTINUE = autopilot ? 8 : 0;
+  const MAX_AUTO_CONTINUE = autopilot ? 1 : 0;
   const MAX_CONTROLLER_RECOVERIES = 4;
+  const MAX_LOOP_RECOVERIES = 0;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
   const MAX_ANNOUNCE_NUDGES = 2;
+  // A blocked or errored tool result is not progress — a repeatedly-blocked action
+  // must NOT reset the loop-recovery guard, or it would recover forever and never
+  // terminate. Mirrors the controller's own failure prefixes.
+  const toolResultFailed = (result) =>
+    /^(?:error:|blocked:|recoverable tool error)/i.test(String(result || "").trim());
+  // Real tool progress clears the stall budgets. These caps are meant to bound
+  // CONSECUTIVE stalls (narration with no action), not the whole run — otherwise a
+  // long task exhausts them early and later legitimate nudges are denied, leaving
+  // it abandoned half-done. The per-run token/time budget is the true runaway guard.
+  const resetStallCounters = (result) => {
+    emptyResponseRetries = 0;
+    if (toolResultFailed(result)) return;
+    autoContinues = 0;
+    announceNudges = 0;
+    controllerRecoveries = 0;
+  };
   const handleControllerStop = (result) => {
     const stoppedByController = controllerStopAnswer(result);
     if (!stoppedByController) return "";
     const reason = controllerStopReason(result);
-    if (isLoopRecoveryStop(reason) && autoContinues < MAX_AUTO_CONTINUE && controllerRecoveries < MAX_CONTROLLER_RECOVERIES && !signal?.aborted) {
+    if (isLoopRecoveryStop(reason) && controllerRecoveries < MAX_LOOP_RECOVERIES && !signal?.aborted) {
       controllerRecoveries++;
-      autoContinues++;
+      if (autopilot) autoContinues++;
       messages.push({ role: "user", content: controller.continuationPrompt(reason) +
         " Continue inside this same run. Do not ask the user to type continue. Do not repeat the blocked inspection; use saved evidence and take the next progress action." });
       publishController();
@@ -1611,7 +1780,7 @@ export async function runTurn(ctx, messages) {
       if (textOnlyContentFallback) modelMessages = withTextOnlyContent(modelMessages);
       // Explicit answer-only surfaces such as Side chat remain intentionally
       // tool-free. Every normal main-chat turn receives the open catalog.
-      const availableTools = forceChat
+      const availableTools = forceChat || synthesizeFromExistingEvidence
         ? []
         : toolDefinitionsForTurnMode(turnMode, artifactActionRequired, completedToolWork, !!ctx.projectDir);
       const compatibilityInspections = compatibilityMode && !reviewOnlyCompatibility
@@ -1743,7 +1912,7 @@ export async function runTurn(ctx, messages) {
         const toolContent = result;
         emitStep({ name, args, result });
         completedToolWork = true;
-        emptyResponseRetries = 0;
+        resetStallCounters(result);
         messages.push({
           role: "tool",
           tool_call_id: call.id || `call_${turn}`,
@@ -1786,7 +1955,7 @@ export async function runTurn(ctx, messages) {
           }
           compatibilityPatchApplied = true;
           completedToolWork = true;
-          emptyResponseRetries = 0;
+          resetStallCounters();
           messages.push({
             role: "user",
             content: `BOOLEAN PATCH RESULT:\n${results.join("\n")}\nContinue the task. Use the compatibility tools to run the requested tests and verification before summarizing.`
@@ -1833,7 +2002,7 @@ export async function runTurn(ctx, messages) {
       emitStep({ name: call.name, args: call.arguments, result });
       completedToolWork = true;
       if (compatibilityMode) compatibilityInspectionCount++;
-      emptyResponseRetries = 0;
+      resetStallCounters(result);
       messages.push({
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
@@ -1877,7 +2046,7 @@ export async function runTurn(ctx, messages) {
       announceNudges++;
       forceToolCallNext = true;
       messages.push({ role: "assistant", content: assistantContent });
-      messages.push({ role: "user", content: "" });
+      messages.push({ role: "user", content: "Take the announced step now by calling the tool directly. Do not describe what you will do — do it in this turn." });
       onStatus("taking the announced step...");
       continue;
     }
@@ -1889,7 +2058,7 @@ export async function runTurn(ctx, messages) {
         && MORE_WORK_INTENT.test(assistantContent) && !signal?.aborted) {
       autoContinues++;
       messages.push({ role: "assistant", content: assistantContent });
-      messages.push({ role: "user", content: "" });
+      messages.push({ role: "user", content: "Continue now — make the next change with your tools instead of describing it. Keep going in this same run until the requested work is complete." });
       onStatus("continuing until the project is finished...");
       continue;
     }
@@ -1927,23 +2096,28 @@ export async function runTurn(ctx, messages) {
     }
 
     const completion = controller.evaluateCompletion(assistantContent);
-    if (!completion.complete && controller.actionRequired && autoContinues < MAX_AUTO_CONTINUE && !signal?.aborted) {
-      autoContinues++;
+    if (!completion.complete && controller.actionRequired && completionNudges < MAX_AUTO_CONTINUE && !signal?.aborted) {
+      completionNudges++;
       messages.push({ role: "assistant", content: assistantContent });
       messages.push({ role: "user", content: controller.continuationPrompt(completion.reason) });
       publishController();
       onStatus(controller.phase === "recovering" ? "recovering from the failed step..." : "verifying the result before finishing...");
       continue;
     }
-    // No hard failure here any more. If the nudges above did not resolve it, accept
-    // the model's answer rather than erroring out on the user.
+    if (!completion.complete) {
+      const paused = `(paused: ${completion.reason} Work is saved.)`;
+      messages.push({ role: "assistant", content: paused });
+      publishController();
+      checkpoint();
+      return finishOrchestration(paused, "failed");
+    }
 
     // Final answer — update conversation digest so it persists across turns
     controller.updateDigest(assistantContent, ctx.latestUserText || "");
     messages.push({ role: "assistant", content: assistantContent });
     publishController();
     checkpoint();
-    return assistantContent;
+    return finishOrchestration(assistantContent);
   }
 
 }
@@ -1985,8 +2159,34 @@ export async function runSubagent(parentCtx, task, options = {}) {
   ];
   const workerAbort = new AbortController();
   const timeoutMs = Math.max(100, Number(options.timeoutMs) || 90_000);
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + timeoutMs;
+  const stallMs = Math.max(100, Math.min(timeoutMs - 25, Number(options.stallMs) || 30_000));
+  let lastProgressAt = startedAt;
+  let stalled = false;
+  const lifecycle = (state, detail) => options.onLifecycle?.(state, detail, {
+    objective: String(task || "").slice(0, 500), workspace: workspaceDir,
+    startedAt, lastProgressAt, deadlineAt, maxTurns: Math.max(3, Number(options.maxTurns) || 6)
+  });
+  const markProgress = (detail = "Worker made progress.") => {
+    lastProgressAt = Date.now();
+    if (stalled) {
+      stalled = false;
+      lifecycle("working", detail);
+    }
+  };
+  lifecycle("working", `${options.role || "Specialist"} started in the assigned workspace.`);
   const timeout = setTimeout(() => workerAbort.abort(new Error("Specialist timed out")), timeoutMs);
-  const abortFromParent = () => workerAbort.abort(parentCtx.signal?.reason || new Error("Lead task stopped"));
+  const watchdog = setInterval(() => {
+    if (!stalled && !workerAbort.signal.aborted && Date.now() - lastProgressAt >= stallMs) {
+      stalled = true;
+      lifecycle("stalled", `No tool or model progress for ${Math.ceil(stallMs / 1000)} seconds; waiting until the worker deadline.`);
+    }
+  }, Math.max(25, Math.min(1000, Math.floor(stallMs / 2))));
+  const abortFromParent = () => {
+    lifecycle("draining", "Lead task stopped; saving the worker checkpoint and draining this session.");
+    workerAbort.abort(parentCtx.signal?.reason || new Error("Lead task stopped"));
+  };
   if (parentCtx.signal) {
     if (parentCtx.signal.aborted) abortFromParent();
     else parentCtx.signal.addEventListener("abort", abortFromParent, { once: true });
@@ -2001,15 +2201,19 @@ export async function runSubagent(parentCtx, task, options = {}) {
     pendingImages: [],
     runSubagent: null,             // no nesting
     subagentDepth: (parentCtx.subagentDepth || 0) + 1,
+    maxTurns: Math.max(3, Number(options.maxTurns) || (childConfig.ui.codingAgent.budget === "small" ? 4 : childConfig.ui.codingAgent.budget === "large" ? 8 : 6)),
     signal: workerAbort.signal,
-    onStep: options.silentSteps ? null : parentCtx.onStep,
-    onStatus: (t) => parentCtx.onStatus?.(`${options.role || "sub-agent"}: ${t}`),
-    onUsage: (usage) => parentCtx.onUsage?.({
-      ...usage,
-      role: options.role || "Specialist",
-      attempt: Math.max(1, Number(options.attempt) || 1),
-      teamWorker: true
-    }),
+    onStep: (step) => { markProgress("Worker completed a tool step."); if (!options.silentSteps) parentCtx.onStep?.(step); },
+    onStatus: (t) => { markProgress(String(t || "Worker status updated.")); parentCtx.onStatus?.(`${options.role || "sub-agent"}: ${t}`); },
+    onUsage: (usage) => {
+      markProgress("Worker model response received.");
+      parentCtx.onUsage?.({
+        ...usage,
+        role: options.role || "Specialist",
+        attempt: Math.max(1, Number(options.attempt) || 1),
+        teamWorker: true
+      });
+    },
     onController: null,            // workers cannot overwrite the lead's durable controller
     onCheckpoint: null             // only the lead owns the durable task heartbeat
   };
@@ -2023,6 +2227,7 @@ export async function runSubagent(parentCtx, task, options = {}) {
     return answer;
   } finally {
     clearTimeout(timeout);
+    clearInterval(watchdog);
     parentCtx.signal?.removeEventListener?.("abort", abortFromParent);
   }
 }

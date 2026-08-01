@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-test("the model decides completion; evidence is still tracked for context", () => {
+test("project completion requires a real change and post-change verification", () => {
   const controller = new AgentController({
     objective: "Update the app layout",
     artifactRequired: true,
@@ -15,10 +15,11 @@ test("the model decides completion; evidence is still tracked for context", () =
   });
 
   // No longer gated on a change or a post-change check — the model judges this.
-  assert.equal(controller.evaluateCompletion("Done.").complete, true);
+  assert.equal(controller.evaluateCompletion("Done.").complete, false);
   controller.noteTool("read_file", { path: "app.css" }, "body { color: black; }");
   controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
   controller.noteTool("run_command", { command: "npm test" }, "tests passed");
+  assert.equal(controller.evaluateCompletion("Done.").complete, true);
   const snap = controller.snapshot();
   assert.ok(snap.mutationCount >= 1, "edits are still recorded");
   assert.ok(snap.inspectionCount >= 1, "inspections are still recorded");
@@ -107,6 +108,7 @@ test("debug evidence is recorded for context but does not gate completion", () =
   controller.noteTool("read_file", { path: "ui.html" }, "current editor code");
   controller.noteTool("record_debug_evidence", { stage: "reproduced", summary: "First word reverses in the preview." }, "recorded");
   controller.noteTool("edit_file", { path: "ui.html" }, "updated ui.html");
+  controller.noteTool("run_command", { command: "npm test" }, "tests passed");
 
   assert.equal(controller.evaluateCompletion("Fixed.").complete, true);
   assert.match(controller.snapshot().reproductionEvidence, /First word reverses/i);
@@ -333,7 +335,7 @@ test("loop guard recovery allows progress actions but blocks more inspection", (
 
   controller.noteBlockedTool("read_file", { path: "C:\\demo\\MainPage.xaml" }, blocked.reason);
   assert.match(controller.prompt(), /LOOP RECOVERY/i);
-  assert.equal(controller.continuationPrompt(blocked.reason), "");
+  assert.match(controller.continuationPrompt(blocked.reason), /C:\\demo|saved evidence/i);
   assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\MainPage.xaml" }).allowed, true);
   assert.equal(controller.allowTool("run_command", { command: "dotnet build" }).allowed, true);
 });
@@ -546,19 +548,23 @@ test("project rules prefer Boolean paths and preserve Boollm legacy fallback", (
   }
 });
 
-test("autopilot nudges once to verify a changed-but-unchecked build task, then completes", () => {
+test("project completion remains held until a post-change check succeeds", () => {
   const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p", autopilot: true });
   c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
   const first = c.evaluateCompletion("Fixed it.");
   assert.equal(first.complete, false, "first completion is held for verification");
   assert.match(first.reason, /build\/test\/check/i);
   const second = c.evaluateCompletion("Fixed it.");
-  assert.equal(second.complete, true, "does not loop — completes on the next attempt");
+  assert.equal(second.complete, false, "repeating the claim does not bypass verification");
+  c.noteTool("run_command", { command: "npm test" }, "tests passed");
+  assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
 });
 
-test("without autopilot the verification nudge never fires (neutral relay unchanged)", () => {
+test("verification cannot be bypassed by disabling autopilot", () => {
   const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p" });
   c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  assert.equal(c.evaluateCompletion("Fixed it.").complete, false);
+  c.noteTool("run_command", { command: "npm test" }, "tests passed");
   assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
 });
 
@@ -575,10 +581,136 @@ test("autopilot project timelines require real file work before completion", () 
   assert.equal(controller.phase, "executing");
 });
 
-test("continuationPrompt is silent without autopilot and actionable with it", () => {
+test("continuationPrompt permits bounded loop recovery without autopilot", () => {
   const off = new AgentController({ objective: "x", artifactRequired: true });
-  assert.equal(off.continuationPrompt("loop guard: repeated the same kind of inspection"), "");
+  assert.match(
+    off.continuationPrompt("loop guard: repeated the same kind of inspection"),
+    /different concrete step|WORKING MEMORY/i
+  );
   const on = new AgentController({ objective: "x", artifactRequired: true, autopilot: true });
   const p = on.continuationPrompt("loop guard: repeated the same kind of inspection");
   assert.ok(p.length > 0 && /different concrete step|WORKING MEMORY/i.test(p), "gives real recovery guidance");
+});
+
+test("repeated edits to one file without a check surface a churn advisory but never block", () => {
+  const controller = new AgentController({
+    objective: "Fix the layout bug",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+  // Four edits to the same file with no check in between.
+  for (let i = 0; i < 4; i++) {
+    assert.equal(controller.allowTool("edit_file", { path: "app.css" }).allowed, true,
+      "edit churn is advisory only — it must never block a legitimate edit");
+    controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  }
+  assert.match(controller.prompt(), /app\.css has been edited 4 times/,
+    "working memory nudges the model to verify after repeated same-file edits");
+  assert.equal(controller.blockedToolCount, 0, "churn never counts toward the 3-block hard stop");
+});
+
+test("a check clears edit churn so normal edit→test→fix iteration is not flagged", () => {
+  const controller = new AgentController({
+    objective: "Fix the layout bug",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+  for (let i = 0; i < 4; i++) controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  assert.match(controller.prompt(), /has been edited/, "churn accumulates before a check");
+  controller.noteTool("run_command", { command: "node --test" }, "tests passed");
+  assert.doesNotMatch(controller.prompt(), /has been edited/, "running a check resets the churn counter");
+  // A failing check is fresh evidence too, so it also clears churn.
+  for (let i = 0; i < 4; i++) controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  controller.noteTool("run_command", { command: "node --test" }, "Error: 1 test failed");
+  assert.doesNotMatch(controller.prompt(), /has been edited/, "a failing check also resets churn (legitimate iteration)");
+});
+
+test("edit churn survives a snapshot round-trip", () => {
+  const controller = new AgentController({ objective: "Fix a bug", artifactRequired: true, projectDir: "C:\\demo" });
+  for (let i = 0; i < 4; i++) controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  const restored = new AgentController({ objective: "Fix a bug", artifactRequired: true, projectDir: "C:\\demo", persisted: controller.snapshot() });
+  assert.match(restored.prompt(), /app\.css has been edited 4 times/, "churn is restored from the durable snapshot");
+});
+
+test("runtime task budgets override legacy unlimited saved controllers", () => {
+  const controller = new AgentController({
+    objective: "Finish the project without a runaway loop",
+    persisted: { tokenBudget: 0, timeBudgetMs: 0, tokensUsed: 10 },
+    tokenBudget: 150000,
+    timeBudgetMs: 600000
+  });
+  assert.equal(controller.tokenBudget, 150000);
+  assert.equal(controller.timeBudgetMs, 600000);
+  assert.equal(controller.tokensUsed, 10);
+});
+
+test("loop guard permits distinct bounded ranges in one large source file", () => {
+  const controller = new AgentController({ objective: "Update the worker", artifactRequired: true, projectDir: "C:\\demo", loopStop: true });
+  for (let index = 0; index < 6; index++) {
+    const args = { path: "C:\\demo\\worker.js", start: index * 200 + 1, end: index * 200 + 200 };
+    assert.equal(controller.allowTool("read_file", args).allowed, true);
+    controller.noteTool("read_file", args, `lines ${args.start}-${args.end}`);
+  }
+  assert.match(controller.allowTool("read_file", { path: "C:\\demo\\worker.js", start: 1401, end: 1600 }).reason, /Loop guard/i);
+});
+
+test("blocked work cannot be marked complete and recovery retains exact paths", () => {
+  const controller = new AgentController({ objective: "Update the worker", artifactRequired: true, projectDir: "C:\\demo", loopStop: true });
+  controller.noteTool("read_file", { path: "C:\\demo\\src\\worker.js", start: 1, end: 200 }, "source");
+  controller.noteBlockedTool("read_file", { path: "C:\\demo\\src\\worker.js" }, "Loop guard: repeated inspection");
+  const completion = controller.evaluateCompletion("Paused for safety. Work is saved.");
+  assert.equal(completion.complete, false);
+  assert.notEqual(controller.snapshot().phase, "completed");
+  const prompt = controller.continuationPrompt("Loop guard: repeated inspection");
+  assert.match(prompt, /exact allowed workspace: C:\\demo/i);
+  assert.match(prompt, /C:\\demo\\src\\worker\.js/i);
+});
+
+test("local app runs activate a durable visual build cycle", () => {
+  const controller = new AgentController({
+    objective: "Build a small website",
+    artifactRequired: true,
+    projectDir: "C:\\demo",
+    autopilot: true
+  });
+  controller.noteTool("edit_file", { path: "index.html" }, "edited index.html");
+  controller.noteTool("run_project", { name: "demo" }, "Website is running at http://localhost:4173/ (HTTP 200).");
+  assert.equal(controller.taskRun.visual.enabled, true);
+  assert.equal(controller.taskRun.visual.state, "previewing");
+  assert.equal(controller.taskRun.visual.previewUrl, "http://localhost:4173/");
+  assert.equal(controller.taskRun.visual.cycle, 1);
+
+  const restored = new AgentController({ persisted: controller.snapshot() });
+  assert.equal(restored.taskRun.visual.previewUrl, "http://localhost:4173/");
+  assert.equal(restored.taskRun.visual.state, "previewing");
+});
+
+test("autopilot cannot call a visual build complete before inspecting its screen", () => {
+  const controller = new AgentController({
+    objective: "Build a small website",
+    artifactRequired: true,
+    projectDir: "C:\\demo",
+    autopilot: true
+  });
+  controller.noteTool("edit_file", { path: "index.html" }, "edited index.html");
+  controller.noteTool("run_project", { name: "demo" }, "Website is running at http://127.0.0.1:4173/ (HTTP 200).");
+  const held = controller.evaluateCompletion("The site is complete.");
+  assert.equal(held.complete, false);
+  assert.match(held.reason, /visually checked/i);
+  assert.equal(controller.taskRun.visual.state, "inspecting");
+
+  controller.noteTool("screenshot_page", { url: "http://127.0.0.1:4173/" }, "Captured the rendered page.");
+  assert.equal(controller.taskRun.visual.state, "verified");
+  assert.ok(controller.taskRun.visual.verifiedAt > 0);
+  assert.equal(controller.evaluateCompletion("The site is complete and visually verified.").complete, true);
+});
+
+test("editing after a visual check starts a new build state", () => {
+  const controller = new AgentController({ objective: "Improve the app", artifactRequired: true, projectDir: "C:\\demo" });
+  controller.noteTool("run_project", {}, "Running at http://localhost:3000/");
+  controller.noteTool("inspect_page_layout", { url: "http://localhost:3000/" }, "Layout looks correct.");
+  assert.equal(controller.taskRun.visual.state, "verified");
+  controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
+  assert.equal(controller.taskRun.visual.state, "building");
+  assert.equal(controller.taskRun.visual.verifiedAt, 0);
 });

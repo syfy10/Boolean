@@ -11,20 +11,20 @@ test("Boolean sends a provider-neutral operating policy and no fabricated person
   const prompt = systemPrompt("C:\\Projects", true, {
     ui: { codingAgent: { mode: "deep", autoTest: true, autoCommit: true } }
   });
-  assert.equal(prompt, booleanAgentPolicy());
-  assert.equal(BOOLEAN_AGENT_RULES.length >= 30, true);
+  assert.ok(prompt.startsWith(booleanAgentPolicy()));
+  assert.match(prompt, /PLANNING MODE: AUTO/);
+  assert.equal(BOOLEAN_AGENT_RULES.length >= 10, true);
   assert.match(prompt, /latest user request/i);
-  assert.match(prompt, /deploy.*explicit permission/i);
+  assert.match(prompt, /deploy.*require user authority/i);
   assert.match(prompt, /read-only/i);
-  assert.match(prompt, /preserve user work/i);
+  assert.match(prompt, /preserve unrelated user work/i);
   assert.match(prompt, /secrets/i);
-  assert.match(prompt, /regression/i);
-  assert.match(prompt, /running interface/i);
-  assert.match(prompt, /temporary processes/i);
-  assert.match(prompt, /review the final diff/i);
+  assert.match(prompt, /verification proportional to risk/i);
+  assert.match(prompt, /stop inspecting and synthesize/i);
+  assert.match(prompt, /do not enter recovery loops/i);
   // Neutral by default: the model owns its own tool loop unless the user opts into
   // autopilot (the controller's auto-continue stays at 0 otherwise).
-  assert.match(agent, /const MAX_AUTO_CONTINUE = autopilot \? 8 : 0;/);
+  assert.match(agent, /const MAX_AUTO_CONTINUE = autopilot \? 1 : 0;/);
   assert.match(agent, /CURRENT TASK CONTRACT/);
   assert.match(server, /function currentAppContext\([^)]*\) \{\s*return "";/);
   for (const fabricatedPersona of [

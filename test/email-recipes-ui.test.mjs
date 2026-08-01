@@ -145,7 +145,8 @@ test("email cleanup follow-up offers a clear Move to Trash action", () => {
   assert.match(html, /completed batch can be undone/);
   assert.match(html, /After the preview, Boolean shows a required approval card/);
   assert.match(html, /cleanupApprovalDetails\(text\)[\s\S]*showCleanupApprovalCard\(cleanupApproval\)/);
-  assert.match(html, /emailCleanup\?'Move to Trash':'Allow'/);
+  assert.match(html, /accept:emailCleanup\?'Move to Trash':codex\?'Allow once':'Allow'/);
+  assert.match(html, /acceptForSession:'Allow for session'/);
 });
 
 test("workspace switches hard-close Settings before showing Recipes", () => {

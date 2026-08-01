@@ -138,6 +138,16 @@ test("completed plan checklists keep raw agent output hidden until requested", (
   assert.match(ui, /if\(!planEl\?\.isConnected\) col\.classList\.remove\("plan-output-hidden"\)/);
 });
 
+test("project tasks show a compact live visual build lifecycle", () => {
+  assert.match(ui, /\.visual-build-card\{[^}]*border:1px solid var\(--border\);[^}]*background:color-mix/s);
+  assert.match(ui, /\.visual-build-steps\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/s);
+  assert.match(ui, /function buildVisualBuildHTML\(taskRun\)/);
+  assert.match(ui, /const stages=\["Build","Launch","Inspect","Ready"\]/);
+  assert.match(ui, /buildVisualBuildHTML\(snapshot\.taskRun\)/);
+  assert.match(ui, /data-plan-action="open-preview"/);
+  assert.match(ui, /if\(openPreview\) openPreview\.onclick=.*aiNavigate\(url\)/);
+});
+
 test("ClearFix respects manual hiding and closes after successful coding work", () => {
   assert.match(ui, /let terminalAutoReveal = true;/);
   assert.match(ui, /function toggleTerminal\(force, userInitiated=false\)/);
@@ -613,13 +623,15 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.equal((ui.match(/<svg class="sidebar-brand-mark" viewBox="0 0 40 40"/g)||[]).length,2);
   assert.match(ui, /\.sidebar-brand-mark circle\{ fill:currentColor; \}/);
   assert.match(ui, /<svg class="sidebar-brand-mark"[\s\S]*?<circle cx="20" cy="20" r="3\.8"\/>[\s\S]*?<\/svg>/);
-  assert.match(ui, /id="sidebarNewProject"[\s\S]*?<span>Project<\/span>/);
-  assert.match(ui, /id="sidebarNewChat"[\s\S]*?<span>New chat<\/span>/);
-  assert.match(ui, /\$\("sidebarNewChat"\)\.onclick=newChat/);
-  assert.match(ui, /\.workspace-create-row\{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.match(ui, /<div class="thread-search-wrap">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"[^>]*placeholder="Search projects and chats"/);
+  assert.doesNotMatch(ui, /id="sidebarNewProject"|id="sidebarNewChat"/);
+  assert.match(ui, /<span>Chats<\/span><button type=\"button\" class=\"section-action chat-add\" title=\"Create\" aria-label=\"Create chat or project\">\+<\/button><span class=\"gcaret\">/);
+  assert.match(ui, /\.thread-new-chat\{[^}]*background:transparent; color:var\(--dim\)/);
+  assert.match(ui, /chatCreateMenu\.innerHTML=[\s\S]*?data-create="chat"[\s\S]*?New chat[\s\S]*?data-create="project"[\s\S]*?New project/);
+  assert.match(ui, /\.chat-create-menu button \+ button\{ border-left:1px solid var\(--border\);/);
+  assert.match(ui, /<div class="thread-search-wrap">\s*<div class="thread-search-field">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"[^>]*placeholder="Search projects and chats"/);
   assert.match(ui, /<span class="thread-search-key" aria-hidden="true">Ctrl K<\/span>/);
-  assert.match(ui, /\.thread-search-wrap svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
+  assert.match(ui, /#sidebar \.thread-search-wrap\{ height:38px;[^}]*padding-top:7px;[^}]*border-top:1px solid var\(--border\); \}/);
+  assert.match(ui, /\.thread-search-field > svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
   assert.match(ui, /display:block; width:100%; height:30px; margin:0; padding:0 9px 0 27px;/);
   assert.match(ui, /id="sidebarAccount"[\s\S]*?id="sidebarAccountAvatar"[\s\S]*?id="sidebarAccountName"[\s\S]*?id="sidebarAccountLabel"/);
   assert.doesNotMatch(ui, /<div class="sidebar-system-row">[\s\S]*?data-sidebar-theme=/);
@@ -640,7 +652,7 @@ test("sidebar shortcuts avoid duplicate top-bar tools and open real destinations
   const more=shortcuts.slice(shortcuts.indexOf('data-sidebar-flyout="more"'));
   for(const action of ["files","changes","models","settings"]) assert.match(more,new RegExp(`data-sidebar-action="${action}"`));
   assert.doesNotMatch(more,/data-sidebar-workspace="code"|data-sidebar-workspace="preview"|data-sidebar-workspace="automations"/);
-  assert.match(ui,/if\(action==="tasks"\)\{ toggleBgAgent\(\); \}/);
+  assert.match(ui,/if\(action==="tasks"\)\{ setWorkspaceTab\("automations",\{force:true\}\); \}/);
   assert.match(ui,/else if\(action==="side-chat"\)\{ setSideChatOpen/);
   assert.match(ui,/else if\(action==="files"\)\{ setWorkspaceTab\("code"\); \}/);
   assert.match(ui,/else if\(action==="changes"\)\{ setWorkspaceTab\("git"\); \}/);
@@ -651,7 +663,7 @@ test("sidebar shortcuts avoid duplicate top-bar tools and open real destinations
   assert.match(ui,/\.sidebar-shortcut svg \.icon-field\{ fill:currentColor; fill-opacity:\.08; stroke:none; \}/);
   assert.match(ui,/#sidebar \.sidebar-shortcut svg\{ width:17px; height:17px; \}/);
   for(const shape of ["circle class=\"icon-field\"","rect class=\"icon-field\"","circle class=\"icon-solid\""]) assert.match(shortcuts,new RegExp(shape));
-  assert.match(ui,/\.personal-chat-head\{ margin-top:11px; padding-top:4px; \}/);
+  assert.match(ui,/\.personal-chat-head\{ margin-top:2px; padding-top:4px; \}/);
   assert.match(server,/company\\s\+website[\s\S]*?prospect plan/);
   assert.match(server,/function uniqueThreadTitle\(title, t, allThreads\)/);
   assert.match(server,/autoTitleThread\(t, content, threads\.values\(\)\)/);
@@ -825,9 +837,9 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /<input id="modelsearch" type="hidden" value="">/);
   assert.match(ui, /connectedHead\.textContent="Connected"/);
   assert.match(ui, /apiProviderHealth\[prov\]==="ready"/);
-  assert.match(ui, /add\.textContent=showApiProviderCatalog\?"Hide available providers":"\+ Add a cloud provider"/);
-  assert.match(ui, /const savedProviders=apiRows\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)\);/);
-  assert.match(ui, /if\(!showApiProviderCatalog&&missing\.length&&\(connected\.length\|\|!savedProviders\.length\)\)/);
+  assert.match(ui, /if\(missing\.length\)\{\s*const next=missing\.find\(\(\[prov\]\)=>prov==="openai"\)\|\|missing\[0\];\s*openApiProvider=next\[0\];\s*renderFocusedApiProvider\(next\[0\],next\[1\],false\);/);
+  assert.doesNotMatch(ui, /showApiProviderCatalog|api-add-provider/);
+  assert.doesNotMatch(ui, /missing\.length&&\(connected\.length\|\|!savedProviders\.length\)/);
   assert.match(ui, /function renderFocusedApiProvider\(prov,label,hasKey\)/);
   assert.match(ui, /className="api-connected-summary"/);
   assert.match(ui, /const selected=state\.provider===id;/);
@@ -844,7 +856,7 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /\.api-provider-detail\.connecting \.api-key-save\{[^}]*min-height:24px; height:24px;/s);
   assert.match(ui, /role="button" tabindex="0" aria-expanded="false"/);
   assert.match(ui, /toggleApiProvider\(id,name,row,true,true\)/);
-  assert.match(ui, /tempToast\("Switched to "\+displayName\(model\)\+"\."\);\s*await refresh\(\);\s*inlineOpenApiProvider="";\s*openApiProvider="";\s*showApiProviderCatalog=false;\s*renderModelList\(""\);/);
+  assert.match(ui, /tempToast\("Switched to "\+displayName\(model\)\+"\."\);\s*await refresh\(\);\s*inlineOpenApiProvider="";\s*openApiProvider="";\s*renderModelList\(""\);/);
   assert.match(ui, /\.api-provider-detail\.inline-models\{[^}]*border-top:1px/s);
   assert.match(ui, /list\.classList\.toggle\("local-model-view",pickerNet!=="online"\)/);
   assert.match(ui, /#modellist\.local-model-view \.item\.model-rec\{[^}]*min-height:40px/s);
@@ -1441,7 +1453,7 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /const salesBackground=run\.request\?\.salesWorkflow===true/);
   assert.match(ui, /const workspaceBackground=salesBackground\|\|workflowBackground/);
   assert.match(ui, /if\(showing&&!workspaceBackground\) scheduleStreamPaint\(\)/);
-  assert.match(ui, /if\(showing&&!workspaceBackground\)\{ insertToolAbove\(ev\.entry\)/);
+  assert.match(ui, /if\(showing&&!workspaceBackground\)\{\s*insertToolAbove\(ev\.entry\)/);
   assert.match(ui, /function salesWorkflowEvent\(ev\)/);
   assert.match(ui, /function salesLiveCheckpoint\(note\)/);
   assert.match(ui, /function salesPrimaryEvidenceCheckpoint\(entry\)/);
@@ -1552,14 +1564,35 @@ test("project timelines appear only for chats explicitly bound to a folder", () 
   assert.match(ui, /function shouldShowProjectPlan\(snapshot\)[\s\S]*?thread\?\.kind==="project"[\s\S]*?!!thread\?\.projectDir/);
 });
 
-test("projects and chats use the compact nested accordion sidebar", () => {
+test("pinned projects and chats use the compact grouped sidebar", () => {
+  assert.match(ui,/projectHead\.className="grouphead project-section-head"/);
+  assert.match(ui,/class="section-action project-add"[^>]*aria-label="New project">\+<\/button>/);
+  assert.match(ui,/#sidebar \.grouphead \.section-action\{ order:initial; margin-left:0; color:var\(--text\); \}/);
+  assert.match(ui,/projectHead\.querySelector\("\.project-add"\)\.onclick=.*createProject\(\)/);
+  assert.match(ui,/\.project-section-head\{[^}]*border-top:1px solid var\(--border\);/);
+  assert.match(ui,/class="thread-new-chat" aria-label="New chat"[^>]*onclick="newChat\(\)"/);
   assert.match(ui, /\.project-accordion\{ border-top:1px solid var\(--border\); \}/);
   assert.match(ui, /\.project-group-head\{ display:flex; align-items:center; gap:7px;/);
   assert.match(ui, /\.project-group-body\{ position:relative; margin-left:11px;[\s\S]*?border-left:1px solid var\(--border\); \}/);
   assert.match(ui, /\.project-group-body \.thread::before\{[\s\S]*?border-bottom:1px solid var\(--border\);/);
   assert.match(ui, /head\.setAttribute\("aria-expanded",String\(open\)\)/);
+  assert.match(ui, /<span class="project-identity">'[\s\S]*?<span class="project-folder">'[\s\S]*?<span class="project-title">'[\s\S]*?<span class="project-caret">'/);
+  assert.match(ui, /open\?OPEN_FOLDER_SVG:FOLDER_SVG/);
+  assert.doesNotMatch(ui, /<span class="project-tag">project<\/span>/);
+  assert.doesNotMatch(ui, /<span class="project-when">/);
+  assert.doesNotMatch(ui, /<span class="project-status" aria-label=/);
   assert.match(ui, /makeThreadRow\(t,\{projectChat:true,label:"Project chat"\}\)/);
-  assert.ok(ui.includes(`chatHead.innerHTML='<span>Personal chats</span><span class="gcount">'+chats.length+'</span>'`));
+  assert.match(ui,/const pinned=ts\.filter\(t=>t\.pinned\)/);
+  assert.match(ui,/pinnedHead\.innerHTML='<span>Pinned<\/span>/);
+  assert.match(ui,/makeThreadRow\(t,\{pinnedSection:true\}\)/);
+  assert.match(ui,/chatHead\.innerHTML='<span>Chats<\/span>/);
+  assert.match(ui,/threadGroups\.Chats=!chatsOpen/);
+  assert.match(ui,/class=\"project-edit\" title=\"New chat in project\"/);
+  assert.match(ui,/aria-label=\"New chat in '\+esc\(t\.title\)\+'\">\+<\/button>/);
+  assert.match(ui,/async function newProjectChat\(project\)/);
+  assert.match(ui,/JSON\.stringify\(\{projectId:project\.id,forceNew:true\}\)/);
+  assert.match(ui,/parentProjectId===t\.id/);
+  assert.match(ui,/Pin important chats for quick access\./);
   assert.match(ui,/const shown=personalChatsExpanded\?chats:chats\.slice\(0,THREAD_GROUP_LIMIT\)/);
   assert.match(ui,/more\.textContent=personalChatsExpanded\?"Show less":"Show more"/);
   assert.match(ui,/more\.setAttribute\("aria-label",personalChatsExpanded\?"Show only recent personal chats":"Show all "\+chats\.length\+" personal chats"\)/);
@@ -1653,13 +1686,16 @@ test("Boolean brand reports live work activity without provider-specific status 
 
 test("cloud providers are connected only after their model list loads", () => {
   assert.match(ui, /const apiProviderHealth=\{\};/);
+  assert.match(ui, /syncApiProviderHealthFromState\(\)/);
+  assert.match(ui, /ready\[prov\]===true&&apiProviderHealth\[prov\]!=="error"/);
   assert.match(ui, /async function verifyApiProviderModels\(prov\)/);
+  assert.match(ui, /for\(let attempt=0;attempt<2;attempt\+\+\)/);
   assert.match(ui, /if\(!res\.ok\|\|!models\.length\) throw new Error/);
   assert.match(ui, /apiProviderHealth\[prov\]="ready"/);
   assert.match(ui, /apiProviderHealth\[prov\]="error"/);
   assert.match(ui, /const connected=visibleApi\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)&&apiProviderHealth\[prov\]==="ready"\)/);
   assert.match(ui, /const attention=visibleApi\.filter\(\(\[prov\]\)=>hasApiKey\(prov\)&&apiProviderHealth\[prov\]==="error"\)/);
-  assert.match(ui, /if\(!showApiProviderCatalog&&missing\.length&&\(connected\.length\|\|!savedProviders\.length\)\)/);
+  assert.match(ui, /if\(missing\.length\)/);
   assert.match(ui, /attentionHead\.textContent="Needs attention"/);
   assert.match(ui, /health==="error"\?"Could not load models"/);
   assert.match(ui, /health==="error"\?"Reconnect"/);
@@ -1691,4 +1727,48 @@ test("each new practice attempt randomizes questions while resumes preserve the 
   assert.match(ui, /educationOfficialRun=\{mode:"mixed",subject,seed,items/);
   assert.match(ui, /if\(resume\)educationOfficialRun=resume;/);
   assert.match(ui, /educationRun=educationSaved\(\);if\(educationRun\?\.questions\?\.length\)educationShowSession\(\);/);
+});
+
+test("scheduled task completion notifications are announced once per new run", () => {
+  assert.match(ui, /<div class="sechead">Task &amp; Automations/);
+  assert.match(ui, /id="automationViewTabs"[\s\S]*data-automation-view="board"[\s\S]*data-automation-view="schedule"[\s\S]*data-automation-view="runs"/);
+  assert.match(ui, /id="automationScheduled"[\s\S]*id="automationRunning"[\s\S]*id="automationReview"/);
+  assert.match(ui, /Notifications: once per run/);
+  assert.match(ui, /function setAutomationView\(view\)/);
+  assert.match(ui, /const running=items\.filter\(item=>automationBusyIds\.has\(item\.id\)\)/);
+  assert.match(ui, /loadAutomations\(\{notify:false\}\)\.catch\(\(\)=>\{\}\);/);
+  assert.match(ui, /setInterval\(\(\)=>\{ if\(document\.visibilityState==="visible"\)\{ loadAutomations\(\{notify:true\}\)/);
+  assert.match(ui, /if\(notify&&latest\.id!==lastAutomationRunId\)\{\s*lastAutomationRunId=latest\.id;\s*localStorage\.setItem\("booleanLastAutomationRun",latest\.id\);/);
+  assert.doesNotMatch(ui, /tempToast\(\(ok\?"Scheduled task complete:/);
+});
+
+test("Studio records live website tours with optional advanced promo editing", () => {
+  assert.match(ui, /<h3>Live website demo<\/h3>/);
+  assert.match(ui, /AI records the tour/);
+  assert.match(ui, /I record the tour/);
+  assert.match(ui, /<summary>Advanced editing<\/summary>/);
+  assert.match(shell, /Page\.startScreencast/);
+  assert.match(ui, /id="videoAdTemplate">[\s\S]*Product Film[\s\S]*Fast Social[\s\S]*Demo Walkthrough/);
+  assert.match(ui, /id="videoAdTextMode">[\s\S]*Minimal · 2–6 words[\s\S]*Visual only[\s\S]*Small captions/);
+  assert.match(ui, /id="videoAdRegenerateScene"[^>]*>Regenerate scene<\/button>/);
+  assert.match(ui, /function shortPromoLine\(/);
+  assert.match(ui, /function regenerateVideoAdScene\(/);
+  assert.match(ui, /scene\.shot=modes\[/);
+  assert.match(ui, /style!=="social"/);
+  assert.match(ui, /scene\.shot==="cursor"\|\|style==="walkthrough"/);
+});
+
+test("blocked agent runs remain visibly paused without an automatic recovery loop", () => {
+  assert.match(agent, /const MAX_LOOP_RECOVERIES = 0/);
+  assert.match(agent, /maxTurns: Math\.max\(3/);
+  assert.match(server, /turnStatus === "completed" \? "answer" : "paused"/);
+  assert.match(ui, /event\.type==="paused"/);
+  assert.match(ui, /if\(ev\.type==="paused"\)\{run\.outcome="paused"/);
+});
+
+test("Tasks shortcut opens the redesigned Task and Automations workspace", () => {
+  assert.match(ui, /else if\(action==="tasks"\)\{ setWorkspaceTab\("automations",\{force:true\}\); \}/);
+  assert.match(ui, /else if \(ws === "automations"\) \{ openSettings\("scheduled"\); \}/);
+  assert.match(ui, /<div class="sechead">Task &amp; Automations/);
+  assert.doesNotMatch(ui, /else if\(action==="tasks"\)\{ toggleBgAgent\(\); \}/);
 });

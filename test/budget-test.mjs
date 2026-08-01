@@ -1,4 +1,5 @@
 import { AgentController } from "../src/controller.js";
+import assert from "node:assert/strict";
 
 const c = new AgentController({
   mode: "quick_fix",
@@ -36,5 +37,16 @@ console.log("time budget exceeded:", JSON.stringify(b));
 const snap = c.snapshot();
 const c3 = new AgentController({ mode: "quick_fix", persisted: snap });
 console.log("restored tokensUsed:", c3.tokensUsed, "tokenBudget:", c3.tokenBudget);
+
+// Runtime config must override legacy saved zero/unlimited budgets.
+const c4 = new AgentController({
+  mode: "quick_fix",
+  persisted: { tokenBudget: 0, timeBudgetMs: 0, tokensUsed: 10 },
+  tokenBudget: 150000,
+  timeBudgetMs: 600000
+});
+assert.equal(c4.tokenBudget, 150000);
+assert.equal(c4.timeBudgetMs, 600000);
+assert.equal(c4.tokensUsed, 10);
 
 console.log("\nALL BUDGET TESTS PASSED");

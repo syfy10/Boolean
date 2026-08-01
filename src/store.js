@@ -24,8 +24,19 @@ export function saveThreads(threads) {
       kind: t.kind === "project" ? "project" : "chat",
       side: t.side === true,
       projectDir: t.kind === "project" && typeof t.projectDir === "string" ? t.projectDir : "",
+      parentProjectId: t.kind === "project" && typeof t.parentProjectId === "string" ? t.parentProjectId : "",
       pendingTask: t.pendingTask && typeof t.pendingTask === "object" ? t.pendingTask : null,
-      memoryDigest: t.memoryDigest && typeof t.memoryDigest === "object" ? t.memoryDigest : null
+      orchestration: t.orchestration && typeof t.orchestration === "object" ? t.orchestration : null,
+      memoryDigest: t.memoryDigest && typeof t.memoryDigest === "object" ? t.memoryDigest : null,
+      // Public Codex app-server session mapping only. Credentials stay in the
+      // Codex CLI's own home and are never copied into Boolean's thread store.
+      codex: t.codex && typeof t.codex === "object" ? {
+        threadId: typeof t.codex.threadId === "string" ? t.codex.threadId : "",
+        turnId: typeof t.codex.turnId === "string" ? t.codex.turnId : "",
+        model: typeof t.codex.model === "string" ? t.codex.model : "",
+        status: typeof t.codex.status === "string" ? t.codex.status : "",
+        updatedAt: Number(t.codex.updatedAt) || Date.now()
+      } : null
     }));
     const tmp = THREADS_FILE + ".tmp";
     fs.writeFileSync(tmp, JSON.stringify({ version: 1, threads: data }));

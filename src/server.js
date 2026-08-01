@@ -14,7 +14,7 @@ import {
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
   defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
-import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement } from "./agent.js";
+import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
 import {
   capabilityProbeTool,
@@ -74,6 +74,8 @@ import { detectLocalServers } from "./local-servers.js";
 import { detectWebsiteTech } from "./tech-detector.js";
 import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
+import { createCodexAppServer } from "./codex-app-server.js";
+import { createCodexRunner } from "./codex-runner.js";
 import officialEducationCatalog from "./education-official.json" with { type: "json" };
 import { listActions, searchActions } from "./actions.js";
 
@@ -417,6 +419,67 @@ function imagesOf(content) {
 
 function userTextOnly(content) {
   return textOf(content).split(/\n\nCURRENT APP CONTEXT\b/)[0].trim();
+}
+
+function codexThreadIds(threads = []) {
+  const ids = new Set();
+  for (const thread of threads) {
+    for (const value of [thread?.codex?.threadId, thread?.codexActive?.threadId]) {
+      const id = String(value || "").trim();
+      if (id) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+/**
+ * Boolean and Codex keep separate conversation histories. Any Boolean-side
+ * rewind must detach the public app-server thread mapping so the next turn is
+ * bootstrapped from the newly truncated Boolean transcript instead of
+ * appending to stale Codex context.
+ */
+export function clearCodexThreadMapping(thread) {
+  if (!thread || typeof thread !== "object") return [];
+  const ids = codexThreadIds([thread]);
+  delete thread.codex;
+  delete thread.codexActive;
+  const isMappedCodexOrchestration = (orchestration) => {
+    const id = String(orchestration?.thread?.id || "").trim();
+    return !!id && ids.includes(id);
+  };
+  if (isMappedCodexOrchestration(thread.orchestration)) thread.orchestration = null;
+  if (isMappedCodexOrchestration(thread.pendingTask?.orchestration)) thread.pendingTask.orchestration = null;
+  return ids;
+}
+
+/** Describe the result without implying that Boolean owns Codex's storage. */
+export function codexHistoryDisposition(threadIds = [], archivedThreadIds = []) {
+  const linked = [...new Set((threadIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
+  const archived = [...new Set((archivedThreadIds || []).map((id) => String(id || "").trim()).filter((id) => linked.includes(id)))];
+  const archiveNote = archived.length
+    ? `Boolean also archived ${archived.length} linked Codex task${archived.length === 1 ? "" : "s"}. `
+    : "";
+  return {
+    managedBy: "codex",
+    linkedThreads: linked.length,
+    archivedThreads: archived.length,
+    retainedExternally: linked.length > 0,
+    notice: linked.length
+      ? `Boolean deleted its local chat copy. ${archiveNote}Codex manages its task history separately and it may remain until removed from Codex.`
+      : "Boolean deleted its local chat history. No linked Codex task history was found."
+  };
+}
+
+export function codexOrchestrationSnapshot({ threadId = "", turnId = "", items = [], status = "in_progress" } = {}) {
+  const normalized = ["completed", "failed", "interrupted"].includes(status) ? status : "in_progress";
+  return {
+    thread: { id: String(threadId || ""), status: normalized },
+    turn: {
+      id: String(turnId || ""),
+      status: normalized,
+      items: Array.isArray(items) ? items.slice(-8) : []
+    }
+  };
 }
 
 export function shortThreadTitle(content) {
@@ -997,6 +1060,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   try { favicon = loadAsset("saz.ico", "../assets/saz.ico"); } catch { favicon = icon32; }
 
   const pendingApprovals = new Map(); // id -> resolve(boolean)
+  const pendingCodexInputs = new Map(); // id -> { resolve, threadId, questions, isBlocking }
   const pendingMcpOAuth = new Map(); // state -> short-lived OAuth transaction
   const pendingEmailOAuth = new Map(); // state -> short-lived mailbox OAuth transaction
   const pendingCloudflareOAuth = new Map(); // state -> short-lived Cloudflare PKCE transaction
@@ -1005,6 +1069,120 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   let browserUrl = ""; // the page currently open in the in-app browser
   let browseBase = ""; // origin of the isolated browser-proxy server (set on listen)
   let serverPort = 0;  // this app's own port, hidden from local-server discovery
+  let codexClient = null;
+  let codexRunner = null;
+  let codexClientCommand = "";
+  let codexAccount = null;
+  let codexModels = [];
+  let codexCheckedAt = 0;
+
+  const codexCommand = () => String(process.env.CODEX_EXECUTABLE || config.codex?.command || "codex").trim() || "codex";
+  const codexErrorMessage = (error) => {
+    const raw = String(error?.message || error || "Codex app-server is unavailable.");
+    if (/access is denied|eperm|eacces/i.test(raw)) {
+      return "Windows blocked that Codex executable. Install the public Codex CLI, or choose its executable in Settings. The Microsoft Store desktop bundle cannot be launched as a CLI by Boolean.";
+    }
+    if (/enoent|not recognized|cannot find|could not start/i.test(raw)) {
+      return "Codex CLI was not found. Install it with npm install -g @openai/codex, then use Check connection in Settings.";
+    }
+    return raw;
+  };
+  const publicCodexModels = (result) => {
+    const rows = Array.isArray(result) ? result : (result?.data || result?.models || []);
+    return rows.slice(0, 200).map((row) => ({
+      id: String(row?.id || row?.model || row?.slug || "").slice(0, 200),
+      name: String(row?.displayName || row?.name || row?.id || row?.model || "").slice(0, 200),
+      description: String(row?.description || "").slice(0, 500),
+      default: row?.isDefault === true || row?.default === true,
+      reasoningEfforts: (Array.isArray(row?.supportedReasoningEfforts) ? row.supportedReasoningEfforts : [])
+        .map((effort) => String(effort?.reasoningEffort || effort?.effort || effort || ""))
+        .filter(Boolean)
+    })).filter((row) => row.id);
+  };
+  const publicCodexAccount = (result) => {
+    const account = result?.account || result || null;
+    if (!account || typeof account !== "object") return null;
+    return {
+      signedIn: !!(account.email || account.type || account.planType || account.accountId || result?.requiresOpenaiAuth === false),
+      email: String(account.email || "").slice(0, 320),
+      type: String(account.type || account.authMode || "").slice(0, 80),
+      plan: String(account.planType || account.plan || "").slice(0, 80)
+    };
+  };
+  const publicCodexStatus = () => ({
+    enabled: config.codex?.enabled === true,
+    command: config.codex?.command || "codex",
+    model: config.codex?.model || "",
+    reasoningEffort: config.codex?.reasoningEffort || "medium",
+    ...(codexClient?.getStatus?.() || { state: "stopped", running: false, ready: false, lastError: "" }),
+    lastError: codexClient?.getStatus?.().lastError ? codexErrorMessage(codexClient.getStatus().lastError) : "",
+    account: codexAccount,
+    models: codexModels,
+    checkedAt: codexCheckedAt
+  });
+  const publicCodexInputs = () => [...pendingCodexInputs.entries()].map(([id, entry]) => ({
+    id,
+    threadId: String(entry?.threadId || ""),
+    questions: Array.isArray(entry?.questions) ? entry.questions : [],
+    isBlocking: entry?.isBlocking !== false
+  }));
+  const publicCodexApprovals = () => [...pendingApprovals.entries()]
+    .map(([id, resolve]) => resolve?.codexEvent ? ({ id, ...resolve.codexEvent }) : null)
+    .filter(Boolean);
+  const stopCodexClient = async () => {
+    const current = codexClient;
+    codexClient = null;
+    codexRunner = null;
+    codexClientCommand = "";
+    if (current) await current.stop().catch(() => {});
+  };
+  const ensureCodexClient = async ({ refresh = false } = {}) => {
+    const command = codexCommand();
+    if (codexClient && codexClientCommand !== command) await stopCodexClient();
+    if (!codexClient) {
+      codexClientCommand = command;
+      codexClient = createCodexAppServer({
+        command,
+        args: ["app-server", "--stdio"],
+        clientInfo: { name: "boolean", title: "Boolean", version: APP_VERSION },
+        capabilities: {},
+        onStatus: () => { codexCheckedAt = Date.now(); }
+      });
+    }
+    await codexClient.start();
+    if (refresh || !codexCheckedAt || !codexAccount || !codexModels.length) {
+      const [account, models] = await Promise.allSettled([
+        codexClient.accountRead({ refreshToken: refresh }),
+        codexClient.modelList({ limit: 200 })
+      ]);
+      if (account.status === "fulfilled") codexAccount = publicCodexAccount(account.value);
+      if (models.status === "fulfilled") codexModels = publicCodexModels(models.value);
+      codexCheckedAt = Date.now();
+    }
+    return codexClient;
+  };
+  const ensureCodexRunner = async () => {
+    const client = await ensureCodexClient();
+    if (!codexRunner) codexRunner = createCodexRunner({ client });
+    return codexRunner;
+  };
+  const archiveLinkedCodexThreads = async (threadIds = []) => {
+    const linked = [...new Set(threadIds.map((id) => String(id || "").trim()).filter(Boolean))];
+    const archived = [];
+    // Deleting a Boolean chat must remain reliable even when Codex is not
+    // running. If the public app-server is already available, archive its
+    // linked task; either way the response explicitly says Codex retains and
+    // manages its own history.
+    if (linked.length && codexClient?.getStatus?.().ready) {
+      await Promise.all(linked.map(async (threadId) => {
+        try {
+          await codexClient.request("thread/archive", { threadId }, { timeoutMs: 2500 });
+          archived.push(threadId);
+        } catch { /* disclose retained history in the response below */ }
+      }));
+    }
+    return codexHistoryDisposition(linked, archived);
+  };
 
   // Entry page for the built-in browser. Kept deliberately small and dependency
   // free: local servers first (the thing you almost always want), then links.
@@ -1299,11 +1477,11 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
   // ── thread store ───────────────────────────────────────────────
   const threads = new Map(); // id -> { id, title, messages, createdAt, updatedAt, abort }
-  function newThread({ kind = "chat", title = "New chat", projectDir = "", side = false } = {}) {
+  function newThread({ kind = "chat", title = "New chat", projectDir = "", parentProjectId = "", side = false } = {}) {
     const id = crypto.randomUUID();
     const workDir = kind === "project" && projectDir ? projectDir : config.projectsDir;
     const t = {
-      id, title, kind, projectDir, side: side === true,
+      id, title, kind, projectDir, parentProjectId, side: side === true,
       messages: [{ role: "system", content: systemPrompt(workDir, config.autoApprove, config) }],
       log: [], // display entries: {t:'user'|'ai'|'tool', ...}
       createdAt: Date.now(), updatedAt: Date.now(), abort: null, pendingTask: null, memoryDigest: null
@@ -1455,6 +1633,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
       .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, pinned: !!t.pinned,
         kind: isProjectThread(t) ? "project" : "chat", side: t.side === true, projectDir: t.projectDir || "",
+        parentProjectId: t.parentProjectId || "",
         pendingTask: publicPendingTask(t.pendingTask) }));
   }
   const renderThread = (t) => t.log; // display log = full history incl. tool steps
@@ -1526,7 +1705,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (repairAutoNotepadTitle(t)) repairedTitles = true;
       if (repairGenericWorkflowTitle(t, restored)) repairedTitles = true;
       if (!t.kind && isProjectThread(t)) { t.kind = "project"; repairedTitles = true; }
-      if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; }
+      if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; t.parentProjectId = ""; }
       if (t.pendingTask?.state === "running") {
         t.pendingTask.state = "interrupted";
         t.pendingTask.updatedAt = Date.now();
@@ -1681,6 +1860,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     if (activeChats > 0) return;
     if (config.ui?.keepLocalWarm !== false) {
       try { engine.keepEngineAliveOnExit(); } catch { /* keep normal shutdown */ }
+    }
+    if (codexClient) {
+      const timer = setTimeout(() => process.exit(0), 750);
+      timer.unref?.();
+      stopCodexClient().finally(() => { clearTimeout(timer); process.exit(0); });
+      return;
     }
     process.exit(0);
   }
@@ -1945,6 +2130,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           budgetLimit: config.budgetLimit || 0,
           connectors: publicConnectors(config, managedEmailOAuthClients),
           imageGeneration: publicImageGeneration(config),
+          codex: publicCodexStatus(),
+          codexPendingInputs: publicCodexInputs(),
+          codexPendingApprovals: publicCodexApprovals(),
           cloudBackend: publicCloudBackend(config),
           browseBase,
           vision: currentVision,
@@ -1981,6 +2169,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           autoApprove: config.autoApprove,
           backendUp: providerReady[config.provider] === true,
           providerReady,
+          codex: publicCodexStatus(),
+          codexPendingInputs: publicCodexInputs(),
+          codexPendingApprovals: publicCodexApprovals(),
           threads: threadList(),
           activeThreadId
         });
@@ -1992,8 +2183,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         if (!CLOUD[provider]) return json({ error: "invalid_provider" }, 400);
         if (!config[provider]?.apiKey) return json({ error: "api_key_required" }, 401);
         const providerConfig = { ...config, provider };
-        const models = await listProviderModels(providerConfig);
-        json({ ok: true, provider, models });
+        try {
+          const models = await listProviderModels(providerConfig, { strict: true });
+          json({ ok: true, provider, models });
+        } catch (err) {
+          const status = err?.status === 401 || err?.status === 403 ? 401 : 502;
+          json({ error: status === 401 ? "api_key_rejected" : "model_list_failed", message: String(err?.message || err) }, status);
+        }
         return;
       }
 
@@ -2229,7 +2425,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           limit: url.searchParams.get("limit")
         });
         json({ id: t.id, title: t.title, kind: isProjectThread(t) ? "project" : "chat", side: t.side === true,
-          projectDir: t.projectDir || "", ...page,
+          projectDir: t.projectDir || "", parentProjectId: t.parentProjectId || "", ...page,
           pendingTask: publicPendingTask(t.pendingTask) });
         return;
       }
@@ -2259,12 +2455,18 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const body = await readBody(req);
         const previousActiveThreadId = activeThreadId;
         const title = String(body.title || "").trim().slice(0, 80);
-        const t = body.side === true
+        const parentProject = body.projectId ? threads.get(String(body.projectId)) : null;
+        if (body.projectId && (!parentProject || parentProject.kind !== "project" || parentProject.parentProjectId || !parentProject.projectDir)) {
+          return json({ error: "This project folder is unavailable." }, 404);
+        }
+        const t = parentProject
+          ? newThread({ kind: "project", title: title || "New chat", projectDir: parentProject.projectDir, parentProjectId: parentProject.id })
+          : body.side === true
           ? newThread({ title: title || "Side chat", side: true })
           : (body.forceNew === true ? newThread({ title: title || "New chat" }) : reuseOrNewThread());
         if (body.side === true && threads.has(previousActiveThreadId)) activeThreadId = previousActiveThreadId;
         persist();
-        json({ id: t.id });
+        json({ id: t.id, parentProjectId: t.parentProjectId || "" });
         return;
       }
 
@@ -2604,21 +2806,29 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/thread/delete") {
         const body = await readBody(req);
         const t = threads.get(body.id);
+        const linkedCodexThreads = codexThreadIds([t]);
         if (t?.abort) t.abort.abort();
         threads.delete(body.id);
         if (threads.size === 0) newThread();
         if (!threads.has(activeThreadId)) activeThreadId = threadList()[0].id;
         persist();
-        json({ ok: true, activeThreadId });
+        const codexHistory = await archiveLinkedCodexThreads(linkedCodexThreads);
+        json({ ok: true, activeThreadId, codexHistory });
         return;
       }
 
-      // privacy: wipe all saved chats from disk and memory
+      // Delete Boolean's saved copy. Codex owns a separate local history, so
+      // archive linked app-server tasks when possible and always disclose that
+      // the underlying Codex history is managed separately.
       if (req.method === "POST" && p === "/api/clear-history") {
+        const savedThreads = [...threads.values()];
+        const linkedCodexThreads = codexThreadIds(savedThreads);
+        for (const thread of savedThreads) thread.abort?.abort();
         threads.clear();
         clearThreads();
         newThread();
-        json({ ok: true, activeThreadId });
+        const codexHistory = await archiveLinkedCodexThreads(linkedCodexThreads);
+        json({ ok: true, activeThreadId, codexHistory });
         return;
       }
 
@@ -2626,6 +2836,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const body = await readBody(req);
         let explicitSecretRemoval = false;
         let explicitConnectionRemoval = body.replaceConnectors === true;
+        let restartCodex = false;
         if (typeof body.provider === "string" && PROVIDERS.includes(body.provider)) config.provider = body.provider;
         if (typeof body.model === "string" && body.model) setCurrentModel(config, body.model);
         if (typeof body.autoApprove === "boolean") config.autoApprove = body.autoApprove;
@@ -2697,6 +2908,23 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             size
           };
         }
+        if (body.codex && typeof body.codex === "object") {
+          const old = config.codex || {};
+          const command = body.codex.command === undefined
+            ? String(old.command || "codex")
+            : String(body.codex.command || "codex").trim();
+          if (!command || command.length > 1024 || /[\r\n\0]/.test(command)) return json({ error: "invalid_codex_command" }, 400);
+          const effort = String(body.codex.reasoningEffort || old.reasoningEffort || "medium");
+          if (!["low", "medium", "high", "xhigh", "ultra"].includes(effort)) return json({ error: "invalid_codex_effort" }, 400);
+          const nextCodex = {
+            enabled: body.codex.enabled === undefined ? old.enabled === true : body.codex.enabled === true,
+            command,
+            model: String(body.codex.model === undefined ? (old.model || "") : body.codex.model).trim().slice(0, 200),
+            reasoningEffort: effort
+          };
+          restartCodex = nextCodex.command !== old.command || (old.enabled === true && nextCodex.enabled !== true);
+          config.codex = nextCodex;
+        }
         if (body.connectors && typeof body.connectors === "object") config.connectors = mergeConnectors(config.connectors, body.connectors);
         if (typeof body.removeApiConnector === "string") {
           explicitConnectionRemoval = true;
@@ -2714,8 +2942,70 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           preserveSecrets: !explicitSecretRemoval,
           preserveConnections: !explicitConnectionRemoval
         });
+        if (restartCodex) await stopCodexClient();
         if (adminCloudVaultEnabled(config)) syncCloudVault(config, { merge: false }).catch(() => {});
         json({ ok: true });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/codex/status") {
+        try {
+          if (url.searchParams.get("start") === "1") await ensureCodexClient({ refresh: url.searchParams.get("refresh") === "1" });
+          json({ ok: true, ...publicCodexStatus() });
+        } catch (error) {
+          codexCheckedAt = Date.now();
+          json({ ok: false, ...publicCodexStatus(), error: codexErrorMessage(error) });
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/codex/recheck") {
+        try {
+          await ensureCodexClient({ refresh: true });
+          json({ ok: true, ...publicCodexStatus() });
+        } catch (error) {
+          codexCheckedAt = Date.now();
+          json({ ok: false, ...publicCodexStatus(), error: codexErrorMessage(error) }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/codex/auth/start") {
+        try {
+          const client = await ensureCodexClient();
+          const result = await client.request("account/login/start", {
+            type: "chatgpt",
+            useHostedLoginSuccessPage: true,
+            appBrand: "codex"
+          });
+          json({ ok: true, loginId: result?.loginId || "", authUrl: result?.authUrl || "" });
+        } catch (error) {
+          json({ ok: false, error: codexErrorMessage(error) }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/codex/auth/cancel") {
+        try {
+          const body = await readBody(req);
+          const client = await ensureCodexClient();
+          await client.request("account/login/cancel", { loginId: String(body.loginId || "") });
+          json({ ok: true });
+        } catch (error) {
+          json({ ok: false, error: codexErrorMessage(error) }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/codex/logout") {
+        try {
+          const client = await ensureCodexClient();
+          await client.request("account/logout", {});
+          codexAccount = null;
+          json({ ok: true, ...publicCodexStatus() });
+        } catch (error) {
+          json({ ok: false, error: codexErrorMessage(error) }, 400);
+        }
         return;
       }
 
@@ -4183,7 +4473,24 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/approve") {
         const body = await readBody(req);
         const resolve = pendingApprovals.get(body.id);
-        if (resolve) { pendingApprovals.delete(body.id); resolve(!!body.approved); }
+        if (resolve) {
+          pendingApprovals.delete(body.id);
+          const decision = ["accept", "acceptForSession", "decline", "cancel"].includes(body.decision)
+            ? body.decision
+            : (body.approved ? "accept" : "decline");
+          resolve(resolve.codexDecision === true ? decision : decision === "accept" || decision === "acceptForSession");
+        }
+        json({ ok: true });
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/codex/input") {
+        const body = await readBody(req);
+        const entry = pendingCodexInputs.get(body.id);
+        if (entry?.resolve) {
+          pendingCodexInputs.delete(body.id);
+          entry.resolve(body.answers && typeof body.answers === "object" ? body.answers : {});
+        }
         json({ ok: true });
         return;
       }
@@ -4200,6 +4507,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             t.pendingTask.updatedAt = Date.now();
             persist();
           }
+          // The Codex runner owns interruption through this AbortSignal. A
+          // second direct turn/interrupt here races the same request.
           t.abort.abort();
         }
         json({ ok: true });
@@ -4216,6 +4525,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         for (let i = t.log.length - 1; i >= 0; i--) {
           if (t.log[i].t === "user") { t.log.length = i + 1; break; }
         }
+        clearCodexThreadMapping(t);
         const retryUser = [...t.messages].reverse().find((message) => message?.role === "user");
         if (retryUser && shouldTrackPendingTask(t, t.messages, userTextOnly(retryUser.content))) beginPendingTask(t, retryUser.content);
         else t.pendingTask = null;
@@ -4243,6 +4553,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         if (cutMsg >= 0) t.messages.length = cutMsg;
         if (cutLog >= 0) t.log.length = cutLog;
         t.pendingTask = null;
+        clearCodexThreadMapping(t);
         t.updatedAt = Date.now();
         persist();
         return json({ ok: true, text });
@@ -4344,7 +4655,16 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const t = threads.get(body.threadId) || threads.get(activeThreadId);
         const requestedProvider = PROVIDERS.includes(String(body.provider || "")) ? String(body.provider || "") : "";
         const requestedModel = String(body.model || "").trim();
-        const effectiveProvider = requestedProvider || config.provider;
+        const codexRequested = config.codex?.enabled === true && body.sideChat !== true && body.salesWorkflow !== true && body.workflowRun !== true;
+        const effectiveProvider = codexRequested ? "codex" : (requestedProvider || config.provider);
+
+        if (codexRequested && Array.isArray(body.images) && body.images.length) {
+          const send = openNdjsonStream(res);
+          send({ type: "error", text: "This Codex integration does not accept pasted image data yet. Switch the orchestration engine to Boolean for this image turn." });
+          send({ type: "done" });
+          res.end();
+          return;
+        }
 
         // block image sends when the local model has no vision projector
         if (Array.isArray(body.images) && body.images.length && effectiveProvider === "local") {
@@ -4368,8 +4688,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         const visibleUserText = userTextOnly(content);
         const savedTask = t.pendingTask && ["running", "interrupted"].includes(t.pendingTask.state) ? t.pendingTask : null;
+        const asksAboutSavedTask = !!savedTask && isTaskStatusQuestion(visibleUserText);
         const shouldRefineSavedTask = !!savedTask && isTaskRefinement(visibleUserText);
-        const shouldResumeSavedTask = !!savedTask && (isExplicitTaskContinuation(visibleUserText) || shouldRefineSavedTask);
+        const shouldResumeSavedTask = !!savedTask && !asksAboutSavedTask && (isExplicitTaskContinuation(visibleUserText) || shouldRefineSavedTask);
         let inspectSavedTask = false;
         if (shouldResumeSavedTask) {
           if (shouldRefineSavedTask) {
@@ -4380,8 +4701,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           savedTask.updatedAt = Date.now();
         } else {
           t.messages.push({ role: "user", content });
-          const incomingMode = body.sideChat === true ? "chat" : turnModeForPendingTask(t.messages, visibleUserText);
-          inspectSavedTask = !!savedTask && incomingMode === "inspect";
+          const incomingMode = body.sideChat === true ? "chat" : (asksAboutSavedTask ? "inspect" : turnModeForPendingTask(t.messages, visibleUserText));
+          inspectSavedTask = !!savedTask && (asksAboutSavedTask || incomingMode === "inspect");
           if (body.sideChat !== true && (incomingMode === "connector" || (incomingMode === "action" && t.kind === "project" && !!t.projectDir))) beginPendingTask(t, content);
           else if (savedTask) {
             // A status/inspect question mid-build (e.g. "what's done so far?",
@@ -4401,6 +4722,20 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         autoTitleThread(t, content, threads.values());
         t.updatedAt = Date.now();
         persist();
+        if (asksAboutSavedTask) {
+          const answer = taskStopAnswer(savedTask);
+          const replyProvider = requestedProvider || config.provider || "local";
+          const replyModel = requestedModel || currentModel(config);
+          const aiLabel = shortAiName(replyProvider, replyModel);
+          t.messages.push({ role: "assistant", content: answer });
+          t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
+          t.updatedAt = Date.now();
+          persist();
+          const send = openNdjsonStream(res);
+          send({ type: "answer", text: answer, provider: replyProvider, model: replyModel, aiLabel });
+          res.end();
+          return;
+        }
         const sideProvider = body.sideChat === true && PROVIDERS.includes(String(body.sideProvider || "")) ? String(body.sideProvider) : "";
         const sideModel = body.sideChat === true ? String(body.sideModel || "").trim() : "";
         return streamRun(t, res, {
@@ -4408,6 +4743,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           forceNoArtifact: body.salesWorkflow === true,
           salesWorkflow: body.salesWorkflow === true,
           workflowRun: body.workflowRun === true,
+          disableCodex: body.sideChat === true || body.salesWorkflow === true || body.workflowRun === true,
           provider: sideProvider || requestedProvider,
           model: sideProvider ? sideModel : requestedModel,
           inspectSavedTask
@@ -4429,6 +4765,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       for (let i = t.log.length - 1; i >= 0; i--) {
         if (t.log[i].t === "user") { t.log.length = i; break; }
       }
+      clearCodexThreadMapping(t);
       t.pendingTask = null;
       t.updatedAt = Date.now();
       persist();
@@ -4454,8 +4791,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const baseConfig = t.projectDir ? { ...config, projectsDir: t.projectDir } : config;
         const runConfig = options.provider ? { ...baseConfig, provider: options.provider, [options.provider]: { ...(baseConfig[options.provider] || {}) } } : baseConfig;
         if (options.provider && options.model && runConfig[options.provider]) runConfig[options.provider].model = options.model;
-        const replyProvider = runConfig.provider || "local";
-        let replyModel = currentModel(runConfig);
+        const useCodex = config.codex?.enabled === true && options.disableCodex !== true;
+        const replyProvider = useCodex ? "codex" : (runConfig.provider || "local");
+        let replyModel = useCodex ? (config.codex?.model || "Codex default") : currentModel(runConfig);
 
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
@@ -4479,6 +4817,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             if (!t.memoryDigest) return saved;
             return { ...(saved || {}), conversationDigest: t.memoryDigest };
           })(),
+          threadId: t.id,
+          orchestrationState: options.inspectSavedTask ? null : t.orchestration || t.pendingTask?.orchestration || null,
           forceTurnMode: options.forceTurnMode || "",
           forceNoArtifact: options.forceNoArtifact === true,
           salesWorkflow: options.salesWorkflow === true,
@@ -4528,6 +4868,14 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               t.pendingTask.updatedAt = Date.now();
             }
             send({ type: "controller", controller });
+          },
+          onOrchestration: (event, orchestration) => {
+            if (!options.inspectSavedTask) t.orchestration = orchestration;
+            if (t.pendingTask && !options.inspectSavedTask) {
+              t.pendingTask.orchestration = orchestration;
+              t.pendingTask.updatedAt = Date.now();
+            }
+            send({ type: "orchestration", event, orchestration });
           },
           // an image the AI produced (e.g. a screenshot) — show it in the
           // transcript and persist it in the thread log
@@ -4646,10 +4994,178 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
         activeChats++;
         lastPing = Date.now();
+        let codexTurnStatus = "";
         try {
-          const answer = await runTurn(ctx, t.messages);
+          let answer;
+          if (useCodex) {
+            const runner = await ensureCodexRunner();
+            const codexActivity = new Map();
+            const emitActivity = (event = { method: "item/updated" }, status = "in_progress") => {
+              const orchestration = codexOrchestrationSnapshot({
+                threadId: t.codex?.threadId || t.codexActive?.threadId || "",
+                turnId: t.codexActive?.turnId || t.codex?.turnId || "",
+                status,
+                items: [...codexActivity.values()]
+              });
+              ctx.onOrchestration(event, orchestration);
+            };
+            const requestCodexApproval = async (request) => {
+              const params = request?.params && typeof request.params === "object" ? request.params : {};
+              const supported = new Set(["accept", "acceptForSession", "decline", "cancel"]);
+              const availableDecisions = Array.isArray(params.availableDecisions)
+                ? params.availableDecisions.map(String).filter((decision) => supported.has(decision))
+                : [];
+              const networkContext = params.networkApprovalContext && typeof params.networkApprovalContext === "object"
+                ? params.networkApprovalContext
+                : null;
+              const networkTarget = networkContext
+                ? Object.values(networkContext).filter((value) => ["string", "number"].includes(typeof value)).map(String).join(": ")
+                : "";
+              const summary = String(
+                request?.summary
+                || params.reason
+                || (networkTarget ? `Allow network access to ${networkTarget}` : "")
+                || (request?.kind === "file" ? "Apply these file changes" : "Run this command")
+              );
+              if (config.autoApprove) {
+                send({ type: "status", text: `auto-approved: ${summary}` });
+                return Promise.resolve("accept");
+              }
+              const id = crypto.randomUUID();
+              const approvalEvent = {
+                type: "approval", id, summary, codex: true, kind: request?.kind || "command",
+                codexRequestId: request?.requestId,
+                command: params.command || "", cwd: params.cwd || "",
+                commandActions: Array.isArray(params.commandActions) ? params.commandActions : [],
+                changes: Array.isArray(params.changes) ? params.changes : [],
+                networkApprovalContext: networkContext,
+                availableDecisions
+              };
+              send(approvalEvent);
+              const decision = await new Promise((resolve) => {
+                resolve.codexDecision = true;
+                resolve.codexEvent = { ...approvalEvent, threadId: t.id };
+                pendingApprovals.set(id, resolve);
+                const finish = (decision) => {
+                  if (!pendingApprovals.has(id)) return;
+                  pendingApprovals.delete(id);
+                  resolve(decision);
+                };
+                abort.signal.addEventListener("abort", () => finish("cancel"), { once: true });
+                setTimeout(() => finish("decline"), 600000).unref?.();
+              });
+              if (!availableDecisions.length || availableDecisions.includes(decision)) return decision;
+              if (decision === "acceptForSession" && availableDecisions.includes("accept")) return "accept";
+              return availableDecisions.includes("decline") ? "decline" : (availableDecisions[0] || "cancel");
+            };
+            let result;
+            try {
+              result = await runner.runCodexTurn({
+              messages: t.messages,
+              mapping: t.codex || {},
+              model: config.codex?.model || "",
+              effort: config.codex?.reasoningEffort || "medium",
+              // Match Boolean's native behavior: project chats work in their
+              // own folder, while an ordinary New chat can create a project
+              // beneath the configured projects workspace instead of being
+              // silently downgraded to read-only.
+              projectDir: t.projectDir || config.projectsDir || "",
+              networkAccess: config.ui?.aiBrowser !== false,
+              approvalPolicy: config.autoApprove ? "never" : "on-request",
+              signal: abort.signal,
+              onStatus: ctx.onStatus,
+              onToken: ctx.onToken,
+              onUsage: ctx.onUsage,
+              onStep: ctx.onStep,
+              onPlan: (plan) => {
+                for (const [index, step] of plan.entries()) {
+                  const status = String(step?.status || "pending").toLowerCase();
+                  codexActivity.set(`plan-${index}`, {
+                    id: `plan-${index}`,
+                    type: "plan_step",
+                    title: String(step?.step || step?.text || `Step ${index + 1}`),
+                    status: status === "completed" ? "completed" : status === "inprogress" || status === "in_progress" ? "in_progress" : "pending"
+                  });
+                }
+                emitActivity({ method: "turn/plan/updated" });
+              },
+              onItem: ({ method, item }) => {
+                if (!item?.id || ["agentMessage", "reasoning"].includes(item.type)) return;
+                codexActivity.set(item.id, {
+                  id: item.id,
+                  type: String(item.type || "activity"),
+                  title: String(item.command || item.query || item.tool || item.type || "Activity").slice(0, 180),
+                  status: method === "item/completed" ? "completed" : "in_progress"
+                });
+                emitActivity({ method, itemId: item.id });
+              },
+              onMapping: (mapping) => {
+                t.codex = { threadId: mapping.threadId || "", turnId: mapping.turnId || mapping.lastTurnId || "", model: mapping.model || config.codex?.model || "", status: mapping.status || "", updatedAt: Date.now() };
+                t.updatedAt = Date.now();
+                persist();
+              },
+              onIds: ({ threadId, turnId }) => { t.codexActive = { threadId, turnId }; },
+              onApproval: requestCodexApproval,
+              onPermissions: async (request) => {
+                const decision = await requestCodexApproval({ kind: "permissions", summary: request?.params?.reason || "Allow the requested Codex permissions", params: request?.params });
+                return decision === "accept" || decision === "acceptForSession"
+                  ? { permissions: request?.params?.permissions || {}, scope: decision === "acceptForSession" ? "session" : "turn" }
+                  : { permissions: {}, scope: "turn" };
+              },
+              onUserInput: (request) => {
+                const id = crypto.randomUUID();
+                const pending = {
+                  threadId: t.id,
+                  codexRequestId: request.requestId,
+                  questions: request.questions || [],
+                  isBlocking: request.isBlocking !== false
+                };
+                send({ type: "codexInput", id, ...pending });
+                return new Promise((resolve) => {
+                  pendingCodexInputs.set(id, { ...pending, resolve });
+                  const finish = () => {
+                    if (!pendingCodexInputs.has(id)) return;
+                    pendingCodexInputs.delete(id);
+                    resolve({});
+                  };
+                  abort.signal.addEventListener("abort", finish, { once: true });
+                  const timeout = request.isBlocking === false && request.autoResolutionMs ? request.autoResolutionMs : 600000;
+                  setTimeout(finish, timeout).unref?.();
+                });
+              },
+              onRequestResolved: ({ requestId }) => {
+                const approvalIds = [];
+                const inputIds = [];
+                for (const [id, resolve] of pendingApprovals) {
+                  if (String(resolve?.codexEvent?.codexRequestId ?? "") !== String(requestId ?? "")) continue;
+                  pendingApprovals.delete(id);
+                  approvalIds.push(id);
+                  resolve("cancel");
+                }
+                for (const [id, entry] of pendingCodexInputs) {
+                  if (String(entry?.codexRequestId ?? "") !== String(requestId ?? "")) continue;
+                  pendingCodexInputs.delete(id);
+                  inputIds.push(id);
+                  entry.resolve({});
+                }
+                if (approvalIds.length || inputIds.length) send({ type: "codexRequestResolved", approvalIds, inputIds });
+              }
+              });
+            } catch (error) {
+              const terminalStatus = abort.signal.aborted ? "interrupted" : "failed";
+              emitActivity({ method: `turn/${terminalStatus}` }, terminalStatus);
+              throw error;
+            }
+            codexTurnStatus = result.status;
+            emitActivity({ method: `turn/${codexTurnStatus}` }, codexTurnStatus);
+            if (result.status === "failed") throw new Error(result.error || "Codex stopped with an error.");
+            answer = result.content;
+          } else {
+            answer = await runTurn(ctx, t.messages);
+          }
           if (String(answer || "").trim()) {
-            const aiLabel = shortAiName(replyProvider, replyModel);
+            if (useCodex) t.messages.push({ role: "assistant", content: answer });
+            const aiLabel = useCodex ? "Codex" : shortAiName(replyProvider, replyModel);
             t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
             // Usage must reach the UI before `answer`, which is the stream's
             // terminal record. Local model performance uses the exact output
@@ -4660,21 +5176,15 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               t.log.push(usage);
               send({ type: "usage", ...usage });
             }
-            send({ type: "answer", text: answer, provider: replyProvider, model: replyModel, aiLabel });
+            const turnStatus = useCodex ? (codexTurnStatus || "completed") : (ctx.orchestrationResult?.thread?.turns?.at(-1)?.status || "completed");
+            send({ type: turnStatus === "completed" ? "answer" : "paused", text: answer, provider: replyProvider, model: replyModel, aiLabel, turnStatus });
+          } else if (useCodex && codexTurnStatus === "interrupted") {
+            send({ type: "paused", text: "Codex stopped safely. You can continue this task when ready.", provider: replyProvider, model: replyModel, aiLabel: "Codex", turnStatus: "interrupted" });
           }
           if (t.pendingTask && !options.inspectSavedTask) {
-            if (/^\(stopped by user\)/i.test(String(answer || "").trim())) {
-              t.pendingTask.state = "interrupted";
-              t.pendingTask.updatedAt = Date.now();
-            } else if (String(answer || "").trim() && ctx.controllerResult?.phase === "completed") {
-              // Keep the last objective available for the Continue button even
-              // when the model ended with a normal-looking, but partial, answer.
-              t.pendingTask.state = "completed";
-              t.pendingTask.updatedAt = Date.now();
-            } else {
-              t.pendingTask.state = "interrupted";
-              t.pendingTask.updatedAt = Date.now();
-            }
+            const turnStatus = useCodex ? codexTurnStatus : ctx.orchestrationResult?.thread?.turns?.at(-1)?.status;
+            t.pendingTask.state = turnStatus === "completed" ? "completed" : (turnStatus || "interrupted");
+            t.pendingTask.updatedAt = Date.now();
           }
           if (runIn || runOut) {
             // Budget warning after each turn that records cloud usage
@@ -4684,6 +5194,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             }
           }
         } catch (err) {
+          if (abort.signal.aborted) ctx.orchestration?.interruptTurn("Stopped by the user.");
+          else ctx.orchestration?.failTurn(err?.message || err);
           if (t.pendingTask && !options.inspectSavedTask) {
             t.pendingTask.state = "interrupted";
             t.pendingTask.updatedAt = Date.now();
@@ -4703,6 +5215,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         } finally {
           activeChats--;
           t.abort = null;
+          t.codexActive = null;
           if (t.rollbackToUser) { t.rollbackToUser = false; if (abort.signal.aborted) rollbackLastUserTurn(t); }
           t.updatedAt = Date.now();
           lastPing = Date.now();
@@ -4789,6 +5302,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
     }
   });
+  server.on("close", () => { stopCodexClient().catch(() => {}); });
 
   // Isolated browser-proxy server on its OWN port. Proxied web pages render
   // from this origin (a different port = a different origin than the app), so

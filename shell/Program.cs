@@ -491,6 +491,11 @@ sealed class MainForm : Form, IMessageFilter
     // any menu pixels that extend past the chrome's normal 116px viewport.
     const int ChromeMenuHeight = 548;
     bool _chromeMenuOpen;
+    CoreWebView2DevToolsProtocolEventReceiver? _studioScreencastReceiver;
+    EventHandler<CoreWebView2DevToolsProtocolEventReceivedEventArgs>? _studioScreencastHandler;
+    bool _studioRecording;
+    long _studioRecordingStarted;
+    int _studioRecordingFrames;
 
     readonly record struct Palette(Color CanvasBg, Color PaneBg, Color BarBg, Color BtnBg, Color BtnBorder,
         Color Text, Color AddrBg, Color Splitter, Color ActiveTab, Color Hover)
@@ -2099,6 +2104,28 @@ try {
                         _ = ExecuteBrowserControlAsync(id, command);
                     }
                     break;
+                case "studioRecordStart":
+                    _ = StartStudioRecordingAsync(
+                        root.TryGetProperty("url", out var recordUrl) ? recordUrl.GetString() ?? "" : "",
+                        root.TryGetProperty("maxSeconds", out var maxSeconds) && maxSeconds.TryGetInt32(out var seconds) ? seconds : 30,
+                        !root.TryGetProperty("privacy", out var privacy) || privacy.ValueKind != JsonValueKind.False,
+                        !root.TryGetProperty("cursor", out var cursor) || cursor.ValueKind != JsonValueKind.False);
+                    break;
+                case "studioRecordStop":
+                    _ = StopStudioRecordingAsync();
+                    break;
+                case "openDownloads":
+                    try
+                    {
+                        var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                        Directory.CreateDirectory(downloads);
+                        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{downloads}\"") { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        PostToChat(new { type = "studioFolder", ok = false, error = ex.Message });
+                    }
+                    break;
                 case "context":
                     if (root.TryGetProperty("id", out var cidp) && cidp.GetString() is { } cid)
                     {
@@ -2329,6 +2356,109 @@ try {
             await Task.WhenAny(done.Task, Task.Delay(ms));
         }
         finally { try { t.View.CoreWebView2.NavigationCompleted -= Handler; } catch { } }
+    }
+
+    async Task StartStudioRecordingAsync(string url, int maxSeconds, bool privacy, bool showCursor)
+    {
+        if (_studioRecording) await StopStudioRecordingAsync();
+        if (!_browserOpen) ToggleBrowser(true);
+        var t = Active();
+        if (t?.View.CoreWebView2 == null)
+        {
+            PostToChat(new { type = "studioRecording", action = "error", error = "Open a browser tab before recording." });
+            return;
+        }
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                Navigate(url);
+                await WaitForNavOrDelayAsync(t, 3000);
+            }
+            var recordingOverlay = $@"(function(){{
+              var style=document.getElementById('boolean-studio-recording-style')||document.createElement('style');
+              style.id='boolean-studio-recording-style';
+              style.textContent='{(privacy ? "input[type=password],[data-private],[data-sensitive],[autocomplete=\\\"one-time-code\\\"]{filter:blur(8px)!important}" : "")}' +
+                '{(showCursor ? "#boolean-studio-cursor{position:fixed;z-index:2147483647;width:18px;height:18px;border:3px solid white;border-radius:50%;box-shadow:0 1px 8px rgba(0,0,0,.55);pointer-events:none;transform:translate(-50%,-50%);transition:width .12s,height .12s}#boolean-studio-cursor.click{width:30px;height:30px}" : "")}';
+              (document.head||document.documentElement).appendChild(style);
+              if({showCursor.ToString().ToLowerInvariant()}){{
+                var dot=document.getElementById('boolean-studio-cursor')||document.createElement('div');dot.id='boolean-studio-cursor';document.documentElement.appendChild(dot);
+                window.__booleanStudioMove=function(e){{dot.style.left=e.clientX+'px';dot.style.top=e.clientY+'px';}};
+                window.__booleanStudioClick=function(){{dot.classList.add('click');setTimeout(function(){{dot.classList.remove('click');}},160);}};
+                document.addEventListener('pointermove',window.__booleanStudioMove,true);document.addEventListener('click',window.__booleanStudioClick,true);
+              }}
+              return true;
+            }})()";
+            await t.View.CoreWebView2.ExecuteScriptAsync(recordingOverlay);
+            _studioRecordingFrames = 0;
+            _studioRecordingStarted = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _studioRecording = true;
+            _studioScreencastReceiver = t.View.CoreWebView2.GetDevToolsProtocolEventReceiver("Page.screencastFrame");
+            _studioScreencastHandler = async (_, ev) =>
+            {
+                if (!_studioRecording) return;
+                try
+                {
+                    using var frame = JsonDocument.Parse(ev.ParameterObjectAsJson);
+                    var root = frame.RootElement;
+                    var data = root.TryGetProperty("data", out var dp) ? dp.GetString() ?? "" : "";
+                    var sessionId = root.TryGetProperty("sessionId", out var sp) && sp.TryGetInt32(out var sid) ? sid : 0;
+                    if (sessionId > 0)
+                        await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Page.screencastFrameAck", $"{{\"sessionId\":{sessionId}}}");
+                    if (string.IsNullOrWhiteSpace(data)) return;
+                    _studioRecordingFrames++;
+                    PostToChat(new
+                    {
+                        type = "studioRecording",
+                        action = "frame",
+                        dataURL = "data:image/jpeg;base64," + data,
+                        at = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _studioRecordingStarted,
+                        url = t.Url,
+                        frame = _studioRecordingFrames
+                    });
+                }
+                catch { }
+            };
+            _studioScreencastReceiver.DevToolsProtocolEventReceived += _studioScreencastHandler;
+            var limit = Math.Clamp(maxSeconds, 6, 60);
+            await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Page.startScreencast", "{\"format\":\"jpeg\",\"quality\":72,\"maxWidth\":960,\"maxHeight\":720,\"everyNthFrame\":2}");
+            PostToChat(new { type = "studioRecording", action = "started", url = t.Url, maxSeconds = limit });
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(limit));
+                if (_studioRecording) BeginInvoke(new Action(() => _ = StopStudioRecordingAsync()));
+            });
+        }
+        catch (Exception ex)
+        {
+            _studioRecording = false;
+            PostToChat(new { type = "studioRecording", action = "error", error = ex.Message });
+        }
+    }
+
+    async Task StopStudioRecordingAsync()
+    {
+        if (!_studioRecording) return;
+        _studioRecording = false;
+        var t = Active();
+        try { if (t?.View.CoreWebView2 != null) await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Page.stopScreencast", "{}"); } catch { }
+        try
+        {
+            if (_studioScreencastReceiver != null && _studioScreencastHandler != null)
+                _studioScreencastReceiver.DevToolsProtocolEventReceived -= _studioScreencastHandler;
+        }
+        catch { }
+        _studioScreencastReceiver = null;
+        _studioScreencastHandler = null;
+        try { if (t?.View.CoreWebView2 != null) await t.View.CoreWebView2.ExecuteScriptAsync("(function(){document.removeEventListener('pointermove',window.__booleanStudioMove,true);document.removeEventListener('click',window.__booleanStudioClick,true);document.getElementById('boolean-studio-recording-style')?.remove();document.getElementById('boolean-studio-cursor')?.remove();delete window.__booleanStudioMove;delete window.__booleanStudioClick;return true})()"); } catch { }
+        PostToChat(new
+        {
+            type = "studioRecording",
+            action = "complete",
+            frames = _studioRecordingFrames,
+            duration = Math.Max(0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - _studioRecordingStarted),
+            url = t?.Url ?? ""
+        });
     }
 
     async Task ExecuteBrowserControlAsync(string id, JsonElement command)

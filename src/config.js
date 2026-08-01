@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.63";
-export const APP_DISPLAY_VERSION = "v0.9.63";
+export const APP_VERSION = "0.9.64";
+export const APP_DISPLAY_VERSION = "v0.9.64";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -43,6 +43,15 @@ const DEFAULTS = {
     enabled: false,
     provider: "",
     model: ""
+  },
+  // Optional native orchestration through OpenAI's public Codex app-server.
+  // Authentication remains owned by the Codex CLI; Boolean never stores its
+  // access tokens. The existing local/cloud provider loop remains the default.
+  codex: {
+    enabled: false,
+    command: "codex",
+    model: "",
+    reasoningEffort: "medium"
   },
   // Per provider + endpoint + model capability probes. Boolean records native
   // function support after a real request succeeds or is rejected so a model
@@ -204,8 +213,9 @@ const DEFAULTS = {
     contextMode: "balanced",  // minimal | balanced | full - Context Optimizer
     codingAgent: {
       mode: "quick",          // quick | feature | debug | review | refactor
+      planningMode: "auto",   // auto | quick | plan-first
       autoTest: true,
-      stopLoop: false,
+      stopLoop: true,
       compatibilityMode: "auto", // auto | patch | review
       maxRetries: 2,
       budget: "normal",       // small | normal | large

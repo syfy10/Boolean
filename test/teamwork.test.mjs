@@ -4,7 +4,7 @@ import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { runSubagent, runTurn, systemPrompt, teamworkAssignments } from "../src/agent.js";
+import { runBoundedWorkers, runSubagent, runTurn, systemPrompt, teamworkAssignments } from "../src/agent.js";
 
 function teamConfig(port, mode = "team") {
   return {
@@ -49,6 +49,7 @@ test("teamwork assigns inexpensive connected models while keeping the selected l
 
 test("assist runs a specialist first and passes its report to the lead", async (t) => {
   const requests = [];
+  let leadCalls = 0;
   const server = http.createServer(async (req, res) => {
     let raw = "";
     for await (const chunk of req) raw += chunk;
@@ -57,7 +58,11 @@ test("assist runs a specialist first and passes its report to the lead", async (
     const text = (body.messages || []).map((message) => String(message.content || "")).join("\n");
     const content = /supporting a lead coding agent/i.test(text)
       ? "Reviewer report: app.js and app.test.js are the relevant files."
-      : "Lead integrated the reviewer report and completed the task.";
+      : ++leadCalls === 1
+        ? '```tool\n{"name":"write_file","arguments":{"path":"app.js","content":"export const value = 2;\\n"}}\n```'
+        : leadCalls === 2
+          ? '```tool\n{"name":"run_command","arguments":{"command":"node --check app.js"}}\n```'
+          : "Lead integrated the reviewer report and completed the task.";
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content } }], usage: { prompt_tokens: 120, completion_tokens: 30 } }));
   });
@@ -88,8 +93,11 @@ test("assist runs a specialist first and passes its report to the lead", async (
   assert.equal(answer, "Lead integrated the reviewer report and completed the task.");
   assert.ok(requests.length >= 2);
   assert.ok(requests.some((body) => (body.messages || []).some((message) => /BOOLEAN TEAM HANDOFF/.test(String(message.content || "")))));
-  assert.deepEqual(steps.filter((step) => step.name === "team_worker").map((step) => step.args.state), ["working", "done"]);
+  assert.deepEqual(steps.filter((step) => step.name === "team_worker").map((step) => step.args.state), ["queued", "working", "done"]);
   assert.equal(controllers.at(-1)?.teamWorkers?.Reviewer?.state, "done");
+  assert.equal(controllers.at(-1)?.teamWorkers?.Reviewer?.workspace, projectDir);
+  assert.equal(controllers.at(-1)?.teamWorkers?.Reviewer?.maxTurns, 6);
+  assert.ok(controllers.at(-1)?.teamWorkers?.Reviewer?.lastProgressAt > 0);
   assert.ok(controllers.at(-1)?.taskRun?.events?.some((event) => event.type === "team.worker.done"));
   assert.equal(usageEvents.find((usage) => usage.teamWorker)?.role, "Reviewer");
   assert.equal(usageEvents.find((usage) => usage.teamWorker)?.attempt, 1);
@@ -97,6 +105,7 @@ test("assist runs a specialist first and passes its report to the lead", async (
 });
 
 test("team retries one failed specialist on a different connected provider", async (t) => {
+  let leadCalls = 0;
   const server = http.createServer(async (req, res) => {
     let raw = "";
     for await (const chunk of req) raw += chunk;
@@ -107,7 +116,13 @@ test("team retries one failed specialist on a different connected provider", asy
       res.end(JSON.stringify({ error: { message: "bad worker key" } }));
       return;
     }
-    const content = /supporting a lead coding agent/i.test(text) ? "Fallback specialist report." : "Lead completed the task.";
+    const content = /supporting a lead coding agent/i.test(text)
+      ? "Fallback specialist report."
+      : ++leadCalls === 1
+        ? '```tool\n{"name":"write_file","arguments":{"path":"app.js","content":"export const value = 2;\\n"}}\n```'
+        : leadCalls === 2
+          ? '```tool\n{"name":"run_command","arguments":{"command":"node --check app.js"}}\n```'
+          : "Lead completed the task.";
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content } }] }));
   });
@@ -127,9 +142,9 @@ test("team retries one failed specialist on a different connected provider", asy
   ]);
   assert.equal(answer, "Lead completed the task.");
   const mapper = steps.filter((step) => step.name === "team_worker" && step.args.role === "Mapper");
-  assert.deepEqual(mapper.map((step) => step.args.state), ["working", "retrying", "done"]);
-  assert.equal(mapper[1].args.provider, "google");
-  assert.equal(mapper[1].args.attempt, 2);
+  assert.deepEqual(mapper.map((step) => step.args.state), ["queued", "working", "retrying", "done"]);
+  assert.equal(mapper[2].args.provider, "google");
+  assert.equal(mapper[2].args.attempt, 2);
 });
 
 test("specialists stay in the active project and cannot overwrite the lead controller", async (t) => {
@@ -173,15 +188,29 @@ test("a stalled specialist times out instead of blocking the team forever", asyn
   t.after(() => server.close());
   const cfg = teamConfig(server.address().port, "solo");
   const started = Date.now();
+  const lifecycle = [];
   await assert.rejects(
     runSubagent(
       { config: cfg, projectDir: os.tmpdir(), onStatus() {}, onUsage() {} },
       "Report only.",
-      { provider: "openai", role: "Reviewer", timeoutMs: 120 }
+      { provider: "openai", role: "Reviewer", timeoutMs: 140, stallMs: 50, onLifecycle(state) { lifecycle.push(state); } }
     ),
     /timed out/i
   );
   assert.ok(Date.now() - started < 2000);
+  assert.deepEqual(lifecycle.slice(0, 2), ["working", "stalled"]);
+});
+
+test("bounded Team queue never exceeds its worker limit and preserves result order", async () => {
+  let active = 0, peak = 0;
+  const result = await runBoundedWorkers([1, 2, 3, 4, 5], 2, async (value) => {
+    active++; peak = Math.max(peak, active);
+    await new Promise((resolve) => setTimeout(resolve, 12));
+    active--;
+    return value * 10;
+  });
+  assert.equal(peak, 2);
+  assert.deepEqual(result, [10, 20, 30, 40, 50]);
 });
 
 test("teamwork controls are compact, persisted, and shown beside the model selector", () => {
@@ -200,6 +229,8 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.match(ui, /class="team-run-progress" aria-label="Team progress"/);
   assert.match(ui, /function updateTeamWorker\(entry\)/);
   assert.match(ui, /team-run-worker\.retrying/);
+  assert.match(ui, /team-run-worker\.stalled/);
+  assert.match(ui, /Stopping safely/);
   assert.match(ui, /run\.controller\?\.teamWorkers/);
   assert.match(ui, /Team model usage/);
   assert.match(ui, /team-usage-row/);

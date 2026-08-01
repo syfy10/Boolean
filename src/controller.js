@@ -5,7 +5,8 @@ import {
   createTaskRun,
   publicTaskRun,
   syncTaskRunFromController,
-  taskRunToolEvent
+  taskRunToolEvent,
+  updateTaskRunVisual
 } from "./task-runs.js";
 
 const MUTATION_TOOLS = new Set([
@@ -59,6 +60,11 @@ const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|use
 const LOOP_BLOCK_REASON = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i;
 const PROGRESS_WARNING_INSPECTIONS = 12;
 const NON_PROGRESS_INSPECTION_LIMIT = 28;
+// Advisory-only threshold: when the same file has been edited this many times
+// with no passing/failing check in between, workingMemory nudges the model to
+// verify before editing it again. It never blocks — legitimate edit→test→fix
+// iteration resets the counter the moment a check runs.
+const EDIT_CHURN_WARNING = 4;
 // Strict mode stops loops early. These larger emergency limits are always
 // enforced so optional preferences can never permit hundreds of wasted calls.
 const EMERGENCY_NON_PROGRESS_INSPECTION_LIMIT = 48;
@@ -452,6 +458,10 @@ export class AgentController {
     this.checks = Array.isArray(saved.checks) ? saved.checks.map((item) => cleanText(item, 260)).filter(Boolean).slice(-8) : [];
     this.recentActions = Array.isArray(saved.recentActions) ? saved.recentActions.map((item) => cleanText(item, 260)).filter(Boolean).slice(-10) : [];
     this.actionCounts = saved.actionCounts && typeof saved.actionCounts === "object" ? { ...saved.actionCounts } : {};
+    // Per-file edit churn: counts edits to a file with no intervening check.
+    // Unlike actionCounts it is NOT wiped on each mutation, so repeated re-edits
+    // of the same file accumulate and surface an advisory in workingMemory.
+    this.editChurn = saved.editChurn && typeof saved.editChurn === "object" ? { ...saved.editChurn } : {};
     this.nonProgressCount = Number(saved.nonProgressCount) || 0;
     const savedLoopStop = saved.loopStopEnabled ?? saved.loopStop;
     this.loopStopEnabled = options.loopStop === undefined ? savedLoopStop === true : options.loopStop === true;
@@ -463,9 +473,12 @@ export class AgentController {
       ? saved.openProcesses.map((item) => cleanText(item, 80)).filter(Boolean).slice(-8)
       : [];
     // Per-run token/time budget (0 = unlimited). Set from config.ui.codingAgent.budget.
-    this.tokenBudget = Number(saved.tokenBudget) || 0;
+    // Runtime options are authoritative. Older saved controllers contain 0
+    // from the former unlimited default; using only that saved value made the
+    // visible Normal (150k) budget a no-op.
+    this.tokenBudget = Math.max(0, Number(options.tokenBudget ?? saved.tokenBudget) || 0);
     this.tokensUsed = Number(saved.tokensUsed) || 0;
-    this.timeBudgetMs = Number(saved.timeBudgetMs) || 0;
+    this.timeBudgetMs = Math.max(0, Number(options.timeBudgetMs ?? saved.timeBudgetMs) || 0);
     this.startedAt = Number(saved.startedAt) || Date.now();
     this.cancelRequested = !!saved.cancelRequested;
     // Active-controller mode (autopilot): re-enables auto-continue, verification
@@ -475,11 +488,16 @@ export class AgentController {
     // tool; they surface in workingMemory even after older chat is trimmed.
     this.notes = Array.isArray(saved.notes) ? saved.notes.map((n) => cleanText(n, 300)).filter(Boolean).slice(-12) : [];
     this.verificationNudged = saved.verificationNudged === true;
+    this.visualVerificationNudged = saved.visualVerificationNudged === true;
     this.teamWorkers = saved.teamWorkers && typeof saved.teamWorkers === "object"
       ? Object.fromEntries(Object.entries(saved.teamWorkers).slice(0, 8).map(([role, worker]) => [cleanText(role, 80), {
           role: cleanText(worker?.role || role, 80), provider: cleanText(worker?.provider, 60), model: cleanText(worker?.model, 120),
-          state: ["working", "retrying", "done", "failed"].includes(worker?.state) ? worker.state : "failed",
-          attempt: Math.max(1, Number(worker?.attempt) || 1), detail: cleanText(worker?.detail, 500), updatedAt: Number(worker?.updatedAt) || Date.now()
+          state: ["queued", "working", "stalled", "retrying", "draining", "done", "failed", "cancelled"].includes(worker?.state) ? worker.state : "failed",
+          attempt: Math.max(1, Number(worker?.attempt) || 1), detail: cleanText(worker?.detail, 500),
+          objective: cleanText(worker?.objective, 500), workspace: cleanText(worker?.workspace, 500),
+          maxTurns: Math.max(0, Number(worker?.maxTurns) || 0), startedAt: Number(worker?.startedAt) || 0,
+          lastProgressAt: Number(worker?.lastProgressAt) || 0, deadlineAt: Number(worker?.deadlineAt) || 0,
+          finishedAt: Number(worker?.finishedAt) || 0, updatedAt: Number(worker?.updatedAt) || Date.now()
         }]))
       : {};
     this.updatedAt = Date.now();
@@ -538,6 +556,7 @@ export class AgentController {
       checks: [...this.checks],
       recentActions: [...this.recentActions],
       actionCounts: { ...this.actionCounts },
+      editChurn: { ...this.editChurn },
       nonProgressCount: this.nonProgressCount,
       loopStopEnabled: this.loopStopEnabled,
       deployEvidence: this.deployEvidence,
@@ -554,6 +573,7 @@ export class AgentController {
       conversationDigest: this.conversationDigest,
       notes: [...this.notes],
       verificationNudged: this.verificationNudged,
+      visualVerificationNudged: this.visualVerificationNudged,
       teamWorkers: Object.fromEntries(Object.entries(this.teamWorkers).map(([role, worker]) => [role, { ...worker }])),
       taskRun: publicTaskRun(this.taskRun),
       compaction: compactTaskRun(this.taskRun, this)
@@ -574,21 +594,31 @@ export class AgentController {
   /** Persist specialist lifecycle without counting it as lead tool work. */
   noteTeamWorker(worker = {}, detail = "") {
     const role = cleanText(worker.role || "Specialist", 80);
-    const state = ["working", "retrying", "done", "failed"].includes(worker.state) ? worker.state : "working";
+    const state = ["queued", "working", "stalled", "retrying", "draining", "done", "failed", "cancelled"].includes(worker.state) ? worker.state : "working";
+    const prior = this.teamWorkers[role] || {};
+    const now = Date.now();
     const entry = {
+      ...prior,
       role,
       provider: cleanText(worker.provider, 60),
       model: cleanText(worker.model, 120),
       state,
       attempt: Math.max(1, Number(worker.attempt) || 1),
       detail: cleanText(detail, 500),
-      updatedAt: Date.now()
+      objective: cleanText(worker.objective || prior.objective, 500),
+      workspace: cleanText(worker.workspace || prior.workspace, 500),
+      maxTurns: Math.max(0, Number(worker.maxTurns ?? prior.maxTurns) || 0),
+      startedAt: Number(worker.startedAt || prior.startedAt) || (state === "working" || state === "retrying" ? now : 0),
+      lastProgressAt: Number(worker.lastProgressAt) || (state === "working" || state === "retrying" ? now : Number(prior.lastProgressAt) || 0),
+      deadlineAt: Number(worker.deadlineAt || prior.deadlineAt) || 0,
+      finishedAt: ["done", "failed", "cancelled"].includes(state) ? now : 0,
+      updatedAt: now
     };
     this.teamWorkers[role] = entry;
     this.updatedAt = entry.updatedAt;
     appendTaskRunEvent(this.taskRun, {
       type: `team.worker.${state}`,
-      status: state === "failed" ? "failed" : state === "done" ? "done" : "active",
+      status: ["failed", "cancelled"].includes(state) ? "failed" : state === "done" ? "done" : "active",
       title: `${role} ${state === "retrying" ? "retrying" : state}`,
       detail: entry.detail || `${entry.model || entry.provider || "Model"} ${state}`,
       details: { role, provider: entry.provider, model: entry.model, attempt: entry.attempt }
@@ -638,6 +668,9 @@ export class AgentController {
       Object.keys(this.sourceOfTruth).length ? `Project source of truth: ${Object.entries(this.sourceOfTruth).map(([key, value]) => `${key}=${value}`).join(" | ")}` : "",
       this.constraints.length ? `User constraints: ${cleanText(this.constraints.join(" | "), 700)}` : "",
       this.taskContext ? `Recent user intent: ${cleanText(this.taskContext.slice(-1000), 1000)}` : "",
+      /\b(?:these|those|all (?:of )?(?:this|that|them)|the remaining|this things|those fixes)\b/i.test(this.objective)
+        ? "Scope fidelity: the request refers to an earlier checklist or recommendation. Treat every referenced item as acceptance criteria; do not silently implement only one item. If the referenced scope cannot be identified, ask before editing."
+        : "",
       this.inspectedFiles.length ? `Inspected: ${this.inspectedFiles.slice(-6).join(" | ")}` : "",
       this.changedFiles.length ? `Changed: ${this.changedFiles.slice(-6).join(" | ")}` : "",
       this.conversationDigest.activeTopic ? `Active topic: ${this.conversationDigest.activeTopic}` : "",
@@ -701,6 +734,13 @@ export class AgentController {
     if (this.nonProgressCount >= PROGRESS_WARNING_INSPECTIONS) {
       lines.push("Note: several inspections have run without a change or new evidence yet.");
     }
+    const churned = Object.entries(this.editChurn)
+      .filter(([, count]) => count >= EDIT_CHURN_WARNING)
+      .sort((a, b) => b[1] - a[1]);
+    if (churned.length) {
+      const [file, count] = churned[0];
+      lines.push(`Note: ${path.basename(file)} has been edited ${count} times with no build/test/check in between. Run the project's check to verify the current state before editing it again, or move on to the next step.`);
+    }
     return lines.join("\n");
   }
 
@@ -744,20 +784,25 @@ export class AgentController {
     const coarseFingerprint = coarseActionFingerprint(name, args);
     // record_debug_evidence always allowed — it is the debug workflow own mechanism
     if (name === "record_debug_evidence") return { allowed: true, reason: "" };
-    const coarseRepeatLimit = this.loopStopEnabled ? 3 : EMERGENCY_COARSE_REPEAT_LIMIT;
+    // Large source files often need several different bounded line reads. Keep
+    // broad searches strict, but allow enough distinct ranges to understand one
+    // large file before requiring an edit or check.
+    const coarseRepeatLimit = name === "read_file"
+      ? (this.loopStopEnabled ? 6 : Math.max(6, EMERGENCY_COARSE_REPEAT_LIMIT))
+      : (this.loopStopEnabled ? 3 : EMERGENCY_COARSE_REPEAT_LIMIT);
     if (coarseFingerprint && (this.actionCounts[coarseFingerprint] || 0) >= coarseRepeatLimit) {
-      return { allowed: false, reason: "Loop guard: this task already repeated the same kind of inspection several times. Do not inspect again; use the evidence already collected and take a different progress step such as a targeted edit or known build/test command." };
+      return { allowed: false, synthesize: true, reason: "Loop guard reached. Do not inspect again; enough evidence has already been collected. Synthesize the requested answer now." };
     }
     const nonProgressLimit = this.loopStopEnabled
       ? NON_PROGRESS_INSPECTION_LIMIT
       : EMERGENCY_NON_PROGRESS_INSPECTION_LIMIT;
     if (this.nonProgressCount >= nonProgressLimit && (isInspectionTool(name, args) || BROWSER_TOOLS.has(name) || isInspectionCommand(name, args))) {
-      return { allowed: false, reason: "Tool budget reached: many inspection steps happened without a file change or new result. Do not inspect again; continue from the saved evidence with a targeted edit, a known build/test command, or a concise blocker summary." };
+      return { allowed: false, synthesize: true, reason: "Tool budget reached. Do not inspect again; enough evidence has already been collected. Synthesize the requested answer now." };
     }
     const fingerprint = actionFingerprint(name, args);
     const exactRepeatLimit = this.loopStopEnabled ? 2 : EMERGENCY_EXACT_REPEAT_LIMIT;
     if ((this.actionCounts[fingerprint] || 0) >= exactRepeatLimit && (isInspectionTool(name, args) || BROWSER_TOOLS.has(name))) {
-      return { allowed: false, reason: `Loop guard: '${name}' already ran repeatedly with the same target. Use the existing evidence, summarize the cause, or choose a different check.` };
+      return { allowed: false, synthesize: true, reason: `Loop guard: '${name}' already ran with this target. Use the existing result and answer now.` };
     }
     // Debug evidence is tracked and surfaced, but no longer blocks edits — the
     // model decides when it understands a bug well enough to change code.
@@ -843,6 +888,25 @@ export class AgentController {
 
     const failed = isFailure(result);
     const verification = isVerification(name, args) || SELF_VERIFYING_TOOLS.has(name);
+    const previewUrl = name === "run_project" && !failed
+      ? String(result || "").match(/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?[^\s"'<>]*/i)?.[0] || ""
+      : "";
+    if (MUTATION_TOOLS.has(name) && !failed && this.taskRun.visual?.enabled) {
+      updateTaskRunVisual(this.taskRun, { state: "building", verifiedAt: 0 });
+    }
+    if (name === "run_project") {
+      if (failed && this.taskRun.visual?.enabled) updateTaskRunVisual(this.taskRun, { state: "failed", detail: result });
+      else if (previewUrl) {
+        updateTaskRunVisual(this.taskRun, {
+          state: "previewing", previewUrl, cycle: (this.taskRun.visual?.cycle || 0) + 1, verifiedAt: 0, forceEvent: true
+        });
+      }
+    }
+    if (["screenshot_page", "inspect_page_layout"].includes(name) && this.taskRun.visual?.enabled) {
+      updateTaskRunVisual(this.taskRun, failed
+        ? { state: "failed", detail: result }
+        : { state: "verified", verifiedAt: Date.now(), forceEvent: true });
+    }
     const deployCommand = isDeployCommand(name, args);
     if (deployCommand && !failed) {
       const version = String(result || "").match(DEPLOY_VERSION)?.[1] || "";
@@ -870,6 +934,9 @@ export class AgentController {
       return this.snapshot();
     }
     if (failed) {
+      // A check ran (even a failing one) — it is fresh evidence, so re-editing a
+      // file after it is legitimate iteration, not churn. Clear the churn counter.
+      if (verification) this.editChurn = {};
       if (this.debugRequired && this.mutationCount === 0 && verification) {
         this.lastFailure = "";
         this.consecutiveFailures = 0;
@@ -910,6 +977,11 @@ export class AgentController {
       const changed = cleanText(fileArgument(args), 260);
       if (changed && !this.changedFiles.includes(changed)) this.changedFiles.push(changed);
       this.changedFiles = this.changedFiles.slice(-12);
+      if (changed) {
+        this.editChurn[changed] = (this.editChurn[changed] || 0) + 1;
+        const churnKeys = Object.keys(this.editChurn);
+        if (churnKeys.length > 12) delete this.editChurn[churnKeys[0]];
+      }
       this.lastMutation = this.toolCount;
       this.phase = "executing";
       const implementationIndex = this.debugRequired ? 2 : 1;
@@ -918,6 +990,7 @@ export class AgentController {
     }
 
     if (verification) {
+      this.editChurn = {};
       this.lastVerification = this.toolCount;
       const evidence = `${name}: ${cleanText(result, 180)}`;
       if (evidence) this.verificationEvidence.push(evidence);
@@ -971,10 +1044,15 @@ export class AgentController {
   // leaving one behind makes a finished task look stuck.
   evaluateCompletion(answer) {
     if (!cleanText(answer)) return { complete: false, reason: "The model returned no final result." };
+    if (["blocked", "recovering"].includes(this.phase) && this.lastFailure) {
+      this.updatedAt = Date.now();
+      syncTaskRunFromController(this.taskRun, this);
+      return { complete: false, reason: `The task is paused after a blocked action: ${cleanText(this.lastFailure, 300)}` };
+    }
     if (this.openProcesses.length) {
       return { complete: false, reason: `Temporary process still running: ${this.openProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
     }
-    if (this.autopilot && this.projectBound && this.artifactRequired && this.mutationCount === 0) {
+    if (this.projectBound && this.artifactRequired && this.mutationCount === 0) {
       this.phase = "executing";
       this.updatedAt = Date.now();
       return {
@@ -985,13 +1063,20 @@ export class AgentController {
     // Verification nudge (autopilot only): a build/fix task that changed files but
     // ran no build/test/check should confirm before finishing — once, so it can
     // never loop. Neutral relay keeps its current "accept the answer" behavior.
-    if (this.autopilot && !this.verificationNudged
-        && (this.debugRequired || this.artifactRequired)
-        && this.mutationCount > 0 && this.checks.length === 0 && !this.postFixEvidence) {
+    if (this.projectBound && this.artifactRequired && this.mutationCount > 0
+        && this.lastVerification < this.lastMutation && !this.postFixEvidence) {
       this.verificationNudged = true;
       this.phase = "verifying";
       this.updatedAt = Date.now();
-      return { complete: false, reason: "You changed files but have not run a build/test/check to confirm the result. Run the project's check (for example node --test, dotnet build, or a smoke run) and finish with the verified outcome. If no check is possible here, say so explicitly and finish." };
+      return { complete: false, reason: "Files changed, but no successful build/test/check has verified the current edits. Run the project's relevant check after the last change. If verification is unavailable or fails, report the exact blocker instead of claiming completion." };
+    }
+    if (this.autopilot && !this.visualVerificationNudged && this.taskRun.visual?.enabled
+        && this.taskRun.visual.previewUrl && this.taskRun.visual.state !== "verified") {
+      this.visualVerificationNudged = true;
+      this.phase = "verifying";
+      this.updatedAt = Date.now();
+      updateTaskRunVisual(this.taskRun, { state: "inspecting" });
+      return { complete: false, reason: "The local preview is open but the latest screen has not been visually checked. Capture or inspect the rendered page once, fix any visible issue, and then finish with the verified outcome." };
     }
     this.phase = "completed";
     for (const item of this.plan) item.status = "done";
@@ -1002,12 +1087,16 @@ export class AgentController {
   }
 
   continuationPrompt(reason) {
-    if (!this.autopilot) return "";
+    const loopBlock = isLoopBlock(reason);
+    if (!this.autopilot && !loopBlock) return "";
     const r = cleanText(reason, 500);
     const next = this.plan.find((item) => item.status && item.status !== "done")?.step;
     const tail = next ? ` Planned next step: ${next}.` : "";
-    if (isLoopBlock(reason)) {
-      return `${r} Re-read WORKING MEMORY above. Do not repeat the blocked action — use the evidence already gathered and take a different concrete step: a targeted edit, a known build/test/check command, or a plain blocker summary.${tail}`;
+    const roots = (this.contract.allowedRoots || []).slice(0, 3).map((root) => cleanText(root, 260)).filter(Boolean);
+    const files = this.inspectedFiles.slice(-4).map((file) => cleanText(file, 260)).filter(Boolean);
+    const location = `${roots.length ? ` Stay inside the exact allowed workspace: ${roots.join(" | ")}.` : ""}${files.length ? ` Reuse these already inspected targets without locating them again: ${files.join(" | ")}.` : ""}`;
+    if (loopBlock) {
+      return `${r} Re-read WORKING MEMORY above.${location} Do not repeat the blocked action — use the evidence already gathered and take a different concrete step: a targeted edit, a known build/test/check command, or a plain blocker summary.${tail}`;
     }
     if (r) return `${r} Re-read WORKING MEMORY above and continue in this same run toward the objective.${tail}`;
     return `Re-read WORKING MEMORY above and continue in this same run toward the objective.${tail}`;

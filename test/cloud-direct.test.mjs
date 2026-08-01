@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, fitToContext, focusedMessagesForTurn, isExplicitTaskContinuation, isTaskRefinement, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, toolDefinitionsForTurnMode } from "../src/agent.js";
+import { classifyTurnMode, contextBudgetForTarget, contextLimitFromError, controllerStopAnswerFromToolResult, emailCleanupContinuationAction, estimateContext, fitToContext, focusedMessagesForTurn, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, recentTaskStatusMemory, requiresArtifactAction, requiresConnectorContinuationAction, requiresConnectorToolResult, requiresExplicitActionToolResult, runTurn, systemPrompt, taskStopAnswer, toolDefinitionsForTurnMode } from "../src/agent.js";
 import { chatCompletion, normalizeMessagesForProvider } from "../src/providers.js";
 
 test("local context overflow reports clamp future prompt budgets to the real engine window", () => {
@@ -556,6 +556,41 @@ test("provider normalization merges misplaced system turns into one leading mess
   assert.match(normalized[0].content, /Primary instructions[\s\S]*Earlier-context summary/);
 });
 
+test("provider normalization removes orphan and incomplete tool protocol history", () => {
+  const normalized = normalizeMessagesForProvider([
+    { role: "system", content: "Primary instructions" },
+    { role: "user", content: "Inspect the app" },
+    { role: "tool", tool_call_id: "lost-call", content: "orphan result" },
+    { role: "assistant", content: "I inspected part of it.", tool_calls: [
+      { id: "call-a", type: "function", function: { name: "read_file", arguments: "{}" } },
+      { id: "call-b", type: "function", function: { name: "repository_map", arguments: "{}" } }
+    ] },
+    { role: "tool", tool_call_id: "call-a", content: "only one result survived" },
+    { role: "user", content: "why did you stop?" }
+  ]);
+
+  assert.deepEqual(normalized.map((message) => message.role), ["system", "user", "assistant", "user"]);
+  assert.equal(normalized.some((message) => message.role === "tool"), false);
+  assert.equal(normalized.some((message) => message.tool_calls?.length), false);
+  assert.match(normalized[2].content, /inspected part/);
+});
+
+test("provider normalization preserves a complete multi-tool transaction", () => {
+  const normalized = normalizeMessagesForProvider([
+    { role: "user", content: "Inspect" },
+    { role: "assistant", content: "", tool_calls: [
+      { id: "call-a", type: "function", function: { name: "read_file", arguments: "{}" } },
+      { id: "call-b", type: "function", function: { name: "repository_map", arguments: "{}" } }
+    ] },
+    { role: "tool", tool_call_id: "call-a", content: "file" },
+    { role: "tool", tool_call_id: "call-b", content: "map" },
+    { role: "user", content: "Continue" }
+  ]);
+
+  assert.deepEqual(normalized.map((message) => message.role), ["user", "assistant", "tool", "tool", "user"]);
+  assert.equal(normalized[1].tool_calls.length, 2);
+});
+
 test("local template failures return a short retry message instead of raw Jinja output", async (t) => {
   const server = http.createServer(async (req, res) => {
     for await (const _chunk of req) { /* consume request */ }
@@ -678,6 +713,20 @@ test("saved tasks resume only from explicit continuation commands", () => {
   assert.equal(isExplicitTaskContinuation("are you still working?"), false);
   assert.equal(isExplicitTaskContinuation("what happened?"), false);
   assert.equal(isExplicitTaskContinuation("tell me the project status"), false);
+});
+
+test("stopped-task questions explain the reason before any resume", () => {
+  assert.equal(isTaskStatusQuestion("why did it stop?"), true);
+  assert.equal(isTaskStatusQuestion("why u stop?"), true);
+  assert.equal(isTaskStatusQuestion("so do it why u stop?"), true);
+  assert.equal(isTaskStatusQuestion("do it why u stop?"), true);
+  assert.equal(isTaskStatusQuestion("what happened?"), true);
+  assert.equal(isTaskStatusQuestion("resume where you left off"), false);
+  assert.equal(isExplicitTaskContinuation("do it why u stop?"), true);
+  const answer = taskStopAnswer({ controller: { phase: "recovering", lastFailure: "Loop guard: repeated the same kind of inspection" } });
+  assert.match(answer, /loop guard detected repeated inspections/i);
+  assert.match(answer, /I did not restart it/i);
+  assert.match(answer, /say \*\*Resume\*\*/i);
 });
 
 test("short artifact refinements resume an interrupted task without treating questions as continuation", () => {
@@ -866,7 +915,7 @@ test("agent tasks continue past the legacy tool-turn limit", async (t) => {
   assert.equal(checkpoints, 16, "every tool result and final answer should be checkpointed");
 });
 
-test("clear artifact requests accept the API model's own response without an action nudge", async (t) => {
+test("clear artifact requests keep working until files are changed and checked", async (t) => {
   let calls = 0;
   let nudgedRequest = null;
   let protocolRequest = null;
@@ -902,7 +951,7 @@ test("clear artifact requests accept the API model's own response without an act
     openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "tool-test", apiKey: "test" },
     projectsDir,
     autoApprove: true,
-    ui: { contextMode: "full", learnedMemory: false },
+    ui: { contextMode: "full", learnedMemory: false, codingAgent: { autopilot: true } },
     connectors: { mcp: [], agents: [] }
   };
   const messages = [
@@ -920,13 +969,13 @@ test("clear artifact requests accept the API model's own response without an act
     onCheckpoint() {}
   }, messages);
 
-  assert.equal(answer, "Here are the steps you can follow to make the game yourself.");
-  assert.equal(calls, 1);
-  assert.deepEqual(steps, []);
+  assert.equal(answer, "Built and verified the requested game.");
+  assert.equal(calls, 5);
+  assert.deepEqual(steps, ["list_dir", "write_file", "run_command"]);
   assert.match(nudgedRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
   assert.match(nudgedRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.equal(nudgedRequest.tool_choice, undefined);
-  assert.equal(protocolRequest, null);
+  assert.ok(protocolRequest);
   assert.match(messages.map((message) => message.content || "").join("\n"), /steps you can follow/);
 });
 
@@ -1143,6 +1192,61 @@ test("an empty response after tool work continues instead of silently stopping",
   assert.match(continuationRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
   assert.match(continuationRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(continuationRequest.messages.map((message) => message.content || "").join("\n"), /CONTINUE REQUIRED|Do not wait for me to press Continue/i);
+});
+
+test("repeated project inspection transitions to a concise answer instead of recovery", async (t) => {
+  let calls = 0;
+  let synthesisRequest = null;
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    calls++;
+    let message;
+    if (calls <= 3) {
+      message = {
+        role: "assistant",
+        content: "",
+        tool_calls: [{
+          id: `repeat-${calls}`,
+          type: "function",
+          function: { name: "list_dir", arguments: '{"path":"."}' }
+        }]
+      };
+    } else {
+      synthesisRequest = body;
+      message = { role: "assistant", content: "Boolean is a local AI workspace. Improve it by simplifying the agent loop and making completion evidence explicit." };
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-synthesis-test-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(projectDir, "README.md"), "# Demo\n");
+  const config = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "tool-test", apiKey: "test" },
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false, codingAgent: { stopLoop: true, autopilot: true } },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(projectDir, true, config) },
+    { role: "user", content: "Tell me about this project and how we can improve it. Short list." }
+  ];
+  const answer = await runTurn({
+    config, projectDir, approve: async () => true, onStatus() {}, onStep() {}, onUsage() {}, onCheckpoint() {}
+  }, messages);
+
+  assert.equal(calls, 4);
+  assert.match(answer, /local AI workspace/i);
+  assert.ok(synthesisRequest);
+  assert.equal(synthesisRequest.tools, undefined);
+  assert.match(synthesisRequest.messages.map((message) => message.content || "").join("\n"), /Answer the user's request now/i);
+  assert.doesNotMatch(answer, /paused|recovering|loop guard/i);
 });
 
 test("unsupported screenshot image content retries automatically as text", async (t) => {
