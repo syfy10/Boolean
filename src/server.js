@@ -12,7 +12,7 @@ import * as sea from "node:sea";
 import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
-  defaultConfig, defaultUiSettings, SAZ_DIR
+  ACCESS_MODES, currentAccessMode, defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
@@ -226,6 +226,16 @@ function loadLegalText(file) {
 }
 
 const ABOUT_RELEASES = [
+  {
+    version: "0.9.65",
+    date: "2026-08-01",
+    title: "Reliable access and deploy approval",
+    details: [
+      "Added clear Read only, Read & write, and Full access choices beside the composer.",
+      "Made the current request authoritative so stale read-only or no-deploy chat text cannot block a newly approved deployment.",
+      "Kept workspace-root safety while allowing an exact approved command to run once without repeated prompts."
+    ]
+  },
   {
     version: "0.9.54",
     date: "2026-07-24",
@@ -2105,7 +2115,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             provider: config.cloudFallback?.provider || "",
             model: config.cloudFallback?.model || ""
           },
-          model: currentModel(config), autoApprove: config.autoApprove,
+          model: currentModel(config), accessMode: currentAccessMode(config), autoApprove: config.autoApprove,
           modelCapability: publicModelCapability(config, currentVision.supported),
           local: { ctx: config.local.ctx },
           backendUp: providerReady[config.provider] === true,
@@ -2166,6 +2176,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           provider: config.provider,
           model: currentModel(config),
           modelCapability: publicModelCapability(config),
+          accessMode: currentAccessMode(config),
           autoApprove: config.autoApprove,
           backendUp: providerReady[config.provider] === true,
           providerReady,
@@ -2555,6 +2566,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           model: {
             provider: String(config.provider || "local"),
             model: String(currentModel(config) || "").slice(0, 160),
+            accessMode: currentAccessMode(config),
             autoApprove: config.autoApprove === true
           },
           task: publicPendingTask(active?.pendingTask),
@@ -2617,8 +2629,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         // Tool permissions
         results.permissions = {
           status: "ok",
-          label: (config.autoApprove ? "Auto" : "Manual"),
-          detail: config.autoApprove ? "approved workspace actions run automatically" : "ask before risky actions"
+          label: currentAccessMode(config) === "read_only" ? "Read only" : (config.autoApprove ? "Full access" : "Read & write"),
+          detail: currentAccessMode(config) === "read_only"
+            ? "inspect and validate without changing files or deploying"
+            : (config.autoApprove ? "approved workspace actions run automatically" : "ask before changes and commands")
         };
 
         // Cloud budget
@@ -2839,7 +2853,17 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         let restartCodex = false;
         if (typeof body.provider === "string" && PROVIDERS.includes(body.provider)) config.provider = body.provider;
         if (typeof body.model === "string" && body.model) setCurrentModel(config, body.model);
-        if (typeof body.autoApprove === "boolean") config.autoApprove = body.autoApprove;
+        if (body.accessMode !== undefined) {
+          const accessMode = String(body.accessMode || "").trim().toLowerCase();
+          if (!ACCESS_MODES.includes(accessMode)) return json({ error: "invalid_access_mode" }, 400);
+          config.accessMode = accessMode;
+          config.autoApprove = accessMode === "full_access";
+        } else if (typeof body.autoApprove === "boolean") {
+          // Old clients only know Manual/Auto. Keep them compatible while
+          // storing the canonical permission boundary used by new clients.
+          config.autoApprove = body.autoApprove;
+          config.accessMode = body.autoApprove ? "full_access" : "ask";
+        }
         if (Number.isFinite(body.localCtx)) {
           const ctx = Math.max(4096, Math.min(262144, Math.round(body.localCtx)));
           if (config.local.ctx !== ctx) {
@@ -4962,7 +4986,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             });
           },
           approve: (summary) => {
-            if (config.autoApprove) { send({ type: "status", text: `auto-approved: ${summary}` }); return Promise.resolve(true); }
+            if (currentAccessMode(config) === "full_access") { send({ type: "status", text: `auto-approved: ${summary}` }); return Promise.resolve(true); }
             const id = crypto.randomUUID();
             send({ type: "approval", id, summary });
             return new Promise((resolve) => {
@@ -5027,7 +5051,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
                 || (networkTarget ? `Allow network access to ${networkTarget}` : "")
                 || (request?.kind === "file" ? "Apply these file changes" : "Run this command")
               );
-              if (config.autoApprove) {
+              if (currentAccessMode(config) === "full_access") {
                 send({ type: "status", text: `auto-approved: ${summary}` });
                 return Promise.resolve("accept");
               }
@@ -5071,7 +5095,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               // silently downgraded to read-only.
               projectDir: t.projectDir || config.projectsDir || "",
               networkAccess: config.ui?.aiBrowser !== false,
-              approvalPolicy: config.autoApprove ? "never" : "on-request",
+              approvalPolicy: currentAccessMode(runConfig) === "full_access" ? "never" : "on-request",
+              sandboxPolicy: currentAccessMode(runConfig) === "read_only"
+                ? { type: "readOnly", access: { type: "fullAccess" } }
+                : undefined,
               signal: abort.signal,
               onStatus: ctx.onStatus,
               onToken: ctx.onToken,

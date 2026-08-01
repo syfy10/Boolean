@@ -957,13 +957,24 @@ test("simple composer keeps only compact action icons above the input", () => {
   assert.match(ui, /aria-label="Paste into composer">'\+uPasteIcon\+'/);
 });
 
-test("compact Auto and model controls open visible dropdowns", () => {
+test("compact access and model controls open visible dropdowns", () => {
   assert.match(ui, /\.composer-wrap:has\(\.menu\.open\),body\.composer-simple \.composer-wrap:has\(\.menu\.open\)\{ overflow:visible; z-index:30; \}/);
   assert.match(ui, /body\.composer-simple \.composer-tools \.modebtn,\s*body\.composer-simple \.composer-tools \.modelbtn\{[\s\S]*?height:18px; min-height:18px;[\s\S]*?border-radius:0;[\s\S]*?background:transparent; box-shadow:none; font:9px\/1 var\(--ui\);/);
   assert.match(ui, /body\.composer-simple \.composer-tools \.modelbtn\{ max-width:74px; \}/);
   assert.match(ui, /body\.composer-simple\.online-mode \.composer-tools \.modelbtn\{\s*border-radius:0; background:transparent; box-shadow:none;/);
   assert.match(ui, /\$\("modelbtn"\)\.onclick=\(e\)=>\{ e\.stopPropagation\(\);[\s\S]*openModelSelector\(\); \};/);
   assert.match(ui, /\$\("modebtn"\)\.onclick=\(e\)=>\{ e\.stopPropagation\(\);[\s\S]*\$\("modemenu"\)\.classList\.toggle\("open"\); \};/);
+});
+
+test("composer access menu persists explicit read, write, and full-access modes", () => {
+  assert.match(ui, /data-mode="read_only"[\s\S]*?<b>Read only<\/b><small>Inspect and analyze; no edits or deploys\.<\/small>/);
+  assert.match(ui, /data-mode="ask"[\s\S]*?<b>Read &amp; write<\/b><small>Ask before changes and commands\.<\/small>/);
+  assert.match(ui, /data-mode="full_access"[\s\S]*?<b>Full access<\/b><small>Auto-approve workspace actions\.<\/small>/);
+  assert.match(ui, /accessMode:"ask", autoApprove:false/);
+  assert.match(ui, /function currentAccessMode\(\)\{[\s\S]*?\["read_only","ask","full_access"\]\.includes\(saved\)\?saved:\(state\.autoApprove\?"full_access":"ask"\);/);
+  assert.match(ui, /state\.accessMode=mode;\s*state\.autoApprove=mode==="full_access";/);
+  assert.match(ui, /const body=\{accessMode:mode,autoApprove:state\.autoApprove\};\s*if\(state\.autoApprove\) body\.ui=\{aiBrowser:true\};\s*await fetch\("\/api\/config",\{method:"POST",body:JSON\.stringify\(body\)\}\);/);
+  assert.match(ui, /if\(access\)access\.textContent=accessModeLabel\(currentAccessMode\(\)\);/);
 });
 
 test("approval and continuation cards remain visible above the composer", () => {
@@ -1083,7 +1094,7 @@ test("round composer uses the compact floating card layout without changing line
   assert.match(ui, /id="composerPrompt">Ask anything\.\.\.<\/span><textarea id="input" rows="1" placeholder="Ask anything\.\.\."/);
   assert.match(ui, /id="micbtn" type="button" title="Voice input"/);
   assert.match(ui, /window\.SpeechRecognition\|\|window\.webkitSpeechRecognition/);
-  assert.match(ui, /composerIsSimple\(\)\?"Auto":"Full access"/);
+  assert.match(ui, /\?\{read_only:"Read",ask:"Write",full_access:"Full"\}\s*:\{read_only:"Read only",ask:"Read & write",full_access:"Full access"\}/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools #plusbtn\{ order:0; \}/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools #snipbtn\{[^}]*display:grid; order:1; color:var\(--dim\); font-weight:400;/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools \.anchor:has\(#modebtn\)\{ order:2; \}/);

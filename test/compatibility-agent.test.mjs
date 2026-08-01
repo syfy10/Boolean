@@ -87,6 +87,41 @@ test("compatibility models can patch files and continue through terminal verific
   assert.ok(steps.some((step) => step.name === "run_command"));
 });
 
+test("Read only access lets a harmless version check reach one command approval", async (t) => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-read-only-check-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  const mock = await mockServer((call) => call === 1
+    ? {
+        role: "assistant",
+        content: '```tool\n{"name":"run_command","arguments":{"command":"node --version"}}\n```'
+      }
+    : { role: "assistant", content: "Node is available." });
+  t.after(() => mock.server.close());
+  const cfg = limitedConfig(mock.port);
+  cfg.accessMode = "read_only";
+  cfg.autoApprove = false;
+  const messages = [
+    { role: "system", content: systemPrompt(projectDir, false, cfg) },
+    { role: "user", content: "Run node --version and report it." }
+  ];
+  let approvals = 0;
+  const steps = [];
+  const answer = await runTurn({
+    config: cfg,
+    projectDir,
+    approve: async () => { approvals++; return true; },
+    onStatus() {},
+    onStep(step) { steps.push(step); },
+    onUsage() {},
+    onCheckpoint() {}
+  }, messages);
+
+  assert.equal(answer, "Node is available.");
+  assert.equal(approvals, 1);
+  assert.ok(steps.some((step) => step.name === "run_command"));
+  assert.match(JSON.stringify(mock.requests[1]), /v\d+\.\d+/i);
+});
+
 test("compatibility models stop repeated inspection and report the unmet change", async (t) => {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-patch-loop-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));

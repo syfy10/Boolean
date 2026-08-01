@@ -213,6 +213,7 @@ test("task contract discovers an explicit sandbox root from continued chat conte
 test("read-only mode allows checks but blocks side-effect commands", () => {
   const controller = new AgentController({ objective: "Review this code", taskContext: "Read-only. Do not edit anything." });
   assert.equal(controller.allowTool("run_command", { command: "npm test" }).allowed, true);
+  assert.equal(controller.allowTool("run_command", { command: "node --version" }).allowed, true);
   assert.equal(controller.allowTool("run_command", { command: "npm install lodash" }).allowed, false);
   assert.equal(controller.allowTool("run_background", { command: "npm run dev" }).allowed, false);
 });
@@ -241,6 +242,93 @@ test("an explicit deploy task permits deploy commands", () => {
   const controller = new AgentController({ objective: "Deploy the current project" });
   assert.equal(controller.snapshot().contract.mode, "deploy");
   assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
+});
+
+test("full access changes approval behavior without suppressing explicit deploy authority", () => {
+  const controller = new AgentController({
+    objective: "Deploy the current project",
+    currentUserText: "Deploy the current project",
+    effectiveAccessMode: "full_access",
+    projectDir: "C:\\demo\\app"
+  });
+  assert.equal(controller.snapshot().contract.mode, "deploy");
+  assert.equal(controller.snapshot().contract.deployAllowed, true);
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
+});
+
+test("a latest deploy request overrides stale read-only and no-deploy chat text", () => {
+  const controller = new AgentController({
+    objective: "Prepare the GreenScan release",
+    taskContext: "The earlier preview was read-only. Do not deploy until I say so.",
+    currentUserText: "Deploy local now with wrangler deploy",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\greenscan"
+  });
+  assert.equal(controller.snapshot().contract.mode, "deploy");
+  assert.equal(controller.snapshot().contract.deployAllowed, true);
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
+});
+
+test("deploy-only authority allows the exact deploy but keeps file edits blocked", () => {
+  const controller = new AgentController({
+    objective: "Deploy only",
+    currentUserText: "Do not edit files. Deploy only with wrangler deploy --env production.",
+    taskContext: "Deploy command: wrangler deploy --env production",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\app"
+  });
+  const contract = controller.snapshot().contract;
+  assert.equal(contract.mode, "deploy");
+  assert.equal(contract.writeAllowed, false);
+  assert.equal(contract.deployAllowed, true);
+  assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\app\\index.js" }).allowed, false);
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy --env production" }).allowed, true);
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy --env preview" }).allowed, false);
+});
+
+test("the explicit Read only UI mode remains a hard boundary", () => {
+  const controller = new AgentController({
+    objective: "Deploy the current project",
+    currentUserText: "Deploy the current project",
+    effectiveAccessMode: "read_only",
+    projectDir: "C:\\demo\\app"
+  });
+  assert.equal(controller.snapshot().contract.accessMode, "read_only");
+  assert.equal(controller.snapshot().contract.deployAllowed, false);
+  assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\app\\index.js" }).allowed, false);
+  assert.equal(controller.allowTool("run_command", { command: "wrangler deploy" }).allowed, false);
+});
+
+test("switching a persisted task from Read only to Read and write unlocks the selected project", () => {
+  const locked = new AgentController({
+    objective: "Review the app",
+    currentUserText: "Review the app without editing it",
+    effectiveAccessMode: "read_only",
+    projectDir: "C:\\demo\\app"
+  });
+  const unlocked = new AgentController({
+    persisted: locked.snapshot(),
+    objective: "Fix the app",
+    currentUserText: "Fix the app now",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\app"
+  });
+  assert.equal(unlocked.snapshot().contract.accessMode, "ask");
+  assert.equal(unlocked.snapshot().contract.writeAllowed, true);
+  assert.equal(unlocked.allowTool("write_file", { path: "C:\\demo\\app\\index.js" }).allowed, true);
+});
+
+test("the newly selected project root is not evicted by persisted roots", () => {
+  const savedRoots = Array.from({ length: 6 }, (_, index) => `C:\\old\\project-${index + 1}`);
+  const controller = new AgentController({
+    persisted: { contract: { mode: "project_edit", accessMode: "ask", writeAllowed: true, allowedRoots: savedRoots } },
+    objective: "Fix the selected project",
+    currentUserText: "Fix the selected project",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\current\\project"
+  });
+  assert.equal(controller.allowTool("read_file", { path: "C:\\current\\project\\index.js" }).allowed, true);
+  assert.ok(controller.snapshot().contract.allowedRoots.includes("c:\\current\\project"));
 });
 
 test("deploy completion requires deploy proof and live verification", () => {

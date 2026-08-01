@@ -60,7 +60,7 @@
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785601271755,
+    "updatedAt": 1785605244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -70,7 +70,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785428471755,
+    "updatedAt": 1785432444030,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -80,7 +80,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785565271755,
+    "updatedAt": 1785569244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -90,7 +90,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785561671755,
+    "updatedAt": 1785565644030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -100,7 +100,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785558071755,
+    "updatedAt": 1785562044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -110,7 +110,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785554471755,
+    "updatedAt": 1785558444030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -120,7 +120,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785522071755,
+    "updatedAt": 1785526044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -141,8 +141,8 @@
    "browserTabs": []
   },
   "appName": "Boolean",
-  "version": "0.9.56",
-  "displayVersion": "v0.9.64",
+  "version": "0.9.65",
+  "displayVersion": "v0.9.65",
   "providers": [
    "local",
    "openai",
@@ -186,7 +186,7 @@
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785601271755,
+    "updatedAt": 1785605244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -196,7 +196,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785428471755,
+    "updatedAt": 1785432444030,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -206,7 +206,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785565271755,
+    "updatedAt": 1785569244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -216,7 +216,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785561671755,
+    "updatedAt": 1785565644030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -226,7 +226,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785558071755,
+    "updatedAt": 1785562044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -236,7 +236,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785554471755,
+    "updatedAt": 1785558444030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -246,7 +246,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785522071755,
+    "updatedAt": 1785526044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -259,8 +259,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.64",
-  "displayVersion": "v0.9.64",
+  "version": "0.9.65",
+  "displayVersion": "v0.9.65",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true
@@ -2298,7 +2298,7 @@
   .model-netseg button.on{ background:var(--bg); color:var(--text); box-shadow:0 1px 5px rgba(0,0,0,.10); }
   .model-netseg button[data-net="online"].on{ background:var(--bg); color:var(--online); box-shadow:0 1px 5px rgba(0,0,0,.10); }
   .model-help{ display:none; }
-  .menu#modemenu{ bottom:44px; left:0; width:178px; }
+  .menu#modemenu{ bottom:44px; left:0; width:218px; }
   .menu#plusmenu{ bottom:44px; left:0; width:190px; }
   .menu input{ width:100%; border:0; outline:0; background:transparent; color:var(--text); font:inherit;
     font-size:14px; padding:9px 10px; border-bottom:1px solid var(--border); margin-bottom:5px; }
@@ -2307,6 +2307,8 @@
     border-radius:9px; cursor:pointer; font-size:14px; }
   .menu .item:hover{ background:var(--hover); }
   .menu .item .dl{ color:var(--dim); font-size:11.5px; }
+  #modemenu .access-mode-copy{ display:flex; min-width:0; flex-direction:column; gap:2px; }
+  #modemenu .access-mode-copy small{ color:var(--dim); font-size:10.5px; line-height:1.3; white-space:normal; }
   .menu .item .check{ color:var(--dim); font-size:12px; }
   .menu .model-head{ min-height:20px; display:flex; align-items:center; gap:8px; padding:1px 7px 2px; color:var(--label); font-size:10px; font-weight:400; letter-spacing:0; text-transform:none; }
   .menu .item.model-rec{ align-items:center; min-height:38px; padding:5px 7px; border-radius:9px; }
@@ -2574,7 +2576,7 @@
   body.chat-xxs .modelbtn{ max-width:66px; }
   body.chat-xxs #compareAnchor{ display:none; }
   body.chat-xxs .composer-tools .spacer{ display:none; }
-  body.chat-xxs .menu#modemenu{ left:0; width:150px; }
+  body.chat-xxs .menu#modemenu{ left:0; width:min(210px,calc(100vw - 20px)); }
   body.chat-xxs .composer-tools{ overflow:hidden; padding-right:0; }
   body.chat-xxs #teamAnchor{ order:21; }
   body.chat-xxs .composer-tools .anchor:has(#modelbtn){ order:20; flex:0 1 92px; min-width:54px; }
@@ -7525,7 +7527,7 @@ body:not(.composer-simple) main::after{
         <span class="chat-utility-row-label">View all</span><span class="chat-utility-arrow">›</span>
       </button>
     </div>
-    <div hidden><button id="chatUtilityNotepad" type="button">Notepad</button><button id="chatUtilityExplore" type="button">Explore</button><button id="chatUtilityRecent" type="button">Recent</button><button id="chatUtilityModel" type="button">Model</button><button id="chatUtilityAccess" type="button">Access</button><span id="chatUtilityModelValue">—</span><span id="chatUtilityAccessValue">Ask first</span><span>Tools</span><span>Activity</span></div>
+    <div hidden><button id="chatUtilityNotepad" type="button">Notepad</button><button id="chatUtilityExplore" type="button">Explore</button><button id="chatUtilityRecent" type="button">Recent</button><button id="chatUtilityModel" type="button">Model</button><button id="chatUtilityAccess" type="button">Access</button><span id="chatUtilityModelValue">—</span><span id="chatUtilityAccessValue">Read &amp; write</span><span>Tools</span><span>Activity</span></div>
     <div class="chat-utility-settings">
       <button class="chat-utility-row" id="chatUtilitySettings" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
@@ -8015,12 +8017,13 @@ body:not(.composer-simple) main::after{
       </div>
       <button class="iconbtn" id="snipbtn" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
       <div class="anchor">
-        <button class="modebtn" id="modebtn" title="Approval mode">
-          <span class="mdot" id="mdot"></span><span id="modetxt">Manual</span> <span class="chev">▼</span>
+        <button class="modebtn" id="modebtn" title="Access: Read &amp; write">
+          <span class="mdot" id="mdot"></span><span id="modetxt">Read &amp; write</span> <span class="chev">▼</span>
         </button>
         <div class="menu" id="modemenu">
-          <div class="item" data-mode="ask"><span>Manual</span></div>
-          <div class="item" data-mode="full"><span>Auto</span></div>
+          <div class="item" data-mode="read_only"><span class="access-mode-copy"><b>Read only</b><small>Inspect and analyze; no edits or deploys.</small></span></div>
+          <div class="item" data-mode="ask"><span class="access-mode-copy"><b>Read &amp; write</b><small>Ask before changes and commands.</small></span></div>
+          <div class="item" data-mode="full_access"><span class="access-mode-copy"><b>Full access</b><small>Auto-approve workspace actions.</small></span></div>
         </div>
       </div>
       <div class="spacer"></div>
@@ -8720,7 +8723,7 @@ body:not(.composer-simple) main::after{
   syncComposerBaseHeight();
   syncDockHeight();
   syncComposerRail();
-  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, codex:{enabled:false,state:"stopped",models:[]}, providerReady:{}, model:"", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
+  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, codex:{enabled:false,state:"stopped",models:[]}, providerReady:{}, model:"", accessMode:"ask", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
   const DIRECT_API_PROVIDERS=new Set(["glm","openai","google","claude","xai","deepseek","qwen","baidu","bytedance","kimi","customApi"]);
   let explicitDirectApiProvider="";
   let deferredStateReady=false;
@@ -10197,13 +10200,33 @@ body:not(.composer-simple) main::after{
     $("zaiCodingStatus").style.color=ready?"var(--green)":"var(--dim)";
     renderConnectorOverview();
   }
+  function currentAccessMode(){
+    const saved=String(state.accessMode||"").toLowerCase();
+    return ["read_only","ask","full_access"].includes(saved)?saved:(state.autoApprove?"full_access":"ask");
+  }
+  function accessModeLabel(mode,{compact=false}={}){
+    const labels=compact
+      ?{read_only:"Read",ask:"Write",full_access:"Full"}
+      :{read_only:"Read only",ask:"Read & write",full_access:"Full access"};
+    return labels[mode]||labels.ask;
+  }
   function applyMode(){
-    const full=!!state.autoApprove;
+    const mode=currentAccessMode();
+    const full=mode==="full_access";
     $("modebtn").classList.toggle("full",full);
-    $("mdot").textContent=full?"⚡":"🛡";
-    $("modetxt").textContent=full?(composerIsSimple()?"Auto":"Full access"):(composerIsSimple()?"Manual":"Ask");
-    $("modebtn").title="Approval mode";
-    document.querySelectorAll("#modemenu .item").forEach(i=>i.classList.toggle("disabled",(i.dataset.mode==="full")===full));
+    $("modebtn").classList.toggle("read-only",mode==="read_only");
+    $("mdot").textContent=({read_only:"◉",ask:"✎",full_access:"⚡"})[mode];
+    $("modetxt").textContent=accessModeLabel(mode,{compact:composerIsSimple()});
+    $("modebtn").title=mode==="read_only"
+      ?"Access: Read only — inspect and analyze; no edits or deploys"
+      :mode==="full_access"
+        ?"Access: Full access — auto-approve workspace actions"
+        :"Access: Read & write — ask before changes and commands";
+    document.querySelectorAll("#modemenu .item").forEach(i=>{
+      const selected=i.dataset.mode===mode;
+      i.classList.toggle("disabled",selected);
+      i.setAttribute("aria-current",selected?"true":"false");
+    });
   }
   function applyNetMode(){
     const online=state.provider!=="local";
@@ -10957,7 +10980,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.64"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.65"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -15859,14 +15882,18 @@ Optional bundled starter model:
   $("modebtn").onclick=(e)=>{ e.stopPropagation(); $("plusmenu").classList.remove("open"); $("modelmenu").classList.remove("open"); $("modemenu").classList.toggle("open"); };
   document.querySelectorAll("#modemenu .item").forEach(item=>item.onclick=async(e)=>{
     e.stopPropagation();
-    state.autoApprove=item.dataset.mode==="full";
+    const mode=["read_only","ask","full_access"].includes(item.dataset.mode)?item.dataset.mode:"ask";
+    state.accessMode=mode;
+    state.autoApprove=mode==="full_access";
     if(state.autoApprove){
       state.ui={...(state.ui||{}),aiBrowser:true};
       if($("aiBrowser")) $("aiBrowser").checked=true;
     }
     $("modemenu").classList.remove("open");
     applyMode();
-    await fetch("/api/config",{method:"POST",body:JSON.stringify(state.autoApprove?{autoApprove:true,ui:{aiBrowser:true}}:{autoApprove:false})});
+    const body={accessMode:mode,autoApprove:state.autoApprove};
+    if(state.autoApprove) body.ui={aiBrowser:true};
+    await fetch("/api/config",{method:"POST",body:JSON.stringify(body)});
   });
   $("savesettings").onclick=async()=>{
     const prov=$("providersel").value;
@@ -17935,7 +17962,7 @@ Optional bundled starter model:
     const mode=$("chatUtilityModeValue"),model=$("chatUtilityModelValue"),access=$("chatUtilityAccessValue");
     if(mode)mode.textContent=state.provider==="local"?"Local":"Cloud";
     if(model){model.textContent=chatUtilityModelLabel();model.title=model.textContent;}
-    if(access)access.textContent=state.autoApprove?"Full access":"Ask first";
+    if(access)access.textContent=accessModeLabel(currentAccessMode());
     const tasks=$("chatUtilityTasksValue");
     if(tasks){
       const active=run?1:0;

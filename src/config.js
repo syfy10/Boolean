@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.64";
-export const APP_DISPLAY_VERSION = "v0.9.64";
+export const APP_VERSION = "0.9.65";
+export const APP_DISPLAY_VERSION = "v0.9.65";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -134,7 +134,11 @@ const DEFAULTS = {
     model: "gpt-image-1",
     size: "1024x1024"
   },
-  // when true, run_command / write_file execute without asking first
+  // Coding permission boundary. Ask and Full access can write inside the
+  // selected workspace; Read only is enforced before any approval prompt.
+  accessMode: "ask",
+  // Backward-compatible approval flag. Full access keeps this true; Ask and
+  // Read only keep it false.
   autoApprove: false,
   // EULA version the user accepted ("" = not yet accepted)
   eulaAccepted: "",
@@ -285,6 +289,14 @@ export function defaultUiSettings() {
 
 export function defaultConfig() {
   return structuredClone(DEFAULTS);
+}
+
+export const ACCESS_MODES = Object.freeze(["read_only", "ask", "full_access"]);
+
+export function currentAccessMode(config = {}) {
+  const value = String(config?.accessMode || "").trim().toLowerCase();
+  if (ACCESS_MODES.includes(value)) return value;
+  return config?.autoApprove === true ? "full_access" : "ask";
 }
 
 function deepMerge(base, extra) {
@@ -521,6 +533,14 @@ export function loadConfig() {
       // Missing legacy values use the practical first-load default.
       if (!cfg.local.ctx) cfg.local.ctx = 8192;
       let migrated = recovered;
+      const accessMode = ACCESS_MODES.includes(String(raw.accessMode || "").toLowerCase())
+        ? String(raw.accessMode).toLowerCase()
+        : (raw.autoApprove === true ? "full_access" : "ask");
+      if (cfg.accessMode !== accessMode || cfg.autoApprove !== (accessMode === "full_access")) {
+        cfg.accessMode = accessMode;
+        cfg.autoApprove = accessMode === "full_access";
+        migrated = true;
+      }
       if (cfg.ui.colorTheme !== "classic") {
         cfg.ui.colorTheme = "classic";
         migrated = true;

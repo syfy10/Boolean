@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { TOOL_DEFINITIONS, executeTool } from "./tools.js";
 import { resolveTarget, resolveProviderTarget, chatCompletion } from "./providers.js";
-import { CLOUD } from "./config.js";
+import { CLOUD, currentAccessMode } from "./config.js";
 import {
   modelCapabilityProfile,
   nativeToolSupport,
@@ -1335,7 +1335,8 @@ export async function runTurn(ctx, messages) {
     artifactRequired: artifactActionRequired,
     actionRequired: connectorToolResultRequired || explicitActionToolResultRequired,
     projectDir: ctx.projectDir,
-    effectiveAccessMode: ctx.config?.autoApprove === true ? "full_access" : "ask",
+    currentUserText: ctx.latestUserText,
+    effectiveAccessMode: currentAccessMode(ctx.config),
     loopStop: ctx.config?.ui?.codingAgent?.stopLoop === true,
     autopilot: ctx.config?.ui?.codingAgent?.autopilot === true,
     persisted: ctx.controllerState,

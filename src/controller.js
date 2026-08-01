@@ -43,6 +43,9 @@ const VISIBLE_BROWSER_TOOLS = new Set([
 
 const BROWSER_TOOLS = VISIBLE_BROWSER_TOOLS;
 const DEPLOY_COMMAND = /\b(?:wrangler(?:\.cmd)?\s+deploy|npm\s+run\s+deploy|git\s+push|gh\s+release|publish(?:\s|$)|deploy(?:\s|$))/i;
+const DEPLOY_REQUEST = /\b(?:deploy|publish|push|release)\b/i;
+const NO_DEPLOY_REQUEST = /\b(?:do not|don't|never|no)\s+(?:deploy|publish|push|release)\b/i;
+const READ_ONLY_REQUEST = /\b(?:do not|don't|never)\s+(?:edit|change|write|modify)\b|\bread[- ]only\s+(?:review|inspection|analysis|audit|task|request)\b|\b(?:review|inspect|analy[sz]e|audit)\b[^.!?\n]{0,80}\bwithout\s+(?:editing|changing|writing|modifying)\b/i;
 const DEPLOY_VERSION = /\b(?:version|deployment|deployed|worker|pages|release|tag)\b.{0,80}\b([0-9a-f]{8,}(?:-[0-9a-f]{4,}){2,}|v?\d+\.\d+\.\d+|https?:\/\/\S+)/i;
 const LIVE_VERIFIED = /\b(?:HTTP\/\d(?:\.\d)?\s+)?(?:200|2\d\d)\b|\b(?:ok|healthy|success|verified|live|deployed)\b/i;
 const SECRET_PATTERN = /\b(?:sk-[A-Za-z0-9_-]{8,}|cfut_[A-Za-z0-9_-]+|gh[opusr]_[A-Za-z0-9_-]+|GOCSPX-[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9._-]+)\b/gi;
@@ -53,7 +56,7 @@ const ACTION_REQUEST = /(?:^|\b(?:please|can you|could you|would you|i want you 
 const FEATURE_REQUEST = /\b(?:implement|add a |create|build new|make new|write a |code|develop|design|new feature|support for|enable)\b/i;
 const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing|ure)?|fix|repair|regression|not working|doesn['’]?t work|stuck|cut(?:s|ting)? off|overlap(?:s|ping)?|wrong|issue)\b/i;
 
-const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b/i;
+const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b|^\s*(?:node|npm|npx|git|gh|wrangler(?:\.cmd)?|dotnet|python|py)\s+(?:--version|-v|version)\s*$/i;
 const INSPECTION_COMMAND = /\b(?:get-content|select-string|findstr|rg\b|grep\b|regex|matches|indexof|dir\b|ls\b|type\b|cat\b)\b/i;
 const COMMAND_MUTATES_FILE = /\b(?:set-content|add-content|out-file|copy-item|move-item|remove-item|new-item|del|erase|rm|rmdir|mkdir)\b|(?:^|[^>])>{1,2}(?:[^>]|$)/i;
 const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
@@ -172,24 +175,45 @@ function commandMayReferenceExternalToolchain(command, candidate) {
 function inferContract(options, saved) {
   const objective = options.objective || saved.objective || "";
   const source = `${options.taskContext || ""}\n${objective}`;
-  const noDeploy = /\b(?:do not|don't|never|no)\s+(?:deploy|publish|push)\b/i.test(source);
-  const effectiveAccessMode = String(options.effectiveAccessMode || "").toLowerCase();
-  let mode = saved.mode || "general";
-  if (/\b(?:read[- ]only|do not (?:edit|change|write)|don't (?:edit|change|write))\b/i.test(source)) mode = "read_only";
-  else if (effectiveAccessMode === "full_access") mode = options.projectDir || saved.projectBound ? "project_edit" : "general";
+  const latestUserText = String(options.currentUserText || "").trim();
+  // Turn-scoped authority must come from the latest user request. Historical
+  // context still supplies paths and durable project facts, but an old phrase
+  // such as "read-only preview" must not permanently lock a later fix/deploy.
+  const authoritySource = latestUserText || source;
+  const accessMode = ["read_only", "ask", "full_access"].includes(String(options.effectiveAccessMode || "").toLowerCase())
+    ? String(options.effectiveAccessMode).toLowerCase()
+    : (saved.accessMode || "ask");
+  const noDeploy = NO_DEPLOY_REQUEST.test(authoritySource);
+  const deployRequestedNow = DEPLOY_REQUEST.test(authoritySource) && !noDeploy;
+  const actionRequestedNow = ACTION_REQUEST.test(authoritySource) || FEATURE_REQUEST.test(authoritySource) || DEBUG_REQUEST.test(authoritySource);
+  const accessChangedToWrite = saved.accessMode === "read_only" && accessMode !== "read_only";
+  const freshWriteAuthority = deployRequestedNow || actionRequestedNow || accessChangedToWrite;
+  const taskReadOnly = READ_ONLY_REQUEST.test(authoritySource)
+    || (!latestUserText && /\bread[- ]only\b/i.test(authoritySource));
+  const savedWriteBlocked = saved.writeAllowed === false || saved.mode === "read_only";
+  const writeAllowed = accessMode !== "read_only"
+    && !taskReadOnly
+    && !(savedWriteBlocked && !freshWriteAuthority);
+  const keepSavedDeploy = saved.deployAllowed === true && !noDeploy && !actionRequestedNow;
+  const deployAllowed = accessMode !== "read_only" && (deployRequestedNow || keepSavedDeploy);
+
+  let mode = "general";
+  if (accessMode === "read_only") mode = "read_only";
+  else if (deployAllowed) mode = "deploy";
+  else if (!writeAllowed) mode = "read_only";
+  else if (!latestUserText && !options.objective && !options.taskContext && !options.projectDir && saved.mode) mode = saved.mode;
   else if (/\bsandbox(?:\s+(?:only|folder))?\b/i.test(source)) mode = "sandbox_edit";
-  else if (!noDeploy && /\b(?:deploy|publish|push)\b/i.test(options.objective || "")) mode = "deploy";
   else if (options.projectDir || saved.projectBound) mode = "project_edit";
 
   const browserPolicy = /\b(?:do not|don't|never|no)\s+(?:use|open|start)?\s*(?:the\s+)?browser\b/i.test(source)
     ? "blocked"
     : /\b(?:browser|visual|screenshot|rendered page|live site|website|web app|localhost|gmail|outlook|mailbox|inbox|oauth|email cleanup)\b/i.test(options.objective || "") ? "allowed" : "on_demand";
   const allowedRoots = [...new Set([
-    ...(Array.isArray(saved.allowedRoots) ? saved.allowedRoots : []),
+    options.projectDir || "",
     ...extractExplicitRoots(source),
-    options.projectDir || ""
+    ...(Array.isArray(saved.allowedRoots) ? saved.allowedRoots : [])
   ].map((item) => normalizedPath(item)).filter(Boolean))].slice(0, 6);
-  return { mode, browserPolicy, deployAllowed: mode === "deploy" && !noDeploy, allowedRoots };
+  return { mode, accessMode, writeAllowed, browserPolicy, deployAllowed, allowedRoots };
 }
 
 function actionFingerprint(name, args = {}) {
@@ -663,7 +687,7 @@ export class AgentController {
     const lines = [
       "BOOLEAN WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
       `Objective: ${cleanText(this.objective || "Complete the latest request.", 700)}`,
-      `Mode: ${this.contract.mode}; browser: ${this.contract.browserPolicy}; deploy: ${this.contract.deployAllowed ? "allowed" : "blocked unless explicitly requested"}.`,
+      `Mode: ${this.contract.mode}; access: ${this.contract.accessMode}; file changes: ${this.contract.writeAllowed ? "allowed" : "blocked"}; browser: ${this.contract.browserPolicy}; deploy: ${this.contract.deployAllowed ? "allowed" : "blocked unless explicitly requested"}.`,
       this.contract.allowedRoots.length ? `Allowed workspace roots: ${this.contract.allowedRoots.join(" | ")}` : "",
       Object.keys(this.sourceOfTruth).length ? `Project source of truth: ${Object.entries(this.sourceOfTruth).map(([key, value]) => `${key}=${value}`).join(" | ")}` : "",
       this.constraints.length ? `User constraints: ${cleanText(this.constraints.join(" | "), 700)}` : "",
@@ -746,16 +770,21 @@ export class AgentController {
 
   allowTool(name, args = {}) {
     // The model decides when the visible browser is useful; it is not gated here.
-    if (this.contract.mode === "read_only" && (MUTATION_TOOLS.has(name) || PREPARATION_TOOLS.has(name))) {
+    if (!this.contract.writeAllowed && (MUTATION_TOOLS.has(name) || PREPARATION_TOOLS.has(name))) {
       return { allowed: false, reason: "The task is read-only; file and project changes are blocked." };
     }
-    if (this.contract.mode === "read_only" && ["run_background", "stop_process"].includes(name)) {
+    if (!this.contract.writeAllowed && name === "mcp_call_tool" && !isInspectionTool(name, args)) {
+      return { allowed: false, reason: "The task is read-only; connector changes are blocked." };
+    }
+    if (!this.contract.writeAllowed && ["run_background", "stop_process"].includes(name)) {
       return { allowed: false, reason: "The task is read-only; background process changes are blocked." };
     }
-    if (this.contract.mode === "read_only" && name === "run_command" && !CHECK_COMMAND.test(String(args.command || ""))) {
+    if (!this.contract.writeAllowed && name === "run_command"
+        && !CHECK_COMMAND.test(String(args.command || ""))
+        && !(this.contract.deployAllowed && DEPLOY_COMMAND.test(String(args.command || "")))) {
       return { allowed: false, reason: "The task is read-only; only test, build, lint, and validation commands are allowed." };
     }
-    if (name === "git_commit" && this.contract.mode === "read_only") {
+    if (name === "git_commit" && !this.contract.writeAllowed) {
       return { allowed: false, reason: "The task is read-only; commits are blocked." };
     }
     if (name === "run_command" && DEPLOY_COMMAND.test(String(args.command || "")) && !this.contract.deployAllowed) {

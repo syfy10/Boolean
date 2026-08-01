@@ -56,7 +56,7 @@
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785601271755,
+    "updatedAt": 1785605244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -66,7 +66,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785428471755,
+    "updatedAt": 1785432444030,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -76,7 +76,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785565271755,
+    "updatedAt": 1785569244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -86,7 +86,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785561671755,
+    "updatedAt": 1785565644030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -96,7 +96,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785558071755,
+    "updatedAt": 1785562044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -106,7 +106,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785554471755,
+    "updatedAt": 1785558444030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -116,7 +116,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785522071755,
+    "updatedAt": 1785526044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -137,8 +137,8 @@
    "browserTabs": []
   },
   "appName": "Boolean",
-  "version": "0.9.56",
-  "displayVersion": "v0.9.64",
+  "version": "0.9.65",
+  "displayVersion": "v0.9.65",
   "providers": [
    "local",
    "openai",
@@ -182,7 +182,7 @@
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785601271755,
+    "updatedAt": 1785605244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -192,7 +192,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785428471755,
+    "updatedAt": 1785432444030,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -202,7 +202,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785565271755,
+    "updatedAt": 1785569244030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -212,7 +212,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785561671755,
+    "updatedAt": 1785565644030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -222,7 +222,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785558071755,
+    "updatedAt": 1785562044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -232,7 +232,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785554471755,
+    "updatedAt": 1785558444030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -242,7 +242,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785522071755,
+    "updatedAt": 1785526044030,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -255,8 +255,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.64",
-  "displayVersion": "v0.9.64",
+  "version": "0.9.65",
+  "displayVersion": "v0.9.65",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true

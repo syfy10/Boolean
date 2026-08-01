@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-import { defaultConfig, defaultUiSettings } from "../src/config.js";
+import { currentAccessMode, defaultConfig, defaultUiSettings } from "../src/config.js";
 import { resolveProviderTarget } from "../src/providers.js";
 
 const uiSource = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
@@ -52,6 +52,14 @@ test("Coding Agent exposes persisted Auto Quick and Plan first planning modes", 
   assert.equal(defaultUiSettings().codingAgent.planningMode, "auto");
 });
 
+test("coding access is persisted and enforced before native or Codex approvals", () => {
+  assert.match(serverSource, /ACCESS_MODES, currentAccessMode/);
+  assert.match(serverSource, /if \(body\.accessMode !== undefined\)[\s\S]*invalid_access_mode[\s\S]*config\.autoApprove = accessMode === "full_access"/);
+  assert.match(serverSource, /accessMode: currentAccessMode\(config\), autoApprove: config\.autoApprove/);
+  assert.match(serverSource, /approvalPolicy: currentAccessMode\(runConfig\) === "full_access" \? "never" : "on-request"/);
+  assert.match(serverSource, /sandboxPolicy: currentAccessMode\(runConfig\) === "read_only"[\s\S]*type: "readOnly"/);
+});
+
 test("settings defaults are independent and never enable paid-provider switching", () => {
   const first = defaultUiSettings();
   const second = defaultUiSettings();
@@ -62,6 +70,9 @@ test("settings defaults are independent and never enable paid-provider switching
 
   const config = defaultConfig();
   assert.equal(config.provider, "local");
+  assert.equal(config.accessMode, "ask");
+  assert.equal(currentAccessMode(config), "ask");
+  assert.equal(currentAccessMode({ autoApprove: true }), "full_access");
   assert.equal(config.cloudFallback.enabled, false);
   assert.equal(config.openai.apiKey, "");
 });
