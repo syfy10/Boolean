@@ -4,6 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { StringDecoder } from "node:string_decoder";
 
+const CODEX_INSTALL_URL = "https://chatgpt.com/codex/install.ps1";
+const DEFAULT_INSTALL_TIMEOUT_MS = 180000;
+const DEFAULT_INSTALL_OUTPUT_BYTES = 8000;
+
 const APPROVAL_DECISIONS = new Set([
   "accept",
   "acceptForSession",
@@ -36,6 +40,17 @@ function pathEntries(env, platform) {
 function windowsExtensions(env) {
   const value = String(env?.PATHEXT || ".COM;.EXE;.BAT;.CMD");
   return value.split(";").map((entry) => entry.trim().toLowerCase()).filter(Boolean);
+}
+
+function isWindowsStoreCodexPath(value) {
+  const candidate = String(value || "").replace(/\//g, "\\");
+  return /\\WindowsApps\\(?:OpenAI\.Codex_[^\\]+\\.*\\)?codex(?:\.exe)?$/i.test(candidate);
+}
+
+export function standaloneCodexPath({ env = process.env, platform = process.platform } = {}) {
+  if (platform !== "win32") return "";
+  const localAppData = String(env?.LOCALAPPDATA || env?.LocalAppData || "").trim();
+  return localAppData ? path.join(localAppData, "Programs", "OpenAI", "Codex", "bin", "codex.exe") : "";
 }
 
 function executableCandidates(command, { env, platform, existsSync }) {
@@ -101,7 +116,18 @@ export function resolveCodexLaunch(command, args = [], {
 } = {}) {
   const original = { command: String(command || ""), args: Array.isArray(args) ? args.map(String) : [] };
   if (platform !== "win32" || !original.command) return { ...original, kind: "direct", requestedCommand: original.command };
-  const candidates = executableCandidates(original.command, { env, platform, existsSync });
+  const requestedStoreApp = isWindowsStoreCodexPath(original.command);
+  const requestedCandidates = executableCandidates(original.command, { env, platform, existsSync });
+  const standalone = standaloneCodexPath({ env, platform });
+  const recoveryCandidates = [];
+  const plainCodexCommand = !path.isAbsolute(original.command) && !/[\\/]/.test(original.command) && /^codex(?:\.exe|\.cmd|\.bat)?$/i.test(original.command);
+  if (requestedStoreApp || requestedCandidates.some(isWindowsStoreCodexPath) || (plainCodexCommand && !requestedCandidates.length)) {
+    try { if (standalone && existsSync(standalone)) recoveryCandidates.push(standalone); } catch {}
+    if (requestedStoreApp || requestedCandidates.some(isWindowsStoreCodexPath)) {
+      recoveryCandidates.push(...executableCandidates("codex", { env, platform, existsSync }));
+    }
+  }
+  const candidates = [...new Set([...requestedCandidates, ...recoveryCandidates])];
   const shimLaunch = (candidate) => {
     if (![".cmd", ".bat"].includes(path.extname(candidate).toLowerCase())) return null;
     const target = npmShimTarget(candidate, { existsSync, readFileSync });
@@ -121,24 +147,245 @@ export function resolveCodexLaunch(command, args = [], {
   const firstShim = first && shimLaunch(first);
   if (firstShim) return firstShim;
   const firstIsBatch = [".cmd", ".bat"].includes(path.extname(first).toLowerCase());
-  const inaccessibleStoreApp = /[\\/]WindowsApps[\\/]OpenAI\.Codex_[^\\/]+[\\/]app[\\/]resources[\\/]codex(?:\.exe)?$/i.test(first);
+  const inaccessibleStoreApp = isWindowsStoreCodexPath(first);
   if (first && !firstIsBatch && !inaccessibleStoreApp) {
-    return { command: first, args: original.args, kind: "direct", requestedCommand: original.command };
+    return {
+      command: first,
+      args: original.args,
+      kind: standalone && path.resolve(first) === path.resolve(standalone) ? "standalone" : "direct",
+      requestedCommand: original.command
+    };
   }
   // The Microsoft Store desktop bundle can be visible on PATH while denying
   // child-process execution. Prefer a later official npm CLI shim in that
   // specific case, without generally reordering the user's PATH.
   for (const candidate of candidates.slice(first ? 1 : 0)) {
-    if (![".cmd", ".bat"].includes(path.extname(candidate).toLowerCase())) continue;
-    const launch = shimLaunch(candidate);
-    if (launch && /[\\/]node_modules[\\/]@openai[\\/]codex[\\/]/i.test(launch.scriptPath)) return launch;
+    if (isWindowsStoreCodexPath(candidate)) continue;
+    if ([".cmd", ".bat"].includes(path.extname(candidate).toLowerCase())) {
+      const launch = shimLaunch(candidate);
+      if (launch && /[\\/]node_modules[\\/]@openai[\\/]codex[\\/]/i.test(launch.scriptPath)) return launch;
+      continue;
+    }
+    return {
+      command: candidate,
+      args: original.args,
+      kind: path.resolve(candidate) === path.resolve(standalone || ".") ? "standalone" : "direct",
+      requestedCommand: original.command
+    };
   }
-  const direct = candidates.find((candidate) => ![".cmd", ".bat"].includes(path.extname(candidate).toLowerCase()));
+  const direct = candidates.find((candidate) =>
+    ![".cmd", ".bat"].includes(path.extname(candidate).toLowerCase()) && !isWindowsStoreCodexPath(candidate));
   if (direct) return { command: direct, args: original.args, kind: "direct", requestedCommand: original.command };
+  if (requestedStoreApp || requestedCandidates.some(isWindowsStoreCodexPath)) {
+    // Never hand an inaccessible Store bundle back to CreateProcess. Point at
+    // the documented standalone location so a missing install reports ENOENT
+    // instead of repeatedly attempting the protected desktop-app binary.
+    return {
+      command: standalone || "codex-cli-not-installed.exe",
+      args: original.args,
+      kind: "standalone-missing",
+      requestedCommand: original.command
+    };
+  }
   // Leave unresolved commands untouched so injected test launchers and normal
   // CreateProcess errors retain their existing behavior. An explicit unknown
   // batch file is never passed to a shell by this client.
   return { ...original, kind: "direct", requestedCommand: original.command };
+}
+
+function boundedOutputAppend(current, chunk, limit) {
+  const next = `${current}${String(chunk || "")}`;
+  return next.length <= limit ? { text: next, truncated: false } : {
+    text: next.slice(next.length - limit),
+    truncated: true
+  };
+}
+
+function sanitizeInstallOutput(value) {
+  return String(value || "")
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(/[^\x09\x0a\x0d\x20-\x7e\x80-\uffff]/g, "")
+    .trim();
+}
+
+function installerEnvironment(env, installDir) {
+  const allowed = [
+    "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP", "LOCALAPPDATA", "APPDATA",
+    "USERPROFILE", "ProgramFiles", "ProgramFiles(x86)", "ProgramData", "PATH", "PATHEXT",
+    "PROCESSOR_ARCHITECTURE", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "SSL_CERT_FILE",
+    "CODEX_CA_CERTIFICATE"
+  ];
+  const safe = {};
+  for (const key of allowed) {
+    if (typeof env?.[key] === "string" && env[key]) safe[key] = env[key];
+  }
+  safe.CODEX_NON_INTERACTIVE = "1";
+  safe.CODEX_INSTALL_DIR = installDir;
+  return safe;
+}
+
+function verifyCodexExecutable(command, { spawn, env, timeoutMs = 15000, maxOutputBytes = 4000 }) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(command, ["--version"], {
+        env,
+        windowsHide: true,
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+    } catch (error) {
+      resolve({ ok: false, message: error?.message || String(error), output: "" });
+      return;
+    }
+    let output = "";
+    let truncated = false;
+    let settled = false;
+    const append = (chunk) => {
+      const next = boundedOutputAppend(output, chunk, maxOutputBytes);
+      output = next.text;
+      truncated = truncated || next.truncated;
+    };
+    child.stdout?.on("data", append);
+    child.stderr?.on("data", append);
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ ...result, output: sanitizeInstallOutput(output), outputTruncated: truncated });
+    };
+    child.once("error", (error) => finish({ ok: false, message: error?.message || String(error) }));
+    child.once("close", (code, signal) => finish({
+      ok: code === 0,
+      message: code === 0 ? "" : `verification ${signal ? `stopped with signal ${signal}` : `exited with code ${code}`}`
+    }));
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      finish({ ok: false, message: "verification timed out" });
+    }, Math.max(1000, Number(timeoutMs) || 15000));
+    timer.unref?.();
+  });
+}
+
+/**
+ * Install the official standalone Codex CLI on Windows. The script URL and
+ * PowerShell program are fixed constants; no request data is interpolated.
+ */
+export function installCodexStandaloneCli({
+  platform = process.platform,
+  env = process.env,
+  spawn = nodeSpawn,
+  existsSync = fs.existsSync,
+  timeoutMs = DEFAULT_INSTALL_TIMEOUT_MS,
+  maxOutputBytes = DEFAULT_INSTALL_OUTPUT_BYTES
+} = {}) {
+  if (platform !== "win32") {
+    return Promise.resolve({
+      ok: false,
+      error: "unsupported_platform",
+      message: "Automatic Codex CLI setup is available on Windows only."
+    });
+  }
+  const duration = Math.max(1000, Math.min(600000, Number(timeoutMs) || DEFAULT_INSTALL_TIMEOUT_MS));
+  const outputLimit = Math.max(1000, Math.min(16000, Number(maxOutputBytes) || DEFAULT_INSTALL_OUTPUT_BYTES));
+  const installedCommand = standaloneCodexPath({ env, platform });
+  if (!installedCommand) {
+    return Promise.resolve({
+      ok: false,
+      error: "install_failed",
+      message: "Windows did not provide a Local AppData folder for Codex setup."
+    });
+  }
+  const installDir = path.dirname(installedCommand);
+  const safeEnv = installerEnvironment(env, installDir);
+  const windowsRoot = String(env?.SystemRoot || env?.WINDIR || "C:\\Windows");
+  const powershell = path.join(windowsRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+  const installCommand = `$ErrorActionPreference='Stop'; $env:CODEX_NON_INTERACTIVE='1'; irm '${CODEX_INSTALL_URL}' | iex`;
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(powershell, [
+        "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", installCommand
+      ], {
+        env: safeEnv,
+        windowsHide: true,
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+    } catch (error) {
+      resolve({ ok: false, error: "install_failed", message: `Could not start Codex setup: ${error?.message || error}` });
+      return;
+    }
+    let output = "";
+    let outputTruncated = false;
+    let settled = false;
+    const append = (chunk) => {
+      const next = boundedOutputAppend(output, chunk, outputLimit);
+      output = next.text;
+      outputTruncated = outputTruncated || next.truncated;
+    };
+    child.stdout?.on("data", append);
+    child.stderr?.on("data", append);
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ ...result, output: sanitizeInstallOutput(output), outputTruncated });
+    };
+    child.once("error", (error) => finish({
+      ok: false,
+      error: "install_failed",
+      message: `Codex setup could not run: ${error?.message || error}`
+    }));
+    child.once("close", async (code, signal) => {
+      if (settled) return;
+      if (code !== 0) {
+        finish({
+          ok: false,
+          error: "install_failed",
+          message: `Codex setup stopped before finishing (${signal ? `signal ${signal}` : `exit code ${code}`}).`
+        });
+        return;
+      }
+      let installed = false;
+      try { installed = !!installedCommand && existsSync(installedCommand); } catch {}
+      if (!installed) {
+        finish({
+          ok: false,
+          error: "install_not_found",
+          message: "Codex setup finished, but Boolean could not find the standalone CLI."
+        });
+        return;
+      }
+      clearTimeout(timer);
+      const verified = await verifyCodexExecutable(installedCommand, { spawn, env: safeEnv });
+      if (!verified.ok) {
+        append(verified.output);
+        finish({
+          ok: false,
+          error: "install_verification_failed",
+          message: `Codex was installed, but verification failed: ${verified.message || "the CLI did not start"}.`
+        });
+        return;
+      }
+      append(verified.output);
+      finish({
+        ok: true,
+        installed: true,
+        command: installedCommand,
+        message: "Codex CLI installed."
+      });
+    });
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      finish({
+        ok: false,
+        error: "install_timeout",
+        message: `Codex setup timed out after ${Math.round(duration / 1000)} seconds.`
+      });
+    }, duration);
+    timer.unref?.();
+  });
 }
 
 function requestId(value) {

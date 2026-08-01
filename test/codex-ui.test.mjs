@@ -23,11 +23,13 @@ test("Codex approval cards honor backend decisions and show action context", () 
   assert.match(ui, /button\.onclick=\(\)=>decide\(button\.dataset\.decision\)/);
 });
 
-test("Codex is enabled only after a successful app-server check", () => {
+test("Codex is enabled only after a successful check and ChatGPT sign-in", () => {
   assert.match(ui, /async function checkAndEnableCodex/);
-  assert.match(ui, /saveCodexSettings\(\{enabled:false,command\}\)[\s\S]*refreshCodexStatus\(\{start:true,quiet:true\}\)[\s\S]*result\.ok!==true\|\|result\.ready!==true[\s\S]*saveCodexSettings\(\{enabled:true,command\}\)/);
-  assert.match(ui, /catch\(error\)\{[\s\S]*enabled:false,command,error:/);
-  assert.match(ui, /if\(enabled\)\{ codexSetupOpen=true; renderCodexSettings\(\); await checkAndEnableCodex\(\); return; \}/);
+  assert.match(ui, /saveCodexSettings\(\{enabled:false,command\}\)[\s\S]*checkCodexConnection\(\{command,quiet:true\}\)/);
+  assert.match(ui, /if\(!ready\)\{[\s\S]*enabled:false,command[\s\S]*return false/);
+  assert.match(ui, /if\(state\.codex\?\.account\?\.signedIn!==true\)\{[\s\S]*enabled:false,command[\s\S]*return false/);
+  assert.match(ui, /saveCodexSettings\(\{enabled:true,command\}\)/);
+  assert.match(ui, /if\(state\.codex\?\.ready===true&&state\.codex\?\.account\?\.signedIn===true\)\{ await checkAndEnableCodex\(\{quiet:true\}\); return; \}/);
   assert.doesNotMatch(ui, /const enabled=button\.dataset\.runtime==="codex";\s*if\(!await saveCodexSettings\(\{enabled\}\)\)/);
 });
 

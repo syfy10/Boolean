@@ -6,7 +6,13 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 
-import { CodexAppServer, CodexAppServerError, resolveCodexLaunch } from "../src/codex-app-server.js";
+import {
+  CodexAppServer,
+  CodexAppServerError,
+  installCodexStandaloneCli,
+  resolveCodexLaunch,
+  standaloneCodexPath
+} from "../src/codex-app-server.js";
 
 function fakeProcess(onMessage) {
   const child = new EventEmitter();
@@ -311,6 +317,136 @@ test("prefers the runnable npm CLI when the Microsoft Store desktop binary is fi
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("recovers an invalid saved Microsoft Store command with the standalone CLI", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-standalone-"));
+  try {
+    const storeBinary = path.join(root, "WindowsApps", "OpenAI.Codex_1.0_x64__test", "app", "resources", "codex.exe");
+    const standalone = path.join(root, "Programs", "OpenAI", "Codex", "bin", "codex.exe");
+    fs.mkdirSync(path.dirname(storeBinary), { recursive: true });
+    fs.mkdirSync(path.dirname(standalone), { recursive: true });
+    fs.writeFileSync(storeBinary, "");
+    fs.writeFileSync(standalone, "");
+    const launch = resolveCodexLaunch(storeBinary, ["app-server", "--stdio"], {
+      platform: "win32",
+      env: { LOCALAPPDATA: root, PATH: path.dirname(storeBinary), PATHEXT: ".EXE;.CMD" },
+      execPath: path.join(root, "Boolean-core.exe")
+    });
+    assert.equal(path.resolve(launch.command), path.resolve(standalone));
+    assert.equal(launch.kind, "standalone");
+    assert.equal(launch.requestedCommand, storeBinary);
+    assert.deepEqual(launch.args, ["app-server", "--stdio"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("finds the documented standalone CLI when a plain codex command is not on PATH", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-standalone-no-path-"));
+  try {
+    const standalone = path.join(root, "Programs", "OpenAI", "Codex", "bin", "codex.exe");
+    fs.mkdirSync(path.dirname(standalone), { recursive: true });
+    fs.writeFileSync(standalone, "");
+    const launch = resolveCodexLaunch("codex", ["app-server", "--stdio"], {
+      platform: "win32",
+      env: { LOCALAPPDATA: root, PATH: "", PATHEXT: ".EXE;.CMD" },
+      execPath: path.join(root, "Boolean-core.exe")
+    });
+    assert.equal(path.resolve(launch.command), path.resolve(standalone));
+    assert.equal(launch.kind, "standalone");
+    assert.deepEqual(launch.args, ["app-server", "--stdio"]);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("recovers an invalid saved Microsoft Store command with a runnable CLI on PATH", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-path-recovery-"));
+  try {
+    const storeBinary = path.join(root, "WindowsApps", "OpenAI.Codex_1.0_x64__test", "app", "resources", "codex.exe");
+    const cli = path.join(root, "cli", "codex.exe");
+    fs.mkdirSync(path.dirname(storeBinary), { recursive: true });
+    fs.mkdirSync(path.dirname(cli), { recursive: true });
+    fs.writeFileSync(storeBinary, "");
+    fs.writeFileSync(cli, "");
+    const launch = resolveCodexLaunch(storeBinary, ["app-server"], {
+      platform: "win32",
+      env: { LOCALAPPDATA: path.join(root, "missing-local"), PATH: `${path.dirname(storeBinary)};${path.dirname(cli)}`, PATHEXT: ".EXE;.CMD" },
+      execPath: path.join(root, "Boolean-core.exe")
+    });
+    assert.equal(path.resolve(launch.command), path.resolve(cli));
+    assert.equal(launch.kind, "direct");
+    assert.notEqual(path.resolve(launch.command), path.resolve(storeBinary));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("never returns an invalid Microsoft Store command as a direct executable", () => {
+  const storeBinary = "C:\\Program Files\\WindowsApps\\OpenAI.Codex_1.0_x64__test\\app\\resources\\codex.exe";
+  const localAppData = "C:\\Users\\Test\\AppData\\Local";
+  const launch = resolveCodexLaunch(storeBinary, ["app-server"], {
+    platform: "win32",
+    env: { LOCALAPPDATA: localAppData, PATH: "", PATHEXT: ".EXE;.CMD" },
+    execPath: "C:\\Boolean\\Boolean-core.exe",
+    existsSync: () => false
+  });
+  assert.equal(launch.kind, "standalone-missing");
+  assert.notEqual(launch.command.toLowerCase(), storeBinary.toLowerCase());
+  assert.equal(launch.command, standaloneCodexPath({ platform: "win32", env: { LOCALAPPDATA: localAppData } }));
+});
+
+test("runs the fixed official standalone installer with bounded output", async () => {
+  const calls = [];
+  const localAppData = "C:\\Users\\Test\\AppData\\Local";
+  const installed = standaloneCodexPath({ platform: "win32", env: { LOCALAPPDATA: localAppData } });
+  const result = await installCodexStandaloneCli({
+    platform: "win32",
+    env: { LOCALAPPDATA: localAppData, PATH: "", SystemRoot: "C:\\Windows", BOOLEAN_SECRET: "do-not-inherit" },
+    maxOutputBytes: 1000,
+    existsSync: (candidate) => candidate === installed,
+    spawn(command, args, options) {
+      calls.push({ command, args, options });
+      const child = new EventEmitter();
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      child.kill = () => true;
+      queueMicrotask(() => {
+        child.stdout.write(calls.length === 1 ? `\u001b[32m${"x".repeat(1400)}\u001b[0m` : "codex-cli 1.2.3\n");
+        if (calls.length === 1) child.stderr.write("installed\n");
+        child.emit("close", 0, null);
+      });
+      return child;
+    }
+  });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].command, "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe");
+  assert.deepEqual(calls[0].args.slice(0, 6), [
+    "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command"
+  ]);
+  assert.equal(calls[0].args[6], "$ErrorActionPreference='Stop'; $env:CODEX_NON_INTERACTIVE='1'; irm 'https://chatgpt.com/codex/install.ps1' | iex");
+  assert.equal(calls[0].options.shell, false);
+  assert.equal(calls[0].options.env.CODEX_NON_INTERACTIVE, "1");
+  assert.equal(calls[0].options.env.CODEX_INSTALL_DIR, path.dirname(installed));
+  assert.equal(calls[0].options.env.BOOLEAN_SECRET, undefined);
+  assert.equal(calls[1].command, installed);
+  assert.deepEqual(calls[1].args, ["--version"]);
+  assert.equal(result.ok, true);
+  assert.equal(result.command, installed);
+  assert.equal(result.outputTruncated, true);
+  assert.ok(result.output.length <= 1000);
+});
+
+test("automatic standalone setup is Windows-only without spawning a process", async () => {
+  let spawned = false;
+  const result = await installCodexStandaloneCli({
+    platform: "linux",
+    spawn() { spawned = true; throw new Error("must not run"); }
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "unsupported_platform");
+  assert.equal(spawned, false);
 });
 
 test("non-Windows launch resolution preserves the executable and argv", () => {

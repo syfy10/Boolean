@@ -553,17 +553,31 @@ function plainMessageText(message) {
   return "";
 }
 
-const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setup|finish|fix|edit|update|write|change|modify)\b/i;
-const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|project|program|script|code|file|folder|desktop tool|server)\b/i;
-const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do)\s+(?:it|that|all that)(?:\s+for me)?\b/i;
-const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|what (?:game|app|website)|how (?:can|could|would|do|does|to))\b/i;
+// File attachments are appended to the user's visible instruction so the
+// provider can read them. They are evidence, not authority for the current
+// turn: a pasted report that says "read only" or "replace the logo" must not
+// silently change how Boolean routes the instruction above it.
+const ATTACHED_FILE_BLOCK = /\r?\n\s*\r?\nAttached file [^\r\n]+:\s*\r?\n```[\s\S]*$/i;
+
+export function currentTurnInstructionText(messageOrText) {
+  const text = typeof messageOrText === "string"
+    ? String(messageOrText).split(/\n\nCURRENT APP CONTEXT\b/)[0].trim()
+    : plainMessageText(messageOrText);
+  const attachmentIndex = text.search(ATTACHED_FILE_BLOCK);
+  return (attachmentIndex >= 0 ? text.slice(0, attachmentIndex) : text).trim();
+}
+
+const ARTIFACT_ACTION = /\b(build|create|make|implement|code|develop|set up|setup|finish|fix|edit|update|write|change|modify|replace|swap|apply|use|put|switch|rebrand|restyle|regenerate)\b/i;
+const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|project|program|script|code|files?|folders?|desktop tool|server|logos?|icons?|assets?|images?|svg|png|html|css|brands?|branding|headers?|pwa)\b/i;
+const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do|replace|swap|apply|use|put|switch|rebrand|restyle|regenerate)\s+(?:it|this|that|those|them|all that|all of (?:it|that|those|them))(?:\s+for me)?\b/i;
+const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|whether|why|what (?:game|app|website)|how (?:can|could|would|do|does|to)|should (?:we|i|you)|would it)\b/i;
 const ANSWER_ONLY_REQUEST = /\b(?:do\s*not|don't|dont|no)\s+(?:make\s+)?(?:changes?|edits?|updates?|modify|write|touch|code)\b|\b(?:just|only)\s+(?:tell|explain|describe|summari[sz]e|review|show|list|answer)\b|\b(?:tell|explain|describe|summari[sz]e|review|show|list)\s+(?:me\s+)?(?:about|what|where|how|everything|the current|this project)\b/i;
 const INSPECT_REQUEST = /\b(?:project|repo(?:sitory)?|codebase|files?|folder|git|diff|changes?|status|progress|roadmap|implementation|what (?:was|is|has been) (?:changed|done|built|implemented)|where (?:are we|is the project)|last (?:deploy|build|update))\b/i;
 const CONTEXTUAL_INSPECTION_REQUEST = /\b(?:review|inspect|analy[sz]e|assess|audit|evaluate|improve|improvements?|recommend(?:ation)?s?|suggest(?:ion)?s?)\b[\s\S]{0,100}\b(?:this|the|it|current|local|running)?\s*(?:app|application|site|website|project|code|ui|layout|version)\b|\bhow (?:can|could|would|should|do)\s+(?:you\s+)?improve\b/i;
 const LOCAL_PROJECT_CONTEXT = /(?:[a-z]:\\[^\r\n`]+|(?:^|[\s`])(?:\.{0,2}[\\/])?(?:src|app|public|outputs?|projects?|build|dist)[\\/][^\s`]+|https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?|(?:project|source|local-ready copy|production build)\s*:)/i;
 const RESEARCH_REQUEST = /\b(?:current|latest|today|tonight|tomorrow|yesterday|right now|live|news|headline|weather|forecast|score|won|winner|match|game|fixture|schedule|stock|stocks|market|price|earnings|dividend|available|availability|search|look up|lookup|web|internet|source|sources|cite)\b/i;
 const AGENT_REQUEST = /\b(?:deploy|package|build|create|make|implement|fix|edit|update|write|install|download|move|delete|rename|open|run|test|connect|configure|settings|notepad|browser|email|reply|mcp|cloudflare|github|commit|push|schedule|task|project|folder|file|windows)\b/i;
-const CONNECTOR_CONTEXT = /\b(?:mcp|connector|cloudflare|cloudflare workers?|cloudflare pages|stocksignal|stockunc|robinhood|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
+const CONNECTOR_CONTEXT = /\b(?:mcp|connector|cloudflare|cloudflare workers?|cloudflare pages|stocksignal|stockunc|robinhood|trade ideas?|signals?|strategy feeds?|watchlist|positions?|orders?|(?:stock|market|trading)\s+scanners?|scanners?\s+(?:feeds?|signals?|strateg(?:y|ies)|watchlists?))\b/i;
 const CONNECTOR_ACTION_REQUEST = /\b(?:check|checking|connected|connection|connect|use|call|pull|fetch|get|see|refresh|try again|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?|buy|sell|trade|place|submit|execute|cancel|close|send|post|publish|upload|download|create|add|remove|delete|move|update|change|approve|confirm)\b/i;
 const CONNECTOR_DATA_ACTION = /\b(?:pull|fetch|get|give|show|list|all|any (?:other|new|more)|trade ideas?|signals?|scanner|strategy feeds?|watchlist|positions?|orders?)\b/i;
 const CONNECTOR_MUTATION_ACTION = /\b(?:buy|sell|trade|place|submit|execute|cancel|close|send|post|publish|upload|create|add|remove|delete|move|update|change|approve|confirm)\b/i;
@@ -622,7 +636,7 @@ export function emailCleanupContinuationAction(messages) {
     }
   }
   if (latestIndex < 1) return null;
-  const latest = plainMessageText(source[latestIndex]).trim();
+  const latest = currentTurnInstructionText(source[latestIndex]);
   if (!latest || /^(?:no|stop|cancel|never|do not|don't|dont)\b/i.test(latest)) return null;
   const confirmed = EMAIL_CLEANUP_CONFIRMATION.test(latest) ||
     (latest.length <= 180 && /\bconfirm(?:ing|ed)?\b/i.test(latest) && /\bgo ahead\b/i.test(latest));
@@ -658,7 +672,8 @@ export function emailCleanupContinuationAction(messages) {
 }
 
 export function classifyTurnMode(messages, options = {}) {
-  const latest = options.latestText ?? plainMessageText([...(messages || [])].reverse().find((message) => message?.role === "user"));
+  const latest = currentTurnInstructionText(options.latestText ?? [...(messages || [])].reverse().find((message) => message?.role === "user"));
+  const artifactActionRequired = options.artifactActionRequired ?? requiresArtifactAction(messages);
   if (emailCleanupContinuationAction(messages)) return "connector";
   if (options.connectorActionRequired || requiresConnectorContinuationAction(messages)) return "connector";
   const explicitToolMode = explicitlyNamedToolMode(latest);
@@ -679,7 +694,7 @@ export function classifyTurnMode(messages, options = {}) {
     if (options.projectDir || INSPECT_REQUEST.test(latest)) return "inspect";
     return RESEARCH_REQUEST.test(latest) ? "research" : "chat";
   }
-  if (options.directAction || options.artifactActionRequired) return "action";
+  if (options.directAction || artifactActionRequired) return "action";
   if (RESEARCH_REQUEST.test(latest)) return "research";
   if (INSPECT_REQUEST.test(latest) && /\b(?:status|progress|review|inspect|check|show|list|tell|explain|summari[sz]e|what|where)\b/i.test(latest)) return "inspect";
   if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "action";
@@ -710,6 +725,7 @@ function isRealUserRequest(message) {
   const text = plainMessageText(message).trim();
   return !!text
     && !/^SYSTEM PREFLIGHT:/i.test(text)
+    && !/^BOOLEAN CONTINUATION:/i.test(text)
     && !/^TOOL RESULT for /i.test(text)
     && !/^Screenshot captured by the requested tool\./i.test(text);
 }
@@ -762,7 +778,7 @@ export function recentTaskStatusMemory(messages) {
     }
   }
   if (latestUserIndex < 1) return "";
-  const latest = plainMessageText(messages[latestUserIndex]);
+  const latest = currentTurnInstructionText(messages[latestUserIndex]);
   if (!STATUS_FOLLOWUP.test(latest)) return "";
 
   for (let i = latestUserIndex - 1; i > Math.max(0, latestUserIndex - 12); i--) {
@@ -804,7 +820,8 @@ export function requiresArtifactAction(messages) {
     .filter((message) => message?.role === "user")
     .map(plainMessageText)
     .filter(Boolean);
-  const latest = users.at(-1) || "";
+  const latestUser = [...(Array.isArray(messages) ? messages : [])].reverse().find((message) => message?.role === "user");
+  const latest = currentTurnInstructionText(latestUser);
   if (ANSWER_ONLY_REQUEST.test(latest)) return false;
   if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return true;
   if (!ACTION_ONLY_FOLLOWUP.test(latest)) return false;
@@ -814,7 +831,7 @@ export function requiresArtifactAction(messages) {
 export function requiresConnectorContinuationAction(messages) {
   const source = Array.isArray(messages) ? messages : [];
   const latestUser = [...source].reverse().find((message) => message?.role === "user");
-  const latest = plainMessageText(latestUser);
+  const latest = currentTurnInstructionText(latestUser);
   if (!latest) return false;
   const recent = source
     .filter((message) => message?.role === "user" || message?.role === "assistant")
@@ -831,7 +848,7 @@ export function requiresConnectorToolResult(messages) {
   if (!requiresConnectorContinuationAction(messages)) return false;
   const source = Array.isArray(messages) ? messages : [];
   const latestUser = [...source].reverse().find((message) => message?.role === "user");
-  const latest = plainMessageText(latestUser);
+  const latest = currentTurnInstructionText(latestUser);
   if (CONNECTOR_DATA_ACTION.test(latest) || CONNECTOR_MUTATION_ACTION.test(latest)) return true;
   const recent = source
     .filter((message) => message?.role === "user" || message?.role === "assistant")
@@ -863,7 +880,7 @@ export function requiresExplicitActionToolResult(messages) {
   const source = Array.isArray(messages) ? messages : [];
   if (emailCleanupContinuationAction(source)) return true;
   const latestUser = [...source].reverse().find((message) => message?.role === "user");
-  const latest = plainMessageText(latestUser).toLowerCase();
+  const latest = currentTurnInstructionText(latestUser).toLowerCase();
   const pattern = /\b(?:call|use|run|invoke|execute)\s+(?:the\s+)?([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b/g;
   for (const match of latest.matchAll(pattern)) {
     const prefix = latest.slice(Math.max(0, match.index - 18), match.index);
@@ -1087,7 +1104,7 @@ export function estimateContext(messages, budgetTokens, mode) {
   const artifactActionRequired = requiresArtifactAction(messages);
   const connectorActionRequired = requiresConnectorContinuationAction(messages);
   const latestUser = [...(messages || [])].reverse().find((message) => message?.role === "user");
-  const directAction = detectWindowsSettingsRequest(plainMessageText(latestUser));
+  const directAction = detectWindowsSettingsRequest(currentTurnInstructionText(latestUser));
   const turnMode = classifyTurnMode(messages, { artifactActionRequired, connectorActionRequired, directAction });
   const r = fitToContext(focusedMessagesForTurn(messages, turnMode), budgetTokens, mode);
   return { full: originalFull, sent: r.sentTokens, saved: Math.max(0, originalFull - r.sentTokens), budget: r.budget };
@@ -1254,7 +1271,7 @@ export async function runTurn(ctx, messages) {
   const emitStep = (entry) => { if (onStep) onStep(entry); };
   const checkpoint = () => { if (ctx.onCheckpoint) ctx.onCheckpoint(); };
   const latestUser = [...messages].reverse().find((message) => message?.role === "user");
-  ctx.latestUserText = plainMessageText(latestUser);
+  ctx.latestUserText = currentTurnInstructionText(latestUser);
   const orchestration = createCodexOrchestrator({
     threadId: ctx.threadId,
     persisted: ctx.orchestrationState,
@@ -1312,7 +1329,7 @@ export async function runTurn(ctx, messages) {
   const connectorToolResultRequired = forceChat ? false : requiresConnectorToolResult(messages);
   const explicitActionToolResultRequired = forceChat ? false : requiresExplicitActionToolResult(messages);
   const emailCleanupAction = forceChat ? null : emailCleanupContinuationAction(messages);
-  const directAction = forceChat ? null : (emailCleanupAction || detectWindowsSettingsRequest(plainMessageText(latestUser)));
+  const directAction = forceChat ? null : (emailCleanupAction || detectWindowsSettingsRequest(ctx.latestUserText));
   const turnMode = forceChat ? "chat" : classifyTurnMode(messages, {
     latestText: ctx.latestUserText,
     artifactActionRequired,
@@ -1801,7 +1818,12 @@ export async function runTurn(ctx, messages) {
       const routeBase = (planTarget && !completedToolWork && (turn === 1 || controller.phase === "planning"))
         ? planTarget : target;
       if (routeBase === planTarget) onStatus(`planning with ${planTarget.model || planTarget.provider}...`);
-      const requestTarget = requireInitialNativeTool && !completedToolWork && useNativeTools && availableTools.length
+      // Force an actual tool call this turn when either the initial connector step
+      // requires it, or a nudge fired because the model announced/promised an action
+      // but never took it. Without this, `forceToolCallNext` was dead — the nudge was
+      // only polite text a weak model could ignore, so it kept narrating and stopped.
+      const forceToolThisTurn = (requireInitialNativeTool && !completedToolWork) || forceToolCallNext;
+      const requestTarget = forceToolThisTurn && useNativeTools && availableTools.length
         ? { ...routeBase, toolChoice: "required" }
         : routeBase;
       forceToolCallNext = false;
@@ -2041,13 +2063,18 @@ export async function runTurn(ctx, messages) {
     // are available and the response is a short bare announcement with nothing
     // done — and push the model to actually take the step instead of accepting
     // the narration as a final answer.
-    if (!compatibilityMode && activeToolDefinitions.length && !signal?.aborted
+    if (activeToolDefinitions.length && !signal?.aborted
         && announceNudges < MAX_ANNOUNCE_NUDGES
         && announcesUnperformedAction(assistantContent)) {
       announceNudges++;
       forceToolCallNext = true;
       messages.push({ role: "assistant", content: assistantContent });
-      messages.push({ role: "user", content: "Take the announced step now by calling the tool directly. Do not describe what you will do — do it in this turn." });
+      messages.push({
+        role: "user",
+        content: compatibilityMode
+          ? "BOOLEAN CONTINUATION:\nTake the announced step now. Return exactly one fenced tool call using the BOOLEAN TOOL PROTOCOL already provided. Do not describe what you will do - call the tool in this turn."
+          : "BOOLEAN CONTINUATION:\nTake the announced step now by calling the tool directly. Do not describe what you will do - do it in this turn."
+      });
       onStatus("taking the announced step...");
       continue;
     }
@@ -2058,6 +2085,7 @@ export async function runTurn(ctx, messages) {
     if (artifactActionRequired && completedToolWork && autoContinues < MAX_AUTO_CONTINUE
         && MORE_WORK_INTENT.test(assistantContent) && !signal?.aborted) {
       autoContinues++;
+      forceToolCallNext = true;
       messages.push({ role: "assistant", content: assistantContent });
       messages.push({ role: "user", content: "Continue now — make the next change with your tools instead of describing it. Keep going in this same run until the requested work is complete." });
       onStatus("continuing until the project is finished...");
@@ -2099,6 +2127,10 @@ export async function runTurn(ctx, messages) {
     const completion = controller.evaluateCompletion(assistantContent);
     if (!completion.complete && controller.actionRequired && completionNudges < MAX_AUTO_CONTINUE && !signal?.aborted) {
       completionNudges++;
+      // The task is action-required and not actually done (e.g. claimed complete but
+      // changed no files). Force a real tool call next turn so the model does the work
+      // instead of narrating another "I'll continue" and stopping.
+      forceToolCallNext = true;
       messages.push({ role: "assistant", content: assistantContent });
       messages.push({ role: "user", content: controller.continuationPrompt(completion.reason) });
       publishController();

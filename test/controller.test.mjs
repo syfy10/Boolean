@@ -318,6 +318,143 @@ test("switching a persisted task from Read only to Read and write unlocks the se
   assert.equal(unlocked.allowTool("write_file", { path: "C:\\demo\\app\\index.js" }).allowed, true);
 });
 
+test("current shorthand edit authority unlocks a task-level read-only controller", () => {
+  const locked = new AgentController({
+    objective: "Review the GreenScan app",
+    currentUserText: "Review this app without editing it",
+    taskContext: "Review this app without editing it. File changes are currently blocked in this session. Keep the brand colors exactly.",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\greenscan"
+  });
+  const gate = locked.allowTool("write_file", { path: "C:\\demo\\greenscan\\logo.svg" });
+  assert.equal(gate.allowed, false);
+  locked.noteBlockedTool("write_file", { path: "C:\\demo\\greenscan\\logo.svg" }, gate.reason);
+  const saved = locked.snapshot();
+
+  for (const request of [
+    "Use this GS logo style in the app",
+    "Put this GS logo in the app",
+    "Replace the broccoli logo in the app"
+  ]) {
+    const unlocked = new AgentController({
+      persisted: saved,
+      objective: request,
+      currentUserText: request,
+      taskContext: `${saved.taskContext} ${request}`,
+      effectiveAccessMode: "ask",
+      projectDir: "C:\\demo\\greenscan"
+    });
+    const snapshot = unlocked.snapshot();
+    assert.equal(snapshot.contract.mode, "project_edit", request);
+    assert.equal(snapshot.contract.writeAllowed, true, request);
+    assert.equal(unlocked.allowTool("write_file", { path: "C:\\demo\\greenscan\\logo.svg" }).allowed, true, request);
+    assert.doesNotMatch(unlocked.workingMemory(), /without editing/i, request);
+    assert.doesNotMatch(unlocked.workingMemory(), /file changes are currently blocked/i, request);
+    assert.match(unlocked.workingMemory(), /Keep the brand colors exactly/i, request);
+    assert.equal(snapshot.phase, "executing", request);
+    assert.equal(snapshot.lastFailure, "", request);
+    assert.equal(snapshot.consecutiveFailures, 0, request);
+    assert.equal(snapshot.blockedToolCount, 0, request);
+    assert.deepEqual(snapshot.blockedActionCounts, {}, request);
+  }
+});
+
+test("an already-classified current artifact requirement supplies fresh write authority", () => {
+  const locked = new AgentController({
+    objective: "Review the app",
+    currentUserText: "Review the app without editing it",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\app"
+  });
+  const unlocked = new AgentController({
+    persisted: locked.snapshot(),
+    objective: "Proceed with the approved result",
+    currentUserText: "Proceed with the approved result",
+    artifactRequired: true,
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\app"
+  });
+  assert.equal(unlocked.snapshot().contract.writeAllowed, true);
+  assert.equal(unlocked.allowTool("write_file", { path: "C:\\demo\\app\\index.js" }).allowed, true);
+
+  const hardBoundary = new AgentController({
+    persisted: locked.snapshot(),
+    objective: "Replace the logo",
+    currentUserText: "Replace the logo",
+    artifactRequired: true,
+    effectiveAccessMode: "read_only",
+    projectDir: "C:\\demo\\app"
+  });
+  assert.equal(hardBoundary.snapshot().contract.accessMode, "read_only");
+  assert.equal(hardBoundary.snapshot().contract.writeAllowed, false);
+});
+
+test("scoped no-edit constraints survive an unrelated authorized change", () => {
+  const controller = new AgentController({
+    objective: "Replace the GreenScan logo",
+    currentUserText: "Replace the GreenScan logo, but do not modify the database schema.",
+    taskContext: "Keep the current API contract. Do not modify the database schema.",
+    artifactRequired: true,
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\greenscan"
+  });
+
+  const snapshot = controller.snapshot();
+  assert.equal(snapshot.contract.writeAllowed, true);
+  assert.equal(controller.allowTool("write_file", { path: "C:\\demo\\greenscan\\logo.svg" }).allowed, true);
+  assert.match(controller.workingMemory(), /Do not modify the database schema/i);
+  assert.match(controller.workingMemory(), /Keep the current API contract/i);
+});
+
+test("current deploy authority removes stale no-deploy context and resets only its permission block", () => {
+  const locked = new AgentController({
+    objective: "Prepare the production release",
+    currentUserText: "Do not deploy until I say so",
+    taskContext: "Do not deploy until I say so. Keep the production branch.",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\app"
+  });
+  const gate = locked.allowTool("run_command", { command: "wrangler deploy" });
+  assert.equal(gate.allowed, false);
+  locked.noteBlockedTool("run_command", { command: "wrangler deploy" }, gate.reason);
+  const saved = locked.snapshot();
+  const unlocked = new AgentController({
+    persisted: saved,
+    objective: "Deploy production now",
+    currentUserText: "Deploy production now",
+    taskContext: `${saved.taskContext} Deploy production now.`,
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\app"
+  });
+  const snapshot = unlocked.snapshot();
+  assert.equal(snapshot.contract.deployAllowed, true);
+  assert.equal(unlocked.allowTool("run_command", { command: "wrangler deploy" }).allowed, true);
+  assert.doesNotMatch(unlocked.workingMemory(), /Do not deploy until I say so/i);
+  assert.match(unlocked.workingMemory(), /Keep the production branch/i);
+  assert.equal(snapshot.phase, "executing");
+  assert.equal(snapshot.lastFailure, "");
+  assert.equal(snapshot.blockedToolCount, 0);
+
+  const unrelatedFailure = {
+    ...saved,
+    phase: "recovering",
+    lastFailure: "run_command: npm test failed with 2 assertions",
+    consecutiveFailures: 2,
+    blockedToolCount: 1
+  };
+  const stillFailed = new AgentController({
+    persisted: unrelatedFailure,
+    objective: "Replace the logo",
+    currentUserText: "Replace the logo",
+    effectiveAccessMode: "ask",
+    projectDir: "C:\\demo\\app"
+  }).snapshot();
+  assert.match(stillFailed.lastFailure, /npm test failed/i);
+  assert.equal(stillFailed.phase, "recovering");
+  assert.equal(stillFailed.consecutiveFailures, 2);
+  assert.equal(stillFailed.blockedToolCount, 1);
+});
+
 test("the newly selected project root is not evicted by persisted roots", () => {
   const savedRoots = Array.from({ length: 6 }, (_, index) => `C:\\old\\project-${index + 1}`);
   const controller = new AgentController({

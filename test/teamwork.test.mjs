@@ -51,6 +51,11 @@ test("assist runs a specialist first and passes its report to the lead", async (
   const requests = [];
   let leadCalls = 0;
   const server = http.createServer(async (req, res) => {
+    if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
@@ -107,6 +112,11 @@ test("assist runs a specialist first and passes its report to the lead", async (
 test("team retries one failed specialist on a different connected provider", async (t) => {
   let leadCalls = 0;
   const server = http.createServer(async (req, res) => {
+    if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
@@ -150,6 +160,11 @@ test("team retries one failed specialist on a different connected provider", asy
 test("specialists stay in the active project and cannot overwrite the lead controller", async (t) => {
   const requests = [];
   const server = http.createServer(async (req, res) => {
+    if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
     let raw = "";
     for await (const chunk of req) raw += chunk;
     requests.push(JSON.parse(raw));
@@ -226,10 +241,11 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.match(ui, /id="teamTaskBudget"/);
   assert.match(ui, /teamwork:\{mode:\["solo","assist","team"\]/);
   assert.match(ui, /team_worker:\(entry\?\.args\?\.state==="done"/);
-  assert.match(ui, /class="team-run-progress" aria-label="Team progress"/);
   assert.match(ui, /function updateTeamWorker\(entry\)/);
-  assert.match(ui, /team-run-worker\.retrying/);
-  assert.match(ui, /team-run-worker\.stalled/);
+  assert.match(ui, /function workingToolActivitySubject\(entry\)/);
+  assert.match(ui, /if\(group==="agents"\) return "Messaged "\+count\+" agent"\+plural/);
+  assert.match(ui, /run\?\.statusEl\?\.classList\.remove\("team-active"\)/);
+  assert.doesNotMatch(ui, /class="team-run-progress"/);
   assert.match(ui, /Stopping safely/);
   assert.match(ui, /run\.controller\?\.teamWorkers/);
   assert.match(ui, /Team model usage/);

@@ -972,8 +972,11 @@ test("composer access menu persists explicit read, write, and full-access modes"
   assert.match(ui, /data-mode="full_access"[\s\S]*?<b>Full access<\/b><small>Auto-approve workspace actions\.<\/small>/);
   assert.match(ui, /accessMode:"ask", autoApprove:false/);
   assert.match(ui, /function currentAccessMode\(\)\{[\s\S]*?\["read_only","ask","full_access"\]\.includes\(saved\)\?saved:\(state\.autoApprove\?"full_access":"ask"\);/);
-  assert.match(ui, /state\.accessMode=mode;\s*state\.autoApprove=mode==="full_access";/);
-  assert.match(ui, /const body=\{accessMode:mode,autoApprove:state\.autoApprove\};\s*if\(state\.autoApprove\) body\.ui=\{aiBrowser:true\};\s*await fetch\("\/api\/config",\{method:"POST",body:JSON\.stringify\(body\)\}\);/);
+  assert.match(ui, /let accessModeSaveQueue=Promise\.resolve\(\);/);
+  assert.match(ui, /function saveAccessMode\(mode\)\{[\s\S]*?const response=await fetch\("\/api\/config",\{method:"POST",body:JSON\.stringify\(body\)\}\);[\s\S]*?if\(!response\.ok\) throw new Error/);
+  assert.match(ui, /state\.accessMode=\["read_only","ask","full_access"\]\.includes\(data\.accessMode\)\?data\.accessMode:requested;/);
+  assert.match(ui, /await accessModeSaveQueue;[\s\S]*?body\.accessMode=currentAccessMode\(\);/);
+  assert.match(ui, /try\{ await saveAccessMode\(mode\); \}\s*catch\(error\)\{ applyMode\(\); tempToast/);
   assert.match(ui, /if\(access\)access\.textContent=accessModeLabel\(currentAccessMode\(\)\);/);
 });
 

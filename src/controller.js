@@ -45,14 +45,17 @@ const BROWSER_TOOLS = VISIBLE_BROWSER_TOOLS;
 const DEPLOY_COMMAND = /\b(?:wrangler(?:\.cmd)?\s+deploy|npm\s+run\s+deploy|git\s+push|gh\s+release|publish(?:\s|$)|deploy(?:\s|$))/i;
 const DEPLOY_REQUEST = /\b(?:deploy|publish|push|release)\b/i;
 const NO_DEPLOY_REQUEST = /\b(?:do not|don't|never|no)\s+(?:deploy|publish|push|release)\b/i;
-const READ_ONLY_REQUEST = /\b(?:do not|don't|never)\s+(?:edit|change|write|modify)\b|\bread[- ]only\s+(?:review|inspection|analysis|audit|task|request)\b|\b(?:review|inspect|analy[sz]e|audit)\b[^.!?\n]{0,80}\bwithout\s+(?:editing|changing|writing|modifying)\b/i;
+// Whole-task write restrictions are different from scoped safety constraints.
+// "Do not edit files" makes the task read only; "do not modify the database
+// schema" must remain a constraint while unrelated requested edits proceed.
+const READ_ONLY_REQUEST = /\b(?:do not|don't|never)\s+(?:edit|change|write|modify)\s*(?:[.!?;,]|$)|\b(?:do not|don't|never)\s+(?:(?:edit|change|write|modify)\s+(?:anything|any\s+(?:files?|code)|files?|code|source(?:\s+files?)?|project(?:\s+files?)?|workspace|the\s+(?:files?|code|project|workspace)|this\s+(?:project|workspace))|(?:make|apply)\s+(?:any\s+)?changes?)\b|\bread[- ]only\s+(?:review|inspection|analysis|audit|task|request)\b|\b(?:review|inspect|analy[sz]e|audit)\b[^.!?\n]{0,80}\bwithout\s+(?:editing|changing|writing|modifying)\b/i;
 const DEPLOY_VERSION = /\b(?:version|deployment|deployed|worker|pages|release|tag)\b.{0,80}\b([0-9a-f]{8,}(?:-[0-9a-f]{4,}){2,}|v?\d+\.\d+\.\d+|https?:\/\/\S+)/i;
 const LIVE_VERIFIED = /\b(?:HTTP\/\d(?:\.\d)?\s+)?(?:200|2\d\d)\b|\b(?:ok|healthy|success|verified|live|deployed)\b/i;
 const SECRET_PATTERN = /\b(?:sk-[A-Za-z0-9_-]{8,}|cfut_[A-Za-z0-9_-]+|gh[opusr]_[A-Za-z0-9_-]+|GOCSPX-[A-Za-z0-9_-]+|Bearer\s+[A-Za-z0-9._-]+)\b/gi;
 const CONSTRAINT_LINE = /\b(?:do not|don't|never|only|must|without|unless|keep|use this|no deploy|no browser|sandbox)\b/i;
 const MAX_MEMORY_CHARS = 4800;
 
-const ACTION_REQUEST = /(?:^|\b(?:please|can you|could you|would you|i want you to|i need you to)\s+)(?:open|send|download|install|connect|schedule|change|set|create|build|make|edit|fix|update|delete|remove|move|rename|run|test|deploy|publish|commit|push|draft|reply)\b/i;
+const ACTION_REQUEST = /(?:^|\b(?:please|can you|could you|would you|i want you to|i need you to|let['’]?s)\s+)(?:open|send|download|install|connect|schedule|change|set|create|build|make|edit|fix|update|delete|remove|move|rename|run|test|deploy|publish|commit|push|draft|reply|use|put|place|replace|switch|apply|restore|wire)\b/i;
 const FEATURE_REQUEST = /\b(?:implement|add a |create|build new|make new|write a |code|develop|design|new feature|support for|enable)\b/i;
 const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing|ure)?|fix|repair|regression|not working|doesn['’]?t work|stuck|cut(?:s|ting)? off|overlap(?:s|ping)?|wrong|issue)\b/i;
 
@@ -96,6 +99,77 @@ function extractConstraints(text) {
     .filter((line) => line && CONSTRAINT_LINE.test(line))
     .filter((line, index, all) => all.indexOf(line) === index)
     .slice(-10);
+}
+
+function isTaskWriteRestriction(text) {
+  const value = String(text || "").trim();
+  return READ_ONLY_REQUEST.test(value)
+    || /^(?:this\s+(?:task|session|request|work)\s+(?:is\s+)?)?read[- ]only[.!]?$/i.test(value)
+    || /\b(?:task|session|request|review|inspection|analysis|audit|preview|work|mode)\b[^.!?\n]{0,60}\bread[- ]only\b/i.test(value)
+    || /\b(?:file|project) changes (?:are\s+)?(?:currently\s+)?blocked\b/i.test(value)
+    || /\b(?:cannot|can not|can't)\s+(?:write|edit|modify|change)\b/i.test(value);
+}
+
+function currentPermissionAuthority(options, saved) {
+  const objective = options.objective || saved.objective || "";
+  const source = `${options.taskContext || ""}\n${objective}`;
+  const latestUserText = String(options.currentUserText || "").trim();
+  const hasPersisted = !!(options.persisted && typeof options.persisted === "object");
+  // Initial tasks may express their boundary across objective + taskContext.
+  // Restored tasks only gain new authority from values supplied for this turn.
+  const authoritySource = latestUserText || (hasPersisted
+    ? `${options.taskContext || ""}\n${options.objective || ""}`
+    : source);
+  const accessMode = ["read_only", "ask", "full_access"].includes(String(options.effectiveAccessMode || "").toLowerCase())
+    ? String(options.effectiveAccessMode).toLowerCase()
+    : (saved.accessMode || "ask");
+  const noDeploy = NO_DEPLOY_REQUEST.test(authoritySource);
+  const deployRequestedNow = DEPLOY_REQUEST.test(authoritySource) && !noDeploy;
+  const actionRequestedNow = options.currentActionRequired === true
+    || ACTION_REQUEST.test(authoritySource)
+    || FEATURE_REQUEST.test(authoritySource)
+    || DEBUG_REQUEST.test(authoritySource);
+  const accessChangedToWrite = saved.accessMode === "read_only" && accessMode !== "read_only";
+  const taskReadOnly = isTaskWriteRestriction(authoritySource)
+    || (!latestUserText && /\bread[- ]only\b/i.test(authoritySource));
+  const freshWriteAuthority = deployRequestedNow || actionRequestedNow || accessChangedToWrite;
+  return {
+    source,
+    latestUserText,
+    accessMode,
+    noDeploy,
+    deployRequestedNow,
+    actionRequestedNow,
+    taskReadOnly,
+    freshWriteAuthority,
+    supersedesWriteRestrictions: accessMode !== "read_only" && !taskReadOnly && freshWriteAuthority,
+    supersedesDeployRestrictions: accessMode !== "read_only" && deployRequestedNow && !noDeploy
+  };
+}
+
+function permissionRestrictionSuperseded(text, authority) {
+  return (authority.supersedesWriteRestrictions && isTaskWriteRestriction(text))
+    || (authority.supersedesDeployRestrictions && NO_DEPLOY_REQUEST.test(String(text || "")));
+}
+
+function withoutSupersededPermissionContext(text, authority) {
+  if (!authority.supersedesWriteRestrictions && !authority.supersedesDeployRestrictions) return String(text || "");
+  return String(text || "")
+    .split(/\r?\n|(?<=[.!?])\s+/)
+    .map((line) => line.trim())
+    .filter((line) => line && !permissionRestrictionSuperseded(line, authority))
+    .join(" ");
+}
+
+const WRITE_PERMISSION_FAILURE = /\b(?:task|session)\s+(?:is\s+)?read[- ]only\b|\b(?:file and project|file|project|connector|background process) changes (?:are\s+)?(?:currently\s+)?blocked\b|\bonly test, build, lint, and validation commands are allowed\b|\bcommits are blocked\b/i;
+const DEPLOY_PERMISSION_FAILURE = /\bdeploy, publish, and push commands require an explicit deploy request\b/i;
+
+function supersededPermissionFailure(saved, authority) {
+  const events = Array.isArray(saved.taskRun?.events) ? saved.taskRun.events : [];
+  const lastPermissionEvent = [...events].reverse().find((event) => event?.type === "permission.blocked");
+  const detail = saved.lastFailure || lastPermissionEvent?.detail || "";
+  return (authority.supersedesWriteRestrictions && WRITE_PERMISSION_FAILURE.test(detail))
+    || (authority.supersedesDeployRestrictions && DEPLOY_PERMISSION_FAILURE.test(detail));
 }
 
 function extractExplicitRoots(text) {
@@ -172,24 +246,11 @@ function commandMayReferenceExternalToolchain(command, candidate) {
   return /\.(?:exe|dll|targets|props|tasks)$/i.test(String(candidate || ""));
 }
 
-function inferContract(options, saved) {
-  const objective = options.objective || saved.objective || "";
-  const source = `${options.taskContext || ""}\n${objective}`;
-  const latestUserText = String(options.currentUserText || "").trim();
-  // Turn-scoped authority must come from the latest user request. Historical
-  // context still supplies paths and durable project facts, but an old phrase
-  // such as "read-only preview" must not permanently lock a later fix/deploy.
-  const authoritySource = latestUserText || source;
-  const accessMode = ["read_only", "ask", "full_access"].includes(String(options.effectiveAccessMode || "").toLowerCase())
-    ? String(options.effectiveAccessMode).toLowerCase()
-    : (saved.accessMode || "ask");
-  const noDeploy = NO_DEPLOY_REQUEST.test(authoritySource);
-  const deployRequestedNow = DEPLOY_REQUEST.test(authoritySource) && !noDeploy;
-  const actionRequestedNow = ACTION_REQUEST.test(authoritySource) || FEATURE_REQUEST.test(authoritySource) || DEBUG_REQUEST.test(authoritySource);
-  const accessChangedToWrite = saved.accessMode === "read_only" && accessMode !== "read_only";
-  const freshWriteAuthority = deployRequestedNow || actionRequestedNow || accessChangedToWrite;
-  const taskReadOnly = READ_ONLY_REQUEST.test(authoritySource)
-    || (!latestUserText && /\bread[- ]only\b/i.test(authoritySource));
+function inferContract(options, saved, authority = currentPermissionAuthority(options, saved)) {
+  const {
+    source, latestUserText, accessMode, noDeploy, deployRequestedNow,
+    actionRequestedNow, freshWriteAuthority, taskReadOnly
+  } = authority;
   const savedWriteBlocked = saved.writeAllowed === false || saved.mode === "read_only";
   const writeAllowed = accessMode !== "read_only"
     && !taskReadOnly
@@ -442,21 +503,23 @@ export class AgentController {
   constructor(options = {}) {
     const saved = options.persisted && typeof options.persisted === "object" ? options.persisted : {};
     const answerOnly = options.answerOnly === true;
+    const currentActionRequired = !answerOnly && (options.actionRequired === true || options.artifactRequired === true);
+    const permissionAuthority = currentPermissionAuthority({ ...options, currentActionRequired }, saved.contract || saved);
     this.objective = cleanText(options.objective || saved.objective, 4000);
     this.artifactRequired = answerOnly ? false : !!(options.artifactRequired || saved.artifactRequired);
     this.debugRequired = answerOnly ? false : saved.debugRequired === true || (this.artifactRequired && DEBUG_REQUEST.test(this.objective) && !FEATURE_REQUEST.test(this.objective));
     this.actionRequired = answerOnly ? false : !!(saved.actionRequired || options.actionRequired || this.artifactRequired || ACTION_REQUEST.test(this.objective));
     this.projectBound = !!(options.projectDir || saved.projectBound);
-    this.taskContext = cleanText(options.taskContext || saved.taskContext, 12000);
-    this.contract = inferContract(options, saved.contract || saved);
+    this.taskContext = cleanText(withoutSupersededPermissionContext(options.taskContext || saved.taskContext, permissionAuthority), 12000);
+    this.contract = inferContract({ ...options, currentActionRequired }, saved.contract || saved, permissionAuthority);
     this.sourceOfTruth = {
       ...(saved.sourceOfTruth && typeof saved.sourceOfTruth === "object" ? saved.sourceOfTruth : {}),
       ...extractSourceOfTruth(`${options.taskContext || ""}\n${options.objective || ""}`)
     };
     this.constraints = [...new Set([
       ...(Array.isArray(saved.constraints) ? saved.constraints.map((item) => cleanText(item, 260)) : []),
-      ...extractConstraints(options.taskContext || "")
-    ])].filter(Boolean).slice(-10);
+      ...extractConstraints(this.taskContext)
+    ])].filter((item) => item && !permissionRestrictionSuperseded(item, permissionAuthority)).slice(-10);
     this.phase = saved.phase || (this.artifactRequired ? "planning" : "executing");
     this.plan = (this.artifactRequired || this.actionRequired)
       ? normalizePlan(saved.plan, this.projectBound, this.debugRequired, this.objective)
@@ -493,6 +556,13 @@ export class AgentController {
     this.deployVerificationEvidence = cleanText(saved.deployVerificationEvidence, 700);
     this.blockedToolCount = Number(saved.blockedToolCount) || 0;
     this.blockedActionCounts = saved.blockedActionCounts && typeof saved.blockedActionCounts === "object" ? { ...saved.blockedActionCounts } : {};
+    if (supersededPermissionFailure(saved, permissionAuthority)) {
+      this.phase = "executing";
+      this.consecutiveFailures = 0;
+      this.lastFailure = "";
+      this.blockedToolCount = 0;
+      this.blockedActionCounts = {};
+    }
     this.openProcesses = Array.isArray(saved.openProcesses)
       ? saved.openProcesses.map((item) => cleanText(item, 80)).filter(Boolean).slice(-8)
       : [];

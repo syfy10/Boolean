@@ -14,7 +14,7 @@ import {
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
   ACCESS_MODES, currentAccessMode, defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
-import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
+import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, currentTurnInstructionText, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
 import {
   capabilityProbeTool,
@@ -74,7 +74,7 @@ import { detectLocalServers } from "./local-servers.js";
 import { detectWebsiteTech } from "./tech-detector.js";
 import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
-import { createCodexAppServer } from "./codex-app-server.js";
+import { createCodexAppServer, installCodexStandaloneCli } from "./codex-app-server.js";
 import { createCodexRunner } from "./codex-runner.js";
 import officialEducationCatalog from "./education-official.json" with { type: "json" };
 import { listActions, searchActions } from "./actions.js";
@@ -226,6 +226,16 @@ function loadLegalText(file) {
 }
 
 const ABOUT_RELEASES = [
+  {
+    version: "0.9.66",
+    date: "2026-08-01",
+    title: "Work that continues to a verified result",
+    details: [
+      "Keeps compatibility-model work moving when a response promises another inspection, edit, command, or verification step instead of stopping mid-task.",
+      "Adds compact Codex-style activity summaries plus a guided Codex CLI install and ChatGPT sign-in flow.",
+      "Treats current write and deploy approval as authoritative while preserving exact-command, workspace-root, and live-verification safety checks."
+    ]
+  },
   {
     version: "0.9.65",
     date: "2026-08-01",
@@ -427,8 +437,30 @@ function imagesOf(content) {
   return [];
 }
 
+export function serverUserInstructionText(content) {
+  return currentTurnInstructionText(textOf(content));
+}
+
 function userTextOnly(content) {
-  return textOf(content).split(/\n\nCURRENT APP CONTEXT\b/)[0].trim();
+  return serverUserInstructionText(content);
+}
+
+const PROJECT_WRITE_ACTION = /\b(?:deploy|publish|push|release|commit|install|uninstall|delete|remove|rename|move|migrate|scaffold|format)\b/i;
+
+export function needsProjectWriteElevation({ accessMode = "ask", kind = "chat", projectDir = "", messages = [], forceTurnMode = "", forceNoArtifact = false } = {}) {
+  if (String(accessMode).toLowerCase() !== "read_only") return false;
+  if (kind !== "project" || !String(projectDir || "").trim()) return false;
+  if (forceTurnMode === "chat" || forceNoArtifact === true) return false;
+  const source = Array.isArray(messages) ? messages : [];
+  if (requiresArtifactAction(source)) return true;
+  const latestUser = [...source].reverse().find((message) => message?.role === "user");
+  const latest = serverUserInstructionText(latestUser?.content || "");
+  return PROJECT_WRITE_ACTION.test(latest)
+    && classifyTurnMode(source, { latestText: latest, projectDir }) === "action";
+}
+
+export function oneTurnProjectWriteConfig(config = {}) {
+  return { ...config, accessMode: "ask", autoApprove: false };
 }
 
 function codexThreadIds(threads = []) {
@@ -1061,7 +1093,18 @@ function readSystemClipboardText() {
   return String(result.stdout || "").replace(/\r?\n$/, "");
 }
 
-export function startServer(config, { port = 0, autoExit = false, emailOAuthClients = null } = {}) {
+export function startServer(config, {
+  port = 0,
+  autoExit = false,
+  emailOAuthClients = null,
+  codexInstaller = installCodexStandaloneCli,
+  codexPlatform = process.platform,
+  codexClientFactory = createCodexAppServer,
+  codexNow = Date.now,
+  // The UI cancels after five minutes. Keep the backend lease longer so its
+  // final status poll can still cancel the original app-server login by ID.
+  codexLoginTtlMs = 10 * 60 * 1000
+} = {}) {
   const uiHtml = loadUiHtml();
   const managedEmailOAuthClients = emailOAuthClients || loadManagedEmailOAuthClients();
   const icon32 = loadAsset("icon-32.png", "../assets/saz-32.png");
@@ -1085,6 +1128,45 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
   let codexAccount = null;
   let codexModels = [];
   let codexCheckedAt = 0;
+  let codexInstallPromise = null;
+  let codexLoginId = "";
+  let codexLoginStartedAt = 0;
+  let codexLoginStarting = false;
+  let codexLoginCompletedWhileStarting = "";
+  let codexLoginGeneration = 0;
+  const codexLoginLeaseMs = Math.max(1000, Number(codexLoginTtlMs) || 10 * 60 * 1000);
+
+  const clearCodexLogin = () => {
+    codexLoginGeneration++;
+    codexLoginId = "";
+    codexLoginStartedAt = 0;
+    codexLoginStarting = false;
+    codexLoginCompletedWhileStarting = "";
+  };
+  const codexLoginPending = () => {
+    if ((codexLoginStarting || codexLoginId)
+      && Number(codexNow()) - codexLoginStartedAt >= codexLoginLeaseMs) {
+      clearCodexLogin();
+    }
+    return codexLoginStarting || !!codexLoginId;
+  };
+  const activeCodexLoginId = () => {
+    codexLoginPending();
+    return codexLoginId;
+  };
+
+  const validCodexAuthUrl = (value) => {
+    const raw = String(value || "").trim();
+    if (!raw || raw.length > 2048) return "";
+    try {
+      const parsed = new URL(raw);
+      const hostname = parsed.hostname.toLowerCase();
+      if (parsed.protocol !== "https:" || parsed.username || parsed.password) return "";
+      if (hostname !== "chatgpt.com" && !hostname.endsWith(".chatgpt.com")) return "";
+      const normalized = parsed.toString();
+      return normalized.length <= 2048 ? normalized : "";
+    } catch { return ""; }
+  };
 
   const codexCommand = () => String(process.env.CODEX_EXECUTABLE || config.codex?.command || "codex").trim() || "codex";
   const codexErrorMessage = (error) => {
@@ -1093,7 +1175,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
       return "Windows blocked that Codex executable. Install the public Codex CLI, or choose its executable in Settings. The Microsoft Store desktop bundle cannot be launched as a CLI by Boolean.";
     }
     if (/enoent|not recognized|cannot find|could not start/i.test(raw)) {
-      return "Codex CLI was not found. Install it with npm install -g @openai/codex, then use Check connection in Settings.";
+      return "Codex CLI was not found. Use Set up Codex in Settings to install the official standalone CLI.";
     }
     return raw;
   };
@@ -1124,6 +1206,8 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     command: config.codex?.command || "codex",
     model: config.codex?.model || "",
     reasoningEffort: config.codex?.reasoningEffort || "medium",
+    installing: !!codexInstallPromise,
+    loginPending: codexLoginPending(),
     ...(codexClient?.getStatus?.() || { state: "stopped", running: false, ready: false, lastError: "" }),
     lastError: codexClient?.getStatus?.().lastError ? codexErrorMessage(codexClient.getStatus().lastError) : "",
     account: codexAccount,
@@ -1144,6 +1228,7 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     codexClient = null;
     codexRunner = null;
     codexClientCommand = "";
+    clearCodexLogin();
     if (current) await current.stop().catch(() => {});
   };
   const ensureCodexClient = async ({ refresh = false } = {}) => {
@@ -1151,12 +1236,29 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
     if (codexClient && codexClientCommand !== command) await stopCodexClient();
     if (!codexClient) {
       codexClientCommand = command;
-      codexClient = createCodexAppServer({
+      codexClient = codexClientFactory({
         command,
         args: ["app-server", "--stdio"],
         clientInfo: { name: "boolean", title: "Boolean", version: APP_VERSION },
         capabilities: {},
-        onStatus: () => { codexCheckedAt = Date.now(); }
+        onStatus: () => { codexCheckedAt = Date.now(); },
+        onEvent: (message) => {
+          if (message?.method === "account/login/completed") {
+            const completedId = String(message?.params?.loginId || "");
+            if (codexLoginStarting && !codexLoginId) {
+              codexLoginCompletedWhileStarting = completedId || "*";
+            } else if (!completedId || !codexLoginId || completedId === codexLoginId) {
+              clearCodexLogin();
+            }
+            codexCheckedAt = 0;
+          }
+          if (message?.method === "account/updated") {
+            if (codexLoginStarting && !codexLoginId) codexLoginCompletedWhileStarting = "*";
+            else clearCodexLogin();
+            codexAccount = publicCodexAccount(message.params);
+            codexCheckedAt = Date.now();
+          }
+        }
       });
     }
     await codexClient.start();
@@ -1165,8 +1267,11 @@ export function startServer(config, { port = 0, autoExit = false, emailOAuthClie
         codexClient.accountRead({ refreshToken: refresh }),
         codexClient.modelList({ limit: 200 })
       ]);
-      if (account.status === "fulfilled") codexAccount = publicCodexAccount(account.value);
-      if (models.status === "fulfilled") codexModels = publicCodexModels(models.value);
+      // A rejected refresh must not leave a revoked account or stale model list
+      // looking healthy in Settings. The app-server can be running while its
+      // authentication is no longer valid.
+      codexAccount = account.status === "fulfilled" ? publicCodexAccount(account.value) : null;
+      codexModels = models.status === "fulfilled" ? publicCodexModels(models.value) : [];
       codexCheckedAt = Date.now();
     }
     return codexClient;
@@ -2933,6 +3038,11 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           };
         }
         if (body.codex && typeof body.codex === "object") {
+          if (codexInstallPromise) return json({
+            ok: false,
+            error: "install_in_progress",
+            message: "Codex setup is already running."
+          }, 409);
           const old = config.codex || {};
           const command = body.codex.command === undefined
             ? String(old.command || "codex")
@@ -2968,13 +3078,15 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         });
         if (restartCodex) await stopCodexClient();
         if (adminCloudVaultEnabled(config)) syncCloudVault(config, { merge: false }).catch(() => {});
-        json({ ok: true });
+        json({ ok: true, accessMode: currentAccessMode(config), autoApprove: config.autoApprove === true });
         return;
       }
 
       if (req.method === "GET" && p === "/api/codex/status") {
         try {
-          if (url.searchParams.get("start") === "1") await ensureCodexClient({ refresh: url.searchParams.get("refresh") === "1" });
+          if (url.searchParams.get("start") === "1" && !codexInstallPromise) {
+            await ensureCodexClient({ refresh: url.searchParams.get("refresh") === "1" });
+          }
           json({ ok: true, ...publicCodexStatus() });
         } catch (error) {
           codexCheckedAt = Date.now();
@@ -2984,6 +3096,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (req.method === "POST" && p === "/api/codex/recheck") {
+        if (codexInstallPromise) {
+          json({ ok: false, error: "install_in_progress", message: "Codex setup is already running." }, 409);
+          return;
+        }
         try {
           await ensureCodexClient({ refresh: true });
           json({ ok: true, ...publicCodexStatus() });
@@ -2994,7 +3110,85 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
+      if (req.method === "POST" && p === "/api/codex/install") {
+        if (codexPlatform !== "win32") {
+          json({
+            ok: false,
+            error: "unsupported_platform",
+            message: "Automatic Codex CLI setup is available on Windows only."
+          }, 400);
+          return;
+        }
+        if (codexInstallPromise) {
+          json({ ok: false, error: "install_in_progress", message: "Codex setup is already running." }, 409);
+          return;
+        }
+        if (codexLoginPending()) {
+          json({ ok: false, error: "login_in_progress", message: "Finish or cancel the current Codex sign-in before installing again." }, 409);
+          return;
+        }
+        codexInstallPromise = Promise.resolve().then(() => codexInstaller({ platform: codexPlatform }));
+        try {
+          const result = await codexInstallPromise;
+          if (!result?.ok) {
+            const status = result?.error === "install_timeout" ? 504 : result?.error === "unsupported_platform" ? 400 : 500;
+            json({
+              ok: false,
+              error: String(result?.error || "install_failed"),
+              message: String(result?.message || "Codex setup did not finish."),
+              output: String(result?.output || ""),
+              outputTruncated: result?.outputTruncated === true
+            }, status);
+            return;
+          }
+          const command = String(result.command || "codex").trim();
+          if (!command || command.length > 1024 || /[\r\n\0]/.test(command)) {
+            json({ ok: false, error: "install_not_found", message: "Codex was installed, but its executable could not be verified." }, 500);
+            return;
+          }
+          config.codex = { ...(config.codex || {}), command };
+          saveConfig(config);
+          await stopCodexClient();
+          let connectionError = "";
+          try { await ensureCodexClient({ refresh: true }); }
+          catch (error) { connectionError = codexErrorMessage(error); }
+          json({
+            ...result,
+            ok: true,
+            installed: true,
+            command,
+            message: String(result.message || "Codex CLI installed."),
+            ...publicCodexStatus(),
+            installing: false,
+            connectionError
+          });
+        } catch (error) {
+          json({
+            ok: false,
+            error: "install_failed",
+            message: `Codex setup failed: ${error?.message || error}`
+          }, 500);
+        } finally {
+          codexInstallPromise = null;
+        }
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/codex/auth/start") {
+        if (codexInstallPromise) {
+          json({ ok: false, error: "install_in_progress", message: "Codex setup is already running." }, 409);
+          return;
+        }
+        if (codexLoginPending()) {
+          json({ ok: false, error: "login_in_progress", message: "Codex sign-in is already open." }, 409);
+          return;
+        }
+        // Acquire the sign-in lease before the first await. Without this lock,
+        // two requests can both pass the guard while the app-server is starting.
+        const loginAttempt = ++codexLoginGeneration;
+        codexLoginStarting = true;
+        codexLoginStartedAt = Number(codexNow());
+        codexLoginCompletedWhileStarting = "";
         try {
           const client = await ensureCodexClient();
           const result = await client.request("account/login/start", {
@@ -3002,18 +3196,70 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             useHostedLoginSuccessPage: true,
             appBrand: "codex"
           });
-          json({ ok: true, loginId: result?.loginId || "", authUrl: result?.authUrl || "" });
+          const loginId = String(result?.loginId || "").trim().slice(0, 200);
+          const authUrl = validCodexAuthUrl(result?.authUrl);
+          if (loginAttempt !== codexLoginGeneration || !codexLoginStarting) {
+            if (loginId) await client.request("account/login/cancel", { loginId }).catch(() => {});
+            json({
+              ok: false,
+              error: "login_expired",
+              message: "That Codex sign-in request expired. Start sign-in again."
+            }, 409);
+            return;
+          }
+          if (!loginId || !authUrl) {
+            clearCodexLogin();
+            if (loginId) await client.request("account/login/cancel", { loginId }).catch(() => {});
+            json({
+              ok: false,
+              error: "invalid_auth_url",
+              message: "Codex returned an invalid sign-in link. Sign-in was not opened."
+            }, 502);
+            return;
+          }
+          const completedBeforeResponse = codexLoginCompletedWhileStarting === "*"
+            || codexLoginCompletedWhileStarting === loginId;
+          codexLoginStarting = false;
+          codexLoginCompletedWhileStarting = "";
+          if (completedBeforeResponse) {
+            codexLoginId = "";
+            codexLoginStartedAt = 0;
+          } else {
+            codexLoginId = loginId;
+            codexLoginStartedAt = Number(codexNow());
+          }
+          json({ ok: true, loginId, authUrl });
         } catch (error) {
+          clearCodexLogin();
           json({ ok: false, error: codexErrorMessage(error) }, 400);
         }
         return;
       }
 
       if (req.method === "POST" && p === "/api/codex/auth/cancel") {
+        if (codexInstallPromise) {
+          json({ ok: false, error: "install_in_progress", message: "Codex setup is already running." }, 409);
+          return;
+        }
         try {
           const body = await readBody(req);
+          if (codexLoginPending() && codexLoginStarting) {
+            json({ ok: false, error: "login_starting", message: "Codex is still preparing the sign-in page." }, 409);
+            return;
+          }
+          const pendingLoginId = activeCodexLoginId();
+          if (!pendingLoginId) {
+            json({ ok: false, error: "no_pending_login", message: "There is no Codex sign-in to cancel." }, 404);
+            return;
+          }
+          const requestedId = String(body.loginId || pendingLoginId).trim();
+          if (requestedId !== pendingLoginId) {
+            json({ ok: false, error: "login_mismatch", message: "That Codex sign-in is no longer active." }, 409);
+            return;
+          }
           const client = await ensureCodexClient();
-          await client.request("account/login/cancel", { loginId: String(body.loginId || "") });
+          await client.request("account/login/cancel", { loginId: pendingLoginId });
+          clearCodexLogin();
           json({ ok: true });
         } catch (error) {
           json({ ok: false, error: codexErrorMessage(error) }, 400);
@@ -3022,9 +3268,18 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (req.method === "POST" && p === "/api/codex/logout") {
+        if (codexInstallPromise) {
+          json({ ok: false, error: "install_in_progress", message: "Codex setup is already running." }, 409);
+          return;
+        }
+        if (codexLoginPending() && codexLoginStarting) {
+          json({ ok: false, error: "login_starting", message: "Codex is still preparing the sign-in page." }, 409);
+          return;
+        }
         try {
           const client = await ensureCodexClient();
           await client.request("account/logout", {});
+          clearCodexLogin();
           codexAccount = null;
           json({ ok: true, ...publicCodexStatus() });
         } catch (error) {
@@ -4677,6 +4932,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/chat") {
         const body = await readBody(req);
         const t = threads.get(body.threadId) || threads.get(activeThreadId);
+        if (body.accessMode !== undefined) {
+          const accessModeSnapshot = String(body.accessMode || "").trim().toLowerCase();
+          if (!ACCESS_MODES.includes(accessModeSnapshot)) return json({ error: "invalid_access_mode" }, 400);
+          if (accessModeSnapshot !== currentAccessMode(config)) {
+            return json({ error: "The access setting changed before this task started. Review the access control and send again." }, 409);
+          }
+        }
         const requestedProvider = PROVIDERS.includes(String(body.provider || "")) ? String(body.provider || "") : "";
         const requestedModel = String(body.model || "").trim();
         const codexRequested = config.codex?.enabled === true && body.sideChat !== true && body.salesWorkflow !== true && body.workflowRun !== true;
@@ -4812,8 +5074,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
     async function streamRun(t, res, options = {}) {
         const send = openNdjsonStream(res);
-        const baseConfig = t.projectDir ? { ...config, projectsDir: t.projectDir } : config;
-        const runConfig = options.provider ? { ...baseConfig, provider: options.provider, [options.provider]: { ...(baseConfig[options.provider] || {}) } } : baseConfig;
+        const baseConfig = { ...config, ...(t.projectDir ? { projectsDir: t.projectDir } : {}) };
+        let runConfig = options.provider ? { ...baseConfig, provider: options.provider, [options.provider]: { ...(baseConfig[options.provider] || {}) } } : baseConfig;
         if (options.provider && options.model && runConfig[options.provider]) runConfig[options.provider].model = options.model;
         const useCodex = config.codex?.enabled === true && options.disableCodex !== true;
         const replyProvider = useCodex ? "codex" : (runConfig.provider || "local");
@@ -4821,12 +5083,63 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
-        if (t.messages[0]?.role === "system") {
-          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, config.autoApprove, runConfig) + currentAppContext(t, userTextOnly(t.messages.at(-1)?.content || ""), { inspectSavedTask: options.inspectSavedTask === true }) };
-        }
-
         const abort = new AbortController();
         t.abort = abort;
+        const needsWriteElevation = needsProjectWriteElevation({
+          accessMode: currentAccessMode(runConfig),
+          kind: t.kind,
+          projectDir: t.projectDir,
+          messages: t.messages,
+          forceTurnMode: options.forceTurnMode || "",
+          forceNoArtifact: options.forceNoArtifact === true
+        });
+        if (needsWriteElevation) {
+          const id = crypto.randomUUID();
+          const projectName = path.basename(t.projectDir) || t.title || "this project";
+          const summary = `This task needs Read & write access in ${projectName}. Allow Read & write for this task only?`;
+          send({
+            type: "approval", id, summary, kind: "writeElevation",
+            cwd: t.projectDir,
+            availableDecisions: ["accept", "decline"]
+          });
+          const allowed = await new Promise((resolve) => {
+            pendingApprovals.set(id, resolve);
+            abort.signal.addEventListener("abort", () => {
+              if (pendingApprovals.has(id)) { pendingApprovals.delete(id); resolve(false); }
+            }, { once: true });
+            setTimeout(() => {
+              if (pendingApprovals.has(id)) { pendingApprovals.delete(id); resolve(false); }
+            }, 600000).unref?.();
+          });
+          if (!allowed) {
+            const answer = "Kept this task read only. No files were changed.";
+            const aiLabel = shortAiName(replyProvider, replyModel);
+            t.messages.push({ role: "assistant", content: answer });
+            t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
+            if (t.pendingTask && !options.inspectSavedTask) {
+              t.pendingTask.state = "interrupted";
+              t.pendingTask.updatedAt = Date.now();
+            }
+            t.abort = null;
+            t.updatedAt = Date.now();
+            persist();
+            send({ type: "answer", text: answer, provider: replyProvider, model: replyModel, aiLabel });
+            send({ type: "done" });
+            res.end();
+            return;
+          }
+          // This copy is scoped to this stream only. The saved global Read only
+          // setting remains untouched, and concrete file/command actions still
+          // use the normal per-tool approval path because the turn is Ask mode.
+          runConfig = oneTurnProjectWriteConfig(runConfig);
+          send({ type: "status", text: "Read & write allowed for this task only." });
+        }
+
+        // Refresh restored sessions after the one-turn access decision so the
+        // controller, compatibility bridge, and Codex all receive one contract.
+        if (t.messages[0]?.role === "system") {
+          t.messages[0] = { role: "system", content: systemPrompt(runConfig.projectsDir, runConfig.autoApprove, runConfig) + currentAppContext(t, userTextOnly(t.messages.at(-1)?.content || ""), { inspectSavedTask: options.inspectSavedTask === true }) };
+        }
         let runIn = 0, runOut = 0, runEst = false, runCalls = 0, teamUsageSeen = false;
         const runUsageByWorker = new Map();
         const ctx = {
@@ -4996,7 +5309,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               });
               setTimeout(() => {
                 if (pendingApprovals.has(id)) { pendingApprovals.delete(id); resolve(false); }
-              }, 600000);
+              }, 600000).unref?.();
             });
           },
           approveAlways: (summary) => {
@@ -5009,7 +5322,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               });
               setTimeout(() => {
                 if (pendingApprovals.has(id)) { pendingApprovals.delete(id); resolve(false); }
-              }, 600000);
+              }, 600000).unref?.();
             });
           }
         };
@@ -5359,7 +5672,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         proxyServer.listen(0, "127.0.0.1", () => {
           browseBase = `http://127.0.0.1:${proxyServer.address().port}`;
           serverPort = server.address().port;
-          resolve({ server, port: serverPort });
+          resolve({ server, proxyServer, port: serverPort });
         });
       });
     }

@@ -2,7 +2,111 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import fs from "node:fs";
-import { announcesUnperformedAction, classifyTurnMode, focusedMessagesForTurn } from "../src/agent.js";
+import os from "node:os";
+import path from "node:path";
+import http from "node:http";
+import { announcesUnperformedAction, classifyTurnMode, focusedMessagesForTurn, runTurn, systemPrompt } from "../src/agent.js";
+
+async function mockServer(handler) {
+  const requests = [];
+  let calls = 0;
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    requests.push(JSON.parse(raw));
+    calls++;
+    const message = await handler(calls, requests.at(-1));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  return { server, requests, port: server.address().port };
+}
+
+test("a bare announcement forces a native tool call on the next turn (forceToolCallNext is wired)", async (t) => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-force-tool-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(projectDir, "app.js"), "const value = 1;\n");
+  const mock = await mockServer((call) => {
+    // Turn 1: the exact GLM stall — announce an action, take none.
+    if (call === 1) return { role: "assistant", content: "Let me inspect the current logo now." };
+    // Turn 2: after the nudge, actually make a tool call so the run can finish.
+    if (call === 2) return {
+      role: "assistant",
+      content: "",
+      tool_calls: [{ id: "c1", type: "function", function: { name: "list_dir", arguments: "{}" } }]
+    };
+    return { role: "assistant", content: "Inspected the project structure." };
+  });
+  t.after(() => mock.server.close());
+  const cfg = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${mock.port}/v1`, model: "gpt-native-test", apiKey: "test" },
+    modelCapabilities: {},
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false, codingAgent: { compatibilityMode: "auto", stopLoop: false, autopilot: true } },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(projectDir, true, cfg) },
+    { role: "user", content: "Review the project files and tell me what is there." }
+  ];
+  await runTurn({
+    config: cfg, projectDir, approve: async () => true,
+    onStatus() {}, onStep() {}, onUsage() {}, onCheckpoint() {}
+  }, messages);
+
+  assert.ok(mock.requests.length >= 2, "the run should continue past the bare announcement");
+  assert.notEqual(mock.requests[0].tool_choice, "required", "the first turn is not force-called");
+  assert.ok(
+    mock.requests.some((r) => r.tool_choice === "required"),
+    "the announce nudge must force tool_choice:required so the model acts instead of stalling"
+  );
+});
+
+test("a compatibility model cannot finish after promising another tool step", async (t) => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-compat-stall-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(projectDir, "app.js"), "const value = 1;\n");
+  const mock = await mockServer((call) => {
+    if (call === 1) return {
+      role: "assistant",
+      content: '```tool\n{"name":"read_file","arguments":{"path":"app.js"}}\n```'
+    };
+    if (call === 2) return {
+      role: "assistant",
+      content: "I have the relevant code. Now let me inspect the rest of the file before making changes."
+    };
+    if (call === 3) return {
+      role: "assistant",
+      content: '```tool\n{"name":"read_file","arguments":{"path":"app.js"}}\n```'
+    };
+    return { role: "assistant", content: "The file currently defines value as 1." };
+  });
+  t.after(() => mock.server.close());
+  const cfg = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${mock.port}/v1`, model: "compat-test", apiKey: "test" },
+    modelCapabilities: {},
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false, codingAgent: { compatibilityMode: "patch", stopLoop: false, autopilot: true } },
+    connectors: { mcp: [], agents: [] }
+  };
+  const messages = [
+    { role: "system", content: systemPrompt(projectDir, true, cfg) },
+    { role: "user", content: "Inspect app.js and tell me what value it defines." }
+  ];
+  const steps = [];
+  const answer = await runTurn({
+    config: cfg, projectDir, approve: async () => true,
+    onStatus() {}, onStep(step) { steps.push(step); }, onUsage() {}, onCheckpoint() {}
+  }, messages);
+
+  assert.equal(answer, "The file currently defines value as 1.");
+  assert.equal(mock.requests.length, 4, "the compatibility run must continue after the announcement");
+  assert.match(mock.requests[2].messages.at(-1).content, /exactly one fenced tool call/i);
+  assert.equal(steps.filter((step) => step.name === "read_file").length, 2);
+});
 
 test("catches bare next-step announcements with no deliverable", () => {
   // The exact GLM stalls from the reported bug.
@@ -89,6 +193,7 @@ test("inspect context does not mistake compatibility tool results for the user r
 test("unfinished action announcements are retried even after earlier tool work", () => {
   const source = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
   assert.match(source, /const MAX_ANNOUNCE_NUDGES = 2;/);
-  assert.match(source, /if \(!compatibilityMode && activeToolDefinitions\.length && !signal\?\.aborted[\s\S]*?announcesUnperformedAction\(assistantContent\)\)/);
+  assert.match(source, /if \(activeToolDefinitions\.length && !signal\?\.aborted[\s\S]*?announcesUnperformedAction\(assistantContent\)\)/);
+  assert.match(source, /compatibilityMode[\s\S]*?exactly one fenced tool call/);
   assert.doesNotMatch(source, /activeToolDefinitions\.length && !completedToolWork && !signal\?\.aborted/);
 });

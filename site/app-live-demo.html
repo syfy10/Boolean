@@ -141,8 +141,8 @@
    "browserTabs": []
   },
   "appName": "Boolean",
-  "version": "0.9.65",
-  "displayVersion": "v0.9.65",
+  "version": "0.9.66",
+  "displayVersion": "v0.9.66",
   "providers": [
    "local",
    "openai",
@@ -259,8 +259,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.65",
-  "displayVersion": "v0.9.65",
+  "version": "0.9.66",
+  "displayVersion": "v0.9.66",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true
@@ -294,7 +294,8 @@
  "/api/estimate": {
   "tokens": 0
  }
-};</script>
+}
+;</script>
 <script>
 /* Boolean marketing demo runtime.
  * Injected into a copy of the real app UI (src/ui.html) BEFORE the app's own
@@ -1038,17 +1039,35 @@
   .agent-budget-card .badge{ flex-shrink:0; border-radius:999px; padding:3px 8px; color:var(--green); background:color-mix(in srgb,var(--green) 14%,transparent); font-size:10.5px; }
   .rules-card{ border:1px solid var(--border); border-radius:12px; background:var(--card); padding:10px; margin-top:8px; }
   .rules-card code{ font-family:var(--mono); font-size:11px; }
-  .codex-card{ border:1px solid var(--border); border-radius:12px; background:var(--card); padding:10px; margin:8px 0 12px; }
+  .codex-card{ border:1px solid var(--border); border-radius:12px; background:var(--card); padding:12px; margin:8px 0 12px; }
   .codex-card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
   .codex-state{ font-size:11px; font-weight:600; color:var(--dim); white-space:nowrap; }
   .codex-state.ready{ color:var(--green); }
   .codex-state.error{ color:var(--danger,#cf3e3e); }
-  .codex-controls{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; margin-top:9px; }
+  .codex-setup-steps{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:12px; }
+  .codex-setup-step{ display:flex; align-items:center; gap:7px; min-width:0; border:1px solid var(--border); border-radius:10px; background:var(--bg); padding:8px; color:var(--dim); }
+  .codex-setup-step.current{ border-color:color-mix(in srgb,var(--green) 45%,var(--border)); background:color-mix(in srgb,var(--green) 7%,var(--bg)); color:var(--text); }
+  .codex-setup-step.done{ color:var(--text); }
+  .codex-step-icon{ display:grid; place-items:center; flex:0 0 22px; width:22px; height:22px; border:1px solid var(--border); border-radius:50%; font-size:10px; font-weight:700; color:var(--dim); }
+  .codex-setup-step.current .codex-step-icon{ border-color:var(--green); color:var(--green); }
+  .codex-setup-step.done .codex-step-icon{ border-color:var(--green); background:var(--green); color:#fff; }
+  .codex-step-copy{ min-width:0; line-height:1.2; }
+  .codex-step-copy b{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; }
+  .codex-step-copy small{ display:block; margin-top:2px; color:var(--dim); font-size:9.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .codex-primary{ width:100%; min-height:38px; margin-top:10px; border:1px solid var(--text); border-radius:9px; background:var(--text); color:var(--bg); font:inherit; font-size:12px; font-weight:650; cursor:pointer; }
+  .codex-primary:hover:not(:disabled){ opacity:.9; }
+  .codex-primary:disabled{ cursor:default; opacity:.62; }
+  .codex-progress{ display:flex; align-items:center; gap:7px; margin-top:8px; color:var(--dim); font-size:10.5px; }
+  .codex-progress[hidden],.codex-models[hidden]{ display:none; }
+  .codex-progress-dot{ width:12px; height:12px; flex:0 0 12px; border:2px solid color-mix(in srgb,var(--dim) 35%,transparent); border-top-color:var(--green); border-radius:50%; animation:spin .8s linear infinite; }
+  .codex-controls{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; margin-top:8px; }
   .codex-controls input,.codex-controls select{ width:100%; min-width:0; }
   .codex-models{ display:grid; grid-template-columns:minmax(0,1fr) 110px; gap:7px; margin-top:7px; }
-  .codex-actions{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .codex-advanced{ margin-top:9px; border-top:1px solid var(--border); padding-top:8px; }
+  .codex-advanced summary{ width:max-content; color:var(--dim); font-size:10.5px; cursor:pointer; user-select:none; }
+  .codex-actions{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
   .codex-error{ color:var(--danger,#cf3e3e); margin-top:7px; overflow-wrap:anywhere; }
-  @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } .settings-tabs{ top:0; flex-direction:row; width:auto; min-width:0; max-height:none; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid var(--border); gap:2px; } .settings-tabs-row{ flex-direction:column; } .settings-tab svg{ display:none; } .settings-tab{ padding:5px 8px; } }
+  @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } .codex-setup-steps{ grid-template-columns:1fr; } .codex-setup-step{ padding:7px 8px; } .settings-tabs{ top:0; flex-direction:row; width:auto; min-width:0; max-height:none; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid var(--border); gap:2px; } .settings-tabs-row{ flex-direction:column; } .settings-tab svg{ display:none; } .settings-tab{ padding:5px 8px; } }
   .sec{ border-bottom:1px solid var(--border); }
   .sechead{ display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; font-size:13.5px; font-weight:500; color:var(--text); user-select:none; transition:background var(--t-fast); }
   .sechead:hover{ background:var(--hover); }
@@ -1875,13 +1894,14 @@
   .toolcard.webstatus .toolout{ margin-left:4px; }
 
   .status{ font-size:12.5px; color:var(--dim); display:flex; align-items:center; gap:8px; font-family:var(--mono); }
-  .status.working-card{ align-self:flex-start; display:block; width:min(100%,640px); min-width:0; margin:6px 0 3px; overflow:hidden;
-    border:1px solid var(--border); border-radius:10px; background:var(--card); box-shadow:var(--shadow-sm); font-family:var(--ui); }
-  .working-card-header{ display:flex; align-items:center; gap:8px; min-width:0; min-height:40px; padding:7px 9px 7px 11px; cursor:pointer; user-select:none; }
-  .working-card-header:hover{ background:color-mix(in srgb,var(--hover) 58%,transparent); }
-  .working-card-state{ display:inline-flex; align-items:center; gap:6px; flex:0 0 auto; color:var(--green); font-size:var(--fs-xxs); font-weight:650; letter-spacing:.025em; text-transform:uppercase; }
+  .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; width:min(100%,640px); min-width:0; margin:7px 0 4px;
+    overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; font-family:var(--ui); }
+  .working-card-header{ display:flex; align-items:flex-start; gap:8px; min-width:0; min-height:28px; padding:3px 2px; cursor:pointer; user-select:none; }
+  .working-card-header:hover{ background:transparent; }
+  .working-card-state{ display:inline-flex; align-items:center; gap:0; flex:0 0 auto; min-height:20px; color:var(--dim); }
+  .working-card-state b{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   .working-card-state .working-card-mark{ display:none; width:14px; height:14px; align-items:center; justify-content:center; border-radius:50%; font-size:10px; font-weight:750; }
-  .working-card .stx{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-size:var(--fs-xs); font-weight:570; }
+  .working-card .stx{ min-width:0; flex:1 1 auto; overflow-wrap:anywhere; white-space:normal; color:var(--text); font:400 var(--chat-fs)/1.45 var(--ui); }
   .working-card .meta{ flex:0 0 auto; color:var(--dim); font:var(--fs-xxs)/1.2 var(--mono); white-space:nowrap; }
   .working-card-actions{ display:flex; align-items:center; gap:2px; margin-left:auto; flex:0 0 auto; }
   .working-card-action{ border:0; border-radius:5px; background:transparent; color:var(--dim); padding:5px 6px; cursor:pointer; font:550 var(--fs-xxs)/1 var(--ui); white-space:nowrap; }
@@ -1889,9 +1909,25 @@
   .working-card-action.danger:hover{ color:var(--danger); }
   .working-card-toggle{ width:24px; padding-inline:4px; font-size:10px; transition:transform var(--t); }
   .working-card:not(.collapsed) .working-card-toggle{ transform:rotate(180deg); }
-  .working-card-body{ padding:1px 11px 9px; border-top:1px solid var(--line); }
+  .working-card-body{ order:-1; padding:0 2px; border:0; }
   .working-card.collapsed .working-card-body{ display:none; }
-  .working-card-events{ display:grid; gap:1px; margin:0; padding:5px 0 1px; list-style:none; }
+  .working-card-events{ display:grid; gap:1px; min-width:0; margin:0; padding:0; }
+  .working-commentary{ min-width:0; margin:7px 0 5px; overflow-wrap:anywhere; color:var(--text); font:400 var(--chat-fs)/1.52 var(--ui); }
+  .working-commentary small{ display:block; margin-top:2px; color:var(--dim); font-size:var(--fs-xs); }
+  .working-activity-group{ min-width:0; border:0; border-radius:0; color:var(--dim); background:transparent; }
+  .working-activity-group[open]{ background:transparent; }
+  .working-activity-group summary{ display:grid; grid-template-columns:18px minmax(0,1fr) 14px; gap:8px; align-items:center; min-width:0; min-height:31px; padding:3px 0; border-radius:5px; cursor:pointer; list-style:none; font:400 var(--fs-md)/1.35 var(--ui); }
+  .working-activity-group summary::-webkit-details-marker{ display:none; }
+  .working-activity-group summary:hover{ background:transparent; color:var(--text); }
+  .working-activity-group summary b{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:inherit; font-weight:400; }
+  .working-activity-glyph{ display:inline-flex; width:18px; height:18px; align-items:center; justify-content:center; color:currentColor; }
+  .working-activity-glyph svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  .working-activity-caret{ justify-self:end; font-size:15px; line-height:1; transition:transform var(--t); }
+  .working-activity-group[open] .working-activity-caret{ transform:rotate(90deg); }
+  .working-activity-details{ display:grid; gap:2px; margin:0 0 5px 25px; padding:2px 0 2px 10px; border-left:1px solid var(--line); list-style:none; }
+  .working-activity-details li{ min-width:0; padding:2px 0; overflow-wrap:anywhere; color:var(--dim); font:var(--fs-xs)/1.4 var(--ui); }
+  .working-activity-details b{ color:var(--text); font-weight:520; }
+  .working-activity-details small{ display:block; margin-top:1px; color:var(--dim); }
   .working-card-event{ display:grid; grid-template-columns:12px minmax(0,1fr); gap:7px; align-items:start; min-width:0; padding:3px 0; color:var(--dim); font:var(--fs-xxs)/1.4 var(--ui); }
   .working-card-event-dot{ width:7px; height:7px; margin-top:4px; border:1px solid currentColor; border-radius:50%; }
   .working-card-event.active .working-card-event-dot,.working-card-event.waiting .working-card-event-dot{ border-color:var(--green); box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 12%,transparent); }
@@ -1899,22 +1935,22 @@
   .working-card-event.failed .working-card-event-dot{ border-color:var(--danger); background:var(--danger); }
   .working-card-event b{ display:block; min-width:0; overflow-wrap:anywhere; color:var(--text); font-weight:560; }
   .working-card-event small{ display:block; margin-top:1px; overflow-wrap:anywhere; color:var(--dim); }
-  .working-card.finalized{ background:transparent; border-color:transparent; box-shadow:none; }
-  .working-card.finalized .working-card-header{ min-height:30px; padding:3px 2px; }
-  .working-card.finalized .working-card-header:hover{ background:transparent; }
+  .working-card.finalized{ background:transparent; border:0; box-shadow:none; }
+  .working-card.finalized .working-card-header{ min-height:24px; padding:2px; }
   .working-card.finalized .spinner{ display:none; }
   .working-card.finalized .working-card-mark{ display:inline-flex; color:var(--green); }
   .working-card.finalized.error .working-card-mark{ color:var(--danger); }
   .working-card.finalized.paused .working-card-mark{ color:#d89216; }
-  .working-card.finalized .working-card-state{ text-transform:none; letter-spacing:0; }
-  .working-card.finalized .working-card-state b{ display:none; }
-  .working-card.finalized .working-card-body{ margin-top:2px; padding:4px 9px 8px; border:1px solid var(--border); border-radius:8px; background:var(--card); }
-  .run-output-hidden .live-run-output:not(.live-plan-output){ display:none; }
+  .working-card.finalized .working-card-body{ margin:0; padding:0 2px; border:0; border-radius:0; background:transparent; }
+  .run-output-hidden .live-run-output{ display:none; }
   @media(max-width:620px){
-    .working-card-header{ flex-wrap:wrap; }
-    .working-card .stx{ flex:1 1 150px; }
-    .working-card .meta{ order:3; }
+    .working-card-header{ flex-wrap:wrap; padding-inline:0; }
+    .working-card .stx{ flex:1 1 calc(100% - 22px); }
+    .working-card .meta{ order:3; margin-left:20px; }
     .working-card-actions{ order:4; margin-left:auto; }
+    .working-card-body{ padding-inline:0; }
+    .working-activity-group summary{ grid-template-columns:17px minmax(0,1fr) 12px; gap:7px; }
+    .working-activity-details{ margin-left:23px; }
   }
   .run-result{ align-self:flex-start; display:flex; align-items:center; gap:6px; min-height:20px; padding:1px 3px;
     color:var(--dim); font:11px/1.3 var(--ui); }
@@ -1923,6 +1959,7 @@
   .run-result.paused .result-mark{ color:#d89216; }
   /* -- plan checklist -- */
   .plan-checklist{ align-self:flex-start; margin:5px 0 3px; padding:0; width:100%; max-width:640px; overflow:hidden; border:1px solid var(--border); border-radius:10px; background:var(--card); box-shadow:var(--shadow-sm); }
+  .plan-checklist.live{ display:none; }
   .plan-checklist-header{ display:flex; align-items:center; gap:7px; min-height:38px; padding:6px 9px 6px 10px; cursor:pointer; user-select:none; font-size:var(--fs-xs); color:var(--dim); }
   .plan-checklist-header:hover{ color:var(--text); }
   .plan-checklist-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font-weight:600; }
@@ -2243,27 +2280,12 @@
   .status:not(.side-chat-msg):not(.working-card) .spinner{ border-top-color:var(--green); }
   .status:not(.side-chat-msg):not(.working-card) .stx{ color:var(--text); font-weight:500; }
   .status:not(.side-chat-msg):not(.working-card) .meta{ padding-left:2px; font-family:var(--mono); color:var(--dim); font-size:11.5px; }
-  .status.team-active{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; min-width:min(520px,calc(100% - 24px)); }
-  .team-run-progress{ grid-column:1 / -1; display:grid; gap:4px; padding-top:6px; border-top:1px solid color-mix(in srgb,var(--green) 18%,var(--border)); }
-  .team-run-progress[hidden]{ display:none; }
-  .team-run-worker{ display:grid; grid-template-columns:12px minmax(0,1fr) auto; gap:7px; align-items:center; min-height:20px; font:11px/1.3 var(--ui); }
-  .team-run-worker i{ width:7px; height:7px; border:1px solid var(--dim); border-radius:50%; }
-  .team-run-worker.working i{ border-color:var(--green); box-shadow:inset 0 0 0 2px var(--card),0 0 0 1px var(--green); }
-  .team-run-worker.queued i{ border-color:var(--dim); }
-  .team-run-worker.stalled i{ border-color:var(--accent); background:var(--accent); }
-  .team-run-worker.retrying i{ border-color:var(--accent); box-shadow:inset 0 0 0 2px var(--card),0 0 0 1px var(--accent); }
-  .team-run-worker.draining i{ border-color:var(--dim); background:var(--dim); }
-  .team-run-worker.done i{ border-color:var(--green); background:var(--green); }
-  .team-run-worker.failed i,.team-run-worker.cancelled i{ border-color:var(--danger); background:var(--danger); }
-  .team-run-worker b{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
-  .team-run-worker small{ color:var(--dim); }
   .status.local-model-load{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; min-width:min(520px,calc(100% - 24px)); }
   .status.local-model-load .load-progress{ grid-column:2 / -1; display:flex; align-items:center; gap:8px; min-width:0; }
   .status.local-model-load .load-track{ height:4px; flex:1; min-width:80px; overflow:hidden; border-radius:999px; background:color-mix(in srgb,var(--green) 12%,var(--border)); }
   .status.local-model-load .load-fill{ display:block; height:100%; width:0; border-radius:inherit; background:var(--green); transition:width .45s ease; }
   .status.local-model-load .load-pct{ flex:0 0 34px; text-align:right; color:var(--dim); font:10.5px/1 var(--mono); }
-  .status.working-card.team-active,.status.working-card.local-model-load{ display:block; min-width:0; }
-  .status.working-card .team-run-progress{ grid-column:auto; margin-top:5px; }
+  .status.working-card.local-model-load{ display:flex; min-width:0; }
   .status.working-card.local-model-load .load-progress{ grid-column:auto; margin-top:5px; }
   #send{ width:34px; height:34px; flex:0 0 auto; margin-left:0; border:1px solid var(--border); border-radius:50%; background:var(--accent); color:var(--accent-text);
     font-size:14px; font-weight:600; cursor:pointer; display:grid; place-items:center; line-height:1; padding:0;
@@ -6424,10 +6446,20 @@ body:not(.composer-simple) main::after{
             <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button></div>
           </div>
           <div class="codex-card" id="codexBackendCard" hidden>
-            <div class="codex-card-head"><div><b>Codex app-server</b><div class="hint" id="codexAccountText">Optional local integration. Codex owns its sign-in; Boolean never stores its token.</div></div><span class="codex-state" id="codexStateText">Not checked</span></div>
-            <div class="codex-controls"><input type="text" id="codexCommand" autocomplete="off" spellcheck="false" placeholder="codex or full path to codex executable"><button class="minibtn" type="button" id="codexCheck">Check</button></div>
+            <div class="codex-card-head"><div><b>Codex coding engine</b><div class="hint" id="codexAccountText">Set up Codex once, then sign in with ChatGPT. Boolean never stores or displays your token.</div></div><span class="codex-state" id="codexStateText">Not connected</span></div>
+            <div class="codex-setup-steps" id="codexSetupSteps" aria-label="Codex setup progress">
+              <div class="codex-setup-step current" data-codex-step="install"><span class="codex-step-icon">1</span><span class="codex-step-copy"><b>Install Codex CLI</b><small id="codexInstallStepText">Not installed</small></span></div>
+              <div class="codex-setup-step" data-codex-step="signin"><span class="codex-step-icon">2</span><span class="codex-step-copy"><b>Sign in with ChatGPT</b><small id="codexSignInStepText">Waiting</small></span></div>
+              <div class="codex-setup-step" data-codex-step="ready"><span class="codex-step-icon">3</span><span class="codex-step-copy"><b>Ready to use</b><small id="codexReadyStepText">Waiting</small></span></div>
+            </div>
+            <button class="codex-primary" type="button" id="codexPrimaryAction">Set up Codex</button>
+            <div class="codex-progress" id="codexSetupProgress" role="status" aria-live="polite" hidden><span class="codex-progress-dot" aria-hidden="true"></span><span id="codexSetupProgressText">Installing Codex CLI…</span></div>
             <div class="codex-models" id="codexModelControls" hidden><select id="codexModel" title="Codex model"></select><select id="codexEffort" title="Reasoning effort"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option><option value="ultra">Ultra · proactive team</option></select></div>
-            <div class="codex-actions"><button class="minibtn" type="button" id="codexSignIn" hidden>Sign in with ChatGPT</button><button class="minibtn" type="button" id="codexSignOut" hidden>Sign out</button><a class="minibtn" href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer" id="codexInstall">Install Codex CLI</a></div>
+            <details class="codex-advanced" id="codexAdvanced">
+              <summary>Advanced</summary>
+              <div class="codex-controls"><input type="text" id="codexCommand" autocomplete="off" spellcheck="false" placeholder="codex or full path to codex executable" aria-label="Codex executable"><button class="minibtn" type="button" id="codexCheck">Check</button></div>
+              <div class="codex-actions"><a class="minibtn" href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer" id="codexSetupGuide">Setup &amp; diagnostics</a><button class="minibtn" type="button" id="codexSignOut" hidden>Sign out</button></div>
+            </details>
             <div class="hint codex-error" id="codexError" hidden></div>
           </div>
           <div class="setrow" style="display:block">
@@ -8731,6 +8763,11 @@ body:not(.composer-simple) main::after{
   let codexAutoCheckStarted=false;
   let codexSetupOpen=false;
   let codexEnablePending=false;
+  let codexInstallPending=false;
+  let codexAuthPending=false;
+  let codexAuthTimedOut=false;
+  let codexAuthPollTimer=null;
+  let codexAuthLoginId="";
   const resolvedApprovalIds=new Set();
   const resolvedCodexInputIds=new Set();
   let lastThreadSignature="";
@@ -9498,6 +9535,20 @@ body:not(.composer-simple) main::after{
     if(["write_file","edit_file","apply_patch","create_artifact","create_project"].includes(name)) return "change:files";
     return name;
   }
+  function workingToolActivityGroup(entry){
+    const name=String(entry?.name||"");
+    const key=toolGroupKey(entry);
+    if(name==="web_search"||key==="inspect:browser") return "searches";
+    if(key.startsWith("run:")) return "commands";
+    if(key==="change:files") return "files";
+    if(key.startsWith("team:")) return "agents";
+    if(key.startsWith("inspect:")) return "inspections";
+    return "tools";
+  }
+  function workingToolActivitySubject(entry){
+    if(entry?.name==="team_worker") return String(entry?.args?.role||"worker").toLowerCase();
+    return "";
+  }
   function toolDisplayLabel(entry){
     const name=entry?.name||"tool";
     if(name==="web_search") return toolRawSummary(entry);
@@ -9512,7 +9563,7 @@ body:not(.composer-simple) main::after{
       git_status:"Check git", git_diff:"Check git changes", read_page:"Read page", visible_browser_read:"Read browser",
       screenshot_page:"Screenshot page", inspect_page_layout:"Inspect page", write_file:"Edit files", edit_file:"Edit files", apply_patch:"Edit files",
       create_artifact:"Create artifact", create_project:"Create project", run_project:"Run project", run_background:"Run in background", web_search:"Searched web",
-      team_worker:(entry?.args?.state==="done"?"✓ ":"● ")+(entry?.args?.role||"Team worker")+" · "+(entry?.args?.model||entry?.args?.provider||"model")
+      team_worker:(entry?.args?.state==="done"?"✓ ":entry?.args?.state==="draining"?"Stopping safely · ":entry?.args?.state==="retrying"?"Retrying · ":entry?.args?.state==="failed"?"Unavailable · ":"● ")+(entry?.args?.role||"Team worker")+" · "+(entry?.args?.model||entry?.args?.provider||"model")
     };
     return labels[name]||compactActivityText(toolRawSummary(entry));
   }
@@ -10209,6 +10260,30 @@ body:not(.composer-simple) main::after{
       ?{read_only:"Read",ask:"Write",full_access:"Full"}
       :{read_only:"Read only",ask:"Read & write",full_access:"Full access"};
     return labels[mode]||labels.ask;
+  }
+  let accessModeSaveQueue=Promise.resolve();
+  function saveAccessMode(mode){
+    const requested=["read_only","ask","full_access"].includes(mode)?mode:"ask";
+    const operation=accessModeSaveQueue.then(async()=>{
+      const body={accessMode:requested,autoApprove:requested==="full_access"};
+      if(body.autoApprove) body.ui={aiBrowser:true};
+      const response=await fetch("/api/config",{method:"POST",body:JSON.stringify(body)});
+      let data={};
+      try{ data=await response.json(); }catch{}
+      if(!response.ok) throw new Error(data.error||"Could not save the access setting.");
+      state.accessMode=["read_only","ask","full_access"].includes(data.accessMode)?data.accessMode:requested;
+      state.autoApprove=data.autoApprove===true;
+      if(state.autoApprove){
+        state.ui={...(state.ui||{}),aiBrowser:true};
+        if($("aiBrowser")) $("aiBrowser").checked=true;
+      }
+      applyMode();
+      return data;
+    });
+    // Keep future sends serialized even after a failed save. The rejected
+    // operation is still returned to the click handler so it can report it.
+    accessModeSaveQueue=operation.catch(()=>{});
+    return operation;
   }
   function applyMode(){
     const mode=currentAccessMode();
@@ -10980,7 +11055,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.65"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.66"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -13569,6 +13644,7 @@ body:not(.composer-simple) main::after{
       && !node.classList?.contains("working-card")
       && !node.classList?.contains("plan-checklist")
       && !node.classList?.contains("approval")
+      && !node.classList?.contains("model-error")
       && !node.classList?.contains("next-edit-bar")) {
       node.classList?.add("live-run-output");
     }
@@ -13645,7 +13721,7 @@ body:not(.composer-simple) main::after{
     if(["waiting","paused"].includes(value)) return "waiting";
     return "active";
   }
-  function addWorkingActivity(title,{detail="",status="active",key=""}={}){
+  function addWorkingActivity(title,{detail="",status="active",key="",group="",subject=""}={}){
     if(!run) return;
     const cleanTitle=compactActivityText(String(title||"").replace(/\s+/g," ").trim()).slice(0,300);
     const cleanDetail=compactActivityText(String(detail||"").replace(/\s+/g," ").trim()).slice(0,360);
@@ -13653,11 +13729,12 @@ body:not(.composer-simple) main::after{
     const items=run.activityItems||(run.activityItems=[]);
     const identity=key||cleanTitle.toLowerCase();
     const last=items[items.length-1];
-    if(last?.key===identity) Object.assign(last,{title:cleanTitle,detail:cleanDetail||last.detail,status,at:Date.now()});
+    if(last?.key===identity) Object.assign(last,{title:cleanTitle,detail:cleanDetail||last.detail,status,group:group||last.group||"",subject:subject||last.subject||"",at:Date.now()});
     else{
-      items.forEach(item=>{ if(workingEventTone(item.status)==="active") item.status="done"; });
-      items.push({key:identity,title:cleanTitle,detail:cleanDetail,status,at:Date.now()});
-      if(items.length>8) items.splice(0,items.length-8);
+      const incomingTone=workingEventTone(status);
+      items.forEach(item=>{ const tone=workingEventTone(item.status); if(tone==="active"||(tone==="waiting"&&incomingTone!=="waiting")) item.status="done"; });
+      items.push({key:identity,title:cleanTitle,detail:cleanDetail,status,group,subject,at:Date.now()});
+      if(items.length>48) items.splice(0,items.length-48);
     }
     renderWorkingCardActivity(run);
   }
@@ -13682,33 +13759,100 @@ body:not(.composer-simple) main::after{
   }
   function workingActivityRows(ref=run){
     if(!ref) return [];
-    const rows=[...(ref.activityItems||[])];
-    const turn=latestOrchestrationTurn(ref.orchestration);
-    for(const item of (Array.isArray(turn?.items)?turn.items:[]).filter(item=>!["user_message","agent_message"].includes(item.type)).slice(-5)){
-      rows.push({key:"turn:"+(item.id||item.title||item.type),title:item.title||String(item.type||"Activity").replaceAll("_"," "),detail:item.detail||"",status:item.status||"active"});
+    const rows=[];
+    if(ref.controller?.plan?.length){
+      for(const step of ref.controller.plan.slice(-8)) rows.push({key:"plan:"+step.step,title:step.step,detail:String(step.status||"pending").replaceAll("_"," "),status:"done",group:"plan",subject:step.step});
     }
-    if(ref.controller?.plan?.length&&!shouldShowProjectPlan(ref.controller)){
-      for(const step of ref.controller.plan.slice(-5)) rows.push({key:"plan:"+step.step,title:step.step,status:step.status||"pending"});
+    rows.push(...(ref.activityItems||[]));
+    const turn=latestOrchestrationTurn(ref.orchestration);
+    const hasStepActivity=rows.some(item=>String(item.key||"").startsWith("tool:"));
+    for(const item of (hasStepActivity?[]:(Array.isArray(turn?.items)?turn.items:[])).filter(item=>!["user_message","agent_message"].includes(item.type)).slice(-5)){
+      rows.push({key:"turn:"+(item.id||item.title||item.type),title:item.title||String(item.type||"Activity").replaceAll("_"," "),detail:item.detail||"",status:item.status||"active",group:String(item.type||"").toLowerCase().includes("web")?"searches":String(item.type||"").toLowerCase().includes("command")?"commands":String(item.type||"").toLowerCase().includes("file")?"files":"tools"});
     }
     const files=[...new Set([...(ref.changedFiles||[]),...(Array.isArray(ref.controller?.changedFiles)?ref.controller.changedFiles:[])].map(String).filter(Boolean))];
-    if(files.length){
-      const names=files.slice(0,4).map(path=>path.split(/[\\/]/).filter(Boolean).pop()||path);
-      rows.push({key:"changed-files",title:"Edited "+files.length+" file"+(files.length===1?"":"s"),detail:names.join(", ")+(files.length>4?" and "+(files.length-4)+" more":""),status:"done"});
-    }
+    for(const path of files) rows.push({key:"changed-file:"+path,title:path.split(/[\\/]/).filter(Boolean).pop()||path,detail:path,status:"done",group:"files",subject:path});
     if(!rows.length) rows.push({key:"current",title:compactActivityText(ref.status||"Preparing the task"),status:"active"});
     const deduped=[];
     const seen=new Set();
     for(const row of rows){ const key=String(row.key||row.title||"").toLowerCase(); if(!key||seen.has(key)) continue; seen.add(key); deduped.push(row); }
-    return deduped.slice(-6);
+    return deduped.slice(-48);
+  }
+  function inferredWorkingActivityGroup(item){
+    if(item?.group) return item.group;
+    const text=String((item?.key||"")+" "+(item?.title||"")).toLowerCase();
+    if(/web|search|browser|source|url/.test(text)) return "searches";
+    if(/command|terminal|shell|powershell|run:/.test(text)) return "commands";
+    if(/file|patch|edit|write|change:/.test(text)) return "files";
+    if(/agent|worker|specialist|team:/.test(text)) return "agents";
+    if(/inspect|read|list|map repository/.test(text)) return "inspections";
+    if(/plan:/.test(text)) return "plan";
+    return "tools";
+  }
+  function workingActivityGroupLabel(group,count){
+    const plural=count===1?"":"s";
+    if(group==="searches") return "Searched "+count+" source"+plural;
+    if(group==="commands") return "Ran "+count+" command"+plural;
+    if(group==="files") return "Changed "+count+" file"+plural;
+    if(group==="agents") return "Messaged "+count+" agent"+plural;
+    if(group==="inspections") return "Inspected "+count+" item"+plural;
+    if(group==="plan") return "Updated plan";
+    return "Used "+count+" tool"+plural;
+  }
+  function workingActivityIcon(group){
+    const paths={
+      searches:'<circle cx="7" cy="7" r="4"></circle><path d="m10 10 3 3"></path>',
+      commands:'<rect x="1.5" y="2" width="13" height="12" rx="2"></rect><path d="m4.5 6 2 2-2 2M8.5 10h2.5"></path>',
+      files:'<path d="M4 1.5h5l3 3V14H4zM9 1.5v3h3M6 8h4M6 11h3"></path>',
+      agents:'<rect x="2" y="4" width="12" height="9" rx="3"></rect><path d="M8 1.5V4M5 8h.1M11 8h.1M6 11h4"></path>',
+      inspections:'<path d="M1.5 8s2.2-4 6.5-4 6.5 4 6.5 4-2.2 4-6.5 4-6.5-4-6.5-4z"></path><circle cx="8" cy="8" r="1.7"></circle>',
+      plan:'<path d="M3 3h10v11H3zM5 6l1 1 2-2M9.5 6H11M5 10l1 1 2-2M9.5 10H11"></path>',
+      tools:'<path d="M8 2v12M2 8h12"></path>'
+    };
+    return '<svg viewBox="0 0 16 16" aria-hidden="true">'+(paths[group]||paths.tools)+'</svg>';
+  }
+  function workingActivitySummary(ref=run){
+    const rows=workingActivityRows(ref);
+    const visibleAttention=[...rows].reverse().find(item=>item.group!=="plan"&&["waiting","failed"].includes(workingEventTone(item.status)));
+    const visibleActive=[...rows].reverse().find(item=>item.group!=="plan"&&workingEventTone(item.status)==="active"&&item.key!=="starting");
+    const current=ref?.completedAt?null:(visibleAttention||visibleActive||{key:"current",title:compactActivityText(ref?.status||"Working"),detail:"",status:"active"});
+    const namedFiles=rows.some(item=>inferredWorkingActivityGroup(item)==="files"&&item.subject);
+    const segments=[];
+    for(const item of rows){
+      if(item===current||item.key==="starting"||workingEventTone(item.status)!=="done") continue;
+      const group=inferredWorkingActivityGroup(item);
+      if(group==="attention") continue;
+      if(group==="commentary"){
+        const previous=segments[segments.length-1];
+        if(previous?.kind==="commentary"&&previous.item.title===item.title) previous.item=item;
+        else segments.push({kind:"commentary",item});
+        continue;
+      }
+      if(group==="files"&&namedFiles&&!item.subject) continue;
+      let segment=segments[segments.length-1];
+      if(segment?.kind!=="activity"||segment.group!==group){
+        segment={kind:"activity",group,items:[],identities:new Map()};
+        segments.push(segment);
+      }
+      const identity=group==="agents"?String(item.subject||item.title||"").toLowerCase():group==="files"?String(item.subject||item.detail||item.title||"").toLowerCase():String(item.key||item.title||"").toLowerCase();
+      if(segment.identities.has(identity)) segment.items[segment.identities.get(identity)]=item;
+      else{
+        segment.identities.set(identity,segment.items.length);
+        segment.items.push(item);
+      }
+    }
+    return {segments:segments.slice(-10).map(segment=>segment.kind==="activity"?{kind:"activity",group:segment.group,count:segment.items.length,items:segment.items.slice(-8)}:segment),current};
   }
   function renderWorkingCardActivity(ref=run){
     const card=ref?.statusEl;
     const list=card?.querySelector(".working-card-events");
     if(!list) return;
-    list.innerHTML=workingActivityRows(ref).map(item=>{
-      const tone=workingEventTone(item.status);
-      return '<li class="working-card-event '+tone+'"><span class="working-card-event-dot"></span><span><b>'+esc(item.title||"Activity")+'</b>'+(item.detail?'<small>'+esc(item.detail)+'</small>':'')+'</span></li>';
-    }).join("");
+    const summary=workingActivitySummary(ref);
+    list.innerHTML=summary.segments.map(item=>item.kind==="commentary"
+      ?'<p class="working-commentary" role="listitem">'+esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'')+'</p>'
+      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count))+'</b><span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
+    const current=summary.current;
+    const status=card.querySelector(".stx");
+    if(current&&status){ status.textContent=current.title||"Working"; status.title=current.detail||current.title||"Working"; }
   }
   function syncWorkingCardControls(ref=run){
     const card=ref?.statusEl;
@@ -13741,9 +13885,10 @@ body:not(.composer-simple) main::after{
     const label=outcome==="error"?"Stopped after "+elapsed+" - work saved":outcome==="paused"?"Paused after "+elapsed+" - work saved":"Worked for "+elapsed;
     if(outcome==="completed") (ref.activityItems||[]).forEach(item=>{ if(workingEventTone(item.status)==="active") item.status="done"; });
     card.classList.remove("active","live-plan-output");
-    card.classList.add("finalized",outcome,"collapsed");
+    card.classList.add("finalized",outcome);
+    card.classList.remove("collapsed");
     card.setAttribute("aria-live","off");
-    ref.workCardCollapsed=true;
+    ref.workCardCollapsed=false;
     const stateLabel=card.querySelector(".working-card-state b");
     if(stateLabel) stateLabel.textContent=outcome==="error"?"Error":outcome==="paused"?"Paused":"Completed";
     const mark=card.querySelector(".working-card-mark");
@@ -13917,7 +14062,7 @@ body:not(.composer-simple) main::after{
     const allDone=plan.length>0&&doneCount===plan.length;
     const labels={planning:"Planning",executing:"Working",verifying:"Verifying",recovering:"Recovering",completed:"Completed",blocked:"Blocked",diagnosing:"Diagnosing",failed:"Failed"};
     const el=document.createElement("div");
-    el.className="plan-checklist"+(allDone?" done":"");
+    el.className="plan-checklist"+(live?" live":"")+(allDone?" done":"");
     el._planSnapshot=snapshot;
     el.innerHTML=buildPlanHTML(allDone?"done":phase,labels[phase]||phase,snapshot,allDone,live);
     wirePlanChecklist(el,snapshot,live);
@@ -14033,11 +14178,11 @@ body:not(.composer-simple) main::after{
     if(!run) return;
     if(!run.statusEl||!run.statusEl.isConnected){
       run.statusEl=document.createElement("section");
-      run.statusEl.className="status working-card active"+(shouldShowProjectPlan(run?.controller)&&run?.controller?.plan?.length?" live-plan-output":"");
+      run.statusEl.className="status working-card active";
       run.statusEl.setAttribute("role","status");
       run.statusEl.setAttribute("aria-live","polite");
       run.statusEl.setAttribute("aria-label","Boolean task progress");
-      run.statusEl.innerHTML='<div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="stx"></span><span class="meta"></span><span class="working-card-actions"><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div><div class="working-card-body"><ol class="working-card-events" aria-label="Task activity"></ol><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span><div class="team-run-progress" aria-label="Team progress" hidden></div></div>';
+      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="stx"></span><span class="meta"></span><span class="working-card-actions"><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
       col.appendChild(run.statusEl);
       wireWorkingCard(run.statusEl,run);
     }
@@ -14075,13 +14220,7 @@ body:not(.composer-simple) main::after{
     run.status=state==="failed"?role+" unavailable; the lead will continue":state==="done"?role+" finished":state==="retrying"?role+" is retrying with another model":role+" is working";
   }
   function renderTeamRunProgress(){
-    const panel=run?.statusEl?.querySelector(".team-run-progress");
-    if(!panel)return;
-    const workers=Object.values(run.teamWorkers||{});
-    panel.hidden=!workers.length;
-    run.statusEl.classList.toggle("team-active",!!workers.length);
-    const labels={queued:"Queued",working:"Working",stalled:"Stalled",retrying:"Retry ",draining:"Stopping safely",done:"Done",failed:"Unavailable",cancelled:"Cancelled"};
-    panel.innerHTML=workers.map(worker=>'<div class="team-run-worker '+esc(worker.state)+'" title="'+esc(worker.detail||"")+'"><i></i><b>'+esc(worker.role)+'</b><small>'+esc(worker.state==="working"?worker.model:worker.state==="retrying"?labels.retrying+(worker.attempt||2)+" - "+worker.model:labels[worker.state]||"Unavailable")+'</small></div>').join("");
+    run?.statusEl?.classList.remove("team-active");
   }
   function ensureLiveAI(){
     if(!run) return;
@@ -14200,6 +14339,9 @@ body:not(.composer-simple) main::after{
   async function sendMessage(){
     const text=input.value.trim();
     if(!text && !attachments.length) return;
+    // Do not start a task against stale backend permissions while a mode
+    // change is still being saved. Failed saves leave the last confirmed mode.
+    await accessModeSaveQueue;
     if(pendingWorkflowDraft&&!busy()){
       const pending=pendingWorkflowDraft;
       const recipe=recipeItems.find(item=>item.id===pending.recipeId);
@@ -14302,6 +14444,7 @@ body:not(.composer-simple) main::after{
   }
 
   async function startRun(tid, opts){
+    await accessModeSaveQueue;
     const mode=opts.mode||"chat";
     removeEndActions();
     if(threadId===tid){
@@ -14336,6 +14479,7 @@ body:not(.composer-simple) main::after{
     }
     if(opts.provider) body.provider=opts.provider;
     if(opts.model) body.model=opts.model;
+    if(mode==="chat") body.accessMode=currentAccessMode();
     try{
       const res=await fetch(url,{method:"POST",signal:currentAbort.signal,body:JSON.stringify(body)});
       if(!res.ok){
@@ -14498,17 +14642,18 @@ body:not(.composer-simple) main::after{
     const summary=String(ev.summary||ev.reason||"");
     const emailCleanup=/\bMove up to \d+ reviewed messages\b[\s\S]*\bto Trash\b/i.test(summary);
     const codex=ev.codex===true;
+    const writeElevation=ev.kind==="writeElevation";
     const rows=approvalContextRows(ev);
     const decisions=approvalDecisions(ev,emailCleanup);
     const network=rows.some(row=>row.label==="Network")||ev.kind==="network";
-    const heading=emailCleanup?'Confirm email cleanup:':network?'Codex is requesting network access:':codex?'Codex is waiting for approval:':'Boolean is waiting for approval:';
-    const labels={accept:emailCleanup?'Move to Trash':codex?'Allow once':'Allow',acceptForSession:'Allow for session',decline:'Deny',cancel:'Cancel'};
+    const heading=writeElevation?'Boolean needs temporary project access:':emailCleanup?'Confirm email cleanup:':network?'Codex is requesting network access:':codex?'Codex is waiting for approval:':'Boolean is waiting for approval:';
+    const labels={accept:writeElevation?'Allow once':emailCleanup?'Move to Trash':codex?'Allow once':'Allow',acceptForSession:'Allow for session',decline:writeElevation?'Keep read only':'Deny',cancel:'Cancel'};
     const classes={accept:'allow',acceptForSession:'session',decline:'deny',cancel:'deny'};
     const contextHtml=rows.length?'<div class="approval-context">'+rows.map(row=>'<div class="approval-context-row"><span>'+esc(row.label)+'</span><code>'+esc(row.value)+'</code></div>').join('')+'</div>':'';
     card.innerHTML='<div class="q">'+heading+'</div><div class="cmd">'+esc(summary||"Review this action before continuing.")+'</div>'+contextHtml+'<div class="btns">'+decisions.map(decision=>'<button class="'+classes[decision]+'" data-decision="'+decision+'">'+labels[decision]+'</button>').join('')+'</div>';
     const decide=async(decision)=>{
       const ok=decision==="accept"||decision==="acceptForSession";
-      const verdict=decision==="cancel"?"canceled":ok?(decision==="acceptForSession"?"allowed for this session":"allowed"):"denied";
+      const verdict=decision==="cancel"?"canceled":ok?(writeElevation?"allowed for this task":decision==="acceptForSession"?"allowed for this session":"allowed"):(writeElevation?"kept read only":"denied");
       card.querySelector(".btns")?.replaceWith(Object.assign(document.createElement("div"),{className:"verdict",textContent:verdict}));
       const key=String(ev.id||""); resolvedApprovalIds.add(key);
       if(run?.pendingApprovals) run.pendingApprovals=run.pendingApprovals.filter(item=>item.id!==ev.id);
@@ -14597,7 +14742,7 @@ body:not(.composer-simple) main::after{
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){
       run.status=ev.text;
-      if(ev.kind==="commentary") addWorkingActivity(ev.text,{key:"commentary:"+String(ev.text||"").slice(0,80)});
+      if(ev.kind==="commentary") addWorkingActivity(ev.text,{key:"commentary:"+String(ev.text||"").slice(0,80),group:"commentary"});
       setBooleanActivity(inferBooleanActivity(ev.text));
       run.localModelLoad=ev.kind==="local-model-load"?{phase:ev.phase||"",pct:Number(ev.pct)||0,model:ev.model||""}:null;
       renderThreads(); if(showing&&!workspaceBackground) ensureStatusEl();
@@ -14633,7 +14778,9 @@ body:not(.composer-simple) main::after{
       trackWorkingFiles(ev.entry);
       const toolLabel=toolDisplayLabel(ev.entry);
       const toolDetail=compactActivityText(ev.entry?.summary||"");
-      addWorkingActivity(toolLabel,{detail:toolDetail&&toolDetail!==toolLabel?toolDetail:"",status:"done",key:"tool:"+toolGroupKey(ev.entry)});
+      const activityGroup=workingToolActivityGroup(ev.entry);
+      run.activitySequence=(run.activitySequence||0)+1;
+      addWorkingActivity(toolLabel,{detail:toolDetail&&toolDetail!==toolLabel?toolDetail:"",status:"done",key:"tool:"+activityGroup+":"+run.activitySequence,group:activityGroup,subject:workingToolActivitySubject(ev.entry)});
       if(showing&&!workspaceBackground){
         insertToolAbove(ev.entry);
         updateFileChip(ev.entry);
@@ -14644,7 +14791,7 @@ body:not(.composer-simple) main::after{
     }
     else if(ev.type==="approval"){
       run.status="waiting for approval...";
-      addWorkingActivity("Waiting for approval",{detail:ev.summary||"Review the requested action to continue.",status:"waiting",key:"waiting:approval"});
+      addWorkingActivity("Waiting for approval",{detail:ev.summary||"Review the requested action to continue.",status:"waiting",key:"waiting:approval",group:"attention"});
       setBooleanActivity("Working");
       run.pendingApprovals=(run.pendingApprovals||[]).filter(item=>item.id!==ev.id).concat(ev);
       if(run.controller?.taskRun){
@@ -14659,7 +14806,7 @@ body:not(.composer-simple) main::after{
     }
     else if(ev.type==="codexInput"){
       run.status="waiting for your input...";
-      addWorkingActivity("Waiting for your input",{detail:ev.questions?.[0]?.question||"Answer the question to continue.",status:"waiting",key:"waiting:input"});
+      addWorkingActivity("Waiting for your input",{detail:ev.questions?.[0]?.question||"Answer the question to continue.",status:"waiting",key:"waiting:input",group:"attention"});
       run.pendingCodexInputs=(run.pendingCodexInputs||[]).filter(item=>String(item.id||"")!==String(ev.id||"")).concat(ev);
       if(showing) renderPendingApprovals();
       else { tempToast("Codex needs input in that task."); notify("Codex needs input",ev.questions?.[0]?.question||"Open the task to continue."); }
@@ -15883,17 +16030,9 @@ Optional bundled starter model:
   document.querySelectorAll("#modemenu .item").forEach(item=>item.onclick=async(e)=>{
     e.stopPropagation();
     const mode=["read_only","ask","full_access"].includes(item.dataset.mode)?item.dataset.mode:"ask";
-    state.accessMode=mode;
-    state.autoApprove=mode==="full_access";
-    if(state.autoApprove){
-      state.ui={...(state.ui||{}),aiBrowser:true};
-      if($("aiBrowser")) $("aiBrowser").checked=true;
-    }
     $("modemenu").classList.remove("open");
-    applyMode();
-    const body={accessMode:mode,autoApprove:state.autoApprove};
-    if(state.autoApprove) body.ui={aiBrowser:true};
-    await fetch("/api/config",{method:"POST",body:JSON.stringify(body)});
+    try{ await saveAccessMode(mode); }
+    catch(error){ applyMode(); tempToast(error?.message||"Could not save the access setting."); }
   });
   $("savesettings").onclick=async()=>{
     const prov=$("providersel").value;
@@ -15934,12 +16073,38 @@ Optional bundled starter model:
   // ── appearance / settings ──
   function segState(id,val){ [...$(id).children].forEach(b=>b.classList.toggle("on", b.dataset.val===val)); }
   function selectedColorTheme(){ return "classic"; }
+  function codexDisplayCommand(value){
+    const command=String(value||"codex").trim()||"codex";
+    return /[\\/]WindowsApps[\\/].*OpenAI\.Codex_/i.test(command)?"codex":command;
+  }
+  function safeCodexAuthUrl(value){
+    const raw=String(value||"").trim();
+    if(!raw||raw.length>2048) return "";
+    try{
+      const url=new URL(raw);
+      const host=url.hostname.toLowerCase();
+      if(url.protocol!=="https:"||url.username||url.password) return "";
+      if(host!=="chatgpt.com"&&!host.endsWith(".chatgpt.com")) return "";
+      return url.href;
+    }catch{return "";}
+  }
+  function setCodexSetupStep(name,{done=false,current=false,detail="Waiting"}={}){
+    const step=document.querySelector('[data-codex-step="'+name+'"]');
+    if(!step) return;
+    step.classList.toggle("done",done);
+    step.classList.toggle("current",current);
+    const icon=step.querySelector(".codex-step-icon");
+    if(icon) icon.textContent=done?"✓":({install:"1",signin:"2",ready:"3"})[name];
+    const detailNode=$({install:"codexInstallStepText",signin:"codexSignInStepText",ready:"codexReadyStepText"}[name]);
+    if(detailNode) detailNode.textContent=detail;
+  }
   function renderCodexSettings(){
     const codex=state.codex||{};
     const enabled=codex.enabled===true;
-    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",(button.dataset.runtime==="codex")===enabled));
+    const codexSelected=enabled||codexSetupOpen;
+    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",(button.dataset.runtime==="codex")===codexSelected));
     if($("codexBackendCard")) $("codexBackendCard").hidden=!(enabled||codexSetupOpen);
-    if($("codexCommand")&&document.activeElement!==$("codexCommand")) $("codexCommand").value=codex.command||"codex";
+    if($("codexCommand")&&document.activeElement!==$("codexCommand")) $("codexCommand").value=codexDisplayCommand(codex.command);
     if($("codexEffort")) $("codexEffort").value=["low","medium","high","xhigh","ultra"].includes(codex.reasoningEffort)?codex.reasoningEffort:"medium";
     const models=Array.isArray(codex.models)?codex.models:[];
     const selected=codex.model||models.find(model=>model.default)?.id||models[0]?.id||"";
@@ -15953,21 +16118,50 @@ Optional bundled starter model:
     }
     const ready=codex.ready===true;
     const signedIn=codex.account?.signedIn===true;
+    const installed=ready||codex.installed===true;
+    const setupError=String(codex.error||codex.lastError||"");
+    const missingCliExpected=!installed&&/(?:Codex CLI was not found|npm install -g @openai\/codex)/i.test(setupError);
+    const active=enabled&&ready&&signedIn;
+    const installing=codexInstallPending||codex.installing===true;
+    setCodexSetupStep("install",{
+      done:installed,
+      current:!installed,
+      detail:installing?"Installing…":installed?"Installed":"Not installed"
+    });
+    setCodexSetupStep("signin",{
+      done:signedIn,
+      current:ready&&!signedIn,
+      detail:codexAuthPending?"Waiting in browser…":signedIn?"Connected":codexAuthTimedOut?"Try again":ready?"Next":"Waiting"
+    });
+    setCodexSetupStep("ready",{
+      done:active,
+      current:ready&&signedIn&&!enabled,
+      detail:active?"Active":ready&&signedIn?"Choose Use Codex":"Waiting"
+    });
     const stateText=$("codexStateText");
     if(stateText){
-      stateText.className="codex-state "+(ready?(signedIn?"ready":""):(codex.lastError||codex.error?"error":""));
-      stateText.textContent=codexEnablePending?"Starting":ready?(signedIn?"Ready":"Sign in required"):(codex.state==="starting"?"Starting":"Not connected");
+      stateText.className="codex-state "+((active||ready&&signedIn)?"ready":(!missingCliExpected&&!installing&&!codexAuthPending&&(codex.lastError||codex.error)?"error":""));
+      stateText.textContent=installing?"Installing":codexAuthPending?"Waiting for sign-in":codexEnablePending?"Checking":active?"Ready":ready&&signedIn?"Ready to use":ready?"Sign in required":codex.state==="starting"?"Checking":"Not connected";
     }
     if($("codexAccountText")) $("codexAccountText").textContent=signedIn
       ? [codex.account.email,codex.account.plan].filter(Boolean).join(" · ")||"Signed in through the Codex CLI."
-      : "Codex owns its sign-in; Boolean never stores or displays its token.";
-    if($("codexModelControls")) $("codexModelControls").hidden=!ready;
-    if($("codexSignIn")) $("codexSignIn").hidden=!ready||signedIn;
-    if($("codexSignOut")) $("codexSignOut").hidden=!ready||!signedIn;
-    if($("codexInstall")) $("codexInstall").hidden=ready;
-    if($("codexCheck")){ $("codexCheck").disabled=codexEnablePending; $("codexCheck").textContent=codexEnablePending?"Checking…":"Check"; }
-    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.disabled=codexEnablePending);
-    const error=String(codex.error||codex.lastError||"");
+      : installed?"Finish the browser sign-in. Boolean never stores or displays your token.":"Set up Codex once, then sign in with ChatGPT. Boolean never stores or displays your token.";
+    if($("codexModelControls")) $("codexModelControls").hidden=!signedIn;
+    if($("codexSignOut")) $("codexSignOut").hidden=!signedIn;
+    if($("codexCheck")){ $("codexCheck").disabled=codexEnablePending||installing||codexAuthPending; $("codexCheck").textContent=codexEnablePending?"Checking…":"Check"; }
+    const primary=$("codexPrimaryAction");
+    if(primary){
+      const action=installing||codexAuthPending||codexEnablePending||active?"none":ready&&signedIn?"enable":ready?"signin":"install";
+      primary.dataset.action=action;
+      primary.disabled=action==="none";
+      primary.textContent=installing?"Installing Codex…":codexAuthPending?"Waiting for sign-in…":codexEnablePending?"Checking Codex…":active?"Codex is active":ready&&signedIn?"Use Codex":ready?(codexAuthTimedOut?"Try sign-in again":"Sign in with ChatGPT"):(codex.error||codex.lastError||installed?"Install Codex CLI":"Set up Codex");
+    }
+    const progress=$("codexSetupProgress");
+    const pending=installing||codexAuthPending||codexEnablePending;
+    if(progress) progress.hidden=!pending;
+    if($("codexSetupProgressText")) $("codexSetupProgressText").textContent=installing?"Installing the official Codex CLI on this PC…":codexAuthPending?"Waiting for you to finish signing in with ChatGPT…":"Checking the Codex CLI and account…";
+    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.disabled=codexEnablePending||installing||codexAuthPending);
+    const error=missingCliExpected?"":setupError;
     if($("codexError")){ $("codexError").hidden=!error; $("codexError").textContent=error; }
   }
   function applyUi(ui){
@@ -16123,7 +16317,7 @@ Optional bundled starter model:
   function updateCodingAgent(patch){ return setUi({codingAgent:{...((state.ui&&state.ui.codingAgent)||{}),...patch}}).then(()=>refreshStatus()); }
   async function saveCodexSettings(patch){
     const previous={...(state.codex||{})};
-    const next={...previous,...patch};
+    const next={...previous,...patch,command:codexDisplayCommand(patch.command??previous.command)};
     state.codex=next;
     renderCodexSettings();
     setComposerModelDisplay(activeModelName());
@@ -16142,24 +16336,23 @@ Optional bundled starter model:
     if(!quiet) tempToast(result.ok?(result.account?.signedIn?"Codex is ready.":"Codex is running. Sign in to continue."):(result.error||"Codex is unavailable."));
     return result;
   }
-  async function checkAndEnableCodex({command=$("codexCommand")?.value.trim()||state.codex?.command||"codex",quiet=false}={}){
+  async function checkCodexConnection({command=$("codexCommand")?.value.trim()||state.codex?.command||"codex",quiet=false}={}){
     if(codexEnablePending) return false;
     codexSetupOpen=true;
     codexEnablePending=true;
-    state.codex={...(state.codex||{}),enabled:false,command,state:"starting",error:"",lastError:""};
+    command=codexDisplayCommand(command);
+    state.codex={...(state.codex||{}),command,state:"starting",error:"",lastError:""};
     renderCodexSettings();
     let result={ok:false,error:"Codex is unavailable."};
     try{
-      if(!await saveCodexSettings({enabled:false,command})) return false;
+      if(!await saveCodexSettings({enabled:state.codex.enabled===true,command})) return false;
       result=await refreshCodexStatus({start:true,quiet:true});
       if(result.ok!==true||result.ready!==true) throw new Error(result.error||result.lastError||"Codex did not start.");
-      if(!await saveCodexSettings({enabled:true,command})) throw new Error(state.codex?.error||"Could not enable Codex.");
-      codexSetupOpen=false;
-      if(!quiet) tempToast(result.account?.signedIn?"Codex is ready.":"Codex is running. Sign in to continue.");
+      state.codex={...(state.codex||{}),installed:true,command,error:"",lastError:""};
+      if(!quiet) tempToast(result.account?.signedIn?"Codex is ready to use.":"Codex CLI found. Sign in to continue.");
       return true;
     }catch(error){
-      state.codex={...(state.codex||{}),enabled:false,command,error:error?.message||result.error||"Codex is unavailable."};
-      await fetch("/api/config",{method:"POST",body:JSON.stringify({codex:{enabled:false,command,model:state.codex.model||"",reasoningEffort:state.codex.reasoningEffort||"medium"}})}).catch(()=>{});
+      state.codex={...(state.codex||{}),command,error:error?.message||result.error||"Codex is unavailable."};
       if(!quiet) tempToast(state.codex.error);
       return false;
     }finally{
@@ -16169,36 +16362,150 @@ Optional bundled starter model:
       updateFooterModelStatus();
     }
   }
+  async function checkAndEnableCodex({command=$("codexCommand")?.value.trim()||state.codex?.command||"codex",quiet=false}={}){
+    command=codexDisplayCommand(command);
+    codexSetupOpen=true;
+    if(!await saveCodexSettings({enabled:false,command})) return false;
+    const ready=await checkCodexConnection({command,quiet:true});
+    if(!ready){
+      state.codex={...(state.codex||{}),enabled:false,command};
+      renderCodexSettings();
+      if(!quiet&&state.codex.error) tempToast(state.codex.error);
+      return false;
+    }
+    if(state.codex?.account?.signedIn!==true){
+      state.codex={...(state.codex||{}),enabled:false,command};
+      renderCodexSettings();
+      if(!quiet) tempToast("Sign in with ChatGPT before using Codex.");
+      return false;
+    }
+    const saved=await saveCodexSettings({enabled:true,command});
+    if(saved){ codexSetupOpen=false; if(!quiet) tempToast("Codex orchestration selected."); }
+    return saved;
+  }
+  function clearCodexAuthPoll(){
+    if(codexAuthPollTimer){ clearTimeout(codexAuthPollTimer); codexAuthPollTimer=null; }
+  }
+  async function cancelCodexLogin(){
+    const loginId=codexAuthLoginId;
+    codexAuthLoginId="";
+    if(!loginId) return;
+    await fetch("/api/codex/auth/cancel",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:JSON.stringify({loginId})}).catch(()=>{});
+  }
+  async function installCodexCli(){
+    if(codexInstallPending) return false;
+    const approved=await appConfirm("Install Codex CLI?","Boolean will download and install the official Codex CLI on this PC. This changes files outside your project. Continue?","Install");
+    if(!approved) return false;
+    codexSetupOpen=true;
+    codexInstallPending=true;
+    codexAuthTimedOut=false;
+    state.codex={...(state.codex||{}),enabled:false,error:"",lastError:""};
+    renderCodexSettings();
+    try{
+      const response=await fetch("/api/codex/install",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
+      const result=await response.json().catch(()=>({ok:false,message:"Codex installation did not return a result."}));
+      if(!response.ok||result.ok!==true) throw new Error(result.message||result.error||"Codex CLI could not be installed.");
+      const command=codexDisplayCommand(result.command||"codex");
+      state.codex={...(state.codex||{}),...result,installed:true,enabled:false,command,error:"",lastError:""};
+      await refreshCodexStatus({start:true,quiet:true});
+      state.codex={...(state.codex||{}),installed:true,command,error:"",lastError:""};
+      tempToast("Codex CLI installed. Sign in with ChatGPT to continue.");
+      return true;
+    }catch(error){
+      state.codex={...(state.codex||{}),enabled:false,error:error?.message||"Codex CLI could not be installed."};
+      tempToast(state.codex.error);
+      return false;
+    }finally{
+      codexInstallPending=false;
+      renderCodexSettings();
+    }
+  }
+  async function startCodexSignIn(){
+    if(codexAuthPending) return false;
+    clearCodexAuthPoll();
+    codexSetupOpen=true;
+    codexAuthPending=true;
+    codexAuthTimedOut=false;
+    state.codex={...(state.codex||{}),error:"",lastError:""};
+    renderCodexSettings();
+    const popup=window.open("about:blank","_blank");
+    try{
+      const response=await fetch("/api/codex/auth/start",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||!result.authUrl) throw new Error(result.error||"Codex sign-in could not start.");
+      const authUrl=safeCodexAuthUrl(result.authUrl);
+      if(!authUrl) throw new Error("Codex returned an unsafe sign-in address. Sign-in was cancelled.");
+      codexAuthLoginId=String(result.loginId||"");
+      if(popup){ try{popup.opener=null;}catch{} popup.location=authUrl; }
+      else window.open(authUrl,"_blank","noopener,noreferrer");
+      tempToast("Finish signing in with ChatGPT, then return to Boolean.");
+      const startedAt=Date.now();
+      const poll=async()=>{
+        if(!codexAuthPending) return;
+        const status=await refreshCodexStatus({start:true,quiet:true});
+        if(status.account?.signedIn){
+          codexAuthPending=false;
+          codexAuthTimedOut=false;
+          codexAuthLoginId="";
+          clearCodexAuthPoll();
+          renderCodexSettings();
+          tempToast("ChatGPT connected. Codex is ready to use.");
+          return;
+        }
+        if(Date.now()-startedAt>=300000){
+          codexAuthPending=false;
+          codexAuthTimedOut=true;
+          state.codex={...(state.codex||{}),error:"Sign-in timed out. Finish the browser sign-in, then try again."};
+          clearCodexAuthPoll();
+          await cancelCodexLogin();
+          renderCodexSettings();
+          return;
+        }
+        codexAuthPollTimer=setTimeout(poll,2000);
+      };
+      codexAuthPollTimer=setTimeout(poll,1500);
+      return true;
+    }catch(error){
+      try{popup?.close();}catch{}
+      codexAuthPending=false;
+      await cancelCodexLogin();
+      state.codex={...(state.codex||{}),error:error?.message||"Codex sign-in could not start."};
+      renderCodexSettings();
+      return false;
+    }
+  }
   $("orchestrationSeg").querySelectorAll("button").forEach(button=>button.onclick=async()=>{
     const enabled=button.dataset.runtime==="codex";
-    if(enabled){ codexSetupOpen=true; renderCodexSettings(); await checkAndEnableCodex(); return; }
+    if(enabled){
+      if(state.codex?.ready===true&&state.codex?.account?.signedIn===true){ await checkAndEnableCodex({quiet:true}); return; }
+      codexSetupOpen=true;
+      renderCodexSettings();
+      if(state.codex?.ready!==true) await checkCodexConnection({quiet:true});
+      return;
+    }
     codexSetupOpen=false;
     if(await saveCodexSettings({enabled:false})) tempToast("Boolean orchestration selected.");
   });
   $("codexCheck").onclick=async()=>{
-    const command=$("codexCommand").value.trim()||"codex";
-    await checkAndEnableCodex({command});
+    const command=codexDisplayCommand($("codexCommand").value);
+    await checkCodexConnection({command});
   };
-  $("codexCommand").onchange=()=>{ codexSetupOpen=true; state.codex={...(state.codex||{}),error:""}; renderCodexSettings(); };
+  $("codexCommand").onchange=()=>{ codexSetupOpen=true; $("codexCommand").value=codexDisplayCommand($("codexCommand").value); state.codex={...(state.codex||{}),command:$("codexCommand").value,error:""}; renderCodexSettings(); };
   $("codexCommand").onkeydown=event=>{ if(event.key==="Enter"){ event.preventDefault(); $("codexCheck").click(); } };
   $("codexModel").onchange=()=>saveCodexSettings({model:$("codexModel").value});
   $("codexEffort").onchange=()=>saveCodexSettings({reasoningEffort:$("codexEffort").value});
-  $("codexSignIn").onclick=async()=>{
-    const popup=window.open("about:blank","_blank");
-    try{
-      const response=await fetch("/api/codex/auth/start",{method:"POST",body:"{}"});
-      const result=await response.json();
-      if(!response.ok||!result.authUrl) throw new Error(result.error||"Codex sign-in could not start.");
-      if(popup) popup.location=result.authUrl; else window.open(result.authUrl,"_blank");
-      tempToast("Finish signing in, then return to Boolean.");
-      let attempts=0;
-      const poll=setInterval(async()=>{ attempts++; const status=await refreshCodexStatus({start:true,quiet:true}); if(status.account?.signedIn||attempts>=60) clearInterval(poll); },2000);
-    }catch(error){ try{popup?.close();}catch{} state.codex={...(state.codex||{}),error:error.message}; renderCodexSettings(); }
+  $("codexPrimaryAction").onclick=async()=>{
+    const action=$("codexPrimaryAction").dataset.action;
+    if(action==="install") await installCodexCli();
+    else if(action==="signin") await startCodexSignIn();
+    else if(action==="enable") await checkAndEnableCodex();
   };
   $("codexSignOut").onclick=async()=>{
-    const response=await fetch("/api/codex/logout",{method:"POST",body:"{}"});
+    clearCodexAuthPoll(); codexAuthPending=false; codexAuthTimedOut=false;
+    await cancelCodexLogin();
+    const response=await fetch("/api/codex/logout",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
     const result=await response.json().catch(()=>({}));
-    state.codex={...(state.codex||{}),...result,account:null,error:response.ok?"":(result.error||"Could not sign out.")};
+    state.codex={...(state.codex||{}),...result,enabled:false,account:null,error:response.ok?"":(result.error||"Could not sign out.")};
     renderCodexSettings();
   };
   $("agentModeGrid").querySelectorAll(".agent-mode").forEach(button=>button.onclick=()=>updateCodingAgent({mode:button.dataset.mode||"quick"}));
