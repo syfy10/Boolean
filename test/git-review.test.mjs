@@ -47,5 +47,33 @@ test("gitDiffFiles includes untracked files without treating them as restorable 
   assert.equal(review.staged, false);
   assert.equal(review.files.some((file) => file.path === "tracked.txt" && file.status === "modified"), true);
   assert.equal(review.files.some((file) => file.path === "fresh.txt" && file.status === "untracked"), true);
+  const fresh = review.files.find((file) => file.path === "fresh.txt");
+  assert.equal(path.resolve(fresh.absolutePath), path.resolve(dir, "fresh.txt"));
+  assert.equal(fresh.lines.some((line) => line.type === "add" && line.text === "hello"), true);
   assert.match(review.patch, /tracked\.txt/);
+});
+
+test("Changes exposes an exact new-file diff and returns to zero after that file is deleted", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-change-cycle-"));
+  const git = (...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+  try {
+    git("init");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Boolean Test");
+    fs.writeFileSync(path.join(dir, "baseline.txt"), "baseline\n");
+    git("add", "baseline.txt");
+    git("commit", "-m", "initial");
+    const target = path.join(dir, "codex-edit-test.txt");
+    fs.writeFileSync(target, "Codex verified this file.\n");
+    const created = gitDiffFiles(dir);
+    assert.equal(created.files.length, 1);
+    assert.equal(created.files[0].path, "codex-edit-test.txt");
+    assert.equal(path.resolve(created.files[0].absolutePath), path.resolve(target));
+    assert.equal(created.files[0].lines.some((line) => line.type === "add" && line.text === "Codex verified this file."), true);
+    fs.rmSync(target);
+    const removed = gitDiffFiles(dir);
+    assert.equal(removed.files.length, 0);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

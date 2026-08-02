@@ -7,6 +7,7 @@ import { StringDecoder } from "node:string_decoder";
 const CODEX_INSTALL_URL = "https://chatgpt.com/codex/install.ps1";
 const DEFAULT_INSTALL_TIMEOUT_MS = 180000;
 const DEFAULT_INSTALL_OUTPUT_BYTES = 8000;
+const WINDOWS_SANDBOX_HELPER = "codex-windows-sandbox-setup.exe";
 
 const APPROVAL_DECISIONS = new Set([
   "accept",
@@ -51,6 +52,70 @@ export function standaloneCodexPath({ env = process.env, platform = process.plat
   if (platform !== "win32") return "";
   const localAppData = String(env?.LOCALAPPDATA || env?.LocalAppData || "").trim();
   return localAppData ? path.join(localAppData, "Programs", "OpenAI", "Codex", "bin", "codex.exe") : "";
+}
+
+function codexHomePath(env = process.env) {
+  const configured = String(env?.CODEX_HOME || "").trim();
+  if (configured) return configured;
+  const profile = String(env?.USERPROFILE || env?.HOME || "").trim();
+  return profile ? path.join(profile, ".codex") : "";
+}
+
+function sandboxHelperCandidates(command) {
+  const executable = path.resolve(String(command || ""));
+  if (!executable || path.basename(executable).toLowerCase() !== "codex.exe") return [];
+  const binDir = path.dirname(executable);
+  return [...new Set([
+    path.join(binDir, WINDOWS_SANDBOX_HELPER),
+    path.join(binDir, "codex-resources", WINDOWS_SANDBOX_HELPER),
+    path.join(path.dirname(binDir), "codex-resources", WINDOWS_SANDBOX_HELPER)
+  ])];
+}
+
+export function codexWindowsSandboxStatus(command, {
+  platform = process.platform,
+  existsSync = fs.existsSync
+} = {}) {
+  if (platform !== "win32") return { required: false, ready: true, helper: "", error: "" };
+  const candidates = sandboxHelperCandidates(command);
+  const helper = candidates.find((candidate) => {
+    try { return existsSync(candidate); } catch { return false; }
+  }) || "";
+  return {
+    required: candidates.length > 0,
+    ready: !candidates.length || !!helper,
+    helper,
+    error: candidates.length && !helper
+      ? `Codex is missing ${WINDOWS_SANDBOX_HELPER}. Reinstall Codex from Boolean Settings before running project commands.`
+      : ""
+  };
+}
+
+function packagedCodexInstalls({
+  env = process.env,
+  platform = process.platform,
+  existsSync = fs.existsSync,
+  readdirSync = fs.readdirSync
+} = {}) {
+  if (platform !== "win32") return [];
+  const home = codexHomePath(env);
+  if (!home) return [];
+  const releases = path.join(home, "packages", "standalone", "releases");
+  let entries = [];
+  try { entries = readdirSync(releases, { withFileTypes: true }); } catch { return []; }
+  return entries
+    .filter((entry) => entry?.isDirectory?.())
+    .map((entry) => {
+      const command = path.join(releases, entry.name, "bin", "codex.exe");
+      const sandbox = codexWindowsSandboxStatus(command, { platform, existsSync });
+      let modified = 0;
+      try { modified = Number(fs.statSync(command).mtimeMs) || 0; } catch {}
+      return { command, sandbox, modified, name: entry.name };
+    })
+    .filter((entry) => {
+      try { return existsSync(entry.command) && entry.sandbox.ready; } catch { return false; }
+    })
+    .sort((left, right) => right.modified - left.modified || right.name.localeCompare(left.name, undefined, { numeric: true }));
 }
 
 function executableCandidates(command, { env, platform, existsSync }) {
@@ -112,22 +177,43 @@ export function resolveCodexLaunch(command, args = [], {
   env = process.env,
   execPath = process.execPath,
   existsSync = fs.existsSync,
-  readFileSync = fs.readFileSync
+  readFileSync = fs.readFileSync,
+  readdirSync = fs.readdirSync
 } = {}) {
   const original = { command: String(command || ""), args: Array.isArray(args) ? args.map(String) : [] };
   if (platform !== "win32" || !original.command) return { ...original, kind: "direct", requestedCommand: original.command };
   const requestedStoreApp = isWindowsStoreCodexPath(original.command);
   const requestedCandidates = executableCandidates(original.command, { env, platform, existsSync });
   const standalone = standaloneCodexPath({ env, platform });
+  const packaged = packagedCodexInstalls({ env, platform, existsSync, readdirSync });
   const recoveryCandidates = [];
   const plainCodexCommand = !path.isAbsolute(original.command) && !/[\\/]/.test(original.command) && /^codex(?:\.exe|\.cmd|\.bat)?$/i.test(original.command);
-  if (requestedStoreApp || requestedCandidates.some(isWindowsStoreCodexPath) || (plainCodexCommand && !requestedCandidates.length)) {
+  const requestedStandalone = requestedCandidates.some((candidate) => standalone && path.resolve(candidate) === path.resolve(standalone));
+  const standaloneIncomplete = requestedStandalone
+    && !codexWindowsSandboxStatus(standalone, { platform, existsSync }).ready;
+  if (requestedStoreApp || requestedCandidates.some(isWindowsStoreCodexPath) || standaloneIncomplete || (plainCodexCommand && !requestedCandidates.length)) {
+    recoveryCandidates.push(...packaged.map((entry) => entry.command));
     try { if (standalone && existsSync(standalone)) recoveryCandidates.push(standalone); } catch {}
     if (requestedStoreApp || requestedCandidates.some(isWindowsStoreCodexPath)) {
       recoveryCandidates.push(...executableCandidates("codex", { env, platform, existsSync }));
     }
   }
-  const candidates = [...new Set([...requestedCandidates, ...recoveryCandidates])];
+  const candidates = [...new Set([
+    ...(standaloneIncomplete ? recoveryCandidates : requestedCandidates),
+    ...(standaloneIncomplete ? requestedCandidates : recoveryCandidates)
+  ])];
+  const directLaunch = (candidate, kind = "direct") => {
+    const sandbox = codexWindowsSandboxStatus(candidate, { platform, existsSync });
+    return {
+      command: candidate,
+      args: original.args,
+      kind,
+      requestedCommand: original.command,
+      sandboxReady: sandbox.ready,
+      sandboxHelper: sandbox.helper,
+      sandboxError: sandbox.error
+    };
+  };
   const shimLaunch = (candidate) => {
     if (![".cmd", ".bat"].includes(path.extname(candidate).toLowerCase())) return null;
     const target = npmShimTarget(candidate, { existsSync, readFileSync });
@@ -149,12 +235,8 @@ export function resolveCodexLaunch(command, args = [], {
   const firstIsBatch = [".cmd", ".bat"].includes(path.extname(first).toLowerCase());
   const inaccessibleStoreApp = isWindowsStoreCodexPath(first);
   if (first && !firstIsBatch && !inaccessibleStoreApp) {
-    return {
-      command: first,
-      args: original.args,
-      kind: standalone && path.resolve(first) === path.resolve(standalone) ? "standalone" : "direct",
-      requestedCommand: original.command
-    };
+    const completePackage = packaged.some((entry) => path.resolve(entry.command) === path.resolve(first));
+    return directLaunch(first, completePackage ? "standalone-package" : standalone && path.resolve(first) === path.resolve(standalone) ? "standalone" : "direct");
   }
   // The Microsoft Store desktop bundle can be visible on PATH while denying
   // child-process execution. Prefer a later official npm CLI shim in that
@@ -166,16 +248,12 @@ export function resolveCodexLaunch(command, args = [], {
       if (launch && /[\\/]node_modules[\\/]@openai[\\/]codex[\\/]/i.test(launch.scriptPath)) return launch;
       continue;
     }
-    return {
-      command: candidate,
-      args: original.args,
-      kind: path.resolve(candidate) === path.resolve(standalone || ".") ? "standalone" : "direct",
-      requestedCommand: original.command
-    };
+    const completePackage = packaged.some((entry) => path.resolve(entry.command) === path.resolve(candidate));
+    return directLaunch(candidate, completePackage ? "standalone-package" : path.resolve(candidate) === path.resolve(standalone || ".") ? "standalone" : "direct");
   }
   const direct = candidates.find((candidate) =>
     ![".cmd", ".bat"].includes(path.extname(candidate).toLowerCase()) && !isWindowsStoreCodexPath(candidate));
-  if (direct) return { command: direct, args: original.args, kind: "direct", requestedCommand: original.command };
+  if (direct) return directLaunch(direct);
   if (requestedStoreApp || requestedCandidates.some(isWindowsStoreCodexPath)) {
     // Never hand an inaccessible Store bundle back to CreateProcess. Point at
     // the documented standalone location so a missing install reports ENOENT
@@ -357,8 +435,22 @@ export function installCodexStandaloneCli({
         });
         return;
       }
+      const resolved = resolveCodexLaunch(installedCommand, [], {
+        platform,
+        env,
+        existsSync
+      });
+      const sandbox = codexWindowsSandboxStatus(resolved.command, { platform, existsSync });
+      if (!sandbox.ready) {
+        finish({
+          ok: false,
+          error: "sandbox_helper_missing",
+          message: sandbox.error
+        });
+        return;
+      }
       clearTimeout(timer);
-      const verified = await verifyCodexExecutable(installedCommand, { spawn, env: safeEnv });
+      const verified = await verifyCodexExecutable(resolved.command, { spawn, env: safeEnv });
       if (!verified.ok) {
         append(verified.output);
         finish({
@@ -372,8 +464,9 @@ export function installCodexStandaloneCli({
       finish({
         ok: true,
         installed: true,
-        command: installedCommand,
-        message: "Codex CLI installed."
+        command: resolved.command,
+        sandboxReady: true,
+        message: "Codex CLI and Windows sandbox support installed."
       });
     });
     const timer = setTimeout(() => {
@@ -456,6 +549,7 @@ export class CodexAppServer extends EventEmitter {
     this.requestedCommand = launch.requestedCommand || executable.command;
     this.launchKind = launch.kind || "direct";
     this.launchDetails = launch;
+    this.launchPlatform = launchPlatform;
     this.cwd = cwd;
     this.env = env;
     this.clientInfo = { ...clientInfo };
@@ -494,6 +588,9 @@ export class CodexAppServer extends EventEmitter {
       args: [...this.args],
       requestedCommand: this.requestedCommand,
       launchKind: this.launchKind,
+      sandboxReady: this.launchDetails.sandboxReady !== false,
+      sandboxHelper: this.launchDetails.sandboxHelper || "",
+      sandboxError: this.launchDetails.sandboxError || "",
       pendingRequests: this.pending.size,
       pendingServerRequests: this.serverRequests.size,
       lastError: this.lastError,
@@ -505,6 +602,14 @@ export class CodexAppServer extends EventEmitter {
     if (this.state === "ready") return this.initialization;
     if (this.startPromise) return this.startPromise;
     if (this.stopPromise) await this.stopPromise;
+    if (this.launchPlatform === "win32" && this.launchDetails.sandboxReady === false) {
+      const message = this.launchDetails.sandboxError
+        || `Codex is missing ${WINDOWS_SANDBOX_HELPER}. Reinstall Codex from Boolean Settings before running project commands.`;
+      this.state = "error";
+      this.lastError = message;
+      this.#statusChanged();
+      throw new CodexAppServerError(message, { method: "initialize" });
+    }
     this.state = "starting";
     this.lastError = "";
     this.#statusChanged();

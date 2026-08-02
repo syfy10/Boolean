@@ -5945,8 +5945,21 @@ body:not(.composer-simple) main::after{
             <div class="workflow-steps"><span>Plan</span><span>Edit</span><span>Run</span><span>Verify</span><span>Ship</span></div>
           </div>
           <div class="setrow" style="display:block">
-            <div><b>Orchestration engine</b><div class="hint">Use Boolean with your current Gemini/GLM models, or the public Codex engine for Codex-native planning, tools, approvals, recovery, and progress events.</div></div>
-            <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button></div>
+            <div><b>Orchestration engine</b><div class="hint">Use Boolean with your saved model APIs, Codex with ChatGPT, or Claude Code with your Claude account.</div></div>
+            <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button><button type="button" data-runtime="claude-code">Claude Code</button></div>
+          </div>
+          <div class="codex-card" id="claudeBackendCard" hidden>
+            <div class="codex-card-head"><div><b>Claude Code engine</b><div class="hint" id="claudeAccountText">Set up Claude Code once, then sign in with your Claude account. Boolean never stores or displays its credentials.</div></div><span class="codex-state" id="claudeStateText">Not connected</span></div>
+            <div class="codex-setup-steps" aria-label="Claude Code setup progress">
+              <div class="codex-setup-step current" data-claude-step="install"><span class="codex-step-icon">1</span><span class="codex-step-copy"><b>Install Claude Code</b><small id="claudeInstallStepText">Not installed</small></span></div>
+              <div class="codex-setup-step" data-claude-step="signin"><span class="codex-step-icon">2</span><span class="codex-step-copy"><b>Sign in with Claude</b><small id="claudeSignInStepText">Waiting</small></span></div>
+              <div class="codex-setup-step" data-claude-step="ready"><span class="codex-step-icon">3</span><span class="codex-step-copy"><b>Ready to code</b><small id="claudeReadyStepText">Waiting</small></span></div>
+            </div>
+            <button class="codex-primary" type="button" id="claudePrimaryAction">Set up Claude Code</button>
+            <div class="codex-progress" id="claudeSetupProgress" role="status" aria-live="polite" hidden><span class="codex-progress-dot" aria-hidden="true"></span><span id="claudeSetupProgressText">Installing Claude Code...</span></div>
+            <div class="codex-models" id="claudeModelControls" hidden><select id="claudeCodeModel" title="Claude Code model"><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="haiku">Haiku</option></select></div>
+            <details class="codex-advanced"><summary>Advanced</summary><div class="codex-controls"><input type="text" id="claudeCodeCommand" autocomplete="off" spellcheck="false" placeholder="claude or full path to claude.exe" aria-label="Claude Code executable"><button class="minibtn" type="button" id="claudeCodeCheck">Check</button></div><div class="codex-actions"><a class="minibtn" href="https://code.claude.com/docs/en/installation" target="_blank" rel="noreferrer">Setup &amp; diagnostics</a></div></details>
+            <div class="hint codex-error" id="claudeCodeError" hidden></div>
           </div>
           <div class="codex-card" id="codexBackendCard" hidden>
             <div class="codex-card-head"><div><b>Codex coding engine</b><div class="hint" id="codexAccountText">Set up Codex once, then sign in with ChatGPT. Boolean never stores or displays your token.</div></div><span class="codex-state" id="codexStateText">Not connected</span></div>
@@ -8258,7 +8271,7 @@ body:not(.composer-simple) main::after{
   syncComposerBaseHeight();
   syncDockHeight();
   syncComposerRail();
-  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, codex:{enabled:false,state:"stopped",models:[]}, providerReady:{}, model:"", accessMode:"ask", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
+  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, codingEngine:"boolean", codex:{enabled:false,state:"stopped",models:[]}, claudeCode:{enabled:false,ready:false}, providerReady:{}, model:"", accessMode:"ask", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
   const DIRECT_API_PROVIDERS=new Set(["glm","openai","google","claude","xai","deepseek","qwen","baidu","bytedance","kimi","customApi"]);
   let explicitDirectApiProvider="";
   let deferredStateReady=false;
@@ -8271,6 +8284,10 @@ body:not(.composer-simple) main::after{
   let codexAuthTimedOut=false;
   let codexAuthPollTimer=null;
   let codexAuthLoginId="";
+  let claudeSetupOpen=false;
+  let claudeEnablePending=false;
+  let claudeInstallPending=false;
+  let claudeLoginStarted=false;
   const resolvedApprovalIds=new Set();
   const resolvedCodexInputIds=new Set();
   let lastThreadSignature="";
@@ -8716,11 +8733,13 @@ body:not(.composer-simple) main::after{
   const providerModelName=(prov)=>displayName((state.providerModels&&state.providerModels[prov])||(state.provider===prov?state.model:""));
   const activeModelName=()=>{
     if(state.codex?.enabled===true) return "Codex · "+(state.codex.model||state.codex.models?.find(model=>model.default)?.name||"Default");
+    if(state.claudeCode?.enabled===true) return "Claude Code · "+(state.claudeCode.model||"sonnet");
     const provider=state.provider||"local";
     return provider==="local"?displayName(state.model):providerModelName(provider);
   };
   const currentAiLabel=()=>{
     if(state.codex?.enabled===true) return "Codex"+(state.codex.model?" - "+state.codex.model:"");
+    if(state.claudeCode?.enabled===true) return "Claude Code"+(state.claudeCode.model?" - "+state.claudeCode.model:"");
     const provider=state.provider||"local";
     const label=shortProviderLabel(provider,(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider);
     const model=provider==="local"?displayName(state.model):providerModelName(provider);
@@ -10415,7 +10434,7 @@ body:not(.composer-simple) main::after{
     updateCompareButton();
     $("providersel").value=state.provider;
     applyMode();
-    const label=state.codex?.enabled===true?"Codex":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
+    const label=state.codex?.enabled===true?"Codex":state.claudeCode?.enabled===true?"Claude Code":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
     const shortLabel=shortProviderLabel(state.provider,label);
     updateReadyStatus(label,shortLabel);
     renderModelCapability();
@@ -10425,6 +10444,7 @@ body:not(.composer-simple) main::after{
     $("banner").style.display=runtimeReady?"none":"";
     $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready — open Settings to pick a provider, add a key, or download a model.";
     if(!runtimeReady&&state.codex?.enabled===true) $("banner").textContent="Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.";
+    if(!runtimeReady&&state.claudeCode?.enabled===true) $("banner").textContent="Claude Code isn't ready - open Settings > Coding Agent to install it or sign in.";
     $("projdir").textContent=state.projectsDir||"";
     if($("budgetLimitInput")) $("budgetLimitInput").value=state.budgetLimit||0;
     applyUi(state.ui);
@@ -10458,14 +10478,14 @@ body:not(.composer-simple) main::after{
         const nm=activeModelName();
         setComposerModelDisplay(nm);
         updateFooterModelStatus();
-        const label=state.codex?.enabled===true?"Codex":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
+        const label=state.codex?.enabled===true?"Codex":state.claudeCode?.enabled===true?"Claude Code":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
         const shortLabel=shortProviderLabel(state.provider,label);
         updateReadyStatus(label,shortLabel);
         renderModelCapability();
         const runtimeReady=providerReadyForRun(state.provider||"local");
         $("footStatus").title=label+(runtimeReady?" - ready":" - not ready");
         $("banner").style.display=runtimeReady?"none":"";
-        $("banner").textContent=runtimeReady?"":(state.codex?.enabled===true?"Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.");
+        $("banner").textContent=runtimeReady?"":(state.codex?.enabled===true?"Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.":state.claudeCode?.enabled===true?"Claude Code isn't ready - open Settings > Coding Agent to install it or sign in.":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.");
         renderCodexSettings();
         if(viewingRun()) renderPendingApprovals();
         applyMode();
@@ -10558,7 +10578,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.67"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.68"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -12000,9 +12020,10 @@ body:not(.composer-simple) main::after{
   function updateFooterModelStatus(){
     const text=$("cmdModelText"), dot=$("cmdModelDot"), chip=$("cmdModelChip");
     if(!text&&!chip&&!dot) return;
-    const label=state.codex?.enabled===true?"Codex":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider||"Model");
-    const short=state.codex?.enabled===true?"Codex":state.provider==="local"?displayName(state.model):shortProviderLabel(state.provider,label);
-    const ready=providerReadyForRun(state.provider||"local");
+    const external=state.codex?.enabled===true?"Codex":state.claudeCode?.enabled===true?"Claude Code":"";
+    const label=external||((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider||"Model");
+    const short=external||(state.provider==="local"?displayName(state.model):shortProviderLabel(state.provider,label));
+    const ready=external?(state.codex?.enabled===true?state.codex?.ready===true:state.claudeCode?.ready===true):providerReadyForRun(state.provider||"local");
     if(text) text.textContent=(short||"Model").slice(0,12);
     if(dot) dot.className="cmd-chip-dot "+(ready?"ok":"warn");
     if(chip){
@@ -15609,7 +15630,8 @@ Optional bundled starter model:
     const codex=state.codex||{};
     const enabled=codex.enabled===true;
     const codexSelected=enabled||codexSetupOpen;
-    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",(button.dataset.runtime==="codex")===codexSelected));
+    const selectedRuntime=claudeSetupOpen?"claude-code":codexSelected?"codex":(state.codingEngine||"boolean");
+    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",button.dataset.runtime===selectedRuntime));
     if($("codexBackendCard")) $("codexBackendCard").hidden=!(enabled||codexSetupOpen);
     if($("codexCommand")&&document.activeElement!==$("codexCommand")) $("codexCommand").value=codexDisplayCommand(codex.command);
     if($("codexEffort")) $("codexEffort").value=["low","medium","high","xhigh","ultra"].includes(codex.reasoningEffort)?codex.reasoningEffort:"medium";
@@ -15670,6 +15692,54 @@ Optional bundled starter model:
     document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.disabled=codexEnablePending||installing||codexAuthPending);
     const error=missingCliExpected?"":setupError;
     if($("codexError")){ $("codexError").hidden=!error; $("codexError").textContent=error; }
+    renderClaudeCodeSettings();
+  }
+  function setClaudeSetupStep(name,{done=false,current=false,detail="Waiting"}={}){
+    const step=document.querySelector('[data-claude-step="'+name+'"]');
+    if(!step) return;
+    step.classList.toggle("done",done);
+    step.classList.toggle("current",current);
+    const icon=step.querySelector(".codex-step-icon");
+    if(icon) icon.textContent=done?"✓":({install:"1",signin:"2",ready:"3"})[name];
+    const node=$({install:"claudeInstallStepText",signin:"claudeSignInStepText",ready:"claudeReadyStepText"}[name]);
+    if(node) node.textContent=detail;
+  }
+  function renderClaudeCodeSettings(){
+    const claude=state.claudeCode||{};
+    const enabled=claude.enabled===true||state.codingEngine==="claude-code";
+    const selected=enabled||claudeSetupOpen;
+    if($("claudeBackendCard")) $("claudeBackendCard").hidden=!selected;
+    if($("claudeCodeCommand")&&document.activeElement!==$("claudeCodeCommand")) $("claudeCodeCommand").value=claude.command||"claude";
+    if($("claudeCodeModel")) $("claudeCodeModel").value=claude.model||"sonnet";
+    const installed=claude.installed===true||claude.version;
+    const signedIn=claude.signedIn===true;
+    if(signedIn) claudeLoginStarted=false;
+    const ready=claude.ready===true;
+    const active=enabled&&ready;
+    const installing=claudeInstallPending||claude.installing===true;
+    setClaudeSetupStep("install",{done:installed,current:!installed,detail:installing?"Installing...":installed?(claude.version||"Installed"):"Not installed"});
+    setClaudeSetupStep("signin",{done:signedIn,current:installed&&!signedIn,detail:signedIn?"Connected":installed?"Open sign-in":"Waiting"});
+    setClaudeSetupStep("ready",{done:active,current:ready&&!enabled,detail:active?"Active":ready?"Choose Use Claude Code":"Waiting"});
+    if($("claudeStateText")){
+      $("claudeStateText").className="codex-state "+(ready?"ready":claude.error?"error":"");
+      $("claudeStateText").textContent=installing?"Installing":claudeEnablePending?"Checking":active?"Ready":signedIn?"Ready to use":installed?"Sign in required":"Not connected";
+    }
+    if($("claudeAccountText")) $("claudeAccountText").textContent=signedIn
+      ? [claude.account?.email,claude.account?.organization,claude.account?.authMethod].filter(Boolean).join(" · ")||"Signed in through Claude Code."
+      : installed?"Finish Claude sign-in in the terminal, then check the connection.":"Set up Claude Code once, then sign in with your Claude account. Boolean never stores or displays its credentials.";
+    if($("claudeModelControls")) $("claudeModelControls").hidden=!signedIn;
+    if($("claudeCodeCheck")){ $("claudeCodeCheck").disabled=claudeEnablePending||installing; $("claudeCodeCheck").textContent=claudeEnablePending?"Checking...":"Check"; }
+    const primary=$("claudePrimaryAction");
+    if(primary){
+      const action=installing||claudeEnablePending||active?"none":ready?"enable":installed?(claudeLoginStarted?"check":"signin"):"install";
+      primary.dataset.action=action;
+      primary.disabled=action==="none";
+      primary.textContent=installing?"Installing Claude Code...":claudeEnablePending?"Checking Claude Code...":active?"Claude Code is active":ready?"Use Claude Code":installed?(claudeLoginStarted?"Check connection":"Sign in with Claude"):"Set up Claude Code";
+    }
+    if($("claudeSetupProgress")) $("claudeSetupProgress").hidden=!(installing||claudeEnablePending);
+    if($("claudeSetupProgressText")) $("claudeSetupProgressText").textContent=installing?"Installing the official Claude Code CLI on this PC...":"Checking Claude Code and your account...";
+    const error=String(claude.error||"");
+    if($("claudeCodeError")){ $("claudeCodeError").hidden=!error; $("claudeCodeError").textContent=error; }
   }
   function applyUi(ui){
     ui=ui||{};
@@ -15826,11 +15896,79 @@ Optional bundled starter model:
     const previous={...(state.codex||{})};
     const next={...previous,...patch,command:codexDisplayCommand(patch.command??previous.command)};
     state.codex=next;
+    const codingEngine=next.enabled===true?"codex":(state.codingEngine==="codex"?"boolean":(state.codingEngine||"boolean"));
+    state.codingEngine=codingEngine;
     renderCodexSettings();
     setComposerModelDisplay(activeModelName());
-    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codex:{enabled:next.enabled===true,command:next.command||"codex",model:next.model||"",reasoningEffort:next.reasoningEffort||"medium"}})});
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine,codex:{enabled:next.enabled===true,command:next.command||"codex",model:next.model||"",reasoningEffort:next.reasoningEffort||"medium"}})});
     const result=await response.json().catch(()=>({}));
     if(!response.ok){ state.codex={...previous,error:result.error||"Could not save Codex settings."}; renderCodexSettings(); return false; }
+    return true;
+  }
+  async function saveClaudeCodeSettings(patch,{engine=state.codingEngine||"boolean"}={}){
+    const previous={...(state.claudeCode||{})};
+    const next={...previous,...patch};
+    state.claudeCode=next;
+    state.codingEngine=engine;
+    renderCodexSettings();
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine:engine,claudeCode:{enabled:engine==="claude-code",command:next.command||"claude",model:next.model||"sonnet"}})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ state.claudeCode={...previous,error:result.error||"Could not save Claude Code settings."}; renderCodexSettings(); return false; }
+    return true;
+  }
+  async function refreshClaudeCodeStatus({quiet=false}={}){
+    const response=await fetch("/api/claude-code/status?refresh=1");
+    const result=await response.json().catch(()=>({ok:false,error:"Could not read Claude Code status."}));
+    state.claudeCode={...(state.claudeCode||{}),...result,error:result.ok===false?(result.error||"Claude Code is unavailable."):String(result.error||"")};
+    renderCodexSettings();
+    setComposerModelDisplay(activeModelName());
+    updateFooterModelStatus();
+    if(!quiet) tempToast(result.ready?"Claude Code is ready.":result.installed?"Claude Code is installed. Sign in to continue.":(result.error||"Claude Code is unavailable."));
+    return result;
+  }
+  async function checkClaudeCodeConnection({quiet=false}={}){
+    if(claudeEnablePending) return false;
+    claudeSetupOpen=true; codexSetupOpen=false; claudeEnablePending=true;
+    const command=$("claudeCodeCommand")?.value.trim()||state.claudeCode?.command||"claude";
+    state.claudeCode={...(state.claudeCode||{}),command,error:""}; renderCodexSettings();
+    try{
+      if(!await saveClaudeCodeSettings({command},{engine:"boolean"})) return false;
+      const result=await refreshClaudeCodeStatus({quiet:true});
+      if(result.installed!==true) throw new Error(result.error||"Claude Code CLI was not found.");
+      if(!quiet) tempToast(result.signedIn?"Claude Code is ready to use.":"Claude Code found. Sign in to continue.");
+      return result.ready===true;
+    }catch(error){ state.claudeCode={...(state.claudeCode||{}),error:error?.message||"Claude Code is unavailable."}; if(!quiet) tempToast(state.claudeCode.error); return false; }
+    finally{ claudeEnablePending=false; renderCodexSettings(); }
+  }
+  async function enableClaudeCode(){
+    const result=await refreshClaudeCodeStatus({quiet:true});
+    if(!result.ready){ claudeSetupOpen=true; renderCodexSettings(); tempToast(result.error||"Finish Claude Code sign-in first."); return false; }
+    const saved=await saveClaudeCodeSettings({command:result.command||state.claudeCode?.command||"claude"},{engine:"claude-code"});
+    if(saved){ claudeSetupOpen=false; codexSetupOpen=false; state.codex={...(state.codex||{}),enabled:false}; tempToast("Claude Code orchestration selected."); renderCodexSettings(); }
+    return saved;
+  }
+  async function installClaudeCodeCli(){
+    if(claudeInstallPending) return false;
+    const approved=await appConfirm("Install Claude Code?","Boolean will install the official Claude Code CLI with WinGet. This changes files outside your project. Continue?","Install");
+    if(!approved) return false;
+    claudeSetupOpen=true; codexSetupOpen=false; claudeInstallPending=true; renderCodexSettings();
+    try{
+      const response=await fetch("/api/claude-code/install",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||result.ok!==true) throw new Error(result.message||result.error||"Claude Code installation failed.");
+      state.claudeCode={...(state.claudeCode||{}),...result,installed:true,command:result.command||"claude",error:""};
+      tempToast("Claude Code installed. Sign in with Claude to continue.");
+      return true;
+    }catch(error){ state.claudeCode={...(state.claudeCode||{}),error:error?.message||"Claude Code could not be installed."}; tempToast(state.claudeCode.error); return false; }
+    finally{ claudeInstallPending=false; renderCodexSettings(); }
+  }
+  async function startClaudeCodeSignIn(){
+    const response=await fetch("/api/claude-code/auth/start",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok||result.ok!==true){ claudeLoginStarted=false; state.claudeCode={...(state.claudeCode||{}),error:result.message||result.error||"Claude Code sign-in could not start."}; renderCodexSettings(); return false; }
+    claudeLoginStarted=true;
+    renderCodexSettings();
+    tempToast(result.message||"Finish signing in with Claude, then press Check.");
     return true;
   }
   async function refreshCodexStatus({start=true,quiet=false}={}){
@@ -15989,16 +16127,23 @@ Optional bundled starter model:
     }
   }
   $("orchestrationSeg").querySelectorAll("button").forEach(button=>button.onclick=async()=>{
-    const enabled=button.dataset.runtime==="codex";
-    if(enabled){
+    const runtime=button.dataset.runtime;
+    if(runtime==="codex"){
+      claudeSetupOpen=false;
       if(state.codex?.ready===true&&state.codex?.account?.signedIn===true){ await checkAndEnableCodex({quiet:true}); return; }
       codexSetupOpen=true;
       renderCodexSettings();
       if(state.codex?.ready!==true) await checkCodexConnection({quiet:true});
       return;
     }
-    codexSetupOpen=false;
-    if(await saveCodexSettings({enabled:false})) tempToast("Boolean orchestration selected.");
+    if(runtime==="claude-code"){
+      codexSetupOpen=false; claudeSetupOpen=true; renderCodexSettings();
+      if(state.claudeCode?.ready===true){ await enableClaudeCode(); return; }
+      await checkClaudeCodeConnection({quiet:true});
+      return;
+    }
+    codexSetupOpen=false; claudeSetupOpen=false;
+    if(await saveClaudeCodeSettings({enabled:false},{engine:"boolean"})){ state.codex={...(state.codex||{}),enabled:false}; tempToast("Boolean orchestration selected."); renderCodexSettings(); }
   });
   $("codexCheck").onclick=async()=>{
     const command=codexDisplayCommand($("codexCommand").value);
@@ -16021,6 +16166,17 @@ Optional bundled starter model:
     const result=await response.json().catch(()=>({}));
     state.codex={...(state.codex||{}),...result,enabled:false,account:null,error:response.ok?"":(result.error||"Could not sign out.")};
     renderCodexSettings();
+  };
+  $("claudeCodeCheck").onclick=()=>checkClaudeCodeConnection();
+  $("claudeCodeCommand").onchange=()=>{ claudeSetupOpen=true; state.claudeCode={...(state.claudeCode||{}),command:$("claudeCodeCommand").value.trim()||"claude",error:""}; renderCodexSettings(); };
+  $("claudeCodeCommand").onkeydown=event=>{ if(event.key==="Enter"){ event.preventDefault(); $("claudeCodeCheck").click(); } };
+  $("claudeCodeModel").onchange=()=>saveClaudeCodeSettings({model:$("claudeCodeModel").value},{engine:state.codingEngine||"boolean"});
+  $("claudePrimaryAction").onclick=async()=>{
+    const action=$("claudePrimaryAction").dataset.action;
+    if(action==="install") await installClaudeCodeCli();
+    else if(action==="signin") await startClaudeCodeSignIn();
+    else if(action==="check") await checkClaudeCodeConnection();
+    else if(action==="enable") await enableClaudeCode();
   };
   $("agentModeGrid").querySelectorAll(".agent-mode").forEach(button=>button.onclick=()=>updateCodingAgent({mode:button.dataset.mode||"quick"}));
   $("planningModeGrid").querySelectorAll(".agent-mode").forEach(button=>button.onclick=()=>updateCodingAgent({planningMode:button.dataset.planningMode||"auto"}));
@@ -22095,6 +22251,7 @@ Optional bundled starter model:
   function providerReadyForRun(provider){
     provider=String(provider||"").trim();
     if(state.codex?.enabled===true&&provider===(state.provider||"local")) return state.codex?.ready===true&&state.codex?.account?.signedIn===true;
+    if(state.claudeCode?.enabled===true&&provider===(state.provider||"local")) return state.claudeCode?.ready===true;
     const ready=state.providerReady||{};
     if(provider==="local") return ready.local===true&&selectedLocalModelReady();
     if(!provider||!PROVIDER_LABELS[provider]) return false;
@@ -22106,6 +22263,12 @@ Optional bundled starter model:
       if(state.codex?.ready===true&&state.codex?.account?.signedIn===true) return {ready:true,provider:current,model:state.codex.model||"Codex default",runtime:"codex"};
       openSettings("agent");
       tempToast("Finish Codex setup or switch orchestration back to Boolean.");
+      return {ready:false};
+    }
+    if(state.claudeCode?.enabled===true){
+      if(state.claudeCode?.ready===true) return {ready:true,provider:current,model:state.claudeCode.model||"sonnet",runtime:"claude-code"};
+      openSettings("agent");
+      tempToast("Finish Claude Code setup or switch orchestration back to Boolean.");
       return {ready:false};
     }
     if(providerReadyForRun(current)&&!directProviderRequiresExplicitPick(current)) return {ready:true,provider:current,model:current==="local"?state.model:providerModelName(current)};

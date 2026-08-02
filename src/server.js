@@ -76,6 +76,10 @@ import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
 import { createCodexAppServer, installCodexStandaloneCli } from "./codex-app-server.js";
 import { createCodexRunner } from "./codex-runner.js";
+import {
+  installClaudeCode, readClaudeCodeStatus,
+  runClaudeCodeTurn, startClaudeCodeLogin
+} from "./claude-code.js";
 import officialEducationCatalog from "./education-official.json" with { type: "json" };
 import { listActions, searchActions } from "./actions.js";
 
@@ -226,6 +230,16 @@ function loadLegalText(file) {
 }
 
 const ABOUT_RELEASES = [
+  {
+    version: "0.9.68",
+    date: "2026-08-01",
+    title: "Reliable Codex and Claude Code engines",
+    details: [
+      "Adds guided Claude Code installation and sign-in with Sonnet, Opus, and Haiku orchestration beside Boolean and Codex.",
+      "Maps Read only, Read & write, and Full access to native coding-engine permissions and preserves the selected project boundary.",
+      "Verifies every claimed Codex or Claude file change against the exact path and diff on disk before it appears in Changes."
+    ]
+  },
   {
     version: "0.9.67",
     date: "2026-08-01",
@@ -485,6 +499,7 @@ export function clearCodexThreadMapping(thread) {
   const ids = codexThreadIds([thread]);
   delete thread.codex;
   delete thread.codexActive;
+  delete thread.claudeCode;
   const isMappedCodexOrchestration = (orchestration) => {
     const id = String(orchestration?.thread?.id || "").trim();
     return !!id && ids.includes(id);
@@ -921,6 +936,31 @@ function invalidateProjectStatus(projectDir = "") {
   projectStatusCache.delete(path.resolve(projectDir).toLowerCase());
 }
 
+function codexWorkspaceChanges(projectDir = "") {
+  if (!projectDir) return [];
+  const root = path.resolve(projectDir);
+  try {
+    const review = gitDiffFiles(root);
+    return review.files.slice(0, 12).map((file) => {
+      const relativePath = String(file?.path || "");
+      const absolutePath = path.resolve(root, relativePath);
+      const inside = absolutePath === root || absolutePath.startsWith(`${root}${path.sep}`);
+      const diff = (Array.isArray(file?.lines) ? file.lines : []).slice(0, 160).map((line) => {
+        if (line?.type === "add") return `+${line.text || ""}`;
+        if (line?.type === "del") return `-${line.text || ""}`;
+        if (line?.type === "hunk") return String(line.text || "");
+        return ` ${line?.text || ""}`;
+      }).join("\n");
+      return {
+        path: relativePath,
+        absolutePath: inside ? absolutePath : "",
+        status: String(file?.status || "modified"),
+        diff: diff.slice(0, 5000)
+      };
+    }).filter((file) => file.path && file.absolutePath);
+  } catch { return []; }
+}
+
 function runGit(projectDir, args, timeout = 10000) {
   const r = spawnSync("git", args, { cwd: projectDir, encoding: "utf8", timeout });
   return { code: r.status ?? 1, stdout: String(r.stdout || "").trim(), stderr: String(r.stderr || "").trim() };
@@ -1103,7 +1143,11 @@ export function startServer(config, {
   codexNow = Date.now,
   // The UI cancels after five minutes. Keep the backend lease longer so its
   // final status poll can still cancel the original app-server login by ID.
-  codexLoginTtlMs = 10 * 60 * 1000
+  codexLoginTtlMs = 10 * 60 * 1000,
+  claudeInstaller = installClaudeCode,
+  claudeStatusReader = readClaudeCodeStatus,
+  claudeLoginStarter = startClaudeCodeLogin,
+  claudeTurnRunner = runClaudeCodeTurn
 } = {}) {
   const uiHtml = loadUiHtml();
   const managedEmailOAuthClients = emailOAuthClients || loadManagedEmailOAuthClients();
@@ -1134,6 +1178,9 @@ export function startServer(config, {
   let codexLoginStarting = false;
   let codexLoginCompletedWhileStarting = "";
   let codexLoginGeneration = 0;
+  let claudeInstallPromise = null;
+  let claudeCheckedAt = 0;
+  let claudeStatus = null;
   const codexLoginLeaseMs = Math.max(1000, Number(codexLoginTtlMs) || 10 * 60 * 1000);
 
   const clearCodexLogin = () => {
@@ -1214,6 +1261,25 @@ export function startServer(config, {
     models: codexModels,
     checkedAt: codexCheckedAt
   });
+  const claudeCommand = () => String(process.env.CLAUDE_CODE_EXECUTABLE || config.claudeCode?.command || "claude").trim() || "claude";
+  const refreshClaudeStatus = ({ force = false } = {}) => {
+    if (!force && claudeStatus && Date.now() - claudeCheckedAt < 5000) return claudeStatus;
+    claudeStatus = claudeStatusReader(claudeCommand());
+    claudeCheckedAt = Date.now();
+    return claudeStatus;
+  };
+  const publicClaudeStatus = ({ refresh = false } = {}) => {
+    const status = refreshClaudeStatus({ force: refresh });
+    return {
+      enabled: config.codingEngine === "claude-code" || config.claudeCode?.enabled === true,
+      command: config.claudeCode?.command || "claude",
+      model: config.claudeCode?.model || "sonnet",
+      installing: !!claudeInstallPromise,
+      ready: status.ready === true && status.signedIn === true,
+      ...status,
+      checkedAt: claudeCheckedAt
+    };
+  };
   const publicCodexInputs = () => [...pendingCodexInputs.entries()].map(([id, entry]) => ({
     id,
     threadId: String(entry?.threadId || ""),
@@ -2245,7 +2311,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           budgetLimit: config.budgetLimit || 0,
           connectors: publicConnectors(config, managedEmailOAuthClients),
           imageGeneration: publicImageGeneration(config),
+          codingEngine: config.codingEngine || (config.codex?.enabled ? "codex" : "boolean"),
           codex: publicCodexStatus(),
+          claudeCode: publicClaudeStatus(),
           codexPendingInputs: publicCodexInputs(),
           codexPendingApprovals: publicCodexApprovals(),
           cloudBackend: publicCloudBackend(config),
@@ -2285,7 +2353,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           autoApprove: config.autoApprove,
           backendUp: providerReady[config.provider] === true,
           providerReady,
+          codingEngine: config.codingEngine || (config.codex?.enabled ? "codex" : "boolean"),
           codex: publicCodexStatus(),
+          claudeCode: publicClaudeStatus(),
           codexPendingInputs: publicCodexInputs(),
           codexPendingApprovals: publicCodexApprovals(),
           threads: threadList(),
@@ -3059,6 +3129,28 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           restartCodex = nextCodex.command !== old.command || (old.enabled === true && nextCodex.enabled !== true);
           config.codex = nextCodex;
         }
+        if (body.claudeCode && typeof body.claudeCode === "object") {
+          if (claudeInstallPromise) return json({ ok: false, error: "install_in_progress", message: "Claude Code setup is already running." }, 409);
+          const old = config.claudeCode || {};
+          const command = body.claudeCode.command === undefined
+            ? String(old.command || "claude")
+            : String(body.claudeCode.command || "claude").trim();
+          if (!command || command.length > 1024 || /[\r\n\0]/.test(command)) return json({ error: "invalid_claude_command" }, 400);
+          config.claudeCode = {
+            enabled: body.claudeCode.enabled === undefined ? old.enabled === true : body.claudeCode.enabled === true,
+            command,
+            model: String(body.claudeCode.model === undefined ? (old.model || "sonnet") : body.claudeCode.model).trim().slice(0, 200) || "sonnet"
+          };
+          claudeStatus = null;
+          claudeCheckedAt = 0;
+        }
+        if (body.codingEngine !== undefined) {
+          const engine = String(body.codingEngine || "boolean");
+          if (!new Set(["boolean", "codex", "claude-code"]).has(engine)) return json({ error: "invalid_coding_engine" }, 400);
+          config.codingEngine = engine;
+          config.codex = { ...(config.codex || {}), enabled: engine === "codex" };
+          config.claudeCode = { ...(config.claudeCode || {}), enabled: engine === "claude-code" };
+        }
         if (body.connectors && typeof body.connectors === "object") config.connectors = mergeConnectors(config.connectors, body.connectors);
         if (typeof body.removeApiConnector === "string") {
           explicitConnectionRemoval = true;
@@ -3079,6 +3171,34 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         if (restartCodex) await stopCodexClient();
         if (adminCloudVaultEnabled(config)) syncCloudVault(config, { merge: false }).catch(() => {});
         json({ ok: true, accessMode: currentAccessMode(config), autoApprove: config.autoApprove === true });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/claude-code/status") {
+        try { json({ ok: true, ...publicClaudeStatus({ refresh: url.searchParams.get("refresh") === "1" }) }); }
+        catch (error) { json({ ok: false, error: String(error?.message || error), ...publicClaudeStatus() }, 400); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/claude-code/install") {
+        if (claudeInstallPromise) return json({ ok: false, error: "install_in_progress", message: "Claude Code setup is already running." }, 409);
+        claudeInstallPromise = Promise.resolve().then(() => claudeInstaller({ platform: process.platform }));
+        try {
+          const result = await claudeInstallPromise;
+          if (!result?.ok) return json(result, 500);
+          config.claudeCode = { ...(config.claudeCode || {}), command: result.command || "claude" };
+          saveConfig(config);
+          claudeStatus = null;
+          json({ ...result, ...publicClaudeStatus({ refresh: true }), ok: true });
+        } catch (error) {
+          json({ ok: false, error: "install_failed", message: `Claude Code setup failed: ${error?.message || error}` }, 500);
+        } finally { claudeInstallPromise = null; }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/claude-code/auth/start") {
+        const result = claudeLoginStarter(claudeCommand(), { platform: process.platform });
+        json(result, result.ok ? 200 : 400);
         return;
       }
 
@@ -4941,12 +5061,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         const requestedProvider = PROVIDERS.includes(String(body.provider || "")) ? String(body.provider || "") : "";
         const requestedModel = String(body.model || "").trim();
-        const codexRequested = config.codex?.enabled === true && body.sideChat !== true && body.salesWorkflow !== true && body.workflowRun !== true;
-        const effectiveProvider = codexRequested ? "codex" : (requestedProvider || config.provider);
+        const selectedCodingEngine = config.codingEngine || (config.codex?.enabled ? "codex" : "boolean");
+        const externalEngineRequested = selectedCodingEngine !== "boolean" && body.sideChat !== true && body.salesWorkflow !== true && body.workflowRun !== true;
+        const effectiveProvider = externalEngineRequested ? selectedCodingEngine : (requestedProvider || config.provider);
 
-        if (codexRequested && Array.isArray(body.images) && body.images.length) {
+        if (externalEngineRequested && Array.isArray(body.images) && body.images.length) {
           const send = openNdjsonStream(res);
-          send({ type: "error", text: "This Codex integration does not accept pasted image data yet. Switch the orchestration engine to Boolean for this image turn." });
+          send({ type: "error", text: `This ${selectedCodingEngine === "claude-code" ? "Claude Code" : "Codex"} integration does not accept pasted image data yet. Switch the orchestration engine to Boolean for this image turn.` });
           send({ type: "done" });
           res.end();
           return;
@@ -5077,9 +5198,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const baseConfig = { ...config, ...(t.projectDir ? { projectsDir: t.projectDir } : {}) };
         let runConfig = options.provider ? { ...baseConfig, provider: options.provider, [options.provider]: { ...(baseConfig[options.provider] || {}) } } : baseConfig;
         if (options.provider && options.model && runConfig[options.provider]) runConfig[options.provider].model = options.model;
-        const useCodex = config.codex?.enabled === true && options.disableCodex !== true;
-        const replyProvider = useCodex ? "codex" : (runConfig.provider || "local");
-        let replyModel = useCodex ? (config.codex?.model || "Codex default") : currentModel(runConfig);
+        const selectedCodingEngine = config.codingEngine || (config.codex?.enabled ? "codex" : "boolean");
+        const useCodex = selectedCodingEngine === "codex" && options.disableCodex !== true;
+        const useClaudeCode = selectedCodingEngine === "claude-code" && options.disableCodex !== true;
+        const useExternalEngine = useCodex || useClaudeCode;
+        const replyProvider = useCodex ? "codex" : useClaudeCode ? "claude-code" : (runConfig.provider || "local");
+        let replyModel = useCodex ? (config.codex?.model || "Codex default") : useClaudeCode ? (config.claudeCode?.model || "sonnet") : currentModel(runConfig);
 
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
@@ -5407,6 +5531,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               // beneath the configured projects workspace instead of being
               // silently downgraded to read-only.
               projectDir: t.projectDir || config.projectsDir || "",
+              workspaceChanges: codexWorkspaceChanges(t.projectDir || config.projectsDir || ""),
               networkAccess: config.ui?.aiBrowser !== false,
               approvalPolicy: currentAccessMode(runConfig) === "full_access" ? "never" : "on-request",
               sandboxPolicy: currentAccessMode(runConfig) === "read_only"
@@ -5500,12 +5625,35 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             emitActivity({ method: `turn/${codexTurnStatus}` }, codexTurnStatus);
             if (result.status === "failed") throw new Error(result.error || "Codex stopped with an error.");
             answer = result.content;
+          } else if (useClaudeCode) {
+            const latestUser = [...t.messages].reverse().find((message) => message?.role === "user");
+            const result = await claudeTurnRunner({
+              command: config.claudeCode?.command || "claude",
+              input: currentTurnInstructionText(latestUser || ""),
+              projectDir: t.projectDir || config.projectsDir || "",
+              workspaceChanges: codexWorkspaceChanges(t.projectDir || config.projectsDir || ""),
+              mapping: t.claudeCode || {},
+              model: config.claudeCode?.model || "sonnet",
+              accessMode: currentAccessMode(runConfig),
+              signal: abort.signal,
+              onStatus: ctx.onStatus,
+              onToken: ctx.onToken,
+              onUsage: ctx.onUsage,
+              onStep: ctx.onStep,
+              onMapping: (mapping) => {
+                t.claudeCode = mapping;
+                t.updatedAt = Date.now();
+                persist();
+              }
+            });
+            codexTurnStatus = result.status || "completed";
+            answer = result.answer;
           } else {
             answer = await runTurn(ctx, t.messages);
           }
           if (String(answer || "").trim()) {
-            if (useCodex) t.messages.push({ role: "assistant", content: answer });
-            const aiLabel = useCodex ? "Codex" : shortAiName(replyProvider, replyModel);
+            if (useExternalEngine) t.messages.push({ role: "assistant", content: answer });
+            const aiLabel = useCodex ? "Codex" : useClaudeCode ? "Claude Code" : shortAiName(replyProvider, replyModel);
             t.log.push({ t: "ai", text: answer, at: Date.now(), provider: replyProvider, model: replyModel, aiLabel });
             // Usage must reach the UI before `answer`, which is the stream's
             // terminal record. Local model performance uses the exact output
@@ -5516,13 +5664,14 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               t.log.push(usage);
               send({ type: "usage", ...usage });
             }
-            const turnStatus = useCodex ? (codexTurnStatus || "completed") : (ctx.orchestrationResult?.thread?.turns?.at(-1)?.status || "completed");
+            const turnStatus = useExternalEngine ? (codexTurnStatus || "completed") : (ctx.orchestrationResult?.thread?.turns?.at(-1)?.status || "completed");
             send({ type: turnStatus === "completed" ? "answer" : "paused", text: answer, provider: replyProvider, model: replyModel, aiLabel, turnStatus });
-          } else if (useCodex && codexTurnStatus === "interrupted") {
-            send({ type: "paused", text: "Codex stopped safely. You can continue this task when ready.", provider: replyProvider, model: replyModel, aiLabel: "Codex", turnStatus: "interrupted" });
+          } else if (useExternalEngine && codexTurnStatus === "interrupted") {
+            const aiLabel = useClaudeCode ? "Claude Code" : "Codex";
+            send({ type: "paused", text: `${aiLabel} stopped safely. You can continue this task when ready.`, provider: replyProvider, model: replyModel, aiLabel, turnStatus: "interrupted" });
           }
           if (t.pendingTask && !options.inspectSavedTask) {
-            const turnStatus = useCodex ? codexTurnStatus : ctx.orchestrationResult?.thread?.turns?.at(-1)?.status;
+            const turnStatus = useExternalEngine ? codexTurnStatus : ctx.orchestrationResult?.thread?.turns?.at(-1)?.status;
             t.pendingTask.state = turnStatus === "completed" ? "completed" : (turnStatus || "interrupted");
             t.pendingTask.updatedAt = Date.now();
           }

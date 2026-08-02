@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { buildCodexBootstrap, CodexRunner, runCodexTurn } from "../src/codex-runner.js";
+import { buildCodexBootstrap, CodexRunner, runCodexTurn, verifyCodexFileChanges } from "../src/codex-runner.js";
 
 class FakeCodexClient extends EventEmitter {
   constructor({ threadId = "thr_new", turnId = "turn_1", onTurn } = {}) {
@@ -116,6 +119,7 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
     ],
     model: "gpt-test",
     projectDir: "C:/work",
+    workspaceChanges: [{ status: "modified", path: "src/parser.js", absolutePath: "C:/work/src/parser.js", diff: "@@ -1 +1 @@\n-old\n+new" }],
     networkAccess: true,
     onStatus: (value) => statuses.push(value),
     onToken: (value) => tokens.push(value),
@@ -134,6 +138,9 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(client.turnStarts[0].options.sandboxPolicy.networkAccess, true);
   assert.match(client.turnStarts[0].input[0].text, /We were fixing the parser/);
   assert.match(client.turnStarts[0].input[0].text, /Current request:\nFinish it and run the test/);
+  assert.match(client.turnStarts[0].input[0].text, /Boolean Changes panel before this turn/);
+  assert.match(client.turnStarts[0].input[0].text, /C:\/work\/src\/parser\.js/);
+  assert.match(client.turnStarts[0].input[0].text, /\+new/);
   assert.doesNotMatch(client.turnStarts[0].input[0].text, /Boolean-only system rule/);
   assert.equal(result.status, "completed");
   assert.equal(result.content, "Done.");
@@ -155,6 +162,90 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(mappings[0].threadId, "thr_new");
   assert.equal(mappings.at(-1).status, "completed");
   assert.ok(statuses.includes("Codex finished the task."));
+});
+
+test("a completed Codex edit is counted only after Boolean verifies its exact path and diff on disk", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-edit-"));
+  try {
+    const filename = "codex-edit-test.txt";
+    const absolute = path.join(root, filename);
+    const diff = "--- /dev/null\n+++ b/codex-edit-test.txt\n@@ -0,0 +1 @@\n+verified content\n";
+    const client = new FakeCodexClient({
+      onTurn(instance) {
+        fs.writeFileSync(absolute, "verified content\n");
+        const ids = { threadId: instance.threadId, turnId: instance.turnId };
+        instance.notify("item/completed", {
+          ...ids,
+          item: { id: "file_1", type: "fileChange", status: "completed", changes: [{ path: filename, kind: { type: "add" }, diff }] }
+        });
+        instance.notify("turn/diff/updated", { ...ids, diff });
+        instance.notify("turn/completed", { ...ids, turn: { id: instance.turnId, status: "completed", items: [], error: null } });
+      }
+    });
+    const steps = [];
+    await runCodexTurn({ client, input: `Create ${filename}`, projectDir: root, onStep: (step) => steps.push(step) });
+    assert.equal(steps.length, 1);
+    assert.equal(steps[0].name, "apply_patch");
+    assert.equal(steps[0].verified, true);
+    assert.equal(steps[0].args.changes.length, 1);
+    assert.equal(steps[0].args.changes[0].path, filename);
+    assert.equal(path.resolve(steps[0].args.changes[0].absolutePath), path.resolve(absolute));
+    assert.equal(steps[0].args.changes[0].readable, true);
+    assert.equal(steps[0].args.changes[0].diff, diff);
+    assert.equal(fs.readFileSync(absolute, "utf8"), "verified content\n");
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("failed or unverifiable Codex edits never produce a Changed file step", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-failed-edit-"));
+  try {
+    const failed = verifyCodexFileChanges(root, [{
+      type: "fileChange",
+      status: "failed",
+      changes: [{ path: "codex-edit-test.txt", kind: { type: "add" }, diff: "+missing" }]
+    }]);
+    assert.deepEqual(failed.changes, []);
+    assert.match(failed.issues.join(" "), /did not count it/);
+    const missing = verifyCodexFileChanges(root, [{
+      type: "fileChange",
+      status: "completed",
+      changes: [{ path: "codex-edit-test.txt", kind: { type: "add" }, diff: "+missing" }]
+    }]);
+    assert.deepEqual(missing.changes, []);
+    assert.match(missing.issues.join(" "), /could not verify/);
+    fs.writeFileSync(path.join(root, "codex-edit-test.txt"), "old content\n");
+    const unwritten = verifyCodexFileChanges(root, [{
+      type: "fileChange",
+      status: "completed",
+      changes: [{ path: "codex-edit-test.txt", kind: { type: "update" }, diff: "+expected content" }]
+    }]);
+    assert.deepEqual(unwritten.changes, []);
+    assert.match(unwritten.issues.join(" "), /reported content was not written/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a Codex deletion is verified only when the exact file is gone", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-delete-"));
+  try {
+    const filename = "codex-edit-test.txt";
+    const absolute = path.join(root, filename);
+    fs.writeFileSync(absolute, "remove me\n");
+    fs.rmSync(absolute);
+    const result = verifyCodexFileChanges(root, [{
+      type: "fileChange",
+      status: "completed",
+      changes: [{ path: filename, kind: { type: "delete" }, diff: "-remove me" }]
+    }]);
+    assert.equal(result.changes.length, 1);
+    assert.equal(result.changes[0].status, "deleted");
+    assert.equal(result.changes[0].exists, false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("Codex thread modes use kebab-case while turn sandbox policies stay structured", async () => {

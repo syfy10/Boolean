@@ -1,4 +1,6 @@
 import { createCodexAppServer } from "./codex-app-server.js";
+import fs from "node:fs";
+import path from "node:path";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "interrupted"]);
 const APPROVAL_METHODS = new Set([
@@ -37,6 +39,21 @@ function latestUserInput(messages, explicitInput) {
     if (text) return text;
   }
   return "";
+}
+
+function workspaceChangesContext(changes = []) {
+  if (!Array.isArray(changes) || !changes.length) return "";
+  const rows = changes.slice(0, 12).map((change) => {
+    const status = String(change?.status || "modified");
+    const exactPath = String(change?.absolutePath || change?.path || "").slice(0, 1200);
+    const diff = String(change?.diff || "").slice(0, 4000);
+    return `- ${status}: ${exactPath}${diff ? `\n${diff}` : ""}`;
+  });
+  return [
+    "Boolean Changes panel before this turn (host-verified paths and diffs):",
+    ...rows,
+    "Use safe project commands to inspect these exact files when the request depends on them."
+  ].join("\n").slice(0, 12000);
 }
 
 /** Build a bounded one-time handoff when a Boolean chat first becomes a Codex thread. */
@@ -222,6 +239,87 @@ function stepFromItem(item) {
   return { name: type, args: {}, result: item.status || "", item };
 }
 
+function patchKind(change) {
+  return String(change?.kind?.type || change?.kind || "update").toLowerCase();
+}
+
+function withinRoot(root, target) {
+  const relative = path.relative(root, target);
+  return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+export function verifyCodexFileChanges(projectDir, items = [], { turnDiff = "", turnDiffSeen = false } = {}) {
+  const root = path.resolve(String(projectDir || ""));
+  const verified = [];
+  const issues = [];
+  const seen = new Set();
+  if (!items.length) return { changes: [], issues: [] };
+  if (!projectDir) return { changes: [], issues: ["Codex reported a file change without a selected project folder."] };
+  if (turnDiffSeen && !String(turnDiff || "").trim()) return { changes: [], issues: [] };
+  for (const item of items) {
+    if (String(item?.status || "").toLowerCase() !== "completed") {
+      if (String(item?.status || "").toLowerCase() === "failed") issues.push("Codex reported that a file edit failed; Boolean did not count it as a change.");
+      continue;
+    }
+    for (const change of Array.isArray(item?.changes) ? item.changes : []) {
+      const sourcePath = String(change?.path || "").trim();
+      if (!sourcePath) {
+        issues.push("Codex completed a file edit without reporting its path.");
+        continue;
+      }
+      const absolutePath = path.isAbsolute(sourcePath) ? path.resolve(sourcePath) : path.resolve(root, sourcePath);
+      if (!withinRoot(root, absolutePath)) {
+        issues.push(`Codex reported a change outside the selected project: ${sourcePath}`);
+        continue;
+      }
+      const relativePath = path.relative(root, absolutePath).replace(/\\/g, "/") || path.basename(absolutePath);
+      const kind = patchKind(change);
+      let exists = false;
+      let readable = false;
+      let currentText = null;
+      try {
+        const stat = fs.statSync(absolutePath);
+        exists = stat.isFile();
+        if (exists) {
+          const handle = fs.openSync(absolutePath, "r");
+          fs.closeSync(handle);
+          readable = true;
+          if (stat.size <= 2 * 1024 * 1024) currentText = fs.readFileSync(absolutePath, "utf8");
+        }
+      } catch {}
+      const deletion = kind === "delete" || kind === "deleted";
+      if ((!deletion && (!exists || !readable)) || (deletion && exists)) {
+        issues.push(`Codex reported ${kind} for ${relativePath}, but Boolean could not verify that result on disk.`);
+        continue;
+      }
+      const changeDiff = String(change?.diff || "");
+      const expectedAddedLines = changeDiff.split(/\r?\n/)
+        .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+        .map((line) => line.slice(1))
+        .filter((line) => line.trim())
+        .slice(0, 80);
+      if (!deletion && currentText !== null && expectedAddedLines.some((line) => !currentText.includes(line))) {
+        issues.push(`Codex reported a completed edit for ${relativePath}, but the reported content was not written. Boolean did not count it as a change.`);
+        continue;
+      }
+      const key = `${kind}:${relativePath.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      verified.push({
+        path: relativePath,
+        absolutePath,
+        kind,
+        status: deletion ? "deleted" : kind === "add" || kind === "added" ? "added" : "modified",
+        exists: !deletion,
+        readable: deletion ? false : readable,
+        contentVerified: deletion || currentText !== null,
+        diff: String(changeDiff || turnDiff || "")
+      });
+    }
+  }
+  return { changes: verified, issues: [...new Set(issues)] };
+}
+
 function approvalResult(value) {
   if (value && typeof value === "object" && Object.hasOwn(value, "decision")) return value;
   if (value && typeof value === "object" && value.approved !== undefined) {
@@ -321,6 +419,7 @@ export class CodexRunner {
       model = "",
       projectDir = "",
       cwd = projectDir || "",
+      workspaceChanges = [],
       approvalPolicy = "on-request",
       sandboxPolicy,
       networkAccess = false,
@@ -407,6 +506,9 @@ export class CodexRunner {
       usage: null,
       usageBaseline: null,
       terminal: null,
+      fileChangeItems: [],
+      turnDiff: "",
+      turnDiffSeen: false,
       complete,
       fail
     };
@@ -423,7 +525,9 @@ export class CodexRunner {
     };
     signal?.addEventListener("abort", requestInterrupt, { once: true });
     try {
-      const turnInput = isNewThread ? buildCodexBootstrap(messages, currentInput) : currentInput;
+      const baseTurnInput = isNewThread ? buildCodexBootstrap(messages, currentInput) : currentInput;
+      const changesContext = workspaceChangesContext(workspaceChanges);
+      const turnInput = changesContext ? `${baseTurnInput}\n\n${changesContext}` : baseTurnInput;
       callback(onStatus, "Codex is working...");
       const turnOptions = {
         ...(cwd ? { cwd } : {}),
@@ -446,6 +550,19 @@ export class CodexRunner {
         this.#finishRun(run, { turn: turnResult.turn });
       }
       const terminal = await completed;
+      const fileVerification = verifyCodexFileChanges(cwd, run.fileChangeItems, {
+        turnDiff: run.turnDiff,
+        turnDiffSeen: run.turnDiffSeen
+      });
+      if (fileVerification.changes.length) {
+        callback(onStep, {
+          name: "apply_patch",
+          args: { changes: fileVerification.changes },
+          result: JSON.stringify({ verified: true, changes: fileVerification.changes }),
+          verified: true
+        });
+      }
+      for (const issue of fileVerification.issues) callback(onStatus, issue, { warning: true, kind: "file_verification" });
       const status = normalizeStatus(terminal?.turn?.status || run.terminal?.status);
       const terminalError = errorText(terminal?.turn?.error) || run.lastError;
       const terminalUsageSource = terminal?.turn?.usage || terminal?.usage;
@@ -552,7 +669,14 @@ export class CodexRunner {
           const summary = Array.isArray(item.summary) ? item.summary.map((part) => part?.text || part).join("\n") : item.summary;
           if (summary) callback(run.callbacks.onStatus, String(summary), { kind: "reasoning" });
         }
-        if (method === "item/completed" && TOOL_ITEM_TYPES.has(item.type)) callback(run.callbacks.onStep, stepFromItem(item));
+        if (method === "item/completed" && item.type === "fileChange") {
+          run.fileChangeItems.push(item);
+          if (String(item.status || "").toLowerCase() === "failed") {
+            callback(run.callbacks.onStatus, "Codex could not apply that file change. Boolean did not add it to Changes.", { warning: true, kind: "file_verification" });
+          }
+        } else if (method === "item/completed" && TOOL_ITEM_TYPES.has(item.type)) {
+          callback(run.callbacks.onStep, stepFromItem(item));
+        }
         return;
       }
       if (method === "item/agentMessage/delta") {
@@ -582,6 +706,12 @@ export class CodexRunner {
         return;
       }
       if (method === "item/commandExecution/outputDelta") {
+        callback(run.callbacks.onItem, { method, params, threadId: run.threadId, turnId: ids.turnId || run.turnId });
+        return;
+      }
+      if (method === "turn/diff/updated") {
+        run.turnDiffSeen = true;
+        run.turnDiff = String(params.diff || "");
         callback(run.callbacks.onItem, { method, params, threadId: run.threadId, turnId: ids.turnId || run.turnId });
         return;
       }

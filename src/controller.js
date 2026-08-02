@@ -287,7 +287,18 @@ function actionFingerprint(name, args = {}) {
 }
 
 function fileArgument(args = {}) {
-  return args.path || args.file || args.cwd || "";
+  const firstChange = Array.isArray(args.changes)
+    ? args.changes.find((change) => change?.path || change?.file || change?.absolutePath)
+    : null;
+  return args.path || args.file || firstChange?.absolutePath || firstChange?.path || firstChange?.file || args.cwd || "";
+}
+
+function fileArguments(args = {}) {
+  const values = [args.path, args.file];
+  if (Array.isArray(args.changes)) {
+    for (const change of args.changes) values.push(change?.absolutePath || change?.path || change?.file || "");
+  }
+  return [...new Set(values.map((value) => cleanText(value, 260)).filter(Boolean))];
 }
 
 function defaultPlan(projectBound, debugRequired = false, objective = "") {
@@ -1088,8 +1099,11 @@ export class AgentController {
       this.mutationCount++;
       this.nonProgressCount = 0;
       this.actionCounts = {};
-      const changed = cleanText(fileArgument(args), 260);
-      if (changed && !this.changedFiles.includes(changed)) this.changedFiles.push(changed);
+      const changedPaths = fileArguments(args);
+      const changed = changedPaths[0] || "";
+      for (const changedPath of changedPaths) {
+        if (!this.changedFiles.includes(changedPath)) this.changedFiles.push(changedPath);
+      }
       this.changedFiles = this.changedFiles.slice(-12);
       if (changed) {
         this.editChurn[changed] = (this.editChurn[changed] || 0) + 1;

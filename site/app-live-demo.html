@@ -60,7 +60,7 @@
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785605244030,
+    "updatedAt": 1785638412198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -70,7 +70,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785432444030,
+    "updatedAt": 1785465612198,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -80,7 +80,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785569244030,
+    "updatedAt": 1785602412198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -90,7 +90,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785565644030,
+    "updatedAt": 1785598812198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -100,7 +100,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785562044030,
+    "updatedAt": 1785595212198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -110,7 +110,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785558444030,
+    "updatedAt": 1785591612198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -120,7 +120,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785526044030,
+    "updatedAt": 1785559212198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -141,8 +141,8 @@
    "browserTabs": []
   },
   "appName": "Boolean",
-  "version": "0.9.67",
-  "displayVersion": "v0.9.67",
+  "version": "0.9.68",
+  "displayVersion": "v0.9.68",
   "providers": [
    "local",
    "openai",
@@ -186,7 +186,7 @@
    {
     "id": "demo-new",
     "title": "New chat",
-    "updatedAt": 1785605244030,
+    "updatedAt": 1785638412198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -196,7 +196,7 @@
    {
     "id": "demo-proj",
     "title": "My Project",
-    "updatedAt": 1785432444030,
+    "updatedAt": 1785465612198,
     "pinned": false,
     "kind": "project",
     "side": false,
@@ -206,7 +206,7 @@
    {
     "id": "demo-c1",
     "title": "Getting started",
-    "updatedAt": 1785569244030,
+    "updatedAt": 1785602412198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -216,7 +216,7 @@
    {
     "id": "demo-c2",
     "title": "Draft blog post",
-    "updatedAt": 1785565644030,
+    "updatedAt": 1785598812198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -226,7 +226,7 @@
    {
     "id": "demo-c3",
     "title": "Trip itinerary",
-    "updatedAt": 1785562044030,
+    "updatedAt": 1785595212198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -236,7 +236,7 @@
    {
     "id": "demo-c4",
     "title": "Bug fix ideas",
-    "updatedAt": 1785558444030,
+    "updatedAt": 1785591612198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -246,7 +246,7 @@
    {
     "id": "demo-c5",
     "title": "Meeting notes",
-    "updatedAt": 1785526044030,
+    "updatedAt": 1785559212198,
     "pinned": false,
     "kind": "chat",
     "side": false,
@@ -259,8 +259,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.67",
-  "displayVersion": "v0.9.67",
+  "version": "0.9.68",
+  "displayVersion": "v0.9.68",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true
@@ -294,8 +294,7 @@
  "/api/estimate": {
   "tokens": 0
  }
-}
-;</script>
+};</script>
 <script>
 /* Boolean marketing demo runtime.
  * Injected into a copy of the real app UI (src/ui.html) BEFORE the app's own
@@ -859,15 +858,18 @@
   .personal-chat-head{ margin-top:13px; padding-top:4px; border-top:1px solid var(--border); }
   .personal-chat-more{ align-self:flex-start; width:auto; min-height:20px; margin:2px 0 2px 24px; padding:0; border:0; border-radius:0; background:transparent; color:var(--dim); cursor:pointer; font:500 9.5px var(--ui); text-align:left; }
   .personal-chat-more:hover{ background:transparent; color:var(--text); text-decoration:underline; }
-  .sidebar-account-card{ flex:0 0 auto; min-height:48px; margin:7px 10px 9px; padding:7px 9px; border:1px solid var(--border); border-radius:10px;
-    background:var(--sidebar); color:var(--text); display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:8px; cursor:pointer; text-align:left; }
-  .sidebar-account-card:hover{ background:var(--hover); }
+  .sidebar-account-card{ flex:0 0 auto; min-height:48px; margin:7px 10px 9px; padding:7px 7px 7px 9px; border:1px solid var(--border); border-radius:10px;
+    background:var(--sidebar); color:var(--text); display:grid; grid-template-columns:minmax(0,1fr) 28px; align-items:center; gap:5px; text-align:left; }
+  .sidebar-account-main{ min-width:0; display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:8px; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; text-align:left; }
+  .sidebar-account-settings{ width:28px; height:28px; display:grid; place-items:center; padding:0; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; }
+  .sidebar-account-main:hover .sidebar-account-copy b,.sidebar-account-settings:hover{ color:var(--text); }
+  .sidebar-account-settings:hover{ background:var(--hover); }
+  .sidebar-account-settings svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .sidebar-account-avatar{ width:28px; height:28px; display:grid; place-items:center; border-radius:50%; background:color-mix(in srgb,var(--green) 12%,var(--sidebar)); color:var(--green); font:650 11px var(--ui); }
   .sidebar-account-copy{ min-width:0; }
   .sidebar-account-copy b,.sidebar-account-copy small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sidebar-account-copy b{ font:600 11.5px/1.25 var(--ui); }
   .sidebar-account-copy small{ margin-top:1px; color:var(--dim); font:9.5px/1.2 var(--ui); }
-  .sidebar-account-chevron{ color:var(--dim); font-size:13px; }
 
   .sidefoot{ flex-shrink:0; border-top:1px solid var(--border); padding:0; display:flex; flex-direction:column; background:var(--sidebar); }
   .sidefoot-nav{ display:flex; align-items:center; gap:6px; flex:0 0 auto; padding:0; border-radius:0; background:transparent; border:0; box-shadow:none; }
@@ -1894,9 +1896,9 @@
   .toolcard.webstatus .toolout{ margin-left:4px; }
 
   .status{ font-size:12.5px; color:var(--dim); display:flex; align-items:center; gap:8px; font-family:var(--mono); }
-  .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; width:min(100%,640px); min-width:0; margin:7px 0 4px;
+  .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; align-items:stretch; width:min(100%,640px); min-width:0; margin:7px 0 4px;
     overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; font-family:var(--ui); }
-  .working-card-header{ display:flex; align-items:flex-start; gap:8px; min-width:0; min-height:28px; padding:3px 2px; cursor:pointer; user-select:none; }
+  .working-card-header{ display:flex; align-items:flex-start; gap:8px; width:100%; min-width:0; min-height:28px; padding:3px 2px; box-sizing:border-box; cursor:pointer; user-select:none; }
   .working-card-header:hover{ background:transparent; }
   .working-card-state{ display:inline-flex; align-items:center; gap:0; flex:0 0 auto; min-height:20px; color:var(--dim); }
   .working-card-state b{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -1909,7 +1911,7 @@
   .working-card-action.danger:hover{ color:var(--danger); }
   .working-card-toggle{ width:24px; padding-inline:4px; font-size:10px; transition:transform var(--t); }
   .working-card:not(.collapsed) .working-card-toggle{ transform:rotate(180deg); }
-  .working-card-body{ order:-1; padding:0 2px; border:0; }
+  .working-card-body{ order:-1; width:100%; padding:0 2px; box-sizing:border-box; border:0; }
   .working-card.collapsed .working-card-body{ display:none; }
   .working-card-events{ display:grid; gap:1px; min-width:0; margin:0; padding:0; }
   .working-commentary{ min-width:0; margin:7px 0 5px; overflow-wrap:anywhere; color:var(--text); font:400 var(--chat-fs)/1.52 var(--ui); }
@@ -6180,11 +6182,13 @@ body:not(.composer-simple) main::after{
       <button class="sidebar-nav-item" type="button" data-sidebar-action="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg><span>Settings</span><span></span></button>
     </section>
   </nav>
-  <button class="sidebar-account-card" id="sidebarAccount" type="button" aria-label="Boolean account">
-    <span class="sidebar-account-avatar" id="sidebarAccountAvatar">B</span>
-    <span class="sidebar-account-copy"><b id="sidebarAccountName">You</b><small id="sidebarAccountLabel">Local Boolean workspace</small></span>
-    <span class="sidebar-account-chevron" aria-hidden="true">&#8964;</span>
-  </button>
+  <div class="sidebar-account-card">
+    <button class="sidebar-account-main" id="sidebarAccount" type="button" aria-label="Boolean account">
+      <span class="sidebar-account-avatar" id="sidebarAccountAvatar">B</span>
+      <span class="sidebar-account-copy"><b id="sidebarAccountName">You</b><small id="sidebarAccountLabel">Local Boolean workspace</small></span>
+    </button>
+    <button class="sidebar-account-settings" id="sidebarAccountSettings" type="button" title="Settings" aria-label="Open settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg></button>
+  </div>
 
   <div class="sidefoot">
     <div class="panel" id="settingsPanel">
@@ -6442,8 +6446,21 @@ body:not(.composer-simple) main::after{
             <div class="workflow-steps"><span>Plan</span><span>Edit</span><span>Run</span><span>Verify</span><span>Ship</span></div>
           </div>
           <div class="setrow" style="display:block">
-            <div><b>Orchestration engine</b><div class="hint">Use Boolean with your current Gemini/GLM models, or the public Codex engine for Codex-native planning, tools, approvals, recovery, and progress events.</div></div>
-            <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button></div>
+            <div><b>Orchestration engine</b><div class="hint">Use Boolean with your saved model APIs, Codex with ChatGPT, or Claude Code with your Claude account.</div></div>
+            <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button><button type="button" data-runtime="claude-code">Claude Code</button></div>
+          </div>
+          <div class="codex-card" id="claudeBackendCard" hidden>
+            <div class="codex-card-head"><div><b>Claude Code engine</b><div class="hint" id="claudeAccountText">Set up Claude Code once, then sign in with your Claude account. Boolean never stores or displays its credentials.</div></div><span class="codex-state" id="claudeStateText">Not connected</span></div>
+            <div class="codex-setup-steps" aria-label="Claude Code setup progress">
+              <div class="codex-setup-step current" data-claude-step="install"><span class="codex-step-icon">1</span><span class="codex-step-copy"><b>Install Claude Code</b><small id="claudeInstallStepText">Not installed</small></span></div>
+              <div class="codex-setup-step" data-claude-step="signin"><span class="codex-step-icon">2</span><span class="codex-step-copy"><b>Sign in with Claude</b><small id="claudeSignInStepText">Waiting</small></span></div>
+              <div class="codex-setup-step" data-claude-step="ready"><span class="codex-step-icon">3</span><span class="codex-step-copy"><b>Ready to code</b><small id="claudeReadyStepText">Waiting</small></span></div>
+            </div>
+            <button class="codex-primary" type="button" id="claudePrimaryAction">Set up Claude Code</button>
+            <div class="codex-progress" id="claudeSetupProgress" role="status" aria-live="polite" hidden><span class="codex-progress-dot" aria-hidden="true"></span><span id="claudeSetupProgressText">Installing Claude Code...</span></div>
+            <div class="codex-models" id="claudeModelControls" hidden><select id="claudeCodeModel" title="Claude Code model"><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="haiku">Haiku</option></select></div>
+            <details class="codex-advanced"><summary>Advanced</summary><div class="codex-controls"><input type="text" id="claudeCodeCommand" autocomplete="off" spellcheck="false" placeholder="claude or full path to claude.exe" aria-label="Claude Code executable"><button class="minibtn" type="button" id="claudeCodeCheck">Check</button></div><div class="codex-actions"><a class="minibtn" href="https://code.claude.com/docs/en/installation" target="_blank" rel="noreferrer">Setup &amp; diagnostics</a></div></details>
+            <div class="hint codex-error" id="claudeCodeError" hidden></div>
           </div>
           <div class="codex-card" id="codexBackendCard" hidden>
             <div class="codex-card-head"><div><b>Codex coding engine</b><div class="hint" id="codexAccountText">Set up Codex once, then sign in with ChatGPT. Boolean never stores or displays your token.</div></div><span class="codex-state" id="codexStateText">Not connected</span></div>
@@ -8755,7 +8772,7 @@ body:not(.composer-simple) main::after{
   syncComposerBaseHeight();
   syncDockHeight();
   syncComposerRail();
-  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, codex:{enabled:false,state:"stopped",models:[]}, providerReady:{}, model:"", accessMode:"ask", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
+  let state={ provider:"local", models:[], providerModels:{}, cloudFallback:{enabled:false,provider:"",model:""}, codingEngine:"boolean", codex:{enabled:false,state:"stopped",models:[]}, claudeCode:{enabled:false,ready:false}, providerReady:{}, model:"", accessMode:"ask", autoApprove:false, backendUp:false, keys:{}, threads:[], activeThreadId:null, budgetLimit:0 };
   const DIRECT_API_PROVIDERS=new Set(["glm","openai","google","claude","xai","deepseek","qwen","baidu","bytedance","kimi","customApi"]);
   let explicitDirectApiProvider="";
   let deferredStateReady=false;
@@ -8768,6 +8785,10 @@ body:not(.composer-simple) main::after{
   let codexAuthTimedOut=false;
   let codexAuthPollTimer=null;
   let codexAuthLoginId="";
+  let claudeSetupOpen=false;
+  let claudeEnablePending=false;
+  let claudeInstallPending=false;
+  let claudeLoginStarted=false;
   const resolvedApprovalIds=new Set();
   const resolvedCodexInputIds=new Set();
   let lastThreadSignature="";
@@ -9213,11 +9234,13 @@ body:not(.composer-simple) main::after{
   const providerModelName=(prov)=>displayName((state.providerModels&&state.providerModels[prov])||(state.provider===prov?state.model:""));
   const activeModelName=()=>{
     if(state.codex?.enabled===true) return "Codex · "+(state.codex.model||state.codex.models?.find(model=>model.default)?.name||"Default");
+    if(state.claudeCode?.enabled===true) return "Claude Code · "+(state.claudeCode.model||"sonnet");
     const provider=state.provider||"local";
     return provider==="local"?displayName(state.model):providerModelName(provider);
   };
   const currentAiLabel=()=>{
     if(state.codex?.enabled===true) return "Codex"+(state.codex.model?" - "+state.codex.model:"");
+    if(state.claudeCode?.enabled===true) return "Claude Code"+(state.claudeCode.model?" - "+state.claudeCode.model:"");
     const provider=state.provider||"local";
     const label=shortProviderLabel(provider,(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider);
     const model=provider==="local"?displayName(state.model):providerModelName(provider);
@@ -10912,7 +10935,7 @@ body:not(.composer-simple) main::after{
     updateCompareButton();
     $("providersel").value=state.provider;
     applyMode();
-    const label=state.codex?.enabled===true?"Codex":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
+    const label=state.codex?.enabled===true?"Codex":state.claudeCode?.enabled===true?"Claude Code":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
     const shortLabel=shortProviderLabel(state.provider,label);
     updateReadyStatus(label,shortLabel);
     renderModelCapability();
@@ -10922,6 +10945,7 @@ body:not(.composer-simple) main::after{
     $("banner").style.display=runtimeReady?"none":"";
     $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready — open Settings to pick a provider, add a key, or download a model.";
     if(!runtimeReady&&state.codex?.enabled===true) $("banner").textContent="Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.";
+    if(!runtimeReady&&state.claudeCode?.enabled===true) $("banner").textContent="Claude Code isn't ready - open Settings > Coding Agent to install it or sign in.";
     $("projdir").textContent=state.projectsDir||"";
     if($("budgetLimitInput")) $("budgetLimitInput").value=state.budgetLimit||0;
     applyUi(state.ui);
@@ -10955,14 +10979,14 @@ body:not(.composer-simple) main::after{
         const nm=activeModelName();
         setComposerModelDisplay(nm);
         updateFooterModelStatus();
-        const label=state.codex?.enabled===true?"Codex":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
+        const label=state.codex?.enabled===true?"Codex":state.claudeCode?.enabled===true?"Claude Code":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider);
         const shortLabel=shortProviderLabel(state.provider,label);
         updateReadyStatus(label,shortLabel);
         renderModelCapability();
         const runtimeReady=providerReadyForRun(state.provider||"local");
         $("footStatus").title=label+(runtimeReady?" - ready":" - not ready");
         $("banner").style.display=runtimeReady?"none":"";
-        $("banner").textContent=runtimeReady?"":(state.codex?.enabled===true?"Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.");
+        $("banner").textContent=runtimeReady?"":(state.codex?.enabled===true?"Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.":state.claudeCode?.enabled===true?"Claude Code isn't ready - open Settings > Coding Agent to install it or sign in.":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.");
         renderCodexSettings();
         if(viewingRun()) renderPendingApprovals();
         applyMode();
@@ -11055,7 +11079,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.67"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.68"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -12497,9 +12521,10 @@ body:not(.composer-simple) main::after{
   function updateFooterModelStatus(){
     const text=$("cmdModelText"), dot=$("cmdModelDot"), chip=$("cmdModelChip");
     if(!text&&!chip&&!dot) return;
-    const label=state.codex?.enabled===true?"Codex":((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider||"Model");
-    const short=state.codex?.enabled===true?"Codex":state.provider==="local"?displayName(state.model):shortProviderLabel(state.provider,label);
-    const ready=providerReadyForRun(state.provider||"local");
+    const external=state.codex?.enabled===true?"Codex":state.claudeCode?.enabled===true?"Claude Code":"";
+    const label=external||((state.cloud&&state.cloud[state.provider])||PROVIDER_LABELS[state.provider]||state.provider||"Model");
+    const short=external||(state.provider==="local"?displayName(state.model):shortProviderLabel(state.provider,label));
+    const ready=external?(state.codex?.enabled===true?state.codex?.ready===true:state.claudeCode?.ready===true):providerReadyForRun(state.provider||"local");
     if(text) text.textContent=(short||"Model").slice(0,12);
     if(dot) dot.className="cmd-chip-dot "+(ready?"ok":"warn");
     if(chip){
@@ -12548,7 +12573,10 @@ body:not(.composer-simple) main::after{
   }
   // vision gating: images may only be attached when the model can process them
   const TEXT_ONLY_MSG="This model is text-only. Select a vision-capable model and its matching .mmproj file.";
-  const visionOk=()=>!state.vision || state.vision.supported!==false;
+  // The .mmproj readiness gate is only for Boolean's local llama.cpp model.
+  // Codex handles image inputs through its own selected model and must not
+  // inherit a stale local-model text-only warning.
+  const visionOk=()=>state.codex?.enabled===true || !state.vision || state.vision.supported!==false;
   function visionBlockNote(){
     const reason=state.vision&&state.vision.reason?state.vision.reason:TEXT_ONLY_MSG;
     const d=addNode("status"); d.style.color="#e3a008"; d.textContent="⚠ "+reason+" (Settings → Models)";
@@ -14983,6 +15011,7 @@ body:not(.composer-simple) main::after{
   $("appForward").onclick=goForwardInApp;
   $("newchat").onclick=newChat;
   $("sidebarAccount").onclick=toggleAccountMenu;
+  $("sidebarAccountSettings").onclick=(event)=>{ event.stopPropagation(); closeAccountMenu(); openSettings(null); };
   function closeSidebarFlyouts(){
     document.querySelectorAll("[data-sidebar-flyout]").forEach(menu=>menu.classList.remove("open"));
     document.querySelectorAll("[data-sidebar-menu]").forEach(btn=>btn.setAttribute("aria-expanded","false"));
@@ -16102,7 +16131,8 @@ Optional bundled starter model:
     const codex=state.codex||{};
     const enabled=codex.enabled===true;
     const codexSelected=enabled||codexSetupOpen;
-    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",(button.dataset.runtime==="codex")===codexSelected));
+    const selectedRuntime=claudeSetupOpen?"claude-code":codexSelected?"codex":(state.codingEngine||"boolean");
+    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",button.dataset.runtime===selectedRuntime));
     if($("codexBackendCard")) $("codexBackendCard").hidden=!(enabled||codexSetupOpen);
     if($("codexCommand")&&document.activeElement!==$("codexCommand")) $("codexCommand").value=codexDisplayCommand(codex.command);
     if($("codexEffort")) $("codexEffort").value=["low","medium","high","xhigh","ultra"].includes(codex.reasoningEffort)?codex.reasoningEffort:"medium";
@@ -16163,6 +16193,54 @@ Optional bundled starter model:
     document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.disabled=codexEnablePending||installing||codexAuthPending);
     const error=missingCliExpected?"":setupError;
     if($("codexError")){ $("codexError").hidden=!error; $("codexError").textContent=error; }
+    renderClaudeCodeSettings();
+  }
+  function setClaudeSetupStep(name,{done=false,current=false,detail="Waiting"}={}){
+    const step=document.querySelector('[data-claude-step="'+name+'"]');
+    if(!step) return;
+    step.classList.toggle("done",done);
+    step.classList.toggle("current",current);
+    const icon=step.querySelector(".codex-step-icon");
+    if(icon) icon.textContent=done?"✓":({install:"1",signin:"2",ready:"3"})[name];
+    const node=$({install:"claudeInstallStepText",signin:"claudeSignInStepText",ready:"claudeReadyStepText"}[name]);
+    if(node) node.textContent=detail;
+  }
+  function renderClaudeCodeSettings(){
+    const claude=state.claudeCode||{};
+    const enabled=claude.enabled===true||state.codingEngine==="claude-code";
+    const selected=enabled||claudeSetupOpen;
+    if($("claudeBackendCard")) $("claudeBackendCard").hidden=!selected;
+    if($("claudeCodeCommand")&&document.activeElement!==$("claudeCodeCommand")) $("claudeCodeCommand").value=claude.command||"claude";
+    if($("claudeCodeModel")) $("claudeCodeModel").value=claude.model||"sonnet";
+    const installed=claude.installed===true||claude.version;
+    const signedIn=claude.signedIn===true;
+    if(signedIn) claudeLoginStarted=false;
+    const ready=claude.ready===true;
+    const active=enabled&&ready;
+    const installing=claudeInstallPending||claude.installing===true;
+    setClaudeSetupStep("install",{done:installed,current:!installed,detail:installing?"Installing...":installed?(claude.version||"Installed"):"Not installed"});
+    setClaudeSetupStep("signin",{done:signedIn,current:installed&&!signedIn,detail:signedIn?"Connected":installed?"Open sign-in":"Waiting"});
+    setClaudeSetupStep("ready",{done:active,current:ready&&!enabled,detail:active?"Active":ready?"Choose Use Claude Code":"Waiting"});
+    if($("claudeStateText")){
+      $("claudeStateText").className="codex-state "+(ready?"ready":claude.error?"error":"");
+      $("claudeStateText").textContent=installing?"Installing":claudeEnablePending?"Checking":active?"Ready":signedIn?"Ready to use":installed?"Sign in required":"Not connected";
+    }
+    if($("claudeAccountText")) $("claudeAccountText").textContent=signedIn
+      ? [claude.account?.email,claude.account?.organization,claude.account?.authMethod].filter(Boolean).join(" · ")||"Signed in through Claude Code."
+      : installed?"Finish Claude sign-in in the terminal, then check the connection.":"Set up Claude Code once, then sign in with your Claude account. Boolean never stores or displays its credentials.";
+    if($("claudeModelControls")) $("claudeModelControls").hidden=!signedIn;
+    if($("claudeCodeCheck")){ $("claudeCodeCheck").disabled=claudeEnablePending||installing; $("claudeCodeCheck").textContent=claudeEnablePending?"Checking...":"Check"; }
+    const primary=$("claudePrimaryAction");
+    if(primary){
+      const action=installing||claudeEnablePending||active?"none":ready?"enable":installed?(claudeLoginStarted?"check":"signin"):"install";
+      primary.dataset.action=action;
+      primary.disabled=action==="none";
+      primary.textContent=installing?"Installing Claude Code...":claudeEnablePending?"Checking Claude Code...":active?"Claude Code is active":ready?"Use Claude Code":installed?(claudeLoginStarted?"Check connection":"Sign in with Claude"):"Set up Claude Code";
+    }
+    if($("claudeSetupProgress")) $("claudeSetupProgress").hidden=!(installing||claudeEnablePending);
+    if($("claudeSetupProgressText")) $("claudeSetupProgressText").textContent=installing?"Installing the official Claude Code CLI on this PC...":"Checking Claude Code and your account...";
+    const error=String(claude.error||"");
+    if($("claudeCodeError")){ $("claudeCodeError").hidden=!error; $("claudeCodeError").textContent=error; }
   }
   function applyUi(ui){
     ui=ui||{};
@@ -16319,11 +16397,79 @@ Optional bundled starter model:
     const previous={...(state.codex||{})};
     const next={...previous,...patch,command:codexDisplayCommand(patch.command??previous.command)};
     state.codex=next;
+    const codingEngine=next.enabled===true?"codex":(state.codingEngine==="codex"?"boolean":(state.codingEngine||"boolean"));
+    state.codingEngine=codingEngine;
     renderCodexSettings();
     setComposerModelDisplay(activeModelName());
-    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codex:{enabled:next.enabled===true,command:next.command||"codex",model:next.model||"",reasoningEffort:next.reasoningEffort||"medium"}})});
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine,codex:{enabled:next.enabled===true,command:next.command||"codex",model:next.model||"",reasoningEffort:next.reasoningEffort||"medium"}})});
     const result=await response.json().catch(()=>({}));
     if(!response.ok){ state.codex={...previous,error:result.error||"Could not save Codex settings."}; renderCodexSettings(); return false; }
+    return true;
+  }
+  async function saveClaudeCodeSettings(patch,{engine=state.codingEngine||"boolean"}={}){
+    const previous={...(state.claudeCode||{})};
+    const next={...previous,...patch};
+    state.claudeCode=next;
+    state.codingEngine=engine;
+    renderCodexSettings();
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine:engine,claudeCode:{enabled:engine==="claude-code",command:next.command||"claude",model:next.model||"sonnet"}})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ state.claudeCode={...previous,error:result.error||"Could not save Claude Code settings."}; renderCodexSettings(); return false; }
+    return true;
+  }
+  async function refreshClaudeCodeStatus({quiet=false}={}){
+    const response=await fetch("/api/claude-code/status?refresh=1");
+    const result=await response.json().catch(()=>({ok:false,error:"Could not read Claude Code status."}));
+    state.claudeCode={...(state.claudeCode||{}),...result,error:result.ok===false?(result.error||"Claude Code is unavailable."):String(result.error||"")};
+    renderCodexSettings();
+    setComposerModelDisplay(activeModelName());
+    updateFooterModelStatus();
+    if(!quiet) tempToast(result.ready?"Claude Code is ready.":result.installed?"Claude Code is installed. Sign in to continue.":(result.error||"Claude Code is unavailable."));
+    return result;
+  }
+  async function checkClaudeCodeConnection({quiet=false}={}){
+    if(claudeEnablePending) return false;
+    claudeSetupOpen=true; codexSetupOpen=false; claudeEnablePending=true;
+    const command=$("claudeCodeCommand")?.value.trim()||state.claudeCode?.command||"claude";
+    state.claudeCode={...(state.claudeCode||{}),command,error:""}; renderCodexSettings();
+    try{
+      if(!await saveClaudeCodeSettings({command},{engine:"boolean"})) return false;
+      const result=await refreshClaudeCodeStatus({quiet:true});
+      if(result.installed!==true) throw new Error(result.error||"Claude Code CLI was not found.");
+      if(!quiet) tempToast(result.signedIn?"Claude Code is ready to use.":"Claude Code found. Sign in to continue.");
+      return result.ready===true;
+    }catch(error){ state.claudeCode={...(state.claudeCode||{}),error:error?.message||"Claude Code is unavailable."}; if(!quiet) tempToast(state.claudeCode.error); return false; }
+    finally{ claudeEnablePending=false; renderCodexSettings(); }
+  }
+  async function enableClaudeCode(){
+    const result=await refreshClaudeCodeStatus({quiet:true});
+    if(!result.ready){ claudeSetupOpen=true; renderCodexSettings(); tempToast(result.error||"Finish Claude Code sign-in first."); return false; }
+    const saved=await saveClaudeCodeSettings({command:result.command||state.claudeCode?.command||"claude"},{engine:"claude-code"});
+    if(saved){ claudeSetupOpen=false; codexSetupOpen=false; state.codex={...(state.codex||{}),enabled:false}; tempToast("Claude Code orchestration selected."); renderCodexSettings(); }
+    return saved;
+  }
+  async function installClaudeCodeCli(){
+    if(claudeInstallPending) return false;
+    const approved=await appConfirm("Install Claude Code?","Boolean will install the official Claude Code CLI with WinGet. This changes files outside your project. Continue?","Install");
+    if(!approved) return false;
+    claudeSetupOpen=true; codexSetupOpen=false; claudeInstallPending=true; renderCodexSettings();
+    try{
+      const response=await fetch("/api/claude-code/install",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||result.ok!==true) throw new Error(result.message||result.error||"Claude Code installation failed.");
+      state.claudeCode={...(state.claudeCode||{}),...result,installed:true,command:result.command||"claude",error:""};
+      tempToast("Claude Code installed. Sign in with Claude to continue.");
+      return true;
+    }catch(error){ state.claudeCode={...(state.claudeCode||{}),error:error?.message||"Claude Code could not be installed."}; tempToast(state.claudeCode.error); return false; }
+    finally{ claudeInstallPending=false; renderCodexSettings(); }
+  }
+  async function startClaudeCodeSignIn(){
+    const response=await fetch("/api/claude-code/auth/start",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok||result.ok!==true){ claudeLoginStarted=false; state.claudeCode={...(state.claudeCode||{}),error:result.message||result.error||"Claude Code sign-in could not start."}; renderCodexSettings(); return false; }
+    claudeLoginStarted=true;
+    renderCodexSettings();
+    tempToast(result.message||"Finish signing in with Claude, then press Check.");
     return true;
   }
   async function refreshCodexStatus({start=true,quiet=false}={}){
@@ -16403,8 +16549,15 @@ Optional bundled starter model:
     renderCodexSettings();
     try{
       const response=await fetch("/api/codex/install",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
-      const result=await response.json().catch(()=>({ok:false,message:"Codex installation did not return a result."}));
-      if(!response.ok||result.ok!==true) throw new Error(result.message||result.error||"Codex CLI could not be installed.");
+      const raw=await response.text();
+      let result={};
+      try{ result=raw?JSON.parse(raw):{}; }catch{}
+      if(!response.ok||result.ok!==true){
+        const fallback=response.status===404
+          ? "Boolean's backend is out of date. Restart Boolean, then try Install Codex CLI again."
+          : response.status?"Codex installation failed (HTTP "+response.status+").":"Codex installation did not return a result.";
+        throw new Error(result.message||result.error||fallback);
+      }
       const command=codexDisplayCommand(result.command||"codex");
       state.codex={...(state.codex||{}),...result,installed:true,enabled:false,command,error:"",lastError:""};
       await refreshCodexStatus({start:true,quiet:true});
@@ -16475,16 +16628,23 @@ Optional bundled starter model:
     }
   }
   $("orchestrationSeg").querySelectorAll("button").forEach(button=>button.onclick=async()=>{
-    const enabled=button.dataset.runtime==="codex";
-    if(enabled){
+    const runtime=button.dataset.runtime;
+    if(runtime==="codex"){
+      claudeSetupOpen=false;
       if(state.codex?.ready===true&&state.codex?.account?.signedIn===true){ await checkAndEnableCodex({quiet:true}); return; }
       codexSetupOpen=true;
       renderCodexSettings();
       if(state.codex?.ready!==true) await checkCodexConnection({quiet:true});
       return;
     }
-    codexSetupOpen=false;
-    if(await saveCodexSettings({enabled:false})) tempToast("Boolean orchestration selected.");
+    if(runtime==="claude-code"){
+      codexSetupOpen=false; claudeSetupOpen=true; renderCodexSettings();
+      if(state.claudeCode?.ready===true){ await enableClaudeCode(); return; }
+      await checkClaudeCodeConnection({quiet:true});
+      return;
+    }
+    codexSetupOpen=false; claudeSetupOpen=false;
+    if(await saveClaudeCodeSettings({enabled:false},{engine:"boolean"})){ state.codex={...(state.codex||{}),enabled:false}; tempToast("Boolean orchestration selected."); renderCodexSettings(); }
   });
   $("codexCheck").onclick=async()=>{
     const command=codexDisplayCommand($("codexCommand").value);
@@ -16507,6 +16667,17 @@ Optional bundled starter model:
     const result=await response.json().catch(()=>({}));
     state.codex={...(state.codex||{}),...result,enabled:false,account:null,error:response.ok?"":(result.error||"Could not sign out.")};
     renderCodexSettings();
+  };
+  $("claudeCodeCheck").onclick=()=>checkClaudeCodeConnection();
+  $("claudeCodeCommand").onchange=()=>{ claudeSetupOpen=true; state.claudeCode={...(state.claudeCode||{}),command:$("claudeCodeCommand").value.trim()||"claude",error:""}; renderCodexSettings(); };
+  $("claudeCodeCommand").onkeydown=event=>{ if(event.key==="Enter"){ event.preventDefault(); $("claudeCodeCheck").click(); } };
+  $("claudeCodeModel").onchange=()=>saveClaudeCodeSettings({model:$("claudeCodeModel").value},{engine:state.codingEngine||"boolean"});
+  $("claudePrimaryAction").onclick=async()=>{
+    const action=$("claudePrimaryAction").dataset.action;
+    if(action==="install") await installClaudeCodeCli();
+    else if(action==="signin") await startClaudeCodeSignIn();
+    else if(action==="check") await checkClaudeCodeConnection();
+    else if(action==="enable") await enableClaudeCode();
   };
   $("agentModeGrid").querySelectorAll(".agent-mode").forEach(button=>button.onclick=()=>updateCodingAgent({mode:button.dataset.mode||"quick"}));
   $("planningModeGrid").querySelectorAll(".agent-mode").forEach(button=>button.onclick=()=>updateCodingAgent({planningMode:button.dataset.planningMode||"auto"}));
@@ -22581,6 +22752,7 @@ Optional bundled starter model:
   function providerReadyForRun(provider){
     provider=String(provider||"").trim();
     if(state.codex?.enabled===true&&provider===(state.provider||"local")) return state.codex?.ready===true&&state.codex?.account?.signedIn===true;
+    if(state.claudeCode?.enabled===true&&provider===(state.provider||"local")) return state.claudeCode?.ready===true;
     const ready=state.providerReady||{};
     if(provider==="local") return ready.local===true&&selectedLocalModelReady();
     if(!provider||!PROVIDER_LABELS[provider]) return false;
@@ -22592,6 +22764,12 @@ Optional bundled starter model:
       if(state.codex?.ready===true&&state.codex?.account?.signedIn===true) return {ready:true,provider:current,model:state.codex.model||"Codex default",runtime:"codex"};
       openSettings("agent");
       tempToast("Finish Codex setup or switch orchestration back to Boolean.");
+      return {ready:false};
+    }
+    if(state.claudeCode?.enabled===true){
+      if(state.claudeCode?.ready===true) return {ready:true,provider:current,model:state.claudeCode.model||"sonnet",runtime:"claude-code"};
+      openSettings("agent");
+      tempToast("Finish Claude Code setup or switch orchestration back to Boolean.");
       return {ready:false};
     }
     if(providerReadyForRun(current)&&!directProviderRequiresExplicitPick(current)) return {ready:true,provider:current,model:current==="local"?state.model:providerModelName(current)};

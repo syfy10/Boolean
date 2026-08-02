@@ -9,6 +9,7 @@ import test from "node:test";
 import {
   CodexAppServer,
   CodexAppServerError,
+  codexWindowsSandboxStatus,
   installCodexStandaloneCli,
   resolveCodexLaunch,
   standaloneCodexPath
@@ -401,11 +402,12 @@ test("runs the fixed official standalone installer with bounded output", async (
   const calls = [];
   const localAppData = "C:\\Users\\Test\\AppData\\Local";
   const installed = standaloneCodexPath({ platform: "win32", env: { LOCALAPPDATA: localAppData } });
+  const sandboxHelper = path.join(path.dirname(path.dirname(installed)), "codex-resources", "codex-windows-sandbox-setup.exe");
   const result = await installCodexStandaloneCli({
     platform: "win32",
     env: { LOCALAPPDATA: localAppData, PATH: "", SystemRoot: "C:\\Windows", OS: "Windows_NT", BOOLEAN_SECRET: "do-not-inherit" },
     maxOutputBytes: 1000,
-    existsSync: (candidate) => candidate === installed,
+    existsSync: (candidate) => candidate === installed || candidate === sandboxHelper,
     spawn(command, args, options) {
       calls.push({ command, args, options });
       const child = new EventEmitter();
@@ -435,8 +437,58 @@ test("runs the fixed official standalone installer with bounded output", async (
   assert.deepEqual(calls[1].args, ["--version"]);
   assert.equal(result.ok, true);
   assert.equal(result.command, installed);
+  assert.equal(result.sandboxReady, true);
   assert.equal(result.outputTruncated, true);
   assert.ok(result.output.length <= 1000);
+});
+
+test("prefers a complete official package when the copied standalone exe has no sandbox helper", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-complete-"));
+  try {
+    const localAppData = path.join(root, "local");
+    const userProfile = path.join(root, "profile");
+    const standalone = standaloneCodexPath({ platform: "win32", env: { LOCALAPPDATA: localAppData } });
+    const release = path.join(userProfile, ".codex", "packages", "standalone", "releases", "0.146.0-x86_64-pc-windows-msvc");
+    const packaged = path.join(release, "bin", "codex.exe");
+    const helper = path.join(release, "codex-resources", "codex-windows-sandbox-setup.exe");
+    fs.mkdirSync(path.dirname(standalone), { recursive: true });
+    fs.mkdirSync(path.dirname(packaged), { recursive: true });
+    fs.mkdirSync(path.dirname(helper), { recursive: true });
+    fs.writeFileSync(standalone, "incomplete");
+    fs.writeFileSync(packaged, "complete");
+    fs.writeFileSync(helper, "helper");
+    const launch = resolveCodexLaunch(standalone, ["app-server", "--stdio"], {
+      platform: "win32",
+      env: { LOCALAPPDATA: localAppData, USERPROFILE: userProfile, PATH: "", PATHEXT: ".EXE;.CMD" }
+    });
+    assert.equal(path.resolve(launch.command), path.resolve(packaged));
+    assert.equal(launch.kind, "standalone-package");
+    assert.equal(launch.sandboxReady, true);
+    assert.equal(path.resolve(launch.sandboxHelper), path.resolve(helper));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fails before spawning when a Windows Codex exe has no sandbox helper", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-no-helper-"));
+  try {
+    const executable = path.join(root, "codex.exe");
+    fs.writeFileSync(executable, "incomplete");
+    let spawned = false;
+    const client = new CodexAppServer({
+      command: executable,
+      launchPlatform: "win32",
+      spawn() { spawned = true; throw new Error("must not spawn"); }
+    });
+    await assert.rejects(() => client.start(), /codex-windows-sandbox-setup\.exe/);
+    assert.equal(spawned, false);
+    assert.equal(client.status.sandboxReady, false);
+    assert.match(client.status.sandboxError, /Reinstall Codex/);
+    assert.equal(codexWindowsSandboxStatus(executable, { platform: "win32" }).ready, false);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("automatic standalone setup is Windows-only without spawning a process", async () => {

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 function runGit(cwd, args, timeout = 8000) {
@@ -63,10 +64,26 @@ export function gitDiffFiles(projectDir, options = {}) {
         const file = line.slice(3).trim();
         if (!file || known.has(file)) continue;
         known.add(file);
+        const absolute = path.resolve(cwd, file);
+        const inside = absolute === cwd || absolute.startsWith(`${cwd}${path.sep}`);
+        let lines = [];
+        if (inside) {
+          try {
+            const stat = fs.statSync(absolute);
+            if (stat.isFile() && stat.size <= 1024 * 1024) {
+              lines = fs.readFileSync(absolute, "utf8").split(/\r?\n/).map((text, index) => ({
+                type: "add",
+                num: index + 1,
+                text
+              }));
+            }
+          } catch {}
+        }
         files.push({
           path: file,
           status: "untracked",
-          lines: [{ type: "ctx", num: "", text: "Untracked file. Accept keeps it; Reject skips it so Boolean does not delete new files unexpectedly." }]
+          absolutePath: inside ? absolute : "",
+          lines: lines.length ? lines : [{ type: "ctx", num: "", text: "Untracked file. Accept keeps it; Reject skips it so Boolean does not delete new files unexpectedly." }]
         });
       }
     }
