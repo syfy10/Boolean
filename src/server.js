@@ -73,9 +73,18 @@ import { appPath } from "./paths.js";
 import { detectLocalServers } from "./local-servers.js";
 import { detectWebsiteTech } from "./tech-detector.js";
 import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
+import {
+  combineWorkspaceChanges,
+  mergeWorkspaceChanges,
+  normalizeWorkspaceChanges,
+  workspaceChangeStats,
+  workspaceChangesReport,
+  workspaceChangesReview
+} from "./workspace-changes.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
+import { routeForTurn, selectExecutionEngine } from "./model-router.js";
 import { createCodexAppServer, installCodexStandaloneCli } from "./codex-app-server.js";
-import { createCodexRunner } from "./codex-runner.js";
+import { codexToolEnvironment, createCodexRunner } from "./codex-runner.js";
 import {
   installClaudeCode, readClaudeCodeStatus,
   runClaudeCodeTurn, startClaudeCodeLogin
@@ -230,6 +239,16 @@ function loadLegalText(file) {
 }
 
 const ABOUT_RELEASES = [
+  {
+    version: "0.9.69",
+    date: "2026-08-02",
+    title: "Automatic routing, verified changes, and Boolean Pet",
+    details: [
+      "Routes eligible coding tasks through connected Codex or Claude subscriptions only when the selected API model cannot complete them, with project-aware capability and fallback rules.",
+      "Exposes exact created, modified, and deleted files plus diffs through Boolean's Changes system even in non-git folders, and hardens approved Wrangler deploy access.",
+      "Adds the optional always-on-top Boolean Pet with live chat activity, hover-to-reply, safe Stop, and a clear completed check state."
+    ]
+  },
   {
     version: "0.9.68",
     date: "2026-08-01",
@@ -936,7 +955,7 @@ function invalidateProjectStatus(projectDir = "") {
   projectStatusCache.delete(path.resolve(projectDir).toLowerCase());
 }
 
-function codexWorkspaceChanges(projectDir = "") {
+function gitWorkspaceChanges(projectDir = "") {
   if (!projectDir) return [];
   const root = path.resolve(projectDir);
   try {
@@ -959,6 +978,24 @@ function codexWorkspaceChanges(projectDir = "") {
       };
     }).filter((file) => file.path && file.absolutePath);
   } catch { return []; }
+}
+
+export function booleanWorkspaceChanges(thread, fallbackProjectDir = "", threadCollection = null) {
+  const projectDir = String(thread?.projectDir || fallbackProjectDir || "");
+  if (!projectDir) return [];
+  const projectKey = path.resolve(projectDir).toLowerCase();
+  const relatedThreads = threadCollection && typeof threadCollection.values === "function"
+    ? [...threadCollection.values()].filter((candidate) => {
+      const candidateDir = String(candidate?.projectDir || (!candidate?.projectDir && candidate?.kind !== "project" ? fallbackProjectDir : ""));
+      return candidateDir && path.resolve(candidateDir).toLowerCase() === projectKey;
+    }).sort((a, b) => Number(a?.updatedAt || 0) - Number(b?.updatedAt || 0))
+    : [thread];
+  let recorded = [];
+  for (const candidate of relatedThreads) {
+    recorded = mergeWorkspaceChanges(recorded, candidate?.workspaceChanges || [], projectDir);
+  }
+  const git = gitWorkspaceChanges(projectDir);
+  return combineWorkspaceChanges(recorded, git, projectDir);
 }
 
 function runGit(projectDir, args, timeout = 10000) {
@@ -1182,6 +1219,9 @@ export function startServer(config, {
   let claudeCheckedAt = 0;
   let claudeStatus = null;
   const codexLoginLeaseMs = Math.max(1000, Number(codexLoginTtlMs) || 10 * 60 * 1000);
+  // Keep npx/Wrangler scratch writes in a small Boolean-owned temp subtree.
+  // The same environment is passed to the app-server and its sandbox policy.
+  const codexProcessEnvironment = codexToolEnvironment(process.env);
 
   const clearCodexLogin = () => {
     codexLoginGeneration++;
@@ -1305,6 +1345,7 @@ export function startServer(config, {
       codexClient = codexClientFactory({
         command,
         args: ["app-server", "--stdio"],
+        env: codexProcessEnvironment,
         clientInfo: { name: "boolean", title: "Boolean", version: APP_VERSION },
         capabilities: {},
         onStatus: () => { codexCheckedAt = Date.now(); },
@@ -1665,7 +1706,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       id, title, kind, projectDir, parentProjectId, side: side === true,
       messages: [{ role: "system", content: systemPrompt(workDir, config.autoApprove, config) }],
       log: [], // display entries: {t:'user'|'ai'|'tool', ...}
-      createdAt: Date.now(), updatedAt: Date.now(), abort: null, pendingTask: null, memoryDigest: null
+      createdAt: Date.now(), updatedAt: Date.now(), abort: null, pendingTask: null, memoryDigest: null,
+      workspaceChanges: []
     };
     threads.set(id, t);
     activeThreadId = id;
@@ -1887,6 +1929,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (repairGenericWorkflowTitle(t, restored)) repairedTitles = true;
       if (!t.kind && isProjectThread(t)) { t.kind = "project"; repairedTitles = true; }
       if (t.kind !== "project") { t.kind = "chat"; t.projectDir = ""; t.parentProjectId = ""; }
+      t.workspaceChanges = Array.isArray(t.workspaceChanges) ? t.workspaceChanges : [];
       if (t.pendingTask?.state === "running") {
         t.pendingTask.state = "interrupted";
         t.pendingTask.updatedAt = Date.now();
@@ -2848,10 +2891,19 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/api/project-status") {
         const t = threads.get(activeThreadId);
         const projectDir = t?.projectDir || "";
-        const { git, diffStat } = projectGitSnapshot(projectDir, { force: url.searchParams.get("force") === "1" });
-        json({ ok: true, projectName: t?.title || "No project", branch: git.branch, changedFiles: git.changedFiles, diffStat, git,
+        const { git } = projectGitSnapshot(projectDir, { force: url.searchParams.get("force") === "1" });
+        const workspaceChanges = booleanWorkspaceChanges(t, projectDir, threads);
+        const diffStat = workspaceChangeStats(workspaceChanges);
+        json({ ok: true, projectName: t?.title || "No project", branch: git.branch, changedFiles: workspaceChanges, changesCount: workspaceChanges.length, diffStat, git,
           task: t?.task || null, taskState: t?.taskState || "idle", nextAction: t?.nextAction || null,
           serverRunning: !!(globalThis._bgServers?.size > 0), testStatus: null, testState: "idle" });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/workspace-changes") {
+        const t = threads.get(activeThreadId);
+        const changes = booleanWorkspaceChanges(t, t?.projectDir || "", threads);
+        json({ ok: true, count: changes.length, changes, ...workspaceChangesReview(changes) });
         return;
       }
 
@@ -2870,14 +2922,28 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (req.method === "GET" && p === "/api/git/diff-files") {
-        const review = gitDiffFiles(activeProjectDir(threads, activeThreadId), { staged: url.searchParams.get("staged") === "1" });
-        json({ ok: true, ...review });
+        const t = threads.get(activeThreadId);
+        const staged = url.searchParams.get("staged") === "1";
+        let review;
+        if (staged) {
+          try { review = gitDiffFiles(activeProjectDir(threads, activeThreadId), { staged: true }); }
+          catch { review = { files: [], patch: "", staged: true }; }
+        } else {
+          review = { ...workspaceChangesReview(booleanWorkspaceChanges(t, t?.projectDir || "", threads)), staged: false };
+        }
+        json({ ok: true, source: staged ? "git" : "boolean", ...review });
         return;
       }
 
       if (req.method === "POST" && p === "/api/git/restore-files") {
         const body = await readBody(req);
-        json({ ok: true, ...gitRestoreFiles(activeProjectDir(threads, activeThreadId), body.files) });
+        try {
+          json({ ok: true, ...gitRestoreFiles(activeProjectDir(threads, activeThreadId), body.files) });
+        } catch {
+          // Boolean can review verified changes in a non-Git folder, but it
+          // never guesses how to restore them without a repository baseline.
+          json({ ok: true, restored: [], skipped: Array.isArray(body.files) ? body.files : [], message: "Non-Git changes were left on disk." });
+        }
         return;
       }
 
@@ -3146,7 +3212,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         if (body.codingEngine !== undefined) {
           const engine = String(body.codingEngine || "boolean");
-          if (!new Set(["boolean", "codex", "claude-code"]).has(engine)) return json({ error: "invalid_coding_engine" }, 400);
+          if (!new Set(["boolean", "auto", "codex", "claude-code"]).has(engine)) return json({ error: "invalid_coding_engine" }, 400);
           config.codingEngine = engine;
           config.codex = { ...(config.codex || {}), enabled: engine === "codex" };
           config.claudeCode = { ...(config.claudeCode || {}), enabled: engine === "claude-code" };
@@ -5062,7 +5128,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const requestedProvider = PROVIDERS.includes(String(body.provider || "")) ? String(body.provider || "") : "";
         const requestedModel = String(body.model || "").trim();
         const selectedCodingEngine = config.codingEngine || (config.codex?.enabled ? "codex" : "boolean");
-        const externalEngineRequested = selectedCodingEngine !== "boolean" && body.sideChat !== true && body.salesWorkflow !== true && body.workflowRun !== true;
+        const externalEngineRequested = ["codex", "claude-code"].includes(selectedCodingEngine) && body.sideChat !== true && body.salesWorkflow !== true && body.workflowRun !== true;
         const effectiveProvider = externalEngineRequested ? selectedCodingEngine : (requestedProvider || config.provider);
 
         if (externalEngineRequested && Array.isArray(body.images) && body.images.length) {
@@ -5074,7 +5140,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
 
         // block image sends when the local model has no vision projector
-        if (Array.isArray(body.images) && body.images.length && effectiveProvider === "local") {
+        if (Array.isArray(body.images) && body.images.length && effectiveProvider === "local"
+            && !(config.ui?.autoRouteModels === true && !externalEngineRequested)) {
           let v; try { v = engine.visionState(config); } catch { v = { supported: false }; }
           if (!v.supported) {
             res.writeHead(200, { "content-type": "application/x-ndjson; charset=utf-8" });
@@ -5198,12 +5265,46 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const baseConfig = { ...config, ...(t.projectDir ? { projectsDir: t.projectDir } : {}) };
         let runConfig = options.provider ? { ...baseConfig, provider: options.provider, [options.provider]: { ...(baseConfig[options.provider] || {}) } } : baseConfig;
         if (options.provider && options.model && runConfig[options.provider]) runConfig[options.provider].model = options.model;
-        const selectedCodingEngine = config.codingEngine || (config.codex?.enabled ? "codex" : "boolean");
-        const useCodex = selectedCodingEngine === "codex" && options.disableCodex !== true;
-        const useClaudeCode = selectedCodingEngine === "claude-code" && options.disableCodex !== true;
-        const useExternalEngine = useCodex || useClaudeCode;
-        const replyProvider = useCodex ? "codex" : useClaudeCode ? "claude-code" : (runConfig.provider || "local");
+        const configuredCodingEngine = config.codingEngine || (config.codex?.enabled ? "codex" : "boolean");
+        let selectedCodingEngine = configuredCodingEngine;
+        let executionRoute = null;
+        let autoRouteContext = null;
+        if (configuredCodingEngine === "auto") {
+          const latestContent = t.messages.at(-1)?.content;
+          const latestText = userTextOnly(latestContent || "");
+          const hasImages = imagesOf(latestContent).length > 0;
+          const route = routeForTurn(t.messages, {
+            latestText,
+            hasImages,
+            turnMode: options.forceTurnMode || ""
+          });
+          const taskExecution = t.kind === "project" && !!t.pendingTask?.objective;
+          autoRouteContext = { route, latestText, hasImages, taskExecution };
+          executionRoute = selectExecutionEngine(config, t.messages, {
+            route,
+            latestText,
+            hasImages,
+            turnMode: options.forceTurnMode || "",
+            disabled: options.disableCodex === true,
+            taskExecution
+          });
+          selectedCodingEngine = executionRoute.engine;
+        }
+        let useCodex = selectedCodingEngine === "codex" && options.disableCodex !== true;
+        let useClaudeCode = selectedCodingEngine === "claude-code" && options.disableCodex !== true;
+        let useExternalEngine = useCodex || useClaudeCode;
+        let replyProvider = useCodex ? "codex" : useClaudeCode ? "claude-code" : (runConfig.provider || "local");
         let replyModel = useCodex ? (config.codex?.model || "Codex default") : useClaudeCode ? (config.claudeCode?.model || "sonnet") : currentModel(runConfig);
+        if (executionRoute?.automatic && useExternalEngine) {
+          send({
+            type: "route",
+            route: executionRoute.route,
+            provider: replyProvider,
+            model: replyModel,
+            reason: executionRoute.reason,
+            engine: selectedCodingEngine
+          });
+        }
 
         // keep the system prompt current — restored sessions may predate newer
         // tools/workflow (e.g. create_project), so refresh it every run
@@ -5266,6 +5367,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         let runIn = 0, runOut = 0, runEst = false, runCalls = 0, teamUsageSeen = false;
         const runUsageByWorker = new Map();
+        let verifiedWorkspaceChangeThisTurn = false;
         const ctx = {
           config: runConfig,
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
@@ -5285,11 +5387,20 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           salesWorkflow: options.salesWorkflow === true,
           workflowRun: options.workflowRun === true,
           onStatus: (text, detail) => send({ type: "status", text, ...(detail || {}) }),
+          onRoute: (route) => {
+            if (!route || useExternalEngine) return;
+            replyProvider = route.provider || replyProvider;
+            replyModel = route.model || replyModel;
+            send({ type: "route", ...route });
+          },
           onToken: (text) => send({ type: "token", text }),
           onUsage: (u) => {
             runIn += u.input || 0; runOut += u.output || 0; runEst = runEst || !!u.estimated;
             if ((u.input || 0) || (u.output || 0)) runCalls++;
-            if (u.model && !u.teamWorker) replyModel = u.model;
+            if (!u.teamWorker) {
+              if (u.provider) replyProvider = u.provider;
+              if (u.model) replyModel = u.model;
+            }
             const role = u.teamWorker ? String(u.role || "Specialist") : "Lead";
             const attempt = u.teamWorker ? Math.max(1, Number(u.attempt) || 1) : 1;
             const usageKey = `${role}\u0000${u.provider || ""}\u0000${u.model || ""}\u0000${attempt}`;
@@ -5305,6 +5416,19 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             send({ type: "tokens", input: runIn, output: runOut, estimated: runEst, calls: runCalls, ...(breakdown ? { breakdown } : {}) });
           },
           onStep: (step) => {
+            if (step?.verified === true && step?.name === "apply_patch" && Array.isArray(step?.args?.changes)) {
+              const changeRoot = t.projectDir || config.projectsDir || "";
+              t.workspaceChanges = mergeWorkspaceChanges(t.workspaceChanges || [], step.args.changes, changeRoot);
+              verifiedWorkspaceChangeThisTurn = true;
+              t.updatedAt = Date.now();
+              invalidateProjectStatus(changeRoot);
+              persist();
+              send({
+                type: "workspaceChanges",
+                count: t.workspaceChanges.length,
+                changes: normalizeWorkspaceChanges(t.workspaceChanges, changeRoot)
+              });
+            }
             const entry = { t: "tool", name: step.name, args: step.args || {}, summary: stepSummary(step.name, step.args), result: step.result };
             t.log.push(entry);
             send({ type: "step", entry, ...((options.salesWorkflow === true || options.workflowRun === true) ? { stepArgs: step.args || {} } : {}) });
@@ -5453,11 +5577,59 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         // let the agent delegate focused work to bounded sub-agents
         ctx.runSubagent = (task, options) => runSubagent(ctx, task, options);
 
+        const activateAutoSubscriptionEscalation = async (failureReason = "") => {
+          if (configuredCodingEngine !== "auto" || !autoRouteContext || options.disableCodex === true || abort.signal.aborted) return false;
+          if (config.ui?.modelRouting?.allowEscalation === false) return false;
+          const subscriptions = config.ui?.modelRouting?.subscriptionEngines || {};
+          if (subscriptions.codex !== true && subscriptions.claudeCode !== true) return false;
+          let codexReady = false;
+          let claudeReady = false;
+          if (subscriptions.codex === true) {
+            try {
+              await ensureCodexClient();
+              const status = publicCodexStatus();
+              codexReady = status.ready === true && status.account?.signedIn === true;
+            } catch { codexReady = false; }
+          }
+          if (subscriptions.claudeCode === true) {
+            try { claudeReady = publicClaudeStatus({ refresh: true }).ready === true; }
+            catch { claudeReady = false; }
+          }
+          const escalation = selectExecutionEngine(config, t.messages, {
+            ...autoRouteContext,
+            disabled: false,
+            escalationRequired: true,
+            codexReady,
+            claudeReady
+          });
+          if (escalation.engine !== "codex" && escalation.engine !== "claude-code") return false;
+          executionRoute = escalation;
+          selectedCodingEngine = escalation.engine;
+          useCodex = selectedCodingEngine === "codex";
+          useClaudeCode = selectedCodingEngine === "claude-code";
+          useExternalEngine = true;
+          replyProvider = useCodex ? "codex" : "claude-code";
+          replyModel = useCodex ? (config.codex?.model || "Codex default") : (config.claudeCode?.model || "sonnet");
+          const reason = failureReason ? `${escalation.reason} ${String(failureReason).slice(0, 240)}` : escalation.reason;
+          send({
+            type: "route",
+            route: escalation.route,
+            provider: replyProvider,
+            model: replyModel,
+            reason,
+            engine: selectedCodingEngine,
+            escalated: true
+          });
+          send({ type: "status", text: `Boolean could not finish or verify this task. Continuing with ${useCodex ? "Codex" : "Claude Code"}...` });
+          return true;
+        };
+
         activeChats++;
         lastPing = Date.now();
         let codexTurnStatus = "";
         try {
           let answer;
+          for (;;) {
           if (useCodex) {
             const runner = await ensureCodexRunner();
             const codexActivity = new Map();
@@ -5531,12 +5703,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               // beneath the configured projects workspace instead of being
               // silently downgraded to read-only.
               projectDir: t.projectDir || config.projectsDir || "",
-              workspaceChanges: codexWorkspaceChanges(t.projectDir || config.projectsDir || ""),
+              workspaceChanges: booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
               networkAccess: config.ui?.aiBrowser !== false,
               approvalPolicy: currentAccessMode(runConfig) === "full_access" ? "never" : "on-request",
               sandboxPolicy: currentAccessMode(runConfig) === "read_only"
                 ? { type: "readOnly", access: { type: "fullAccess" } }
                 : undefined,
+              sandboxEnvironment: codexProcessEnvironment,
               signal: abort.signal,
               onStatus: ctx.onStatus,
               onToken: ctx.onToken,
@@ -5625,13 +5798,14 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             emitActivity({ method: `turn/${codexTurnStatus}` }, codexTurnStatus);
             if (result.status === "failed") throw new Error(result.error || "Codex stopped with an error.");
             answer = result.content;
+            break;
           } else if (useClaudeCode) {
             const latestUser = [...t.messages].reverse().find((message) => message?.role === "user");
             const result = await claudeTurnRunner({
               command: config.claudeCode?.command || "claude",
               input: currentTurnInstructionText(latestUser || ""),
               projectDir: t.projectDir || config.projectsDir || "",
-              workspaceChanges: codexWorkspaceChanges(t.projectDir || config.projectsDir || ""),
+              workspaceChanges: booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
               mapping: t.claudeCode || {},
               model: config.claudeCode?.model || "sonnet",
               accessMode: currentAccessMode(runConfig),
@@ -5648,8 +5822,23 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             });
             codexTurnStatus = result.status || "completed";
             answer = result.answer;
+            break;
           } else {
-            answer = await runTurn(ctx, t.messages);
+            try {
+              answer = await runTurn(ctx, t.messages);
+            } catch (error) {
+              if (await activateAutoSubscriptionEscalation(`Boolean error: ${error?.message || error}`)) continue;
+              throw error;
+            }
+            const booleanTurnStatus = ctx.orchestrationResult?.thread?.turns?.at(-1)?.status || "completed";
+            if (booleanTurnStatus !== "completed"
+                && await activateAutoSubscriptionEscalation(`Boolean ended with ${booleanTurnStatus}.`)) continue;
+            break;
+          }
+          }
+          if (verifiedWorkspaceChangeThisTurn) {
+            const report = workspaceChangesReport(booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads));
+            if (!String(answer || "").includes("Boolean Changes:")) answer = `${String(answer || "").trim()}\n\n${report}`.trim();
           }
           if (String(answer || "").trim()) {
             if (useExternalEngine) t.messages.push({ role: "assistant", content: answer });

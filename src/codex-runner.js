@@ -1,5 +1,6 @@
 import { createCodexAppServer } from "./codex-app-server.js";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "interrupted"]);
@@ -42,17 +43,18 @@ function latestUserInput(messages, explicitInput) {
 }
 
 function workspaceChangesContext(changes = []) {
-  if (!Array.isArray(changes) || !changes.length) return "";
-  const rows = changes.slice(0, 12).map((change) => {
+  const source = Array.isArray(changes) ? changes : [];
+  const rows = source.slice(0, 12).map((change) => {
     const status = String(change?.status || "modified");
     const exactPath = String(change?.absolutePath || change?.path || "").slice(0, 1200);
     const diff = String(change?.diff || "").slice(0, 4000);
     return `- ${status}: ${exactPath}${diff ? `\n${diff}` : ""}`;
   });
   return [
-    "Boolean Changes panel before this turn (host-verified paths and diffs):",
+    `Boolean Changes panel before this turn: ${source.length} changed file${source.length === 1 ? "" : "s"}.`,
+    "This count is authoritative and comes from Boolean's host-verified Changes system, independent of Git. Do not use Git to calculate it.",
     ...rows,
-    "Use safe project commands to inspect these exact files when the request depends on them."
+    source.length ? "Use these exact paths, statuses, and diffs when the request depends on them." : "There are currently no retained Boolean workspace changes."
   ].join("\n").slice(0, 12000);
 }
 
@@ -192,17 +194,101 @@ function threadSandboxMode(policy) {
   return THREAD_SANDBOX_TYPES[policy?.type] || policy?.type || "read-only";
 }
 
-function sandboxFor({ sandboxPolicy, projectDir, networkAccess = false }) {
+function uniqueResolvedPaths(values = []) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    const raw = String(value || "").trim();
+    if (!raw) continue;
+    const resolved = path.resolve(raw);
+    const key = process.platform === "win32" ? resolved.toLowerCase() : resolved;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(resolved);
+  }
+  return result;
+}
+
+function nearestRealPath(value) {
+  let current = path.resolve(String(value || ""));
+  const tail = [];
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    tail.unshift(path.basename(current));
+    current = parent;
+  }
+  try {
+    current = fs.realpathSync.native(current);
+  } catch { /* retain the resolved lexical path */ }
+  return path.resolve(current, ...tail);
+}
+
+/**
+ * Give Codex-owned tools deterministic writable scratch locations. Wrangler
+ * and npx otherwise scatter cache/log writes through user-profile folders,
+ * which makes a project-scoped Windows sandbox fail before the worker bundle
+ * is even resolved.
+ */
+export function codexToolEnvironment(env = process.env, { tempDir = os.tmpdir(), create = true } = {}) {
+  const base = path.resolve(String(tempDir || os.tmpdir()), "Boolean", "codex-tools");
+  const scratch = path.join(base, "tmp");
+  const npmCache = String(env.npm_config_cache || "").trim() || path.join(base, "npm-cache");
+  const wranglerLog = String(env.WRANGLER_LOG_PATH || "").trim() || path.join(base, "wrangler", "wrangler.log");
+  if (create) {
+    for (const directory of [base, scratch, npmCache, path.dirname(wranglerLog)]) {
+      try { fs.mkdirSync(directory, { recursive: true }); } catch { /* surfaced by the sandboxed command if unusable */ }
+    }
+  }
+  return {
+    ...env,
+    TEMP: scratch,
+    TMP: scratch,
+    TMPDIR: scratch,
+    npm_config_cache: npmCache,
+    WRANGLER_LOG_PATH: wranglerLog
+  };
+}
+
+export function codexWorkspaceSandboxPolicy(projectDir, {
+  networkAccess = false,
+  env = process.env,
+  tempDir = os.tmpdir()
+} = {}) {
+  const root = String(projectDir || "").trim();
+  if (!root) return { type: "readOnly", access: { type: "fullAccess" } };
+  const toolEnv = codexToolEnvironment(env, { tempDir });
+  const writableRoots = uniqueResolvedPaths([
+    root,
+    toolEnv.TEMP,
+    toolEnv.TMP,
+    toolEnv.TMPDIR,
+    toolEnv.npm_config_cache,
+    path.dirname(toolEnv.WRANGLER_LOG_PATH)
+  ]);
+  return {
+    type: "workspaceWrite",
+    writableRoots,
+    // esbuild resolves an entry point by walking and reading ancestor
+    // directories. Full read access permits that traversal; writes remain
+    // constrained to writableRoots by workspaceWrite.
+    readOnlyAccess: { type: "fullAccess" },
+    networkAccess: !!networkAccess
+  };
+}
+
+/** Host-side mirror of the workspaceWrite boundary used by tests and guards. */
+export function codexSandboxAllowsWrite(policy, targetPath) {
+  if (structuredSandboxPolicy(policy)?.type === "dangerFullAccess") return true;
+  if (structuredSandboxPolicy(policy)?.type !== "workspaceWrite") return false;
+  const target = nearestRealPath(targetPath);
+  return (policy.writableRoots || []).some((root) => withinRoot(nearestRealPath(root), target));
+}
+
+function sandboxFor({ sandboxPolicy, projectDir, networkAccess = false, sandboxEnvironment = process.env }) {
   const explicitPolicy = structuredSandboxPolicy(sandboxPolicy);
   if (explicitPolicy) return explicitPolicy;
-  if (projectDir) {
-    return {
-      type: "workspaceWrite",
-      writableRoots: [projectDir],
-      networkAccess: !!networkAccess
-    };
-  }
-  return { type: "readOnly", access: { type: "fullAccess" } };
+  return codexWorkspaceSandboxPolicy(projectDir, { networkAccess, env: sandboxEnvironment });
 }
 
 function activityLabel(item) {
@@ -422,6 +508,7 @@ export class CodexRunner {
       workspaceChanges = [],
       approvalPolicy = "on-request",
       sandboxPolicy,
+      sandboxEnvironment = process.env,
       networkAccess = false,
       personality = "friendly",
       effort,
@@ -448,7 +535,7 @@ export class CodexRunner {
     await this.ensureReady();
     const currentInput = latestUserInput(messages, input);
     if (!currentInput) throw new TypeError("A user message is required to start a Codex turn");
-    const policy = sandboxFor({ sandboxPolicy, projectDir: cwd, networkAccess });
+    const policy = sandboxFor({ sandboxPolicy, projectDir: cwd, networkAccess, sandboxEnvironment });
     const commonThread = {
       ...(model ? { model } : {}),
       ...(cwd ? { cwd } : {}),
@@ -591,7 +678,8 @@ export class CodexRunner {
         threadId,
         turnId: run.turnId,
         mapping: mapped,
-        usage: run.usage ? { ...run.usage } : null
+        usage: run.usage ? { ...run.usage } : null,
+        changes: fileVerification.changes
       };
     } finally {
       signal?.removeEventListener?.("abort", requestInterrupt);

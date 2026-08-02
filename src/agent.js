@@ -15,6 +15,7 @@ import { detectWindowsSettingsRequest } from "./system-actions.js";
 import { createAgentController } from "./controller.js";
 import { booleanAgentPolicy } from "./agent-policy.js";
 import { createCodexOrchestrator } from "./orchestrator.js";
+import { nextAutoModelTarget, noteAutoModelOutcome, selectAutoModelRoute } from "./model-router.js";
 
 const CLOUD_FALLBACK_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
@@ -31,6 +32,7 @@ function cloudLabel(target) {
 }
 
 async function chatCompletionWithFallback(config, primaryTarget, messages, tools, signal, onToken, onStatus) {
+  const startedAt = Date.now();
   let emitted = false;
   const localRequest = primaryTarget?.provider === "local";
   let writingStarted = false;
@@ -48,15 +50,40 @@ async function chatCompletionWithFallback(config, primaryTarget, messages, tools
       }
     : onToken;
   try {
-    return { target: primaryTarget, message: await chatCompletion(primaryTarget, messages, tools, signal, trackedToken) };
+    const message = await chatCompletion(primaryTarget, messages, tools, signal, trackedToken);
+    noteAutoModelOutcome(primaryTarget, { ok: true, latencyMs: Date.now() - startedAt });
+    return { target: primaryTarget, message };
   } catch (err) {
-    if (!cloudFallbackAllowed(config, primaryTarget, err, emitted)) throw err;
+    noteAutoModelOutcome(primaryTarget, { ok: false, latencyMs: Date.now() - startedAt, error: err?.message || err });
+    const autoSelection = config?.__autoModelRoute;
+    const autoCandidate = !emitted && autoSelection?.enabled
+      && (err?.code === "cloud_transport_error" || err?.code === "local_transport_error" || CLOUD_FALLBACK_STATUSES.has(err?.status))
+      ? nextAutoModelTarget(autoSelection, primaryTarget)
+      : null;
+    if (!autoCandidate && !cloudFallbackAllowed(config, primaryTarget, err, emitted)) throw err;
     const fb = config.cloudFallback || {};
-    const fallbackTarget = await resolveProviderTarget(config, fb.provider, onStatus);
-    const target = fb.model ? { ...fallbackTarget, model: fb.model } : fallbackTarget;
+    const provider = autoCandidate?.provider || fb.provider;
+    const model = autoCandidate?.model || fb.model;
+    const fallbackTarget = await resolveProviderTarget(config, provider, onStatus);
+    const target = model ? { ...fallbackTarget, model } : fallbackTarget;
     if (target.provider === primaryTarget.provider && target.model === primaryTarget.model) throw err;
-    onStatus?.(`${cloudLabel(primaryTarget)} is unavailable - trying backup ${cloudLabel(target)}...`);
-    return { target, message: await chatCompletion(target, messages, tools, signal, onToken) };
+    onStatus?.(autoCandidate
+      ? `${cloudLabel(primaryTarget)} is unavailable - Auto is trying ${cloudLabel(target)}...`
+      : `${cloudLabel(primaryTarget)} is unavailable - trying backup ${cloudLabel(target)}...`);
+    const fallbackStartedAt = Date.now();
+    try {
+      const message = await chatCompletion(target, messages, tools, signal, onToken);
+      noteAutoModelOutcome(target, { ok: true, latencyMs: Date.now() - fallbackStartedAt });
+      if (autoCandidate && Array.isArray(autoSelection.alternates)) {
+        autoSelection.alternates = autoSelection.alternates.filter((candidate) =>
+          candidate.provider !== target.provider || candidate.model !== target.model
+        );
+      }
+      return { target, message };
+    } catch (fallbackError) {
+      noteAutoModelOutcome(target, { ok: false, latencyMs: Date.now() - fallbackStartedAt, error: fallbackError?.message || fallbackError });
+      throw fallbackError;
+    }
   }
 }
 
@@ -1355,6 +1382,15 @@ export async function runTurn(ctx, messages) {
     projectDir: ctx.projectDir,
     directAction
   });
+  const autoModelRoute = selectAutoModelRoute(config, messages, {
+    turnMode,
+    latestText: ctx.latestUserText,
+    projectDir: ctx.projectDir,
+    disabled: ctx.disableAutoRoute === true
+  });
+  // This is a per-turn copy of config in the server runner. It gives request
+  // retries the same approved candidate pool without changing saved settings.
+  config.__autoModelRoute = autoModelRoute;
   const lightweightLocalChat = config?.provider === "local"
     && turnMode === "chat"
     && isLightweightLocalChat(ctx.latestUserText);
@@ -1599,7 +1635,22 @@ export async function runTurn(ctx, messages) {
     });
     onStatus("specialist reports ready - lead model is integrating them...");
   }
-  let target = await resolveTarget(config, onStatus);
+  let target = autoModelRoute.enabled
+    ? await resolveProviderTarget(config, autoModelRoute.target.provider, onStatus)
+    : await resolveTarget(config, onStatus);
+  if (autoModelRoute.enabled && autoModelRoute.target.model) target = { ...target, model: autoModelRoute.target.model };
+  if (autoModelRoute.enabled) {
+    const detail = {
+      route: autoModelRoute.route,
+      provider: target.provider,
+      model: target.model,
+      reason: autoModelRoute.reason,
+      preference: autoModelRoute.preference
+    };
+    onStatus(`Auto -> ${autoModelRoute.route} -> ${target.model || target.provider}`, { autoRoute: detail });
+    emitStep({ name: "model_route", args: detail, result: autoModelRoute.reason });
+    ctx.onRoute?.(detail);
+  }
   // Model routing: with routing="cloud-plan", the first planning step runs on the
   // configured cloud model (stronger reasoning), then execution continues locally.
   let planTarget = null;
@@ -1620,6 +1671,25 @@ export async function runTurn(ctx, messages) {
   let reviewOnlyCompatibility = capabilityProfile.mode === "review";
   let useNativeTools = !compatibilityMode;
   let compactToolProtocol = localCompactTools;
+  const adoptExecutionTarget = (nextTarget) => {
+    if (!nextTarget || (nextTarget.provider === target.provider && nextTarget.model === target.model)) return;
+    target = nextTarget;
+    localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
+    capabilityProfile = modelCapabilityProfile(config, target);
+    compatibilityMode = localCompactTools || capabilityProfile.mode === "patch" || capabilityProfile.mode === "review";
+    reviewOnlyCompatibility = capabilityProfile.mode === "review";
+    useNativeTools = !compatibilityMode;
+    compactToolProtocol = localCompactTools;
+    if (autoModelRoute.enabled) {
+      const detail = {
+        route: autoModelRoute.route,
+        provider: target.provider,
+        model: target.model,
+        reason: "Kept the successful fallback model for the rest of this tool loop."
+      };
+      ctx.onRoute?.(detail);
+    }
+  };
   if (compatibilityMode && artifactActionRequired) {
     onStatus(reviewOnlyCompatibility
       ? `${target.model || "This model"} is in review/chat-only mode`
@@ -1858,6 +1928,7 @@ export async function runTurn(ctx, messages) {
         onStatus
       );
       msg = completion.message;
+      if (routeBase === target) adoptExecutionTarget(completion.target);
       localRecoveryAttempted = false;
       emitUsage(msg, completion.target);
     } catch (err) {
@@ -2148,6 +2219,31 @@ export async function runTurn(ctx, messages) {
     const completion = controller.evaluateCompletion(assistantContent);
     if (!completion.complete && controller.actionRequired && completionNudges < MAX_AUTO_CONTINUE && !signal?.aborted) {
       completionNudges++;
+      if (autoModelRoute.enabled && autoModelRoute.allowEscalation !== false) {
+        const stronger = nextAutoModelTarget(autoModelRoute, target);
+        if (stronger) {
+          const resolved = await resolveProviderTarget(config, stronger.provider, onStatus);
+          target = stronger.model ? { ...resolved, model: stronger.model } : resolved;
+          autoModelRoute.alternates = autoModelRoute.alternates.filter((candidate) =>
+            candidate.provider !== target.provider || candidate.model !== target.model
+          );
+          localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
+          capabilityProfile = modelCapabilityProfile(config, target);
+          compatibilityMode = localCompactTools || capabilityProfile.mode === "patch" || capabilityProfile.mode === "review";
+          reviewOnlyCompatibility = capabilityProfile.mode === "review";
+          useNativeTools = !compatibilityMode;
+          compactToolProtocol = localCompactTools;
+          const detail = {
+            route: autoModelRoute.route,
+            provider: target.provider,
+            model: target.model,
+            reason: `Escalated after verification failed: ${completion.reason}`
+          };
+          onStatus(`Auto escalated to ${target.model || target.provider} after verification failed`, { autoRoute: detail });
+          emitStep({ name: "model_route", args: detail, result: detail.reason });
+          ctx.onRoute?.(detail);
+        }
+      }
       // The task is action-required and not actually done (e.g. claimed complete but
       // changed no files). Force a real tool call next turn so the model does the work
       // instead of narrating another "I'll continue" and stopping.

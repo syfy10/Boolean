@@ -141,8 +141,8 @@
    "browserTabs": []
   },
   "appName": "Boolean",
-  "version": "0.9.68",
-  "displayVersion": "v0.9.68",
+  "version": "0.9.69",
+  "displayVersion": "v0.9.69",
   "providers": [
    "local",
    "openai",
@@ -259,8 +259,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.68",
-  "displayVersion": "v0.9.68",
+  "version": "0.9.69",
+  "displayVersion": "v0.9.69",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true
@@ -294,7 +294,8 @@
  "/api/estimate": {
   "tokens": 0
  }
-};</script>
+}
+;</script>
 <script>
 /* Boolean marketing demo runtime.
  * Injected into a copy of the real app UI (src/ui.html) BEFORE the app's own
@@ -930,6 +931,7 @@
   .settings-breadcrumb .bc-current{ color:var(--text); font-weight:500; cursor:default; }
   .setrow{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; font-size:13.5px; }
   .setrow .hint{ font-size:11.5px; color:var(--dim); }
+  .settings-beta{ display:inline-flex; align-items:center; margin-left:4px; padding:1px 5px; border:1px solid var(--border); border-radius:999px; color:var(--dim); font:650 8px/1.4 var(--ui); letter-spacing:.04em; vertical-align:1px; }
   .setrow select,.setrow input[type=password]{ border:1px solid var(--border); border-radius:8px;
     background:var(--bg); color:var(--text); font:inherit; font-size:12.5px; padding:6px 8px; width:130px; }
   .switch{ position:relative; width:40px; height:32px; flex-shrink:0; display:inline-flex; align-items:center; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
@@ -1033,6 +1035,12 @@
   .agent-mode:hover,.agent-mode.on{ background:var(--bubble); border-color:color-mix(in srgb,var(--green) 45%,var(--border)); box-shadow:var(--shadow-sm); }
   .agent-mode b{ display:block; font-size:12px; }
   .agent-mode small{ display:block; color:var(--dim); font-size:10.5px; margin-top:2px; line-height:1.3; }
+  .model-routing-controls{ display:grid; grid-template-columns:minmax(0,1.25fr) minmax(110px,.75fr); gap:8px; margin-top:8px; }
+  .model-routing-controls label{ display:grid; gap:4px; color:var(--dim); font-size:10.5px; }
+  .model-routing-controls select{ width:100%; min-width:0; height:31px; }
+  .model-routing-options{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:8px; color:var(--dim); font-size:10.5px; }
+  .model-routing-options label{ display:flex; align-items:center; gap:5px; }
+  .model-routing-explain{ margin-top:7px; padding:7px 8px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--dim); font-size:10.5px; line-height:1.35; }
   .workflow-steps{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px; margin:8px 0; }
   .workflow-steps span{ border:1px solid var(--border); border-radius:999px; padding:5px 4px; text-align:center; color:var(--dim); font-size:10.5px; background:var(--bg); }
   .agent-budget-card{ display:flex; align-items:center; justify-content:space-between; gap:10px; border:1px solid var(--border); border-radius:12px; background:var(--bubble); padding:9px 10px; margin:8px 0; }
@@ -1069,7 +1077,7 @@
   .codex-advanced summary{ width:max-content; color:var(--dim); font-size:10.5px; cursor:pointer; user-select:none; }
   .codex-actions{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
   .codex-error{ color:var(--danger,#cf3e3e); margin-top:7px; overflow-wrap:anywhere; }
-  @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } .codex-setup-steps{ grid-template-columns:1fr; } .codex-setup-step{ padding:7px 8px; } .settings-tabs{ top:0; flex-direction:row; width:auto; min-width:0; max-height:none; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid var(--border); gap:2px; } .settings-tabs-row{ flex-direction:column; } .settings-tab svg{ display:none; } .settings-tab{ padding:5px 8px; } }
+  @media (max-width:720px){ .settings-overview,.settings-checklist,.agent-mode-grid,.model-routing-controls{ grid-template-columns:1fr; } .workflow-steps{ grid-template-columns:repeat(2,minmax(0,1fr)); } .codex-setup-steps{ grid-template-columns:1fr; } .codex-setup-step{ padding:7px 8px; } .settings-tabs{ top:0; flex-direction:row; width:auto; min-width:0; max-height:none; overflow-x:auto; overflow-y:hidden; border-right:0; border-bottom:1px solid var(--border); gap:2px; } .settings-tabs-row{ flex-direction:column; } .settings-tab svg{ display:none; } .settings-tab{ padding:5px 8px; } }
   .sec{ border-bottom:1px solid var(--border); }
   .sechead{ display:flex; align-items:center; gap:8px; padding:12px 16px; cursor:pointer; font-size:13.5px; font-weight:500; color:var(--text); user-select:none; transition:background var(--t-fast); }
   .sechead:hover{ background:var(--hover); }
@@ -1898,14 +1906,14 @@
   .status{ font-size:12.5px; color:var(--dim); display:flex; align-items:center; gap:8px; font-family:var(--mono); }
   .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; align-items:stretch; width:min(100%,640px); min-width:0; margin:7px 0 4px;
     overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; font-family:var(--ui); }
-  .working-card-header{ display:flex; align-items:flex-start; gap:8px; width:100%; min-width:0; min-height:28px; padding:3px 2px; box-sizing:border-box; cursor:pointer; user-select:none; }
+  .working-card-header{ display:flex; align-items:center; gap:8px; width:100%; min-width:0; min-height:28px; padding:3px 2px; box-sizing:border-box; cursor:pointer; user-select:none; }
   .working-card-header:hover{ background:transparent; }
   .working-card-state{ display:inline-flex; align-items:center; gap:0; flex:0 0 auto; min-height:20px; color:var(--dim); }
   .working-card-state b{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
   .working-card-state .working-card-mark{ display:none; width:14px; height:14px; align-items:center; justify-content:center; border-radius:50%; font-size:10px; font-weight:750; }
   .working-card .stx{ min-width:0; flex:1 1 auto; overflow-wrap:anywhere; white-space:normal; color:var(--text); font:400 var(--chat-fs)/1.45 var(--ui); }
-  .working-card .meta{ flex:0 0 auto; color:var(--dim); font:var(--fs-xxs)/1.2 var(--mono); white-space:nowrap; }
-  .working-card-actions{ display:flex; align-items:center; gap:2px; margin-left:auto; flex:0 0 auto; }
+  .working-card .meta{ display:inline-flex; align-items:center; min-height:24px; flex:0 0 auto; color:var(--dim); font:var(--fs-xxs)/1 var(--mono); white-space:nowrap; }
+  .working-card-actions{ display:flex; align-items:center; min-height:24px; gap:2px; margin-left:auto; flex:0 0 auto; }
   .working-card-action{ border:0; border-radius:5px; background:transparent; color:var(--dim); padding:5px 6px; cursor:pointer; font:550 var(--fs-xxs)/1 var(--ui); white-space:nowrap; }
   .working-card-action:hover{ color:var(--text); background:var(--hover); }
   .working-card-action.danger:hover{ color:var(--danger); }
@@ -1948,8 +1956,7 @@
   @media(max-width:620px){
     .working-card-header{ flex-wrap:wrap; padding-inline:0; }
     .working-card .stx{ flex:1 1 calc(100% - 22px); }
-    .working-card .meta{ order:3; margin-left:20px; }
-    .working-card-actions{ order:4; margin-left:auto; }
+    .working-card-actions{ order:3; margin-left:20px; }
     .working-card-body{ padding-inline:0; }
     .working-activity-group summary{ grid-template-columns:17px minmax(0,1fr) 12px; gap:7px; }
     .working-activity-details{ margin-left:23px; }
@@ -2985,7 +2992,7 @@
   .pd-changed{ margin-top:6px; display:flex; flex-wrap:wrap; gap:4px; }
   .pd-chip{ font:10.5px var(--mono); padding:2px 7px; border-radius:5px; background:var(--bubble); color:var(--text); border:1px solid var(--border); }
   .pd-chip.modified{ border-left:3px solid var(--online); }
-  .pd-chip.added{ border-left:3px solid var(--green); }
+  .pd-chip.added,.pd-chip.created{ border-left:3px solid var(--green); }
   .pd-chip.deleted{ border-left:3px solid #dc3f42; }
   body.pd-hidden .proj-dashboard{ display:none; }
   @media(max-width:600px){ .pd-grid{ grid-template-columns:repeat(2,1fr); } }
@@ -3011,7 +3018,7 @@
   .diff-file-head{ position:sticky; top:0; z-index:1; padding:6px 12px; background:var(--sidebar); font:600 11.5px var(--mono); color:var(--text); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
   .diff-file-head .df-status{ font-size:10px; padding:1px 6px; border-radius:4px; }
   .diff-file-head .df-status.modified{ background:color-mix(in srgb,var(--online) 14%,transparent); color:var(--online); }
-  .diff-file-head .df-status.added{ background:color-mix(in srgb,var(--green) 14%,transparent); color:var(--green); }
+  .diff-file-head .df-status.added,.diff-file-head .df-status.created{ background:color-mix(in srgb,var(--green) 14%,transparent); color:var(--green); }
   .diff-file-head .df-status.deleted{ background:color-mix(in srgb,#dc3f42 14%,transparent); color:#dc3f42; }
   .diff-line{ display:flex; padding:0 12px; white-space:pre; }
   .diff-line .dl-num{ width:38px; flex-shrink:0; color:var(--dim); text-align:right; padding-right:10px; user-select:none; font-size:10.5px; }
@@ -6385,8 +6392,8 @@ body:not(.composer-simple) main::after{
           </div>
           <div class="setrow model-routing-row">
             <div class="model-routing-head">
-              <div><b>Task routing</b><div class="hint">Choose the saved task profile automatically. Boolean never changes provider, plan, or API billing without your explicit selection.</div></div>
-              <label class="model-routing-toggle" for="autoRouteModels" title="Automatically select a saved task profile without changing providers"><input type="checkbox" id="autoRouteModels" role="switch" aria-label="Automatic task routing" aria-checked="false"><span class="slider"></span><span>Auto</span></label>
+              <div><b>Connected Auto</b><div class="hint">Start with your selected GLM, DeepSeek, local, or other API. Codex and Claude are optional fallbacks only when a code or project task cannot be completed or verified.</div></div>
+              <label class="model-routing-toggle" for="autoRouteModels" title="Automatically route tasks across your connected models"><input type="checkbox" id="autoRouteModels" role="switch" aria-label="Automatic task routing" aria-checked="false"><span class="slider"></span><span>Auto</span></label>
             </div>
             <div class="agent-mode-grid" id="modelRoutingGrid">
               <button class="agent-mode on" type="button" data-route="chat"><b>Chat</b><small>Default conversation model.</small></button>
@@ -6395,6 +6402,18 @@ body:not(.composer-simple) main::after{
               <button class="agent-mode" type="button" data-route="research"><b>Research</b><small>Multi-source synthesis.</small></button>
               <button class="agent-mode" type="button" data-route="fast"><b>Fast</b><small>Quick summaries &amp; simple tasks.</small></button>
             </div>
+            <div class="model-routing-controls">
+              <label><span id="modelRoutingProfileLabel">Chat model</span><select id="modelRoutingProvider" aria-label="Model for selected task profile"></select></label>
+              <label>Priority<select id="modelRoutingPreference"><option value="cost">Lowest cost</option><option value="balanced">Balanced</option><option value="quality">Best quality</option></select></label>
+            </div>
+            <div class="model-routing-options">
+              <label><input type="checkbox" id="modelRoutingEscalation"> Use another model when the provider or verification fails</label>
+              <label><input type="checkbox" id="modelRoutingCodexSubscription"> Use Codex if the selected API cannot finish code or a project task</label>
+              <label><input type="checkbox" id="modelRoutingClaudeSubscription"> Use Claude if the selected API cannot finish code or a project task</label>
+              <label>Fallback order <select id="modelRoutingSubscriptionPreference" aria-label="Preferred coding subscription fallback"><option value="codex">Codex first</option><option value="claude-code">Claude first</option><option value="first-ready">First ready</option></select></label>
+              <label id="modelRoutingProjectWrap" hidden><input type="checkbox" id="modelRoutingProjectLock"> Lock current model to this project</label>
+            </div>
+            <div class="model-routing-explain" id="modelRoutingExplain">Auto is off. Boolean will use the model selected in the composer.</div>
           </div>
           <div class="setrow api-quick" id="customApiQuick" style="display:none">
             <div><b>User API</b><div class="hint" id="customApiQuickHint">Use any OpenAI-compatible endpoint. Your key stays on this PC.</div></div>
@@ -6446,8 +6465,8 @@ body:not(.composer-simple) main::after{
             <div class="workflow-steps"><span>Plan</span><span>Edit</span><span>Run</span><span>Verify</span><span>Ship</span></div>
           </div>
           <div class="setrow" style="display:block">
-            <div><b>Orchestration engine</b><div class="hint">Use Boolean with your saved model APIs, Codex with ChatGPT, or Claude Code with your Claude account.</div></div>
-            <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button><button type="button" data-runtime="claude-code">Claude Code</button></div>
+            <div><b>Orchestration engine</b><div class="hint">Auto starts with Boolean and escalates unfinished code or project tasks to an approved signed-in subscription. Manual Boolean, Codex, and Claude Code choices are never overridden.</div></div>
+            <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="auto">Auto</button><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button><button type="button" data-runtime="claude-code">Claude Code</button></div>
           </div>
           <div class="codex-card" id="claudeBackendCard" hidden>
             <div class="codex-card-head"><div><b>Claude Code engine</b><div class="hint" id="claudeAccountText">Set up Claude Code once, then sign in with your Claude account. Boolean never stores or displays its credentials.</div></div><span class="codex-state" id="claudeStateText">Not connected</span></div>
@@ -6960,7 +6979,7 @@ body:not(.composer-simple) main::after{
         </div>
       </div>
 
-      <div class="sec" data-sec="appearance" data-search="appearance theme font size density comfortable compact panel layout sidebar position code editor theme reduce motion">
+      <div class="sec" data-sec="appearance" data-search="appearance theme font size density comfortable compact panel layout sidebar position code editor theme reduce motion desktop pet floating terminal always on top companion">
         <div class="sechead">Appearance <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="theme-note">Choose a display theme for this device.</div>
@@ -6976,6 +6995,7 @@ body:not(.composer-simple) main::after{
           <div class="setrow"><div>Auto-collapse tool logs</div><label class="switch"><input type="checkbox" id="collapseLogs"><span class="slider"></span></label></div>
           <div class="setrow"><div>Show welcome setup on next launch<div class="hint">Reopens the first-run setup once, then hides again by default.</div></div><label class="switch"><input type="checkbox" id="showOnboarding"><span class="slider"></span></label></div>
           <div class="setrow"><div>Desktop notifications<div class="hint">Alert when tasks finish, error, or need approval while the window is in the background.</div></div><label class="switch"><input type="checkbox" id="notificationsToggle"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Boolean Pet <span class="settings-beta">BETA</span><div class="hint">Show the Graphite Floating Terminal above other apps while Boolean works. Windows app only.</div></div><label class="switch"><input type="checkbox" id="desktopPet"><span class="slider"></span></label></div>
           <div class="setrow"><div>Reduce motion<div class="hint">Minimizes animations and transitions across the interface for better focus and accessibility.</div></div><label class="switch"><input type="checkbox" id="reduceMotion" title="Reduce animations for accessibility"><span class="slider"></span></label></div>
           <div class="setrow"><div>Export this chat</div>
             <div style="display:flex;gap:6px"><button class="minibtn" id="exportTxt">TXT</button><button class="minibtn" id="exportMd">MD</button></div></div>
@@ -8655,6 +8675,39 @@ body:not(.composer-simple) main::after{
   // running inside the native WebView2 shell? then the browser pane is native
   const SHELL = !!(window.chrome && window.chrome.webview);
   const hostPost = (o) => { try { window.chrome.webview.postMessage(o); } catch {} };
+  let booleanPetMode="idle";
+  let booleanPetCompletionTimer=0;
+  function booleanPetChatName(tid=run?.threadId||threadId){
+    const thread=(state.threads||[]).find(item=>item.id===tid)||state.activeThread;
+    return compactActivityText(String(thread?.title||"New chat")).slice(0,50)||"New chat";
+  }
+  function booleanPetTaskTitle(){
+    const request=run?.request||{};
+    return compactActivityText(String(request.display||request.msg||request.text||"Working on your project")).slice(0,72)||"Working on your project";
+  }
+  function postBooleanPet(mode=booleanPetMode,{detail="",active=!!run,title="",completed=false,chat=""}={}){
+    if(!SHELL) return;
+    booleanPetMode=["idle","browsing","coding"].includes(mode)?mode:"idle";
+    hostPost({type:"pet",cmd:"sync",enabled:state.ui?.desktopPet===true,state:booleanPetMode,active:!!active,completed:!!completed,chat:chat||booleanPetChatName(),title:title||booleanPetTaskTitle(),detail:String(detail||"").slice(0,120),reduceMotion:state.ui?.reduceMotion===true});
+  }
+  function setBooleanPetFromActivity(group,title,detail=""){
+    if(group==="searches") postBooleanPet("browsing",{detail:detail||title,active:true});
+    else if(["commands","files","inspections"].includes(group)) postBooleanPet("coding",{detail:detail||title,active:true});
+  }
+  function showBooleanPetComplete(finishedRun){
+    if(!SHELL||state.ui?.desktopPet!==true||!finishedRun?.answered||finishedRun.holdQueue||finishedRun.outcome==="paused"||finishedRun.outcome==="error") return;
+    clearTimeout(booleanPetCompletionTimer);
+    postBooleanPet("idle",{chat:booleanPetChatName(finishedRun.threadId),title:"Task complete",detail:"Finished",active:true,completed:true});
+    booleanPetCompletionTimer=setTimeout(()=>{ if(!run) postBooleanPet("idle",{detail:"",active:false,title:"Boolean is ready"}); },5000);
+  }
+  async function handleBooleanPetReply(value){
+    const text=String(value||"").trim();
+    if(!text) return;
+    if(run?.threadId&&run.threadId!==threadId) await openThread(run.threadId,{remember:true});
+    input.value=text;
+    autosize();
+    await sendMessage();
+  }
   const clipboardWaiters={};
   const folderWaiters={};
   async function readClipboardTextFromBackend(){
@@ -10353,6 +10406,11 @@ body:not(.composer-simple) main::after{
     }
     if($("railBrandDot")) $("railBrandDot").className="dot"+(ready?"":" down");
     if($("railBrandStatus")) $("railBrandStatus").textContent=label;
+    const inferred=inferBooleanActivity(label,"");
+    if(!run) postBooleanPet("idle",{detail:"",active:false,title:"Boolean is ready"});
+    else if(inferred==="Browsing"||inferred==="Reading page") postBooleanPet("browsing",{detail:label,active:true});
+    else if(/\b(code|coding|command|terminal|edit|editing|file|patch|build|test|verify|checking)\b/i.test(label)) postBooleanPet("coding",{detail:label,active:true});
+    else postBooleanPet(booleanPetMode,{detail:label,active:true});
     if(temporary) boollmActivityTimer=setTimeout(()=>setBooleanActivity(run?inferBooleanActivity(run.status):"Ready"),temporary);
   }
   function updateReadyStatus(label,shortLabel){
@@ -11079,7 +11137,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.68"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.69"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -12244,10 +12302,13 @@ body:not(.composer-simple) main::after{
   }
   function setComposerModelDisplay(modelName){
     const target=$("modelname");if(!target)return;
-    const full=modelName||"Select a model",compact=full.replace(/^google\s+ai\s*[-·:]?\s*/i,"").replace(/^gemini[-\s]*/i,"Gemini ").replace(/[-\s](?:flash|pro|preview|latest)$/i,"").trim();
+    const base=modelName||"Select a model";
+    const auto=state.codingEngine!=="codex"&&state.codingEngine!=="claude-code"&&state.ui?.autoRouteModels===true;
+    const full=(auto?"Auto · ":"")+base,compact=(auto?"Auto · ":"")+base.replace(/^google\s+ai\s*[-·:]?\s*/i,"").replace(/^gemini[-\s]*/i,"Gemini ").replace(/[-\s](?:flash|pro|preview|latest)$/i,"").trim();
     target.innerHTML=`<span class="model-label-text">${esc(full)}</span><span class="model-label-compact">${esc(compact||full)}</span>`;
     target.setAttribute("aria-label",modelName||"Select a model");
-    $("modelbtn").title=modelName||"Select a model";
+    if(auto)target.setAttribute("aria-label",full);
+    $("modelbtn").title=full;
   }
   const uKeyCopyIcon='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
   function closeRowMenus({restoreFocus=false}={}){
@@ -13765,6 +13826,7 @@ body:not(.composer-simple) main::after{
       if(items.length>48) items.splice(0,items.length-48);
     }
     renderWorkingCardActivity(run);
+    setBooleanPetFromActivity(group,cleanTitle,cleanDetail);
   }
   function workingStepFiles(entry){
     const files=[];
@@ -14210,7 +14272,7 @@ body:not(.composer-simple) main::after{
       run.statusEl.setAttribute("role","status");
       run.statusEl.setAttribute("aria-live","polite");
       run.statusEl.setAttribute("aria-label","Boolean task progress");
-      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="stx"></span><span class="meta"></span><span class="working-card-actions"><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
+      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="stx"></span><span class="working-card-actions"><span class="meta"></span><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
       col.appendChild(run.statusEl);
       wireWorkingCard(run.statusEl,run);
     }
@@ -14473,6 +14535,7 @@ body:not(.composer-simple) main::after{
 
   async function startRun(tid, opts){
     await accessModeSaveQueue;
+    clearTimeout(booleanPetCompletionTimer);
     const mode=opts.mode||"chat";
     removeEndActions();
     if(threadId===tid){
@@ -14488,6 +14551,7 @@ body:not(.composer-simple) main::after{
     col.classList.remove("run-output-hidden");
     col.querySelectorAll(".live-run-output").forEach(node=>node.classList.remove("live-run-output"));
     col.classList.add("run-output-hidden");
+    booleanPetMode="idle";
     setBooleanActivity("Working");
     if(opts.provider) run.provider=opts.provider;
     const isCompare=mode==="compare"||mode==="compare-retry";
@@ -14600,6 +14664,7 @@ body:not(.composer-simple) main::after{
     // suggestion, or refresh failure must never strand chat in Stop mode.
     run=null; currentAbort=null; updateSendButton();
     setBooleanActivity(providerReadyForRun(state.provider||"local")?"Ready":"Not ready",{ready:providerReadyForRun(state.provider||"local")});
+    showBooleanPetComplete(finishedRun);
     try{
       if(threadId===tid) compactCompletedToolCards(col);
       if(finishedRun && finishedRun.answered && !finishedRun.holdQueue && finishedRun.outcome!=="paused" && finishedRun.outcome!=="error")
@@ -14767,6 +14832,10 @@ body:not(.composer-simple) main::after{
     const salesBackground=run.request?.salesWorkflow===true;
     const workflowBackground=run.request?.workflowRun===true;
     const workspaceBackground=salesBackground||workflowBackground;
+    if(ev.type==="step"&&ev.entry?.name==="model_route"){
+      if(showing&&!workspaceBackground)ensureStatusEl();
+      return;
+    }
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){
       run.status=ev.text;
@@ -14774,6 +14843,16 @@ body:not(.composer-simple) main::after{
       setBooleanActivity(inferBooleanActivity(ev.text));
       run.localModelLoad=ev.kind==="local-model-load"?{phase:ev.phase||"",pct:Number(ev.pct)||0,model:ev.model||""}:null;
       renderThreads(); if(showing&&!workspaceBackground) ensureStatusEl();
+    }
+    else if(ev.type==="route"){
+      run.route={route:ev.route||"chat",provider:ev.provider||run.provider,model:ev.model||run.model,reason:ev.reason||""};
+      run.provider=run.route.provider;
+      run.model=run.route.model;
+      run.aiLabel=shortAiName(run.provider,run.model);
+      const routeName=AUTO_ROUTE_NAMES[run.route.route]||run.route.route||"Auto";
+      addWorkingActivity("Auto chose "+routeName,{detail:(run.model||run.provider)+(run.route.reason?" · "+run.route.reason:""),status:"done",key:"route:"+run.route.route+":"+run.provider+":"+run.model,group:"route"});
+      setComposerModelDisplay(run.model||run.provider);
+      if(showing&&!workspaceBackground)ensureStatusEl();
     }
     else if(ev.type==="orchestration"){
       renderTurnActivity(ev.orchestration);
@@ -14852,6 +14931,10 @@ body:not(.composer-simple) main::after{
       for(const id of approvalIds) col.querySelector('[data-approval-id="'+CSS.escape(id)+'"]')?.remove();
       for(const id of inputIds) col.querySelector('[data-codex-input-id="'+CSS.escape(id)+'"]')?.remove();
       renderThreads();
+    }
+    else if(ev.type==="workspaceChanges"){
+      if(run) run.workspaceChanges=Array.isArray(ev.changes)?ev.changes:[];
+      refreshProjectDashboard({force:true});
     }
     else if(ev.type==="answer"||ev.type==="paused"){ run.raw=ev.text||""; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(ev.type==="paused"){run.outcome="paused";run.holdQueue=true;queuePaused[run.threadId]=true;} recordLocalModelPerformance(run); if(showing&&!workspaceBackground&&run.raw.trim()){ if(streamPaintFrame){ cancelAnimationFrame(streamPaintFrame); streamPaintFrame=0; } ensureLiveAI(); run.liveAI.classList.remove("streaming"); run.liveAI.querySelector(".stream-caret")?.remove(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
     else if(ev.type==="compareStart"){
@@ -16129,9 +16212,9 @@ Optional bundled starter model:
   }
   function renderCodexSettings(){
     const codex=state.codex||{};
-    const enabled=codex.enabled===true;
+    const enabled=state.codingEngine==="codex";
     const codexSelected=enabled||codexSetupOpen;
-    const selectedRuntime=claudeSetupOpen?"claude-code":codexSelected?"codex":(state.codingEngine||"boolean");
+    const selectedRuntime=claudeSetupOpen?"claude-code":codexSetupOpen?"codex":(state.codingEngine||"boolean");
     document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",button.dataset.runtime===selectedRuntime));
     if($("codexBackendCard")) $("codexBackendCard").hidden=!(enabled||codexSetupOpen);
     if($("codexCommand")&&document.activeElement!==$("codexCommand")) $("codexCommand").value=codexDisplayCommand(codex.command);
@@ -16207,7 +16290,7 @@ Optional bundled starter model:
   }
   function renderClaudeCodeSettings(){
     const claude=state.claudeCode||{};
-    const enabled=claude.enabled===true||state.codingEngine==="claude-code";
+    const enabled=state.codingEngine==="claude-code";
     const selected=enabled||claudeSetupOpen;
     if($("claudeBackendCard")) $("claudeBackendCard").hidden=!selected;
     if($("claudeCodeCommand")&&document.activeElement!==$("claudeCodeCommand")) $("claudeCodeCommand").value=claude.command||"claude";
@@ -16241,6 +16324,75 @@ Optional bundled starter model:
     if($("claudeSetupProgressText")) $("claudeSetupProgressText").textContent=installing?"Installing the official Claude Code CLI on this PC...":"Checking Claude Code and your account...";
     const error=String(claude.error||"");
     if($("claudeCodeError")){ $("claudeCodeError").hidden=!error; $("claudeCodeError").textContent=error; }
+  }
+  const AUTO_ROUTE_NAMES={chat:"Chat",coding:"Coding",vision:"Vision",research:"Research",fast:"Fast"};
+  function modelRoutingState(ui=state.ui||{}){
+    const saved=ui.modelRouting||{};
+    return {
+      selected:AUTO_ROUTE_NAMES[saved.selected]?saved.selected:"chat",
+      preference:["cost","balanced","quality"].includes(saved.preference)?saved.preference:"balanced",
+      allowEscalation:saved.allowEscalation!==false,
+      subscriptionEngines:{
+        codex:saved.subscriptionEngines?.codex===true,
+        claudeCode:saved.subscriptionEngines?.claudeCode===true,
+        preferred:["codex","claude-code","first-ready"].includes(saved.subscriptionEngines?.preferred)?saved.subscriptionEngines.preferred:"codex"
+      },
+      profiles:{...(saved.profiles||{})},
+      projects:{...(saved.projects||{})}
+    };
+  }
+  function modelRoutingProject(routing){
+    const projectDir=String(state.activeThread?.projectDir||"");
+    if(!projectDir)return {projectDir:"",key:"",value:null};
+    const key=Object.keys(routing.projects||{}).find(candidate=>String(candidate).toLowerCase()===projectDir.toLowerCase())||projectDir;
+    return {projectDir,key,value:routing.projects?.[key]||null};
+  }
+  function renderModelRoutingSettings(ui=state.ui||{}){
+    const routing=modelRoutingState(ui),route=routing.selected;
+    const grid=$("modelRoutingGrid");
+    if(grid)grid.querySelectorAll(".agent-mode").forEach(btn=>btn.classList.toggle("on",btn.dataset.route===route));
+    if($("modelRoutingProfileLabel"))$("modelRoutingProfileLabel").textContent=(AUTO_ROUTE_NAMES[route]||"Chat")+" model";
+    const select=$("modelRoutingProvider");
+    if(select){
+      const profile=routing.profiles?.[route]||{};
+      const profileEngine=route==="coding"?String(profile.engine||"auto"):"auto";
+      const chosen=profileEngine!=="auto"?"engine:"+profileEngine:String(profile.provider||"auto");
+      const options=[{value:"auto",label:"Automatic · connected models"},{value:"selected",label:"Current model · "+(activeModelName()||"selected")}];
+      if(state.model)options.push({value:"local",label:"Local · "+displayName(state.model)});
+      Object.keys(PROVIDER_LABELS).filter(provider=>provider!=="local").forEach(provider=>{
+        if(state.keys?.[provider]||state.providerReady?.[provider]===true||(provider==="customApi"&&state.userApi?.hasKey)){
+          options.push({value:provider,label:shortProviderLabel(provider,(state.cloud&&state.cloud[provider])||PROVIDER_LABELS[provider]||provider)+" · "+(providerModelName(provider)||"saved model")});
+        }
+      });
+      if(route==="coding"){
+        const codexReady=state.codex?.ready===true&&state.codex?.account?.signedIn===true;
+        const claudeReady=state.claudeCode?.ready===true;
+        options.push({value:"engine:codex",label:"Codex subscription · "+(codexReady?"signed in":"setup needed")});
+        options.push({value:"engine:claude-code",label:"Claude subscription · "+(claudeReady?"signed in":"setup needed")});
+      }
+      if(chosen&&!options.some(option=>option.value===chosen))options.push({value:chosen,label:(PROVIDER_LABELS[chosen]||chosen)+" · needs connection"});
+      select.innerHTML=options.map(option=>`<option value="${esc(option.value)}">${esc(option.label)}</option>`).join("");
+      select.value=chosen;
+    }
+    if($("modelRoutingPreference"))$("modelRoutingPreference").value=routing.preference;
+    if($("modelRoutingEscalation"))$("modelRoutingEscalation").checked=routing.allowEscalation;
+    if($("modelRoutingCodexSubscription"))$("modelRoutingCodexSubscription").checked=routing.subscriptionEngines.codex;
+    if($("modelRoutingClaudeSubscription"))$("modelRoutingClaudeSubscription").checked=routing.subscriptionEngines.claudeCode;
+    if($("modelRoutingSubscriptionPreference"))$("modelRoutingSubscriptionPreference").value=routing.subscriptionEngines.preferred;
+    const project=modelRoutingProject(routing),projectWrap=$("modelRoutingProjectWrap");
+    if(projectWrap)projectWrap.hidden=!project.projectDir;
+    if($("modelRoutingProjectLock"))$("modelRoutingProjectLock").checked=project.value?.mode==="locked";
+    const explain=$("modelRoutingExplain");
+    if(explain){
+      if(ui.autoRouteModels!==true)explain.textContent="Auto is off. Boolean will use the model selected in the composer.";
+      else if(project.value?.mode==="locked")explain.textContent="This project is locked to "+(PROVIDER_LABELS[project.value.provider]||project.value.provider||"the selected provider")+" · "+(project.value.model||"saved model")+". Provider failures may still use an approved fallback.";
+      else {
+        const profile=routing.profiles?.[route]||{},provider=profile.provider||"auto",engine=route==="coding"?(profile.engine||"auto"):"auto";
+        const providerText=engine==="boolean"?"Boolean":provider==="auto"?"the best healthy connected model":provider==="selected"?"the current composer model":(PROVIDER_LABELS[provider]||provider);
+        const fallbackText=route==="coding"&&engine==="codex"?" Codex is the fallback only if Boolean cannot finish or verify the task.":route==="coding"&&engine==="claude-code"?" Claude is the fallback only if Boolean cannot finish or verify the task.":state.codingEngine==="auto"&&route==="coding"?" An approved signed-in subscription may take over only after Boolean cannot finish or verify it.":"";
+        explain.textContent=(AUTO_ROUTE_NAMES[route]||route)+" tasks start with "+providerText+" using "+routing.preference+" priority."+fallbackText;
+      }
+    }
   }
   function applyUi(ui){
     ui=ui||{};
@@ -16280,12 +16432,13 @@ Optional bundled starter model:
     if($("showOnboarding")) $("showOnboarding").checked=ui.showOnboarding===true;
     const notif=ui.notif||{};
     $("notificationsToggle").checked=notif.desktop===true||ui.notifications===true;
+    if($("desktopPet")) $("desktopPet").checked=ui.desktopPet===true;
     $("reduceMotion").checked=ui.reduceMotion===true;
     document.body.classList.toggle("reduce-motion",ui.reduceMotion===true);
+    postBooleanPet(run?booleanPetMode:"idle",{detail:run?(run.status||"Working"):"",active:!!run,title:run?booleanPetTaskTitle():"Boolean is ready"});
     $("autoRouteModels").checked=ui.autoRouteModels===true;
     $("autoRouteModels").setAttribute("aria-checked",String($("autoRouteModels").checked));
-    const routeGrid=$("modelRoutingGrid");
-    if(routeGrid){ const mr=ui.modelRouting||{}; routeGrid.querySelectorAll(".agent-mode").forEach(btn=>btn.classList.toggle("on",false)); const sel=routeGrid.querySelector('[data-route="'+(mr.selected||"chat")+'"]'); if(sel) sel.classList.add("on"); }
+    renderModelRoutingSettings(ui);
     $("noteAutoSave").checked=ui.noteAutoSave!==false;
     $("noteAutoName").checked=ui.noteAutoName!==false;
     if($("browserSummaryAutoSave")) $("browserSummaryAutoSave").checked=ui.browserSummaryAutoSave!==false;
@@ -16393,6 +16546,16 @@ Optional bundled starter model:
   $("imageSize").onchange=saveImageSettings;
   $("researchPolicy").onchange=e=>setUi({researchPolicy:e.target.value});
   function updateCodingAgent(patch){ return setUi({codingAgent:{...((state.ui&&state.ui.codingAgent)||{}),...patch}}).then(()=>refreshStatus()); }
+  async function saveCodingEngineSelection(engine){
+    const previous=state.codingEngine||"boolean";
+    state.codingEngine=engine;
+    renderCodexSettings();
+    setComposerModelDisplay(activeModelName());
+    const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine:engine})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok){ state.codingEngine=previous; renderCodexSettings(); setComposerModelDisplay(activeModelName()); tempToast(result.error||"Could not save the orchestration engine."); return false; }
+    return true;
+  }
   async function saveCodexSettings(patch){
     const previous={...(state.codex||{})};
     const next={...previous,...patch,command:codexDisplayCommand(patch.command??previous.command)};
@@ -16629,6 +16792,11 @@ Optional bundled starter model:
   }
   $("orchestrationSeg").querySelectorAll("button").forEach(button=>button.onclick=async()=>{
     const runtime=button.dataset.runtime;
+    if(runtime==="auto"){
+      codexSetupOpen=false; claudeSetupOpen=false;
+      if(await saveCodingEngineSelection("auto")) tempToast("Auto selected. Boolean tries the selected API first; approved subscriptions are code/task fallbacks only.");
+      return;
+    }
     if(runtime==="codex"){
       claudeSetupOpen=false;
       if(state.codex?.ready===true&&state.codex?.account?.signedIn===true){ await checkAndEnableCodex({quiet:true}); return; }
@@ -16644,7 +16812,7 @@ Optional bundled starter model:
       return;
     }
     codexSetupOpen=false; claudeSetupOpen=false;
-    if(await saveClaudeCodeSettings({enabled:false},{engine:"boolean"})){ state.codex={...(state.codex||{}),enabled:false}; tempToast("Boolean orchestration selected."); renderCodexSettings(); }
+    if(await saveCodingEngineSelection("boolean")){ state.codex={...(state.codex||{}),enabled:false}; state.claudeCode={...(state.claudeCode||{}),enabled:false}; tempToast("Boolean orchestration selected."); renderCodexSettings(); }
   });
   $("codexCheck").onclick=async()=>{
     const command=codexDisplayCommand($("codexCommand").value);
@@ -16745,6 +16913,13 @@ Optional bundled starter model:
     if(e.target.checked && "Notification" in window && Notification.permission!=="granted" && !SHELL) Notification.requestPermission();
     setUi({notifications:e.target.checked,notif:{...((state.ui&&state.ui.notif)||{}),desktop:e.target.checked}});
   };
+  if($("desktopPet")) $("desktopPet").onchange=async e=>{
+    const enabled=e.target.checked;
+    e.target.disabled=true;
+    const saved=await setUi({desktopPet:enabled});
+    e.target.disabled=false;
+    if(saved) tempToast(enabled?"Boolean Pet is now floating above your apps.":"Boolean Pet is off.");
+  };
   $("noteAutoSave").onchange=e=>setUi({noteAutoSave:e.target.checked});
   $("noteAutoName").onchange=e=>setUi({noteAutoName:e.target.checked});
   if($("browserSummaryAutoSave")) $("browserSummaryAutoSave").onchange=e=>setUi({browserSummaryAutoSave:e.target.checked});
@@ -16766,7 +16941,47 @@ Optional bundled starter model:
     e.target.disabled=false;
     if(saved) tempToast(enabled?"Automatic model routing is on.":"Automatic model routing is off.");
   };
-  if($("modelRoutingGrid")) $("modelRoutingGrid").querySelectorAll(".agent-mode").forEach(btn=>btn.onclick=()=>{ const route=btn.dataset.route||"chat"; setUi({modelRouting:{...((state.ui&&state.ui.modelRouting)||{}),selected:route}}); $("modelRoutingGrid").querySelectorAll(".agent-mode").forEach(b=>b.classList.toggle("on",b===btn)); });
+  if($("modelRoutingGrid")) $("modelRoutingGrid").querySelectorAll(".agent-mode").forEach(btn=>btn.onclick=async()=>{
+    const route=btn.dataset.route||"chat",routing=modelRoutingState();
+    await setUi({modelRouting:{...routing,selected:route}});
+  });
+  if($("modelRoutingProvider"))$("modelRoutingProvider").onchange=async e=>{
+    const routing=modelRoutingState(),value=e.target.value||"auto",route=routing.selected;
+    const engine=value.startsWith("engine:")?value.slice(7):"auto";
+    const provider=engine!=="auto"?"auto":value;
+    const model=provider==="local"?String(state.model||""):provider==="auto"||provider==="selected"?"":providerModelName(provider);
+    await setUi({modelRouting:{...routing,profiles:{...routing.profiles,[route]:{engine,provider,model}}}});
+  };
+  if($("modelRoutingPreference"))$("modelRoutingPreference").onchange=async e=>{
+    const routing=modelRoutingState();
+    await setUi({modelRouting:{...routing,preference:e.target.value||"balanced"}});
+  };
+  if($("modelRoutingEscalation"))$("modelRoutingEscalation").onchange=async e=>{
+    const routing=modelRoutingState();
+    await setUi({modelRouting:{...routing,allowEscalation:e.target.checked}});
+  };
+  if($("modelRoutingCodexSubscription"))$("modelRoutingCodexSubscription").onchange=async e=>{
+    const routing=modelRoutingState();
+    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,codex:e.target.checked}}});
+  };
+  if($("modelRoutingClaudeSubscription"))$("modelRoutingClaudeSubscription").onchange=async e=>{
+    const routing=modelRoutingState();
+    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,claudeCode:e.target.checked}}});
+  };
+  if($("modelRoutingSubscriptionPreference"))$("modelRoutingSubscriptionPreference").onchange=async e=>{
+    const routing=modelRoutingState();
+    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,preferred:e.target.value||"codex"}}});
+  };
+  if($("modelRoutingProjectLock"))$("modelRoutingProjectLock").onchange=async e=>{
+    const routing=modelRoutingState(),project=modelRoutingProject(routing);
+    if(!project.projectDir)return;
+    const projects={...routing.projects};
+    if(e.target.checked){
+      const provider=state.provider||"local",model=provider==="local"?String(state.model||""):providerModelName(provider);
+      projects[project.projectDir]={mode:"locked",provider,model,preference:routing.preference,allowEscalation:routing.allowEscalation};
+    }else delete projects[project.key];
+    await setUi({modelRouting:{...routing,projects}});
+  };
   if($("turnNoteIntoRule")) $("turnNoteIntoRule").onclick=()=>{ cmdSendChat("Turn the active notepad note into a project rule and save it to BOOLEAN.md."); };
   if($("cmdGenCommit")) $("cmdGenCommit").onclick=()=>{ cmdSendChat("Generate a commit message from the current uncommitted changes — read the git diff and summarize."); };
   async function setPerm(key,val){
@@ -18030,6 +18245,9 @@ Optional bundled starter model:
         renderChips(); input.focus();
       } else if(d.type==="browserSelection"){ sendBrowserText(d.text,d.target); }
       else if(d.type==="browserTask"){ handleShellBrowserTask(d); }
+      else if(d.type==="petPreference"&&d.enabled===false){ setUi({desktopPet:false}); }
+      else if(d.type==="petReply"&&d.text){ handleBooleanPetReply(d.text).catch(()=>tempToast("Could not send that reply.")); }
+      else if(d.type==="petStop"){ if(run) stopRun(); }
       else if(d.type==="clipboard"&&d.id&&clipboardWaiters[d.id]){ const pending=clipboardWaiters[d.id]; delete clipboardWaiters[d.id]; d.ok?pending.resolve(d.text||""):pending.reject(new Error(d.error||"clipboard unavailable")); }
       else if(d.type==="folder"&&d.id&&folderWaiters[d.id]){ const resolve=folderWaiters[d.id]; delete folderWaiters[d.id]; resolve(d.ok&&d.path?{path:d.path}:{path:null,error:d.error||""}); }
       else if(d.type==="shellBrowser"){
@@ -18498,7 +18716,7 @@ Optional bundled starter model:
     document.querySelector(".personal-chat-head")?.scrollIntoView({block:"nearest"});
   });
   $("chatUtilityMode")?.addEventListener("click",()=>document.querySelector(`#netmode button[data-net="${state.provider==="local"?"online":"local"}"]`)?.click());
-  $("chatUtilityChanges")?.addEventListener("click",()=>$("cmdReview")?.click());
+  $("chatUtilityChanges")?.addEventListener("click",()=>reviewCurrentDiff());
   $("chatUtilityCommit")?.addEventListener("click",()=>$("cmdCommit")?.click());
   $("chatUtilityBranch")?.addEventListener("click",()=>tempToast(`Current branch: ${latestProjectStatus?.branch||"No git repository"}`));
   $("chatUtilityCompare")?.addEventListener("click",async()=>{
@@ -22360,6 +22578,8 @@ Optional bundled starter model:
   document.addEventListener("click", function(e) {
     const projectClick=e.target.closest("#cmdTaskChip");
     if(projectClick){ e.preventDefault(); e.stopPropagation(); openProjectDetails(); return; }
+    const filesClick=e.target.closest("#cmdFilesChip");
+    if(filesClick){ e.preventDefault(); e.stopPropagation(); reviewCurrentDiff(); return; }
     const tasksClick=e.target.closest("#cmdTestsChip");
     if(tasksClick){ e.preventDefault(); e.stopPropagation(); openTaskQueue(); return; }
     const modelClick=e.target.closest("#cmdModelChip");
@@ -22401,11 +22621,11 @@ Optional bundled starter model:
     try {
       const staged=$("diffStaged")?.checked;
       const r = await (await fetch("/api/git/diff-files"+(staged?"?staged=1":""))).json();
-      if (!r.ok || !Array.isArray(r.files) || !r.files.length) { tempToast("No working-tree diff to review."); return; }
+      if (!r.ok || !Array.isArray(r.files) || !r.files.length) { tempToast("No Boolean changes to review."); return; }
       diffPatchText=r.patch||"";
       showDiffPreview(r.files);
     } catch(e) {
-      tempToast("Could not load git diff.");
+      tempToast("Could not load Boolean Changes.");
     }
   }
   function renderDiffFile() {

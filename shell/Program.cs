@@ -151,6 +151,371 @@ sealed class TabItem
     public string DarkModeScriptId = "";
 }
 
+enum BooleanPetDisplayState { Idle, Browsing, Coding }
+
+sealed class BooleanPetForm : Form
+{
+    readonly System.Windows.Forms.Timer _animation = new() { Interval = 100 };
+    readonly Stopwatch _clock = Stopwatch.StartNew();
+    readonly Action _hideRequested;
+    readonly Action<string> _replyRequested;
+    readonly Action _stopRequested;
+    readonly TextBox _replyInput = new();
+    readonly Button _replyButton = new();
+    readonly Button _stopButton = new();
+    Point? _dragOrigin;
+    Point _windowOrigin;
+    BooleanPetDisplayState _displayState = BooleanPetDisplayState.Idle;
+    string _chatName = "New chat";
+    string _title = "Boolean is ready";
+    string _detail = "";
+    bool _active;
+    bool _completed;
+    bool _hoverReply;
+    bool _reduceMotion;
+
+    string LayoutPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "saz3", "pet-layout.json");
+
+    sealed class PetLayout
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+    }
+
+    public BooleanPetForm(Action hideRequested, Action<string> replyRequested, Action stopRequested)
+    {
+        _hideRequested = hideRequested;
+        _replyRequested = replyRequested;
+        _stopRequested = stopRequested;
+        Text = "Boolean Pet";
+        FormBorderStyle = FormBorderStyle.None;
+        ShowInTaskbar = false;
+        TopMost = true;
+        StartPosition = FormStartPosition.Manual;
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new Size(390, 270);
+        MinimumSize = MaximumSize = ClientSize;
+        BackColor = Color.Fuchsia;
+        TransparencyKey = Color.Fuchsia;
+        Opacity = 0.96;
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+            ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+
+        var menu = new ContextMenuStrip();
+        menu.Items.Add("Hide Boolean Pet", null, (_, __) => _hideRequested());
+        ContextMenuStrip = menu;
+
+        ConfigureReplyControls();
+
+        _animation.Tick += (_, __) =>
+        {
+            var cursor = PointToClient(Cursor.Position);
+            var hoverReply = _active && !_completed && new Rectangle(12, 10, Width - 24, 104).Contains(cursor);
+            if (_hoverReply != hoverReply)
+            {
+                _hoverReply = hoverReply;
+                SyncReplyControls();
+            }
+            Invalidate();
+        };
+        _animation.Start();
+        MouseDown += BeginDrag;
+        MouseMove += ContinueDrag;
+        MouseUp += EndDrag;
+        FormClosing += (_, __) => SaveLayout();
+        RestoreLayout();
+    }
+
+    protected override bool ShowWithoutActivation => true;
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            const int WS_EX_TOOLWINDOW = 0x00000080;
+            var cp = base.CreateParams;
+            cp.ExStyle |= WS_EX_TOOLWINDOW;
+            return cp;
+        }
+    }
+
+    void ConfigureReplyControls()
+    {
+        _replyInput.BorderStyle = BorderStyle.FixedSingle;
+        _replyInput.Font = new Font("Segoe UI Variable Text", 9.5f);
+        _replyInput.PlaceholderText = "Reply to this chat...";
+        _replyInput.BackColor = Color.FromArgb(250, 250, 249);
+        _replyInput.ForeColor = Color.FromArgb(31, 32, 33);
+        _replyInput.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode != Keys.Enter || e.Shift) return;
+            e.SuppressKeyPress = true;
+            SendReply();
+        };
+
+        ConfigureReplyButton(_replyButton, "Reply", Color.FromArgb(31, 32, 33), Color.White);
+        ConfigureReplyButton(_stopButton, "Stop", Color.FromArgb(174, 51, 55), Color.FromArgb(255, 245, 245));
+        _replyButton.Click += (_, __) => SendReply();
+        _stopButton.Click += (_, __) => _stopRequested();
+        Controls.AddRange(new Control[] { _replyInput, _replyButton, _stopButton });
+        SyncReplyControls();
+    }
+
+    static void ConfigureReplyButton(Button button, string text, Color foreground, Color background)
+    {
+        button.Text = text;
+        button.Font = new Font("Segoe UI Variable Text", 9f, FontStyle.Bold);
+        button.ForeColor = foreground;
+        button.BackColor = background;
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderColor = Color.FromArgb(218, 219, 216);
+        button.FlatAppearance.BorderSize = 1;
+        button.TabStop = true;
+    }
+
+    void SyncReplyControls()
+    {
+        var visible = _hoverReply && _active && !_completed;
+        _replyInput.Visible = visible;
+        _replyButton.Visible = visible;
+        _stopButton.Visible = visible;
+        if (!visible) return;
+        _replyInput.SetBounds(30, 58, 208, 29);
+        _replyButton.SetBounds(244, 57, 58, 31);
+        _stopButton.SetBounds(308, 57, 54, 31);
+    }
+
+    void SendReply()
+    {
+        var text = _replyInput.Text.Trim();
+        if (text.Length == 0) return;
+        _replyInput.Clear();
+        _replyRequested(text);
+    }
+
+    public void Sync(BooleanPetDisplayState displayState, string chatName, string title, string detail, bool active, bool completed, bool reduceMotion)
+    {
+        _displayState = displayState;
+        _chatName = Trim(chatName, 50, "New chat");
+        _title = Trim(title, 72, "Working on your project");
+        _detail = Trim(detail, 120, "");
+        _active = active;
+        _completed = completed;
+        _reduceMotion = reduceMotion;
+        if (!_active || _completed) _hoverReply = false;
+        SyncReplyControls();
+        Invalidate();
+    }
+
+    static string Trim(string? value, int max, string fallback)
+    {
+        var text = string.Join(" ", (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (text.Length > max) text = text[..Math.Max(1, max - 1)] + "…";
+        return string.IsNullOrWhiteSpace(text) ? fallback : text;
+    }
+
+    void BeginDrag(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        _dragOrigin = Cursor.Position;
+        _windowOrigin = Location;
+    }
+
+    void ContinueDrag(object? sender, MouseEventArgs e)
+    {
+        if (_dragOrigin is not { } origin || e.Button != MouseButtons.Left) return;
+        var now = Cursor.Position;
+        Location = new Point(_windowOrigin.X + now.X - origin.X, _windowOrigin.Y + now.Y - origin.Y);
+    }
+
+    void EndDrag(object? sender, MouseEventArgs e)
+    {
+        if (_dragOrigin is null) return;
+        _dragOrigin = null;
+        KeepOnScreen();
+        SaveLayout();
+    }
+
+    void RestoreLayout()
+    {
+        try
+        {
+            if (File.Exists(LayoutPath))
+            {
+                var saved = JsonSerializer.Deserialize<PetLayout>(File.ReadAllText(LayoutPath));
+                if (saved is not null)
+                {
+                    Location = new Point(saved.X, saved.Y);
+                    KeepOnScreen();
+                    return;
+                }
+            }
+        }
+        catch { }
+        var work = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
+        Location = new Point(work.Right - Width - 18, work.Bottom - Height - 18);
+    }
+
+    void KeepOnScreen()
+    {
+        var screen = Screen.AllScreens.FirstOrDefault(item => item.WorkingArea.IntersectsWith(Bounds)) ?? Screen.PrimaryScreen;
+        var work = screen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
+        Left = Math.Clamp(Left, work.Left, Math.Max(work.Left, work.Right - Width));
+        Top = Math.Clamp(Top, work.Top, Math.Max(work.Top, work.Bottom - Height));
+    }
+
+    void SaveLayout()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LayoutPath)!);
+            File.WriteAllText(LayoutPath, JsonSerializer.Serialize(new PetLayout { X = Left, Y = Top }));
+        }
+        catch { }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        var g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        var tick = _reduceMotion ? 0d : _clock.Elapsed.TotalSeconds;
+        var hover = _reduceMotion ? 0 : (int)Math.Round(Math.Sin(tick * 2.1) * 3);
+
+        if (_active) DrawStatusBubble(g);
+        DrawLaptop(g, hover, tick);
+    }
+
+    void DrawStatusBubble(Graphics g)
+    {
+        var rect = new Rectangle(12, 10, Width - 24, _hoverReply ? 94 : 76);
+        using var shadowPath = RoundedPanel.RoundedRect(new Rectangle(rect.X + 2, rect.Y + 4, rect.Width, rect.Height), 18);
+        using var shadow = new SolidBrush(Color.FromArgb(26, 0, 0, 0));
+        g.FillPath(shadow, shadowPath);
+        using var path = RoundedPanel.RoundedRect(rect, 18);
+        using var fill = new SolidBrush(Color.FromArgb(250, 250, 249));
+        using var border = new Pen(Color.FromArgb(211, 213, 207));
+        g.FillPath(fill, path);
+        g.DrawPath(border, path);
+
+        DrawBooleanMark(g, new Point(rect.Left + 27, rect.Top + 30), 17, Color.FromArgb(36, 37, 38));
+        using var titleFont = new Font("Segoe UI Variable Text", 10.5f, FontStyle.Bold);
+        using var detailFont = new Font("Segoe UI Variable Text", 9f, FontStyle.Regular);
+        using var titleBrush = new SolidBrush(Color.FromArgb(31, 32, 33));
+        using var detailBrush = new SolidBrush(Color.FromArgb(105, 107, 105));
+        g.DrawString(_chatName, titleFont, titleBrush, new RectangleF(rect.Left + 57, rect.Top + 10, rect.Width - 104, 22));
+        if (!_hoverReply)
+        {
+            var activity = _completed ? "Finished" : (!string.IsNullOrWhiteSpace(_detail) ? _detail : _title);
+            g.DrawString(activity, detailFont, detailBrush, new RectangleF(rect.Left + 57, rect.Top + 36, rect.Width - 91, 22));
+        }
+        if (_completed)
+        {
+            var green = Color.FromArgb(43, 184, 82);
+            using var checkPen = new Pen(green, 2.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            var cx = rect.Right - 28;
+            var cy = rect.Top + 31;
+            g.DrawEllipse(checkPen, cx - 11, cy - 11, 22, 22);
+            g.DrawLines(checkPen, new[] { new Point(cx - 5, cy), new Point(cx - 1, cy + 4), new Point(cx + 7, cy - 5) });
+        }
+        using var pinPen = new Pen(Color.FromArgb(96, 98, 97), 1.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        g.DrawLine(pinPen, rect.Left + 45, rect.Top + 14, rect.Left + 45, rect.Top + 25);
+        g.DrawLine(pinPen, rect.Left + 41, rect.Top + 18, rect.Left + 49, rect.Top + 18);
+    }
+
+    void DrawLaptop(Graphics g, int hover, double tick)
+    {
+        var screen = new Rectangle((Width - 174) / 2, (_hoverReply ? 129 : 103) + hover, 174, 101);
+        using var rearShadow = new SolidBrush(Color.FromArgb(38, 0, 0, 0));
+        g.FillEllipse(rearShadow, screen.Left + 8, screen.Bottom + 27, screen.Width - 16, 12);
+
+        using var lidPath = RoundedPanel.RoundedRect(screen, 12);
+        using var graphite = new LinearGradientBrush(screen, Color.FromArgb(59, 61, 64), Color.FromArgb(35, 37, 40), 90f);
+        using var lidBorder = new Pen(Color.FromArgb(93, 96, 99), 1.2f);
+        g.FillPath(graphite, lidPath);
+        g.DrawPath(lidBorder, lidPath);
+
+        var display = Rectangle.Inflate(screen, -10, -9);
+        display.Height -= 2;
+        using var displayPath = RoundedPanel.RoundedRect(display, 7);
+        using var black = new SolidBrush(Color.FromArgb(13, 15, 16));
+        using var glass = new Pen(Color.FromArgb(77, 80, 82), 1f);
+        g.FillPath(black, displayPath);
+        g.DrawPath(glass, displayPath);
+
+        var baseRect = new Rectangle(screen.Left - 13, screen.Bottom - 1, screen.Width + 26, 25);
+        using var basePath = RoundedPanel.RoundedRect(baseRect, 8);
+        using var baseBrush = new LinearGradientBrush(baseRect, Color.FromArgb(67, 69, 72), Color.FromArgb(39, 41, 43), 90f);
+        using var baseBorder = new Pen(Color.FromArgb(93, 96, 99), 1f);
+        g.FillPath(baseBrush, basePath);
+        g.DrawPath(baseBorder, basePath);
+        using var hinge = new Pen(Color.FromArgb(21, 22, 23), 2f);
+        g.DrawLine(hinge, screen.Left + 23, screen.Bottom + 3, screen.Right - 23, screen.Bottom + 3);
+        using var deck = new Pen(Color.FromArgb(93, 95, 96), 1f);
+        g.DrawLine(deck, baseRect.Left + 34, baseRect.Top + 11, baseRect.Right - 34, baseRect.Top + 11);
+
+        var green = Color.FromArgb(53, 199, 89);
+        using var led = new SolidBrush(Color.FromArgb(220, green));
+        var pulse = _reduceMotion ? 1f : .65f + (float)((Math.Sin(tick * 3) + 1) * .17);
+        using var pulseLed = new SolidBrush(Color.FromArgb((int)(220 * pulse), green));
+        g.FillEllipse(pulseLed, baseRect.Right - 26, baseRect.Top + 9, 12, 4);
+
+        var center = new Point(display.Left + display.Width / 2, display.Top + display.Height / 2);
+        if (_displayState == BooleanPetDisplayState.Browsing) DrawGlobe(g, center, 27, green, tick);
+        else if (_displayState == BooleanPetDisplayState.Coding) DrawTerminal(g, display, green);
+        else DrawBooleanMark(g, center, 46, Color.White);
+    }
+
+    static void DrawBooleanMark(Graphics g, Point center, int size, Color color)
+    {
+        const int cells = 7;
+        var spacing = size / 6f;
+        using var brush = new SolidBrush(color);
+        for (var y = 0; y < cells; y++)
+        for (var x = 0; x < cells; x++)
+        {
+            var distance = Math.Max(Math.Abs(x - 3), Math.Abs(y - 3));
+            var radius = Math.Max(.8f, size * (.078f - distance * .013f));
+            var px = center.X + (x - 3) * spacing;
+            var py = center.Y + (y - 3) * spacing;
+            g.FillEllipse(brush, px - radius, py - radius, radius * 2, radius * 2);
+        }
+    }
+
+    void DrawGlobe(Graphics g, Point center, int radius, Color color, double tick)
+    {
+        using var pen = new Pen(color, 2.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        var rect = new Rectangle(center.X - radius, center.Y - radius, radius * 2, radius * 2);
+        g.DrawEllipse(pen, rect);
+        g.DrawEllipse(pen, center.X - radius / 2, center.Y - radius, radius, radius * 2);
+        g.DrawLine(pen, center.X - radius + 3, center.Y, center.X + radius - 3, center.Y);
+        g.DrawArc(pen, center.X - radius + 3, center.Y - radius / 2, radius * 2 - 6, radius, 180, 180);
+        g.DrawArc(pen, center.X - radius + 3, center.Y - radius / 2, radius * 2 - 6, radius, 0, 180);
+        if (!_reduceMotion)
+        {
+            var angle = tick * Math.PI;
+            var dotX = center.X + (float)Math.Cos(angle) * (radius + 5);
+            var dotY = center.Y + (float)Math.Sin(angle) * 7;
+            using var dot = new SolidBrush(color);
+            g.FillEllipse(dot, dotX - 2.5f, dotY - 2.5f, 5, 5);
+        }
+    }
+
+    void DrawTerminal(Graphics g, Rectangle display, Color color)
+    {
+        var cycle = _reduceMotion ? 1900L : _clock.ElapsedMilliseconds % 2000;
+        var text = cycle < 350 ? ">_" : cycle < 700 ? ">" : cycle < 980 ? "" : cycle < 1280 ? ">" : ">_";
+        using var font = new Font("Cascadia Mono", 31f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var brush = new SolidBrush(color);
+        var measured = g.MeasureString(text, font);
+        g.DrawString(text, font, brush, display.Left + (display.Width - measured.Width) / 2, display.Top + (display.Height - measured.Height) / 2 - 1);
+    }
+}
+
 sealed class MainForm : Form, IMessageFilter
 {
     // derived from AssemblyVersion (SazShell.csproj) so it can never drift from
@@ -519,6 +884,7 @@ sealed class MainForm : Form, IMessageFilter
     string CoreLogPath => Path.Combine(_logDir, "boolean-core.log");
     string? _updateReadyPath;
     bool _updateCheckRunning;
+    BooleanPetForm? _pet;
 
     // browser permissions read from the app config (~/.saz/config.json)
     bool _permDownloads = true, _permCamera = false, _permMic = false, _permGeo = false;
@@ -616,6 +982,7 @@ sealed class MainForm : Form, IMessageFilter
         FormClosed += (_, __) =>
         {
             Application.RemoveMessageFilter(this);
+            try { _pet?.Close(); } catch { }
             CleanupCoreOnClose();
             LaunchPendingUpdate();
         };
@@ -2082,6 +2449,11 @@ try {
                 ShowToast(title, body);
                 return;
             }
+            if (type == "pet")
+            {
+                HandlePetMessage(root);
+                return;
+            }
             if (type != "browser") return;
             var cmd = root.TryGetProperty("cmd", out var cp) ? cp.GetString() : null;
             switch (cmd)
@@ -2156,6 +2528,53 @@ try {
             }
         }
         catch { }
+    }
+
+    void HandlePetMessage(JsonElement root)
+    {
+        var enabled = root.TryGetProperty("enabled", out var enabledProperty) && enabledProperty.ValueKind == JsonValueKind.True;
+        if (!enabled)
+        {
+            SetPetEnabled(false);
+            return;
+        }
+        SetPetEnabled(true);
+        if (_pet is null) return;
+        var stateText = root.TryGetProperty("state", out var stateProperty) ? stateProperty.GetString() ?? "idle" : "idle";
+        var state = stateText switch
+        {
+            "browsing" => BooleanPetDisplayState.Browsing,
+            "coding" => BooleanPetDisplayState.Coding,
+            _ => BooleanPetDisplayState.Idle
+        };
+        var title = root.TryGetProperty("title", out var titleProperty) ? titleProperty.GetString() ?? "" : "";
+        var chatName = root.TryGetProperty("chat", out var chatProperty) ? chatProperty.GetString() ?? "" : "";
+        var detail = root.TryGetProperty("detail", out var detailProperty) ? detailProperty.GetString() ?? "" : "";
+        var active = root.TryGetProperty("active", out var activeProperty) && activeProperty.ValueKind == JsonValueKind.True;
+        var completed = root.TryGetProperty("completed", out var completedProperty) && completedProperty.ValueKind == JsonValueKind.True;
+        var reduceMotion = root.TryGetProperty("reduceMotion", out var motionProperty) && motionProperty.ValueKind == JsonValueKind.True;
+        _pet.Sync(state, chatName, title, detail, active, completed, reduceMotion);
+    }
+
+    void SetPetEnabled(bool enabled)
+    {
+        if (!enabled)
+        {
+            _pet?.Hide();
+            return;
+        }
+        if (_pet is null || _pet.IsDisposed)
+        {
+            _pet = new BooleanPetForm(
+                () =>
+                {
+                    SetPetEnabled(false);
+                    PostToChat(new { type = "petPreference", enabled = false });
+                },
+                text => PostToChat(new { type = "petReply", text }),
+                () => PostToChat(new { type = "petStop" }));
+        }
+        if (!_pet.Visible) _pet.Show();
     }
 
     void PostToChat(object o)

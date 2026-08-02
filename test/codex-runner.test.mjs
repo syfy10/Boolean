@@ -5,7 +5,14 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { buildCodexBootstrap, CodexRunner, runCodexTurn, verifyCodexFileChanges } from "../src/codex-runner.js";
+import {
+  buildCodexBootstrap,
+  codexSandboxAllowsWrite,
+  codexWorkspaceSandboxPolicy,
+  CodexRunner,
+  runCodexTurn,
+  verifyCodexFileChanges
+} from "../src/codex-runner.js";
 
 class FakeCodexClient extends EventEmitter {
   constructor({ threadId = "thr_new", turnId = "turn_1", onTurn } = {}) {
@@ -135,10 +142,15 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(client.threadStarts[0].sandbox, "workspace-write");
   assert.equal(client.turnStarts[0].options.approvalPolicy, "on-request");
   assert.equal(client.turnStarts[0].options.sandboxPolicy.type, "workspaceWrite");
+  assert.deepEqual(client.turnStarts[0].options.sandboxPolicy.readOnlyAccess, { type: "fullAccess" });
   assert.equal(client.turnStarts[0].options.sandboxPolicy.networkAccess, true);
+  assert.equal(codexSandboxAllowsWrite(client.turnStarts[0].options.sandboxPolicy, "C:/work/wrangler.toml"), true);
+  assert.equal(codexSandboxAllowsWrite(client.turnStarts[0].options.sandboxPolicy, "C:/outside/secret.txt"), false);
   assert.match(client.turnStarts[0].input[0].text, /We were fixing the parser/);
   assert.match(client.turnStarts[0].input[0].text, /Current request:\nFinish it and run the test/);
   assert.match(client.turnStarts[0].input[0].text, /Boolean Changes panel before this turn/);
+  assert.match(client.turnStarts[0].input[0].text, /1 changed file/);
+  assert.match(client.turnStarts[0].input[0].text, /authoritative.*independent of Git/);
   assert.match(client.turnStarts[0].input[0].text, /C:\/work\/src\/parser\.js/);
   assert.match(client.turnStarts[0].input[0].text, /\+new/);
   assert.doesNotMatch(client.turnStarts[0].input[0].text, /Boolean-only system rule/);
@@ -162,6 +174,18 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(mappings[0].threadId, "thr_new");
   assert.equal(mappings.at(-1).status, "completed");
   assert.ok(statuses.includes("Codex finished the task."));
+});
+
+test("Codex receives an authoritative zero Changes count without Git", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-zero-changes-"));
+  try {
+    const client = new FakeCodexClient({ onTurn: successfulTurn });
+    await runCodexTurn({ client, input: "Report Boolean Changes.", projectDir: root, workspaceChanges: [] });
+    assert.match(client.turnStarts[0].input[0].text, /Boolean Changes panel before this turn: 0 changed files/);
+    assert.match(client.turnStarts[0].input[0].text, /Do not use Git to calculate it/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("a completed Codex edit is counted only after Boolean verifies its exact path and diff on disk", async () => {
@@ -321,7 +345,8 @@ test("resumed Codex threads receive only the latest user input and failed comple
   });
   assert.equal(client.threadStarts.length, 0);
   assert.equal(client.threadResumes[0].threadId, "thr_saved");
-  assert.equal(client.turnStarts[0].input[0].text, "Try the test again");
+  assert.match(client.turnStarts[0].input[0].text, /^Try the test again\n\nBoolean Changes panel before this turn: 0 changed files\./);
+  assert.doesNotMatch(client.turnStarts[0].input[0].text, /Old request|Old answer/);
   assert.equal(tokens.length, 0, "commentary must not be rendered as the final answer");
   assert.equal(result.status, "failed");
   assert.equal(result.error, "Sandbox setup failed");

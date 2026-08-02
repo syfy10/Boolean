@@ -33,6 +33,10 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /\.status\.working-card\{[^}]*width:min\(100%,640px\)[^}]*border:0;[^}]*background:transparent;[^}]*box-shadow:none;/s);
   assert.match(ui, /\.status\.working-card\{[^}]*align-items:stretch;/s);
   assert.match(ui, /\.working-card-header\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);
+  assert.match(ui, /\.working-card-header\{[^}]*align-items:center;/s);
+  assert.match(ui, /class="working-card-actions"><span class="meta"><\/span><button class="working-card-action"/);
+  assert.match(ui, /\.working-card \.meta\{[^}]*display:inline-flex;[^}]*align-items:center;[^}]*min-height:24px;/s);
+  assert.match(ui, /\.working-card-actions\{[^}]*align-items:center;[^}]*min-height:24px;/s);
   assert.match(ui, /\.working-card-body\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);
   assert.doesNotMatch(ui, /class="working-card-current /);
   assert.doesNotMatch(ui, /class="team-run-progress"/);
@@ -124,4 +128,5 @@ test("compact activity stays usable in a narrow chat pane", () => {
   assert.match(ui, /\.working-activity-group summary\{[^}]*grid-template-columns:18px minmax\(0,1fr\) 14px;/s);
   assert.match(ui, /\.working-activity-group summary b\{[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/s);
   assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.working-card-body\{ padding-inline:0; \}/);
+  assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.working-card-actions\{ order:3; margin-left:20px; \}/);
 });

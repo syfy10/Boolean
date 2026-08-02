@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.68";
-export const APP_DISPLAY_VERSION = "v0.9.68";
+export const APP_VERSION = "0.9.69";
+export const APP_DISPLAY_VERSION = "v0.9.69";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -55,7 +55,7 @@ const DEFAULTS = {
   },
   // Optional native Claude Code orchestration. Claude owns authentication;
   // Boolean stores only the executable path and selected model.
-  codingEngine: "boolean", // boolean | codex | claude-code
+  codingEngine: "boolean", // boolean | auto | codex | claude-code
   claudeCode: {
     enabled: false,
     command: "claude",
@@ -220,8 +220,26 @@ const DEFAULTS = {
     referenceChatMemory: true, // compact memory of the open chat for follow-ups
     learnedMemory: true,      // saved safe user preferences/behaviors
     notifications: false,
-    autoRouteModels: false,   // automatically select the configured model route for each task type
-    modelRouting: { selected: "chat" },
+    desktopPet: false,       // optional native always-on-top Boolean activity companion
+    autoRouteModels: false,   // automatically select an approved connected model for each task type
+    modelRouting: {
+      selected: "chat",
+      preference: "balanced", // cost | balanced | quality
+      allowEscalation: true,
+      subscriptionEngines: {
+        codex: false,
+        claudeCode: false,
+        preferred: "codex" // codex | claude-code | first-ready
+      },
+      profiles: {
+        chat: { engine: "auto", provider: "auto", model: "" },
+        coding: { engine: "auto", provider: "auto", model: "" },
+        vision: { engine: "auto", provider: "auto", model: "" },
+        research: { engine: "auto", provider: "auto", model: "" },
+        fast: { engine: "auto", provider: "auto", model: "" }
+      },
+      projects: {}
+    },
     contextMode: "balanced",  // minimal | balanced | full - Context Optimizer
     codingAgent: {
       mode: "quick",          // quick | feature | debug | review | refactor
