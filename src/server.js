@@ -227,7 +227,7 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
-    version: "0.9.66",
+    version: "0.9.67",
     date: "2026-08-01",
     title: "Work that continues to a verified result",
     details: [

@@ -531,6 +531,55 @@ test("turn classifier shapes context without withholding the tool catalog", () =
   assert.equal(classifyTurnMode([{ role: "user", content: "Call email_cleanup_preview for Gmail" }]), "connector");
 });
 
+test("DeepSeek thinking requests keep tools but omit unsupported forced tool_choice", async (t) => {
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    requests.push(JSON.parse(raw));
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ choices: [{ message: { role: "assistant", content: "DeepSeek continued." } }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const tools = [{ type: "function", function: { name: "read_file", parameters: { type: "object" } } }];
+  const result = await chatCompletion({
+    base: `http://127.0.0.1:${server.address().port}`,
+    apiKey: "deepseek-key",
+    model: "deepseek-v4-flash",
+    provider: "deepseek",
+    toolChoice: "required",
+    noStream: true
+  }, [{ role: "user", content: "Inspect the file." }], tools);
+
+  assert.equal(result.content, "DeepSeek continued.");
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].tools, tools);
+  assert.equal(requests[0].tool_choice, undefined);
+});
+
+test("streaming DeepSeek tool calls retain reasoning_content for the next request", async (t) => {
+  const server = http.createServer(async (_req, res) => {
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    res.write('data: {"choices":[{"delta":{"reasoning_content":"I need to inspect "}}]}\n\n');
+    res.write('data: {"choices":[{"delta":{"reasoning_content":"the file.","tool_calls":[{"index":0,"id":"call_1","function":{"name":"read_file","arguments":"{\\"path\\":\\"app.js\\"}"}}]},"finish_reason":"tool_calls"}]}\n\n');
+    res.end('data: [DONE]\n\n');
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+
+  const result = await chatCompletion({
+    base: `http://127.0.0.1:${server.address().port}`,
+    apiKey: "deepseek-key",
+    model: "deepseek-v4-flash",
+    provider: "deepseek"
+  }, [{ role: "user", content: "Inspect app.js." }], [{ type: "function", function: { name: "read_file" } }], undefined, () => {});
+
+  assert.equal(result.reasoning_content, "I need to inspect the file.");
+  assert.equal(result.tool_calls[0].function.name, "read_file");
+});
+
 test("trimmed local context keeps one leading system message for strict Qwen templates", () => {
   const fitted = fitToContext([
     { role: "system", content: "You are Boolean." },

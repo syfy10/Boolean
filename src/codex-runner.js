@@ -153,8 +153,31 @@ function usageFromEvent(params, isNewThread, run) {
   };
 }
 
+const STRUCTURED_SANDBOX_TYPES = Object.freeze({
+  "read-only": "readOnly",
+  "workspace-write": "workspaceWrite",
+  "danger-full-access": "dangerFullAccess"
+});
+
+const THREAD_SANDBOX_TYPES = Object.freeze({
+  readOnly: "read-only",
+  workspaceWrite: "workspace-write",
+  dangerFullAccess: "danger-full-access"
+});
+
+function structuredSandboxPolicy(sandboxPolicy) {
+  if (!sandboxPolicy || typeof sandboxPolicy !== "object") return null;
+  const type = STRUCTURED_SANDBOX_TYPES[sandboxPolicy.type] || sandboxPolicy.type;
+  return { ...sandboxPolicy, ...(type ? { type } : {}) };
+}
+
+function threadSandboxMode(policy) {
+  return THREAD_SANDBOX_TYPES[policy?.type] || policy?.type || "read-only";
+}
+
 function sandboxFor({ sandboxPolicy, projectDir, networkAccess = false }) {
-  if (sandboxPolicy && typeof sandboxPolicy === "object") return { ...sandboxPolicy };
+  const explicitPolicy = structuredSandboxPolicy(sandboxPolicy);
+  if (explicitPolicy) return explicitPolicy;
   if (projectDir) {
     return {
       type: "workspaceWrite",
@@ -331,7 +354,9 @@ export class CodexRunner {
       ...(model ? { model } : {}),
       ...(cwd ? { cwd } : {}),
       approvalPolicy,
-      sandbox: policy.type,
+      // Codex's thread API uses kebab-case modes while turn/start keeps the
+      // structured camel-case SandboxPolicy variants.
+      sandbox: threadSandboxMode(policy),
       personality,
       serviceName
     };

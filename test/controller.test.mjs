@@ -785,6 +785,28 @@ test("project completion remains held until a post-change check succeeds", () =>
   assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
 });
 
+test("a verified preview server may stay running when the artifact is complete", () => {
+  const controller = new AgentController({
+    objective: "Build and preview the game UI",
+    artifactRequired: true,
+    projectDir: "C:\\demo"
+  });
+
+  controller.noteTool("edit_file", { path: "C:\\demo\\index.html" }, "edited index.html");
+  controller.noteTool("run_background", { name: "game-preview", command: "npm run dev" }, "Started background process 'game-preview' - running (pid 42).");
+  controller.noteTool("screenshot_page", { url: "http://127.0.0.1:3210" }, "Screenshot captured and visually verified.");
+
+  const completion = controller.evaluateCompletion("The game is built, verified, and open in the preview.");
+  assert.equal(completion.complete, true, completion.reason);
+  assert.deepEqual(controller.snapshot().openProcesses, ["game-preview"]);
+});
+
+test("an exited background command is not tracked as an open process", () => {
+  const controller = new AgentController({ objective: "Preview the app", artifactRequired: true });
+  controller.noteTool("run_background", { name: "broken-preview", command: "node server.js" }, "Started background process 'broken-preview' - exited immediately (code 1).\nEADDRINUSE");
+  assert.deepEqual(controller.snapshot().openProcesses, []);
+});
+
 test("verification cannot be bypassed by disabling autopilot", () => {
   const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p" });
   c.noteTool("edit_file", { path: "app.css" }, "edited app.css");

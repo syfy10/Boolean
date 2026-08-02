@@ -5,7 +5,80 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import http from "node:http";
-import { announcesUnperformedAction, classifyTurnMode, focusedMessagesForTurn, runTurn, systemPrompt } from "../src/agent.js";
+import { announcesUnperformedAction, classifyTurnMode, focusedMessagesForTurn, parseFallbackToolCall, runTurn, systemPrompt } from "../src/agent.js";
+
+test("plain compatibility tool JSON is executed instead of displayed as a final answer", () => {
+  const allowedNames = new Set(["run_command"]);
+  const command = "node --version";
+  assert.deepEqual(
+    parseFallbackToolCall(`I'll run the check now.\n{\"name\":\"run_command\",\"arguments\":{\"command\":\"${command}\"}}`, {
+      strict: true,
+      allowedNames
+    }),
+    { name: "run_command", arguments: { command } }
+  );
+  assert.deepEqual(
+    parseFallbackToolCall(`{\"name\":\"run_command\",\"arguments\":{\"command\":\"${command}\"}}}`, {
+      strict: true,
+      allowedNames
+    }),
+    { name: "run_command", arguments: { command } }
+  );
+  assert.equal(
+    parseFallbackToolCall('{"name":"delete_file","arguments":{"path":"project"}}', { strict: true, allowedNames }),
+    null,
+    "a known tool that is unavailable this turn must not execute"
+  );
+  assert.equal(
+    parseFallbackToolCall('{"name":"not_a_boolean_tool","arguments":{}}', { strict: true, allowedNames }),
+    null,
+    "arbitrary JSON must remain ordinary assistant text"
+  );
+  assert.equal(
+    parseFallbackToolCall('I will edit it. {"name":"write_file","arguments":{"path":"app.js","content":"unsafe"}}', {
+      strict: true,
+      allowedNames: new Set(["write_file"])
+    }),
+    null,
+    "direct compatibility file mutations still require a fenced call"
+  );
+});
+
+test("a plain compatibility tool call continues the run end to end", async (t) => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-plain-tool-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(projectDir, "app.js"), "const value = 7;\n");
+  const mock = await mockServer((call) => call === 1
+    ? { role: "assistant", content: 'I will inspect it now.\n{"name":"read_file","arguments":{"path":"app.js"}}' }
+    : { role: "assistant", content: "app.js defines value as 7." });
+  t.after(() => mock.server.close());
+  const cfg = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${mock.port}/v1`, model: "plain-tool-test", apiKey: "test" },
+    modelCapabilities: {},
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false, codingAgent: { compatibilityMode: "patch", stopLoop: false, autopilot: false } },
+    connectors: { mcp: [], agents: [] }
+  };
+  const steps = [];
+  const answer = await runTurn({
+    config: cfg,
+    projectDir,
+    approve: async () => true,
+    onStatus() {},
+    onStep(step) { steps.push(step.name); },
+    onUsage() {},
+    onCheckpoint() {}
+  }, [
+    { role: "system", content: systemPrompt(projectDir, true, cfg) },
+    { role: "user", content: "Inspect app.js and tell me which value it defines." }
+  ]);
+
+  assert.equal(answer, "app.js defines value as 7.");
+  assert.deepEqual(steps, ["read_file"]);
+  assert.equal(mock.requests.length, 2);
+  assert.match(mock.requests[1].messages.at(-1).content, /TOOL RESULT for read_file/);
+});
 
 async function mockServer(handler) {
   const requests = [];
@@ -89,7 +162,7 @@ test("a compatibility model cannot finish after promising another tool step", as
     openai: { baseUrl: `http://127.0.0.1:${mock.port}/v1`, model: "compat-test", apiKey: "test" },
     modelCapabilities: {},
     autoApprove: true,
-    ui: { contextMode: "full", learnedMemory: false, codingAgent: { compatibilityMode: "patch", stopLoop: false, autopilot: true } },
+    ui: { contextMode: "full", learnedMemory: false, codingAgent: { compatibilityMode: "patch", stopLoop: false, autopilot: false } },
     connectors: { mcp: [], agents: [] }
   };
   const messages = [
@@ -106,6 +179,54 @@ test("a compatibility model cannot finish after promising another tool step", as
   assert.equal(mock.requests.length, 4, "the compatibility run must continue after the announcement");
   assert.match(mock.requests[2].messages.at(-1).content, /exactly one fenced tool call/i);
   assert.equal(steps.filter((step) => step.name === "read_file").length, 2);
+});
+
+test("normal mode continues an unfinished build without requiring Autopilot", async (t) => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-normal-persist-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(projectDir, "app.js"), "const value = 1;\n");
+  const mock = await mockServer((call) => {
+    if (call === 1) return { role: "assistant", content: "I will make the requested change next." };
+    if (call === 2) return {
+      role: "assistant",
+      content: "",
+      tool_calls: [{ id: "edit_1", type: "function", function: {
+        name: "edit_file",
+        arguments: JSON.stringify({ path: "app.js", old_string: "const value = 1;", new_string: "const value = 2;" })
+      } }]
+    };
+    if (call === 3) return {
+      role: "assistant",
+      content: "",
+      tool_calls: [{ id: "check_1", type: "function", function: {
+        name: "run_command",
+        arguments: JSON.stringify({ command: "node --check app.js" })
+      } }]
+    };
+    return { role: "assistant", content: "Updated app.js and verified it successfully." };
+  });
+  t.after(() => mock.server.close());
+  const cfg = {
+    provider: "openai",
+    openai: { baseUrl: `http://127.0.0.1:${mock.port}/v1`, model: "normal-persist-test", apiKey: "test" },
+    modelCapabilities: {},
+    autoApprove: true,
+    ui: { contextMode: "full", learnedMemory: false, codingAgent: { compatibilityMode: "auto", stopLoop: false, autopilot: false } },
+    connectors: { mcp: [], agents: [] }
+  };
+  const steps = [];
+  const answer = await runTurn({
+    config: cfg, projectDir, approve: async () => true,
+    onStatus() {}, onStep(step) { steps.push(step.name); }, onUsage() {}, onCheckpoint() {}
+  }, [
+    { role: "system", content: systemPrompt(projectDir, true, cfg) },
+    { role: "user", content: "Change app.js from value 1 to value 2 and verify it." }
+  ]);
+
+  assert.equal(answer, "Updated app.js and verified it successfully.");
+  assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 2;\n");
+  assert.deepEqual(steps, ["edit_file", "run_command"]);
+  assert.equal(mock.requests.length, 4);
 });
 
 test("catches bare next-step announcements with no deliverable", () => {
@@ -192,7 +313,7 @@ test("inspect context does not mistake compatibility tool results for the user r
 
 test("unfinished action announcements are retried even after earlier tool work", () => {
   const source = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
-  assert.match(source, /const MAX_ANNOUNCE_NUDGES = 2;/);
+  assert.match(source, /const MAX_ANNOUNCE_NUDGES = 4;/);
   assert.match(source, /if \(activeToolDefinitions\.length && !signal\?\.aborted[\s\S]*?announcesUnperformedAction\(assistantContent\)\)/);
   assert.match(source, /compatibilityMode[\s\S]*?exactly one fenced tool call/);
   assert.doesNotMatch(source, /activeToolDefinitions\.length && !completedToolWork && !signal\?\.aborted/);

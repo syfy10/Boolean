@@ -19,6 +19,8 @@ test("Codex installation requires confirmation and auto-checks after the explici
   assert.match(installFunction, /appConfirm\("Install Codex CLI\?"/);
   assert.match(installFunction, /fetch\("\/api\/codex\/install",\{method:"POST",headers:\{"content-type":"application\/json","x-saz":"1"\},body:"\{\}"\}\)/);
   assert.ok(installFunction.indexOf("appConfirm") < installFunction.indexOf('fetch("/api/codex/install"'));
+  assert.match(installFunction, /const raw=await response\.text\(\)/);
+  assert.match(installFunction, /response\.status===404[\s\S]*backend is out of date\. Restart Boolean/);
   assert.match(installFunction, /await refreshCodexStatus\(\{start:true,quiet:true\}\)/);
   assert.match(uiSource, /installing\?"Installing Codex…"/);
 });
@@ -62,4 +64,8 @@ test("Microsoft Store desktop paths never render in the executable field", () =>
   assert.match(uiSource, /\?"codex":command/);
   assert.match(uiSource, /\$\("codexCommand"\)\.value=codexDisplayCommand\(codex\.command\)/);
   assert.match(uiSource, /command:codexDisplayCommand\(patch\.command\?\?previous\.command\)/);
+});
+
+test("Codex image inputs do not inherit the local mmproj text-only gate", () => {
+  assert.match(uiSource, /const visionOk=\(\)=>state\.codex\?\.enabled===true \|\| !state\.vision \|\| state\.vision\.supported!==false/);
 });

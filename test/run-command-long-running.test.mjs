@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { executeTool, inferDesktopProject } from "../src/tools.js";
+import { executeTool, inferDesktopProject, isUnmanagedProcessTerminationCommand } from "../src/tools.js";
 
 test("run_command refuses dev servers that should be backgrounded", async () => {
   const base = path.join(os.tmpdir(), "saz-long-running-" + Date.now());
@@ -52,4 +52,21 @@ test("existing WPF folders are inferred as runnable desktop projects", (t) => {
     executable: "",
     inferred: true
   });
+});
+
+test("run_command cannot kill Boolean or another unmanaged process", async () => {
+  assert.equal(isUnmanagedProcessTerminationCommand("Stop-Process -Id 14992 -Force"), true);
+  assert.equal(isUnmanagedProcessTerminationCommand("taskkill /PID 14992 /F"), true);
+  assert.equal(isUnmanagedProcessTerminationCommand("node --version"), false);
+  let approved = false;
+  const result = await executeTool("run_command", {
+    command: "Stop-Process -Id 14992 -Force"
+  }, {
+    projectDir: os.tmpdir(),
+    config: { commandTimeoutMs: 60_000 },
+    approve: async () => { approved = true; return true; }
+  });
+  assert.equal(approved, false);
+  assert.match(result, /will not terminate an arbitrary system process/i);
+  assert.match(result, /stop_process/i);
 });

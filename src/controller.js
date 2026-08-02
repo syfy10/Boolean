@@ -62,7 +62,7 @@ const DEBUG_REQUEST = /\b(?:bug|broken|crash(?:es|ed|ing)?|error|fail(?:s|ed|ing
 const CHECK_COMMAND = /\b(?:test|tests|build|lint|check|compile|typecheck|verify|validate|smoke)\b|\bnode\s+--check\b|\bdotnet\s+(?:test|build)\b|^\s*(?:node|npm|npx|git|gh|wrangler(?:\.cmd)?|dotnet|python|py)\s+(?:--version|-v|version)\s*$/i;
 const INSPECTION_COMMAND = /\b(?:get-content|select-string|findstr|rg\b|grep\b|regex|matches|indexof|dir\b|ls\b|type\b|cat\b)\b/i;
 const COMMAND_MUTATES_FILE = /\b(?:set-content|add-content|out-file|copy-item|move-item|remove-item|new-item|del|erase|rm|rmdir|mkdir)\b|(?:^|[^>])>{1,2}(?:[^>]|$)/i;
-const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
+const FAILURE_RESULT = /^(?:error\b|blocked\b|failed\b|failure\b|timed out\b|user declined\b|could not\b|cannot\b)|\bexited(?:\s+immediately)?\s*\(?(?:code\s*)?[1-9]\d*\)?|\b(?:request|connection|network|syntax|parse|build|test) error\b/i;
 const LOOP_BLOCK_REASON = /\b(?:loop guard|tool budget reached|too many inspection|repeated the same kind of inspection)\b/i;
 const PROGRESS_WARNING_INSPECTIONS = 12;
 const NON_PROGRESS_INSPECTION_LIMIT = 28;
@@ -566,6 +566,9 @@ export class AgentController {
     this.openProcesses = Array.isArray(saved.openProcesses)
       ? saved.openProcesses.map((item) => cleanText(item, 80)).filter(Boolean).slice(-8)
       : [];
+    this.openProcessCommands = saved.openProcessCommands && typeof saved.openProcessCommands === "object"
+      ? Object.fromEntries(Object.entries(saved.openProcessCommands).slice(-8).map(([name, command]) => [cleanText(name, 80), cleanText(command, 500)]).filter(([name]) => name))
+      : {};
     // Per-run token/time budget (0 = unlimited). Set from config.ui.codingAgent.budget.
     // Runtime options are authoritative. Older saved controllers contain 0
     // from the former unlimited default; using only that saved value made the
@@ -658,6 +661,7 @@ export class AgentController {
       blockedToolCount: this.blockedToolCount,
       blockedActionCounts: { ...this.blockedActionCounts },
       openProcesses: [...this.openProcesses],
+      openProcessCommands: { ...this.openProcessCommands },
       tokenBudget: this.tokenBudget,
       tokensUsed: this.tokensUsed,
       timeBudgetMs: this.timeBudgetMs,
@@ -940,11 +944,15 @@ export class AgentController {
 
     if (name === "run_background" && !isFailure(result)) {
       const started = String(result || "").match(/Started background process ['\"]([^'\"]+)['\"]/i)?.[1] || cleanText(args.name, 80);
-      if (started && !this.openProcesses.includes(started)) this.openProcesses.push(started);
+      if (started && /\brunning\b/i.test(String(result || "")) && !this.openProcesses.includes(started)) this.openProcesses.push(started);
+      if (started && /\brunning\b/i.test(String(result || ""))) this.openProcessCommands[started] = cleanText(args.command, 500);
       this.openProcesses = this.openProcesses.slice(-8);
     } else if (name === "stop_process") {
       const stopped = cleanText(args.name, 80).toLowerCase();
       this.openProcesses = this.openProcesses.filter((item) => item.toLowerCase() !== stopped);
+      for (const processName of Object.keys(this.openProcessCommands)) {
+        if (processName.toLowerCase() === stopped) delete this.openProcessCommands[processName];
+      }
     }
 
     if (name === "update_plan" && Array.isArray(args.steps) && args.steps.length) {
@@ -1001,7 +1009,14 @@ export class AgentController {
         });
       }
     }
-    if (["screenshot_page", "inspect_page_layout"].includes(name) && this.taskRun.visual?.enabled) {
+    if (["visible_browser_open", "browser_open"].includes(name) && this.artifactRequired && !failed) {
+      const openedUrl = String(args?.url || result || "").match(/https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?[^\s"'<>]*/i)?.[0] || "";
+      if (openedUrl) updateTaskRunVisual(this.taskRun, {
+        state: "previewing", previewUrl: openedUrl,
+        cycle: (this.taskRun.visual?.cycle || 0) + 1, verifiedAt: 0, forceEvent: true
+      });
+    }
+    if (["screenshot_page", "inspect_page_layout"].includes(name) && (this.taskRun.visual?.enabled || this.artifactRequired)) {
       updateTaskRunVisual(this.taskRun, failed
         ? { state: "failed", detail: result }
         : { state: "verified", verifiedAt: Date.now(), forceEvent: true });
@@ -1149,7 +1164,15 @@ export class AgentController {
       return { complete: false, reason: `The task is paused after a blocked action: ${cleanText(this.lastFailure, 300)}` };
     }
     if (this.openProcesses.length) {
-      return { complete: false, reason: `Temporary process still running: ${this.openProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
+      const visualVerified = this.taskRun.visual?.state === "verified";
+      const blockingProcesses = this.openProcesses.filter((name) => {
+        const command = this.openProcessCommands[name] || "";
+        const looksLikePreview = /(?:preview|server|serve|dev|watch)/i.test(`${name} ${command}`);
+        return !(visualVerified && looksLikePreview);
+      });
+      if (blockingProcesses.length) {
+        return { complete: false, reason: `Temporary process still running: ${blockingProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
+      }
     }
     if (this.projectBound && this.artifactRequired && this.mutationCount === 0) {
       this.phase = "executing";
@@ -1187,7 +1210,6 @@ export class AgentController {
 
   continuationPrompt(reason) {
     const loopBlock = isLoopBlock(reason);
-    if (!this.autopilot && !loopBlock) return "";
     const r = cleanText(reason, 500);
     const next = this.plan.find((item) => item.status && item.status !== "done")?.step;
     const tail = next ? ` Planned next step: ${next}.` : "";

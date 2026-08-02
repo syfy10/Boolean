@@ -141,8 +141,8 @@
    "browserTabs": []
   },
   "appName": "Boolean",
-  "version": "0.9.66",
-  "displayVersion": "v0.9.66",
+  "version": "0.9.67",
+  "displayVersion": "v0.9.67",
   "providers": [
    "local",
    "openai",
@@ -259,8 +259,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.66",
-  "displayVersion": "v0.9.66",
+  "version": "0.9.67",
+  "displayVersion": "v0.9.67",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true
@@ -11055,7 +11055,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.66"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.67"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''

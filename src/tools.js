@@ -1057,6 +1057,14 @@ export function isLikelyForegroundDesktopCommand(command, cwd) {
     && !/\b(?:Start-Process|run_background)\b/i.test(text);
 }
 
+export function isUnmanagedProcessTerminationCommand(command) {
+  const text = String(command || "").trim();
+  return /(?:^|[;&|\s])Stop-Process(?:\s|$)/i.test(text)
+    || /(?:^|[;&|\s])taskkill(?:\.exe)?(?:\s|$)/i.test(text)
+    || /(?:^|[;&|\s])(?:pkill|killall)(?:\s|$)/i.test(text)
+    || /(?:^|[;&|\s])kill\s+(?:-\w+\s+)?\d+(?:\s|$)/i.test(text);
+}
+
 export function inferDesktopProject(dir) {
   const projectFile = desktopProjectFile(dir);
   if (!projectFile) return null;
@@ -2106,6 +2114,9 @@ export async function executeTool(name, args, ctx) {
         }
         if (isLikelyForegroundDesktopCommand(normalizedCommand, base)) {
           return "This launches a desktop GUI in the foreground and would keep the task stuck until the window closes. Use run_project for the open project, or run_background when you need to keep a custom desktop launch alive.";
+        }
+        if (isUnmanagedProcessTerminationCommand(normalizedCommand)) {
+          return "blocked: Boolean will not terminate an arbitrary system process through run_command because it may stop Boolean itself or another app. Use stop_process with the name of a process started by run_background. If a port is occupied by an unknown process, choose a free preview port instead.";
         }
         const shell = args.shell === "cmd" ? "cmd" : "powershell";
         // Approval is scoped to this exact command and this one agent run. Some

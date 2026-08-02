@@ -349,26 +349,44 @@ const KNOWN_TOOLS = new Set(TOOL_DEFINITIONS.map((t) => t.function.name));
 
 // Small models often emit tool calls as a fenced JSON block in plain text even
 // when native tool calling is available, so this is checked in both modes.
-function parseFallbackToolCall(text, options = {}) {
+export function parseFallbackToolCall(text, options = {}) {
   const candidates = [];
   const fenced = text.match(/```(?:tool|json)?\s*\n?(\{[\s\S]*?\})\s*```/);
-  if (fenced) candidates.push(fenced[1]);
+  if (fenced) candidates.push({ text: fenced[1], fenced: true });
   const trimmed = text.trim();
-  if (!options.strict) {
-    if (trimmed.startsWith("{") && trimmed.endsWith("}")) candidates.push(trimmed);
-    const trailing = trimmed.match(/(\{[\s\S]*"name"\s*:\s*"(?:[^"]+)"[\s\S]*\})\s*$/);
-    if (trailing) candidates.push(trailing[1]);
-  }
+  // Some providers ignore the requested fence and return a plain tool object,
+  // sometimes after one sentence of commentary. It is safe to accept that in
+  // strict compatibility mode because both the global known-tool catalog and
+  // this turn's allowed-tool set are checked below before anything executes.
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) candidates.push({ text: trimmed, fenced: false });
+  const trailing = trimmed.match(/(\{[\s\S]*"name"\s*:\s*"(?:[^"]+)"[\s\S]*\})\s*$/);
+  if (trailing) candidates.push({ text: trailing[1], fenced: false });
   const allowed = options.allowedNames instanceof Set ? options.allowedNames : KNOWN_TOOLS;
 
   for (const candidate of candidates) {
-    try {
-      const obj = JSON.parse(candidate);
-      if (obj && KNOWN_TOOLS.has(obj.name) && allowed.has(obj.name)) {
-        return { name: obj.name, arguments: obj.arguments || obj.parameters || {} };
+    // Tolerate only surplus closing braces at the very end. This repairs the
+    // common text-generation slip without attempting to reinterpret malformed
+    // arguments or execute prose as a command.
+    let repaired = String(candidate.text || "").trim();
+    for (let surplus = 0; surplus <= 2; surplus++) {
+      try {
+        const obj = JSON.parse(repaired);
+        if (obj && KNOWN_TOOLS.has(obj.name) && allowed.has(obj.name)) {
+          // Compatibility-mode file mutations deliberately require the fenced
+          // protocol (or boolean_patch) so prose examples can never become an
+          // edit. Inspection/check commands may recover from a missing fence;
+          // their normal approval and workspace boundaries still apply.
+          if (options.strict && !candidate.fenced && ["write_file", "edit_file"].includes(obj.name)) break;
+          const args = obj.arguments || obj.parameters || {};
+          if (args && typeof args === "object" && !Array.isArray(args)) {
+            return { name: obj.name, arguments: args };
+          }
+        }
+        break;
+      } catch {
+        if (!repaired.endsWith("}")) break;
+        repaired = repaired.slice(0, -1).trimEnd();
       }
-    } catch {
-      /* not a tool call */
     }
   }
   return null;
@@ -1724,14 +1742,16 @@ export async function runTurn(ctx, messages) {
   let compatibilityPatchApplied = false;
   let compatibilityPatchErrors = 0;
   const MAX_COMPATIBILITY_PATCH_RETRIES = 3;
-  // Autopilot re-enables the controller's auto-continue (verify/recover) loop even
-  // in neutral-relay mode; with it off, behavior is unchanged (0 = model owns the loop).
+  // Finishing an action the model has already started is baseline agent behavior,
+  // not an optional Autopilot feature. Keep these counters consecutive (real tool
+  // progress resets them below) so long productive tasks can continue while a
+  // genuinely narrating/stalled model still gets bounded correction attempts.
   const autopilot = config?.ui?.codingAgent?.autopilot === true;
-  const MAX_AUTO_CONTINUE = autopilot ? 1 : 0;
+  const MAX_AUTO_CONTINUE = autopilot ? 6 : 3;
   const MAX_CONTROLLER_RECOVERIES = 4;
   const MAX_LOOP_RECOVERIES = 0;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
-  const MAX_ANNOUNCE_NUDGES = 2;
+  const MAX_ANNOUNCE_NUDGES = 4;
   // A blocked or errored tool result is not progress — a repeatedly-blocked action
   // must NOT reset the loop-recovery guard, or it would recover forever and never
   // terminate. Mirrors the controller's own failure prefixes.
@@ -1746,6 +1766,7 @@ export async function runTurn(ctx, messages) {
     if (toolResultFailed(result)) return;
     autoContinues = 0;
     announceNudges = 0;
+    completionNudges = 0;
     controllerRecoveries = 0;
   };
   const handleControllerStop = (result) => {

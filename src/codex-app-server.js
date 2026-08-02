@@ -210,7 +210,7 @@ function sanitizeInstallOutput(value) {
 
 function installerEnvironment(env, installDir) {
   const allowed = [
-    "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP", "LOCALAPPDATA", "APPDATA",
+    "SystemRoot", "WINDIR", "OS", "COMSPEC", "TEMP", "TMP", "LOCALAPPDATA", "APPDATA",
     "USERPROFILE", "ProgramFiles", "ProgramFiles(x86)", "ProgramData", "PATH", "PATHEXT",
     "PROCESSOR_ARCHITECTURE", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "SSL_CERT_FILE",
     "CODEX_CA_CERTIFICATE"

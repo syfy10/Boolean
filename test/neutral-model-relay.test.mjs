@@ -22,9 +22,10 @@ test("Boolean sends a provider-neutral operating policy and no fabricated person
   assert.match(prompt, /verification proportional to risk/i);
   assert.match(prompt, /stop inspecting and synthesize/i);
   assert.match(prompt, /do not enter recovery loops/i);
-  // Neutral by default: the model owns its own tool loop unless the user opts into
-  // autopilot (the controller's auto-continue stays at 0 otherwise).
-  assert.match(agent, /const MAX_AUTO_CONTINUE = autopilot \? 1 : 0;/);
+  // Normal mode must finish an already-started task. Autopilot expands the
+  // consecutive correction window, while real tool progress resets it.
+  assert.match(agent, /const MAX_AUTO_CONTINUE = autopilot \? 6 : 3;/);
+  assert.match(agent, /completionNudges = 0;/);
   assert.match(agent, /CURRENT TASK CONTRACT/);
   assert.match(server, /function currentAppContext\([^)]*\) \{\s*return "";/);
   for (const fabricatedPersona of [

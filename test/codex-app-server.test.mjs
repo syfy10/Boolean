@@ -403,7 +403,7 @@ test("runs the fixed official standalone installer with bounded output", async (
   const installed = standaloneCodexPath({ platform: "win32", env: { LOCALAPPDATA: localAppData } });
   const result = await installCodexStandaloneCli({
     platform: "win32",
-    env: { LOCALAPPDATA: localAppData, PATH: "", SystemRoot: "C:\\Windows", BOOLEAN_SECRET: "do-not-inherit" },
+    env: { LOCALAPPDATA: localAppData, PATH: "", SystemRoot: "C:\\Windows", OS: "Windows_NT", BOOLEAN_SECRET: "do-not-inherit" },
     maxOutputBytes: 1000,
     existsSync: (candidate) => candidate === installed,
     spawn(command, args, options) {
@@ -429,6 +429,7 @@ test("runs the fixed official standalone installer with bounded output", async (
   assert.equal(calls[0].options.shell, false);
   assert.equal(calls[0].options.env.CODEX_NON_INTERACTIVE, "1");
   assert.equal(calls[0].options.env.CODEX_INSTALL_DIR, path.dirname(installed));
+  assert.equal(calls[0].options.env.OS, "Windows_NT");
   assert.equal(calls[0].options.env.BOOLEAN_SECRET, undefined);
   assert.equal(calls[1].command, installed);
   assert.deepEqual(calls[1].args, ["--version"]);

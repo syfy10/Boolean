@@ -230,7 +230,12 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
   if (stream) body.stream_options = { include_usage: true };
   if (tools) {
     body.tools = tools;
-    if (target.toolChoice) body.tool_choice = target.toolChoice;
+    // DeepSeek thinking models use the normal automatic tool-selection path
+    // when tools are present, but reject an explicit tool_choice. Keep the
+    // tools themselves and omit only the incompatible forcing parameter.
+    const rejectsForcedToolChoice = target.provider === "deepseek"
+      || /(?:^|\.)api\.deepseek\.com$/i.test(new URL(target.base).hostname);
+    if (target.toolChoice && !rejectsForcedToolChoice) body.tool_choice = target.toolChoice;
   }
 
   let res;
@@ -276,6 +281,7 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
   const dec = new TextDecoder();
   let buf = "";
   let content = "";
+  let reasoningContent = "";
   let usage = null;
   let streamFinished = false;
   let terminalChoice = false;
@@ -307,6 +313,7 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
       if (obj.usage) usage = { input: obj.usage.prompt_tokens || 0, output: obj.usage.completion_tokens || 0, estimated: false };
       const choice = obj.choices?.[0];
       const delta = choice?.delta;
+      if (delta?.reasoning_content) reasoningContent += delta.reasoning_content;
       if (delta?.content) { content += delta.content; onToken(delta.content); }
       if (delta?.tool_calls) {
         for (const tc of delta.tool_calls) {
@@ -329,6 +336,10 @@ async function chatCompletionOnce(target, messages, tools, signal, onToken) {
     }
   }
   const msg = { role: "assistant", content };
+  // DeepSeek requires the complete reasoning_content to be sent back after a
+  // thinking-mode tool call. Preserve it on the assistant protocol message;
+  // the UI still renders only content.
+  if (reasoningContent) msg.reasoning_content = reasoningContent;
   const calls = toolCalls.filter(Boolean);
   if (calls.length) msg.tool_calls = calls;
   msg.usage = usage || {

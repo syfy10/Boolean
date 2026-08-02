@@ -357,15 +357,18 @@
   .personal-chat-head{ margin-top:13px; padding-top:4px; border-top:1px solid var(--border); }
   .personal-chat-more{ align-self:flex-start; width:auto; min-height:20px; margin:2px 0 2px 24px; padding:0; border:0; border-radius:0; background:transparent; color:var(--dim); cursor:pointer; font:500 9.5px var(--ui); text-align:left; }
   .personal-chat-more:hover{ background:transparent; color:var(--text); text-decoration:underline; }
-  .sidebar-account-card{ flex:0 0 auto; min-height:48px; margin:7px 10px 9px; padding:7px 9px; border:1px solid var(--border); border-radius:10px;
-    background:var(--sidebar); color:var(--text); display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:8px; cursor:pointer; text-align:left; }
-  .sidebar-account-card:hover{ background:var(--hover); }
+  .sidebar-account-card{ flex:0 0 auto; min-height:48px; margin:7px 10px 9px; padding:7px 7px 7px 9px; border:1px solid var(--border); border-radius:10px;
+    background:var(--sidebar); color:var(--text); display:grid; grid-template-columns:minmax(0,1fr) 28px; align-items:center; gap:5px; text-align:left; }
+  .sidebar-account-main{ min-width:0; display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:8px; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; text-align:left; }
+  .sidebar-account-settings{ width:28px; height:28px; display:grid; place-items:center; padding:0; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; }
+  .sidebar-account-main:hover .sidebar-account-copy b,.sidebar-account-settings:hover{ color:var(--text); }
+  .sidebar-account-settings:hover{ background:var(--hover); }
+  .sidebar-account-settings svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .sidebar-account-avatar{ width:28px; height:28px; display:grid; place-items:center; border-radius:50%; background:color-mix(in srgb,var(--green) 12%,var(--sidebar)); color:var(--green); font:650 11px var(--ui); }
   .sidebar-account-copy{ min-width:0; }
   .sidebar-account-copy b,.sidebar-account-copy small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sidebar-account-copy b{ font:600 11.5px/1.25 var(--ui); }
   .sidebar-account-copy small{ margin-top:1px; color:var(--dim); font:9.5px/1.2 var(--ui); }
-  .sidebar-account-chevron{ color:var(--dim); font-size:13px; }
 
   .sidefoot{ flex-shrink:0; border-top:1px solid var(--border); padding:0; display:flex; flex-direction:column; background:var(--sidebar); }
   .sidefoot-nav{ display:flex; align-items:center; gap:6px; flex:0 0 auto; padding:0; border-radius:0; background:transparent; border:0; box-shadow:none; }
@@ -1392,9 +1395,9 @@
   .toolcard.webstatus .toolout{ margin-left:4px; }
 
   .status{ font-size:12.5px; color:var(--dim); display:flex; align-items:center; gap:8px; font-family:var(--mono); }
-  .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; width:min(100%,640px); min-width:0; margin:7px 0 4px;
+  .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; align-items:stretch; width:min(100%,640px); min-width:0; margin:7px 0 4px;
     overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; font-family:var(--ui); }
-  .working-card-header{ display:flex; align-items:flex-start; gap:8px; min-width:0; min-height:28px; padding:3px 2px; cursor:pointer; user-select:none; }
+  .working-card-header{ display:flex; align-items:flex-start; gap:8px; width:100%; min-width:0; min-height:28px; padding:3px 2px; box-sizing:border-box; cursor:pointer; user-select:none; }
   .working-card-header:hover{ background:transparent; }
   .working-card-state{ display:inline-flex; align-items:center; gap:0; flex:0 0 auto; min-height:20px; color:var(--dim); }
   .working-card-state b{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -1407,7 +1410,7 @@
   .working-card-action.danger:hover{ color:var(--danger); }
   .working-card-toggle{ width:24px; padding-inline:4px; font-size:10px; transition:transform var(--t); }
   .working-card:not(.collapsed) .working-card-toggle{ transform:rotate(180deg); }
-  .working-card-body{ order:-1; padding:0 2px; border:0; }
+  .working-card-body{ order:-1; width:100%; padding:0 2px; box-sizing:border-box; border:0; }
   .working-card.collapsed .working-card-body{ display:none; }
   .working-card-events{ display:grid; gap:1px; min-width:0; margin:0; padding:0; }
   .working-commentary{ min-width:0; margin:7px 0 5px; overflow-wrap:anywhere; color:var(--text); font:400 var(--chat-fs)/1.52 var(--ui); }
@@ -5678,11 +5681,13 @@ body:not(.composer-simple) main::after{
       <button class="sidebar-nav-item" type="button" data-sidebar-action="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg><span>Settings</span><span></span></button>
     </section>
   </nav>
-  <button class="sidebar-account-card" id="sidebarAccount" type="button" aria-label="Boolean account">
-    <span class="sidebar-account-avatar" id="sidebarAccountAvatar">B</span>
-    <span class="sidebar-account-copy"><b id="sidebarAccountName">You</b><small id="sidebarAccountLabel">Local Boolean workspace</small></span>
-    <span class="sidebar-account-chevron" aria-hidden="true">&#8964;</span>
-  </button>
+  <div class="sidebar-account-card">
+    <button class="sidebar-account-main" id="sidebarAccount" type="button" aria-label="Boolean account">
+      <span class="sidebar-account-avatar" id="sidebarAccountAvatar">B</span>
+      <span class="sidebar-account-copy"><b id="sidebarAccountName">You</b><small id="sidebarAccountLabel">Local Boolean workspace</small></span>
+    </button>
+    <button class="sidebar-account-settings" id="sidebarAccountSettings" type="button" title="Settings" aria-label="Open settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg></button>
+  </div>
 
   <div class="sidefoot">
     <div class="panel" id="settingsPanel">
@@ -10553,7 +10558,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.66"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.67"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -12046,7 +12051,10 @@ body:not(.composer-simple) main::after{
   }
   // vision gating: images may only be attached when the model can process them
   const TEXT_ONLY_MSG="This model is text-only. Select a vision-capable model and its matching .mmproj file.";
-  const visionOk=()=>!state.vision || state.vision.supported!==false;
+  // The .mmproj readiness gate is only for Boolean's local llama.cpp model.
+  // Codex handles image inputs through its own selected model and must not
+  // inherit a stale local-model text-only warning.
+  const visionOk=()=>state.codex?.enabled===true || !state.vision || state.vision.supported!==false;
   function visionBlockNote(){
     const reason=state.vision&&state.vision.reason?state.vision.reason:TEXT_ONLY_MSG;
     const d=addNode("status"); d.style.color="#e3a008"; d.textContent="⚠ "+reason+" (Settings → Models)";
@@ -14481,6 +14489,7 @@ body:not(.composer-simple) main::after{
   $("appForward").onclick=goForwardInApp;
   $("newchat").onclick=newChat;
   $("sidebarAccount").onclick=toggleAccountMenu;
+  $("sidebarAccountSettings").onclick=(event)=>{ event.stopPropagation(); closeAccountMenu(); openSettings(null); };
   function closeSidebarFlyouts(){
     document.querySelectorAll("[data-sidebar-flyout]").forEach(menu=>menu.classList.remove("open"));
     document.querySelectorAll("[data-sidebar-menu]").forEach(btn=>btn.setAttribute("aria-expanded","false"));
@@ -15901,8 +15910,15 @@ Optional bundled starter model:
     renderCodexSettings();
     try{
       const response=await fetch("/api/codex/install",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
-      const result=await response.json().catch(()=>({ok:false,message:"Codex installation did not return a result."}));
-      if(!response.ok||result.ok!==true) throw new Error(result.message||result.error||"Codex CLI could not be installed.");
+      const raw=await response.text();
+      let result={};
+      try{ result=raw?JSON.parse(raw):{}; }catch{}
+      if(!response.ok||result.ok!==true){
+        const fallback=response.status===404
+          ? "Boolean's backend is out of date. Restart Boolean, then try Install Codex CLI again."
+          : response.status?"Codex installation failed (HTTP "+response.status+").":"Codex installation did not return a result.";
+        throw new Error(result.message||result.error||fallback);
+      }
       const command=codexDisplayCommand(result.command||"codex");
       state.codex={...(state.codex||{}),...result,installed:true,enabled:false,command,error:"",lastError:""};
       await refreshCodexStatus({start:true,quiet:true});

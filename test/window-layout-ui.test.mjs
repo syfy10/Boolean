@@ -634,6 +634,9 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /\.thread-search-field > svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
   assert.match(ui, /display:block; width:100%; height:30px; margin:0; padding:0 9px 0 27px;/);
   assert.match(ui, /id="sidebarAccount"[\s\S]*?id="sidebarAccountAvatar"[\s\S]*?id="sidebarAccountName"[\s\S]*?id="sidebarAccountLabel"/);
+  assert.match(ui, /id="sidebarAccountSettings"[^>]*title="Settings"[^>]*aria-label="Open settings"/);
+  assert.match(ui, /\$\("sidebarAccountSettings"\)\.onclick=\(event\)=>\{ event\.stopPropagation\(\); closeAccountMenu\(\); openSettings\(null\); \}/);
+  assert.doesNotMatch(ui, /sidebar-account-chevron/);
   assert.doesNotMatch(ui, /<div class="sidebar-system-row">[\s\S]*?data-sidebar-theme=/);
   assert.match(ui, /\$\("sidebarAccount"\)\.onclick=toggleAccountMenu/);
   assert.match(ui, /body:not\(\.collapsed\) #sideRail \.rail-user,\s*body\.collapsed\.sidebar-popover-open #sideRail \.rail-user\{ display:none!important; \}/);

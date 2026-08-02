@@ -128,8 +128,9 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(client.threadStarts.length, 1);
   assert.equal(client.threadResumes.length, 0);
   assert.equal(client.threadStarts[0].approvalPolicy, "on-request");
-  assert.equal(client.threadStarts[0].sandbox, "workspaceWrite");
+  assert.equal(client.threadStarts[0].sandbox, "workspace-write");
   assert.equal(client.turnStarts[0].options.approvalPolicy, "on-request");
+  assert.equal(client.turnStarts[0].options.sandboxPolicy.type, "workspaceWrite");
   assert.equal(client.turnStarts[0].options.sandboxPolicy.networkAccess, true);
   assert.match(client.turnStarts[0].input[0].text, /We were fixing the parser/);
   assert.match(client.turnStarts[0].input[0].text, /Current request:\nFinish it and run the test/);
@@ -154,6 +155,26 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(mappings[0].threadId, "thr_new");
   assert.equal(mappings.at(-1).status, "completed");
   assert.ok(statuses.includes("Codex finished the task."));
+});
+
+test("Codex thread modes use kebab-case while turn sandbox policies stay structured", async () => {
+  for (const [inputType, threadType, turnType] of [
+    ["readOnly", "read-only", "readOnly"],
+    ["workspace-write", "workspace-write", "workspaceWrite"],
+    ["dangerFullAccess", "danger-full-access", "dangerFullAccess"]
+  ]) {
+    const client = new FakeCodexClient({ onTurn: successfulTurn });
+    await runCodexTurn({
+      client,
+      input: "Check the project.",
+      sandboxPolicy: inputType === "readOnly"
+        ? { type: inputType, access: { type: "fullAccess" } }
+        : { type: inputType },
+      onStatus: () => {}
+    });
+    assert.equal(client.threadStarts[0].sandbox, threadType);
+    assert.equal(client.turnStarts[0].options.sandboxPolicy.type, turnType);
+  }
 });
 
 test("turn completion uses the final agent-message fallback when deltas were missed", async () => {
