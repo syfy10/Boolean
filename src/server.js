@@ -240,7 +240,7 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
-    version: "0.9.69",
+    version: "0.9.70",
     date: "2026-08-02",
     title: "Automatic routing, verified changes, and Boolean Pet",
     details: [
@@ -1315,8 +1315,8 @@ export function startServer(config, {
       command: config.claudeCode?.command || "claude",
       model: config.claudeCode?.model || "sonnet",
       installing: !!claudeInstallPromise,
-      ready: status.ready === true && status.signedIn === true,
       ...status,
+      ready: status.ready === true && status.signedIn === true,
       checkedAt: claudeCheckedAt
     };
   };
@@ -1347,7 +1347,7 @@ export function startServer(config, {
         args: ["app-server", "--stdio"],
         env: codexProcessEnvironment,
         clientInfo: { name: "boolean", title: "Boolean", version: APP_VERSION },
-        capabilities: {},
+        capabilities: { experimentalApi: true },
         onStatus: () => { codexCheckedAt = Date.now(); },
         onEvent: (message) => {
           if (message?.method === "account/login/completed") {
@@ -2331,7 +2331,16 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           },
           model: currentModel(config), accessMode: currentAccessMode(config), autoApprove: config.autoApprove,
           modelCapability: publicModelCapability(config, currentVision.supported),
-          local: { ctx: config.local.ctx },
+          local: (() => {
+            const hardware = engine.detectLocalHardware();
+            let modelBytes = 0;
+            try {
+              const selected = config.local.model || engine.listLocalModels()[0] || "";
+              if (selected) modelBytes = fs.statSync(path.join(engine.MODELS_DIR, selected)).size;
+            } catch { /* recommendation remains useful without a selected model */ }
+            const recommendation = engine.recommendLocalSettings(hardware, modelBytes);
+            return { ctx: config.local.ctx, autoTune: config.local.autoTune !== false, hardware, recommendation };
+          })(),
           backendUp: providerReady[config.provider] === true,
           providerReady,
           cloud: { ...CLOUD, customApi: config.customApi?.name || CLOUD.customApi },
@@ -3109,6 +3118,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           const ctx = Math.max(4096, Math.min(262144, Math.round(body.localCtx)));
           if (config.local.ctx !== ctx) {
             config.local.ctx = ctx;
+            config.local.autoTune = false;
             try { engine.stopEngine(); } catch { /* reload with new context next request */ }
           }
         }
@@ -3255,7 +3265,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           config.claudeCode = { ...(config.claudeCode || {}), command: result.command || "claude" };
           saveConfig(config);
           claudeStatus = null;
-          json({ ...result, ...publicClaudeStatus({ refresh: true }), ok: true });
+          const login = claudeLoginStarter(config.claudeCode.command, { platform: process.platform });
+          json({ ...result, ...publicClaudeStatus({ refresh: true }), loginStarted: login.ok === true, loginMessage: login.message || "", ok: true });
         } catch (error) {
           json({ ok: false, error: "install_failed", message: `Claude Code setup failed: ${error?.message || error}` }, 500);
         } finally { claudeInstallPromise = null; }
@@ -4577,6 +4588,17 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
+      if (req.method === "POST" && p === "/api/models/accelerator") {
+        try {
+          let last = "";
+          const hardware = await engine.installGpuEngine((status) => { last = status; });
+          json({ ok: true, hardware, recommendation: engine.recommendLocalSettings(hardware), status: last });
+        } catch (err) {
+          json({ error: err.message || "could not install GPU acceleration" }, 500);
+        }
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/models/remove") {
         const body = await readBody(req);
         try {
@@ -5705,11 +5727,22 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               projectDir: t.projectDir || config.projectsDir || "",
               workspaceChanges: booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
               networkAccess: config.ui?.aiBrowser !== false,
-              approvalPolicy: currentAccessMode(runConfig) === "full_access" ? "never" : "on-request",
+              // Keep Full access frictionless for in-root work, while still
+              // receiving untrusted command requests so the host can reject
+              // explicit reads/writes outside the canonical allowlist.
+              approvalPolicy: currentAccessMode(runConfig) === "full_access" ? "untrusted" : "on-request",
               sandboxPolicy: currentAccessMode(runConfig) === "read_only"
-                ? { type: "readOnly", access: { type: "fullAccess" } }
+                ? {
+                    type: "readOnly",
+                    access: {
+                      type: "restricted",
+                      includePlatformDefaults: false,
+                      readableRoots: [path.resolve(t.projectDir || config.projectsDir || "")]
+                    }
+                  }
                 : undefined,
               sandboxEnvironment: codexProcessEnvironment,
+              getWorkspaceChanges: () => booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
               signal: abort.signal,
               onStatus: ctx.onStatus,
               onToken: ctx.onToken,

@@ -28,10 +28,29 @@ function commandCandidates(command = "claude", { env = process.env, platform = p
   const saved = String(command || "claude").trim() || "claude";
   const rows = [saved];
   if (platform === "win32") {
+    const profile = env.USERPROFILE || os.homedir();
+    const localAppData = env.LOCALAPPDATA || path.join(profile, "AppData", "Local");
+    const roamingAppData = env.APPDATA || path.join(profile, "AppData", "Roaming");
     rows.push(
-      path.join(env.USERPROFILE || os.homedir(), ".local", "bin", "claude.exe"),
-      path.join(env.LOCALAPPDATA || "", "Microsoft", "WinGet", "Links", "claude.exe")
+      path.join(profile, ".local", "bin", "claude.exe"),
+      path.join(localAppData, "Microsoft", "WinGet", "Links", "claude.exe")
     );
+    const wingetPackages = path.join(localAppData, "Microsoft", "WinGet", "Packages");
+    try {
+      for (const entry of fs.readdirSync(wingetPackages, { withFileTypes: true })) {
+        if (entry.isDirectory() && /^Anthropic\.ClaudeCode_/i.test(entry.name)) {
+          rows.push(path.join(wingetPackages, entry.name, "claude.exe"));
+        }
+      }
+    } catch {}
+    const versionRoot = path.join(roamingAppData, "Claude", "claude-code");
+    try {
+      const versions = fs.readdirSync(versionRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+      for (const version of versions) rows.push(path.join(versionRoot, version, "claude.exe"));
+    } catch {}
     try {
       const result = spawnSync("where.exe", ["claude"], { encoding: "utf8", windowsHide: true, timeout: 3000, env });
       if (result.status === 0) rows.push(...String(result.stdout || "").split(/\r?\n/));
@@ -129,21 +148,33 @@ export async function installClaudeCode({ platform = process.platform, spawnImpl
   if (platform !== "win32") {
     return { ok: false, error: "unsupported_platform", message: "Automatic Claude Code setup is currently available on Windows only." };
   }
-  const result = await runProcess("winget.exe", [
+  // Anthropic recommends the native installer on Windows. It installs per-user,
+  // requires no administrator rights, and keeps itself updated.
+  const native = await runProcess("powershell.exe", [
+    "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+    "$ProgressPreference='SilentlyContinue'; Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression"
+  ], { spawnImpl, env });
+  let launch = resolveClaudeCodeLaunch("claude", { env, platform, spawnSyncImpl });
+  if (native.status === 0 && launch.ready) {
+    return { ok: true, installed: true, command: launch.command, version: launch.version, method: "native", message: "Claude Code installed. Complete the Claude sign-in to continue." };
+  }
+
+  // Restricted networks sometimes block the native download host while WinGet
+  // remains available. Use the official package as an automatic fallback.
+  const winget = await runProcess("winget.exe", [
     "install", "--id", "Anthropic.ClaudeCode", "--exact", "--silent",
     "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"
   ], { spawnImpl, env });
-  if (result.error || result.status !== 0) {
-    return {
-      ok: false,
-      error: "install_failed",
-      message: "Claude Code could not be installed with WinGet. Install Git for Windows if prompted, then try again.",
-      output: bounded(result.output)
-    };
+  launch = resolveClaudeCodeLaunch("claude", { env, platform, spawnSyncImpl });
+  if (winget.status === 0 && launch.ready) {
+    return { ok: true, installed: true, command: launch.command, version: launch.version, method: "winget", message: "Claude Code installed. Complete the Claude sign-in to continue." };
   }
-  const launch = resolveClaudeCodeLaunch("claude", { env, platform, spawnSyncImpl });
-  if (!launch.ready) return { ok: false, error: "install_not_found", message: launch.error, output: bounded(result.output) };
-  return { ok: true, installed: true, command: launch.command, version: launch.version, message: "Claude Code installed. Sign in with your Claude account to continue." };
+  return {
+    ok: false,
+    error: launch.ready ? "install_failed" : "install_not_found",
+    message: "Claude Code setup could not finish with either the native installer or WinGet. Check internet access and Windows app-install policies, then try again.",
+    output: bounded(`Native installer:\n${native.output || native.error?.message || "failed"}\nWinGet:\n${winget.output || winget.error?.message || "failed"}`)
+  };
 }
 
 export function startClaudeCodeLogin(command = "claude", { spawnImpl = spawn, spawnSyncImpl = spawnSync, env = process.env, platform = process.platform } = {}) {
@@ -152,8 +183,13 @@ export function startClaudeCodeLogin(command = "claude", { spawnImpl = spawn, sp
   try {
     if (platform === "win32") {
       const escaped = launch.command.replace(/'/g, "''");
-      const script = `Start-Process powershell.exe -ArgumentList @('-NoExit','-NoProfile','-Command','& ''${escaped}'' auth login; if ($LASTEXITCODE -eq 0) { Write-Host ''Claude Code sign-in complete. You can close this window.'' -ForegroundColor Green }')`;
-      const child = spawnImpl("powershell.exe", ["-NoProfile", "-Command", script], { detached: true, windowsHide: true, stdio: "ignore", env });
+      const script = `& '${escaped}' auth login; if ($LASTEXITCODE -eq 0) { Write-Host 'Claude Code sign-in complete. You can close this window.' -ForegroundColor Green } else { Write-Host 'Claude Code sign-in did not finish. Keep this window open and try again.' -ForegroundColor Yellow }`;
+      // Encode the complete inner command so Start-Process cannot lose quotes
+      // around a versioned WinGet path. The short wrapper stays hidden while
+      // the authentication terminal it creates is deliberately visible.
+      const encoded = Buffer.from(script, "utf16le").toString("base64");
+      const opener = `Start-Process -FilePath powershell.exe -ArgumentList '-NoLogo -NoExit -NoProfile -EncodedCommand ${encoded}' -WindowStyle Normal`;
+      const child = spawnImpl("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", opener], { detached: true, windowsHide: true, stdio: "ignore", env });
       child.unref?.();
     } else {
       const child = spawnImpl(launch.command, ["auth", "login"], { detached: true, stdio: "inherit", env });

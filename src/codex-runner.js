@@ -20,6 +20,18 @@ const TOOL_ITEM_TYPES = new Set([
 ]);
 const BOOTSTRAP_MESSAGES = 10;
 const BOOTSTRAP_CHARS = 12000;
+const BOOLEAN_DYNAMIC_TOOLS_VERSION = 1;
+const BOOLEAN_PERMISSION_PROFILE = "boolean_workspace_only";
+const BOOLEAN_CHANGES_TOOL = Object.freeze({
+  type: "function",
+  name: "boolean_changes",
+  description: "Read Boolean's live, host-verified Changes panel. Returns the authoritative non-Git change count, exact file paths, created/modified/deleted status, and diff text for the selected project.",
+  inputSchema: {
+    type: "object",
+    properties: {},
+    additionalProperties: false
+  }
+});
 
 function asText(value) {
   if (typeof value === "string") return value;
@@ -178,20 +190,10 @@ const STRUCTURED_SANDBOX_TYPES = Object.freeze({
   "danger-full-access": "dangerFullAccess"
 });
 
-const THREAD_SANDBOX_TYPES = Object.freeze({
-  readOnly: "read-only",
-  workspaceWrite: "workspace-write",
-  dangerFullAccess: "danger-full-access"
-});
-
 function structuredSandboxPolicy(sandboxPolicy) {
   if (!sandboxPolicy || typeof sandboxPolicy !== "object") return null;
   const type = STRUCTURED_SANDBOX_TYPES[sandboxPolicy.type] || sandboxPolicy.type;
   return { ...sandboxPolicy, ...(type ? { type } : {}) };
-}
-
-function threadSandboxMode(policy) {
-  return THREAD_SANDBOX_TYPES[policy?.type] || policy?.type || "read-only";
 }
 
 function uniqueResolvedPaths(values = []) {
@@ -207,6 +209,74 @@ function uniqueResolvedPaths(values = []) {
     result.push(resolved);
   }
   return result;
+}
+
+function readableRoots(policy) {
+  const structured = structuredSandboxPolicy(policy);
+  if (structured?.type === "dangerFullAccess") return null;
+  if (structured?.type === "readOnly") {
+    return uniqueResolvedPaths(structured.access?.readableRoots || []);
+  }
+  if (structured?.type !== "workspaceWrite") return [];
+  const configured = structured.readOnlyAccess?.readableRoots;
+  return uniqueResolvedPaths(Array.isArray(configured) && configured.length
+    ? configured
+    : structured.writableRoots || []);
+}
+
+/**
+ * Canonical host-side path resolver shared by command guards and tests. A
+ * lexical `..` is harmless when its real final path remains under an allowed
+ * root; junctions/symlinks that escape are denied.
+ */
+export function codexSandboxAllowsPath(policy, targetPath, { operation = "read" } = {}) {
+  const structured = structuredSandboxPolicy(policy);
+  if (structured?.type === "dangerFullAccess") return true;
+  const target = nearestRealPath(targetPath);
+  const roots = operation === "write"
+    ? (structured?.type === "workspaceWrite" ? uniqueResolvedPaths(structured.writableRoots || []) : [])
+    : readableRoots(structured);
+  if (roots === null) return true;
+  return roots.some((root) => withinRoot(nearestRealPath(root), target));
+}
+
+function commandAbsolutePaths(command) {
+  const source = Array.isArray(command) ? command.join(" ") : String(command || "");
+  const found = [];
+  const quoted = /["']([a-zA-Z]:[\\/][^"']+)["']/g;
+  const bare = /(?:^|[\s=,(])([a-zA-Z]:[\\/][^\s|;&,)]+)/g;
+  for (const matcher of [quoted, bare]) {
+    let match;
+    while ((match = matcher.exec(source))) found.push(match[1].replace(/["']$/, ""));
+  }
+  return [...new Set(found)];
+}
+
+function commandLauncherPath(command) {
+  const source = Array.isArray(command) ? command.map(String) : null;
+  const first = String(source ? source[0] : command || "").trim().match(/^(?:"([^"]+)"|'([^']+)'|([^\s]+))/);
+  const candidate = String(first?.[1] || first?.[2] || first?.[3] || "").trim();
+  if (!path.isAbsolute(candidate) || !/\.(?:exe|cmd|bat|com)$/i.test(candidate)) return "";
+  return nearestRealPath(candidate);
+}
+
+export function codexSandboxCommandCheck(policy, command, cwd = "") {
+  const denied = [];
+  const launcher = commandLauncherPath(command);
+  if (cwd && !codexSandboxAllowsPath(policy, cwd, { operation: "read" })) denied.push(path.resolve(cwd));
+  for (const candidate of commandAbsolutePaths(command)) {
+    // Codex wraps Windows commands with an absolute PowerShell/cmd launcher.
+    // That executable belongs to the runtime's minimal read set; it is not a
+    // user-requested data path. Only the first executable token gets this
+    // exception, while every absolute path in its arguments is still checked.
+    const resolvedCandidate = nearestRealPath(candidate);
+    const sameLauncher = process.platform === "win32"
+      ? resolvedCandidate.toLowerCase() === launcher.toLowerCase()
+      : resolvedCandidate === launcher;
+    if (launcher && sameLauncher) continue;
+    if (!codexSandboxAllowsPath(policy, candidate, { operation: "read" })) denied.push(resolvedCandidate);
+  }
+  return { allowed: denied.length === 0, denied: [...new Set(denied)] };
 }
 
 function nearestRealPath(value) {
@@ -233,10 +303,11 @@ function nearestRealPath(value) {
 export function codexToolEnvironment(env = process.env, { tempDir = os.tmpdir(), create = true } = {}) {
   const base = path.resolve(String(tempDir || os.tmpdir()), "Boolean", "codex-tools");
   const scratch = path.join(base, "tmp");
+  const projects = path.join(base, "projects");
   const npmCache = String(env.npm_config_cache || "").trim() || path.join(base, "npm-cache");
   const wranglerLog = String(env.WRANGLER_LOG_PATH || "").trim() || path.join(base, "wrangler", "wrangler.log");
   if (create) {
-    for (const directory of [base, scratch, npmCache, path.dirname(wranglerLog)]) {
+    for (const directory of [base, scratch, projects, npmCache, path.dirname(wranglerLog)]) {
       try { fs.mkdirSync(directory, { recursive: true }); } catch { /* surfaced by the sandboxed command if unusable */ }
     }
   }
@@ -245,6 +316,7 @@ export function codexToolEnvironment(env = process.env, { tempDir = os.tmpdir(),
     TEMP: scratch,
     TMP: scratch,
     TMPDIR: scratch,
+    BOOLEAN_CODEX_TEMP_PROJECTS: projects,
     npm_config_cache: npmCache,
     WRANGLER_LOG_PATH: wranglerLog
   };
@@ -263,32 +335,75 @@ export function codexWorkspaceSandboxPolicy(projectDir, {
     toolEnv.TEMP,
     toolEnv.TMP,
     toolEnv.TMPDIR,
+    toolEnv.BOOLEAN_CODEX_TEMP_PROJECTS,
     toolEnv.npm_config_cache,
     path.dirname(toolEnv.WRANGLER_LOG_PATH)
   ]);
   return {
     type: "workspaceWrite",
     writableRoots,
-    // esbuild resolves an entry point by walking and reading ancestor
-    // directories. Full read access permits that traversal; writes remain
-    // constrained to writableRoots by workspaceWrite.
-    readOnlyAccess: { type: "fullAccess" },
+    // Newer app-server builds enforce these read roots directly. Older builds
+    // ignore the extension, so Boolean also rejects explicit outside-root
+    // command/file approvals through the canonical host guard below.
+    readOnlyAccess: {
+      type: "restricted",
+      includePlatformDefaults: false,
+      readableRoots: writableRoots
+    },
     networkAccess: !!networkAccess
   };
 }
 
 /** Host-side mirror of the workspaceWrite boundary used by tests and guards. */
 export function codexSandboxAllowsWrite(policy, targetPath) {
-  if (structuredSandboxPolicy(policy)?.type === "dangerFullAccess") return true;
-  if (structuredSandboxPolicy(policy)?.type !== "workspaceWrite") return false;
-  const target = nearestRealPath(targetPath);
-  return (policy.writableRoots || []).some((root) => withinRoot(nearestRealPath(root), target));
+  return codexSandboxAllowsPath(policy, targetPath, { operation: "write" });
 }
 
 function sandboxFor({ sandboxPolicy, projectDir, networkAccess = false, sandboxEnvironment = process.env }) {
   const explicitPolicy = structuredSandboxPolicy(sandboxPolicy);
+  if (explicitPolicy?.type === "workspaceWrite" && !(explicitPolicy.writableRoots || []).length) {
+    const defaults = codexWorkspaceSandboxPolicy(projectDir, { networkAccess, env: sandboxEnvironment });
+    return {
+      ...defaults,
+      ...explicitPolicy,
+      writableRoots: defaults.writableRoots
+    };
+  }
   if (explicitPolicy) return explicitPolicy;
   return codexWorkspaceSandboxPolicy(projectDir, { networkAccess, env: sandboxEnvironment });
+}
+
+function permissionProfileFor(policy, { readOnly = false, networkAccess = false } = {}) {
+  const roots = readOnly
+    ? uniqueResolvedPaths(readableRoots(policy) || [])
+    : uniqueResolvedPaths(policy?.writableRoots || []);
+  const homeRoot = path.resolve(os.homedir());
+  const windowsProbe = path.resolve(String(process.env.WINDIR || "C:\\Windows"), "win.ini");
+  return {
+    permissions: BOOLEAN_PERMISSION_PROFILE,
+    runtimeWorkspaceRoots: roots,
+    config: {
+      // app-server's config field is JSON, so permission tables must remain
+      // nested objects. Dotted keys are interpreted as literal paths by
+      // Codex 0.146 and fail FilesystemPermissionToml deserialization.
+      permissions: {
+        [BOOLEAN_PERMISSION_PROFILE]: {
+          filesystem: {
+            glob_scan_max_depth: 12,
+            ":minimal": "read",
+            // The runtime's minimal Windows support includes system binaries.
+            // Deny the reported system-file probe explicitly, and deny the
+            // general user profile so only the more-specific approved runtime
+            // workspace roots below can be read or written.
+            [homeRoot]: { ".": "deny", "**/*": "deny" },
+            [windowsProbe]: "deny",
+            ":workspace_roots": { ".": readOnly ? "read" : "write" }
+          },
+          network: { enabled: !!networkAccess }
+        }
+      }
+    }
+  };
 }
 
 function activityLabel(item) {
@@ -506,6 +621,7 @@ export class CodexRunner {
       projectDir = "",
       cwd = projectDir || "",
       workspaceChanges = [],
+      getWorkspaceChanges,
       approvalPolicy = "on-request",
       sandboxPolicy,
       sandboxEnvironment = process.env,
@@ -536,17 +652,26 @@ export class CodexRunner {
     const currentInput = latestUserInput(messages, input);
     if (!currentInput) throw new TypeError("A user message is required to start a Codex turn");
     const policy = sandboxFor({ sandboxPolicy, projectDir: cwd, networkAccess, sandboxEnvironment });
+    const permissionProfile = permissionProfileFor(policy, {
+      readOnly: structuredSandboxPolicy(policy)?.type === "readOnly",
+      networkAccess
+    });
     const commonThread = {
       ...(model ? { model } : {}),
       ...(cwd ? { cwd } : {}),
       approvalPolicy,
-      // Codex's thread API uses kebab-case modes while turn/start keeps the
-      // structured camel-case SandboxPolicy variants.
-      sandbox: threadSandboxMode(policy),
+      // Permission profiles enforce both read and write boundaries. The old
+      // workspaceWrite sandbox only constrained writes and allowed reads such
+      // as C:\Windows\win.ini.
+      ...permissionProfile,
       personality,
       serviceName
     };
     let threadId = String(mapping.threadId || mapping.codexThreadId || "");
+    // Dynamic tools are persisted by app-server at thread creation. Upgrade
+    // older Boolean mappings once so every active Codex thread can query the
+    // live Changes panel instead of relying on stale prompt text.
+    if (Number(mapping.booleanToolsVersion || 0) < BOOLEAN_DYNAMIC_TOOLS_VERSION) threadId = "";
     let isNewThread = !threadId;
     let threadResult;
     if (threadId) {
@@ -562,7 +687,10 @@ export class CodexRunner {
     }
     if (!threadId) {
       callback(onStatus, "Opening a new Codex task...");
-      threadResult = await client.threadStart(commonThread);
+      threadResult = await client.threadStart({
+        ...commonThread,
+        dynamicTools: [BOOLEAN_CHANGES_TOOL]
+      });
       threadId = idFrom(threadResult, "thread");
     } else {
       threadId = idFrom(threadResult, "thread") || threadId;
@@ -571,6 +699,7 @@ export class CodexRunner {
     let mapped = {
       ...mapping,
       threadId,
+      booleanToolsVersion: BOOLEAN_DYNAMIC_TOOLS_VERSION,
       model: model || mapping.model || "",
       updatedAt: Date.now()
     };
@@ -585,7 +714,9 @@ export class CodexRunner {
       turnId: "",
       model: model || mapping.model || "",
       isNewThread,
-      callbacks: { onStatus, onToken, onPlan, onItem, onStep, onApproval, onUserInput, onPermissions, onRequestResolved },
+      callbacks: { onStatus, onToken, onPlan, onItem, onStep, onApproval, onUserInput, onPermissions, onRequestResolved, getWorkspaceChanges },
+      policy,
+      workspaceChanges,
       items: new Map(),
       finalByItem: new Map(),
       finalText: "",
@@ -619,7 +750,10 @@ export class CodexRunner {
       const turnOptions = {
         ...(cwd ? { cwd } : {}),
         approvalPolicy,
-        sandboxPolicy: policy,
+        // The custom profile is selected at thread/start/thread/resume and is
+        // sticky. Re-selecting it at turn/start makes Codex resolve the id
+        // against the process-global config instead of the thread's config,
+        // producing "default_permissions requires a [permissions] table".
         ...(model ? { model } : {}),
         ...(effort ? { effort } : {}),
         ...(summary ? { summary } : {}),
@@ -860,8 +994,48 @@ export class CodexRunner {
       else respond(value);
     };
     try {
+      if (method === "item/tool/call" && params.tool === BOOLEAN_CHANGES_TOOL.name) {
+        const current = typeof run.callbacks.getWorkspaceChanges === "function"
+          ? await run.callbacks.getWorkspaceChanges()
+          : run.workspaceChanges;
+        const changes = (Array.isArray(current) ? current : []).slice(0, 100).map((change) => ({
+          path: String(change?.path || "").slice(0, 1600),
+          absolutePath: String(change?.absolutePath || "").slice(0, 2000),
+          status: String(change?.status || "modified").slice(0, 80),
+          diff: String(change?.diff || "").slice(0, 12000)
+        }));
+        finish({
+          success: true,
+          contentItems: [{
+            type: "inputText",
+            text: JSON.stringify({ source: "boolean", gitRequired: false, count: changes.length, changes })
+          }]
+        });
+        return;
+      }
       if (APPROVAL_METHODS.has(method)) {
         const kind = method.includes("commandExecution") ? "command" : "file";
+        if (kind === "command") {
+          const check = codexSandboxCommandCheck(run.policy, params.command || params.commandActions || "", params.cwd || "");
+          if (!check.allowed) {
+            callback(run.callbacks.onStatus, `Blocked outside the selected project and approved temp folders: ${check.denied.join(", ")}`, { warning: true, kind: "sandbox" });
+            finish({ decision: "decline" });
+            return;
+          }
+        } else {
+          const requested = (Array.isArray(params.changes) ? params.changes : [])
+            .map((change) => String(change?.path || "").trim())
+            .filter(Boolean);
+          const denied = requested.filter((candidate) => {
+            const absolute = path.isAbsolute(candidate) ? candidate : path.resolve(params.cwd || "", candidate);
+            return !codexSandboxAllowsPath(run.policy, absolute, { operation: "write" });
+          });
+          if (denied.length) {
+            callback(run.callbacks.onStatus, `Blocked file changes outside the selected project: ${denied.join(", ")}`, { warning: true, kind: "sandbox" });
+            finish({ decision: "decline" });
+            return;
+          }
+        }
         const result = await run.callbacks.onApproval?.({
           kind,
           method,

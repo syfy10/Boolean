@@ -57,22 +57,62 @@ test("Claude Code discovery and auth status use the verified CLI", () => {
   assert.equal(status.account.email, "person@example.com");
 });
 
-test("Claude Code setup uses the official WinGet package and opens sign-in", async () => {
-  let installArgs = [];
+test("Claude Code discovery finds the official WinGet package when its PATH link is missing", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-claude-winget-"));
+  try {
+    const localAppData = path.join(root, "Local");
+    const executable = path.join(localAppData, "Microsoft", "WinGet", "Packages", "Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe", "claude.exe");
+    fs.mkdirSync(path.dirname(executable), { recursive: true });
+    fs.writeFileSync(executable, "test");
+    const launch = resolveClaudeCodeLaunch("claude", {
+      platform: "win32",
+      env: { USERPROFILE: root, LOCALAPPDATA: localAppData, APPDATA: path.join(root, "Roaming") },
+      spawnSyncImpl: (command, args) => command === executable && args[0] === "--version"
+        ? { status: 0, stdout: "2.1.220 (Claude Code)\n", stderr: "" }
+        : { status: 1, stdout: "", stderr: "" }
+    });
+    assert.equal(launch.ready, true);
+    assert.equal(launch.command, executable);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("Claude Code setup uses Anthropic's recommended native installer and opens sign-in", async () => {
+  let installCommand = "";
   const spawnImpl = (command, args) => fakeChild((child) => {
-    if (command === "winget.exe") installArgs = args;
+    if (command === "powershell.exe") installCommand = args.join(" ");
     child.emit("close", 0);
   });
   const installed = await installClaudeCode({ platform: "win32", spawnImpl, spawnSyncImpl: versionSpawn });
   assert.equal(installed.ok, true);
-  assert.deepEqual(installArgs.slice(0, 4), ["install", "--id", "Anthropic.ClaudeCode", "--exact"]);
+  assert.equal(installed.method, "native");
+  assert.match(installCommand, /https:\/\/claude\.ai\/install\.ps1/);
   let loginCommand = "";
+  let loginArgs = [];
+  let loginOptions = {};
   const login = startClaudeCodeLogin("claude", {
     platform: "win32", spawnSyncImpl: versionSpawn,
-    spawnImpl: (command) => { loginCommand = command; return { unref() {} }; }
+    spawnImpl: (command, args, options) => { loginCommand = command; loginArgs = args; loginOptions = options; return { unref() {} }; }
   });
   assert.equal(login.ok, true);
   assert.equal(loginCommand, "powershell.exe");
+  assert.deepEqual(loginArgs.slice(0, 3), ["-NoProfile", "-NonInteractive", "-Command"]);
+  assert.match(loginArgs.at(-1), /Start-Process[\s\S]*-EncodedCommand/);
+  const encodedLogin = loginArgs.at(-1).match(/-EncodedCommand ([A-Za-z0-9+/=]+)/)?.[1] || "";
+  assert.match(Buffer.from(encodedLogin, "base64").toString("utf16le"), /auth login/);
+  assert.equal(loginOptions.detached, true);
+  assert.equal(loginOptions.windowsHide, true);
+});
+
+test("Claude Code setup falls back to the official WinGet package", async () => {
+  let wingetArgs = [];
+  const spawnImpl = (command, args) => fakeChild((child) => {
+    if (command === "winget.exe") wingetArgs = args;
+    child.emit("close", command === "powershell.exe" ? 1 : 0);
+  });
+  const installed = await installClaudeCode({ platform: "win32", spawnImpl, spawnSyncImpl: versionSpawn });
+  assert.equal(installed.ok, true);
+  assert.equal(installed.method, "winget");
+  assert.deepEqual(wingetArgs.slice(0, 4), ["install", "--id", "Anthropic.ClaudeCode", "--exact"]);
 });
 
 test("Claude Code creates a file only when the exact disk diff exists", async () => {

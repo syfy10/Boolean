@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.69";
-export const APP_DISPLAY_VERSION = "v0.9.69";
+export const APP_VERSION = "0.9.70";
+export const APP_DISPLAY_VERSION = "v0.9.70";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -69,6 +69,8 @@ const DEFAULTS = {
     model: "",            // gguf filename in ~/.saz/models
     port: 8783,
     ctx: 8192,            // fast first-load default; advanced users can raise it
+    autoTune: true,        // choose a safe context and GPU offload for this PC
+    gpuLayers: "auto",    // auto | integer; auto only offloads when a GPU backend is installed
     mmprojMap: {},        // model file -> vision projector (.mmproj) file ("" = explicitly none)
     visionTestMap: {}     // "model|mmproj" -> { ok, message, at }
   },

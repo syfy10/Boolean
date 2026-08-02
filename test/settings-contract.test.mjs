@@ -56,7 +56,7 @@ test("coding access is persisted and enforced before native or Codex approvals",
   assert.match(serverSource, /ACCESS_MODES, currentAccessMode/);
   assert.match(serverSource, /if \(body\.accessMode !== undefined\)[\s\S]*invalid_access_mode[\s\S]*config\.autoApprove = accessMode === "full_access"/);
   assert.match(serverSource, /accessMode: currentAccessMode\(config\), autoApprove: config\.autoApprove/);
-  assert.match(serverSource, /approvalPolicy: currentAccessMode\(runConfig\) === "full_access" \? "never" : "on-request"/);
+  assert.match(serverSource, /approvalPolicy: currentAccessMode\(runConfig\) === "full_access" \? "untrusted" : "on-request"/);
   assert.match(serverSource, /sandboxPolicy: currentAccessMode\(runConfig\) === "read_only"[\s\S]*type: "readOnly"/);
 });
 

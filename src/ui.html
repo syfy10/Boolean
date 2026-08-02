@@ -290,6 +290,7 @@
   .sidebar-shortcut .notepad-paper{ fill:#f2cf5b; stroke:#263238; stroke-width:2.2; }
   .sidebar-shortcut .notepad-header{ fill:#d99a20; stroke:#263238; stroke-width:2.2; }
   .sidebar-shortcut .notepad-line{ stroke:#7aa7b8; stroke-width:1.8; }
+  #sidebarShortcuts[hidden]{ display:none!important; }
   .sidebar-flyout{ position:absolute; z-index:12; top:51px; left:0; right:0; display:none; grid-template-columns:1fr 1fr; gap:3px; padding:6px;
     border:1px solid var(--border); border-radius:6px; background:var(--sidebar); box-shadow:0 12px 28px rgba(0,0,0,.16); }
   .sidebar-flyout.open{ display:grid; }
@@ -360,15 +361,17 @@
   .sidebar-account-card{ flex:0 0 auto; min-height:48px; margin:7px 10px 9px; padding:7px 7px 7px 9px; border:1px solid var(--border); border-radius:10px;
     background:var(--sidebar); color:var(--text); display:grid; grid-template-columns:minmax(0,1fr) 28px; align-items:center; gap:5px; text-align:left; }
   .sidebar-account-main{ min-width:0; display:grid; grid-template-columns:28px minmax(0,1fr); align-items:center; gap:8px; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; text-align:left; }
-  .sidebar-account-settings{ width:28px; height:28px; display:grid; place-items:center; padding:0; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; }
-  .sidebar-account-main:hover .sidebar-account-copy b,.sidebar-account-settings:hover{ color:var(--text); }
-  .sidebar-account-settings:hover{ background:var(--hover); }
-  .sidebar-account-settings svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .sidebar-account-action{ width:28px; height:28px; display:grid; place-items:center; padding:0; border:0; border-radius:7px; background:transparent; color:var(--dim); cursor:pointer; }
+  .sidebar-account-main:hover .sidebar-account-copy b,.sidebar-account-action:hover{ color:var(--text); }
+  .sidebar-account-action:hover{ background:var(--hover); }
+  .sidebar-account-action svg{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
   .sidebar-account-avatar{ width:28px; height:28px; display:grid; place-items:center; border-radius:50%; background:color-mix(in srgb,var(--green) 12%,var(--sidebar)); color:var(--green); font:650 11px var(--ui); }
   .sidebar-account-copy{ min-width:0; }
   .sidebar-account-copy b,.sidebar-account-copy small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .sidebar-account-copy b{ font:600 11.5px/1.25 var(--ui); }
   .sidebar-account-copy small{ margin-top:1px; color:var(--dim); font:9.5px/1.2 var(--ui); }
+  .sidebar-account-copy .sidebar-account-status{ display:flex; align-items:center; gap:5px; }
+  .sidebar-account-status .dot{ width:6px; height:6px; flex:0 0 6px; }
 
   .sidefoot{ flex-shrink:0; border-top:1px solid var(--border); padding:0; display:flex; flex-direction:column; background:var(--sidebar); }
   .sidefoot-nav{ display:flex; align-items:center; gap:6px; flex:0 0 auto; padding:0; border-radius:0; background:transparent; border:0; box-shadow:none; }
@@ -1815,10 +1818,42 @@
     padding:32px 6px 6px; border:1px solid color-mix(in srgb,var(--text) 12%,var(--border)); border-radius:6px; background:var(--bg);
     background-clip:padding-box; scrollbar-gutter:stable;
     box-shadow:0 14px 38px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,.06); backdrop-filter:none; -webkit-backdrop-filter:none; }
+  .menu#modelmenu.api-wizard-open{ width:min(285px,calc(100vw - 16px)); max-height:min(504px,calc(100vh - 16px)); padding-left:4px; padding-right:4px; scrollbar-gutter:auto; }
+  #modelmenu.api-wizard-open .model-netseg{ width:83px; height:22px; top:6px; right:6px; }
+  #modelmenu.api-wizard-open .model-engine-picker{ margin:0 1px 3px; padding:0 1px 3px; }
+  #modelmenu.api-wizard-open .model-engine-picker>span{ margin-bottom:1px; font-size:7.2px; }
+  #modelmenu.api-wizard-open .model-engine-seg{ height:21px; }
+  #modelmenu.api-wizard-open .model-engine-seg button{ font-size:6.8px; }
+  #modelmenu.api-wizard-open .model-engine-help{ margin-top:1px; font-size:6.2px; }
+  #modelmenu.api-wizard-open .api-connected-summary .model-line{ grid-template-columns:minmax(0,1.1fr) minmax(90px,.9fr); column-gap:6px; }
+  #modelmenu.api-wizard-open .api-connected-summary .model-line b{ font-size:10px; }
+  #modelmenu.api-wizard-open .api-connected-summary .model-line small{ font-size:8px; }
+  #modelmenu.api-wizard-open .api-connected-summary .item.model-rec{ min-height:27px; padding:2px 3px; }
+  #modelmenu.api-wizard-open .api-provider-select{ width:calc(100% - 12px); min-height:24px; height:24px; margin:2px 6px 4px; }
+  #modelmenu.api-wizard-open .api-stepper{ margin:4px 5px 3px; }
+  #modelmenu.api-wizard-open .api-step i{ width:17px; height:17px; }
+  #modelmenu.api-wizard-open .api-focus-security{ margin:2px 3px; font-size:7.2px; }
+  #modelmenu.api-wizard-open .api-provider-detail.connecting{ padding:4px; margin-left:2px; margin-right:2px; }
+  #modelmenu.api-wizard-open .api-provider-detail.connecting .api-key-form{ grid-template-columns:minmax(0,1fr) 27px 27px; gap:4px; }
+  #modelmenu.api-wizard-open .api-provider-detail.connecting .api-key-form .api-key-icon{ width:27px; height:25px; }
+  #modelmenu.api-wizard-open .api-provider-detail.connecting .api-key-form input{ min-height:25px; height:25px; font-size:9px; padding:3px 6px; }
+  #modelmenu.api-wizard-open .api-provider-detail.connecting .api-key-save{ grid-column:auto; min-width:27px; width:27px; min-height:25px; height:25px; padding:0; font-size:12px; }
+  @media(max-width:350px){
+    #modelmenu.api-wizard-open .api-provider-detail.connecting .api-key-form{ grid-template-columns:minmax(0,1fr) 27px; }
+    #modelmenu.api-wizard-open .api-provider-detail.connecting .api-key-save{ grid-column:1/-1; width:100%; }
+  }
   #modelmenu .model-picker-title{ height:30px; min-height:30px; display:flex; align-items:center; padding:0 100px 0 3px;
     border-bottom:0; }
   #modelmenu .model-picker-title b{ font:700 10.8px/1.2 var(--ui); color:var(--text); white-space:nowrap; }
   #modelmenu .model-netseg{ position:absolute; top:8px; right:8px; z-index:1; }
+  .model-engine-picker{ margin:1px 2px 4px; padding:0 2px 4px; border-bottom:1px solid color-mix(in srgb,var(--text) 9%,var(--border)); }
+  .model-engine-picker>span{ display:block; margin:0 2px 2px; color:var(--label); font:500 8px/1 var(--ui); }
+  .model-engine-seg{ height:23px; display:grid; grid-template-columns:.8fr 1fr .85fr 1fr; padding:2px; border:1px solid var(--border); border-radius:7px; background:var(--bubble); }
+  .model-engine-seg button{ min-width:0; padding:0 2px; border:0; border-right:1px solid color-mix(in srgb,var(--text) 8%,transparent); background:transparent; color:var(--dim); font:600 7.5px/1 var(--ui); cursor:pointer; }
+  .model-engine-seg button:last-child{ border-right:0; }
+  .model-engine-seg button.on{ border-radius:6px; background:color-mix(in srgb,var(--online) 9%,var(--bg)); color:var(--online); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--online) 52%,var(--border)); }
+  .model-engine-seg button .engine-ready{ display:inline-block; width:5px; height:5px; margin-left:2px; border-radius:50%; background:var(--green); vertical-align:1px; }
+  .model-engine-help{ margin:2px 2px 0; color:var(--dim); font:6.8px/1.15 var(--ui); white-space:normal; }
   .model-netseg{ width:92px; height:24px; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:1px; padding:2px;
     border:1px solid var(--border); border-radius:9px; background:var(--bubble); }
   .model-head .model-netseg{ margin:0 0 0 auto; flex:0 0 109px; }
@@ -1929,7 +1964,7 @@
     border:1px solid color-mix(in srgb,var(--green) 34%,var(--border)); border-radius:8px;
     background:color-mix(in srgb,var(--green) 8%,var(--bg)); color:var(--green); font-size:9px; font-weight:700; }
   .api-connection-complete::before{ content:"✓"; width:13px; height:13px; display:grid; place-items:center; border:1px solid currentColor; border-radius:50%; font:700 8px/1 var(--ui); }
-  .api-key-label{ margin:0 7px 5px; color:var(--label); font-size:10px; }
+  .api-key-label{ margin:0 7px 3px; color:var(--label); font-size:9px; }
   .api-provider-detail.connecting{ padding:4px; margin-bottom:1px; border-color:color-mix(in srgb,var(--text) 11%,var(--border)); }
   .api-provider-detail.connecting .api-key-form{ grid-template-columns:minmax(0,1fr) 24px; gap:3px; }
   .api-provider-detail.connecting .api-key-form .api-key-icon{ width:24px; height:26px; border:1px solid color-mix(in srgb,var(--text) 13%,var(--border)); border-radius:6px; }
@@ -2053,6 +2088,10 @@
   .download-ico:before{ content:""; position:absolute; left:7px; top:2px; width:2px; height:8px; background:currentColor; border-radius:2px; }
   .download-ico:after{ content:""; position:absolute; left:4px; top:7px; width:8px; height:8px; border-left:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(-45deg); }
   .model-library{ display:flex; flex-direction:column; gap:6px; margin:4px 0 10px; }
+  .model-hardware-summary{ margin:2px 3px 0; line-height:1.4; }
+  .model-gpu-action{ align-self:flex-start; min-height:28px; border:1px solid var(--border); border-radius:7px; padding:0 10px; background:var(--surface); color:var(--text); font:600 11px var(--ui); cursor:pointer; }
+  .model-gpu-action:hover{ border-color:var(--green); color:var(--green); background:var(--hover); }
+  .model-gpu-action:disabled{ opacity:.65; cursor:wait; }
   .model-library-head{ margin:7px 3px 2px; color:var(--text); font-size:11.5px; font-weight:600; letter-spacing:0; text-transform:none; }
   .model-card{ border:0; border-radius:9px; background:var(--bubble); padding:8px 9px; cursor:pointer; display:flex; align-items:center; gap:8px; color:var(--text); }
   .model-card:hover{ background:var(--hover); }
@@ -2155,6 +2194,10 @@
   #settingsPanel .seg{ background:transparent; padding:0; gap:2px; }
   #settingsPanel .seg button{ font-size:10.5px; padding:6px 4px; border-radius:999px; background:transparent; }
   #settingsPanel .seg button.on{ background:var(--bubble); box-shadow:none; }
+  #settingsPanel #orchestrationSeg button.on{ background:color-mix(in srgb,var(--green) 10%,var(--bg)); color:var(--text); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--green) 45%,var(--border)); font-weight:650; }
+  #settingsPanel #orchestrationSeg button.on::before{ content:"✓"; margin-right:5px; color:var(--green); font-weight:800; }
+  .orchestration-selected{ margin:5px 2px 0; color:var(--dim); font-size:10.5px; }
+  .orchestration-selected b{ color:var(--text); font-weight:650; }
   .connector-toolbar{ display:flex; align-items:center; gap:7px; margin:2px 0 10px; }
   .connector-search{ position:relative; flex:1; min-width:0; }
   .connector-search:before{ content:""; position:absolute; left:10px; top:50%; width:9px; height:9px;
@@ -3804,7 +3847,7 @@
   #sidebar .sidebar-flyout button{ height:29px; padding:0 8px; font-size:10.5px; }
   #sidebar .sidebar-flyout button svg{ width:14px; height:14px; }
   #sidebar .sidebar-flyout .flyout-beta{ margin-left:auto; padding:2px 5px; border:1px solid var(--border); border-radius:5px; color:var(--dim); background:var(--bg); font:650 8px var(--ui); text-transform:uppercase; }
-  #sidebar .thread-search-wrap{ height:38px; margin:0 10px 8px; padding-top:7px; width:calc(100% - 20px); border-top:1px solid var(--border); }
+  #sidebar .thread-search-wrap{ height:38px; margin:0 10px 8px; padding-top:7px; width:calc(100% - 20px); }
   #sidebar #threadSearch{ height:30px; padding-left:28px; padding-right:39px; font-size:10px; }
   #sidebar .thread-search-field > svg{ left:9px; width:13px; height:13px; }
   #sidebar .thread-search-key{ display:inline-flex; position:absolute; z-index:2; right:6px; top:50%; transform:translateY(-50%); height:19px; padding:0 5px; align-items:center; border:1px solid var(--border); border-radius:4px; color:var(--dim); font:8.5px var(--ui); pointer-events:none; }
@@ -5608,26 +5651,7 @@ body:not(.composer-simple) main::after{
 <div class="temp-toast" id="tempToast" role="status" aria-live="polite"></div>
 
 <aside id="sidebar">
-  <div class="sidehead">
-    <div class="sidebar-brand" aria-label="Boolean">
-      <svg class="sidebar-brand-mark" viewBox="0 0 40 40" aria-hidden="true">
-        <circle cx="5" cy="5" r="1.5"/><circle cx="12.5" cy="5" r="2.2"/><circle cx="20" cy="5" r="2.7"/><circle cx="27.5" cy="5" r="2.2"/><circle cx="35" cy="5" r="1.5"/>
-        <circle cx="5" cy="12.5" r="2"/><circle cx="12.5" cy="12.5" r="3"/><circle cx="20" cy="12.5" r="3.5"/><circle cx="27.5" cy="12.5" r="3"/><circle cx="35" cy="12.5" r="2"/>
-        <circle cx="5" cy="20" r="2.2"/><circle cx="12.5" cy="20" r="3.3"/><circle cx="20" cy="20" r="3.8"/><circle cx="27.5" cy="20" r="3.3"/><circle cx="35" cy="20" r="2.2"/>
-        <circle cx="5" cy="27.5" r="2"/><circle cx="12.5" cy="27.5" r="3"/><circle cx="20" cy="27.5" r="3.5"/><circle cx="27.5" cy="27.5" r="3"/><circle cx="35" cy="27.5" r="2"/>
-        <circle cx="5" cy="35" r="1.5"/><circle cx="12.5" cy="35" r="2.2"/><circle cx="20" cy="35" r="2.7"/><circle cx="27.5" cy="35" r="2.2"/><circle cx="35" cy="35" r="1.5"/>
-      </svg>
-      <div class="brand-word">
-        <div class="brand-name">Boolean</div>
-        <div class="foot-status" title="" id="footStatus"><span class="dot" id="statusdot"></span><span id="statustext">…</span></div>
-      </div>
-      <div class="brand-about" id="brandAbout" role="button" tabindex="0" aria-label="About Boolean and AI readiness">
-        <svg viewBox="0 0 24 24"><path d="m7 9 5 5 5-5"/></svg>
-        <span class="brand-tip" role="tooltip"><b>Boolean <span id="brandVersion">v0.09.25</span></b><small>Developed by saz3 Labs. Local mode stays on your PC. Cloud mode uses API keys you provide.</small><span class="legal-links"><button type="button" data-open-legal>Policy</button><button type="button" data-open-legal>Privacy</button></span></span>
-      </div>
-    </div>
-  </div>
-  <div class="sidebar-shortcuts" id="sidebarShortcuts" aria-label="Boolean shortcuts">
+  <div class="sidebar-shortcuts" id="sidebarShortcuts" aria-label="Boolean shortcuts" hidden>
     <button class="sidebar-shortcut" type="button" data-sidebar-action="tasks" title="Tasks">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle class="icon-field" cx="11" cy="12" r="8.5"/><circle cx="11" cy="12" r="8.5"/><circle cx="11" cy="12" r="4.8"/><path d="m7.8 12 2.2 2.2 6.8-7"/><path d="M15.8 4.2 19.6 3l1.2 3.8"/></svg><span>Tasks</span>
     </button>
@@ -5690,9 +5714,9 @@ body:not(.composer-simple) main::after{
   <div class="sidebar-account-card">
     <button class="sidebar-account-main" id="sidebarAccount" type="button" aria-label="Boolean account">
       <span class="sidebar-account-avatar" id="sidebarAccountAvatar">B</span>
-      <span class="sidebar-account-copy"><b id="sidebarAccountName">You</b><small id="sidebarAccountLabel">Local Boolean workspace</small></span>
+      <span class="sidebar-account-copy"><b id="sidebarAccountName">You</b><small class="sidebar-account-status"><span class="dot" id="sidebarAccountDot"></span><span id="sidebarAccountLabel">Ready</span></small></span>
     </button>
-    <button class="sidebar-account-settings" id="sidebarAccountSettings" type="button" title="Settings" aria-label="Open settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg></button>
+    <button class="sidebar-account-action" id="sidebarAccountSettings" type="button" title="Settings" aria-label="Open settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2"/></svg></button>
   </div>
 
   <div class="sidefoot">
@@ -5965,6 +5989,7 @@ body:not(.composer-simple) main::after{
           <div class="setrow" style="display:block">
             <div><b>Orchestration engine</b><div class="hint">Auto starts with Boolean and escalates unfinished code or project tasks to an approved signed-in subscription. Manual Boolean, Codex, and Claude Code choices are never overridden.</div></div>
             <div class="seg" id="orchestrationSeg" style="margin-top:8px"><button type="button" data-runtime="auto">Auto</button><button type="button" data-runtime="boolean">Boolean</button><button type="button" data-runtime="codex">Codex</button><button type="button" data-runtime="claude-code">Claude Code</button></div>
+            <div class="orchestration-selected" id="orchestrationSelected">Selected: <b>Boolean</b></div>
           </div>
           <div class="codex-card" id="claudeBackendCard" hidden>
             <div class="codex-card-head"><div><b>Claude Code engine</b><div class="hint" id="claudeAccountText">Set up Claude Code once, then sign in with your Claude account. Boolean never stores or displays its credentials.</div></div><span class="codex-state" id="claudeStateText">Not connected</span></div>
@@ -5975,7 +6000,7 @@ body:not(.composer-simple) main::after{
             </div>
             <button class="codex-primary" type="button" id="claudePrimaryAction">Set up Claude Code</button>
             <div class="codex-progress" id="claudeSetupProgress" role="status" aria-live="polite" hidden><span class="codex-progress-dot" aria-hidden="true"></span><span id="claudeSetupProgressText">Installing Claude Code...</span></div>
-            <div class="codex-models" id="claudeModelControls" hidden><select id="claudeCodeModel" title="Claude Code model"><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="haiku">Haiku</option></select></div>
+            <div class="codex-models" id="claudeModelControls" hidden><select id="claudeCodeModel" title="Claude Code model"><option value="sonnet">Sonnet</option><option value="opus">Opus</option><option value="haiku">Haiku</option></select><span class="hint" id="claudeModelHint">Sign in to choose a Claude model.</span></div>
             <details class="codex-advanced"><summary>Advanced</summary><div class="codex-controls"><input type="text" id="claudeCodeCommand" autocomplete="off" spellcheck="false" placeholder="claude or full path to claude.exe" aria-label="Claude Code executable"><button class="minibtn" type="button" id="claudeCodeCheck">Check</button></div><div class="codex-actions"><a class="minibtn" href="https://code.claude.com/docs/en/installation" target="_blank" rel="noreferrer">Setup &amp; diagnostics</a></div></details>
             <div class="hint codex-error" id="claudeCodeError" hidden></div>
           </div>
@@ -6926,7 +6951,7 @@ body:not(.composer-simple) main::after{
       <button data-net="local" title="Use the built-in local model — nothing leaves your PC">Local</button>
       <button data-net="online" title="Use a saved provider API key (OpenAI / GLM / Z.AI / Claude)">Cloud</button>
     </div>
-    <button class="icon-btn" id="newchat" title="New chat" aria-label="New chat">
+    <button class="icon-btn" id="chatHome" title="Back to chat" aria-label="Back to chat">
       <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
     </button>
     <div class="spacer"></div>
@@ -7632,6 +7657,11 @@ body:not(.composer-simple) main::after{
             <button type="button" data-net="local" title="Use the built-in local model">Local</button>
             <button type="button" data-net="online" title="Use a saved cloud API key">Cloud</button>
           </div>
+          <div class="model-engine-picker" id="modelEnginePicker">
+            <span>Run with</span>
+            <div class="model-engine-seg" role="group" aria-label="Coding engine"><button type="button" data-picker-runtime="auto">Auto</button><button type="button" data-picker-runtime="boolean">Boolean</button><button type="button" data-picker-runtime="codex">Codex</button><button type="button" data-picker-runtime="claude-code">Claude</button></div>
+            <div class="model-engine-help">Auto starts with Boolean and uses an approved Codex or Claude fallback when needed.</div>
+          </div>
           <div class="model-help">Pick a model for the job: Fast for quick answers, Default for everyday use, Code for building, Vision for screenshots.</div>
           <div id="modellist"></div>
         </div>
@@ -8186,7 +8216,7 @@ body:not(.composer-simple) main::after{
   function postBooleanPet(mode=booleanPetMode,{detail="",active=!!run,title="",completed=false,chat=""}={}){
     if(!SHELL) return;
     booleanPetMode=["idle","browsing","coding"].includes(mode)?mode:"idle";
-    hostPost({type:"pet",cmd:"sync",enabled:state.ui?.desktopPet===true,state:booleanPetMode,active:!!active,completed:!!completed,chat:chat||booleanPetChatName(),title:title||booleanPetTaskTitle(),detail:String(detail||"").slice(0,120),reduceMotion:state.ui?.reduceMotion===true});
+    hostPost({type:"pet",cmd:"sync",enabled:state.ui?.desktopPet===true,state:booleanPetMode,active:!!active,completed:!!completed,chat:chat||booleanPetChatName(),title:title||booleanPetTaskTitle(),detail:String(detail||"").slice(0,120),reduceMotion:state.ui?.reduceMotion===true,dark:document.documentElement.dataset.visualTheme==="dark"});
   }
   function setBooleanPetFromActivity(group,title,detail=""){
     if(group==="searches") postBooleanPet("browsing",{detail:detail||title,active:true});
@@ -9904,6 +9934,8 @@ body:not(.composer-simple) main::after{
     }
     if($("railBrandDot")) $("railBrandDot").className="dot"+(ready?"":" down");
     if($("railBrandStatus")) $("railBrandStatus").textContent=label;
+    if($("sidebarAccountDot")) $("sidebarAccountDot").className="dot"+(ready?"":" down");
+    if($("sidebarAccountLabel")){ $("sidebarAccountLabel").textContent=label; $("sidebarAccountLabel").title="Boolean · "+label; }
     const inferred=inferBooleanActivity(label,"");
     if(!run) postBooleanPet("idle",{detail:"",active:false,title:"Boolean is ready"});
     else if(inferred==="Browsing"||inferred==="Reading page") postBooleanPet("browsing",{detail:label,active:true});
@@ -10495,9 +10527,7 @@ body:not(.composer-simple) main::after{
     const shortLabel=shortProviderLabel(state.provider,label);
     updateReadyStatus(label,shortLabel);
     renderModelCapability();
-    $("footStatus").title=label+(state.backendUp?" · ready":" · not ready");
     const runtimeReady=providerReadyForRun(state.provider||"local");
-    $("footStatus").title=label+(runtimeReady?" - ready":" - not ready");
     $("banner").style.display=runtimeReady?"none":"";
     $("banner").textContent=state.backendUp?"":"Provider '"+label+"' isn't ready — open Settings to pick a provider, add a key, or download a model.";
     if(!runtimeReady&&state.codex?.enabled===true) $("banner").textContent="Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.";
@@ -10505,7 +10535,9 @@ body:not(.composer-simple) main::after{
     $("projdir").textContent=state.projectsDir||"";
     if($("budgetLimitInput")) $("budgetLimitInput").value=state.budgetLimit||0;
     applyUi(state.ui);
-    if(state.codex?.enabled===true&&!state.codex.ready&&!codexAutoCheckStarted){ codexAutoCheckStarted=true; whenIdle(()=>refreshCodexStatus({start:true,quiet:true})); }
+    // Codex keeps the ChatGPT sign-in, but its app-server closes with Boolean.
+    // Reconnect once per launch even when Auto or Boolean is selected.
+    if(!state.codex?.ready&&!codexAutoCheckStarted){ codexAutoCheckStarted=true; whenIdle(()=>refreshCodexStatus({start:true,quiet:true})); }
     updateProjLine();
     applyNetMode();
     applyCloudAccount();
@@ -10540,7 +10572,6 @@ body:not(.composer-simple) main::after{
         updateReadyStatus(label,shortLabel);
         renderModelCapability();
         const runtimeReady=providerReadyForRun(state.provider||"local");
-        $("footStatus").title=label+(runtimeReady?" - ready":" - not ready");
         $("banner").style.display=runtimeReady?"none":"";
         $("banner").textContent=runtimeReady?"":(state.codex?.enabled===true?"Codex isn't ready - open Settings > Coding Agent to check the CLI or sign in.":state.claudeCode?.enabled===true?"Claude Code isn't ready - open Settings > Coding Agent to install it or sign in.":"Provider '"+label+"' isn't ready - open Settings to pick a provider, add a key, or download a model.");
         renderCodexSettings();
@@ -10609,7 +10640,8 @@ body:not(.composer-simple) main::after{
     if(avatar) avatar.textContent=(String(display||"You").trim()[0]||"B").toUpperCase();
     const sidebarName=$("sidebarAccountName"), sidebarLabel=$("sidebarAccountLabel"), sidebarAvatar=$("sidebarAccountAvatar");
     if(sidebarName) sidebarName.textContent=display||"You";
-    if(sidebarLabel) sidebarLabel.textContent=accountEmailLabel();
+    if(sidebarLabel) sidebarLabel.textContent=($("railBrandStatus")?.textContent||"Ready").trim()||"Ready";
+    if($("sidebarAccountDot")) $("sidebarAccountDot").className=$("railBrandDot")?.className||"dot";
     if(sidebarAvatar) sidebarAvatar.textContent=(String(display||"You").trim()[0]||"B").toUpperCase();
     if(auth) auth.textContent=cloud.signedIn?"Log out":"Sign in or sign up";
     const authNote=$("accountAuthNote");
@@ -10635,7 +10667,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.69"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.70"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -11334,9 +11366,10 @@ body:not(.composer-simple) main::after{
     const selected=rec.file===state.model;
     const item=document.createElement("div"); item.className=(compact?"model-card":"item model-rec")+(installed?" installed":"")+(selected?" selected":"")+(needsRepair?" needs-repair":"");
     item.title=needsRepair?(info.healthReason||"Model file needs repair"):(installed?"Use "+rec.name:rec.note);
+    const bestForPc=state.local?.recommendation?.model===rec.file;
     const action=needsRepair?"Repair":(installed?"Installed":"Download");
     const actionMarkup=installed?esc(action):'<span>Download</span><small>'+esc(rec.size)+'</small>';
-    item.innerHTML=localModelCompanyMark(rec.name+" "+rec.label)+'<span class="model-line"><b>'+esc(rec.name)+'</b><small>'+esc(rec.label)+" - "+esc(rec.note)+'</small>'+(installed?localModelPerformanceMarkup(rec.file):'')+'</span><span class="model-actions"><span class="model-dl'+(installed?"":" download")+'">'+actionMarkup+'</span>'+(installed?'<button class="model-mini repair" type="button" title="Redownload model" aria-label="Redownload model">&#8635;</button><button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button>':'')+'</span>';
+    item.innerHTML=localModelCompanyMark(rec.name+" "+rec.label)+'<span class="model-line"><b>'+esc(rec.name)+(bestForPc?' · Best for this PC':'')+'</b><small>'+esc(rec.label)+" - "+esc(rec.note)+'</small>'+(installed?localModelPerformanceMarkup(rec.file):'')+'</span><span class="model-actions"><span class="model-dl'+(installed?"":" download")+'">'+actionMarkup+'</span>'+(installed?'<button class="model-mini repair" type="button" title="Redownload model" aria-label="Redownload model">&#8635;</button><button class="model-mini remove" type="button" title="Remove model" aria-label="Remove model">&times;</button>':'')+'</span>';
     item.onclick=()=>needsRepair?redownloadInstalledModel(rec.file,item):(installed?selectLocalModel(rec.file):pullModel(catalogModel(rec),item));
     item.querySelector(".repair")?.addEventListener("click",e=>{ e.stopPropagation(); redownloadInstalledModel(rec.file,item); });
     item.querySelector(".remove")?.addEventListener("click",e=>{ e.stopPropagation(); removeInstalledModel(rec.file,item); });
@@ -11377,6 +11410,32 @@ body:not(.composer-simple) main::after{
     el.innerHTML="";
     const recommended=RECOMMENDED_MODELS.filter(rec=>!installedModel(rec.file));
     const installed=(state.models||[]).filter(model=>model.installed!==false);
+    const hw=state.local?.hardware, tune=state.local?.recommendation;
+    if(hw&&tune){
+      const gpu=hw.gpu?" · "+hw.gpu.name:"";
+      const summary=document.createElement("div");
+      summary.className="hint model-hardware-summary";
+      summary.textContent=hw.ramGb+" GB RAM"+gpu+" · "+tune.summary+" · "+Math.round(tune.ctx/1024)+"k context";
+      el.appendChild(summary);
+      if(hw.gpu&&hw.backend==="cpu"){
+        const enable=document.createElement("button");
+        enable.className="model-gpu-action";
+        enable.type="button";
+        enable.textContent="Enable GPU acceleration";
+        enable.onclick=async()=>{
+          enable.disabled=true; enable.textContent="Installing Vulkan engine…";
+          try{
+            const response=await fetch("/api/models/accelerator",{method:"POST",body:"{}"});
+            const result=await response.json();
+            if(!response.ok||!result.ok) throw new Error(result.error||"GPU setup failed");
+            await refresh();
+            tempToast("GPU acceleration is ready.");
+          }catch(err){ tempToast(err.message||"GPU setup failed"); }
+          finally{ enable.disabled=false; }
+        };
+        el.appendChild(enable);
+      }
+    }
     if(recommended.length){
       appendLibraryHead(el,"Recommended for local",true);
       recommended.forEach(rec=>el.appendChild(makeRecRow(rec,true)));
@@ -11507,7 +11566,7 @@ body:not(.composer-simple) main::after{
     if(focused){
       form.innerHTML=inputHtml
         +'<button class="api-key-icon paste" type="button" title="Paste API key" aria-label="Paste API key">'+uPasteIcon.replace("<svg ","<svg class=\"paste-ico\" ")+'</button>'
-        +'<button class="api-key-save" type="button">Test &amp; continue</button>';
+        +'<button class="api-key-save" type="button" title="Connect API key" aria-label="Connect API key">&#10003;</button>';
     } else {
       form.innerHTML=inputHtml
         +'<button class="api-key-icon paste" type="button" title="Paste API key" aria-label="Paste API key">'+uPasteIcon.replace("<svg ","<svg class=\"paste-ico\" ")+'</button>'
@@ -11521,7 +11580,7 @@ body:not(.composer-simple) main::after{
       if(!key){
         const err=document.createElement("div"); err.className="api-key-error"; err.textContent="Enter an API key to continue."; form.after(err); input.focus(); return;
       }
-      save.disabled=true; save.textContent="Connecting...";
+      save.disabled=true; save.textContent=focused?"…":"Connecting..."; save.setAttribute("aria-label",focused?"Connecting API key":"Connecting");
       setApiConnectionState(form,"connecting","Connecting securely...");
       const verificationStarted=Date.now();
       let testRes;
@@ -11529,7 +11588,7 @@ body:not(.composer-simple) main::after{
       catch{ testRes=null; }
       await waitForApiWizard(Math.max(0,1100-(Date.now()-verificationStarted)));
       if(!testRes?.ok){
-        save.disabled=false; save.textContent=focused?"Test & continue":"Save";
+        save.disabled=false; save.innerHTML=focused?"&#10003;":"Save";
         setApiConnectionState(form,"error","Connection failed");
         const err=document.createElement("div"); err.className="api-key-error"; err.textContent="Could not connect. Check this API key and try again."; form.after(err); return;
       }
@@ -11537,12 +11596,12 @@ body:not(.composer-simple) main::after{
       try { markExplicitProviderChoice(prov); res=await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov,setKey:{provider:prov,key}})}); }
       catch { res=null; }
       if(!res?.ok){
-        save.disabled=false; save.textContent=focused?"Test & continue":"Save";
+        save.disabled=false; save.innerHTML=focused?"&#10003;":"Save";
         setApiConnectionState(form,"error","Could not save");
         const err=document.createElement("div"); err.className="api-key-error"; err.textContent="Connected, but the key could not be saved."; form.after(err); return;
       }
       setApiConnectionState(form,"model-connecting","API key saved. Loading models...");
-      save.textContent="Checking models...";
+      save.textContent=focused?"…":"Checking models..."; save.setAttribute("aria-label",focused?"Loading models":"Checking models");
       await refresh();
       delete apiModelCache[prov]; delete apiProviderHealth[prov];
       await verifyApiProviderModels(prov);
@@ -11582,6 +11641,7 @@ body:not(.composer-simple) main::after{
     list.innerHTML="";
     if(!hasKey){
       apiWizardInline=true;
+      $("modelmenu")?.classList.add("api-wizard-open");
       const connected=document.createElement("div"); connected.className="api-connected-summary";
       const connectedHead=document.createElement("div"); connectedHead.className="api-section-head"; connectedHead.textContent="Connected";
       connected.appendChild(connectedHead);
@@ -11801,12 +11861,25 @@ body:not(.composer-simple) main::after{
   function setComposerModelDisplay(modelName){
     const target=$("modelname");if(!target)return;
     const base=modelName||"Select a model";
-    const auto=state.codingEngine!=="codex"&&state.codingEngine!=="claude-code"&&state.ui?.autoRouteModels===true;
-    const full=(auto?"Auto · ":"")+base,compact=(auto?"Auto · ":"")+base.replace(/^google\s+ai\s*[-·:]?\s*/i,"").replace(/^gemini[-\s]*/i,"Gemini ").replace(/[-\s](?:flash|pro|preview|latest)$/i,"").trim();
+    const engine=state.codingEngine||"boolean";
+    const prefix=engine==="auto"?"Auto · ":engine==="codex"?"Codex · ":engine==="claude-code"?"Claude · ":"";
+    const full=prefix+base,compact=prefix+base.replace(/^google\s+ai\s*[-·:]?\s*/i,"").replace(/^gemini[-\s]*/i,"Gemini ").replace(/[-\s](?:flash|pro|preview|latest)$/i,"").trim();
     target.innerHTML=`<span class="model-label-text">${esc(full)}</span><span class="model-label-compact">${esc(compact||full)}</span>`;
     target.setAttribute("aria-label",modelName||"Select a model");
-    if(auto)target.setAttribute("aria-label",full);
+    if(prefix)target.setAttribute("aria-label",full);
     $("modelbtn").title=full;
+  }
+  function renderModelEnginePicker(){
+    const picker=$("modelEnginePicker"); if(!picker)return;
+    const selected=state.codingEngine||"boolean";
+    const ready={codex:state.codex?.ready===true&&state.codex?.account?.signedIn===true,"claude-code":state.claudeCode?.ready===true&&state.claudeCode?.signedIn===true};
+    picker.querySelectorAll("[data-picker-runtime]").forEach(button=>{
+      const runtime=button.dataset.pickerRuntime;
+      button.classList.toggle("on",runtime===selected);
+      button.setAttribute("aria-pressed",String(runtime===selected));
+      const label=runtime==="claude-code"?"Claude":runtime[0].toUpperCase()+runtime.slice(1);
+      button.innerHTML=esc(label)+((runtime==="codex"||runtime==="claude-code")&&ready[runtime]?'<i class="engine-ready" aria-label="Connected"></i>':"");
+    });
   }
   const uKeyCopyIcon='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
   function closeRowMenus({restoreFocus=false}={}){
@@ -11838,6 +11911,8 @@ body:not(.composer-simple) main::after{
   }
   function renderModelList(filter){
     placeModelNetSeg();
+    renderModelEnginePicker();
+    $("modelmenu")?.classList.remove("api-wizard-open");
     const list=$("modellist"); list.innerHTML="";
     const q=(filter||"").toLowerCase();
     const matches=(text)=>!q || String(text||"").toLowerCase().includes(q);
@@ -12108,13 +12183,15 @@ body:not(.composer-simple) main::after{
     const menu=$("modelmenu"), button=$("modelbtn"), workspace=document.querySelector("main");
     if(!menu?.classList.contains("open")||!button||!workspace) return;
     const buttonRect=button.getBoundingClientRect(), workspaceRect=workspace.getBoundingClientRect();
-    const margin=8, width=menu.offsetWidth||218;
-    const availableHeight=Math.max(180,Math.min(380,buttonRect.top-margin));
+    const margin=8, width=menu.offsetWidth||218, wizard=menu.classList.contains("api-wizard-open");
+    const heightLimit=wizard?Math.min(504,window.innerHeight-margin*2):380;
+    const availableHeight=Math.max(180,Math.min(heightLimit,buttonRect.top-margin));
     menu.style.maxHeight=availableHeight+"px";
     const height=Math.min(menu.offsetHeight||availableHeight,availableHeight);
     const minLeft=workspaceRect.left+margin;
     const maxLeft=Math.max(minLeft,workspaceRect.right-width-margin);
-    menu.style.left=Math.round(Math.max(minLeft,Math.min(buttonRect.left,maxLeft)))+"px";
+    const preferredLeft=wizard?workspaceRect.left+(workspaceRect.width-width)/2:buttonRect.left;
+    menu.style.left=Math.round(Math.max(minLeft,Math.min(preferredLeft,maxLeft)))+"px";
     menu.style.top=Math.round(Math.max(margin,buttonRect.top-height-margin))+"px";
   }
   $("modelbtn").onclick=(e)=>{ e.stopPropagation(); if($("modelmenu").classList.contains("open")){ apiWizardInline=false; $("modelmenu").classList.remove("open"); } else openModelSelector(); };
@@ -14590,7 +14667,7 @@ body:not(.composer-simple) main::after{
   // ── nav / panels / sidebar ──
   $("appBack").onclick=goBackInApp;
   $("appForward").onclick=goForwardInApp;
-  $("newchat").onclick=newChat;
+  $("chatHome").onclick=returnToCurrentChat;
   $("sidebarAccount").onclick=toggleAccountMenu;
   $("sidebarAccountSettings").onclick=(event)=>{ event.stopPropagation(); closeAccountMenu(); openSettings(null); };
   function closeSidebarFlyouts(){
@@ -15713,7 +15790,13 @@ Optional bundled starter model:
     const enabled=state.codingEngine==="codex";
     const codexSelected=enabled||codexSetupOpen;
     const selectedRuntime=claudeSetupOpen?"claude-code":codexSetupOpen?"codex":(state.codingEngine||"boolean");
-    document.querySelectorAll("#orchestrationSeg button").forEach(button=>button.classList.toggle("on",button.dataset.runtime===selectedRuntime));
+    document.querySelectorAll("#orchestrationSeg button").forEach(button=>{
+      const selected=button.dataset.runtime===selectedRuntime;
+      button.classList.toggle("on",selected);
+      button.setAttribute("aria-pressed",String(selected));
+    });
+    if($("orchestrationSelected")) $("orchestrationSelected").innerHTML="Selected: <b>"+esc(({auto:"Auto",boolean:"Boolean",codex:"Codex","claude-code":"Claude Code"})[selectedRuntime]||"Boolean")+"</b>";
+    renderModelEnginePicker();
     if($("codexBackendCard")) $("codexBackendCard").hidden=!(enabled||codexSetupOpen);
     if($("codexCommand")&&document.activeElement!==$("codexCommand")) $("codexCommand").value=codexDisplayCommand(codex.command);
     if($("codexEffort")) $("codexEffort").value=["low","medium","high","xhigh","ultra"].includes(codex.reasoningEffort)?codex.reasoningEffort:"medium";
@@ -15796,7 +15879,7 @@ Optional bundled starter model:
     const installed=claude.installed===true||claude.version;
     const signedIn=claude.signedIn===true;
     if(signedIn) claudeLoginStarted=false;
-    const ready=claude.ready===true;
+    const ready=claude.ready===true&&signedIn;
     const active=enabled&&ready;
     const installing=claudeInstallPending||claude.installing===true;
     setClaudeSetupStep("install",{done:installed,current:!installed,detail:installing?"Installing...":installed?(claude.version||"Installed"):"Not installed"});
@@ -15809,7 +15892,9 @@ Optional bundled starter model:
     if($("claudeAccountText")) $("claudeAccountText").textContent=signedIn
       ? [claude.account?.email,claude.account?.organization,claude.account?.authMethod].filter(Boolean).join(" · ")||"Signed in through Claude Code."
       : installed?"Finish Claude sign-in in the terminal, then check the connection.":"Set up Claude Code once, then sign in with your Claude account. Boolean never stores or displays its credentials.";
-    if($("claudeModelControls")) $("claudeModelControls").hidden=!signedIn;
+    if($("claudeModelControls")) $("claudeModelControls").hidden=!installed;
+    if($("claudeCodeModel")){ $("claudeCodeModel").disabled=!signedIn; $("claudeCodeModel").title=signedIn?"Claude Code model":"Sign in with Claude to choose a model"; }
+    if($("claudeModelHint")) $("claudeModelHint").textContent=signedIn?"Model used for Claude Code tasks.":"Sign in with Claude to choose a model.";
     if($("claudeCodeCheck")){ $("claudeCodeCheck").disabled=claudeEnablePending||installing; $("claudeCodeCheck").textContent=claudeEnablePending?"Checking...":"Check"; }
     const primary=$("claudePrimaryAction");
     if(primary){
@@ -16052,7 +16137,33 @@ Optional bundled starter model:
     const response=await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine:engine})});
     const result=await response.json().catch(()=>({}));
     if(!response.ok){ state.codingEngine=previous; renderCodexSettings(); setComposerModelDisplay(activeModelName()); tempToast(result.error||"Could not save the orchestration engine."); return false; }
+    renderModelEnginePicker();
     return true;
+  }
+  async function selectCodingRuntime(runtime,{fromPicker=false}={}){
+    if(fromPicker) $("modelmenu")?.classList.remove("open");
+    if(runtime==="auto"){
+      codexSetupOpen=false; claudeSetupOpen=false;
+      if(await saveCodingEngineSelection("auto")) tempToast("Auto selected. Boolean starts first; approved subscriptions are code/task fallbacks only.");
+      return;
+    }
+    if(runtime==="codex"){
+      claudeSetupOpen=false;
+      if(state.codex?.ready===true&&state.codex?.account?.signedIn===true){ await checkAndEnableCodex({quiet:true}); return; }
+      codexSetupOpen=true; renderCodexSettings();
+      if(fromPicker) openSettings("agent");
+      if(state.codex?.ready!==true) await checkCodexConnection({quiet:true});
+      return;
+    }
+    if(runtime==="claude-code"){
+      codexSetupOpen=false; claudeSetupOpen=true; renderCodexSettings();
+      if(state.claudeCode?.ready===true&&state.claudeCode?.signedIn===true){ await enableClaudeCode(); return; }
+      if(fromPicker) openSettings("agent");
+      await checkClaudeCodeConnection({quiet:true});
+      return;
+    }
+    codexSetupOpen=false; claudeSetupOpen=false;
+    if(await saveCodingEngineSelection("boolean")){ state.codex={...(state.codex||{}),enabled:false}; state.claudeCode={...(state.claudeCode||{}),enabled:false}; tempToast("Boolean orchestration selected."); renderCodexSettings(); }
   }
   async function saveCodexSettings(patch){
     const previous={...(state.codex||{})};
@@ -16111,7 +16222,7 @@ Optional bundled starter model:
   }
   async function installClaudeCodeCli(){
     if(claudeInstallPending) return false;
-    const approved=await appConfirm("Install Claude Code?","Boolean will install the official Claude Code CLI with WinGet. This changes files outside your project. Continue?","Install");
+    const approved=await appConfirm("Set up Claude Code?","Boolean will install the official Claude Code CLI, verify it, and open Claude sign-in. This changes files outside your project. Continue?","Set up");
     if(!approved) return false;
     claudeSetupOpen=true; codexSetupOpen=false; claudeInstallPending=true; renderCodexSettings();
     try{
@@ -16119,7 +16230,8 @@ Optional bundled starter model:
       const result=await response.json().catch(()=>({}));
       if(!response.ok||result.ok!==true) throw new Error(result.message||result.error||"Claude Code installation failed.");
       state.claudeCode={...(state.claudeCode||{}),...result,installed:true,command:result.command||"claude",error:""};
-      tempToast("Claude Code installed. Sign in with Claude to continue.");
+      claudeLoginStarted=result.loginStarted===true;
+      tempToast(result.loginMessage||"Claude Code installed. Complete sign-in to continue.");
       return true;
     }catch(error){ state.claudeCode={...(state.claudeCode||{}),error:error?.message||"Claude Code could not be installed."}; tempToast(state.claudeCode.error); return false; }
     finally{ claudeInstallPending=false; renderCodexSettings(); }
@@ -16289,29 +16401,9 @@ Optional bundled starter model:
     }
   }
   $("orchestrationSeg").querySelectorAll("button").forEach(button=>button.onclick=async()=>{
-    const runtime=button.dataset.runtime;
-    if(runtime==="auto"){
-      codexSetupOpen=false; claudeSetupOpen=false;
-      if(await saveCodingEngineSelection("auto")) tempToast("Auto selected. Boolean tries the selected API first; approved subscriptions are code/task fallbacks only.");
-      return;
-    }
-    if(runtime==="codex"){
-      claudeSetupOpen=false;
-      if(state.codex?.ready===true&&state.codex?.account?.signedIn===true){ await checkAndEnableCodex({quiet:true}); return; }
-      codexSetupOpen=true;
-      renderCodexSettings();
-      if(state.codex?.ready!==true) await checkCodexConnection({quiet:true});
-      return;
-    }
-    if(runtime==="claude-code"){
-      codexSetupOpen=false; claudeSetupOpen=true; renderCodexSettings();
-      if(state.claudeCode?.ready===true){ await enableClaudeCode(); return; }
-      await checkClaudeCodeConnection({quiet:true});
-      return;
-    }
-    codexSetupOpen=false; claudeSetupOpen=false;
-    if(await saveCodingEngineSelection("boolean")){ state.codex={...(state.codex||{}),enabled:false}; state.claudeCode={...(state.claudeCode||{}),enabled:false}; tempToast("Boolean orchestration selected."); renderCodexSettings(); }
+    await selectCodingRuntime(button.dataset.runtime);
   });
+  $("modelEnginePicker").querySelectorAll("[data-picker-runtime]").forEach(button=>button.onclick=async(event)=>{ event.stopPropagation(); await selectCodingRuntime(button.dataset.pickerRuntime,{fromPicker:true}); });
   $("codexCheck").onclick=async()=>{
     const command=codexDisplayCommand($("codexCommand").value);
     await checkCodexConnection({command});
@@ -18204,7 +18296,7 @@ Optional bundled starter model:
   document.querySelectorAll("[data-chat-utility-workspace]").forEach(button=>{
     button.addEventListener("click",()=>setWorkspaceTab(button.dataset.chatUtilityWorkspace));
   });
-  $("chatUtilityNew")?.addEventListener("click",()=>$("newchat")?.click());
+  $("chatUtilityNew")?.addEventListener("click",()=>newChat());
   $("chatUtilityBrowser")?.addEventListener("click",()=>setWorkspaceTab("browser"));
   $("chatUtilityNotepad")?.addEventListener("click",()=>setWorkspaceTab("notes"));
   $("chatUtilityExplore")?.addEventListener("click",()=>openExploreWorkspace());
@@ -18307,6 +18399,16 @@ Optional bundled starter model:
     if(latest&&latest!==threadId) await openThread(latest);
     else if(!threadId&&latest) await openThread(latest);
     else scrollDown(true);
+  }
+  function returnToCurrentChat(){
+    const current=activeWsTab;
+    if(current!=="chat") closeWorkspaceTab(current);
+    closeConversationPanels();
+    previousWsTab=current&&current!=="chat"?current:previousWsTab;
+    markWorkspaceTab("chat");
+    saveAppFrameState();
+    scrollDown(true);
+    requestAnimationFrame(()=>input?.focus());
   }
   const EDUCATION_SAVE_KEY="boollmEducationPracticeV1";
   const AI_FOUNDATIONS_SAVE_KEY="boollmAiFoundationsV1";

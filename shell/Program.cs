@@ -163,6 +163,7 @@ sealed class BooleanPetForm : Form
     readonly TextBox _replyInput = new();
     readonly Button _replyButton = new();
     readonly Button _stopButton = new();
+    readonly ToolTip _shortcutTips = new();
     Point? _dragOrigin;
     Point _windowOrigin;
     BooleanPetDisplayState _displayState = BooleanPetDisplayState.Idle;
@@ -173,6 +174,7 @@ sealed class BooleanPetForm : Form
     bool _completed;
     bool _hoverReply;
     bool _reduceMotion;
+    bool _darkMode;
 
     string LayoutPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -195,10 +197,12 @@ sealed class BooleanPetForm : Form
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(390, 270);
+        ClientSize = new Size(390, 208);
         MinimumSize = MaximumSize = ClientSize;
-        BackColor = Color.Fuchsia;
-        TransparencyKey = Color.Fuchsia;
+        // A near-black transparency key prevents the magenta fringe produced
+        // when anti-aliased pet edges were blended against Fuchsia.
+        BackColor = Color.FromArgb(1, 2, 3);
+        TransparencyKey = BackColor;
         Opacity = 0.96;
         DoubleBuffered = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
@@ -244,11 +248,9 @@ sealed class BooleanPetForm : Form
 
     void ConfigureReplyControls()
     {
-        _replyInput.BorderStyle = BorderStyle.FixedSingle;
+        _replyInput.BorderStyle = BorderStyle.None;
         _replyInput.Font = new Font("Segoe UI Variable Text", 9.5f);
-        _replyInput.PlaceholderText = "Reply to this chat...";
-        _replyInput.BackColor = Color.FromArgb(250, 250, 249);
-        _replyInput.ForeColor = Color.FromArgb(31, 32, 33);
+        _replyInput.PlaceholderText = "Follow up";
         _replyInput.KeyDown += (_, e) =>
         {
             if (e.KeyCode != Keys.Enter || e.Shift) return;
@@ -256,24 +258,50 @@ sealed class BooleanPetForm : Form
             SendReply();
         };
 
-        ConfigureReplyButton(_replyButton, "Reply", Color.FromArgb(31, 32, 33), Color.White);
-        ConfigureReplyButton(_stopButton, "Stop", Color.FromArgb(174, 51, 55), Color.FromArgb(255, 245, 245));
+        ConfigureReplyButton(_replyButton, "↩", "Reply to this chat");
+        ConfigureReplyButton(_stopButton, "■", "Stop Boolean");
         _replyButton.Click += (_, __) => SendReply();
         _stopButton.Click += (_, __) => _stopRequested();
         Controls.AddRange(new Control[] { _replyInput, _replyButton, _stopButton });
+        ApplyReplyTheme();
         SyncReplyControls();
     }
 
-    static void ConfigureReplyButton(Button button, string text, Color foreground, Color background)
+    void ConfigureReplyButton(Button button, string text, string accessibleName)
     {
         button.Text = text;
-        button.Font = new Font("Segoe UI Variable Text", 9f, FontStyle.Bold);
-        button.ForeColor = foreground;
-        button.BackColor = background;
+        button.AccessibleName = accessibleName;
+        button.Font = new Font("Segoe UI Symbol", text == "■" ? 9f : 13f, FontStyle.Bold);
         button.FlatStyle = FlatStyle.Flat;
-        button.FlatAppearance.BorderColor = Color.FromArgb(218, 219, 216);
-        button.FlatAppearance.BorderSize = 1;
+        button.UseVisualStyleBackColor = false;
+        button.FlatAppearance.BorderSize = 0;
         button.TabStop = true;
+        _shortcutTips.SetToolTip(button, accessibleName);
+    }
+
+    void ApplyReplyTheme()
+    {
+        var input = _darkMode ? Color.FromArgb(30, 31, 31) : Color.FromArgb(246, 247, 245);
+        var button = _darkMode ? Color.FromArgb(56, 57, 57) : Color.FromArgb(228, 229, 227);
+        var foreground = _darkMode ? Color.FromArgb(222, 223, 221) : Color.FromArgb(104, 106, 105);
+        _replyInput.BackColor = input;
+        _replyInput.ForeColor = _darkMode ? Color.FromArgb(238, 239, 237) : Color.FromArgb(31, 32, 33);
+        foreach (var shortcut in new[] { _replyButton, _stopButton })
+        {
+            shortcut.BackColor = button;
+            shortcut.ForeColor = foreground;
+            shortcut.FlatAppearance.MouseOverBackColor = _darkMode ? Color.FromArgb(72, 73, 73) : Color.FromArgb(211, 212, 210);
+            shortcut.FlatAppearance.MouseDownBackColor = _darkMode ? Color.FromArgb(82, 83, 83) : Color.FromArgb(199, 201, 198);
+        }
+    }
+
+    static void SetCircularButtonBounds(Button button, int x, int y, int size)
+    {
+        button.SetBounds(x, y, size, size);
+        using var circle = new GraphicsPath();
+        circle.AddEllipse(0, 0, size - 1, size - 1);
+        button.Region?.Dispose();
+        button.Region = new Region(circle);
     }
 
     void SyncReplyControls()
@@ -283,9 +311,9 @@ sealed class BooleanPetForm : Form
         _replyButton.Visible = visible;
         _stopButton.Visible = visible;
         if (!visible) return;
-        _replyInput.SetBounds(30, 58, 208, 29);
-        _replyButton.SetBounds(244, 57, 58, 31);
-        _stopButton.SetBounds(308, 57, 54, 31);
+        _replyInput.SetBounds(34, 72, 320, 22);
+        SetCircularButtonBounds(_replyButton, 302, 20, 32);
+        SetCircularButtonBounds(_stopButton, 340, 20, 32);
     }
 
     void SendReply()
@@ -296,7 +324,7 @@ sealed class BooleanPetForm : Form
         _replyRequested(text);
     }
 
-    public void Sync(BooleanPetDisplayState displayState, string chatName, string title, string detail, bool active, bool completed, bool reduceMotion)
+    public void Sync(BooleanPetDisplayState displayState, string chatName, string title, string detail, bool active, bool completed, bool reduceMotion, bool darkMode)
     {
         _displayState = displayState;
         _chatName = Trim(chatName, 50, "New chat");
@@ -305,7 +333,9 @@ sealed class BooleanPetForm : Form
         _active = active;
         _completed = completed;
         _reduceMotion = reduceMotion;
+        _darkMode = darkMode;
         if (!_active || _completed) _hoverReply = false;
+        ApplyReplyTheme();
         SyncReplyControls();
         Invalidate();
     }
@@ -387,27 +417,27 @@ sealed class BooleanPetForm : Form
         var hover = _reduceMotion ? 0 : (int)Math.Round(Math.Sin(tick * 2.1) * 3);
 
         if (_active) DrawStatusBubble(g);
-        DrawLaptop(g, hover, tick);
+        DrawPetSymbol(g, hover, tick);
     }
 
     void DrawStatusBubble(Graphics g)
     {
-        var rect = new Rectangle(12, 10, Width - 24, _hoverReply ? 94 : 76);
+        var rect = new Rectangle(12, 10, Width - 24, _hoverReply ? 100 : 76);
         using var shadowPath = RoundedPanel.RoundedRect(new Rectangle(rect.X + 2, rect.Y + 4, rect.Width, rect.Height), 18);
         using var shadow = new SolidBrush(Color.FromArgb(26, 0, 0, 0));
         g.FillPath(shadow, shadowPath);
         using var path = RoundedPanel.RoundedRect(rect, 18);
-        using var fill = new SolidBrush(Color.FromArgb(250, 250, 249));
-        using var border = new Pen(Color.FromArgb(211, 213, 207));
+        using var fill = new SolidBrush(_darkMode ? Color.FromArgb(31, 32, 32) : Color.FromArgb(250, 250, 249));
+        using var border = new Pen(_darkMode ? Color.FromArgb(76, 78, 76) : Color.FromArgb(211, 213, 207));
         g.FillPath(fill, path);
         g.DrawPath(border, path);
 
-        DrawBooleanMark(g, new Point(rect.Left + 27, rect.Top + 30), 17, Color.FromArgb(36, 37, 38));
+        DrawBooleanMark(g, new Point(rect.Left + 27, rect.Top + 30), 17, _darkMode ? Color.FromArgb(235, 236, 234) : Color.FromArgb(36, 37, 38));
         using var titleFont = new Font("Segoe UI Variable Text", 10.5f, FontStyle.Bold);
         using var detailFont = new Font("Segoe UI Variable Text", 9f, FontStyle.Regular);
-        using var titleBrush = new SolidBrush(Color.FromArgb(31, 32, 33));
-        using var detailBrush = new SolidBrush(Color.FromArgb(105, 107, 105));
-        g.DrawString(_chatName, titleFont, titleBrush, new RectangleF(rect.Left + 57, rect.Top + 10, rect.Width - 104, 22));
+        using var titleBrush = new SolidBrush(_darkMode ? Color.FromArgb(239, 240, 238) : Color.FromArgb(31, 32, 33));
+        using var detailBrush = new SolidBrush(_darkMode ? Color.FromArgb(164, 166, 163) : Color.FromArgb(105, 107, 105));
+        g.DrawString(_chatName, titleFont, titleBrush, new RectangleF(rect.Left + 57, rect.Top + 10, rect.Width - (_hoverReply ? 156 : 104), 22));
         if (!_hoverReply)
         {
             var activity = _completed ? "Finished" : (!string.IsNullOrWhiteSpace(_detail) ? _detail : _title);
@@ -422,52 +452,40 @@ sealed class BooleanPetForm : Form
             g.DrawEllipse(checkPen, cx - 11, cy - 11, 22, 22);
             g.DrawLines(checkPen, new[] { new Point(cx - 5, cy), new Point(cx - 1, cy + 4), new Point(cx + 7, cy - 5) });
         }
+        if (_hoverReply)
+        {
+            var inputRect = new Rectangle(rect.Left + 16, rect.Top + 56, rect.Width - 32, 32);
+            using var inputPath = RoundedPanel.RoundedRect(inputRect, 14);
+            using var inputFill = new SolidBrush(_darkMode ? Color.FromArgb(30, 31, 31) : Color.FromArgb(246, 247, 245));
+            using var inputBorder = new Pen(_darkMode ? Color.FromArgb(86, 88, 85) : Color.FromArgb(207, 209, 205));
+            g.FillPath(inputFill, inputPath);
+            g.DrawPath(inputBorder, inputPath);
+        }
         using var pinPen = new Pen(Color.FromArgb(96, 98, 97), 1.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round };
         g.DrawLine(pinPen, rect.Left + 45, rect.Top + 14, rect.Left + 45, rect.Top + 25);
         g.DrawLine(pinPen, rect.Left + 41, rect.Top + 18, rect.Left + 49, rect.Top + 18);
     }
 
-    void DrawLaptop(Graphics g, int hover, double tick)
+    void DrawPetSymbol(Graphics g, int hover, double tick)
     {
-        var screen = new Rectangle((Width - 174) / 2, (_hoverReply ? 129 : 103) + hover, 174, 101);
-        using var rearShadow = new SolidBrush(Color.FromArgb(38, 0, 0, 0));
-        g.FillEllipse(rearShadow, screen.Left + 8, screen.Bottom + 27, screen.Width - 16, 12);
-
-        using var lidPath = RoundedPanel.RoundedRect(screen, 12);
-        using var graphite = new LinearGradientBrush(screen, Color.FromArgb(59, 61, 64), Color.FromArgb(35, 37, 40), 90f);
-        using var lidBorder = new Pen(Color.FromArgb(93, 96, 99), 1.2f);
-        g.FillPath(graphite, lidPath);
-        g.DrawPath(lidBorder, lidPath);
-
-        var display = Rectangle.Inflate(screen, -10, -9);
-        display.Height -= 2;
-        using var displayPath = RoundedPanel.RoundedRect(display, 7);
-        using var black = new SolidBrush(Color.FromArgb(13, 15, 16));
-        using var glass = new Pen(Color.FromArgb(77, 80, 82), 1f);
-        g.FillPath(black, displayPath);
-        g.DrawPath(glass, displayPath);
-
-        var baseRect = new Rectangle(screen.Left - 13, screen.Bottom - 1, screen.Width + 26, 25);
-        using var basePath = RoundedPanel.RoundedRect(baseRect, 8);
-        using var baseBrush = new LinearGradientBrush(baseRect, Color.FromArgb(67, 69, 72), Color.FromArgb(39, 41, 43), 90f);
-        using var baseBorder = new Pen(Color.FromArgb(93, 96, 99), 1f);
-        g.FillPath(baseBrush, basePath);
-        g.DrawPath(baseBorder, basePath);
-        using var hinge = new Pen(Color.FromArgb(21, 22, 23), 2f);
-        g.DrawLine(hinge, screen.Left + 23, screen.Bottom + 3, screen.Right - 23, screen.Bottom + 3);
-        using var deck = new Pen(Color.FromArgb(93, 95, 96), 1f);
-        g.DrawLine(deck, baseRect.Left + 34, baseRect.Top + 11, baseRect.Right - 34, baseRect.Top + 11);
+        var tile = new Rectangle(Width - 86, (_hoverReply ? 119 : 93) + hover, 68, 68);
+        using var rearShadow = new SolidBrush(Color.FromArgb(34, 0, 0, 0));
+        g.FillEllipse(rearShadow, tile.Left + 5, tile.Bottom + 6, tile.Width - 10, 10);
+        using var tilePath = RoundedPanel.RoundedRect(tile, 16);
+        using var graphite = new LinearGradientBrush(tile, Color.FromArgb(35, 38, 38), Color.FromArgb(17, 20, 20), 90f);
+        using var tileBorder = new Pen(Color.FromArgb(69, 74, 72), 1.1f);
+        g.FillPath(graphite, tilePath);
+        g.DrawPath(tileBorder, tilePath);
 
         var green = Color.FromArgb(53, 199, 89);
-        using var led = new SolidBrush(Color.FromArgb(220, green));
         var pulse = _reduceMotion ? 1f : .65f + (float)((Math.Sin(tick * 3) + 1) * .17);
         using var pulseLed = new SolidBrush(Color.FromArgb((int)(220 * pulse), green));
-        g.FillEllipse(pulseLed, baseRect.Right - 26, baseRect.Top + 9, 12, 4);
+        g.FillEllipse(pulseLed, tile.Right - 12, tile.Bottom - 12, 5, 5);
 
-        var center = new Point(display.Left + display.Width / 2, display.Top + display.Height / 2);
-        if (_displayState == BooleanPetDisplayState.Browsing) DrawGlobe(g, center, 27, green, tick);
-        else if (_displayState == BooleanPetDisplayState.Coding) DrawTerminal(g, display, green);
-        else DrawBooleanMark(g, center, 46, Color.White);
+        var center = new Point(tile.Left + tile.Width / 2, tile.Top + tile.Height / 2);
+        if (_displayState == BooleanPetDisplayState.Browsing) DrawGlobe(g, center, 19, green, tick);
+        else if (_displayState == BooleanPetDisplayState.Coding) DrawTerminal(g, tile, green);
+        else DrawBooleanMark(g, center, 34, Color.White);
     }
 
     static void DrawBooleanMark(Graphics g, Point center, int size, Color color)
@@ -509,7 +527,7 @@ sealed class BooleanPetForm : Form
     {
         var cycle = _reduceMotion ? 1900L : _clock.ElapsedMilliseconds % 2000;
         var text = cycle < 350 ? ">_" : cycle < 700 ? ">" : cycle < 980 ? "" : cycle < 1280 ? ">" : ">_";
-        using var font = new Font("Cascadia Mono", 31f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var font = new Font("Cascadia Mono", 27f, FontStyle.Bold, GraphicsUnit.Pixel);
         using var brush = new SolidBrush(color);
         var measured = g.MeasureString(text, font);
         g.DrawString(text, font, brush, display.Left + (display.Width - measured.Width) / 2, display.Top + (display.Height - measured.Height) / 2 - 1);
@@ -2553,7 +2571,8 @@ try {
         var active = root.TryGetProperty("active", out var activeProperty) && activeProperty.ValueKind == JsonValueKind.True;
         var completed = root.TryGetProperty("completed", out var completedProperty) && completedProperty.ValueKind == JsonValueKind.True;
         var reduceMotion = root.TryGetProperty("reduceMotion", out var motionProperty) && motionProperty.ValueKind == JsonValueKind.True;
-        _pet.Sync(state, chatName, title, detail, active, completed, reduceMotion);
+        var darkMode = root.TryGetProperty("dark", out var darkProperty) && darkProperty.ValueKind == JsonValueKind.True;
+        _pet.Sync(state, chatName, title, detail, active, completed, reduceMotion, darkMode);
     }
 
     void SetPetEnabled(bool enabled)

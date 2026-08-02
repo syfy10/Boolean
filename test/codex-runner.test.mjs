@@ -7,7 +7,9 @@ import test from "node:test";
 
 import {
   buildCodexBootstrap,
+  codexSandboxAllowsPath,
   codexSandboxAllowsWrite,
+  codexSandboxCommandCheck,
   codexWorkspaceSandboxPolicy,
   CodexRunner,
   runCodexTurn,
@@ -139,13 +141,30 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(client.threadStarts.length, 1);
   assert.equal(client.threadResumes.length, 0);
   assert.equal(client.threadStarts[0].approvalPolicy, "on-request");
-  assert.equal(client.threadStarts[0].sandbox, "workspace-write");
+  assert.equal(client.threadStarts[0].sandbox, undefined);
+  assert.equal(client.threadStarts[0].permissions, "boolean_workspace_only");
+  assert.ok(client.threadStarts[0].runtimeWorkspaceRoots.some((root) => path.resolve(root) === path.resolve("C:/work")));
+  assert.deepEqual(client.threadStarts[0].config.permissions.boolean_workspace_only.filesystem, {
+    glob_scan_max_depth: 12,
+    ":minimal": "read",
+    [path.resolve(os.homedir())]: { ".": "deny", "**/*": "deny" },
+    [path.resolve(String(process.env.WINDIR || "C:\\Windows"), "win.ini")]: "deny",
+    ":workspace_roots": { ".": "write" }
+  });
+  assert.equal(client.threadStarts[0].config.permissions.boolean_workspace_only.network.enabled, true);
   assert.equal(client.turnStarts[0].options.approvalPolicy, "on-request");
-  assert.equal(client.turnStarts[0].options.sandboxPolicy.type, "workspaceWrite");
-  assert.deepEqual(client.turnStarts[0].options.sandboxPolicy.readOnlyAccess, { type: "fullAccess" });
-  assert.equal(client.turnStarts[0].options.sandboxPolicy.networkAccess, true);
-  assert.equal(codexSandboxAllowsWrite(client.turnStarts[0].options.sandboxPolicy, "C:/work/wrangler.toml"), true);
-  assert.equal(codexSandboxAllowsWrite(client.turnStarts[0].options.sandboxPolicy, "C:/outside/secret.txt"), false);
+  assert.equal(client.turnStarts[0].options.permissions, undefined);
+  assert.equal(client.turnStarts[0].options.config, undefined);
+  assert.equal(client.turnStarts[0].options.sandboxPolicy, undefined);
+  const policy = codexWorkspaceSandboxPolicy("C:/work", { networkAccess: true });
+  assert.equal(codexSandboxAllowsWrite(policy, "C:/work/wrangler.toml"), true);
+  assert.equal(codexSandboxAllowsWrite(policy, "C:/outside/secret.txt"), false);
+  assert.equal(codexSandboxAllowsPath(policy, "C:/work/src/parser.js"), true);
+  assert.equal(codexSandboxAllowsPath(policy, "C:/Windows/win.ini"), false);
+  assert.equal(codexSandboxCommandCheck(policy, 'Get-Content "C:\\Windows\\win.ini"', "C:/work").allowed, false);
+  assert.equal(codexSandboxCommandCheck(policy, '"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content C:\\Windows\\win.ini"', "C:/work").allowed, false);
+  assert.equal(codexSandboxCommandCheck(policy, '"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" -Command "Get-Content C:\\work\\package.json"', "C:/work").allowed, true);
+  assert.equal(client.threadStarts[0].dynamicTools[0].name, "boolean_changes");
   assert.match(client.turnStarts[0].input[0].text, /We were fixing the parser/);
   assert.match(client.turnStarts[0].input[0].text, /Current request:\nFinish it and run the test/);
   assert.match(client.turnStarts[0].input[0].text, /Boolean Changes panel before this turn/);
@@ -183,6 +202,46 @@ test("Codex receives an authoritative zero Changes count without Git", async () 
     await runCodexTurn({ client, input: "Report Boolean Changes.", projectDir: root, workspaceChanges: [] });
     assert.match(client.turnStarts[0].input[0].text, /Boolean Changes panel before this turn: 0 changed files/);
     assert.match(client.turnStarts[0].input[0].text, /Do not use Git to calculate it/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Codex can query Boolean's live non-Git Changes panel through a dynamic tool", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-live-changes-"));
+  let toolResponse = null;
+  try {
+    const client = new FakeCodexClient({
+      async onTurn(instance) {
+        toolResponse = await instance.request("item/tool/call", {
+          threadId: instance.threadId,
+          turnId: instance.turnId,
+          callId: "changes_1",
+          tool: "boolean_changes",
+          arguments: {}
+        });
+        successfulTurn(instance);
+      }
+    });
+    await runCodexTurn({
+      client,
+      input: "Read Boolean Changes.",
+      projectDir: root,
+      getWorkspaceChanges: () => [{
+        path: "created.txt",
+        absolutePath: path.join(root, "created.txt"),
+        status: "added",
+        diff: "@@ -0,0 +1 @@\n+created"
+      }]
+    });
+    assert.equal(toolResponse.success, true);
+    const payload = JSON.parse(toolResponse.contentItems[0].text);
+    assert.equal(payload.source, "boolean");
+    assert.equal(payload.gitRequired, false);
+    assert.equal(payload.count, 1);
+    assert.equal(payload.changes[0].path, "created.txt");
+    assert.equal(payload.changes[0].status, "added");
+    assert.match(payload.changes[0].diff, /\+created/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -272,23 +331,26 @@ test("a Codex deletion is verified only when the exact file is gone", () => {
   }
 });
 
-test("Codex thread modes use kebab-case while turn sandbox policies stay structured", async () => {
-  for (const [inputType, threadType, turnType] of [
-    ["readOnly", "read-only", "readOnly"],
-    ["workspace-write", "workspace-write", "workspaceWrite"],
-    ["dangerFullAccess", "danger-full-access", "dangerFullAccess"]
+test("Codex permission profiles replace the legacy write-only sandbox", async () => {
+  for (const [inputType, expectedAccess] of [
+    ["readOnly", "read"],
+    ["workspace-write", "write"]
   ]) {
     const client = new FakeCodexClient({ onTurn: successfulTurn });
     await runCodexTurn({
       client,
       input: "Check the project.",
+      projectDir: "C:/work",
       sandboxPolicy: inputType === "readOnly"
-        ? { type: inputType, access: { type: "fullAccess" } }
+        ? { type: inputType, access: { type: "restricted", readableRoots: ["C:/work"] } }
         : { type: inputType },
       onStatus: () => {}
     });
-    assert.equal(client.threadStarts[0].sandbox, threadType);
-    assert.equal(client.turnStarts[0].options.sandboxPolicy.type, turnType);
+    assert.equal(client.threadStarts[0].sandbox, undefined);
+    assert.equal(client.threadStarts[0].permissions, "boolean_workspace_only");
+    assert.equal(client.threadStarts[0].config.permissions.boolean_workspace_only.filesystem[":workspace_roots"]["."], expectedAccess);
+    assert.equal(client.turnStarts[0].options.sandboxPolicy, undefined);
+    assert.equal(client.turnStarts[0].options.permissions, undefined);
   }
 });
 
@@ -335,7 +397,7 @@ test("resumed Codex threads receive only the latest user input and failed comple
   });
   const tokens = [];
   const result = await new CodexRunner({ client }).runCodexTurn({
-    mapping: { threadId: "thr_saved" },
+    mapping: { threadId: "thr_saved", booleanToolsVersion: 1 },
     messages: [
       { role: "user", content: "Old request" },
       { role: "assistant", content: "Old answer" },
@@ -460,7 +522,7 @@ test("a missing persisted Codex thread recovers once with a bounded bootstrap", 
     throw new Error(`Thread ${threadId} not found`);
   };
   const result = await new CodexRunner({ client }).runCodexTurn({
-    mapping: { threadId: "thr_gone" },
+    mapping: { threadId: "thr_gone", booleanToolsVersion: 1 },
     messages: [
       { role: "user", content: "Earlier context" },
       { role: "assistant", content: "Earlier result" },

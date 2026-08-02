@@ -219,7 +219,7 @@ test("settings and account stay on the rail while status moves into the sidebar 
 
 test("about page shows build metadata, release history, and working links", () => {
   assert.equal((ui.match(/id="aboutVersion"/g) || []).length, 1);
-  assert.match(ui, /id="brandVersion"/);
+  assert.match(ui, /data-settings-tab="about" title="About Updates"/);
   assert.match(ui, /id="aboutChannel"/);
   assert.match(ui, /id="aboutBranch"/);
   assert.match(ui, /id="aboutCommit"/);
@@ -564,14 +564,18 @@ test("hidden compact rail is available from a floating hamburger menu", () => {
   assert.match(ui, /classList\.remove\("rail-expanded","rail-menu-open","rail-menu-docked"\)/);
 });
 
-test("new chat lives beside Local and Cloud while conversation actions remain in the command bar", () => {
-  assert.match(ui, /<div class="netseg" id="netmode">[\s\S]*?<\/div>\s*<button class="icon-btn" id="newchat" title="New chat"/);
+test("back to chat lives beside Local and Cloud while conversation actions remain in the command bar", () => {
+  assert.match(ui, /<div class="netseg" id="netmode">[\s\S]*?<\/div>\s*<button class="icon-btn" id="chatHome" title="Back to chat" aria-label="Back to chat"/);
+  assert.match(ui, /\$\("chatHome"\)\.onclick=returnToCurrentChat/);
+  assert.match(ui, /function returnToCurrentChat\(\)\{[\s\S]*?closeConversationPanels\(\);[\s\S]*?markWorkspaceTab\("chat"\);[\s\S]*?saveAppFrameState\(\);/);
+  assert.doesNotMatch(ui, /\$\("chatHome"\)\.onclick=newChat/);
+  assert.match(ui, /\$\("chatUtilityNew"\)\?\.addEventListener\("click",\(\)=>newChat\(\)\)/);
   assert.match(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*id="copyall" title="Copy whole conversation"[\s\S]*id="cmdFile" title="Open and read a file"/);
   assert.match(ui, /function wholeConversationText\(\)/);
   assert.match(ui, /node\.classList\.contains\("model-error"\).*?"Error: "/s);
   assert.match(ui, /node\.classList\.contains\("toolcard"\)/);
   assert.match(ui, /Array\.from\(col\.children\)\.forEach/);
-  assert.doesNotMatch(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*?id="newchat"/);
+  assert.doesNotMatch(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*?id="chatHome"/);
   assert.doesNotMatch(ui, /data-rail="new-chat"/);
   assert.doesNotMatch(ui, /data-rail="copy-chat"/);
   assert.doesNotMatch(ui, /<button class="icon-btn" id="copyall"/);
@@ -609,18 +613,17 @@ test("narrow chat contains its header messages and composer without clipping", (
 });
 
 test("workspace card shows the selected API model's real readiness", () => {
-  assert.match(ui, /id="brandAbout" role="button" tabindex="0" aria-label="About Boolean and AI readiness"/);
-  assert.match(ui, /<path d="m7 9 5 5 5-5"\/>/);
-  assert.match(ui, /\.sidehead #footStatus \.dot,\.sidehead #footStatus #statustext\{ display:inline-flex; \}/);
-  assert.doesNotMatch(ui, /\.sidehead #footStatus::after\{ content:"Local AI workspace"; \}/);
+  assert.match(ui, /id="sidebarAccountLabel">Ready<\/span>/);
+  assert.match(ui, /id="sidebarAccountDot"/);
   assert.match(ui, /function updateReadyStatus\(label,shortLabel\)\{\s*const ready=providerReadyForRun\(state\.provider\|\|"local"\);/);
-  assert.match(ui, /\$\("brandAbout"\)\.classList\.toggle\("ready",ready\);/);
+  assert.match(ui, /\$\("sidebarAccountDot"\)\.className="dot"\+\(ready\?"":" down"\);/);
 });
 
 test("workspace card, create actions, search, and account match the approved grouped sidebar", () => {
   assert.match(ui, /\.sidehead\{ min-height:55px;[\s\S]*?border:0;[\s\S]*?background:transparent; \}/);
   assert.doesNotMatch(ui, /\.sidebar-brand::before/);
-  assert.equal((ui.match(/<svg class="sidebar-brand-mark" viewBox="0 0 40 40"/g)||[]).length,2);
+  assert.equal((ui.match(/<svg class="sidebar-brand-mark" viewBox="0 0 40 40"/g)||[]).length,1);
+  assert.doesNotMatch(ui, /<div class="sidehead">/);
   assert.match(ui, /\.sidebar-brand-mark circle\{ fill:currentColor; \}/);
   assert.match(ui, /<svg class="sidebar-brand-mark"[\s\S]*?<circle cx="20" cy="20" r="3\.8"\/>[\s\S]*?<\/svg>/);
   assert.doesNotMatch(ui, /id="sidebarNewProject"|id="sidebarNewChat"/);
@@ -630,11 +633,13 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /\.chat-create-menu button \+ button\{ border-left:1px solid var\(--border\);/);
   assert.match(ui, /<div class="thread-search-wrap">\s*<div class="thread-search-field">\s*<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"\/><path d="m16 16 4 4"\/><\/svg>\s*<input id="threadSearch"[^>]*placeholder="Search projects and chats"/);
   assert.match(ui, /<span class="thread-search-key" aria-hidden="true">Ctrl K<\/span>/);
-  assert.match(ui, /#sidebar \.thread-search-wrap\{ height:38px;[^}]*padding-top:7px;[^}]*border-top:1px solid var\(--border\); \}/);
+  assert.match(ui, /#sidebar \.thread-search-wrap\{ height:38px;[^}]*padding-top:7px;[^}]*width:calc\(100% - 20px\); \}/);
+  assert.doesNotMatch(ui, /#sidebar \.thread-search-wrap\{[^}]*border-top/);
   assert.match(ui, /\.thread-search-field > svg\{[\s\S]*?left:9px;[\s\S]*?stroke:var\(--dim\);/);
   assert.match(ui, /display:block; width:100%; height:30px; margin:0; padding:0 9px 0 27px;/);
   assert.match(ui, /id="sidebarAccount"[\s\S]*?id="sidebarAccountAvatar"[\s\S]*?id="sidebarAccountName"[\s\S]*?id="sidebarAccountLabel"/);
   assert.match(ui, /id="sidebarAccountSettings"[^>]*title="Settings"[^>]*aria-label="Open settings"/);
+  assert.doesNotMatch(ui, /id="sidebarAbout"|\$\("sidebarAbout"\)\.onclick/);
   assert.match(ui, /\$\("sidebarAccountSettings"\)\.onclick=\(event\)=>\{ event\.stopPropagation\(\); closeAccountMenu\(\); openSettings\(null\); \}/);
   assert.doesNotMatch(ui, /sidebar-account-chevron/);
   assert.doesNotMatch(ui, /<div class="sidebar-system-row">[\s\S]*?data-sidebar-theme=/);
@@ -644,28 +649,12 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /document\.body\.classList\.remove\("composer-simple"\)/);
 });
 
-test("sidebar shortcuts avoid duplicate top-bar tools and open real destinations", () => {
-  const shortcuts=ui.slice(ui.indexOf('id="sidebarShortcuts"'),ui.indexOf('<div class="thread-search-wrap">'));
-  for(const action of ["tasks","side-chat","sources"]) {
-    assert.match(shortcuts,new RegExp(`data-sidebar-action="${action}"`));
-  }
-  assert.match(shortcuts,/data-sidebar-workspace="markets"/);
-  assert.match(shortcuts,/data-sidebar-menu="more"/);
-  assert.doesNotMatch(shortcuts,/data-sidebar-action="browser"|data-sidebar-action="notes"|data-sidebar-action="recipes"|data-sidebar-menu="explore"/);
-  const more=shortcuts.slice(shortcuts.indexOf('data-sidebar-flyout="more"'));
-  for(const action of ["files","changes","models","settings"]) assert.match(more,new RegExp(`data-sidebar-action="${action}"`));
-  assert.doesNotMatch(more,/data-sidebar-workspace="code"|data-sidebar-workspace="preview"|data-sidebar-workspace="automations"/);
-  assert.match(ui,/if\(action==="tasks"\)\{ setWorkspaceTab\("automations",\{force:true\}\); \}/);
-  assert.match(ui,/else if\(action==="side-chat"\)\{ setSideChatOpen/);
-  assert.match(ui,/else if\(action==="files"\)\{ setWorkspaceTab\("code"\); \}/);
-  assert.match(ui,/else if\(action==="changes"\)\{ setWorkspaceTab\("git"\); \}/);
-  assert.match(ui,/else if\(action==="models"\)\{ openSettings\("model"\); \}/);
-  assert.match(ui,/else if\(action==="sources"\)\{ \$\("ctxToggle"\)\?\.click\(\); \}/);
-  assert.doesNotMatch(ui,/\.sidebar-shortcut\[data-sidebar-(?:action|workspace)="(?:tasks|side-chat|markets|sources)"\]\{ color:color-mix/);
-  assert.match(ui,/\.sidebar-shortcut svg\{[^}]*stroke:currentColor; stroke-width:1\.55;/);
-  assert.match(ui,/\.sidebar-shortcut svg \.icon-field\{ fill:currentColor; fill-opacity:\.08; stroke:none; \}/);
-  assert.match(ui,/#sidebar \.sidebar-shortcut svg\{ width:17px; height:17px; \}/);
-  for(const shape of ["circle class=\"icon-field\"","rect class=\"icon-field\"","circle class=\"icon-solid\""]) assert.match(shortcuts,new RegExp(shape));
+test("sidebar shortcut icon row is removed from the visible layout", () => {
+  assert.match(ui, /id="sidebarShortcuts"[^>]*hidden/);
+  assert.match(ui, /#sidebarShortcuts\[hidden\]\{ display:none!important; \}/);
+  assert.doesNotMatch(ui, /id="footStatus"/);
+  assert.match(ui, /class="sidebar-account-status"[\s\S]*id="sidebarAccountDot"[\s\S]*id="sidebarAccountLabel">Ready/);
+  assert.match(ui, /if\(\$\("sidebarAccountLabel"\)\)\{ \$\("sidebarAccountLabel"\)\.textContent=label;/);
   assert.match(ui,/\.personal-chat-head\{ margin-top:2px; padding-top:4px; \}/);
   assert.match(server,/company\\s\+website[\s\S]*?prospect plan/);
   assert.match(server,/function uniqueThreadTitle\(title, t, allThreads\)/);
@@ -799,6 +788,14 @@ test("compact navigation rail returns at half the old width requirement", () => 
 
 test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /\.menu#modelmenu\{ position:fixed; bottom:auto; right:auto; width:218px;/);
+  assert.match(ui, /\.menu#modelmenu\.api-wizard-open\{ width:min\(285px,calc\(100vw - 16px\)\); max-height:min\(504px,calc\(100vh - 16px\)\);[^}]*scrollbar-gutter:auto;/);
+  assert.match(ui, /<button class="api-key-save" type="button" title="Connect API key" aria-label="Connect API key">&#10003;<\/button>/);
+  assert.match(ui, /#modelmenu\.api-wizard-open \.api-provider-detail\.connecting \.api-key-save\{[^}]*width:27px;[^}]*height:25px;/);
+  assert.match(ui, /@media\(max-width:350px\)\{[\s\S]*?#modelmenu\.api-wizard-open \.api-provider-detail\.connecting \.api-key-save\{ grid-column:1\/-1; width:100%; \}/);
+  assert.match(ui, /#modelmenu\.api-wizard-open \.model-engine-seg\{ height:21px; \}/);
+  assert.match(ui, /#modelmenu\.api-wizard-open \.api-provider-detail\.connecting \.api-key-form input\{ min-height:25px; height:25px;/);
+  assert.match(ui, /\$\("modelmenu"\)\?\.classList\.add\("api-wizard-open"\);/);
+  assert.match(ui, /const preferredLeft=wizard\?workspaceRect\.left\+\(workspaceRect\.width-width\)\/2:buttonRect\.left;/);
   assert.match(ui, /function positionModelMenu\(\)\{[\s\S]*?const minLeft=workspaceRect\.left\+margin;[\s\S]*?const maxLeft=Math\.max\(minLeft,workspaceRect\.right-width-margin\);[\s\S]*?menu\.style\.left=/);
   assert.match(ui, /function openModelSelector\(\)\{[\s\S]*?\$\("modelmenu"\)\?\.classList\.add\("open"\);[\s\S]*?renderModelList\(""\);\s*positionModelMenu\(\);\s*requestAnimationFrame\(positionModelMenu\);/);
   assert.match(ui, /if\(paidReady\)\{\s*openModelSelector\(\);/);
@@ -882,7 +879,8 @@ test("cloud provider setup stays compact and reveals all models after connection
   assert.match(ui, /askAI\(request\)/);
   assert.match(ui, /className="api-provider-options"/);
   assert.doesNotMatch(ui, /Browse all providers/);
-  assert.match(ui, /Math\.min\(380,buttonRect\.top-margin\)/);
+  assert.match(ui, /const heightLimit=wizard\?Math\.min\(504,window\.innerHeight-margin\*2\):380;/);
+  assert.match(ui, /Math\.min\(heightLimit,buttonRect\.top-margin\)/);
   assert.match(ui, /function closeRowMenus\(\{restoreFocus=false\}=\{\}\)/);
   assert.match(ui, /more\.setAttribute\("aria-haspopup","menu"\)/);
   assert.match(ui, /if\(!e\.target\.closest\("#modelmenu \.api-row-menu,#modelmenu \.api-row-more"\)\) closeRowMenus\(\)/);

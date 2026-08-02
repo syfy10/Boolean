@@ -1,6 +1,7 @@
 // Embedded local inference engine: manages the bundled llama.cpp server
 // (llama-server.exe), local GGUF model files, and model downloads.
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
@@ -10,6 +11,77 @@ import { appPath } from "./paths.js";
 
 export const MODELS_DIR = path.join(SAZ_DIR, "models");
 const ENGINE_DIR = path.join(SAZ_DIR, "engine");
+const RUNTIME_ENGINE_DIR = path.join(ENGINE_DIR, "runtime");
+
+const gib = (bytes) => Math.round((Number(bytes) / 1073741824) * 10) / 10;
+let hardwareCache = null;
+
+function engineBackend(exe = findEngineBinary()) {
+  if (!exe) return "cpu";
+  let names = [];
+  try { names = fs.readdirSync(path.dirname(exe)).map((name) => name.toLowerCase()); } catch { return "cpu"; }
+  if (names.some((name) => name.includes("ggml-cuda"))) return "cuda";
+  if (names.some((name) => name.includes("ggml-vulkan"))) return "vulkan";
+  if (names.some((name) => name.includes("ggml-hip"))) return "hip";
+  if (names.some((name) => name.includes("ggml-sycl"))) return "sycl";
+  return "cpu";
+}
+
+function windowsGpuInfo() {
+  if (process.platform !== "win32") return [];
+  const script = "Get-CimInstance Win32_VideoController | Select-Object Name,AdapterRAM | ConvertTo-Json -Compress";
+  try {
+    const result = spawnSync("powershell", ["-NoProfile", "-Command", script], {
+      encoding: "utf8", windowsHide: true, timeout: 3000
+    });
+    if (result.status !== 0 || !String(result.stdout || "").trim()) return [];
+    const parsed = JSON.parse(result.stdout);
+    return (Array.isArray(parsed) ? parsed : [parsed]).map((gpu) => ({
+      name: String(gpu.Name || "Graphics adapter"),
+      vramGb: Math.max(0, gib(gpu.AdapterRAM || 0))
+    }));
+  } catch { return []; }
+}
+
+export function detectLocalHardware({ refresh = false } = {}) {
+  if (hardwareCache && !refresh) return hardwareCache;
+  const gpus = windowsGpuInfo();
+  hardwareCache = {
+    ramGb: gib(os.totalmem()),
+    logicalCpus: os.cpus()?.length || 1,
+    cpu: os.cpus()?.[0]?.model || "Unknown CPU",
+    gpus,
+    gpu: gpus.sort((a, b) => b.vramGb - a.vramGb)[0] || null,
+    backend: engineBackend()
+  };
+  return hardwareCache;
+}
+
+export function recommendLocalSettings(hardware = detectLocalHardware(), modelBytes = 0) {
+  const ramGb = Math.max(0, Number(hardware?.ramGb) || 0);
+  const backend = String(hardware?.backend || "cpu");
+  const vramGb = Math.max(0, Number(hardware?.gpu?.vramGb) || 0);
+  const modelGb = Math.max(0, Number(modelBytes) / 1073741824);
+  const modelId = ramGb < 8 ? "qwen2.5-3b" : "qwen2.5-7b";
+  const effectiveModelGb = modelGb || (modelId === "qwen2.5-3b" ? 2.1 : 4.7);
+  const ctx = ramGb < 8 ? 4096 : ramGb >= 24 ? 16384 : 8192;
+  let gpuLayers = 0;
+  if (backend !== "cpu" && vramGb >= 2) {
+    const usableGb = Math.max(0, vramGb - 1.25);
+    gpuLayers = usableGb >= effectiveModelGb * 1.15 ? 999 : Math.max(1, Math.min(40, Math.floor(40 * usableGb / (effectiveModelGb * 1.15))));
+  }
+  return {
+    modelId,
+    model: CATALOG.find((entry) => entry.id === modelId)?.file || "",
+    ctx,
+    gpuLayers,
+    backend,
+    accelerated: gpuLayers > 0,
+    summary: gpuLayers > 0
+      ? `${backend.toUpperCase()} acceleration with ${gpuLayers === 999 ? "full" : `${gpuLayers}-layer`} GPU offload`
+      : `CPU mode${hardware?.gpu ? "; install a llama.cpp GPU backend to accelerate" : ""}`
+  };
+}
 
 // curated starter catalog (bartowski's GGUF builds are single-file & reliable)
 export const CATALOG = [
@@ -65,23 +137,25 @@ export const CATALOG = [
 
 export function findEngineBinary() {
   const candidates = [
+    path.join(RUNTIME_ENGINE_DIR, "llama-server.exe"),       // current downloaded runtime
+    path.join(ENGINE_DIR, "llama-server.exe"),               // user-installed accelerator/runtime
     appPath("engine", "llama-server.exe"),      // installed layout
     appPath("build", "engine", "llama-server.exe"), // dev layout
-    path.join(ENGINE_DIR, "llama-server.exe")               // downloaded at runtime
   ];
   return candidates.find((p) => fs.existsSync(p)) || null;
 }
 
 // download the llama.cpp CPU build from GitHub releases into ~/.saz/engine
-export async function downloadEngine(onStatus) {
+export async function downloadEngine(onStatus, { backend = "cpu" } = {}) {
   onStatus("finding latest llama.cpp release...");
   const rel = await (await fetch("https://api.github.com/repos/ggml-org/llama.cpp/releases/latest", {
     headers: { "user-agent": "saz" }
   })).json();
-  const asset = (rel.assets || []).find((a) => /bin-win-cpu-x64\.zip$/.test(a.name));
-  if (!asset) throw new Error("no windows cpu build found in latest llama.cpp release");
+  const wanted = backend === "vulkan" ? /bin-win-vulkan-x64\.zip$/ : /bin-win-cpu-x64\.zip$/;
+  const asset = (rel.assets || []).find((a) => wanted.test(a.name));
+  if (!asset) throw new Error(`no Windows ${backend} build found in the latest llama.cpp release`);
 
-  fs.mkdirSync(ENGINE_DIR, { recursive: true });
+  fs.mkdirSync(RUNTIME_ENGINE_DIR, { recursive: true });
   const zipPath = path.join(ENGINE_DIR, "engine.zip");
   await downloadFile(asset.browser_download_url, zipPath, (pct, mb) =>
     onStatus(`downloading engine ${pct}% (${mb} MB)`)
@@ -90,21 +164,34 @@ export async function downloadEngine(onStatus) {
   onStatus("extracting engine...");
   const r = spawnSync("powershell", [
     "-NoProfile", "-Command",
-    `Expand-Archive -Path '${zipPath}' -DestinationPath '${ENGINE_DIR}' -Force`
+    `Expand-Archive -Path '${zipPath}' -DestinationPath '${RUNTIME_ENGINE_DIR}' -Force`
   ], { windowsHide: true });
   if (r.status !== 0) throw new Error("failed to extract engine zip");
   fs.rmSync(zipPath, { force: true });
 
   // the zip may nest the exe in a subfolder — find it and note its real location
-  const found = findFileRecursive(ENGINE_DIR, "llama-server.exe");
+  const found = findFileRecursive(RUNTIME_ENGINE_DIR, "llama-server.exe");
   if (!found) throw new Error("llama-server.exe not found after extraction");
-  if (path.dirname(found) !== ENGINE_DIR) {
-    // move everything next to it up into ENGINE_DIR so dlls stay together
+  if (path.dirname(found) !== RUNTIME_ENGINE_DIR) {
+    // copy everything next to it up so runtime DLLs stay together
     for (const f of fs.readdirSync(path.dirname(found))) {
-      fs.renameSync(path.join(path.dirname(found), f), path.join(ENGINE_DIR, f));
+      const source = path.join(path.dirname(found), f);
+      const destination = path.join(RUNTIME_ENGINE_DIR, f);
+      if (fs.statSync(source).isFile()) fs.copyFileSync(source, destination);
     }
   }
   return findEngineBinary();
+}
+
+export async function installGpuEngine(onStatus = () => {}) {
+  const hardware = detectLocalHardware({ refresh: true });
+  if (!hardware.gpu) throw new Error("no compatible graphics adapter was detected");
+  stopEngine();
+  await downloadEngine(onStatus, { backend: "vulkan" });
+  hardwareCache = null;
+  const refreshed = detectLocalHardware({ refresh: true });
+  if (refreshed.backend !== "vulkan") throw new Error("the Vulkan engine was installed but its backend could not be verified");
+  return refreshed;
 }
 
 function findFileRecursive(dir, name) {
@@ -460,6 +547,7 @@ let child = null;
 let runningModel = null;
 let runningMmproj = null;
 let runningCtx = null;
+let runningGpuLayers = null;
 const ensureStatusListeners = new Set();
 let lastEnsureStatus = null;
 
@@ -549,14 +637,22 @@ async function ensureRunningNow(config, onStatus = () => {}) {
   }
 
   const mmproj = resolveMmproj(config, model);
-  if (child && !child.killed && runningModel === model && runningMmproj === mmproj && (await healthy(port))) {
-    return { base: `http://127.0.0.1:${port}/v1`, model, ctx: runningCtx || Number(ctx) || 8192 };
+  const modelBytes = (() => { try { return fs.statSync(modelPath).size; } catch { return 0; } })();
+  const tuning = recommendLocalSettings(detectLocalHardware(), modelBytes);
+  const tunedCtx = config.local.autoTune === false ? (Number(ctx) || 8192) : tuning.ctx;
+  const configuredGpuLayers = config.local.gpuLayers;
+  let gpuLayers = configuredGpuLayers === "auto" || configuredGpuLayers === undefined
+    ? tuning.gpuLayers
+    : Math.max(0, Math.min(999, Math.round(Number(configuredGpuLayers) || 0)));
+  if (child && !child.killed && runningModel === model && runningMmproj === mmproj && runningCtx === tunedCtx && runningGpuLayers === gpuLayers && (await healthy(port))) {
+    return { base: `http://127.0.0.1:${port}/v1`, model, ctx: runningCtx, tuning: { ...tuning, gpuLayers } };
   }
   if (!child && await healthy(port)) {
     runningModel = model;
     runningMmproj = mmproj;
-    runningCtx = Number(ctx) || 8192;
-    return { base: `http://127.0.0.1:${port}/v1`, model, ctx: runningCtx };
+    runningCtx = tunedCtx;
+    runningGpuLayers = gpuLayers;
+    return { base: `http://127.0.0.1:${port}/v1`, model, ctx: runningCtx, tuning: { ...tuning, gpuLayers } };
   }
 
   const exe = findEngineBinary();
@@ -581,6 +677,7 @@ async function ensureRunningNow(config, onStatus = () => {}) {
       "--port", String(port),
       "--host", "127.0.0.1",
       "-c", String(ctxSize),
+      ...(gpuLayers > 0 ? ["--n-gpu-layers", String(gpuLayers)] : []),
       "--jinja",
       ...(mmproj ? ["--mmproj", path.join(MODELS_DIR, mmproj)] : []),
       ...(catalogEntry?.args || [])
@@ -596,10 +693,11 @@ async function ensureRunningNow(config, onStatus = () => {}) {
         if (progress) reportLoad(`${progress.phase} for ${model}...`, progress.phase, progress.pct);
       }
     });
-    child.on("exit", () => { child = null; runningModel = null; runningMmproj = null; runningCtx = null; });
+    child.on("exit", () => { child = null; runningModel = null; runningMmproj = null; runningCtx = null; runningGpuLayers = null; });
     runningModel = model;
     runningMmproj = mmproj;
     runningCtx = Number(ctxSize) || 8192;
+    runningGpuLayers = gpuLayers;
   };
 
   const waitReady = async () => {
@@ -615,20 +713,35 @@ async function ensureRunningNow(config, onStatus = () => {}) {
     throw new Error("engine did not become ready in time");
   };
 
-  start(ctx);
-  if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model, ctx: Number(ctx) || 8192 };
+  if (gpuLayers > 0) onStatus(`Using ${tuning.summary}.`);
+  start(tunedCtx);
+  if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model, ctx: tunedCtx, tuning: { ...tuning, gpuLayers } };
 
-  const safeCtx = Math.min(Number(ctx) || 8192, 8192);
-  if (safeCtx < Number(ctx || 0)) {
-    onStatus(`local engine could not start at ${ctx.toLocaleString()} context; retrying at ${safeCtx.toLocaleString()}...`);
+  if (gpuLayers > 0) {
+    onStatus("GPU acceleration could not start; retrying safely on CPU...");
     child = null;
     runningModel = null;
     runningMmproj = null;
     runningCtx = null;
+    runningGpuLayers = null;
+    gpuLayers = 0;
+    start(tunedCtx, " on CPU");
+    if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model, ctx: tunedCtx, tuning: { ...tuning, accelerated: false, gpuLayers, summary: "CPU fallback" } };
+  }
+
+  const safeCtx = Math.min(tunedCtx, 8192);
+  if (safeCtx < tunedCtx) {
+    onStatus(`local engine could not start at ${tunedCtx.toLocaleString()} context; retrying at ${safeCtx.toLocaleString()}...`);
+    child = null;
+    runningModel = null;
+    runningMmproj = null;
+    runningCtx = null;
+    runningGpuLayers = null;
     config.local.ctx = safeCtx;
+    config.local.autoTune = false;
     try { saveConfig(config); } catch { /* keep going even if config cannot be persisted */ }
     start(safeCtx, " with safer 8k context");
-    if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model, ctx: safeCtx };
+    if (await waitReady()) return { base: `http://127.0.0.1:${port}/v1`, model, ctx: safeCtx, tuning: { ...tuning, ctx: safeCtx, gpuLayers } };
   }
   throw new Error(`engine exited while loading ${model}. Try a smaller model, redownload the model if it is incomplete, or lower Context length in Settings > Advanced.`);
 }
@@ -639,6 +752,7 @@ export function stopEngine() {
   runningModel = null;
   runningMmproj = null;
   runningCtx = null;
+  runningGpuLayers = null;
 }
 
 export function keepEngineAliveOnExit() {

@@ -13,22 +13,25 @@ test("Boolean Pet is opt-in and persisted through UI settings", () => {
   assert.match(ui, /state\.ui\?\.desktopPet===true/);
 });
 
-test("native pet is an always-on-top interactive Graphite Floating Terminal", () => {
+test("native pet is an always-on-top interactive floating symbol", () => {
   assert.match(shell, /sealed class BooleanPetForm : Form/);
   assert.match(shell, /TopMost = true/);
   assert.match(shell, /ShowInTaskbar = false/);
   assert.match(shell, /ShowWithoutActivation => true/);
   assert.doesNotMatch(shell, /WS_EX_NOACTIVATE/);
   assert.match(shell, /Opacity = 0\.96/);
-  assert.match(shell, /LinearGradientBrush\(screen, Color\.FromArgb\(59, 61, 64\), Color\.FromArgb\(35, 37, 40\)/);
+  assert.match(shell, /void DrawPetSymbol\(/);
+  assert.match(shell, /RoundedRect\(tile, 16\)/);
+  assert.doesNotMatch(shell, /void DrawLaptop\(/);
+  assert.doesNotMatch(shell, /baseRect|hinge|deck/);
 });
 
 test("pet has only idle, browsing, and coding screen states", () => {
   assert.match(shell, /enum BooleanPetDisplayState \{ Idle, Browsing, Coding \}/);
   assert.doesNotMatch(shell, /BooleanPetDisplayState\.Thinking/);
-  assert.match(shell, /DrawBooleanMark\(g, center, 46, Color\.White\)/);
-  assert.match(shell, /DrawGlobe\(g, center, 27, green, tick\)/);
-  assert.match(shell, /DrawTerminal\(g, display, green\)/);
+  assert.match(shell, /DrawBooleanMark\(g, center, 34, Color\.White\)/);
+  assert.match(shell, /DrawGlobe\(g, center, 19, green, tick\)/);
+  assert.match(shell, /DrawTerminal\(g, tile, green\)/);
 });
 
 test("coding prompt erases and retypes on a two-second loop", () => {
@@ -56,14 +59,25 @@ test("pet status bubble carries current task title and activity detail", () => {
 });
 
 test("hovering the active pet exposes reply and stop shortcuts", () => {
-  assert.match(shell, /PlaceholderText = "Reply to this chat\.\.\."/);
-  assert.match(shell, /ConfigureReplyButton\(_replyButton, "Reply"/);
-  assert.match(shell, /ConfigureReplyButton\(_stopButton, "Stop"/);
+  assert.match(shell, /PlaceholderText = "Follow up"/);
+  assert.match(shell, /ConfigureReplyButton\(_replyButton, "↩", "Reply to this chat"\)/);
+  assert.match(shell, /ConfigureReplyButton\(_stopButton, "■", "Stop Boolean"\)/);
+  assert.match(shell, /SetCircularButtonBounds\(_replyButton/);
   assert.match(shell, /_hoverReply && _active && !_completed/);
   assert.match(shell, /type = "petReply"/);
   assert.match(shell, /type = "petStop"/);
   assert.match(ui, /d\.type==="petReply"/);
   assert.match(ui, /d\.type==="petStop"/);
+});
+
+test("pet bubble follows Boolean theme and never uses a magenta transparency key", () => {
+  assert.match(ui, /dark:document\.documentElement\.dataset\.visualTheme==="dark"/);
+  assert.match(shell, /bool darkMode/);
+  assert.match(shell, /_darkMode = darkMode/);
+  assert.match(shell, /Color\.FromArgb\(31, 32, 32\)/);
+  assert.match(shell, /Color\.FromArgb\(250, 250, 249\)/);
+  assert.doesNotMatch(shell, /Color\.Fuchsia/);
+  assert.match(shell, /TransparencyKey = BackColor/);
 });
 
 test("finished pet card replaces reply controls with a green check", () => {
