@@ -127,6 +127,22 @@ test("an unread page does not fall back to a stale ticker", () => {
   assert.match(ui, /const fromPage=lastTradingSymbolSource==="page"\|\|lastTradingSymbolSource==="url"\|\|lastTradingSymbolSource==="pin";/);
   assert.match(ui, /"no symbol on this page"/);
   // An older shell has no pageText command; the slower context read still works.
-  assert.match(ui, /if\(!page\) page=\(await requestShellContext\(\)\)\?\.browser\|\|null;/);
+  assert.match(ui, /if\(!page\) page=\(await requestShellContext\(6000\)\)\?\.browser\|\|null;/);
   assert.match(ui, /quoteFromPageText\(page\.text\)\|\|quoteFromPageText\(page\.ocr\)/);
+});
+
+test("the company name between ticker and price does not break the read", () => {
+  const quoteFromPageText = loadPageQuoteReader();
+  // Legend renders "TSLA / Tesla / $322.93" — the ticker is not adjacent to the price.
+  const tsla = quoteFromPageText("Futures chart Market hours Add widget Individual TSLA Tesla $322.93 ▲ $11.72 (3.77%) B $322.91 x 1 A $322.92 x 19 Buy Short");
+  assert.equal(tsla.symbol, "TSLA");
+  assert.equal(tsla.price, 322.93);
+  assert.equal(tsla.changePercent, 3.77);
+});
+
+test("a page read that times out reports why", () => {
+  // The context read runs OCR; 2.5s was too short and looked like "no symbol".
+  assert.match(ui, /if\(!page\) page=\(await requestShellContext\(6000\)\)\?\.browser\|\|null;/);
+  assert.match(ui, /lastPageReadIssue="the browser pane did not answer in time"/);
+  assert.match(ui, /if\(!shown&&lastPageReadIssue\) quote\.title=`Could not read a quote: \$\{lastPageReadIssue\}`;/);
 });

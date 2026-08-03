@@ -9581,6 +9581,9 @@ body:not(.composer-simple) main::after{
   let pinnedTradingSymbol="";
   let lastPageQuoteAt=0;
   let lastTradingSymbolSource="";
+  // Why the last page read produced nothing — surfaced on the quote pill so a
+  // failure names its cause instead of silently reading "no symbol".
+  let lastPageReadIssue="";
 
   const normalizeSymbolInput=(value)=>String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g,"").slice(0,24);
   // Some broker pages carry no ticker in the URL at all — a Robinhood Legend
@@ -9658,18 +9661,26 @@ body:not(.composer-simple) main::after{
     let page=await requestPageText();
     // A shell build older than the pageText command never answers. Fall back to
     // the slower context read (every build has it) so an app that has not been
-    // restarted since the upgrade still tracks the page.
-    if(!page) page=(await requestShellContext())?.browser||null;
-    if(!page||page.open===false) return null;
+    // restarted since the upgrade still tracks the page. That read includes OCR,
+    // so it needs a much longer wait than the default.
+    if(!page) page=(await requestShellContext(6000))?.browser||null;
+    if(!page){ lastPageReadIssue="the browser pane did not answer in time"; return null; }
+    if(page.open===false){ lastPageReadIssue="the browser pane is closed"; return null; }
     const quote=quoteFromPageText(page.text)||quoteFromPageText(page.ocr);
-    if(quote) lastPageQuoteAt=Date.now();
+    if(!quote){
+      const seen=String(page.text||page.ocr||"").replace(/\s+/g," ").trim().slice(0,80);
+      lastPageReadIssue=seen?`no quote found on this page — read: "${seen}…"`:"the page returned no text";
+      return null;
+    }
+    lastPageReadIssue="";
+    lastPageQuoteAt=Date.now();
     return quote;
   }
   async function symbolFromVisiblePage(){
     if(!SHELL) return "";
     if(lastPageSymbol&&Date.now()-lastPageSymbolAt<PAGE_SYMBOL_TTL) return lastPageSymbol;
     try{
-      const ctx=await requestShellContext();
+      const ctx=await requestShellContext(6000);
       const page=ctx?.browser||{};
       const found=symbolFromPageText(page.text)||symbolFromPageText(page.ocr)||symbolFromPageText(page.title);
       if(found){ lastPageSymbol=found; lastPageSymbolAt=Date.now(); }
@@ -9988,6 +9999,7 @@ body:not(.composer-simple) main::after{
             ? "no symbol on this page"
             : (signIn?`${shown} — sign in for live prices`:`${shown} price unavailable`);
           quote.classList.add("ok");
+          if(!shown&&lastPageReadIssue) quote.title=`Could not read a quote: ${lastPageReadIssue}`;
         }
         if(quote&&why) quote.title=why;
       }
@@ -17185,13 +17197,16 @@ Optional bundled starter model:
     await fetch("/api/notepad/control-result",{method:"POST",body:JSON.stringify({id,...body})});
   }
   const shellContextWaiters={};
-  function requestShellContext(){
+  // The shell runs OCR of the pane before answering "context", which regularly
+  // takes longer than a couple of seconds. Callers that can wait should say so —
+  // a short timeout here reads as "the browser has no page open".
+  function requestShellContext(timeoutMs=2500){
     if(!SHELL) return Promise.resolve(null);
     const id=crypto.randomUUID();
     hostPost({type:"browser",cmd:"context",id});
     return new Promise(resolve=>{
       shellContextWaiters[id]=resolve;
-      setTimeout(()=>{ if(shellContextWaiters[id]){ delete shellContextWaiters[id]; resolve(null); } },2500);
+      setTimeout(()=>{ if(shellContextWaiters[id]){ delete shellContextWaiters[id]; resolve(null); } },Math.max(500,timeoutMs));
     });
   }
   async function visibleBrowserContext(){
