@@ -1281,6 +1281,24 @@
   .approval{ border:1px solid var(--border); background:var(--card); border-radius:14px; padding:14px 16px; box-shadow:var(--shadow); }
   .approval.trade-approval{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center;
     border-color:color-mix(in srgb,var(--green) 45%,var(--border)); }
+  /* Trading bar above the composer, shown only while trading access is on. */
+  .trading-bar{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0 0 7px; padding:8px 11px;
+    border:1px solid color-mix(in srgb,var(--green) 40%,var(--border)); border-radius:12px;
+    background:color-mix(in srgb,var(--green) 7%,var(--card)); font:12px var(--ui); color:var(--text); }
+  .trading-bar .tb-dot{ color:var(--green); font-size:13px; line-height:1; }
+  .trading-bar .tb-title{ font-weight:600; }
+  .trading-bar .tb-quote{ padding:3px 9px; border:1px solid color-mix(in srgb,var(--green) 35%,var(--border));
+    border-radius:999px; background:var(--bg); font:11.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-stat{ color:var(--dim); font:11.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-spacer{ flex:1; min-width:0; }
+  .trading-bar .tb-btn{ height:26px; padding:0 11px; border:1px solid var(--border); border-radius:8px;
+    background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; transition:background .12s,border-color .12s; }
+  .trading-bar .tb-btn:hover{ border-color:var(--dim); background:var(--hover); }
+  .trading-bar .tb-kill{ height:26px; padding:0 11px; border:1px solid color-mix(in srgb,var(--not-ready) 55%,var(--border));
+    border-radius:8px; background:var(--bg); color:var(--not-ready); font:11.5px/1 var(--ui); font-weight:600; cursor:pointer;
+    transition:background .12s,color .12s; }
+  .trading-bar .tb-kill:hover{ background:color-mix(in srgb,var(--not-ready) 12%,transparent); }
+  .trading-bar .tb-kill[aria-pressed="true"]{ background:var(--not-ready); color:#fff; }
   .approval .q{ font-size:13px; color:var(--dim); margin-bottom:6px; }
   .approval .cmd{ font:13px var(--mono); white-space:pre-wrap; word-break:break-all; margin-bottom:12px; }
   .approval-context{ display:grid; gap:5px; margin:-4px 0 12px; padding:8px 9px; border:1px solid var(--border); border-radius:8px; background:var(--input); }
