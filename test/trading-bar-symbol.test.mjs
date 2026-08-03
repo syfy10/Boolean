@@ -120,3 +120,13 @@ function loadMarketSessionNow() {
   const block = ui.slice(start, end);
   return new Function(`${block}\nreturn marketSessionNow;`)();
 }
+
+test("an unread page does not fall back to a stale ticker", () => {
+  // The bar showed "AAPL price unavailable" while GOOGL/TSLA was on screen. If the
+  // symbol did not come from the page, URL, or a pin, the bar must say so.
+  assert.match(ui, /const fromPage=lastTradingSymbolSource==="page"\|\|lastTradingSymbolSource==="url"\|\|lastTradingSymbolSource==="pin";/);
+  assert.match(ui, /"no symbol on this page"/);
+  // An older shell has no pageText command; the slower context read still works.
+  assert.match(ui, /if\(!page\) page=\(await requestShellContext\(\)\)\?\.browser\|\|null;/);
+  assert.match(ui, /quoteFromPageText\(page\.text\)\|\|quoteFromPageText\(page\.ocr\)/);
+});

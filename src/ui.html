@@ -9580,6 +9580,7 @@ body:not(.composer-simple) main::after{
   let lastTradingQuoteSymbol="";
   let pinnedTradingSymbol="";
   let lastPageQuoteAt=0;
+  let lastTradingSymbolSource="";
 
   const normalizeSymbolInput=(value)=>String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g,"").slice(0,24);
   // Some broker pages carry no ticker in the URL at all — a Robinhood Legend
@@ -9654,9 +9655,13 @@ body:not(.composer-simple) main::after{
     return {symbol,price,changePercent,changeAbs,source:"page"};
   }
   async function readQuoteFromVisiblePage(){
-    const page=await requestPageText();
+    let page=await requestPageText();
+    // A shell build older than the pageText command never answers. Fall back to
+    // the slower context read (every build has it) so an app that has not been
+    // restarted since the upgrade still tracks the page.
+    if(!page) page=(await requestShellContext())?.browser||null;
     if(!page||page.open===false) return null;
-    const quote=quoteFromPageText(page.text);
+    const quote=quoteFromPageText(page.text)||quoteFromPageText(page.ocr);
     if(quote) lastPageQuoteAt=Date.now();
     return quote;
   }
@@ -9675,16 +9680,19 @@ body:not(.composer-simple) main::after{
     // A pinned symbol wins over everything — that is the point of pinning.
     if(pinnedTradingSymbol){
       lastTradingQuoteSymbol=pinnedTradingSymbol;
+      lastTradingSymbolSource="pin";
       return pinnedTradingSymbol;
     }
     const browserSymbol = normalizeSymbolInput(tradingState.browserSymbol || "");
     if(browserSymbol){
       lastTradingQuoteSymbol=browserSymbol;
+      lastTradingSymbolSource="url";
       return browserSymbol;
     }
     const pageSymbol = await symbolFromVisiblePage();
     if(pageSymbol){
       lastTradingQuoteSymbol=pageSymbol;
+      lastTradingSymbolSource="page";
       return pageSymbol;
     }
     const list=Array.isArray(tradingState.symbolAllowlist)?tradingState.symbolAllowlist:[];
@@ -9946,6 +9954,7 @@ body:not(.composer-simple) main::after{
         if(thisTick!==tradingBarQuoteTick) return;
         if(pageQuote){
           lastTradingQuoteSymbol=pageQuote.symbol;
+          lastTradingSymbolSource="page";
           renderPageQuote(pageQuote);
           return;
         }
@@ -9971,9 +9980,13 @@ body:not(.composer-simple) main::after{
         if(st) st.textContent=why?why.replace(/\.$/,""):"status unavailable";
         if(quote){
           quote.classList.remove("up","down","ok");
-          quote.textContent=signIn
-            ? `${lastTradingQuoteSymbol||"AAPL"} — sign in for live prices`
-            : `${lastTradingQuoteSymbol||"AAPL"} price unavailable`;
+          // Never name a symbol the page never showed. Falling back to a stale
+          // "AAPL" is how this read as "the bar ignores my browser".
+          const fromPage=lastTradingSymbolSource==="page"||lastTradingSymbolSource==="url"||lastTradingSymbolSource==="pin";
+          const shown=fromPage?lastTradingQuoteSymbol:"";
+          quote.textContent=!shown
+            ? "no symbol on this page"
+            : (signIn?`${shown} — sign in for live prices`:`${shown} price unavailable`);
           quote.classList.add("ok");
         }
         if(quote&&why) quote.title=why;
