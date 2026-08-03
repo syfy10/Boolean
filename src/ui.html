@@ -7264,7 +7264,7 @@ body:not(.composer-simple) main::after{
     <div class="trading-bar" id="tradingBar" style="display:none" role="region" aria-label="Trading controls">
       <span class="tb-dot" aria-hidden="true">↕</span>
       <span class="tb-title">Trading</span>
-      <span class="tb-quote" id="tbQuote">â€”</span>
+      <span class="tb-quote" id="tbQuote">—</span>
       <span class="tb-stat" id="tbStat">—</span>
       <span class="tb-spacer"></span>
       <button class="tb-btn" id="tbRobinhood" type="button" title="Open Robinhood in the built-in browser">Robinhood</button>
@@ -9520,11 +9520,59 @@ body:not(.composer-simple) main::after{
   let lastTradingQuoteSymbol="";
 
   const normalizeSymbolInput=(value)=>String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g,"").slice(0,24);
+  // Some broker pages carry no ticker in the URL at all — a Robinhood Legend
+  // layout is /legend/layout/<uuid>, so URL parsing always comes up empty and the
+  // bar fell back to AAPL. The symbol IS on screen, so read it from the page the
+  // native pane is showing (page text first, then OCR of the rendered pixels).
+  let lastPageSymbol="", lastPageSymbolAt=0;
+  const PAGE_SYMBOL_TTL=4000;
+  // Words that look like tickers on a broker page but never are. Without this,
+  // OCR of "Alphabet Class A $375.25" reads the symbol as "A".
+  const TICKER_STOPWORDS=new Set(["A","I","B","S","O","H","L","C","P","THE","BUY","SELL","SHORT","LONG",
+    "HIGH","LOW","OPEN","CLOSE","VOL","VOLUME","USD","ETF","INC","CLASS","NEW","TAB","ADD","MKT","LMT",
+    "DAY","AM","PM","ET","EST","EDT","AI","US","IPO","CEO","CFO","RANGE","TODAY","NEWS","CHART","MARKET",
+    "HOURS","BID","ASK","AVG","MAX","MIN","OK","API","APP","PC","IT"]);
+  const tickerOk=(t)=>!!t&&t.length>=2&&t.length<=5&&!TICKER_STOPWORDS.has(t);
+  function symbolFromPageText(text){
+    const body=String(text||"");
+    if(!body) return "";
+    // "GOOGL $375.25" — a ticker immediately before a price is the strongest signal.
+    for(const m of body.matchAll(/\b([A-Z][A-Z.]{1,4})\b[\s ]*\$\s*[\d,]+\.\d\d/g)){
+      const t=normalizeSymbolInput(m[1]);
+      if(tickerOk(t)) return t;
+    }
+    const dollar=body.match(/\$([A-Z]{2,5})\b/);
+    if(dollar){
+      const t=normalizeSymbolInput(dollar[1]);
+      if(tickerOk(t)) return t;
+    }
+    for(const m of body.matchAll(/\b([A-Z]{2,5})\b/g)){
+      const t=normalizeSymbolInput(m[1]);
+      if(tickerOk(t)) return t;
+    }
+    return "";
+  }
+  async function symbolFromVisiblePage(){
+    if(!SHELL) return "";
+    if(lastPageSymbol&&Date.now()-lastPageSymbolAt<PAGE_SYMBOL_TTL) return lastPageSymbol;
+    try{
+      const ctx=await requestShellContext();
+      const page=ctx?.browser||{};
+      const found=symbolFromPageText(page.text)||symbolFromPageText(page.ocr)||symbolFromPageText(page.title);
+      if(found){ lastPageSymbol=found; lastPageSymbolAt=Date.now(); }
+      return found;
+    }catch{ return ""; }
+  }
   async function resolveTradingQuoteSymbol(tradingState={}){
     const browserSymbol = normalizeSymbolInput(tradingState.browserSymbol || "");
     if(browserSymbol){
       lastTradingQuoteSymbol=browserSymbol;
       return browserSymbol;
+    }
+    const pageSymbol = await symbolFromVisiblePage();
+    if(pageSymbol){
+      lastTradingQuoteSymbol=pageSymbol;
+      return pageSymbol;
     }
     const list=Array.isArray(tradingState.symbolAllowlist)?tradingState.symbolAllowlist:[];
     const first=list.map(normalizeSymbolInput).find(Boolean);
@@ -9659,18 +9707,29 @@ body:not(.composer-simple) main::after{
         lastTradingQuoteSymbol=symbol;
         const qs=`${encodeURIComponent(symbol)}`;
         const quoteResponse = await fetch(`/api/markets/quote?symbol=${qs}`);
-        if(!quoteResponse.ok) throw new Error("Could not load live price.");
+        if(!quoteResponse.ok){
+          // Say WHY. A blank "price unavailable" hides the common case: live
+          // quotes need a signed-in Boolean account (the endpoint 401s).
+          let reason="";
+          try{ reason=String((await quoteResponse.json())?.error||""); }catch{}
+          throw new Error(reason||`Could not load live price (HTTP ${quoteResponse.status}).`);
+        }
         const quotePayload=await quoteResponse.json();
         if(thisTick!==tradingBarQuoteTick) return;
         updateTradingBarQuote(quotePayload,symbol);
-      }catch{
+      }catch(err){
         if(thisTick!==tradingBarQuoteTick) return;
-        if(st) st.textContent="status unavailable";
+        const why=String(err?.message||"").trim();
+        const signIn=/sign in/i.test(why);
+        if(st) st.textContent=why?why.replace(/\.$/,""):"status unavailable";
         if(quote){
           quote.classList.remove("up","down","ok");
-          quote.textContent=`${lastTradingQuoteSymbol||"AAPL"} price unavailable`;
+          quote.textContent=signIn
+            ? `${lastTradingQuoteSymbol||"AAPL"} — sign in for live prices`
+            : `${lastTradingQuoteSymbol||"AAPL"} price unavailable`;
           quote.classList.add("ok");
         }
+        if(quote&&why) quote.title=why;
       }
     })();
     tradingBarRefreshInFlight=call.finally(()=>{if(tradingBarRefreshInFlight===call) tradingBarRefreshInFlight=null;});
