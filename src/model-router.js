@@ -78,7 +78,10 @@ export function resetAutoModelHealth() {
 
 function connectedCandidates(config = {}) {
   const providers = [];
-  if (config?.local?.model) providers.push("local");
+  // Local and Cloud are hard routing boundaries. A configured local model may
+  // only participate in Auto while Local is the selected network mode; Cloud
+  // retries, handoffs, and verification must remain on connected cloud APIs.
+  if (clean(config?.provider || "local") === "local" && config?.local?.model) providers.push("local");
   for (const provider of Object.keys(CLOUD)) {
     if (config?.[provider]?.apiKey && config?.[provider]?.model) providers.push(provider);
   }

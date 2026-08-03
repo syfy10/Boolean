@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   autoModelHealth,
+  handoffCandidates,
   nextAutoModelTarget,
   noteAutoModelOutcome,
   resetAutoModelHealth,
@@ -128,6 +129,25 @@ test("a saved task profile selects its connected provider and retains fallbacks"
   assert.equal(result.route, "coding");
   assert.deepEqual(result.target, { provider: "openai", model: "gpt-5.1" });
   assert.ok(result.alternates.some((candidate) => candidate.provider === "zaiCoding"));
+});
+
+test("Cloud Auto never routes, retries, or hands completion verification to Local", () => {
+  const cfg = config();
+  const first = selectAutoModelRoute(cfg, [{ role: "user", content: "Build the feature" }], { turnMode: "action" });
+  assert.notEqual(first.target.provider, "local");
+  assert.equal(first.alternates.some((candidate) => candidate.provider === "local"), false);
+
+  noteAutoModelOutcome(first.target, { ok: false, error: "temporary cloud outage" });
+  const retry = selectAutoModelRoute(cfg, [{ role: "user", content: "Build the feature" }], { turnMode: "action" });
+  assert.notEqual(retry.target.provider, "local");
+  assert.equal(retry.alternates.some((candidate) => candidate.provider === "local"), false);
+  assert.equal(handoffCandidates(cfg, "coding").some((candidate) => candidate.provider === "local"), false);
+});
+
+test("Local Auto keeps the selected local model inside Local mode", () => {
+  const cfg = config({ provider: "local" });
+  const result = selectAutoModelRoute(cfg, [{ role: "user", content: "Build the feature" }], { turnMode: "action" });
+  assert.ok([result.target, ...result.alternates].some((candidate) => candidate.provider === "local"));
 });
 
 test("vision routing excludes connected text-only providers", () => {

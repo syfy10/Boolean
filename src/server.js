@@ -4166,16 +4166,31 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const token = String(body.token || "").trim() === "__keep__"
           ? String(saved.token || "")
           : String(body.token || "").trim();
-        if (!token) return json({ ok: false, error: "Paste a Cloudflare API token." }, 400);
+        // A Global API Key is account-wide and authenticates with the account
+        // email, so it needs both fields and a different verify path.
+        const globalKey = String(body.authType || "").trim() === "global"
+          || (!!String(body.email || "").trim() && !body.authType);
+        const email = String(body.email || "").trim() === "__keep__"
+          ? String(saved.email || "")
+          : String(body.email || "").trim();
+        if (!token) {
+          return json({ ok: false, error: globalKey ? "Paste your Cloudflare Global API Key." : "Paste a Cloudflare API token." }, 400);
+        }
+        if (globalKey && !email) {
+          return json({ ok: false, error: "Enter the Cloudflare account email that owns this Global API Key." }, 400);
+        }
         try {
-          const verified = await verifyCloudflareToken(token);
+          const verified = globalKey
+            ? await verifyCloudflareGlobalKey(email, token)
+            : await verifyCloudflareToken(token);
           const requestedAccountId = String(body.accountId || "").trim();
           const selected = verified.accounts.find((account) => account.id === requestedAccountId)
             || (verified.accounts.length === 1 ? verified.accounts[0] : null);
           config.connectors = config.connectors || {};
           config.connectors.cloudflare = {
             token,
-            authType: "token",
+            email: globalKey ? email : "",
+            authType: globalKey ? "global" : "token",
             fullAccess: saved.fullAccess === true,
             oauthClientId: saved.oauthClientId || "",
             oauthRedirectUri: saved.oauthRedirectUri || "https://boollm.com/oauth/cloudflare/callback",

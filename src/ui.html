@@ -9579,6 +9579,7 @@ body:not(.composer-simple) main::after{
   let tradingBarQuoteTick=0;
   let lastTradingQuoteSymbol="";
   let pinnedTradingSymbol="";
+  let lastPageQuoteAt=0;
 
   const normalizeSymbolInput=(value)=>String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g,"").slice(0,24);
   // Some broker pages carry no ticker in the URL at all — a Robinhood Legend
@@ -9612,6 +9613,52 @@ body:not(.composer-simple) main::after{
       if(tickerOk(t)) return t;
     }
     return "";
+  }
+  // ── the page IS the market data source ──────────────────────────
+  // The broker page already shows the symbol, the price and the day change. Asking
+  // a quote API for the same numbers means a second source that can disagree, lag,
+  // or 401. Read what is on screen; the market API is only a fallback.
+  const pageTextWaiters={};
+  function requestPageText(){
+    if(!SHELL) return Promise.resolve(null);
+    const id=crypto.randomUUID();
+    hostPost({type:"browser",cmd:"pageText",id});
+    return new Promise(resolve=>{
+      pageTextWaiters[id]=resolve;
+      setTimeout(()=>{ if(pageTextWaiters[id]){ delete pageTextWaiters[id]; resolve(null); } },1500);
+    });
+  }
+  // "GOOGL $371.99 ▲ $15.86 (4.45%)" → { symbol, price, changePercent, changeAbs }
+  function quoteFromPageText(text){
+    const body=String(text||"").replace(/ /g," ");
+    if(!body) return null;
+    const symbol=symbolFromPageText(body);
+    if(!symbol) return null;
+    // The first price after the symbol is the quote; later prices are bid/ask/range.
+    const at=body.indexOf(symbol);
+    const after=at>=0?body.slice(at,at+400):body.slice(0,400);
+    const priceMatch=after.match(/\$\s*([\d,]+\.\d{2})/);
+    if(!priceMatch) return null;
+    const price=Number(priceMatch[1].replace(/,/g,""));
+    if(!Number.isFinite(price)) return null;
+    const pctMatch=after.match(/\(\s*([-+]?\d+(?:\.\d+)?)\s*%\s*\)/);
+    const absMatch=after.match(/([-+]?)\$\s*([\d,]+\.\d{2})\s*\(/);
+    let changePercent=pctMatch?Number(pctMatch[1]):null;
+    let changeAbs=absMatch?Number(absMatch[2].replace(/,/g,"")):null;
+    // Robinhood renders direction as ▲/▼ rather than a sign.
+    const down=/[▼▼]/.test(after)||/-\s*\$/.test(after);
+    if(down){
+      if(changePercent!=null&&changePercent>0) changePercent=-changePercent;
+      if(changeAbs!=null&&changeAbs>0) changeAbs=-changeAbs;
+    }
+    return {symbol,price,changePercent,changeAbs,source:"page"};
+  }
+  async function readQuoteFromVisiblePage(){
+    const page=await requestPageText();
+    if(!page||page.open===false) return null;
+    const quote=quoteFromPageText(page.text);
+    if(quote) lastPageQuoteAt=Date.now();
+    return quote;
   }
   async function symbolFromVisiblePage(){
     if(!SHELL) return "";
@@ -9654,6 +9701,20 @@ body:not(.composer-simple) main::after{
       if(next){ lastTradingQuoteSymbol=next; return next; }
     } catch {}
     return "AAPL";
+  }
+  // Quote taken straight from the broker page in the browser pane.
+  function renderPageQuote(quote){
+    const target=$("tbQuote"), st=$("tbStat");
+    if(!target) return;
+    const pct=Number(quote.changePercent);
+    const price=Number(quote.price);
+    const sign=Number.isFinite(pct)&&pct>0?"+":"";
+    const move=Number.isFinite(pct)?` ${sign}${pct.toFixed(2)}%`:"";
+    target.classList.remove("up","down","ok");
+    target.textContent=`${quote.symbol} $${price.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${move}`;
+    if(Number.isFinite(pct)) target.classList.add(pct<0?"down":"up");
+    target.title=`Read from the page open in the browser (${quote.symbol}). Boolean is not using a separate market-data feed.`;
+    if(st) st.dataset.source="page";
   }
   function updateTradingBarQuote(quote={}, symbol="AAPL"){
     const target=$("tbQuote");
@@ -9879,6 +9940,15 @@ body:not(.composer-simple) main::after{
           renderTradingAccount(broker);
           renderTradingPower(broker);
         }).catch(()=>renderTradingAccount(null));
+        // What is on screen wins. The broker page is the thing the user is
+        // actually looking at, so the bar mirrors it rather than a second feed.
+        const pageQuote=pinnedTradingSymbol?null:await readQuoteFromVisiblePage();
+        if(thisTick!==tradingBarQuoteTick) return;
+        if(pageQuote){
+          lastTradingQuoteSymbol=pageQuote.symbol;
+          renderPageQuote(pageQuote);
+          return;
+        }
         const symbol=await resolveTradingQuoteSymbol(s);
         if(thisTick!==tradingBarQuoteTick) return;
         lastTradingQuoteSymbol=symbol;
@@ -17426,6 +17496,7 @@ Optional bundled starter model:
       else if(d.type==="runProject"){ try{ runCurrentProject(); }catch{} }
       else if(d.type==="updateReady"){ tempToast("Boolean "+(d.version||"update")+" is ready. Close Boolean to install it.",6000); }
       else if(d.type==="snip"){ addSnipImage(d.dataURL,d.target||"message"); }
+      else if(d.type==="pageText"&&d.id&&pageTextWaiters[d.id]){ const fn=pageTextWaiters[d.id]; delete pageTextWaiters[d.id]; fn(d); }
       else if(d.type==="context"&&d.id&&shellContextWaiters[d.id]){ const fn=shellContextWaiters[d.id]; delete shellContextWaiters[d.id]; fn(d); }
       else if(d.type==="browserControlResult"){ postBrowserControlResult(d.id,d); }
       else if(d.type==="studioFolder"&&!d.ok){ tempToast(d.error||"Could not open the Downloads folder."); }
@@ -22136,6 +22207,7 @@ Optional bundled starter model:
   }
   function bestAvailableAiForRun(){
     const current=state.provider||"local";
+    const localMode=(modelPickerNet||(current==="local"?"local":"online"))==="local";
     if(state.codex?.enabled===true){
       if(state.codex?.ready===true&&state.codex?.account?.signedIn===true) return {ready:true,provider:current,model:state.codex.model||"Codex default",runtime:"codex"};
       openSettings("agent");
@@ -22148,8 +22220,11 @@ Optional bundled starter model:
       tempToast("Finish Claude Code setup or switch orchestration back to Boolean.");
       return {ready:false};
     }
-    if(providerReadyForRun(current)&&!directProviderRequiresExplicitPick(current)) return {ready:true,provider:current,model:current==="local"?state.model:providerModelName(current)};
-    const safeOrder=["zaiCoding","local"];
+    const currentMatchesMode=localMode?current==="local":current!=="local";
+    if(currentMatchesMode&&providerReadyForRun(current)&&!directProviderRequiresExplicitPick(current)) return {ready:true,provider:current,model:current==="local"?state.model:providerModelName(current)};
+    // Never cross the Local/Cloud boundary implicitly. In Cloud, Auto may use
+    // the low-cost connected cloud provider but must not fall back to Local.
+    const safeOrder=localMode?["local"]:["zaiCoding"];
     const safe=safeOrder.find(provider=>providerReadyForRun(provider));
     if(safe){
       const label=shortProviderLabel(safe,(state.cloud&&state.cloud[safe])||PROVIDER_LABELS[safe]||safe);

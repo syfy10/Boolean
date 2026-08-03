@@ -119,12 +119,14 @@ test("open-email recipes can use the signed-in visible browser session", () => {
   assert.match(html, /Open Gmail or Outlook in Boolean's browser and open the email first/);
 });
 
-test("automatic AI recovery avoids paid API key providers", () => {
+test("automatic AI recovery avoids paid API key providers and never crosses from Cloud to Local", () => {
   const html = read("../src/ui.html");
   assert.match(html, /const DIRECT_API_PROVIDERS=new Set\(\["glm","openai","google","claude","xai","deepseek","qwen","baidu","bytedance","kimi","customApi"\]\)/);
   assert.match(html, /function directProviderRequiresExplicitPick\(provider\)/);
   assert.match(html, /providerReadyForRun\(current\)&&!directProviderRequiresExplicitPick\(current\)/);
-  assert.match(html, /const safeOrder=\["zaiCoding","local"\]/);
+  assert.match(html, /const localMode=\(modelPickerNet\|\|\(current==="local"\?"local":"online"\)\)==="local"/);
+  assert.match(html, /const currentMatchesMode=localMode\?current==="local":current!=="local"/);
+  assert.match(html, /const safeOrder=localMode\?\["local"\]:\["zaiCoding"\]/);
   assert.match(html, /Pick .* from the AI menu to use that API key/);
   assert.match(html, /Boolean will not switch to it automatically/);
   assert.match(html, /markExplicitProviderChoice\(prov\);[\s\S]*JSON\.stringify\(\{provider:prov,model\}\)/);

@@ -2736,6 +2736,15 @@ try {
                         _ = SendContextAsync(cid);
                     }
                     break;
+                // Text only, no OCR. The trading bar polls this every few seconds to
+                // track the symbol and price on screen; the OCR in "context" takes
+                // seconds and is far too slow to poll.
+                case "pageText":
+                    if (root.TryGetProperty("id", out var ptid) && ptid.GetString() is { } pageTextId)
+                    {
+                        _ = SendPageTextAsync(pageTextId);
+                    }
+                    break;
                 case "reloadPerms": ReadPerms(); break;
                 case "snip":
                     var target = root.TryGetProperty("target", out var sp) ? sp.GetString() ?? "message" : "message";
@@ -2909,6 +2918,37 @@ try {
         }
 
         PostToChat(new { type = "snip", ok = false, target, error = "screen snip was cancelled or timed out" });
+    }
+
+    // Fast page read: script only, no OCR, so it can be polled.
+    async Task SendPageTextAsync(string id)
+    {
+        var t = Active();
+        if (t?.View.CoreWebView2 == null || !_browserOpen)
+        {
+            PostToChat(new { type = "pageText", id, open = _browserOpen, url = "", title = "", text = "" });
+            return;
+        }
+        try
+        {
+            var json = await t.View.CoreWebView2.ExecuteScriptAsync(
+                "(function(){return {url:location.href,title:document.title,text:(document.body?document.body.innerText:'').slice(0,20000)}})()");
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            PostToChat(new
+            {
+                type = "pageText",
+                id,
+                open = _browserOpen,
+                url = root.TryGetProperty("url", out var u) ? u.GetString() ?? t.Url : t.Url,
+                title = root.TryGetProperty("title", out var ti) ? ti.GetString() ?? t.Title : t.Title,
+                text = root.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : ""
+            });
+        }
+        catch (Exception ex)
+        {
+            PostToChat(new { type = "pageText", id, open = _browserOpen, url = t.Url, title = t.Title, text = "", error = ex.Message });
+        }
     }
 
     async Task SendContextAsync(string id)

@@ -11,15 +11,41 @@ function errorMessage(payload, fallback) {
   return messages.join("; ") || fallback;
 }
 
+// Cloudflare has two credential shapes and they authenticate differently:
+//   - API token (recommended, scopable) → Authorization: Bearer <token>
+//   - Global API Key (legacy, account-wide) → X-Auth-Email + X-Auth-Key
+// A Global API Key sent as a bearer token is rejected by every endpoint, so the
+// credential decides the headers. Accepts a plain token string (the long-standing
+// call shape) or a credential object { token, email, authType }.
+export function cloudflareAuthHeaders(credential) {
+  if (credential && typeof credential === "object") {
+    const key = String(credential.token || credential.key || "").trim();
+    const email = String(credential.email || "").trim();
+    if (!key) throw new Error("Cloudflare API token is not configured.");
+    if (String(credential.authType || "") === "global" || email) {
+      if (!email) throw new Error("A Cloudflare Global API Key also needs the account email.");
+      return { "x-auth-email": email, "x-auth-key": key };
+    }
+    return { authorization: `Bearer ${key}` };
+  }
+  const token = String(credential || "").trim();
+  if (!token) throw new Error("Cloudflare API token is not configured.");
+  return { authorization: `Bearer ${token}` };
+}
+
+export function isGlobalKeyCredential(credential) {
+  return !!credential && typeof credential === "object"
+    && (String(credential.authType || "") === "global" || !!String(credential.email || "").trim());
+}
+
 export async function cloudflareRequest(token, path, options = {}) {
-  const cleanToken = String(token || "").trim();
+  const authHeaders = cloudflareAuthHeaders(token);
   const cleanPath = String(path || "").trim();
-  if (!cleanToken) throw new Error("Cloudflare API token is not configured.");
   if (!cleanPath.startsWith("/") || cleanPath.startsWith("//")) throw new Error("Enter a valid Cloudflare API path.");
   const response = await fetch(`${API_BASE}${cleanPath}`, {
     method: String(options.method || "GET").toUpperCase(),
     headers: {
-      authorization: `Bearer ${cleanToken}`,
+      ...authHeaders,
       accept: "application/json",
       ...(options.body === undefined ? {} : { "content-type": "application/json" })
     },
@@ -42,6 +68,16 @@ async function accessibleCloudflareAccounts(token) {
       type: String(account?.type || "")
     })).filter((account) => account.id)
     : [];
+}
+
+// A Global API Key has no /user/tokens/verify equivalent — it is not a token and
+// has no id, status, or expiry. Proving it works means using it.
+export async function verifyCloudflareGlobalKey(email, key) {
+  const credential = { authType: "global", email: String(email || "").trim(), token: String(key || "").trim() };
+  if (!credential.email) throw new Error("Enter the Cloudflare account email that owns this Global API Key.");
+  if (!credential.token) throw new Error("Paste your Cloudflare Global API Key.");
+  const accounts = await accessibleCloudflareAccounts(credential);
+  return { tokenId: "", status: "active", expiresOn: "", accounts };
 }
 
 export async function verifyCloudflareToken(token) {
@@ -150,7 +186,7 @@ export async function cloudflareResourceList(connection, resource) {
   };
   const path = paths[resource];
   if (!path) throw new Error("Unsupported Cloudflare resource.");
-  return await cloudflareRequest(connection.token, path);
+  return await cloudflareRequest(connection, path);
 }
 
 export async function assertCloudflarePath(connection, path, method = "GET") {
@@ -165,7 +201,7 @@ export async function assertCloudflarePath(connection, path, method = "GET") {
   }
   const zoneMatch = cleanPath.match(/^\/zones\/([a-f0-9]{32})(?:\/|$)/i);
   if (!zoneMatch) throw new Error("The request must target the connected Cloudflare account.");
-  const zone = await cloudflareRequest(connection.token, `/zones/${zoneMatch[1]}`);
+  const zone = await cloudflareRequest(connection, `/zones/${zoneMatch[1]}`);
   if (String(zone?.result?.account?.id || "") !== accountId) {
     throw new Error("That zone does not belong to the connected Cloudflare account.");
   }

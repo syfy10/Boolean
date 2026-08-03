@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
+const shell = fs.readFileSync(path.join(root, "shell", "Program.cs"), "utf8").replace(/\r/g, "");
 
 // The trading bar reads the ticker off the page the native browser pane is showing.
 // Pull the real implementation out of ui.html so these cases test shipped code.
@@ -70,6 +71,47 @@ test("market session uses New York timezone and labels pre/after as non-open", (
   assert.equal(weekend.id, "closed");
   assert.equal(weekend.label, "Weekend");
 });
+
+test("the quote is read from the broker page, not a second market feed", () => {
+  const quoteFromPageText = loadPageQuoteReader();
+  // Exactly what Robinhood Legend renders while GOOGL is open.
+  const legend = quoteFromPageText("GOOGL\n$371.99\n▲ $15.86 (4.45%)\nB $371.85 x 10\nA $371.98 x 80");
+  assert.equal(legend.symbol, "GOOGL");
+  assert.equal(legend.price, 371.99);
+  assert.equal(legend.changePercent, 4.45);
+  assert.equal(legend.source, "page");
+  // ▼ means down even though the numbers carry no sign.
+  const falling = quoteFromPageText("TSLA\n$402.10\n▼ $8.40 (2.05%)\nBuy Short");
+  assert.equal(falling.changePercent, -2.05);
+  assert.equal(falling.changeAbs, -8.4);
+  // A page with no quote must not invent one.
+  assert.equal(quoteFromPageText("Robinhood Legend\nWatchlist"), null);
+  assert.equal(quoteFromPageText(""), null);
+});
+
+test("the page read is fast-path only — OCR is too slow to poll", () => {
+  // The bar polls pageText (script only); "context" runs OCR and takes seconds.
+  assert.match(ui, /hostPost\(\{type:"browser",cmd:"pageText",id\}\)/);
+  assert.match(shell, /case "pageText":/);
+  assert.match(shell, /async Task SendPageTextAsync\(string id\)/);
+  assert.doesNotMatch(
+    ui.slice(ui.indexOf("function requestPageText()"), ui.indexOf("function quoteFromPageText")),
+    /ocr/i
+  );
+});
+
+function loadPageQuoteReader() {
+  const script = ui.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const symStart = script.indexOf("  // Words that look like tickers");
+  const symEnd = script.indexOf("\n  }", script.indexOf("function symbolFromPageText"));
+  const quoteStart = script.indexOf('  // "GOOGL $371.99');
+  const quoteEnd = script.indexOf("\n  }", script.indexOf("function quoteFromPageText"));
+  assert.ok(quoteStart >= 0 && quoteEnd > quoteStart, "quoteFromPageText not found in ui.html");
+  const block = `${script.slice(symStart, symEnd + 4)}\n${script.slice(quoteStart, quoteEnd + 4)}`;
+  return new Function("normalizeSymbolInput", `${block}\nreturn quoteFromPageText;`)(
+    (value) => String(value || "").toUpperCase().trim()
+  );
+}
 
 function loadMarketSessionNow() {
   const start = ui.indexOf("  // Market session, in New York time.");

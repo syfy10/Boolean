@@ -1506,7 +1506,7 @@ async function callCloudflareApi(args, ctx) {
     );
     if (!ok) return "user declined the Cloudflare account change";
   }
-  const payload = await cloudflareRequest(connection.token, requestPath, {
+  const payload = await cloudflareRequest(connection, requestPath, {
     method,
     body: method === "GET" || method === "DELETE" ? undefined : (args.body || {})
   });
