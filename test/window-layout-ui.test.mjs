@@ -180,9 +180,27 @@ test("browser tabs, address clearing, and device presets stay explicit", () => {
   assert.match(shell, /\("desktop", "Desktop", 0, 0, false,/);
   assert.match(shell, /\("tablet",\s*"Tablet 834 [^"]* 1112", 834, 1112, false,/);
   assert.match(shell, /\("mobile",\s*"Mobile 390 [^"]* 844", 390, 844, true,/);
-  assert.match(ui, /id="bAddrClear"[^>]*title="Clear address"/);
-  assert.match(ui, /\$\("bAddrClear"\)\?\.addEventListener\("click",\(\)=>\{ bAddr\.value=""/);
+  // The address bar lives in the shell chrome page now (server.js), not ui.html.
+  assert.match(server, /id="url" placeholder="Search or enter a URL"/);
+  assert.match(server, /clr\.onclick = function\(\)\{ url\.value=""; clr\.style\.display="none"; url\.focus\(\); \}/);
   assert.match(ui, /body\.chat-micro #notesToggle,body\.chat-micro #exploreToggle,body\.chat-micro #browserToggle\{ display:grid; \}/);
+});
+
+test("responsive preview lays the page out at the preview width and can be dragged", () => {
+  // The page view is sized to the preview width, so the pane shows the real layout at
+  // that width instead of a full-width view scaled by a metrics override.
+  assert.match(shell, /Rectangle PreviewViewport\(Rectangle area\)/);
+  assert.match(shell, /if \(_deviceWidth <= 0\) return area;/);
+  assert.match(shell, /foreach \(var t in _tabs\)\s*if \(t\.View\.Bounds != viewport\) t\.View\.Bounds = viewport;/);
+  assert.match(shell, /t\.View\.Dock = DockStyle\.None;\s*t\.View\.Bounds = PreviewViewport\(_content\.ClientRectangle\);/);
+  // Only mobile still needs an emulation override; a width override on a wider control
+  // is what made the preview show a scaled page.
+  assert.match(shell, /if \(_deviceWidth <= 0 \|\| !m\.mobile\)\s*\{\s*await cw\.CallDevToolsProtocolMethodAsync\("Emulation\.clearDeviceMetricsOverride"/);
+  // Drag the preview's right edge to any width.
+  assert.match(shell, /readonly Panel _previewGrip = new\(\) \{ TabStop = false, Visible = false, Cursor = Cursors\.SizeWE \};/);
+  assert.match(shell, /_deviceWidth = next;\s*_deviceCustomWidth = true;\s*LayoutContentViews\(\);/);
+  assert.match(shell, /deviceWidth = _deviceWidth,/);
+  assert.match(server, /devw\.classList\.toggle\("on", !!s\.deviceLabel\);/);
 });
 
 test("notepad has a functional clipboard paste action", () => {
@@ -313,13 +331,13 @@ test("heuristic next-edit cards stay disabled", () => {
 });
 
 test("approved side panes reflow beside chat and hide progressively as the window narrows", () => {
-  assert.match(ui, /body\.notes-on:not\(\.shell\) #notesPanel,\s*body\.browser-on:not\(\.shell\) #browser,\s*body\.zone-3 #ctxZone\{[\s\S]*?position:relative;[\s\S]*?transition:width var\(--t\),flex-basis var\(--t\),opacity var\(--t\);/);
+  assert.match(ui, /body\.notes-on:not\(\.shell\) #notesPanel,\s*body\.zone-3 #ctxZone\{[\s\S]*?position:relative;/);
   assert.match(ui, /body\.notes-on:not\(\.shell\) #notesPanel\{[\s\S]*?flex:0 0 var\(--nw,clamp\(240px,26vw,320px\)\);/);
-  assert.match(ui, /body\.browser-on:not\(\.shell\) #browser\{[\s\S]*?flex:0 0 var\(--bw,clamp\(260px,30vw,400px\)\);/);
+  assert.doesNotMatch(ui, /<section id="browser">/);
   assert.match(ui, /@media\(max-width:640px\)\{[\s\S]*?body:not\(\.collapsed\) aside\{[\s\S]*?flex-basis:0;[\s\S]*?opacity:0; pointer-events:none;/);
   assert.match(ui, /@media\(max-width:700px\)\{[\s\S]*?body\.zone-3 #ctxZone,body\.zone-3 #ctxdrag\{ display:none; \}/);
   assert.match(ui, /@media\(max-width:760px\)\{[\s\S]*?#sideRail,body\.collapsed #sideRail,body\.collapsed\.rail-expanded #sideRail\{ display:none; width:0; min-width:0; flex-basis:0; \}/);
-  assert.match(ui, /@media\(max-width:560px\)\{[\s\S]*?body\.notes-on:not\(\.shell\) #notesPanel,[\s\S]*?body\.browser-on:not\(\.shell\) #browser,[\s\S]*?body:not\(\.shell\) #bdrag,[\s\S]*?#ndrag,#ctxdrag\{ display:none!important; \}/);
+  assert.match(ui, /@media\(max-width:560px\)\{[\s\S]*?body\.notes-on:not\(\.shell\) #notesPanel,/);
 });
 
 test("workspace navigation and commands compact before they overflow", () => {
@@ -351,7 +369,8 @@ test("workspace navigation and commands compact before they overflow", () => {
 
 test("side chat stays compact and the duplicate browser edge launcher is removed", () => {
   assert.match(ui, /\.side-chat-launch\{[\s\S]*?left:20px; right:auto; top:calc\(100% - var\(--composer-h,106px\) \+ 14px\); width:23px; height:23px;[\s\S]*?border-radius:8px;/);
-  assert.match(ui, /#browserPill\{\s*display:none !important;\s*\}/);
+  // The floating reopen pill belonged to the removed HTML browser.
+  assert.doesNotMatch(ui, /browserPill/);
   assert.match(shell, /void ShowBrowserPill\(\)\s*\{[\s\S]*?_browserPill\.Visible = false;/);
   assert.match(ui, /body\.composer-simple \.promptline #interruptEdit\{ position:absolute; right:42px; top:auto; bottom:8px; z-index:3;/);
   assert.match(ui, /body:not\(\.composer-simple\) \.promptline #interruptEdit\{[\s\S]*?right:15px; bottom:52px;[\s\S]*?width:28px; height:28px;/);
@@ -501,9 +520,9 @@ test("native browser split uses the approved gray header without a separate bott
   assert.match(ui, /--approved-canvas:#f2f2f0;/);
   assert.match(ui, /body\.shell\{ --approved-bottom-gap:0px; padding-bottom:0!important; \}/);
   assert.match(ui, /body\.shell::after\{ display:none; \}/);
-  assert.match(ui, /:root\[data-color-theme="classic"\] #notesPanel,[\s\S]*?:root\[data-color-theme="classic"\] #ctxZone,[\s\S]*?:root\[data-color-theme="classic"\] #browser\{[\s\S]*?border:0!important;[\s\S]*?border-radius:0!important;[\s\S]*?outline:0!important;[\s\S]*?box-shadow:none!important;/);
+  assert.match(ui, /:root\[data-color-theme="classic"\] #notesPanel,[\s\S]*?:root\[data-color-theme="classic"\] #ctxZone\{/);
   assert.match(shell, /void ShowBrowserPill\(\)\s*\{[\s\S]*?_browserPill\.Visible = false;/);
-  assert.match(ui, /#browserPill\{\s*display:none !important;\s*\}/);
+  assert.doesNotMatch(ui, /browserPill/);
   assert.match(ui, /body\.collapsed:not\(\.sidebar-popover-open\) aside\{\s*display:none; min-width:0; margin:0; padding:0; border:0; background:transparent;/);
 });
 
@@ -517,10 +536,10 @@ test("native browser close hides the browser panel without closing Boolean", () 
 });
 
 test("browser dark mode is persistent and reaches both browser implementations", () => {
-  assert.match(ui, /id="bDarkPage" title="Dark mode for websites" aria-pressed="false"/);
-  assert.match(ui, /setUi\(\{browserDarkMode:darkPageOn\}\)/);
+  assert.match(server, /id="darkPage" title="Dark mode for websites" aria-pressed="false"/);
+  // Website dark mode is owned by the native pane; the UI only stores the preference.
   assert.match(ui, /const browserDark=resolvedDark\|\|!!ui\.browserDarkMode/);
-  assert.match(ui, /darkPageOn=browserThemeDark\|\|!!ui\.browserDarkMode/);
+  assert.match(ui, /shellBrowserDarkMode"\)\{ setUi\(\{browserDarkMode:!!d\.enabled\}\); \}/);
   assert.match(ui, /cmd:"theme",dark:resolvedDark,surface:selectedColorTheme\(ui\),browserDark/);
   assert.match(ui, /d\.type==="shellBrowserDarkMode"[\s\S]*?setUi\(\{browserDarkMode:!!d\.enabled\}\)/);
   assert.match(server, /id="darkPage" title="Dark mode for websites" aria-pressed="false"/);
@@ -530,7 +549,7 @@ test("browser dark mode is persistent and reaches both browser implementations",
   assert.match(shell, /RemoveScriptToExecuteOnDocumentCreated\(t\.DarkModeScriptId\)/);
   assert.match(shell, /case "darkPage":[\s\S]*?SetBrowserDarkModeAsync\(!_browserDarkMode, notifyChat: true\)/);
   assert.match(shell, /new \{ type = "shellBrowserDarkMode", enabled \}/);
-  assert.match(browse, /img,video,canvas,svg\{opacity:1 !important;\}/);
+  // Website dark mode is injected by the shell into the native pane (BrowserDarkModeScript above); the /browse proxy that used to do it for the HTML pane is gone.
 });
 
 test("compact pane button opens projects and chats as a floating sidebar", () => {
@@ -677,7 +696,7 @@ test("account Settings and the compact provider picker match the approved utilit
 
 test("major app surfaces share the compact Projects and Chats corner radius", () => {
   assert.match(ui, /--surface-radius:6px;/);
-  assert.match(ui, /body:not\(\.shell\) aside,[\s\S]*?\.sidebar-account-card,[\s\S]*?\.account-popover,[\s\S]*?body\.browser-on:not\(\.shell\) #browser,[\s\S]*?body\.notes-on:not\(\.shell\) #notesPanel,[\s\S]*?\.workspace-float,[\s\S]*?\.composer-wrap,[\s\S]*?\.app-modal-card,[\s\S]*?border-radius:var\(--surface-radius\);/);
+  assert.match(ui, /body:not\(\.shell\) aside,[\s\S]*?\.sidebar-account-card,[\s\S]*?\.account-popover,/);
   assert.match(ui, /Pills,[\s\S]*?round avatars,[\s\S]*?message bubbles,[\s\S]*?compact controls keep their own shape/);
   assert.match(ui, /@media\(max-width:760px\)\{\s*\.workspace-float\{ border-radius:var\(--surface-radius\); \}/);
 });
@@ -731,24 +750,25 @@ test("Classic is Boolean's only surface foundation", () => {
   assert.match(ui, /\["theme","colorTheme","composerStyle"/);
   assert.match(ui, /:root\[data-visual-theme="light"\]\[data-color-theme="classic"\][\s\S]*?--approved-canvas:#f5f5f3; --approved-card:#f7f7f5;/);
   assert.match(ui, /:root\[data-visual-theme="dark"\]\[data-color-theme="classic"\][\s\S]*?--approved-canvas:#181818; --approved-card:#1c1c1c;/);
-  assert.match(ui, /:root\[data-color-theme="classic"\] aside,[\s\S]*?data-color-theme="classic"\] body\.shell aside,[\s\S]*?data-color-theme="classic"\] #browser\{[\s\S]*?border:0!important;[\s\S]*?border-radius:0!important;[\s\S]*?outline:0!important;[\s\S]*?box-shadow:none!important;/);
+  assert.match(ui, /:root\[data-color-theme="classic"\] aside,[\s\S]*?data-color-theme="classic"\] body\.shell aside,/);
   assert.match(ui, /:root\[data-color-theme="classic"\] aside,[\s\S]*?data-color-theme="classic"\] body\.shell aside\{[\s\S]*?background:var\(--approved-canvas\)!important;/);
   assert.match(ui, /id="ndrag" title="Drag to resize notepad"/);
   assert.match(ui, /id="ctxdrag" title="Drag to resize context"/);
   assert.match(ui, /function installPaneResizer\(\{handleId,panelId,cssVar,saveKey,minWidth=240\}\)[\s\S]*?setUi\(\{\[saveKey\]:Math\.round\(panel\.getBoundingClientRect\(\)\.width\)\}\)[\s\S]*?handle\.addEventListener\("pointerdown"[\s\S]*?document\.addEventListener\("pointermove",onMove\)[\s\S]*?document\.addEventListener\("pointerup",finish\)/);
   assert.match(ui, /installPaneResizer\(\{handleId:"ndrag",panelId:"notesPanel",cssVar:"--nw",saveKey:"notepadW",minWidth:220\}\)/);
   assert.match(ui, /installPaneResizer\(\{handleId:"ctxdrag",panelId:"ctxZone",cssVar:"--cw",saveKey:"contextW",minWidth:240\}\)/);
-  assert.match(ui, /installPaneResizer\(\{handleId:"bdrag",panelId:"browser",cssVar:"--bw",saveKey:"browserW",minWidth:260\}\)/);
+  assert.doesNotMatch(ui, /handleId:"bdrag"/);
   assert.match(ui, /document\.body\.style\.setProperty\("--nw",ui\.notepadW\+"px"\)/);
   assert.match(ui, /document\.body\.style\.setProperty\("--cw",ui\.contextW\+"px"\)/);
   assert.match(config, /notepadW:\s*320/);
   assert.match(config, /contextW:\s*300/);
-  assert.match(ui, /body\.browser-on:not\(\.shell\) #browser\{ width:var\(--bw,320px\)!important; min-width:270px!important; flex-basis:var\(--bw,320px\); \}/);
+  assert.doesNotMatch(ui, /body\.browser-on:not\(\.shell\) #browser/);
   assert.match(ui, /body\.notes-on:not\(\.shell\) #notesPanel\{ width:var\(--nw,280px\); min-width:250px; flex-basis:var\(--nw,280px\); \}/);
   assert.match(ui, /#notesPanel\{ width:var\(--nw,clamp\(260px,32vw,360px\)\); flex:0 0 var\(--nw,clamp\(260px,32vw,360px\)\);/);
   assert.match(ui, /const chatXs=document\.body\.classList\.contains\("chat-xs"\);\s*document\.body\.classList\.toggle\("chat-xs",chatXs\?chatW<470:chatW<430\);/);
   assert.match(ui, /body\.pane-resizing #notesPanel,[\s\S]*?body\.pane-resizing main,body\.pane-resizing aside\{ transition:none!important; \}/);
-  assert.match(ui, /if\(!browserManualSize\) fitBrowserSplit\(\);/);
+  // The browser pane's width is the shell splitter's job now (see _browserManualWidth).
+  assert.match(shell, /int preferredBrowserW = _browserManualWidth > 0/);
 });
 
 test("surface styles reach the native footer and the account identity owns Profile", () => {
@@ -757,7 +777,13 @@ test("surface styles reach the native footer and the account identity owns Profi
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"theme",dark:resolvedDark,surface:selectedColorTheme\(ui\),browserDark\}\)/);
   assert.doesNotMatch(shell, /Palette (?:SoftGlass|GraphiteMist|Clex)|connectedClex|_connectedClex/);
   assert.match(shell, /Padding = Padding\.Empty;[\s\S]*?_split\.SplitterWidth = 5;[\s\S]*?_browserPane\.Radius = 0;[\s\S]*?_browserPane\.BorderColor = Color\.Transparent;/);
-  assert.match(shell, /sealed class MainForm : Form, IMessageFilter[\s\S]*?Application\.AddMessageFilter\(this\);[\s\S]*?public bool PreFilterMessage\(ref Message m\)[\s\S]*?Math\.Abs\(point\.X - _split\.SplitterDistance\) <= 5/);
+  // The splitter is dragged by a real grip control that takes mouse capture. The old
+  // IMessageFilter hit-test never saw moves over either WebView, so the divider stopped
+  // tracking the cursor the moment the drag left the 5px strip.
+  assert.doesNotMatch(shell, /IMessageFilter|PreFilterMessage/);
+  assert.match(shell, /readonly Panel _splitGrip = new\(\) \{ TabStop = false, Visible = false, Cursor = Cursors\.VSplit \};/);
+  assert.match(shell, /_splitGrip\.MouseDown \+= \(_, e\) =>[\s\S]*?_gripDragging = true;\s*_splitGrip\.Capture = true;/);
+  assert.match(shell, /_splitGrip\.MouseMove \+= \(_, __\) =>\s*\{\s*if \(_gripDragging\) DragSplitTo\(_split\.PointToClient\(Cursor\.Position\)\.X\);/);
   assert.match(shell, /string surface = "classic";/);
   assert.match(shell, /_themeSurface = "classic";[\s\S]*?pal = Palette\.Light;/);
 });
@@ -813,6 +839,9 @@ test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /target\.setAttribute\("aria-label",modelName\|\|"Select a model"\)/);
   assert.match(ui, /\$\("providersel"\)\.onchange=async\(e\)=>\{[\s\S]*?const provider=e\.target\.value;[\s\S]*?JSON\.stringify\(\{provider\}\)/);
   assert.match(ui, /modelPickerNet="online";[\s\S]*?const firstMissing=\$\("modellist"\)\?\.querySelector\("\.api-provider\.missing"\);[\s\S]*?Boolean will stay on Local until it is saved\./);
+  assert.match(ui, /if\(net==="local"\)\{[\s\S]*?modelPickerNet="local";[\s\S]*?state\.codingEngine="boolean";[\s\S]*?JSON\.stringify\(\{provider:"local",codingEngine:"boolean"\}\)/);
+  assert.match(ui, /modelPickerNet="online";\s*state\.codingEngine="auto";[\s\S]*?JSON\.stringify\(\{provider:prov,codingEngine:"auto"\}\)/);
+  assert.match(ui, /await fetch\("\/api\/config",\{method:"POST",body:JSON\.stringify\(\{codingEngine:"auto"\}\)\}\);[\s\S]*?\$\("modelmenu"\)\.classList\.add\("open"\)/);
   assert.doesNotMatch(ui, /else if\(providerReadyForRun\("local"\)\) prov="local"/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.classList\.toggle\("on"/);
   assert.match(ui, /document\.querySelectorAll\("#netmode button,#modelNetMode button"\)\.forEach\(b=>b\.onclick=\(\)=>selectNet\(b\.dataset\.net\)\)/);
@@ -967,18 +996,27 @@ test("compact access and model controls open visible dropdowns", () => {
   assert.match(ui, /\$\("modebtn"\)\.onclick=\(e\)=>\{ e\.stopPropagation\(\);[\s\S]*\$\("modemenu"\)\.classList\.toggle\("open"\); \};/);
 });
 
-test("composer access menu persists explicit read, write, and full-access modes", () => {
+test("composer access menu persists read, write, full-access, and signed-in trading modes", () => {
   assert.match(ui, /data-mode="read_only"[\s\S]*?<b>Read only<\/b><small>Inspect and analyze; no edits or deploys\.<\/small>/);
   assert.match(ui, /data-mode="ask"[\s\S]*?<b>Read &amp; write<\/b><small>Ask before changes and commands\.<\/small>/);
   assert.match(ui, /data-mode="full_access"[\s\S]*?<b>Full access<\/b><small>Auto-approve workspace actions\.<\/small>/);
+  assert.match(ui, /data-mode="trading_confirm"[\s\S]*?<b>Trading access<\/b><small>Full access plus signed-in trading\. Confirm every live order\.<\/small>/);
   assert.match(ui, /accessMode:"ask", autoApprove:false/);
   assert.match(ui, /function currentAccessMode\(\)\{[\s\S]*?\["read_only","ask","full_access"\]\.includes\(saved\)\?saved:\(state\.autoApprove\?"full_access":"ask"\);/);
   assert.match(ui, /let accessModeSaveQueue=Promise\.resolve\(\);/);
   assert.match(ui, /function saveAccessMode\(mode\)\{[\s\S]*?const response=await fetch\("\/api\/config",\{method:"POST",body:JSON\.stringify\(body\)\}\);[\s\S]*?if\(!response\.ok\) throw new Error/);
   assert.match(ui, /state\.accessMode=\["read_only","ask","full_access"\]\.includes\(data\.accessMode\)\?data\.accessMode:requested;/);
   assert.match(ui, /await accessModeSaveQueue;[\s\S]*?body\.accessMode=currentAccessMode\(\);/);
-  assert.match(ui, /try\{ await saveAccessMode\(mode\); \}\s*catch\(error\)\{ applyMode\(\); tempToast/);
-  assert.match(ui, /if\(access\)access\.textContent=accessModeLabel\(currentAccessMode\(\)\);/);
+  assert.match(ui, /if\(mode==="trading_confirm"\)\{ await setTradingMode\(true\); return; \}/);
+  assert.match(ui, /await setTradingMode\(false\);[\s\S]*?await saveAccessMode/);
+  assert.match(ui, /Trading stocks, ETFs, options, futures, crypto, and other assets is risky/);
+  assert.match(ui, /This mode includes Full access/);
+  assert.match(ui, /await saveAccessMode\("full_access"\)/);
+  assert.match(ui, /Sign in to Boolean before enabling trading access/);
+  assert.match(ui, /\.approval\.trade-approval\{ display:grid; grid-template-columns:minmax\(0,1fr\) auto;/);
+  assert.match(ui, /tradeApproval\?'Confirm live trade order'/);
+  assert.match(ui, /tradeApproval\?'Confirm'/);
+  assert.match(ui, /if\(access\)access\.textContent=accessModeLabel\(tradingModeEnabled\(\)\?"trading_confirm":currentAccessMode\(\)\);/);
 });
 
 test("approval and continuation cards remain visible above the composer", () => {
@@ -1001,10 +1039,11 @@ test("local browser paste has a guarded backend clipboard fallback", () => {
 
 test("browser chrome adapts before the pane is too narrow", () => {
   assert.match(ui, /@container \(max-width:560px\)\{/);
-  assert.match(ui, /\.browser-toolbar\{ padding:3px 5px; gap:1px; flex-wrap:nowrap; \}/);
+  // Toolbar density now belongs to the shell chrome bar.
+  assert.match(server, /.row.r-nav{|.ico{/);
   assert.match(ui, /@container \(max-width:420px\)\{/);
-  assert.match(ui, /\.addr-wrap\{ flex:1 1 88px; min-width:88px; \}/);
-  assert.match(ui, /#bReader,#bDarkPage,#bFindBtn,#bOutlineBtn,#bSplitBtn,\.page-actions,\.btool-sep\{ display:none; \}/);
+  assert.match(server, /\.addr\{|\.row\.r-nav\{/);
+  assert.match(server, /\.ico\{/);
 });
 
 test("side chat popup scales smaller with the main window", () => {
@@ -1098,7 +1137,7 @@ test("round composer uses the compact floating card layout without changing line
   assert.match(ui, /id="composerPrompt">Ask anything\.\.\.<\/span><textarea id="input" rows="1" placeholder="Ask anything\.\.\."/);
   assert.match(ui, /id="micbtn" type="button" title="Voice input"/);
   assert.match(ui, /window\.SpeechRecognition\|\|window\.webkitSpeechRecognition/);
-  assert.match(ui, /\?\{read_only:"Read",ask:"Write",full_access:"Full"\}\s*:\{read_only:"Read only",ask:"Read & write",full_access:"Full access"\}/);
+  assert.match(ui, /\?\{read_only:"Read",ask:"Write",full_access:"Full",trading_confirm:"Trade"\}\s*:\{read_only:"Read only",ask:"Read & write",full_access:"Full access",trading_confirm:"Trading access"\}/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools #plusbtn\{ order:0; \}/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools #snipbtn\{[^}]*display:grid; order:1; color:var\(--dim\); font-weight:400;/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools \.anchor:has\(#modebtn\)\{ order:2; \}/);
@@ -1585,7 +1624,9 @@ test("pinned projects and chats use the compact grouped sidebar", () => {
   assert.match(ui,/#sidebar \.grouphead \.section-action\{ order:initial; margin-left:0; color:var\(--text\); \}/);
   assert.match(ui,/projectHead\.querySelector\("\.project-add"\)\.onclick=.*createProject\(\)/);
   assert.match(ui,/\.project-section-head\{[^}]*border-top:1px solid var\(--border\);/);
-  assert.match(ui,/class="thread-new-chat" aria-label="New chat"[^>]*onclick="newChat\(\)"/);
+  assert.match(ui,/class="thread-new-chat" id="threadNewChat" aria-label="Start a new chat"[\s\S]*?<rect x="3" y="3" width="18" height="18" rx="3"\/><path d="M12 8v8M8 12h8"\/>/);
+  assert.match(ui,/async function newChat\(options=\{\}\)\{[\s\S]*?body:JSON\.stringify\(\{forceNew:true\}\)/);
+  assert.match(ui,/\$\("threadNewChat"\)\.onclick=\(event\)=>\{[\s\S]*?newChat\(\)\.catch\(\(\)=>tempToast\("Could not start a fresh chat\."\)\)/);
   assert.match(ui, /\.project-accordion\{ border-top:1px solid var\(--border\); \}/);
   assert.match(ui, /\.project-group-head\{ display:flex; align-items:center; gap:7px;/);
   assert.match(ui, /\.project-group-body\{ position:relative; margin-left:11px;[\s\S]*?border-left:1px solid var\(--border\); \}/);
@@ -1641,9 +1682,9 @@ test("wide Chat shows a Codex-inspired Boolean workspace rail", () => {
 test("closing Browser or Notepad restores the wide Chat workspace rail", () => {
   assert.match(ui,/function returnToChatAfterAuxiliaryClose\(ws\)\{[\s\S]*?markWorkspaceTab\("chat"\)/);
   assert.match(ui,/document\.body\.classList\.toggle\("notes-on",!!on\);[\s\S]*?if\(!on\)returnToChatAfterAuxiliaryClose\("notes"\)/);
-  assert.match(ui,/if\(!on\)returnToChatAfterAuxiliaryClose\("browser"\)/);
+  assert.match(ui,/if\(!on\) returnToChatAfterAuxiliaryClose\("browser"\)/);
   assert.match(ui,/d\.type==="shellBrowser"[\s\S]*?if\(!d\.open\)returnToChatAfterAuxiliaryClose\("browser"\)/);
-  assert.match(ui,/browserCloseTimer=setTimeout\(\(\)=>\{[\s\S]*?scheduleResponsiveClasses\(\)/);
+  assert.match(ui, /returnToChatAfterAuxiliaryClose\("browser"\);\s*syncPanelButtons\(\);/);
 });
 
 test("native browser keeps a usable split width and auto-fits narrow pages", () => {
@@ -1654,8 +1695,11 @@ test("native browser keeps a usable split width and auto-fits narrow pages", () 
   assert.doesNotMatch(shell, /TabIcon\("\\u25A1", "Maximize"/);
   assert.doesNotMatch(shell, /case "growContext":\s*GrowForBrowser\(\);/);
   assert.doesNotMatch(shell, /HideBrowserPill\(\);\s*GrowForBrowser\(\);/);
-  assert.match(shell, /int preferredBrowserW = WindowState == FormWindowState\.Maximized\s*\? \(int\)Math\.Round\(available \* 0\.40\)\s*: available \/ 2;/);
+  // A dragged width survives window resizes; without this the pane snapped back to the
+  // automatic split every time the window changed size.
+  assert.match(shell, /int preferredBrowserW = _browserManualWidth > 0\s*\? _browserManualWidth\s*: WindowState == FormWindowState\.Maximized\s*\? \(int\)Math\.Round\(available \* 0\.40\)\s*: available \/ 2;/);
   assert.match(shell, /int browserW = Math\.Clamp\(preferredBrowserW, browserMin/);
+  assert.match(shell, /_browserManualWidth = _split\.Panel2\.Width;/);
   assert.match(shell, /ApplyBorderlessDwm\(\);\s*if \(WindowState != FormWindowState\.Minimized && !_wasMinimized &&\s*_browserOpen && !_full\) BeginInvoke\(new Action\(FitBrowserSplit\)\);/);
   assert.match(shell, /int border = ColorTranslator\.ToWin32\(_pal\.BtnBorder\);\s*DwmSetWindowAttribute\(Handle, 34 \/\*DWMWA_BORDER_COLOR\*\/, ref border, 4\);/);
   assert.doesNotMatch(shell, /DWMWA_COLOR_NONE/);
@@ -1665,7 +1709,7 @@ test("native browser keeps a usable split width and auto-fits narrow pages", () 
   assert.match(shell, /_chromeView\.Bounds = new Rectangle\(r\.Left, r\.Top, r\.Width, h\)/);
   assert.match(shell, /ChromeTaskSpecs\(string\? url\)/);
   assert.match(shell, /PushChromeState\(\)/);
-  assert.match(shell, /t\.View\.NavigationCompleted \+= \(_, __\) => \{ AutoFitActiveBrowserIfNarrow\(\); PushChromeState\(\); \};/);
+  assert.match(shell, /t\.View\.NavigationCompleted \+= \(_, __\) => \{ AutoFitActiveBrowserIfNarrow\(\); PushChromeState\(\); ReportBrowserUrl\(t\); \};/);
   assert.match(shell, /async void AutoFitActiveBrowserIfNarrow\(\)/);
   assert.match(shell, /if \(t\.View\.ClientSize\.Width >= 560\) return;/);
   assert.match(shell, /await AutoFitZoom\(allowZoomIn: false\);/);
@@ -1674,11 +1718,13 @@ test("native browser keeps a usable split width and auto-fits narrow pages", () 
 test("successful run_project opens the local preview in the built-in browser", () => {
   assert.match(ui, /function runProjectPreviewUrl\(entry\)/);
   assert.match(ui, /entry\.name!=="run_project"/);
+  assert.match(ui, /if\(run\) run\.previewUrl=url/);
+  assert.match(ui, /run\.previewUrl&&\["write_file","edit_file","apply_patch"\]/);
   assert.match(ui, /\\bis running at\\b/);
   assert.match(ui, /https\?:\\\/\\\/\(\?:localhost\|127\\\.0\\\.0\\\.1\|\\\[::1\\\]\)/);
   assert.match(ui, /function openRunProjectPreview\(entry\)/);
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"navigate",url\}\)/);
-  assert.match(ui, /openBrowser\(true,\{remember:true\}\);\s*navigate\(url\);/);
+  assert.match(ui, /browserNavigate\(url\);/);
   assert.match(ui, /openRunProjectPreview\(entry\);/);
   assert.match(shell, /case "navigate":/);
   assert.match(shell, /AddTab\(u, activate: true, navigate: true\);/);

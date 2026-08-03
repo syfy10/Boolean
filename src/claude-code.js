@@ -183,19 +183,20 @@ export function startClaudeCodeLogin(command = "claude", { spawnImpl = spawn, sp
   try {
     if (platform === "win32") {
       const escaped = launch.command.replace(/'/g, "''");
-      const script = `& '${escaped}' auth login; if ($LASTEXITCODE -eq 0) { Write-Host 'Claude Code sign-in complete. You can close this window.' -ForegroundColor Green } else { Write-Host 'Claude Code sign-in did not finish. Keep this window open and try again.' -ForegroundColor Yellow }`;
-      // Encode the complete inner command so Start-Process cannot lose quotes
-      // around a versioned WinGet path. The short wrapper stays hidden while
-      // the authentication terminal it creates is deliberately visible.
+      const script = `Write-Host 'Opening Claude account verification in your browser...' -ForegroundColor Cyan; & '${escaped}' auth login --claudeai; if ($LASTEXITCODE -eq 0) { Write-Host 'Claude Code sign-in complete. Return to Boolean and press Check connection.' -ForegroundColor Green } else { Write-Host 'Claude Code sign-in did not finish. Keep this window open and try again.' -ForegroundColor Yellow }`;
+      // Launch the authentication terminal directly. A nested Start-Process
+      // rebuilds the Windows environment as a case-insensitive dictionary and
+      // can fail silently when Path and PATH are both present. detached:true
+      // gives the GUI app a separate, deliberately visible console window.
       const encoded = Buffer.from(script, "utf16le").toString("base64");
-      const opener = `Start-Process -FilePath powershell.exe -ArgumentList '-NoLogo -NoExit -NoProfile -EncodedCommand ${encoded}' -WindowStyle Normal`;
-      const child = spawnImpl("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", opener], { detached: true, windowsHide: true, stdio: "ignore", env });
+      const child = spawnImpl("powershell.exe", ["-NoLogo", "-NoExit", "-NoProfile", "-EncodedCommand", encoded], { detached: true, windowsHide: false, stdio: "ignore", env });
       child.unref?.();
+      if (!child.pid) return { ok: false, error: "login_failed", message: "Claude Code sign-in terminal could not be opened." };
     } else {
       const child = spawnImpl(launch.command, ["auth", "login"], { detached: true, stdio: "inherit", env });
       child.unref?.();
     }
-    return { ok: true, command: launch.command, message: "Claude Code sign-in opened in a terminal. Finish there, then press Check connection." };
+    return { ok: true, command: launch.command, message: "Claude Code sign-in opened. Complete the browser verification, then press Check connection." };
   } catch (error) {
     return { ok: false, error: "login_failed", message: `Claude Code sign-in could not start: ${error?.message || error}` };
   }

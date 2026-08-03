@@ -67,7 +67,7 @@ test("Auto tries the selected API first and escalates only its unverified coding
     modelRouting: {
       ...config.ui.modelRouting,
       allowEscalation: true,
-      subscriptionEngines: { codex: false, claudeCode: true, preferred: "claude-code" }
+      subscriptionEngines: { explicit: true, codex: false, claudeCode: true, preferred: "claude-code" }
     }
   };
 

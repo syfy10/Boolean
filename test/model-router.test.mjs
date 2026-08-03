@@ -82,6 +82,21 @@ test("Auto tries the selected Boolean API before any coding subscription", () =>
   assert.match(result.reason, /not.*ready|no approved/i);
 });
 
+test("Auto enables every connected subscription by default and preserves explicit opt-outs", () => {
+  const cfg = config({ codingEngine: "auto" });
+  cfg.ui.modelRouting.subscriptionEngines = { codex: false, claudeCode: false, preferred: "codex" };
+  let result = selectExecutionEngine(cfg, [{ role: "user", content: "Fix the build" }], {
+    escalationRequired: true, codexReady: true, claudeReady: true
+  });
+  assert.equal(result.engine, "codex", "legacy false defaults do not disable a connected engine");
+
+  cfg.ui.modelRouting.subscriptionEngines = { explicit: true, codex: false, claudeCode: true, preferred: "codex" };
+  result = selectExecutionEngine(cfg, [{ role: "user", content: "Fix the build" }], {
+    escalationRequired: true, codexReady: true, claudeReady: true
+  });
+  assert.equal(result.engine, "claude-code", "an explicit Codex opt-out is preserved");
+});
+
 test("Auto never escalates chat, research, or vision to a coding subscription", () => {
   const cfg = config({ codingEngine: "auto" });
   cfg.ui.modelRouting.subscriptionEngines = { codex: true, claudeCode: true, preferred: "codex" };

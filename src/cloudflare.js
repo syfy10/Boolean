@@ -45,7 +45,19 @@ async function accessibleCloudflareAccounts(token) {
 }
 
 export async function verifyCloudflareToken(token) {
-  const verified = await cloudflareRequest(token, "/user/tokens/verify");
+  // Classic API tokens verify via /user/tokens/verify. Newer prefixed tokens
+  // (cfat_…) and account-scoped tokens frequently do NOT support that endpoint
+  // even though they can call the rest of the API — so a token that works fine
+  // elsewhere would otherwise be rejected here. When the verify endpoint is
+  // unavailable, fall back to proving the token works by listing accounts, the
+  // same way the OAuth path does. A genuinely invalid token still fails there.
+  let verified = null;
+  try {
+    verified = await cloudflareRequest(token, "/user/tokens/verify");
+  } catch {
+    const accounts = await accessibleCloudflareAccounts(token);
+    return { tokenId: "", status: "active", expiresOn: "", accounts };
+  }
   if (verified?.result?.status !== "active") {
     throw new Error(`Cloudflare API token is ${verified?.result?.status || "not active"}.`);
   }

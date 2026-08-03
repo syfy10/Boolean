@@ -15,7 +15,7 @@ import { detectWindowsSettingsRequest } from "./system-actions.js";
 import { createAgentController } from "./controller.js";
 import { booleanAgentPolicy } from "./agent-policy.js";
 import { createCodexOrchestrator } from "./orchestrator.js";
-import { nextAutoModelTarget, noteAutoModelOutcome, selectAutoModelRoute } from "./model-router.js";
+import { autoModelQualityRank, nextAutoModelTarget, noteAutoModelOutcome, selectAutoModelRoute, handoffCandidates } from "./model-router.js";
 
 const CLOUD_FALLBACK_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
@@ -29,6 +29,73 @@ function cloudFallbackAllowed(config, primaryTarget, err, emitted) {
 
 function cloudLabel(target) {
   return CLOUD[target?.provider] || target?.provider || "Cloud";
+}
+
+export function parseAutoVerificationVerdict(content) {
+  const text = String(content || "").trim();
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+  for (const candidate of [text, fenced].filter(Boolean)) {
+    try {
+      const value = JSON.parse(candidate);
+      if (typeof value?.verified === "boolean") {
+        return {
+          verified: value.verified,
+          reason: String(value.reason || (value.verified ? "Independent review passed." : "Independent review failed.")).slice(0, 500)
+        };
+      }
+    } catch {}
+  }
+  return { verified: false, reason: "The independent reviewer returned an inconclusive verdict." };
+}
+
+function containsUnexecutedCompatibilityAction(content) {
+  return /```\s*boolean_patch\b/i.test(String(content || ""));
+}
+
+async function verifyAutoCompletion(config, route, workerTarget, objective, answer, controller, signal, onStatus) {
+  const workerQuality = autoModelQualityRank(workerTarget);
+  const reviewer = handoffCandidates(config, route).find((candidate) =>
+    (candidate.provider !== workerTarget?.provider || candidate.model !== workerTarget?.model)
+    && autoModelQualityRank(candidate) >= workerQuality
+  );
+  if (!reviewer) {
+    // No second model exists to review. "Could not verify" is NOT "verification
+    // failed" — treating it as a failure makes a single-model auto task re-answer
+    // forever (it can never be verified), so accept the result and flag it unverified.
+    return { verified: true, unverified: true, reason: "Accepted without independent verification — no second connected model was available to review." };
+  }
+  const resolved = await resolveProviderTarget(config, reviewer.provider, onStatus);
+  const reviewerTarget = reviewer.model ? { ...resolved, model: reviewer.model } : resolved;
+  onStatus?.(`Auto is verifying the work with ${reviewerTarget.model || reviewerTarget.provider}...`);
+  try {
+    const evidence = controller.snapshot();
+    const review = await chatCompletion(reviewerTarget, [
+      {
+        role: "system",
+        content: "You are Boolean's independent completion verifier. Review the claimed result against the concrete controller evidence. Do not propose edits and do not trust the worker's claim by itself. Return only compact JSON: {\"verified\":true|false,\"reason\":\"specific evidence-based reason\"}. Mark verified false if work, testing, or requested deliverables are missing, failed, merely described, or cannot be established from the evidence."
+      },
+      {
+        role: "user",
+        content: [
+          `ORIGINAL TASK:\n${String(objective || "").slice(0, 4000)}`,
+          `WORKER: ${workerTarget?.provider || "unknown"}/${workerTarget?.model || "default"}`,
+          `CLAIMED FINAL RESPONSE:\n${String(answer || "").slice(0, 8000)}`,
+          `CONTROLLER EVIDENCE:\n${JSON.stringify(evidence).slice(0, 12000)}`
+        ].join("\n\n")
+      }
+    ], undefined, signal);
+    const verdict = parseAutoVerificationVerdict(review?.content);
+    return { ...verdict, reviewer: reviewerTarget };
+  } catch (error) {
+    // The reviewer could not run — accept rather than loop re-answering. Flag it so
+    // the caller reports the result as not independently verified.
+    return {
+      verified: true,
+      unverified: true,
+      reason: `Accepted without independent verification — the reviewer could not complete: ${String(error?.message || error).slice(0, 200)}`,
+      reviewer: reviewerTarget
+    };
+  }
 }
 
 async function chatCompletionWithFallback(config, primaryTarget, messages, tools, signal, onToken, onStatus) {
@@ -202,7 +269,8 @@ export function projectBrief(projectDir) {
       "",
       `PROJECT: This chat is bound to the folder ${projectDir}.`,
       "Work on the files in THIS folder. For multi-file tasks, use repository_map to rank the relevant files,",
-      "then inspect exact symbols or line ranges, prefer edit_file for targeted changes, and verify with run_command before claiming success."
+      "then inspect exact symbols or line ranges, prefer edit_file for targeted changes, and verify with run_command before claiming success.",
+      "LIVE PROJECT PREVIEW: For every browser-previewable website or web app build/change task, call run_project as soon as the existing project can start, before lengthy implementation. Keep that localhost preview running while you edit, and call run_project again after meaningful changes so Boolean refreshes the built-in browser. Never use a file:// URL or open an unrelated localhost service. Desktop/native projects open their real app window instead."
     ];
     const rules = loadProjectRules(projectDir);
     if (rules) header.push(rules);
@@ -1804,6 +1872,11 @@ export async function runTurn(ctx, messages) {
   let textOnlyContentFallback = false;
   let autoContinues = 0;
   let completionNudges = 0;
+  // Independent verification (codingEngine:auto) runs at most this many times per
+  // run. A failed verdict re-nudges once, but it can never loop the model into
+  // re-answering until the token budget dies.
+  let autoVerifications = 0;
+  const MAX_AUTO_VERIFICATIONS = 2;
   let controllerRecoveries = 0;
   let announceNudges = 0;
   let forceToolCallNext = false;
@@ -1822,6 +1895,14 @@ export async function runTurn(ctx, messages) {
   const MAX_LOOP_RECOVERIES = 0;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
   const MAX_ANNOUNCE_NUDGES = 4;
+  // Auto model handoff: when the primary model gives up on an unfinished, action-
+  // required task while Auto orchestration (or Autopilot) is active, hand the SAME task (with its saved controller
+  // state and history) to the next connected model to finish — instead of pausing.
+  // Bounded, and each model is tried at most once, so it can't cycle forever.
+  const MAX_MODEL_HANDOFFS = 3;
+  let modelHandoffs = 0;
+  const modelKey = (t) => `${t?.provider || ""}|${t?.model || ""}`.toLowerCase();
+  const triedModelKeys = new Set([modelKey(target)]);
   // A blocked or errored tool result is not progress — a repeatedly-blocked action
   // must NOT reset the loop-recovery guard, or it would recover forever and never
   // terminate. Mirrors the controller's own failure prefixes.
@@ -1865,7 +1946,11 @@ export async function runTurn(ctx, messages) {
       messages.push({ role: "assistant", content: bail });
       publishController();
       checkpoint();
-      return bail;
+      // A budget checkpoint is an unfinished terminal result for this model,
+      // not a successful answer. Mark the orchestration failed so the server's
+      // Auto engine can immediately continue the saved task with an approved
+      // Codex or Claude subscription instead of rendering a misleading pause.
+      return finishOrchestration(bail, "failed");
     }
     // bounded runs (used by sub-agents) stop after their turn budget
     if (ctx.maxTurns && turn > ctx.maxTurns) {
@@ -2047,7 +2132,7 @@ export async function runTurn(ctx, messages) {
 
     const assistantContent = msg.content || "";
 
-    if (compatibilityMode && !reviewOnlyCompatibility && !compatibilityPatchApplied) {
+    if (compatibilityMode && !reviewOnlyCompatibility) {
       try {
         const edits = parseBooleanPatch(assistantContent, ctx.projectDir);
         if (edits) {
@@ -2216,7 +2301,31 @@ export async function runTurn(ctx, messages) {
       continue;
     }
 
-    const completion = controller.evaluateCompletion(assistantContent);
+    let completion = containsUnexecutedCompatibilityAction(assistantContent)
+      ? { complete: false, reason: "The model returned an unexecuted compatibility patch instead of a final result." }
+      : controller.evaluateCompletion(assistantContent);
+    if (completion.complete && config?.codingEngine === "auto" && controller.actionRequired
+        && !signal?.aborted && autoVerifications < MAX_AUTO_VERIFICATIONS) {
+      autoVerifications++;
+      const verdict = await verifyAutoCompletion(
+        config,
+        autoModelRoute.route,
+        target,
+        ctx.latestUserText,
+        assistantContent,
+        controller,
+        signal,
+        onStatus
+      );
+      emitStep({
+        name: "independent_verification",
+        args: { provider: verdict.reviewer?.provider || "", model: verdict.reviewer?.model || "" },
+        result: verdict.reason
+      });
+      if (!verdict.verified) completion = { complete: false, reason: verdict.reason };
+      else if (verdict.unverified) onStatus("Finishing without independent verification.");
+      else onStatus(`Verified by ${verdict.reviewer?.model || verdict.reviewer?.provider || "a different model"}.`);
+    }
     if (!completion.complete && controller.actionRequired && completionNudges < MAX_AUTO_CONTINUE && !signal?.aborted) {
       completionNudges++;
       if (autoModelRoute.enabled && autoModelRoute.allowEscalation !== false) {
@@ -2224,6 +2333,7 @@ export async function runTurn(ctx, messages) {
         if (stronger) {
           const resolved = await resolveProviderTarget(config, stronger.provider, onStatus);
           target = stronger.model ? { ...resolved, model: stronger.model } : resolved;
+          triedModelKeys.add(modelKey(target));
           autoModelRoute.alternates = autoModelRoute.alternates.filter((candidate) =>
             candidate.provider !== target.provider || candidate.model !== target.model
           );
@@ -2255,6 +2365,55 @@ export async function runTurn(ctx, messages) {
       continue;
     }
     if (!completion.complete) {
+      // Auto handoff: the current model has given up on an unfinished, action-
+      // required task. On autopilot, hand the SAME task to the next connected model
+      // (with the full saved controller state and history) so it can finish, instead
+      // of pausing. Each model is tried at most once and the total is bounded.
+      const handoffEnabled = (autopilot || config?.codingEngine === "auto")
+        && config?.ui?.codingAgent?.autoHandoff !== false
+        && controller.actionRequired
+        && !signal?.aborted
+        && modelHandoffs < MAX_MODEL_HANDOFFS;
+      const nextModel = handoffEnabled
+        ? handoffCandidates(config, autoModelRoute.route).find((candidate) => !triedModelKeys.has(modelKey(candidate)))
+        : null;
+      if (nextModel) {
+        modelHandoffs++;
+        const previousLabel = target.model || target.provider;
+        const resolved = await resolveProviderTarget(config, nextModel.provider, onStatus);
+        target = nextModel.model ? { ...resolved, model: nextModel.model } : resolved;
+        triedModelKeys.add(modelKey(target));
+        // Reconfigure tool mode for the new model, mirroring initial setup.
+        localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
+        capabilityProfile = modelCapabilityProfile(config, target);
+        compatibilityMode = localCompactTools || capabilityProfile.mode === "patch" || capabilityProfile.mode === "review";
+        reviewOnlyCompatibility = capabilityProfile.mode === "review";
+        useNativeTools = !compatibilityMode;
+        compactToolProtocol = localCompactTools;
+        // Give the fresh model a full correction budget and clear stall state.
+        completionNudges = 0;
+        compatibilityPatchApplied = false;
+        compatibilityPatchErrors = 0;
+        resetStallCounters();
+        forceToolCallNext = true;
+        const detail = {
+          route: autoModelRoute.route,
+          provider: target.provider,
+          model: target.model,
+          reason: `Handed off after ${previousLabel} stopped without finishing: ${completion.reason}`
+        };
+        onStatus(`${previousLabel} stopped — handing the task to ${target.model || target.provider} to finish…`, { autoRoute: detail });
+        emitStep({ name: "model_route", args: detail, result: detail.reason });
+        ctx.onRoute?.(detail);
+        messages.push({ role: "assistant", content: assistantContent });
+        messages.push({ role: "user", content:
+          "The previous model stopped before finishing this task. You are a different model taking over the SAME task — do not restart it or re-summarize what was done. "
+          + "Continue from the saved progress in WORKING MEMORY and complete the remaining work now using the tools. "
+          + controller.continuationPrompt(completion.reason) });
+        publishController();
+        checkpoint();
+        continue;
+      }
       const paused = `(paused: ${completion.reason} Work is saved.)`;
       messages.push({ role: "assistant", content: paused });
       publishController();

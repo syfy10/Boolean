@@ -43,6 +43,8 @@ const numberOrNull = (value) => {
   return Number.isFinite(number) ? number : null;
 };
 
+const normalizeSymbol = (value) => String(value || "AAPL").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g, "").slice(0, 24);
+
 export function parseYahooChart(payload, symbol) {
   const result = payload?.chart?.result?.[0];
   if (!result) throw new Error(payload?.chart?.error?.description || "Yahoo returned no market data.");
@@ -90,6 +92,37 @@ export function parseYahooChart(payload, symbol) {
     marketCap: numberOrNull(meta.marketCap),
     timezone: meta.exchangeTimezoneName || meta.timezone || "",
     points
+  };
+}
+
+export function parseYahooQuote(payload, symbol) {
+  const result = payload?.quoteResponse?.result?.[0];
+  if (!result) throw new Error(payload?.message || "Yahoo returned no quote data.");
+  const rawChangePercent = Number(result.regularMarketChangePercent);
+  const price = numberOrNull(result.regularMarketPrice);
+  const previousClose = numberOrNull(result.regularMarketPreviousClose);
+  const change = numberOrNull(result.regularMarketChange ?? (Number(price) - Number(previousClose)));
+  const changePercent = Number.isFinite(rawChangePercent) ? rawChangePercent : (change !== null && previousClose ? change / previousClose * 100 : null);
+  return {
+    source: "Yahoo Finance (experimental)",
+    delayed: true,
+    symbol: String(result.symbol || symbol).toUpperCase(),
+    name: result.shortName || result.longName || String(symbol).toUpperCase(),
+    currency: result.currency || "USD",
+    exchange: result.fullExchangeName || result.exchangeName || "",
+    price,
+    previousClose,
+    change,
+    changePercent,
+    marketState: result.marketState || "",
+    open: numberOrNull(result.regularMarketOpen),
+    dayHigh: numberOrNull(result.regularMarketDayHigh),
+    dayLow: numberOrNull(result.regularMarketDayLow),
+    fiftyTwoWeekHigh: numberOrNull(result.fiftyTwoWeekHigh),
+    fiftyTwoWeekLow: numberOrNull(result.fiftyTwoWeekLow),
+    volume: numberOrNull(result.regularMarketVolume),
+    marketCap: numberOrNull(result.marketCap),
+    timezone: result.exchangeTimezoneName || result.timezone || ""
   };
 }
 
@@ -346,7 +379,7 @@ export function parseAlphaDaily(payload, symbol) {
 }
 
 export async function getMarketSnapshot(settings, symbol, requestedRange = "6mo") {
-  const safeSymbol = String(symbol || "AAPL").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g, "").slice(0, 24);
+  const safeSymbol = normalizeSymbol(symbol);
   if (!safeSymbol) throw new Error("Enter a valid market symbol.");
   if (settings?.provider === "alphaVantage" && settings.apiKey) {
     const key = encodeURIComponent(settings.apiKey);
@@ -372,6 +405,20 @@ export async function getMarketSnapshot(settings, symbol, requestedRange = "6mo"
   const [range, interval] = rangeMap[String(requestedRange || "").toLowerCase()] || rangeMap["6mo"];
   const payload = await jsonFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?range=${range}&interval=${interval}&events=div%2Csplits`);
   return parseYahooChart(payload, safeSymbol);
+}
+
+export async function getMarketQuote(settings, symbol = "AAPL") {
+  const safeSymbol = normalizeSymbol(symbol);
+  if (!safeSymbol) throw new Error("Enter a valid market symbol.");
+  if (settings?.provider === "alphaVantage" && settings.apiKey) {
+    const key = encodeURIComponent(settings.apiKey);
+    const encoded = encodeURIComponent(safeSymbol);
+    const quotePayload = await jsonFetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encoded}&apikey=${key}`);
+    return { ...parseAlphaQuote(quotePayload, safeSymbol) };
+  }
+  const encoded = encodeURIComponent(safeSymbol);
+  const payload = await jsonFetch(`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encoded}`);
+  return parseYahooQuote(payload, safeSymbol);
 }
 
 const SECTOR_ETFS = [

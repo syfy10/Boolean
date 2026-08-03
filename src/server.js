@@ -14,6 +14,7 @@ import {
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
   ACCESS_MODES, currentAccessMode, defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
+import { currentTradeState } from "./trade-ledger.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, currentTurnInstructionText, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
 import {
@@ -28,7 +29,7 @@ import {
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend, costOf } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
-import { handleBrowse, clearCookies } from "./browse.js";
+import { clearCookies } from "./browse.js";
 import { executeTool } from "./tools.js";
 import { simplePdf } from "./platform.js";
 import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences, recordResponseFeedback } from "./preferences.js";
@@ -57,7 +58,7 @@ import {
   verifyAwsConnection, awsResourceList,
   verifyGoogleCloudConnection, googleCloudResourceList
 } from "./cloud-hosting.js";
-import { getCotSnapshot, getMarketDashboard, getMarketSnapshot, getOptionsChain, getSectorPerformance, getTradeIdeas, runStrategyBacktest, testMarketSettings } from "./markets.js";
+import { getCotSnapshot, getMarketDashboard, getMarketQuote, getMarketSnapshot, getOptionsChain, getSectorPerformance, getTradeIdeas, runStrategyBacktest, testMarketSettings } from "./markets.js";
 import {
   createEmailOAuth,
   exchangeEmailCode,
@@ -82,7 +83,7 @@ import {
   workspaceChangesReview
 } from "./workspace-changes.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
-import { routeForTurn, selectExecutionEngine } from "./model-router.js";
+import { autoSubscriptionEnabled, routeForTurn, selectExecutionEngine } from "./model-router.js";
 import { createCodexAppServer, installCodexStandaloneCli } from "./codex-app-server.js";
 import { codexToolEnvironment, createCodexRunner } from "./codex-runner.js";
 import {
@@ -134,6 +135,166 @@ function websiteMeta(html, baseUrl) {
   }).slice(0, 40);
   const colors = [...new Set([theme, ...colorHits].filter(value => /^#[0-9a-f]{6}$/i.test(value)))].slice(0, 5);
   return { title, description, imageUrl: resolve(image), logoUrl: resolve(attr(logoTag, "href")), imageUrls, colors };
+}
+
+function normalizeTradingSymbol(value = "") {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9.^=-]/g, "")
+    .slice(0, 24);
+}
+
+function extractTradingSymbolFromUrl(rawUrl = "", rawTitle = "") {
+  const normalizeCandidate = (candidate = "") => {
+    const raw = String(candidate || "");
+    const safeRaw = (() => {
+      try { return decodeURIComponent(raw); } catch { return raw; }
+    })();
+    const firstPart = safeRaw.split("/")[0];
+    const slashPart = firstPart.split("?")[0];
+    const hashPart = slashPart.split("#")[0];
+    const trimmed = hashPart.trim();
+    if (!trimmed) return "";
+
+    const [left, right] = trimmed.split(":");
+    if (right && /^(NYSE|NASDAQ|AMEX|BATS|CBOE|INDEX|INDEXCBOE|ARCA|ISE|OTC|XNAS|XNYS|XASE|DJI|IXIC)$/i.test(left)) {
+      return normalizeTradingSymbol(right);
+    }
+    if (right) return normalizeTradingSymbol(left);
+    if (/^[A-Z0-9]+-[A-Z0-9]/i.test(trimmed)) {
+      const withoutExchange = trimmed.replace(/^[^-]+\-/i, "").replace(/^[^.]+\^/i, "^");
+      const candidate = normalizeTradingSymbol(withoutExchange);
+      if (candidate) return candidate;
+    }
+    return normalizeTradingSymbol(trimmed);
+  };
+  const isLikelyTicker = (candidate = "") => {
+    const value = String(candidate || "");
+    return /^[A-Z0-9.^=-]{2,12}$/.test(value) && /[A-Z]/.test(value);
+  };
+  const extractFromCandidate = (candidate = "") => {
+    const normalized = normalizeCandidate(candidate);
+    return isLikelyTicker(normalized) ? normalized : "";
+  };
+  const extractFromTitleText = (raw = "") => {
+    const source = String(raw || "")
+      .toUpperCase()
+      .replace(/\r?\n/g, " ")
+      .replace(/&[A-Z]{2,6};/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!source) return "";
+
+    const stripAndParse = (candidate = "") => {
+      const normalized = normalizeCandidate(candidate);
+      if (!normalized || !/[A-Z]/.test(normalized)) return "";
+      if (!isLikelyTicker(normalized)) return "";
+      if (normalized.length < 2 || normalized.length > 12) return "";
+      return normalized;
+    };
+    const titlePatterns = [
+      /(?:\(|\s)([A-Z]{1,4}:\s*)?([A-Z0-9.^=-]{2,12})(?=\)|\s|$|[|-])/g,
+      /\b(?:SYMBOL|TICKER)\s*[:\-]\s*([A-Z0-9.^=-]{2,12})\b/g,
+      /\b([A-Z0-9.^=-]{2,12})\s*-\s*(?:STOCK|ETF|INDEX|QUOTE|CHART|OPTIONS?|FUTURE(?:S)?)\b/g
+    ];
+    for (const regex of titlePatterns) {
+      for (const match of source.matchAll(regex)) {
+        const direct = match[match.length - 1];
+        const found = stripAndParse(direct);
+        if (found) return found;
+      }
+    }
+
+    const tokenBans = new Set([
+      "NASDAQ", "NYSE", "AMEX", "BATS", "CBOE", "INDEX", "NYSEMKT", "ETF", "QUOTE",
+      "CHART", "STOCK", "STOCKS", "FUTURE", "FUTURES", "OPTIONS", "MARKET", "HTTP",
+      "HTTPS", "TRADING", "ROBINHOOD", "VIEW", "DASHBOARD", "BUILD", "OPEN", "PREVIEW"
+    ]);
+    const tokens = source.split(/[^A-Z0-9.^=-]+/).map((token) => token.trim()).filter(Boolean);
+    for (const token of tokens) {
+      const candidate = stripAndParse(token);
+      if (!candidate) continue;
+      if (tokenBans.has(candidate)) continue;
+      return candidate;
+    }
+    return "";
+  };
+  const extractFromHostPattern = (url, patterns) => {
+    for (const pattern of patterns) {
+      const match = pattern.regex.exec(url.pathname);
+      if (!match) continue;
+      const symbol = extractFromCandidate(match[1]);
+      if (symbol) return symbol;
+    }
+    return "";
+  };
+
+  const raw = String(rawUrl || "").trim();
+  if (!raw) return "";
+  let url;
+  try { url = new URL(raw); } catch { return ""; }
+  if (!/^https?:$/i.test(url.protocol)) return "";
+
+  const queryKeys = ["symbol", "ticker", "t", "instrument", "pair", "symbol_name", "pairId", "q", "s"];
+  for (const key of queryKeys) {
+    const found = extractFromCandidate(url.searchParams.get(key) || "");
+    if (found) return found;
+  }
+  const host = (url.hostname || "").toLowerCase();
+  if (host.includes("finance.yahoo.com")) {
+    const hostSymbol = extractFromHostPattern(url, [{ regex: /^\/quote\/([^/?#]+)/i }]);
+    if (hostSymbol) return hostSymbol;
+  }
+  if (host.includes("robinhood.com")) {
+    const robinhood = extractFromHostPattern(url, [
+      { regex: /^\/(?:[^/]+\/){0,6}(?:stocks|stock|options|option|etf|funds|futures|markets)\/([^/?#]+)/i },
+      { regex: /^\/(?:[^/]+\/){0,6}(?:watchlists?|lists?)\/([^/?#]+)/i }
+    ]);
+    if (robinhood) return robinhood;
+  }
+  if (host.includes("tradingview.com")) {
+    const tvPatterns = [
+      /^\/.*\/symbols\/([^/?#]+)/i,
+      /^\/symbols\/([^/?#]+)/i
+    ];
+    for (const regex of tvPatterns) {
+      const match = regex.exec(url.pathname);
+      if (!match) continue;
+      const rawMatch = (() => {
+        try { return decodeURIComponent(String(match[1] || "")); } catch { return String(match[1] || ""); }
+      })();
+      const symbolFromMatch = rawMatch.split("/")[0].split("?")[0].split("#")[0];
+      const symbolWithoutExchange = symbolFromMatch.includes("-")
+        ? symbolFromMatch.replace(/^[^-]+\-/i, "")
+        : symbolFromMatch;
+      const candidate = normalizeCandidate(symbolWithoutExchange);
+      if (isLikelyTicker(candidate)) return candidate;
+    }
+  }
+  if (host.includes("nasdaq.com")) {
+    const nasdaq = extractFromHostPattern(url, [
+      { regex: /^\/market-activity\/stocks\/([^/?#]+)/i },
+      { regex: /^\/market-activity\/etf\/([^/?#]+)/i }
+    ]);
+    if (nasdaq) return nasdaq;
+  }
+  if (host.endsWith("localhost") || host.includes("localhost") || host === "127.0.0.1" || host === "::1") {
+    const segments = url.pathname.split("/").map((segment) => segment.trim()).filter(Boolean);
+    for (let i = segments.length - 1; i >= 0; i -= 1) {
+      const found = extractFromCandidate(segments[i]);
+      if (found) return found;
+    }
+  }
+
+  const simplePaths = [
+    { regex: /\/quote\/([^/?#]+)/i },
+    { regex: /^\/stocks?\/([^/?#]+)/i },
+    { regex: /^\/trading\/([^/?#]+)/i },
+    { regex: /^\/market-activity\/([^/?#]+)/i },
+    { regex: /^\/watchlists?\/([^/?#]+)/i }
+  ];
+  return extractFromHostPattern(url, simplePaths) || extractFromTitleText(rawTitle);
 }
 
 function websiteInternalLinks(html, baseUrl, limit = 8) {
@@ -240,7 +401,7 @@ function loadLegalText(file) {
 
 const ABOUT_RELEASES = [
   {
-    version: "0.9.70",
+    version: "0.9.71",
     date: "2026-08-02",
     title: "Automatic routing, verified changes, and Boolean Pet",
     details: [
@@ -496,6 +657,56 @@ export function oneTurnProjectWriteConfig(config = {}) {
   return { ...config, accessMode: "ask", autoApprove: false };
 }
 
+const LOCAL_PREVIEW_URL_RE = /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)(?::\d+)?(?:\/[^\s"'<>]*)?/gi;
+
+export function requestsLocalPreview(text = "") {
+  const value = String(text || "").toLowerCase();
+  return /\b(?:preview|local site|local server|dev server|localhost)\b/.test(value)
+    || (/\b(?:open|show|launch|run)\b/.test(value) && /\b(?:browser|project|app|site|website|game)\b/.test(value));
+}
+
+export function localPreviewUrls(...values) {
+  const urls = [];
+  const seen = new Set();
+  for (const value of values) {
+    for (const match of String(value || "").matchAll(LOCAL_PREVIEW_URL_RE)) {
+      let candidate = match[0].replace(/[),.;!?]+$/g, "");
+      try {
+        const parsed = new URL(candidate);
+        if (parsed.hostname === "0.0.0.0") parsed.hostname = "127.0.0.1";
+        candidate = parsed.toString();
+      } catch { continue; }
+      if (!seen.has(candidate)) { seen.add(candidate); urls.push(candidate); }
+    }
+  }
+  return urls;
+}
+
+export async function firstReachableLocalPreview(values = [], { timeoutMs = 2500 } = {}) {
+  for (const url of localPreviewUrls(...values)) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { method: "GET", redirect: "follow", signal: controller.signal });
+      if (response.status < 500) return url;
+    } catch {}
+    finally { clearTimeout(timer); }
+  }
+  return "";
+}
+
+const BOOLEAN_PREVIEW_HANDOFF = "Boolean owns the built-in browser. Start and verify the local preview, but do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls. Include the exact localhost URL in your final answer; Boolean will open it in its own browser.";
+
+export function withBooleanPreviewHandoff(messages = []) {
+  const copy = Array.isArray(messages) ? messages.map((message) => ({ ...message })) : [];
+  const index = copy.findLastIndex((message) => message?.role === "user");
+  if (index < 0) return copy;
+  const content = copy[index].content;
+  if (Array.isArray(content)) copy[index].content = [...content, { type: "text", text: `\n\n<boolean_preview_handoff>\n${BOOLEAN_PREVIEW_HANDOFF}\n</boolean_preview_handoff>` }];
+  else copy[index].content = `${String(content || "")}\n\n<boolean_preview_handoff>\n${BOOLEAN_PREVIEW_HANDOFF}\n</boolean_preview_handoff>`;
+  return copy;
+}
+
 function codexThreadIds(threads = []) {
   const ids = new Set();
   for (const thread of threads) {
@@ -744,6 +955,7 @@ function publicConnectors(config, managedEmailOAuthClients = {}) {
     cloudflare: {
       connected: c.cloudflare?.connected === true,
       hasToken: !!c.cloudflare?.token,
+      fullAccess: c.cloudflare?.fullAccess === true,
       authType: c.cloudflare?.authType || (c.cloudflare?.oauth ? "oauth" : (c.cloudflare?.token ? "token" : "")),
       oauthClientId: c.cloudflare?.oauthClientId || "",
       oauthRedirectUri: c.cloudflare?.oauthRedirectUri || "https://boollm.com/oauth/cloudflare/callback",
@@ -1201,7 +1413,7 @@ export function startServer(config, {
   const pendingBrowserControls = new Map(); // id -> resolve(result)
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
-  let browseBase = ""; // origin of the isolated browser-proxy server (set on listen)
+  let browserTitle = ""; // optional page title sent with the current browser URL
   let serverPort = 0;  // this app's own port, hidden from local-server discovery
   let codexClient = null;
   let codexRunner = null;
@@ -1533,6 +1745,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     width:100%;text-align:left;color:var(--text);font-size:12.5px}
   .mi:hover{background:var(--hover)}
   .sep{height:1px;margin:5px 6px;background:var(--border)}
+  .devw{display:none;align-items:center;height:26px;padding:0 8px;border-radius:7px;background:var(--card);
+    color:var(--dim);font:11px/1 ui-monospace,Consolas,monospace;white-space:nowrap}
+  .devw.on{display:flex}
   .zoom{display:flex;align-items:center;gap:6px;padding:2px 10px;height:32px}
   .zoom span{flex:1;color:var(--dim)}
   .zoom b{min-width:44px;text-align:center;font-weight:600}
@@ -1555,7 +1770,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       <button class="ico" id="back" title="Back">&#x2190;</button>
       <button class="ico" id="fwd" title="Forward">&#x2192;</button>
       <button class="ico" id="reload" title="Reload">&#x21BB;</button>
-      <button class="ico" id="device" title="Responsive view: Desktop / Tablet / Mobile">&#x25A3;</button>
+      <button class="ico" id="device" title="Responsive view: Desktop / Tablet / Mobile. Then drag the preview's right edge to any width.">&#x25A3;</button>
+      <span class="devw" id="devw" title="Preview width — drag the preview's right edge to change it"></span>
       <button class="ico" id="run" title="Run current project">&#x25B6;</button>
       <button class="ico" id="darkPage" title="Dark mode for websites" aria-pressed="false">&#x263E;</button>
       <div class="addr">
@@ -1682,6 +1898,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       $("back").disabled = !s.canBack;
       $("fwd").disabled = !s.canFwd;
       $("device").innerHTML = dev[s.device] || dev.desktop;
+      $("device").classList.toggle("on", (s.deviceWidth||0) > 0);
+      var devw = $("devw");
+      devw.textContent = s.deviceLabel || "";
+      devw.classList.toggle("on", !!s.deviceLabel);
       $("darkPage").classList.toggle("on", !!s.darkPage);
       $("darkPage").setAttribute("aria-pressed", s.darkPage ? "true" : "false");
       $("darkPage").title = s.darkPage ? "Turn off website dark mode" : "Dark mode for websites";
@@ -1986,6 +2206,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         let runIn = 0, runOut = 0, runEst = false, runCalls = 0;
         const ctx = {
           config: runConfig,
+          unattended: true,
+          scheduled: true,
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
           signal: abort.signal,
           objective: t.pendingTask?.objective || text,
@@ -2369,7 +2591,6 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           codexPendingInputs: publicCodexInputs(),
           codexPendingApprovals: publicCodexApprovals(),
           cloudBackend: publicCloudBackend(config),
-          browseBase,
           vision: currentVision,
           ui: config.ui,
           eulaAccepted: !!config.eulaAccepted,
@@ -3101,8 +3322,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         let explicitSecretRemoval = false;
         let explicitConnectionRemoval = body.replaceConnectors === true;
         let restartCodex = false;
+        const provider = typeof body.provider === "string" && PROVIDERS.includes(body.provider) ? body.provider : config.provider;
         if (typeof body.provider === "string" && PROVIDERS.includes(body.provider)) config.provider = body.provider;
-        if (typeof body.model === "string" && body.model) setCurrentModel(config, body.model);
+        if (typeof body.model === "string" && body.model) setCurrentModel(config, body.model, provider);
         if (body.accessMode !== undefined) {
           const accessMode = String(body.accessMode || "").trim().toLowerCase();
           if (!ACCESS_MODES.includes(accessMode)) return json({ error: "invalid_access_mode" }, 400);
@@ -3572,6 +3794,19 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
+      if (req.method === "GET" && p === "/api/markets/quote") {
+        try {
+          const quote = await getMarketQuote(
+            config.connectors?.marketData || {},
+            url.searchParams.get("symbol") || "AAPL"
+          );
+          json({ ok: true, ...quote });
+        } catch (error) {
+          json({ error: String(error?.message || error) }, 502);
+        }
+        return;
+      }
+
       if (req.method === "GET" && p === "/api/markets/dashboard") {
         try {
           const dashboard = await getMarketDashboard(
@@ -3842,6 +4077,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           config.connectors.cloudflare = {
             token,
             authType: "token",
+            fullAccess: saved.fullAccess === true,
             oauthClientId: saved.oauthClientId || "",
             oauthRedirectUri: saved.oauthRedirectUri || "https://boollm.com/oauth/cloudflare/callback",
             oauthScopes: Array.isArray(saved.oauthScopes) ? saved.oauthScopes : [],
@@ -3865,6 +4101,55 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         } catch (error) {
           return json({ ok: false, error: error.message || "Cloudflare connection failed." }, 400);
         }
+      }
+
+      if (req.method === "GET" && p === "/api/trading/state") {
+        const g = config.connectors?.trading || {};
+        const bp = config.ui?.browserPerms || {};
+        const user = String(config.cloudBackend?.user?.email || config.cloudBackend?.user?.id || "").trim().toLowerCase();
+        const ledger = currentTradeState(SAZ_DIR);
+        return json({
+          armed: !!user && bp.tradeClicks === true && String(bp.tradeConsentUser || "").trim().toLowerCase() === user,
+          enabled: g.enabled === true,
+          killSwitch: g.killSwitch === true,
+          maxOrdersPerDay: Number(g.maxOrdersPerDay) || 0,
+          dailyLossCapUsd: Number(g.dailyLossCapUsd) || 0,
+          maxNotionalUsd: Number(g.maxNotionalUsd) || 0,
+          symbolAllowlist: Array.isArray(g.symbolAllowlist) ? g.symbolAllowlist : [],
+          browserSymbol: extractTradingSymbolFromUrl(browserUrl, browserTitle),
+          ordersToday: ledger.ordersToday,
+          realizedLossUsd: ledger.realizedLossUsd
+        });
+      }
+
+      if (req.method === "POST" && p === "/api/trading/settings") {
+        const body = await readBody(req);
+        config.connectors = config.connectors || {};
+        const g = { ...(config.connectors.trading || {}) };
+        if ("killSwitch" in body) g.killSwitch = body.killSwitch === true;
+        if ("enabled" in body) g.enabled = body.enabled === true;
+        if ("maxOrdersPerDay" in body) g.maxOrdersPerDay = Math.max(0, Number(body.maxOrdersPerDay) || 0);
+        if ("dailyLossCapUsd" in body) g.dailyLossCapUsd = Math.max(0, Number(body.dailyLossCapUsd) || 0);
+        if ("maxNotionalUsd" in body) g.maxNotionalUsd = Math.max(0, Number(body.maxNotionalUsd) || 0);
+        if (Array.isArray(body.symbolAllowlist)) g.symbolAllowlist = body.symbolAllowlist.map((s) => String(s || "").trim().toUpperCase()).filter(Boolean);
+        config.connectors.trading = g;
+        saveConfig(config);
+        const ledger = currentTradeState(SAZ_DIR);
+        return json({ ok: true, killSwitch: g.killSwitch === true, enabled: g.enabled === true,
+          maxOrdersPerDay: g.maxOrdersPerDay || 0, dailyLossCapUsd: g.dailyLossCapUsd || 0,
+          ordersToday: ledger.ordersToday, realizedLossUsd: ledger.realizedLossUsd });
+      }
+
+      if (req.method === "POST" && p === "/api/cloudflare/full-access") {
+        const body = await readBody(req);
+        config.connectors = config.connectors || {};
+        const saved = config.connectors.cloudflare || {};
+        if (!saved.connected || !saved.token) {
+          return json({ ok: false, error: "Connect Cloudflare first, then enable Full access." }, 400);
+        }
+        config.connectors.cloudflare = { ...saved, fullAccess: body.enabled === true };
+        saveConfig(config);
+        return json({ ok: true, cloudflare: publicConnectors(config, managedEmailOAuthClients).cloudflare });
       }
 
       if (req.method === "POST" && p === "/api/cloudflare/oauth/start") {
@@ -4699,6 +4984,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/browser/url") {
         const body = await readBody(req);
         browserUrl = typeof body.url === "string" ? body.url : "";
+        browserTitle = typeof body.title === "string" ? body.title : "";
         json({ ok: true });
         return;
       }
@@ -5390,6 +5676,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         let runIn = 0, runOut = 0, runEst = false, runCalls = 0, teamUsageSeen = false;
         const runUsageByWorker = new Map();
         let verifiedWorkspaceChangeThisTurn = false;
+        const previewRequested = requestsLocalPreview(userTextOnly(t.messages.at(-1)?.content || ""));
+        const previewEvidence = [];
         const ctx = {
           config: runConfig,
           projectDir: t.kind === "project" ? t.projectDir || "" : "",
@@ -5438,6 +5726,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             send({ type: "tokens", input: runIn, output: runOut, estimated: runEst, calls: runCalls, ...(breakdown ? { breakdown } : {}) });
           },
           onStep: (step) => {
+            if (previewRequested) previewEvidence.push(step?.result || "", JSON.stringify(step?.args || {}));
             if (step?.verified === true && step?.name === "apply_patch" && Array.isArray(step?.args?.changes)) {
               const changeRoot = t.projectDir || config.projectsDir || "";
               t.workspaceChanges = mergeWorkspaceChanges(t.workspaceChanges || [], step.args.changes, changeRoot);
@@ -5461,10 +5750,6 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
                 ? "https://mail.google.com/"
                 : provider === "outlook" ? "https://outlook.live.com/mail/" : "";
               if (emailUrl) send({ type: "browser", action: "open", url: emailUrl });
-            }
-            if (step.name === "run_project") {
-              const previewUrl = String(step.result || "").match(/https?:\/\/(?:localhost|127\.0\.0\.1):\d+[^\s"'<>]*/i)?.[0];
-              if (previewUrl) send({ type: "browser", action: "open", url: previewUrl });
             }
           },
           onOptimize: (o) => send({ type: "optimized", ...o }),
@@ -5582,9 +5867,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
               }, 600000).unref?.();
             });
           },
-          approveAlways: (summary) => {
+          approveAlways: (summary, meta = {}) => {
             const id = crypto.randomUUID();
-            send({ type: "approval", id, summary });
+            send({ type: "approval", id, summary, ...(meta && typeof meta === "object" ? meta : {}) });
             return new Promise((resolve) => {
               pendingApprovals.set(id, resolve);
               abort.signal.addEventListener("abort", () => {
@@ -5603,17 +5888,19 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           if (configuredCodingEngine !== "auto" || !autoRouteContext || options.disableCodex === true || abort.signal.aborted) return false;
           if (config.ui?.modelRouting?.allowEscalation === false) return false;
           const subscriptions = config.ui?.modelRouting?.subscriptionEngines || {};
-          if (subscriptions.codex !== true && subscriptions.claudeCode !== true) return false;
+          const codexAllowed = autoSubscriptionEnabled(subscriptions, "codex");
+          const claudeAllowed = autoSubscriptionEnabled(subscriptions, "claudeCode");
+          if (!codexAllowed && !claudeAllowed) return false;
           let codexReady = false;
           let claudeReady = false;
-          if (subscriptions.codex === true) {
+          if (codexAllowed) {
             try {
               await ensureCodexClient();
               const status = publicCodexStatus();
               codexReady = status.ready === true && status.account?.signedIn === true;
             } catch { codexReady = false; }
           }
-          if (subscriptions.claudeCode === true) {
+          if (claudeAllowed) {
             try { claudeReady = publicClaudeStatus({ refresh: true }).ready === true; }
             catch { claudeReady = false; }
           }
@@ -5716,7 +6003,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             let result;
             try {
               result = await runner.runCodexTurn({
-              messages: t.messages,
+              messages: previewRequested ? withBooleanPreviewHandoff(t.messages) : t.messages,
               mapping: t.codex || {},
               model: config.codex?.model || "",
               effort: config.codex?.reasoningEffort || "medium",
@@ -5836,7 +6123,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             const latestUser = [...t.messages].reverse().find((message) => message?.role === "user");
             const result = await claudeTurnRunner({
               command: config.claudeCode?.command || "claude",
-              input: currentTurnInstructionText(latestUser || ""),
+              input: previewRequested
+                ? currentTurnInstructionText(withBooleanPreviewHandoff([latestUser || { role: "user", content: "" }]).at(-1) || "")
+                : currentTurnInstructionText(latestUser || ""),
               projectDir: t.projectDir || config.projectsDir || "",
               workspaceChanges: booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
               mapping: t.claudeCode || {},
@@ -5868,6 +6157,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
                 && await activateAutoSubscriptionEscalation(`Boolean ended with ${booleanTurnStatus}.`)) continue;
             break;
           }
+          }
+          if (previewRequested) {
+            const previewUrl = await firstReachableLocalPreview([...previewEvidence, answer]);
+            if (previewUrl) {
+              send({ type: "status", text: `Opening verified preview: ${previewUrl}` });
+              send({ type: "browser", action: "open", url: previewUrl });
+            }
           }
           if (verifiedWorkspaceChangeThisTurn) {
             const report = workspaceChangesReport(booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads));
@@ -6015,23 +6311,6 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
   });
   server.on("close", () => { stopCodexClient().catch(() => {}); });
 
-  // Isolated browser-proxy server on its OWN port. Proxied web pages render
-  // from this origin (a different port = a different origin than the app), so
-  // they can safely get sandbox `allow-same-origin` — cookies/storage work and
-  // sites render normally — yet can never reach the app's /api (cross-origin +
-  // the x-saz CSRF guard). Only /browse is served here; nothing sensitive.
-  const proxyServer = http.createServer(async (req, res) => {
-    const u = new URL(req.url, "http://localhost");
-    const host = (req.headers.host || "").replace(/:\d+$/, "");
-    if (!["127.0.0.1", "localhost", "[::1]"].includes(host)) { res.writeHead(403); res.end("forbidden"); return; }
-    if (u.pathname === "/browse" && (req.method === "GET" || req.method === "POST")) {
-      try { await handleBrowse(req, res, u, config); }
-      catch (err) { res.writeHead(502); res.end(err.message); }
-      return;
-    }
-    res.writeHead(404); res.end("not found");
-  });
-
   // try the requested port; if taken, fall back to a random free one
   return new Promise((resolve) => {
     function listen(tryPort, allowFallback) {
@@ -6040,11 +6319,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         else throw err;
       });
       server.listen(tryPort, "127.0.0.1", () => {
-        proxyServer.listen(0, "127.0.0.1", () => {
-          browseBase = `http://127.0.0.1:${proxyServer.address().port}`;
-          serverPort = server.address().port;
-          resolve({ server, proxyServer, port: serverPort });
-        });
+        serverPort = server.address().port;
+        resolve({ server, port: serverPort });
       });
     }
     listen(port, port !== 0);

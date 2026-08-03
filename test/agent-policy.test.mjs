@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { BOOLEAN_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js";
-import { systemPrompt } from "../src/agent.js";
+import { projectBrief, systemPrompt } from "../src/agent.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 test("operating policy uses one concise Codex-style task contract", () => {
   const policy = booleanAgentPolicy();
@@ -33,4 +36,13 @@ test("planning modes scale implementation pauses to task risk", () => {
   assert.match(prompt("auto"), /PLANNING MODE: AUTO[\s\S]*Work directly on clear requests[\s\S]*pause only for a genuinely blocking choice/);
   assert.match(prompt("quick"), /PLANNING MODE: QUICK[\s\S]*implement and verify immediately without stopping/);
   assert.match(prompt("plan-first"), /PLANNING MODE: PLAN FIRST[\s\S]*Blocking questions \(0-3[\s\S]*wait for one user approval[\s\S]*without requesting the same approval again/);
+});
+
+test("project builds require an early persistent live preview", (t) => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-preview-policy-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  const prompt = projectBrief(projectDir);
+  assert.match(prompt, /LIVE PROJECT PREVIEW/);
+  assert.match(prompt, /call run_project as soon as the existing project can start/);
+  assert.match(prompt, /Never use a file:\/\/ URL/);
 });

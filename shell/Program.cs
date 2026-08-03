@@ -534,7 +534,7 @@ sealed class BooleanPetForm : Form
     }
 }
 
-sealed class MainForm : Form, IMessageFilter
+sealed class MainForm : Form
 {
     // derived from AssemblyVersion (SazShell.csproj) so it can never drift from
     // the shipped version again — a stale hardcoded value here made 0.9.9
@@ -829,6 +829,13 @@ sealed class MainForm : Form, IMessageFilter
 
     // layout
     readonly SplitContainer _split = new() { Orientation = Orientation.Vertical, SplitterWidth = 5 };
+    // Grab strip painted over the splitter. Both panes are WebView2 controls, which
+    // host their own child HWNDs and swallow the mouse, so the SplitContainer's own
+    // splitter can never be dragged. A real top-most control taking mouse capture is
+    // the only way the divider tracks the cursor across both panes.
+    readonly Panel _splitGrip = new() { TabStop = false, Visible = false, Cursor = Cursors.VSplit };
+    // Right edge of the responsive preview: drag to any width, like a browser window.
+    readonly Panel _previewGrip = new() { TabStop = false, Visible = false, Cursor = Cursors.SizeWE };
     readonly Panel _topOutline = new() { Dock = DockStyle.Top, Height = 1, TabStop = false, Visible = false };
     readonly WebView2 _chat = new() { Dock = DockStyle.Fill };
     // HTML browser chrome (tabs + nav + address + tasks + menu + window controls),
@@ -850,10 +857,19 @@ sealed class MainForm : Form, IMessageFilter
     bool _full = false;
     bool _windowSizing;
     bool _fittingBrowserSplit;
-    bool _splitHitDragging;
+    bool _gripDragging;
+    bool _previewGripDragging;
     bool _wasMinimized;
     int _lastUsableBrowserWidth;
+    // Width the user dragged the browser pane to. Window resizes keep it instead of
+    // snapping the pane back to the automatic even split.
+    int _browserManualWidth;
     int _deviceModeIdx = 0;
+    // Preview width in CSS pixels for the responsive view (0 = fill the pane).
+    int _deviceWidth;
+    bool _deviceCustomWidth;
+    const int PreviewGutter = 14;
+    const int PreviewMinWidth = 240;
     static readonly (string id, string label, int w, int h, bool mobile, string glyph)[] DeviceModes =
     {
         ("desktop", "Desktop", 0, 0, false, "▣"),
@@ -952,6 +968,7 @@ sealed class MainForm : Form, IMessageFilter
         _split.Panel2.Controls.Add(_browserPane);
         _split.Panel2Collapsed = true; // browser hidden until toggled
         Controls.Add(_split);
+        BuildSplitGrip();
         // Windows 11 uses this to complete its themed DWM outline across the
         // custom title bar. RefreshTopOutline keeps it hidden on Windows 10,
         // where a lone client-side top line does not match the other edges.
@@ -980,11 +997,13 @@ sealed class MainForm : Form, IMessageFilter
                 if (_browserOpen && !_full) BeginInvoke(new Action(RestoreBrowserSplitAfterMinimize));
                 PushChromeState();
                 PushWindowState();
+                PositionSplitGrip();
                 return;
             }
             if (_browserOpen && !_full && !_windowSizing) FitBrowserSplit();
             PushChromeState(); // keep the chrome's maximize/restore glyph in sync
             PushWindowState(); // keep the main title bar's maximize/restore glyph in sync
+            PositionSplitGrip();
         };
         ResizeEnd += (_, __) =>
         {
@@ -995,11 +1014,9 @@ sealed class MainForm : Form, IMessageFilter
             finally { _split.ResumeLayout(true); }
             _split.Invalidate(true);
         };
-        Application.AddMessageFilter(this);
         FormClosing += (_, __) => SaveWindowLayout();
         FormClosed += (_, __) =>
         {
-            Application.RemoveMessageFilter(this);
             try { _pet?.Close(); } catch { }
             CleanupCoreOnClose();
             LaunchPendingUpdate();
@@ -1052,6 +1069,8 @@ sealed class MainForm : Form, IMessageFilter
             _restoreMaximized = saved.Maximized;
             _restoreBrowserOpen = saved.BrowserOpen;
             _restoreBrowserWidth = Math.Max(0, saved.BrowserWidth);
+            // A width carried over from the last session is the user's choice too.
+            _browserManualWidth = _restoreBrowserWidth;
         }
         catch { }
     }
@@ -1661,6 +1680,7 @@ try {
         _browserPane.Controls.Add(_chromeView);
         _browserPane.Layout += (_, __) => LayoutBrowserPane();
         _browserPane.SizeChanged += (_, __) => LayoutBrowserPane();
+        BuildPreviewGrip();
         // Clicking the page moves focus away from the chrome WebView. Collapse
         // any open chrome popup at the same time so stale menu state cannot
         // leave the page compressed or make the next menu click behave backward.
@@ -1710,7 +1730,98 @@ try {
             r.Top + normalHeight,
             r.Width,
             Math.Max(0, r.Height - normalHeight));
+        LayoutContentViews();
         _chromeView.BringToFront();
+    }
+
+    // ── responsive preview ───────────────────────────────────────────
+    // In a device/responsive view the page WebView is sized to the preview width
+    // itself rather than stretched across the pane. The page then genuinely lays
+    // out at that width, so the pane shows what the site looks like there.
+    Rectangle PreviewViewport(Rectangle area)
+    {
+        if (_deviceWidth <= 0) return area;
+        double dpi = _content.DeviceDpi / 96.0;
+        int gutter = (int)Math.Round(PreviewGutter * dpi);
+        int gripWidth = PreviewGripWidth();
+        int maxWidth = Math.Max(120, area.Width - gutter - gripWidth);
+        int width = Math.Min((int)Math.Round(_deviceWidth * dpi), maxWidth);
+        return new Rectangle(area.Left + gutter, area.Top, width, area.Height);
+    }
+
+    int PreviewGripWidth() => Math.Max(8, (int)Math.Round(10 * (_content.DeviceDpi / 96.0)));
+
+    void LayoutContentViews()
+    {
+        var area = _content.ClientRectangle;
+        if (area.Width <= 0 || area.Height <= 0) return;
+        var viewport = PreviewViewport(area);
+        foreach (var t in _tabs)
+            if (t.View.Bounds != viewport) t.View.Bounds = viewport;
+        PositionPreviewGrip(area, viewport);
+    }
+
+    void PositionPreviewGrip(Rectangle area, Rectangle viewport)
+    {
+        if (_deviceWidth <= 0 || !_browserOpen)
+        {
+            if (_previewGrip.Visible) _previewGrip.Visible = false;
+            return;
+        }
+        var bounds = new Rectangle(viewport.Right, area.Top, PreviewGripWidth(), area.Height);
+        if (_previewGrip.Bounds != bounds) _previewGrip.Bounds = bounds;
+        if (!_previewGrip.Visible) _previewGrip.Visible = true;
+        _previewGrip.BringToFront();
+    }
+
+    void BuildPreviewGrip()
+    {
+        _previewGrip.BackColor = _pal.PaneBg;
+        _previewGrip.Cursor = Cursors.SizeWE;
+        _content.Controls.Add(_previewGrip);
+        _previewGrip.MouseEnter += (_, __) => _previewGrip.Invalidate();
+        _previewGrip.MouseLeave += (_, __) => _previewGrip.Invalidate();
+        _previewGrip.Paint += (_, e) => PaintGrip(e, _previewGrip, _previewGripDragging, vertical: true);
+        _previewGrip.MouseDown += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Left) return;
+            _previewGripDragging = true;
+            _previewGrip.Capture = true;
+            _previewGrip.Invalidate();
+        };
+        _previewGrip.MouseMove += (_, __) =>
+        {
+            if (!_previewGripDragging) return;
+            var area = _content.ClientRectangle;
+            double dpi = _content.DeviceDpi / 96.0;
+            int gutter = (int)Math.Round(PreviewGutter * dpi);
+            int device = (int)Math.Round((_content.PointToClient(Cursor.Position).X - area.Left - gutter) / dpi);
+            int maxWidth = (int)Math.Round(Math.Max(120, area.Width - gutter - PreviewGripWidth()) / dpi);
+            int next = Math.Clamp(device, PreviewMinWidth, Math.Max(PreviewMinWidth, maxWidth));
+            if (next == _deviceWidth) return;
+            _deviceWidth = next;
+            _deviceCustomWidth = true;
+            LayoutContentViews();
+        };
+        _previewGrip.MouseUp += (_, __) =>
+        {
+            if (!_previewGripDragging) return;
+            _previewGripDragging = false;
+            _previewGrip.Capture = false;
+            _previewGrip.Invalidate();
+            PushChromeState();
+            _ = ApplyDeviceModeAsync();
+        };
+        // Double-click drops back to the full-width desktop view.
+        _previewGrip.DoubleClick += (_, __) =>
+        {
+            _deviceModeIdx = 0;
+            _deviceWidth = 0;
+            _deviceCustomWidth = false;
+            LayoutContentViews();
+            PushChromeState();
+            _ = ApplyDeviceModeAsync();
+        };
     }
 
     // Compute the six context-aware AI quick actions for the task row.
@@ -1755,6 +1866,12 @@ try {
             canFwd = cw?.CanGoForward ?? false,
             zoom,
             device = DeviceModes[_deviceModeIdx].id,
+            deviceWidth = _deviceWidth,
+            deviceLabel = _deviceWidth <= 0
+                ? ""
+                : _deviceCustomWidth
+                    ? $"{_deviceWidth} px"
+                    : DeviceModes[_deviceModeIdx].label,
             maxed = WindowState == FormWindowState.Maximized,
             full = _full,
             tasks = specs,
@@ -1763,6 +1880,36 @@ try {
             surface = _themeSurface
         };
         try { _chromeView.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(state)); } catch { }
+    }
+
+    // The chat UI and the core both need to know which page the browser is on:
+    // the UI for page-scoped actions (save page, detect stack, research cards) and
+    // the core for URL-derived state such as the trading bar's symbol. The native
+    // pane is the only browser, so it is the only thing that can report this.
+    string _reportedBrowserUrl = "";
+    void ReportBrowserUrl(TabItem? t)
+    {
+        var active = Active();
+        if (t != null && !ReferenceEquals(t, active)) return;
+        var url = _browserOpen ? active?.Url ?? "" : "";
+        var title = _browserOpen ? active?.Title ?? "" : "";
+        var key = url + " " + title;
+        if (key == _reportedBrowserUrl) return;
+        _reportedBrowserUrl = key;
+        PostToChat(new { type = "shellBrowserUrl", url, title });
+        _ = PostBrowserUrlToCore(url, title);
+    }
+
+    async System.Threading.Tasks.Task PostBrowserUrlToCore(string url, string title)
+    {
+        if (_port <= 0) return;
+        try
+        {
+            var body = new StringContent(JsonSerializer.Serialize(new { url, title }),
+                Encoding.UTF8, "application/json");
+            using var _ = await _http.PostAsync($"http://127.0.0.1:{_port}/api/browser/url", body);
+        }
+        catch { /* the core may still be starting; the next navigation reports again */ }
     }
 
     void SelectTabById(int id) { var i = _tabs.FindIndex(x => x.Id == id); if (i >= 0) Activate(i); }
@@ -1866,6 +2013,10 @@ try {
         // The WebView owns the complete bottom surface in both themes.
         Padding = Padding.Empty;
         _split.SplitterWidth = 5;
+        _splitGrip.BackColor = p.Splitter;
+        _splitGrip.Invalidate();
+        _previewGrip.BackColor = p.PaneBg;
+        _previewGrip.Invalidate();
         _browserPane.Radius = 0;
         BackColor = p.CanvasBg;
         try { _chat.DefaultBackgroundColor = p.PaneBg; } catch { }
@@ -1894,53 +2045,90 @@ try {
         PushChromeState();
     }
 
-    public bool PreFilterMessage(ref Message m)
+    // ── splitter grip ────────────────────────────────────────────────
+    // Sits directly over the SplitContainer's splitter and owns the drag. Mouse
+    // capture keeps every move coming here even while the cursor is over either
+    // WebView, which is what makes the divider follow the pointer at all.
+    void BuildSplitGrip()
     {
-        const int WM_MOUSEMOVE = 0x0200;
-        const int WM_LBUTTONDOWN = 0x0201;
-        const int WM_LBUTTONUP = 0x0202;
-        // The browser/chat panes are WebView2 controls, which swallow the mouse so the
-        // SplitContainer's own splitter can never be grabbed. This manual hit-test drives
-        // the drag in every theme so the splitter remains usable over WebView surfaces.
-        if (!_browserOpen || _full || _split.Panel2Collapsed)
-            return false;
-        if (m.Msg != WM_MOUSEMOVE && m.Msg != WM_LBUTTONDOWN && m.Msg != WM_LBUTTONUP)
-            return false;
-
-        var point = _split.PointToClient(Cursor.Position);
-        bool insideHeight = point.Y >= 0 && point.Y < _split.ClientSize.Height;
-        bool nearSplitter = insideHeight && Math.Abs(point.X - _split.SplitterDistance) <= 5;
-
-        if (m.Msg == WM_LBUTTONDOWN && nearSplitter)
+        _splitGrip.BackColor = _pal.Splitter;
+        Controls.Add(_splitGrip);
+        _splitGrip.MouseEnter += (_, __) => _splitGrip.Invalidate();
+        _splitGrip.MouseLeave += (_, __) => _splitGrip.Invalidate();
+        _splitGrip.Paint += (_, e) => PaintGrip(e, _splitGrip, _gripDragging, vertical: true);
+        _splitGrip.MouseDown += (_, e) =>
         {
-            _splitHitDragging = true;
-            Capture = true;
-            _split.Cursor = Cursors.VSplit;
-            return true;
-        }
-
-        if (m.Msg == WM_MOUSEMOVE && _splitHitDragging)
+            if (e.Button != MouseButtons.Left) return;
+            _gripDragging = true;
+            _splitGrip.Capture = true;
+            _splitGrip.Invalidate();
+        };
+        _splitGrip.MouseMove += (_, __) =>
         {
-            int maximum = Math.Max(_split.Panel1MinSize,
-                _split.Width - _split.SplitterWidth - _split.Panel2MinSize);
-            _split.SplitterDistance = Math.Clamp(point.X, _split.Panel1MinSize, maximum);
-            _split.Cursor = Cursors.VSplit;
-            return true;
-        }
-
-        if (m.Msg == WM_LBUTTONUP && _splitHitDragging)
+            if (_gripDragging) DragSplitTo(_split.PointToClient(Cursor.Position).X);
+        };
+        _splitGrip.MouseUp += (_, __) =>
         {
-            _splitHitDragging = false;
+            if (!_gripDragging) return;
+            _gripDragging = false;
+            _splitGrip.Capture = false;
+            _splitGrip.Invalidate();
             RememberBrowserSplit();
-            Capture = false;
-            _split.Cursor = nearSplitter ? Cursors.VSplit : Cursors.Default;
             AutoFitActiveBrowserIfNarrow();
-            return true;
-        }
+        };
+        // Double-click restores the automatic split, the same as never having dragged.
+        _splitGrip.DoubleClick += (_, __) => { _browserManualWidth = 0; FitBrowserSplit(); PositionSplitGrip(); };
+        _split.SplitterMoved += (_, __) => PositionSplitGrip();
+        _split.SizeChanged += (_, __) => PositionSplitGrip();
+    }
 
-        if (m.Msg == WM_MOUSEMOVE)
-            _split.Cursor = nearSplitter ? Cursors.VSplit : Cursors.Default;
-        return false;
+    static void PaintGrip(PaintEventArgs e, Control grip, bool dragging, bool vertical)
+    {
+        e.Graphics.Clear(grip.BackColor);
+        bool hot = dragging || grip.ClientRectangle.Contains(grip.PointToClient(Cursor.Position));
+        if (!hot) return;
+        using var brush = new SolidBrush(Color.FromArgb(63, 185, 80));
+        if (vertical)
+        {
+            int h = Math.Min(52, grip.Height);
+            e.Graphics.FillRectangle(brush, (grip.Width - 2) / 2, (grip.Height - h) / 2, 2, h);
+        }
+        else
+        {
+            int w = Math.Min(52, grip.Width);
+            e.Graphics.FillRectangle(brush, (grip.Width - w) / 2, (grip.Height - 2) / 2, w, 2);
+        }
+    }
+
+    void DragSplitTo(int x)
+    {
+        int maximum = Math.Max(_split.Panel1MinSize,
+            _split.Width - _split.SplitterWidth - _split.Panel2MinSize);
+        int distance = Math.Clamp(x, _split.Panel1MinSize, maximum);
+        if (distance == _split.SplitterDistance) return;
+        _split.SplitterDistance = distance;
+        // Remember the width so a later window resize does not undo the drag.
+        _browserManualWidth = _split.Panel2.Width;
+        PositionSplitGrip();
+    }
+
+    void PositionSplitGrip()
+    {
+        bool show = _browserOpen && !_full && !_split.Panel2Collapsed &&
+            WindowState != FormWindowState.Minimized && _split.Width > 0 && _split.ClientSize.Height > 0;
+        if (!show)
+        {
+            if (_splitGrip.Visible) _splitGrip.Visible = false;
+            return;
+        }
+        var bounds = RectangleToClient(_split.RectangleToScreen(
+            new Rectangle(_split.SplitterDistance, 0, _split.SplitterWidth, _split.ClientSize.Height)));
+        // A couple of pixels of overhang per side make the divider easy to grab
+        // without noticeably covering either pane.
+        bounds.Inflate(2, 0);
+        if (_splitGrip.Bounds != bounds) _splitGrip.Bounds = bounds;
+        if (!_splitGrip.Visible) _splitGrip.Visible = true;
+        _splitGrip.BringToFront();
     }
 
     TabItem? Active() => _active >= 0 && _active < _tabs.Count ? _tabs[_active] : null;
@@ -1948,7 +2136,10 @@ try {
     async void AddTab(string url, bool activate, bool navigate)
     {
         var t = new TabItem { Url = url, Id = ++_tabSeq };
-        t.View.Dock = DockStyle.Fill;
+        // Explicit bounds, not Dock.Fill: a responsive preview sizes the page view to
+        // the preview width so the page reflows for real (see LayoutContentViews).
+        t.View.Dock = DockStyle.None;
+        t.View.Bounds = PreviewViewport(_content.ClientRectangle);
         t.View.Visible = false;
         _content.Controls.Add(t.View);
         try { t.View.DefaultBackgroundColor = _pal.PaneBg; } catch { } // no black flash before load
@@ -1967,12 +2158,13 @@ try {
     void WireView(TabItem t)
     {
         var c = t.View.CoreWebView2;
-        c.SourceChanged += (_, __) => { t.Url = c.Source; SyncTabs(); PushChromeState(); };
-        t.View.NavigationCompleted += (_, __) => { AutoFitActiveBrowserIfNarrow(); PushChromeState(); };
+        c.SourceChanged += (_, __) => { t.Url = c.Source; SyncTabs(); PushChromeState(); ReportBrowserUrl(t); };
+        t.View.NavigationCompleted += (_, __) => { AutoFitActiveBrowserIfNarrow(); PushChromeState(); ReportBrowserUrl(t); };
         c.DocumentTitleChanged += (_, __) =>
         {
             t.Title = string.IsNullOrWhiteSpace(c.DocumentTitle) ? t.Url : c.DocumentTitle;
             PushChromeState();
+            ReportBrowserUrl(t);
         };
         c.NewWindowRequested += (_, ev) =>
         {
@@ -2092,8 +2284,10 @@ try {
         {
             _tabs[k].View.Visible = (k == i);
         }
+        LayoutContentViews();
         UpdateZoomLabel();
         PushChromeState();
+        ReportBrowserUrl(null);
     }
 
     void CloseTab(int i)
@@ -2161,6 +2355,9 @@ try {
     {
         var t = Active();
         if (!_browserOpen || t?.View.CoreWebView2 == null) return;
+        // A responsive preview is narrow on purpose — zooming it out would stop it
+        // showing the page as it actually looks at that width.
+        if (_deviceWidth > 0) return;
         if (t.View.ClientSize.Width >= 560) return;
         await AutoFitZoom(allowZoomIn: false);
     }
@@ -2170,6 +2367,7 @@ try {
         if (!_browserOpen) ToggleBrowser(true);
         _full = !_full;
         _split.Panel1Collapsed = _full; // hide the chat pane → browser full width
+        PositionSplitGrip();
         PushChromeState();
     }
 
@@ -2178,6 +2376,9 @@ try {
     async void CycleDeviceMode()
     {
         _deviceModeIdx = (_deviceModeIdx + 1) % DeviceModes.Length;
+        _deviceWidth = DeviceModes[_deviceModeIdx].w;
+        _deviceCustomWidth = false;
+        LayoutContentViews();
         await ApplyDeviceModeAsync();
     }
     async System.Threading.Tasks.Task ApplyDeviceModeAsync()
@@ -2188,18 +2389,22 @@ try {
         if (cw == null) return;
         try
         {
-            if (m.w == 0)
+            // The view is already the preview's width, so only mobile emulation (touch,
+            // mobile viewport meta) still needs an override. Forcing a metrics override
+            // on a wider control is what made the preview show a scaled, misleading page.
+            if (_deviceWidth <= 0 || !m.mobile)
             {
                 await cw.CallDevToolsProtocolMethodAsync("Emulation.clearDeviceMetricsOverride", "{}");
                 await cw.CallDevToolsProtocolMethodAsync("Emulation.setTouchEmulationEnabled", "{\"enabled\":false}");
             }
             else
             {
-                var mob = m.mobile ? "true" : "false";
+                double dpi = _content.DeviceDpi / 96.0;
+                int width = Math.Max(PreviewMinWidth, (int)Math.Round(PreviewViewport(_content.ClientRectangle).Width / dpi));
+                int height = Math.Max(320, (int)Math.Round(_content.ClientRectangle.Height / dpi));
                 await cw.CallDevToolsProtocolMethodAsync("Emulation.setDeviceMetricsOverride",
-                    $"{{\"width\":{m.w},\"height\":{m.h},\"deviceScaleFactor\":0,\"mobile\":{mob}}}");
-                await cw.CallDevToolsProtocolMethodAsync("Emulation.setTouchEmulationEnabled",
-                    $"{{\"enabled\":{mob}}}");
+                    $"{{\"width\":{width},\"height\":{height},\"deviceScaleFactor\":0,\"mobile\":true}}");
+                await cw.CallDevToolsProtocolMethodAsync("Emulation.setTouchEmulationEnabled", "{\"enabled\":true}");
             }
         }
         catch { }
@@ -2302,11 +2507,16 @@ try {
         _split.Panel1MinSize = chatMin;
         _split.Panel2MinSize = browserMin;
         int available = panelWidth;
+        // A width the user dragged to wins over the automatic split. Without this the
+        // pane snapped back to an even split on every window resize, which read as the
+        // splitter not working at all.
         // Default to an even split — the chat stays fully usable while the browser
         // is open; the user drags the splitter for anything else.
-        int preferredBrowserW = WindowState == FormWindowState.Maximized
-            ? (int)Math.Round(available * 0.40)
-            : available / 2;
+        int preferredBrowserW = _browserManualWidth > 0
+            ? _browserManualWidth
+            : WindowState == FormWindowState.Maximized
+                ? (int)Math.Round(available * 0.40)
+                : available / 2;
         int browserW = Math.Clamp(preferredBrowserW, browserMin, Math.Max(browserMin, available - chatMin));
         int chatW = Math.Max(chatMin, available - browserW);
         _split.SplitterDistance = Math.Min(chatW, _split.Width - browserMin);
@@ -2316,6 +2526,7 @@ try {
         {
             _fittingBrowserSplit = false;
             RememberBrowserSplit();
+            PositionSplitGrip();
         }
     }
 
@@ -2381,6 +2592,7 @@ try {
                     _split.Panel1MinSize = Math.Min(chatMin, Math.Max(20, available - browserWidth));
                     _split.Panel2MinSize = Math.Min(browserMin, Math.Max(20, browserWidth));
                     _split.SplitterDistance = Math.Max(_split.Panel1MinSize, available - browserWidth);
+                    _browserManualWidth = browserWidth;
                     _restoreBrowserWidth = 0;
                 }
                 else FitBrowserSplit();
@@ -2410,8 +2622,10 @@ try {
             _full = false;
             ShowBrowserPill();
         }
+        PositionSplitGrip();
         PostToChat(new { type = "shellBrowser", open = _browserOpen });
         PushChromeState();
+        ReportBrowserUrl(null);
     }
 
     // ── bridge: messages from the chat UI ────────────────────────────

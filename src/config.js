@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-export const APP_VERSION = "0.9.70";
-export const APP_DISPLAY_VERSION = "v0.9.70";
+export const APP_VERSION = "0.9.71";
+export const APP_DISPLAY_VERSION = "v0.9.71";
 export const APP_NAME = "Boolean";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
@@ -12,6 +12,7 @@ export const AI_BEHAVIOR_VERSION = 2;
 export const SAZ_DIR = path.join(os.homedir(), ".saz");
 const CONFIG_FILE = path.join(SAZ_DIR, "config.json");
 const CONFIG_BACKUP_FILE = path.join(SAZ_DIR, "config.json.bak");
+const ONBOARDING_COMPLETE_FILE = path.join(SAZ_DIR, "onboarding-complete");
 // pre-rename location (app used to be called sazcode)
 const LEGACY_CONFIG_FILE = path.join(os.homedir(), ".sazcode", "config.json");
 
@@ -164,6 +165,7 @@ const DEFAULTS = {
     agents: [],           // [{id,name,url,apiKey,enabled}]
     cloudflare: {
       token: "", connected: false, accountId: "", accountName: "", tokenId: "", status: "", lastTestedAt: 0,
+      fullAccess: false, // when true: agent may call any endpoint the token permits + wrangler gets the token in its env (parity with Codex/Claude CLIs)
       authType: "", oauthClientId: "", oauthRedirectUri: "https://boollm.com/oauth/cloudflare/callback",
       oauthScopes: [], oauth: null
     },
@@ -184,6 +186,22 @@ const DEFAULTS = {
       watchlist: ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA"],
       optionsProvider: "alpaca", optionsFeed: "indicative",
       alpacaKeyId: "", alpacaSecretKey: "", massiveApiKey: ""
+    },
+    // Price-action "signal + stage" guardrails. Boolean can watch price action and
+    // STAGE a pre-filled order for your review, but never auto-executes: enabled is
+    // off by default and killSwitch halts staging instantly. Execution stays a
+    // separate, human-confirmed step through the broker connector.
+    trading: {
+      enabled: false,
+      killSwitch: false,
+      symbolAllowlist: [],
+      maxNotionalUsd: 0,
+      maxOrdersPerDay: 0,
+      dailyLossCapUsd: 0,
+      // Optional auto P&L sync for the daily loss cap. Point at the broker
+      // connector's realized-P&L field; sync_trade_pnl reads the number at `path`.
+      // Fail-closed: if it can't read a reliable number the cap is left unchanged.
+      pnl: { connector: "", tool: "", path: "" }
     },
     email: {
       draftOnly: true,
@@ -229,8 +247,11 @@ const DEFAULTS = {
       preference: "balanced", // cost | balanced | quality
       allowEscalation: true,
       subscriptionEngines: {
-        codex: false,
-        claudeCode: false,
+        // Auto includes every signed-in subscription by default. Once the user
+        // changes either toggle, explicit=true preserves those opt-outs.
+        explicit: false,
+        codex: true,
+        claudeCode: true,
         preferred: "codex" // codex | claude-code | first-ready
       },
       profiles: {
@@ -253,6 +274,7 @@ const DEFAULTS = {
       budget: "normal",       // small | normal | large
       autoCommit: false,
       autopilot: true,        // active controller: auto-continue, plan/verify/recover loop (helps weaker models stay on task)
+      autoHandoff: true,      // on autopilot, if a model gives up on an unfinished task, hand it to the next connected model to finish
       routing: "auto",        // auto | local-only | cloud-plan (route the first planning step to the cloud model, execute locally)
       teamwork: {
         mode: "solo",         // solo | assist | team
@@ -272,7 +294,7 @@ const DEFAULTS = {
     systemActions: true,      // typed Windows inspection/settings/package actions
     searchEngine: "google",   // google | bing | duckduckgo - address-bar searches
     researchPolicy: "authoritative",
-    browserPerms: { downloads: true, camera: false, mic: false, geo: false },
+    browserPerms: { downloads: true, camera: false, mic: false, geo: false, tradeClicks: false, tradeConsentUser: "", tradeConsentAt: 0 },
     browserHistory: [],       // [{url,title,at}] capped at 100
     expandedSections: ["model"], // which Settings sections are open
     // ── Keyboard Shortcuts ──
@@ -384,6 +406,14 @@ function hasSavedEmailCredential(connection) {
     || connection?.connected === true;
 }
 
+function hasSavedCloudflareCredential(connection) {
+  return nonEmptyString(connection?.token)
+    || !!connection?.oauth
+    || nonEmptyString(connection?.oauthClientId)
+    || nonEmptyString(connection?.accountId)
+    || connection?.connected === true;
+}
+
 function restoreEmailConnection(nextEmail, prevEmail) {
   if (!nextEmail || !prevEmail || !hasSavedEmailCredential(prevEmail)) return;
   const nextHasCredential = hasSavedEmailCredential(nextEmail);
@@ -419,8 +449,11 @@ export function preserveSavedApiKeys(next, previous) {
   const nextCloudflare = next.connectors?.cloudflare;
   const previousCloudflare = previous.connectors?.cloudflare;
   if (nextCloudflare && previousCloudflare) {
-    if (!nonEmptyString(nextCloudflare.token) && nonEmptyString(previousCloudflare.token)) {
-      nextCloudflare.token = previousCloudflare.token;
+    if (!hasSavedCloudflareCredential(nextCloudflare) && hasSavedCloudflareCredential(previousCloudflare)) {
+      Object.assign(nextCloudflare, structuredClone(previousCloudflare));
+    } else {
+      if (!nonEmptyString(nextCloudflare.token) && nonEmptyString(previousCloudflare.token)) nextCloudflare.token = previousCloudflare.token;
+      if (!nextCloudflare.oauth && previousCloudflare.oauth) nextCloudflare.oauth = structuredClone(previousCloudflare.oauth);
     }
   }
   const nextMarkets = next.connectors?.marketData;
@@ -509,14 +542,24 @@ function atomicWriteJson(file, value) {
     /* backup is best-effort; never block saving config */
   }
   fs.renameSync(tmp, file);
+  // The pre-rename copy above protects an interrupted write. Once the atomic
+  // rename succeeds, refresh the recovery snapshot to the newly confirmed
+  // config so a just-connected provider is not one settings save behind after
+  // an application upgrade or primary-file loss.
+  try {
+    fs.copyFileSync(file, backup);
+  } catch {
+    /* the primary save succeeded; a stale backup must not make saving fail */
+  }
 }
 
 // Does a config hold any saved credential (email connection, API key, or a
 // connector row)? Used to detect a config that was reset/wiped by an update.
-function hasAnySavedCredential(cfg) {
+export function hasAnySavedCredential(cfg) {
   const c = cfg?.connectors || {};
   const email = c.email || {};
   if (["gmail", "outlook"].some((p) => hasSavedEmailCredential(email[p]))) return true;
+  if (hasSavedCloudflareCredential(c.cloudflare)) return true;
   if ([...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"].some((p) => nonEmptyString(cfg?.[p]?.apiKey))) return true;
   if (nonEmptyString(c.azure?.clientSecret)) return true;
   if (nonEmptyString(c.aws?.secretAccessKey) || nonEmptyString(c.aws?.sessionToken)) return true;
@@ -561,6 +604,23 @@ export function loadConfig() {
       // Missing legacy values use the practical first-load default.
       if (!cfg.local.ctx) cfg.local.ctx = 8192;
       let migrated = recovered;
+      // This marker lives beside user data, outside the replaceable install
+      // folder. Once setup is complete, an upgrade cannot accidentally make
+      // Boolean look like a first install. The explicit Settings switch still
+      // wins when a user intentionally asks to see setup again.
+      if (fs.existsSync(ONBOARDING_COMPLETE_FILE) && raw.ui?.showOnboarding !== true) {
+        if (cfg.ui.onboarded !== true || cfg.ui.showOnboarding !== false) migrated = true;
+        cfg.ui.onboarded = true;
+        cfg.ui.showOnboarding = false;
+        // Completing onboarding was only possible after accepting the legal
+        // welcome screen. Preserve that established acceptance when an
+        // upgrade accidentally drops the legacy config value; a genuine first
+        // install has no completion marker and still must accept explicitly.
+        if (!nonEmptyString(cfg.eulaAccepted)) {
+          cfg.eulaAccepted = "1.0";
+          migrated = true;
+        }
+      }
       const accessMode = ACCESS_MODES.includes(String(raw.accessMode || "").toLowerCase())
         ? String(raw.accessMode).toLowerCase()
         : (raw.autoApprove === true ? "full_access" : "ask");
@@ -593,6 +653,9 @@ export function loadConfig() {
       if (migrated) {
         saveConfig(cfg);
       }
+      if (cfg.ui.onboarded === true && cfg.ui.showOnboarding !== true) {
+        try { fs.mkdirSync(SAZ_DIR, { recursive: true }); fs.writeFileSync(ONBOARDING_COMPLETE_FILE, "1\n", "utf8"); } catch { /* config remains authoritative */ }
+      }
       if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
         atomicWriteJson(path.join(SAZ_DIR, "preferences.json"), { rules: [] });
       }
@@ -616,6 +679,9 @@ export function saveConfig(config, options = {}) {
     next = config;
   }
   atomicWriteJson(CONFIG_FILE, next);
+  if (next?.ui?.onboarded === true && next?.ui?.showOnboarding !== true) {
+    try { fs.mkdirSync(SAZ_DIR, { recursive: true }); fs.writeFileSync(ONBOARDING_COMPLETE_FILE, "1\n", "utf8"); } catch { /* config save already succeeded */ }
+  }
 }
 
 // the model name active for the current provider
@@ -623,6 +689,9 @@ export function currentModel(config) {
   return config[config.provider]?.model || "";
 }
 
-export function setCurrentModel(config, model) {
-  if (config[config.provider]) config[config.provider].model = model;
+export function setCurrentModel(config, model, provider) {
+  const target = PROVIDERS.includes(String(provider || "").trim())
+    ? String(provider || "").trim()
+    : config.provider;
+  if (config[target]) config[target].model = model;
 }

@@ -102,6 +102,10 @@ function qualityRank(candidate) {
   return score;
 }
 
+export function autoModelQualityRank(candidate) {
+  return qualityRank(candidate || {});
+}
+
 function supportsRoute(config, candidate, route) {
   if (route === "vision") {
     if (candidate.provider === "local") {
@@ -138,6 +142,13 @@ function configuredProfile(config, route) {
   return profile && typeof profile === "object" ? profile : {};
 }
 
+export function autoSubscriptionEnabled(subscriptions = {}, engine = "") {
+  // Pre-existing configs stored false as the old default, so only the new
+  // explicit marker turns a false value into a durable user opt-out.
+  if (subscriptions?.explicit !== true) return true;
+  return subscriptions?.[engine] !== false;
+}
+
 export function selectExecutionEngine(config = {}, messages = [], options = {}) {
   const configured = lower(config?.codingEngine || "boolean");
   const route = AUTO_MODEL_ROUTES.includes(options.route) ? options.route : routeForTurn(messages, options);
@@ -160,8 +171,8 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
   const escalationRequired = options.escalationRequired === true;
   const taskExecution = options.taskExecution === true;
   const ready = {
-    codex: subscriptions.codex === true && options.codexReady === true,
-    "claude-code": subscriptions.claudeCode === true && options.claudeReady === true
+    codex: autoSubscriptionEnabled(subscriptions, "codex") && options.codexReady === true,
+    "claude-code": autoSubscriptionEnabled(subscriptions, "claudeCode") && options.claudeReady === true
   };
 
   // Auto always gives the selected GLM, DeepSeek, local, or other connected
@@ -274,4 +285,20 @@ export function selectAutoModelRoute(config = {}, messages = [], options = {}) {
 export function nextAutoModelTarget(selection = {}, current = {}) {
   const alternatives = Array.isArray(selection.alternates) ? selection.alternates : [];
   return alternatives.find((candidate) => candidate.provider !== current.provider || candidate.model !== current.model) || null;
+}
+
+// Every connected model that can serve `route`, strongest first. Used to hand an
+// unfinished task to a different model when the current one gives up — independent
+// of whether automatic per-turn routing is enabled. Cooldowns push a recently
+// failed model to the back rather than removing it, so a handoff target always
+// exists as long as another connected model does.
+export function handoffCandidates(config = {}, route = "coding") {
+  return connectedCandidates(config)
+    .filter((candidate) => supportsRoute(config, candidate, route))
+    .sort((a, b) => {
+      const cooldownA = Number(autoModelHealth(a).cooldownUntil || 0) > Date.now() ? 1 : 0;
+      const cooldownB = Number(autoModelHealth(b).cooldownUntil || 0) > Date.now() ? 1 : 0;
+      if (cooldownA !== cooldownB) return cooldownA - cooldownB;
+      return qualityRank(b) - qualityRank(a);
+    });
 }

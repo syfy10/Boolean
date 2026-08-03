@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import * as sea from "node:sea";
 import * as browse from "./browse.js";
@@ -9,6 +10,8 @@ import { providerImageSupport } from "./providers.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
 import { cloudflareRequest, cloudflareResourceList, assertCloudflarePath } from "./cloudflare.js";
+import { evaluateTradeGuard } from "./trade-guard.js";
+import { currentTradeState, recordTradePlacement, recordTradeResult, setRealizedLoss } from "./trade-ledger.js";
 import { azureResourceList, awsResourceList, googleCloudResourceList } from "./cloud-hosting.js";
 import {
   listEmail,
@@ -553,6 +556,29 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function",
     function: {
+      name: "visible_browser_trade",
+      description:
+        "Prepare one live broker-site Buy or Sell click in the visible signed-in browser and ask the user for final confirmation. " +
+        "Use only when the user explicitly asked Boolean to place that exact trade and Settings > Browser > Confirmed trade clicks is on. " +
+        "This always confirms contract, side, quantity, order type, price, and broker immediately before clicking; Full access cannot bypass confirmation. Never use it from scheduled work.",
+      parameters: {
+        type: "object",
+        properties: {
+          contract: { type: "string", description: "Exact security ticker, crypto pair, option symbol, or futures contract, for example AAPL or /MNQU26." },
+          side: { type: "string", enum: ["buy", "sell"] },
+          quantity: { type: "number", description: "Exact number of shares or contracts." },
+          orderType: { type: "string", enum: ["market", "limit", "stop", "stop-limit"] },
+          price: { type: "number", description: "Limit or stop price when applicable." },
+          broker: { type: "string", description: "Broker/site visible in the browser." },
+          finalButton: { type: "string", description: "Visible text, aria-label, or CSS selector of the final order-submission button." }
+        },
+        required: ["contract", "side", "quantity", "orderType", "broker", "finalButton"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "visible_browser_draft_email",
       description:
         "Insert a drafted reply into the visible email page's reply editor. Use only after the user asks you to put a reviewed draft into email. " +
@@ -760,6 +786,60 @@ export const TOOL_DEFINITIONS = [
           body: { type: "object", description: "Optional JSON request body." }
         },
         required: ["method", "path"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "stage_trade",
+      description:
+        "Stage a price-action trade proposal for the user to review and confirm. This NEVER submits an order — it checks the order against the user's trade guardrails (kill-switch, symbol allowlist, per-order and daily caps) and returns a pre-filled order the user must confirm and place themselves. Use this when a price-action rule the user defined triggers. Do not attempt to auto-execute trades by any other means.",
+      parameters: {
+        type: "object",
+        properties: {
+          symbol: { type: "string", description: "Ticker/contract symbol, e.g. NVDA." },
+          side: { type: "string", enum: ["buy", "sell"] },
+          quantity: { type: "number", description: "Shares/contracts. Must be positive." },
+          orderType: { type: "string", enum: ["market", "limit"] },
+          limitPrice: { type: "number", description: "Required for a limit order." },
+          referencePrice: { type: "number", description: "Current price, used to estimate notional for a market order." },
+          rationale: { type: "string", description: "The price-action rule/signal that triggered this proposal." }
+        },
+        required: ["symbol", "side", "quantity", "orderType"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "record_trade_result",
+      description:
+        "Record a closed trade's realized profit or loss for today so the daily loss cap can enforce itself. Pass a negative number for a loss, positive for a gain (gains do not offset the loss cap). Use this when the user tells you a position closed at a known P&L. Returns the updated daily totals. This does not place or close any order.",
+      parameters: {
+        type: "object",
+        properties: {
+          realizedPnlUsd: { type: "number", description: "Realized P&L in USD. Negative = loss (counts toward the daily loss cap), positive = gain." },
+          note: { type: "string", description: "Optional context, e.g. 'closed 2 NVDA at 118'." }
+        },
+        required: ["realizedPnlUsd"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "sync_trade_pnl",
+      description:
+        "Pull today's realized P&L from the broker connector and update the daily loss cap automatically. Reads the number at the configured field path (connectors.trading.pnl); a negative value is treated as a loss. Fail-closed: if it can't read a reliable number, the loss cap is left unchanged and you should log manually with record_trade_result. Does not place or close any order.",
+      parameters: {
+        type: "object",
+        properties: {
+          connector: { type: "string", description: "Broker MCP connector name. Defaults to connectors.trading.pnl.connector." },
+          tool: { type: "string", description: "Connector tool that returns account/P&L data. Defaults to connectors.trading.pnl.tool." },
+          path: { type: "string", description: "Dot-path to the realized-P&L number in the response (e.g. 'result.realized_pnl_today'). Defaults to connectors.trading.pnl.path." },
+          arguments: { type: "object", description: "Optional arguments for the connector tool." }
+        }
       }
     }
   },
@@ -999,15 +1079,28 @@ function summarizeLargeRead(target, content) {
   return truncate(map);
 }
 
-function runCommand(command, shell, timeoutMs, cwd) {
+export function windowsCommandShim(command, shell = "powershell") {
+  const value = String(command || "");
+  if (process.platform !== "win32" || shell !== "powershell") return value;
+  // PowerShell resolves npm/npx to the signed-script-policy-sensitive .ps1
+  // wrappers before the Windows .cmd launchers. Boolean runs non-interactively,
+  // so use the official .cmd shims automatically at command boundaries.
+  return value.replace(/(^|(?:&&|\|\||;|\r?\n)\s*)(npm|npx)(?=\s|$)/gi,
+    (_match, boundary, tool) => `${boundary}${tool}.cmd`);
+}
+
+function runCommand(command, shell, timeoutMs, cwd, env) {
   return new Promise((resolve) => {
     const isCmd = shell === "cmd";
     const exe = isCmd ? "cmd.exe" : "powershell.exe";
+    const runnableCommand = windowsCommandShim(command, shell);
     const args = isCmd
-      ? ["/d", "/s", "/c", command]
-      : ["-NoProfile", "-NonInteractive", "-Command", command];
+      ? ["/d", "/s", "/c", runnableCommand]
+      : ["-NoProfile", "-NonInteractive", "-Command", runnableCommand];
 
-    const child = spawn(exe, args, { cwd, windowsHide: true });
+    // env undefined => inherit process.env (default). A provided env is used as-is
+    // and is how connector credentials (e.g. CLOUDFLARE_API_TOKEN) reach CLI tools.
+    const child = spawn(exe, args, { cwd, env, windowsHide: true });
 
     let out = "";
     child.stdout.on("data", (d) => (out += d.toString()));
@@ -1085,6 +1178,40 @@ export function inferDesktopProject(dir) {
     executable: candidates[0] || "",
     inferred: true
   };
+}
+
+export function inferWebProject(dir) {
+  const packagePath = path.join(dir, "package.json");
+  if (!fs.existsSync(packagePath)) return null;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    const scripts = pkg?.scripts || {};
+    const dependencies = { ...(pkg?.dependencies || {}), ...(pkg?.devDependencies || {}) };
+    const framework = dependencies.next ? "next" : dependencies.vite ? "vite" : "";
+    if (!framework || !scripts.dev) return null;
+    const hostFlag = framework === "next" ? "--hostname" : "--host";
+    return {
+      type: "website",
+      run: `npm.cmd run dev -- ${hostFlag} 127.0.0.1 --port {port}`,
+      port: 0,
+      healthPath: "/",
+      inferred: true,
+      framework
+    };
+  } catch { return null; }
+}
+
+async function availablePreviewPort(start = 4173) {
+  for (let port = start; port < start + 40; port++) {
+    const free = await new Promise((resolve) => {
+      const server = net.createServer();
+      server.unref();
+      server.once("error", () => resolve(false));
+      server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
+    });
+    if (free) return port;
+  }
+  return 0;
 }
 
 function listFilesRec(dir, out = []) {
@@ -1231,6 +1358,62 @@ async function visibleBrowser(action, args, ctx) {
   return await ctx.visibleBrowser({ action, ...args });
 }
 
+const TRADE_CLICK_WORDS = /^(?:buy|sell|place order|submit order|send order|confirm order|review and (?:buy|sell)|buy to open|sell to open|buy to close|sell to close)$/i;
+
+async function visibleBrowserTrade(args, ctx) {
+  if (browserDisabled(ctx)) return BROWSER_OFF_MSG;
+  if (ctx.unattended === true || ctx.scheduled === true) {
+    return "blocked: live trades cannot run from scheduled or unattended work.";
+  }
+  if (ctx.config?.ui?.browserPerms?.tradeClicks !== true) {
+    return "blocked: Confirmed trade clicks is off in Settings > Browser. Boolean can still watch prices and stage an order for review.";
+  }
+  const signedInUser = String(ctx.config?.cloudBackend?.user?.email || ctx.config?.cloudBackend?.user?.id || "").trim().toLowerCase();
+  const consentUser = String(ctx.config?.ui?.browserPerms?.tradeConsentUser || "").trim().toLowerCase();
+  if (!ctx.config?.cloudBackend?.sessionToken || !signedInUser || consentUser !== signedInUser) {
+    return "blocked: trading access requires a signed-in Boolean account whose risk agreement matches the current user.";
+  }
+  const contract = String(args.contract || "").trim().toUpperCase();
+  const side = String(args.side || "").trim().toLowerCase();
+  const quantity = Number(args.quantity);
+  const orderType = String(args.orderType || "").trim().toLowerCase();
+  const price = Number(args.price) || 0;
+  const broker = String(args.broker || "").trim();
+  const finalButton = String(args.finalButton || "").trim();
+  if (!contract || !["buy", "sell"].includes(side) || !Number.isFinite(quantity) || quantity <= 0 ||
+      !["market", "limit", "stop", "stop-limit"].includes(orderType) || !broker || !finalButton) {
+    return "blocked: incomplete trade details. Security or contract, Buy/Sell, positive quantity, order type, broker, and final button are required.";
+  }
+  if (["limit", "stop", "stop-limit"].includes(orderType) && price <= 0) {
+    return `blocked: a positive price is required for a ${orderType} order.`;
+  }
+  // Risk guardrails (kill-switch, symbol allowlist, per-order and daily caps) apply
+  // to the confirmed click path too, checked BEFORE the user is prompted. The click
+  // path has its own on/off switch (tradeClicks), so the guard's master `enabled`
+  // gate is skipped here — the caps and kill-switch are what matter.
+  const trading = ctx.config?.connectors?.trading || {};
+  const guardVerdict = evaluateTradeGuard(trading, {
+    symbol: contract, side, quantity,
+    orderType: orderType === "market" ? "market" : "limit",
+    limitPrice: orderType === "market" ? 0 : price,
+    referencePrice: price
+  }, tradingGuardState(ctx), { skipEnabled: true });
+  if (!guardVerdict.allowed) return `blocked: ${guardVerdict.reason} No order was placed.`;
+  const priceText = price > 0 ? ` @ ${price}` : " @ MARKET";
+  const summary = `${side.toUpperCase()} ${quantity} ${contract} · ${orderType.toUpperCase()}${priceText} · ${broker}`;
+  const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
+  const ok = await approve(summary, { kind: "trade", trade: { contract, side, quantity, orderType, price, broker } });
+  if (!ok) return "Trade cancelled. Boolean did not click the final order button.";
+  const clickResult = await visibleBrowser("click", { text: finalButton, confirmedTrade: { contract, side, quantity, orderType, price, broker } }, ctx);
+  // Count the placed order toward maxOrdersPerDay. Only when a daily order cap is
+  // configured (so cap-free setups do no file IO) and the caller isn't injecting
+  // its own state (state-override tests own the counting).
+  if (!ctx.tradingState && (Number(trading.maxOrdersPerDay) || 0) > 0) {
+    recordTradePlacement(ctx.sazDir || SAZ_DIR);
+  }
+  return clickResult;
+}
+
 async function notepad(action, args, ctx) {
   if (typeof ctx.notepad !== "function") return "notepad control is not available in this session.";
   return await ctx.notepad({ action, ...args });
@@ -1258,10 +1441,32 @@ function connectorList(ctx) {
 
 function cloudflareConnection(ctx) {
   const connection = ctx.config?.connectors?.cloudflare;
-  if (!connection?.connected || !connection?.token || !connection?.accountId) {
-    throw new Error("Cloudflare is not connected. Add a scoped API token in Settings > Connectors.");
+  if (!connection?.connected || !connection?.token) {
+    throw new Error("Cloudflare is not connected. Add an API token in Settings > Connectors.");
+  }
+  // Scoped mode needs a selected account to enforce the account-path guard.
+  // Full access can act on anything the token permits, so an account is optional.
+  if (!connection.accountId && connection.fullAccess !== true) {
+    throw new Error("Choose a Cloudflare account in Settings > Connectors, or turn on Full access.");
   }
   return connection;
+}
+
+// Environment for CLI commands (e.g. wrangler) so deploys authenticate the same
+// way the Codex/Claude CLIs do. Only when the connector is on AND Full access is
+// enabled — otherwise commands inherit the normal environment with no token.
+export function cloudflareCommandEnv(ctx, command = "") {
+  const cf = ctx.config?.connectors?.cloudflare;
+  if (!cf?.connected || !cf?.token || cf.fullAccess !== true) return undefined;
+  const value = String(command || "").trim();
+  // Connector credentials are available only to a direct Wrangler invocation.
+  // Never expose them to arbitrary project scripts, shell composition,
+  // redirection, interpolation, or a second command in the same tool call.
+  if (!/^(?:(?:npx(?:\.cmd)?\s+(?:--yes\s+)?wrangler)|(?:wrangler(?:\.cmd)?)|(?:npm(?:\.cmd)?\s+(?:exec|x)\s+(?:--\s+)?wrangler))\b/i.test(value)
+      || /[;&|<>`$\r\n]/.test(value)) return undefined;
+  const env = { ...process.env, CLOUDFLARE_API_TOKEN: cf.token };
+  if (cf.accountId) env.CLOUDFLARE_ACCOUNT_ID = cf.accountId;
+  return env;
 }
 
 async function listCloudflareResources(args, ctx) {
@@ -1280,10 +1485,19 @@ async function callCloudflareApi(args, ctx) {
   const connection = cloudflareConnection(ctx);
   const method = String(args.method || "GET").trim().toUpperCase();
   if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) return "error: unsupported Cloudflare method";
-  const requestPath = await assertCloudflarePath(connection, args.path, method);
+  let requestPath;
+  if (connection.fullAccess === true) {
+    // Full access: any endpoint the token permits, like the Codex/Claude CLIs.
+    requestPath = String(args.path || "").trim();
+    if (!requestPath.startsWith("/") || requestPath.startsWith("//")) {
+      return "error: enter a valid Cloudflare API v4 path beginning with /";
+    }
+  } else {
+    requestPath = await assertCloudflarePath(connection, args.path, method);
+  }
   if (method !== "GET") {
     const ok = await ctx.approve(
-      `${method} Cloudflare ${requestPath} on ${connection.accountName || connection.accountId}`
+      `${method} Cloudflare ${requestPath} on ${connection.accountName || connection.accountId || "your account"}`
     );
     if (!ok) return "user declined the Cloudflare account change";
   }
@@ -1292,6 +1506,95 @@ async function callCloudflareApi(args, ctx) {
     body: method === "GET" || method === "DELETE" ? undefined : (args.body || {})
   });
   return truncate(JSON.stringify(payload, null, 2));
+}
+
+// Stage a price-action trade proposal. This function CANNOT place an order — it
+// only validates against the user's guardrails and returns a pre-filled order for
+// the user to confirm and submit themselves. Execution is never done here.
+// Daily guardrail state. Uses ctx.tradingState when the caller supplies one (tests),
+// otherwise reads the persistent ledger — but only when a daily cap is actually
+// configured, so setups without caps do no file IO. ledgerDir defaults to SAZ_DIR.
+function tradingGuardState(ctx) {
+  if (ctx.tradingState) return ctx.tradingState;
+  const g = ctx.config?.connectors?.trading || {};
+  const capsActive = (Number(g.maxOrdersPerDay) || 0) > 0 || (Number(g.dailyLossCapUsd) || 0) > 0;
+  return capsActive ? currentTradeState(ctx.sazDir || SAZ_DIR) : {};
+}
+
+async function stageTrade(args, ctx) {
+  const guard = ctx.config?.connectors?.trading || {};
+  const state = tradingGuardState(ctx);
+  const verdict = evaluateTradeGuard(guard, {
+    symbol: args.symbol,
+    side: args.side,
+    quantity: args.quantity,
+    orderType: args.orderType,
+    limitPrice: args.limitPrice,
+    referencePrice: args.referencePrice
+  }, state);
+  if (!verdict.allowed) return `blocked: ${verdict.reason} No order was staged.`;
+
+  const o = verdict.order;
+  const price = o.orderType === "limit" ? `limit @ ${o.limitPrice}` : "market";
+  const notional = o.notionalUsd ? ` | est. notional $${o.notionalUsd}` : "";
+  const rationale = String(args.rationale || "").trim();
+  return [
+    "STAGED ORDER — NOT SUBMITTED. Boolean did not place anything.",
+    `${o.side.toUpperCase()} ${o.quantity} ${o.symbol} · ${price}${notional}`,
+    rationale ? `Signal: ${rationale}` : "",
+    "This is a proposal only. To execute, confirm the exact order and place it yourself through the broker connector or app. Boolean will not auto-submit it."
+  ].filter(Boolean).join("\n");
+}
+
+// Record a realized P&L into today's ledger so the daily loss cap can bite.
+// Does not place or close any order.
+function recordTradeResultTool(args, ctx) {
+  const pnl = Number(args.realizedPnlUsd);
+  if (!Number.isFinite(pnl)) return "error: realizedPnlUsd must be a number (negative for a loss).";
+  const ledger = recordTradeResult(ctx.sazDir || SAZ_DIR, pnl);
+  const cap = Number(ctx.config?.connectors?.trading?.dailyLossCapUsd) || 0;
+  const capText = cap > 0
+    ? ` Daily loss cap: $${cap}${ledger.realizedLossUsd >= cap ? " — REACHED. Staging and confirmed clicks are now halted for today." : ""}`
+    : " No daily loss cap is set.";
+  const noteText = String(args.note || "").trim();
+  return `Recorded ${pnl < 0 ? "loss" : "gain"} of $${Math.abs(pnl)}${noteText ? ` (${noteText})` : ""}. Realized loss today: $${ledger.realizedLossUsd}.${capText}`;
+}
+
+function getByPath(obj, dotPath) {
+  return String(dotPath || "").split(".").filter(Boolean).reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+
+// Pull today's realized P&L from the broker connector and set the daily loss.
+// FAIL-CLOSED: any failure to read a reliable number leaves the loss cap
+// UNCHANGED (never weakened), and setRealizedLoss never lowers a recorded loss.
+// Manual record_trade_result stays authoritative if the field can't be trusted.
+async function syncTradePnl(args, ctx) {
+  const cfg = ctx.config?.connectors?.trading?.pnl || {};
+  const connectorName = String(args.connector || cfg.connector || "").trim();
+  const toolName = String(args.tool || cfg.tool || "").trim();
+  const lossPath = String(args.path || cfg.path || "").trim();
+  if (!connectorName || !toolName || !lossPath) {
+    return "error: auto P&L sync is not configured. Set connectors.trading.pnl.{connector, tool, path} to your broker connector's realized-P&L field, or keep logging losses manually with record_trade_result.";
+  }
+  let result;
+  try {
+    result = typeof ctx.mcpCall === "function"
+      ? await ctx.mcpCall(connectorName, toolName, args.arguments || {})
+      : await mcpCallTool(findMcpConnector({ connector: connectorName }, ctx), toolName, args.arguments || {}, { onRefresh: () => persistRefreshedMcp(ctx) });
+  } catch (e) {
+    return `error: could not read P&L from '${connectorName}'. The daily loss cap is UNCHANGED. (${String(e?.message || e).slice(0, 160)})`;
+  }
+  const pnl = Number(getByPath(result, lossPath));
+  if (!Number.isFinite(pnl)) {
+    return `error: no numeric realized P&L at '${lossPath}' in the ${connectorName} response. The daily loss cap is UNCHANGED (fail-closed). Verify the field path, or log manually with record_trade_result.`;
+  }
+  const lossUsd = pnl < 0 ? Math.round(-pnl * 100) / 100 : 0;
+  const ledger = setRealizedLoss(ctx.sazDir || SAZ_DIR, lossUsd);
+  const cap = Number(ctx.config?.connectors?.trading?.dailyLossCapUsd) || 0;
+  const capText = cap > 0
+    ? ` Daily loss cap: $${cap}${ledger.realizedLossUsd >= cap ? " — REACHED. Staging and confirmed clicks are halted for today." : ""}`
+    : " No daily loss cap is set.";
+  return `Synced realized P&L from ${connectorName}: ${pnl < 0 ? `loss $${lossUsd}` : `gain $${pnl} (no loss counted)`}. Realized loss today: $${ledger.realizedLossUsd}.${capText}`;
 }
 
 async function listCloudHostingResources(args, ctx) {
@@ -1649,7 +1952,7 @@ async function runProject(args, ctx, base) {
   if (fs.existsSync(metaPath)) {
     try { meta = JSON.parse(fs.readFileSync(metaPath, "utf8")); } catch { return "error: project metadata is unreadable"; }
   } else {
-    meta = inferDesktopProject(dir);
+    meta = inferWebProject(dir) || inferDesktopProject(dir);
     if (!meta) return `error: no runnable project named '${name}'. Create it first with create_project or open its project folder.`;
   }
   const ok = await ctx.approve(`run project '${name}': ${meta.run}`);
@@ -1657,6 +1960,11 @@ async function runProject(args, ctx, base) {
 
   if (previews[dir] && previews[dir].exitCode === null) { try { previews[dir].kill(); } catch { /* ignore */ } }
 
+  if (meta.type === "website" && !meta.port) {
+    meta.port = await availablePreviewPort();
+    if (!meta.port) return "error: no free localhost preview port was available";
+    meta.run = String(meta.run || "").replaceAll("{port}", String(meta.port));
+  }
   const child = meta.executable
     ? spawn(meta.executable, [], { cwd: dir, windowsHide: false, detached: false, stdio: ["ignore", "pipe", "pipe"] })
     : spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", meta.run], { cwd: dir, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -2097,6 +2405,19 @@ export async function executeTool(name, args, ctx) {
   if (PLATFORM_TOOL_NAMES.has(name)) return await executePlatformTool(name, args, ctx);
   // resolve relative paths and command cwd inside the user's projects folder
   const base = ctx.projectDir || ctx.config?.projectsDir || process.cwd();
+  // An explicitly-selected project folder that does not exist is almost always a
+  // wrong or model-fabricated path. run_command must refuse it loudly BEFORE the
+  // base directory is auto-created below — otherwise Boolean silently materializes
+  // an empty phantom folder, runs the command there, and the tool surfaces a
+  // cryptic downstream error (e.g. esbuild "Access is denied" walking up "../../..")
+  // instead of the real cause. Checked before mkdir so it also survives retries.
+  const projectDirMissing = !!ctx.projectDir
+    && !(fs.existsSync(ctx.projectDir) && fs.statSync(ctx.projectDir).isDirectory());
+  if (name === "run_command" && projectDirMissing) {
+    return `error: the selected project folder does not exist on this PC:\n${ctx.projectDir}\n`
+      + "Boolean did not run the command and did not create this path. Open the correct "
+      + "project folder (or fix the path) and try again — do not retry the same command.";
+  }
   fs.mkdirSync(base, { recursive: true });
   const resolve = (p) => (p && path.isAbsolute(p) ? p : path.join(base, p || "."));
   try {
@@ -2139,7 +2460,7 @@ export async function executeTool(name, args, ctx) {
         }
         approvals.set(approvalKey, { state: "approved", result: "" });
         try {
-          const result = await runCommand(args.command, shell, ctx.config?.commandTimeoutMs || 120_000, base);
+          const result = await runCommand(args.command, shell, ctx.config?.commandTimeoutMs || 120_000, base, cloudflareCommandEnv(ctx, args.command));
           approvals.set(approvalKey, { state: "completed", result });
           return result;
         } catch (error) {
@@ -2261,7 +2582,12 @@ export async function executeTool(name, args, ctx) {
         return await visibleBrowser("open", args, ctx);
       case "visible_browser_click":
         if (!args.text) return "error: missing 'text' argument";
+        if (TRADE_CLICK_WORDS.test(String(args.text).trim())) {
+          return "blocked: a possible live-trade control cannot use the ordinary click tool. Use visible_browser_trade so Boolean shows the exact order and requires final confirmation.";
+        }
         return await visibleBrowser("click", args, ctx);
+      case "visible_browser_trade":
+        return await visibleBrowserTrade(args, ctx);
       case "visible_browser_type":
         if (typeof args.text !== "string") return "error: missing 'text' argument";
         return await visibleBrowser("type", args, ctx);
@@ -2283,6 +2609,12 @@ export async function executeTool(name, args, ctx) {
         return await listCloudflareResources(args, ctx);
       case "cloudflare_api_request":
         return await callCloudflareApi(args, ctx);
+      case "stage_trade":
+        return await stageTrade(args, ctx);
+      case "record_trade_result":
+        return recordTradeResultTool(args, ctx);
+      case "sync_trade_pnl":
+        return await syncTradePnl(args, ctx);
       case "cloud_hosting_list_resources":
         return await listCloudHostingResources(args, ctx);
       case "email_list":

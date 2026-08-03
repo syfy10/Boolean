@@ -27,6 +27,13 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /data-working-action="output"/);
   assert.match(ui, /data-working-action="cancel"/);
   assert.match(ui, /class="working-card-events" role="list" aria-label="Task activity"/);
+  assert.match(ui, /class="working-card-worker"/);
+  assert.match(ui, /worker\.title="Currently working: "\+workerLabel/);
+  assert.match(ui, /worker\.textContent="Completed by "\+completedBy/);
+  assert.match(ui, /sender\.textContent="Completed by "\+run\.aiLabel/);
+  assert.match(ui, /run\.workerTrail\.join\(" → "\)/);
+  assert.match(ui, /ev\.escalated\?"Handed work to ":"Working with "/);
+  assert.match(ui, /<span class="msg-sender">Completed by /);
   assert.match(ui, /<details class="working-activity-group" role="listitem"/);
   assert.match(ui, /<summary><span class="working-activity-glyph"/);
   assert.match(ui, /class="working-commentary" role="listitem"/);
@@ -47,10 +54,12 @@ test("activity is grouped into compact chronological batches", () => {
   assert.match(ui, /trackWorkingFiles\(ev\.entry\)/);
   assert.match(ui, /function workingToolActivityGroup\(entry\)/);
   assert.match(ui, /key:"tool:"\+activityGroup\+":"\+run\.activitySequence,group:activityGroup/);
-  assert.match(ui, /if\(group==="searches"\) return "Searched "\+count\+" source"\+plural/);
-  assert.match(ui, /if\(group==="commands"\) return "Ran "\+count\+" command"\+plural/);
-  assert.match(ui, /if\(group==="files"\) return "Changed "\+count\+" file"\+plural/);
-  assert.match(ui, /if\(group==="agents"\) return "Messaged "\+count\+" agent"\+plural/);
+  assert.match(ui, /if\(group==="searches"\) return "Researched the needed sources"/);
+  assert.match(ui, /if\(group==="commands"\) return \/check\|test\|build/);
+  assert.match(ui, /if\(group==="files"\) return count===1\?"Updated a project file"/);
+  assert.match(ui, /if\(group==="agents"\) return count===1\?"Asked another model for help"/);
+  assert.match(ui, /if\(group==="inspections"\) return \/browser\|page\/.+\?"Checked the page":"Reviewed the project files"/);
+  assert.match(ui, /workingActivityGroupLabel\(item\.group,item\.count,item\.items\)/);
   assert.match(ui, /if\(segment\?\.kind!=="activity"\|\|segment\.group!==group\)/);
   assert.match(ui, /segments:segments\.slice\(-10\)/);
   assert.match(ui, /items:segment\.items\.slice\(-8\)/);
@@ -129,4 +138,12 @@ test("compact activity stays usable in a narrow chat pane", () => {
   assert.match(ui, /\.working-activity-group summary b\{[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/s);
   assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.working-card-body\{ padding-inline:0; \}/);
   assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.working-card-actions\{ order:3; margin-left:20px; \}/);
+});
+
+test("live tool activity is painted after the progress card exists", () => {
+  const ensureIndex = ui.indexOf("Ensure the live card exists before adding the event");
+  const addIndex = ui.indexOf("addWorkingActivity(toolLabel", ensureIndex);
+  assert.ok(ensureIndex >= 0, "the step handler creates the live progress card first");
+  assert.ok(addIndex > ensureIndex, "the current tool activity is added after the card exists");
+  assert.match(ui, /wireWorkingCard\(run\.statusEl,run\);[\s\S]{0,400}renderWorkingCardActivity\(run\);/);
 });

@@ -3,7 +3,20 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
-import { executeTool, inferDesktopProject, isUnmanagedProcessTerminationCommand } from "../src/tools.js";
+import { executeTool, inferDesktopProject, inferWebProject, isUnmanagedProcessTerminationCommand } from "../src/tools.js";
+
+test("run_project recognizes existing Next.js and Vite projects", (t) => {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-web-preview-"));
+  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(base, "package.json"), JSON.stringify({
+    scripts: { dev: "next dev" }, dependencies: { next: "14.2.3" }
+  }));
+  const inferred = inferWebProject(base);
+  assert.equal(inferred?.type, "website");
+  assert.equal(inferred?.framework, "next");
+  assert.match(inferred?.run || "", /npm\.cmd run dev/);
+  assert.match(inferred?.run || "", /--hostname 127\.0\.0\.1 --port \{port\}/);
+});
 
 test("run_command refuses dev servers that should be backgrounded", async () => {
   const base = path.join(os.tmpdir(), "saz-long-running-" + Date.now());

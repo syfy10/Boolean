@@ -55,8 +55,7 @@
   body.compact{ --msg-pad:5px 10px; --col-gap:5px; }
   *{ box-sizing:border-box; margin:0; }
   body.pane-resizing,body.pane-resizing *{ cursor:col-resize!important; user-select:none!important; }
-  body.pane-resizing #notesPanel,body.pane-resizing #ctxZone,body.pane-resizing #browser,
-  body.pane-resizing main,body.pane-resizing aside{ transition:none!important; }
+  body.pane-resizing #notesPanel,body.pane-resizing #ctxZone,body.pane-resizing main,body.pane-resizing aside{ transition:none!important; }
   body.workspace-layout-switching aside,body.workspace-layout-switching main,
   body.workspace-layout-switching #chat,body.workspace-layout-switching .cmd-bar,
   body.workspace-layout-switching .composer-wrap,body.workspace-layout-switching .workspace-float{
@@ -702,52 +701,17 @@
   .projline a:hover{ text-decoration:underline; }
 
   /* in-app browser panel (right of chat) */
-  #browser{ width:var(--bw,460px); flex-shrink:0; display:none; flex-direction:column; container-type:inline-size;
-    position:relative; background:var(--bg); border-left:1px solid var(--border); border-top:0; min-width:0; }
   /* ── Split-view: browser splits into page + context panel ── */
-  body.split-view .bframewrap{ display:flex; flex-direction:column; }
-  body.split-view .bframe-row{ flex:1; min-height:0; position:relative; }
-  body.split-view #bframe{ height:100%; }
-  body.split-view .bframe-row.reading{ order:1; flex:3; }
-  body.split-view .bframe-row.context{ order:2; flex:2; }
-  #vdrag{ width:100%; height:5px; flex-shrink:0; cursor:row-resize; background:transparent; display:none; z-index:5; }
-  body.split-view #vdrag{ display:block; }
-  #vdrag:hover, #vdrag.dragging{ background:var(--green); }
-  .bcontext-panel{ display:none; flex-direction:column; background:var(--bg); border-top:1px solid var(--border); overflow:hidden; }
-  body.split-view .bcontext-panel{ display:flex; }
-  .bcontext-head{ display:flex; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
-  .bcontext-head span{ font:12px var(--ui); color:var(--dim); flex:1; }
-  .bcontext-tabs{ display:flex; gap:2px; }
-  .bcontext-tab{ height:26px; border:0; border-radius:7px; background:transparent; color:var(--dim);
-    padding:0 8px; cursor:pointer; font:11px var(--ui); transition:all .15s; }
-  .bcontext-tab:hover{ background:var(--hover); color:var(--text); }
-  .bcontext-tab.on{ background:var(--bubble); color:var(--text); font-weight:600; }
-  .bcontext-body{ flex:1; overflow-y:auto; padding:10px; font:13px/1.6 var(--ui); color:var(--text); }
-  .bcontext-body pre{ background:var(--card); padding:8px 12px; border-radius:8px; overflow-x:auto; font:12px/1.5 var(--mono); margin:6px 0; }
-  .bcontext-body a{ color:var(--green); text-decoration:none; }
-  .bcontext-body a:hover{ text-decoration:underline; }
-  .bcontext-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--dim); gap:8px; }
-  .bcontext-empty span:first-child{ font-size:28px; opacity:.4; }
-  .bcontext-empty span:last-child{ font:12px var(--ui); }
   /* Citation badges */
   .cite-badge{ display:inline-flex; align-items:center; gap:3px; padding:1px 6px; border-radius:4px;
     background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); font:10px var(--mono); cursor:pointer; }
   .cite-badge:hover{ background:color-mix(in srgb,var(--green) 20%,transparent); }
-  :root[data-theme="dark"] #browser{ background:#202020; }
-  body.browser-on #browser{ display:flex; }
-  #bdrag{ width:9px; flex:0 0 9px; margin-left:-4px; margin-right:-5px; cursor:col-resize;
-    background:transparent; display:none; position:relative; z-index:14; touch-action:none; }
-  body.browser-on #bdrag{ display:block; }
-  #bdrag::after,#ndrag::after,#ctxdrag::after{ content:""; position:absolute; inset:0 auto 0 4px; width:1px;
+  #ndrag::after,#ctxdrag::after{ content:""; position:absolute; inset:0 auto 0 4px; width:1px;
     background:transparent; pointer-events:none; }
-  #bdrag:hover::after,#bdrag.dragging::after,#ndrag:hover::after,#ndrag.dragging::after,
-  #ctxdrag:hover::after,#ctxdrag.dragging::after{ background:var(--green); }
+  #ndrag:hover::after,#ndrag.dragging::after,#ctxdrag:hover::after,#ctxdrag.dragging::after{ background:var(--green); }
   /* focus mode: collapse the chat side, browser takes the full width */
   body.chat-hidden main{ display:none; }
-  body.chat-hidden #bdrag{ display:none; }
-  body.chat-hidden #browser{ width:auto; flex:1; }
   /* native shell provides the browser pane — hide the HTML one */
-  body.shell #browser, body.shell #bdrag{ display:none !important; }
 
   /* ── Full-window browser takeover (web mode) ──────────────────────────
      The browser slides up over the chat and stays on top; the chat stays
@@ -756,153 +720,25 @@
      this only applies outside the shell (:not(.shell)). */
   /* Floats over the main app (rail stays visible on the left), like the cloud
      browser panel — not a full-window takeover. */
-  body.browser-on:not(.shell) #browser{
-    position:fixed; inset:10px 10px 10px var(--overlay-left,74px);
-    width:auto!important; min-width:0!important; max-width:none!important;
-    z-index:220; border-left:1px solid var(--border); border-radius:14px; overflow:hidden;
-    box-shadow:0 18px 60px rgba(0,0,0,.34), 0 0 0 1px rgba(0,0,0,.06);
-    animation:browserRise .26s cubic-bezier(.16,.84,.44,1); }
   /* the ⤢ focus mode still expands it edge to edge */
-  body.browser-on.chat-hidden:not(.shell) #browser{ inset:0; border-radius:0; }
   @keyframes browserRise{ from{ transform:translateY(16px) scale(.985); opacity:0; } to{ transform:none; opacity:1; } }
-  body.browser-closing:not(.shell) #browser{ animation:browserSink .19s ease forwards; }
   @keyframes browserSink{ from{ transform:none; opacity:1; } to{ transform:translateY(16px) scale(.985); opacity:0; } }
-  body:not(.shell) #bdrag{ display:none!important; }
   body.browser-on:not(.shell) main{ min-width:0; }
-  @media (prefers-reduced-motion:reduce){
-    body.browser-on:not(.shell) #browser, body.browser-closing:not(.shell) #browser{ animation:none; } }
+  @media (prefers-reduced-motion:reduce){ }
 
   /* floating reopen pill on the right edge (shown only when a session exists
      and the overlay is closed) */
-  #browserPill{ position:fixed; right:4px; top:50%; transform:translateY(-50%); z-index:120;
-    display:none; align-items:center; justify-content:center; width:20px; min-width:20px; height:30px; padding:0; cursor:pointer;
-    background:transparent; border:0; border-radius:7px;
-    color:var(--dim); box-shadow:none;
-    transition:transform .12s ease,background .12s,color .12s,border-color .12s; }
-  #browserPill:hover{ transform:translateY(-50%) scale(1.03); color:var(--green);
-    background:color-mix(in srgb,var(--green) 5%,transparent); }
-  #browserPill .bp-ico{ width:15px; height:20px; display:grid; place-items:center; font:20px/1 var(--ui); }
-  #browserPill .bp-ico svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-  #browserPill .bp-label{ display:none; }
-  body.has-browser:not(.browser-on):not(.shell) #browserPill{ display:flex; }
   @container (max-width:0px){} /* noop to keep container context intact */
 
   /* device / mobile framed view — presets driven by --dev-w / --dev-h */
-  #browser.dev-view .bframewrap{ display:flex; align-items:center; justify-content:center;
-    background:
-      radial-gradient(120% 90% at 50% 0%, color-mix(in srgb,var(--green) 6%,transparent), transparent 60%),
-      var(--card);
-    padding:20px 0; }
-  #browser.dev-view #bframe{ width:var(--dev-w,390px); max-width:94%; height:var(--dev-h,844px); max-height:100%;
-    border-radius:30px; border:10px solid #0b0b0b; box-shadow:0 26px 74px rgba(0,0,0,.5); background:#fff; }
-  #browser.dev-view.dev-tablet #bframe{ border-radius:22px; border-width:12px; }
-  #browser.dev-view .bblank, #browser.dev-view .breader{ border-radius:22px; }
-  .dev-badge{ position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:6; display:none;
-    padding:3px 10px; border-radius:999px; background:var(--bg); border:1px solid var(--border);
-    color:var(--dim); font:11px var(--mono); pointer-events:none; }
-  #browser.dev-view .dev-badge{ display:block; }
 
   /* running local servers, offered on the browser start screen */
-  .bsrv-list{ display:flex; flex-direction:column; gap:7px; margin:16px auto 2px; width:min(340px,92%); }
-  .bsrv-list:empty{ display:none; }
-  .bsrv{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border);
-    border-radius:11px; background:var(--bg); cursor:pointer; font:12.5px var(--ui); color:var(--text);
-    transition:border-color .15s, transform .08s; }
-  .bsrv:hover{ border-color:var(--dim); }
-  .bsrv:active{ transform:translateY(1px); }
-  .bsrv-ico{ opacity:.5; }
-  .bsrv-nm{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
-  .bsrv-pt{ opacity:.55; font:11.5px var(--mono); }
-  .bsrv-go{ display:grid; place-items:center; width:22px; height:22px; border:1px solid var(--border);
-    border-radius:6px; opacity:.7; font-size:10px; }
 
   /* "Run current project" block on the browser start screen */
-  .bblank-run{ display:flex; flex-direction:column; gap:9px; margin:20px auto 6px; width:min(340px,92%); }
-  .bblank-run .brun-btn{ display:flex; align-items:center; justify-content:center; gap:9px; height:46px; border:0;
-    border-radius:15px; background:var(--green); color:#fff; font:600 14px var(--ui); cursor:pointer;
-    box-shadow:0 8px 22px color-mix(in srgb,var(--green) 38%,transparent); transition:filter .15s, transform .1s; }
-  .bblank-run .brun-btn:hover{ filter:brightness(1.07); }
-  .bblank-run .brun-btn:active{ transform:translateY(1px); }
-  .bblank-run .brun-btn .brun-proj{ font-weight:400; opacity:.85; font-size:12.5px; }
-  .bblank-run .brun-sub{ display:flex; gap:7px; }
-  .bblank-run .brun-mini{ flex:1; height:36px; border:1px solid var(--border); border-radius:12px; background:var(--bg);
-    color:var(--dim); font:12px var(--ui); cursor:pointer; transition:all .15s; }
-  .bblank-run .brun-mini:hover{ background:var(--hover); color:var(--text); border-color:var(--dim); }
-  .bmenu{ position:absolute; top:50px; right:10px; z-index:30; width:min(240px,calc(100% - 20px));
-    max-height:calc(100% - 112px); overflow-y:auto; padding:9px; border-radius:14px;
-    border:1px solid color-mix(in srgb,var(--glass-border) 82%,var(--border));
-    background:linear-gradient(145deg,color-mix(in srgb,var(--bg) 78%,transparent),color-mix(in srgb,var(--bubble) 54%,transparent));
-    box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 58%,transparent),0 22px 54px rgba(0,0,0,.18),0 6px 18px rgba(0,0,0,.08);
-    backdrop-filter:blur(24px) saturate(1.9); -webkit-backdrop-filter:blur(24px) saturate(1.9); }
-  :root[data-theme="dark"] .bmenu{ box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 8%,transparent),0 22px 54px rgba(0,0,0,.34),0 6px 18px rgba(0,0,0,.22); }
-  .bmenu .item{ min-height:38px; padding:9px 9px; border-radius:8px; font-size:13px; }
-  .bmenu .item:hover{ background:rgba(0,0,0,.045); }
-  :root[data-theme="dark"] .bmenu .item:hover{ background:rgba(255,255,255,.07); }
-  .bmenu .sep{ height:1px; background:var(--border); margin:7px 2px; }
-  .bmenu .zrow{ display:flex; align-items:center; gap:9px; padding:8px 9px; font-size:13px; min-height:38px; }
-  .bmenu .zrow button{ width:24px; height:24px; border:0; border-radius:50%;
-    background:transparent; color:var(--text); cursor:pointer; font-size:13px; }
-  .bmenu .zrow button:hover{ background:var(--hover); }
-  .bmenu .histlist{ display:none; max-height:200px; overflow-y:auto; }
-  .bmenu .histlist.on{ display:block; }
-  .bmenu .histlist .item{ font-size:12px; padding:6px 10px; }
-  .bmenu .histlist .item .hu{ color:var(--dim); font-size:10.5px; overflow:hidden; text-overflow:ellipsis; }
   .menu .item.disabled{ opacity:.45; cursor:default; }
-  .bsearch{ margin-top:14px; width:min(340px,90%); border:1px solid var(--border); border-radius:20px;
-    background:var(--card); color:var(--text); font:13.5px inherit; padding:10px 16px; outline:0; }
   /* ═══ MODERN BROWSER PANE ═══ */
-  .browser-head{ order:1; display:flex; flex-direction:column; gap:0; padding:0;
-    border-top:0; border-bottom:1px solid var(--border); background:var(--bg); }
-  .browser-tabbar{ display:flex; align-items:center; gap:2px; min-height:32px; padding:3px 6px; overflow-x:auto; scrollbar-width:none;
-    border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--bg) 92%,transparent); }
-  .browser-tabbar::-webkit-scrollbar{ display:none; }
-  .btabs{ display:flex; align-items:center; gap:3px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; }
-  .btabs::-webkit-scrollbar{ display:none; }
-  .btabs:empty{ display:none; }
-  .btab{ height:26px; flex:0 0 150px; min-width:96px; max-width:160px; display:flex; align-items:center; gap:5px; padding:0 4px 0 7px; border:1px solid transparent;
-    border-radius:999px; background:transparent; color:var(--dim); font-size:var(--fs-xs); cursor:pointer; white-space:nowrap;
-    transition:background .15s,color .15s; position:relative; }
-  .btab:hover{ background:var(--hover); color:var(--text); }
-  .btab.active{ background:var(--bubble); border-color:var(--border); color:var(--text); font-weight:500; }
-  .btab.active::after{ display:none; }
-  .btab.add{ flex:0 0 26px; width:26px; min-width:26px; justify-content:center; padding:0; font-size:15px; border-radius:999px; }
-  .btab .fav{ width:14px; height:14px; flex-shrink:0; display:grid; place-items:center; overflow:hidden; }
-  .btab .fav img{ width:14px; height:14px; object-fit:contain; }
-  .btab .fav .ph{ font-size:11px; line-height:1; }
-  .btab .t{ overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
-  .btab .x{ color:var(--dim); font-size:13px; opacity:.68; transition:opacity .12s; flex-shrink:0; padding:0 2px; border-radius:50%; width:22px; height:22px; display:grid; place-items:center; }
-  .btab:hover .x,.btab.active .x{ opacity:.9; }
-  .btab .x:hover{ opacity:1; color:var(--text); background:var(--hover); }
-  .btab .reload{ color:var(--dim); font-size:11px; opacity:0; transition:opacity .12s; flex-shrink:0; padding:0 2px; border-radius:50%; width:18px; height:18px; display:grid; place-items:center; }
-  .btab:hover .reload{ opacity:.7; }
-  .btab .reload:hover{ opacity:1; color:var(--text); background:var(--hover); }
-  .browser-toolbar{ display:flex; align-items:center; gap:2px; padding:3px 8px; border-bottom:1px solid var(--border); background:var(--bg); }
-  .btoolbar{ display:flex; align-items:center; gap:2px; flex:0 0 auto; }
-  .btool-group{ display:flex; align-items:center; gap:1px; }
-  .btool-sep{ width:1px; height:18px; background:var(--border); margin:0 4px; flex-shrink:0; border-radius:1px; }
-  .bbtn{ width:30px; height:30px; flex-shrink:0; border:0; background:transparent; color:var(--dim);
-    border-radius:8px; cursor:pointer; font-size:15px; display:grid; place-items:center; line-height:1;
-    transition:background .15s,color .15s; }
-  .bbtn:hover{ background:var(--hover); color:var(--text); }
-  .bbtn.active{ background:color-mix(in srgb,var(--green) 12%,transparent); color:var(--green); }
-  .bbtn:disabled{ opacity:.3; cursor:default; }
   #bHome{ display:none; }
   /* Page actions — compact dropdown mode */
-  .page-actions{ position:relative; flex-shrink:0; }
-  .page-actions-inline .page-action{ display:inline-flex; }
-  .page-actions .page-action{ display:none; }
-  .pa-dropdown{ display:none; flex-direction:column; position:absolute; top:calc(100% + 4px); right:0; z-index:40;
-    min-width:180px; padding:5px; border-radius:10px; background:var(--bg); border:1px solid var(--border);
-    box-shadow:var(--shadow-lg); }
-  .pa-dropdown.on{ display:flex; }
-  .pa-dropdown .page-action{ display:flex; height:auto; padding:7px 10px; border-radius:7px; gap:8px; font-size:12.5px;
-    color:var(--text); }
-  .pa-dropdown .page-action:hover{ background:var(--hover); color:var(--text); }
-  .pa-dropdown .page-action .pa-icon{ font-size:15px; width:20px; text-align:center; }
-  .pa-btn{ display:flex; align-items:center; gap:3px; height:28px; padding:0 8px; border:0; border-radius:7px;
-    background:transparent; color:var(--dim); cursor:pointer; font:11px var(--ui); white-space:nowrap;
-    transition:background .15s,color .15s; }
-  .pa-btn:hover{ background:var(--hover); color:var(--text); }
   /* Sidebar for page outline */
   .bsidebar{ width:0; flex-shrink:0; overflow:hidden; border-right:1px solid var(--border); transition:width .2s ease; background:var(--bg); }
   .bsidebar.open{ width:220px; }
@@ -919,32 +755,7 @@
   .bs-item.h3{ padding-left:24px; font-size:11px; }
   .bs-item.h4{ padding-left:36px; font-size:10.5px; }
   /* Find bar improvements */
-  .bfind{ display:none; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid var(--border); background:var(--card); }
-  .bfind.on{ display:flex; }
-  .bfind input{ flex:1; border:1px solid var(--border); border-radius:8px; background:var(--bg);
-    color:var(--text); font:13px var(--mono); padding:6px 10px; outline:0; }
-  .bfind input:focus{ border-color:var(--green); box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 10%,transparent); }
-  .bfind .bfind-count{ font:11px var(--mono); color:var(--dim); white-space:nowrap; min-width:40px; text-align:center; }
-  .addr-wrap{ flex:1; position:relative; display:flex; align-items:center; min-width:0; }
-  #bAddr{ flex:1; min-width:0; border:1px solid var(--border); border-radius:10px; background:var(--bubble);
-    color:var(--text); font:var(--fs-sm) var(--mono); padding:6px 58px 6px 32px; outline:0; height:32px; text-align:left;
-    transition:border-color .15s,box-shadow .15s; }
-  #bAddr:focus{ border-color:var(--green); box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 12%,transparent); background:var(--bg); }
-  .addr-icon{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--dim); font-size:13px; pointer-events:none; z-index:1; }
-  .addr-star{ position:absolute; right:32px; top:50%; transform:translateY(-50%); width:24px; height:24px; border:0; background:transparent;
-    color:var(--dim); cursor:pointer; border-radius:6px; display:grid; place-items:center; font-size:14px; z-index:1; transition:color .15s; }
-  .addr-star:hover{ background:var(--hover); color:var(--text); }
-  .addr-star.active{ color:var(--online); }
-  .addr-clear{ position:absolute; right:6px; top:50%; transform:translateY(-50%); width:24px; height:24px; border:0;
-    background:transparent; color:var(--dim); cursor:pointer; border-radius:6px; display:none; place-items:center;
-    font-size:15px; line-height:1; z-index:2; }
-  .addr-clear.visible{ display:grid; }
-  .addr-clear:hover{ background:var(--hover); color:var(--text); }
   /* autocomplete dropdown */
-  .ac-wrap{ position:relative; }
-  .ac-list{ position:absolute; top:calc(100% + 2px); left:0; right:0; z-index:50; max-height:320px; overflow-y:auto;
-    border:1px solid var(--border); border-radius:10px; background:var(--bg); box-shadow:0 8px 24px rgba(0,0,0,.12); display:none; }
-  .ac-list.on{ display:block; }
   .ac-item{ display:flex; align-items:center; gap:8px; padding:7px 10px; cursor:pointer; border-radius:6px; font-size:var(--fs-sm); }
   .ac-item:hover,.ac-item.sel{ background:var(--hover); }
   .ac-item .ac-fav{ width:16px; height:16px; flex-shrink:0; display:grid; place-items:center; }
@@ -954,98 +765,19 @@
   .ac-item .ac-tag{ font-size:9px; padding:1px 5px; border-radius:4px; background:var(--hover); color:var(--dim); flex-shrink:0; }
   .ac-item .ac-tag.bm{ background:color-mix(in srgb,var(--orange) 14%,transparent); color:var(--online); }
   /* bookmarks bar */
-  .bm-bar{ display:flex; align-items:center; gap:2px; padding:2px 8px; border-bottom:1px solid var(--border); background:var(--bg);
-    overflow-x:auto; scrollbar-width:none; min-height:30px; }
-  .bm-bar::-webkit-scrollbar{ display:none; }
-  .bm-bar:empty{ display:none; }
-  .bm-item{ display:flex; align-items:center; gap:6px; padding:4px 8px; border:0; background:transparent; border-radius:6px;
-    color:var(--dim); font-size:var(--fs-xs); cursor:pointer; white-space:nowrap; transition:background .15s,color .15s; flex-shrink:0; }
-  .bm-item:hover{ background:var(--hover); color:var(--text); }
-  .bm-item img{ width:14px; height:14px; object-fit:contain; }
-  .bm-item .bm-x{ opacity:0; font-size:12px; color:var(--dim); margin-left:2px; }
-  .bm-item:hover .bm-x{ opacity:.7; }
-  .bm-item .bm-x:hover{ opacity:1; color:var(--text); }
-  .bm-proj-bar{ background:color-mix(in srgb,var(--accent) 4%,var(--bg)); border-bottom-color:color-mix(in srgb,var(--accent) 15%,var(--border)); }
-  .bm-proj-label{ font-size:var(--fs-xxs); color:var(--accent); font-weight:600; flex-shrink:0; padding:4px 4px 4px 8px; }
-  .bm-item.proj{ color:var(--accent); }
-  .bm-item.proj:hover{ background:color-mix(in srgb,var(--accent) 12%,var(--hover)); }
   /* browser task buttons — modern pill design, collapsible */
   .browser-tasks{ display:flex; align-items:center; gap:3px; padding:3px 8px 4px; overflow-x:auto; scrollbar-width:none;
     border-bottom:1px solid var(--border); background:var(--bg); }
   .browser-tasks::-webkit-scrollbar{ display:none; }
   .browser-tasks.collapsed{ display:none; }
-  .bt-tasks-toggle{ height:22px; flex:0 0 auto; border:0; border-radius:6px; background:transparent; color:var(--dim);
-    cursor:pointer; font:var(--fs-xxs) var(--ui); padding:0 7px; display:flex; align-items:center; gap:4px; white-space:nowrap;
-    transition:all .15s; }
-  .bt-tasks-toggle:hover{ background:var(--hover); color:var(--text); }
-  .bt-tasks-toggle .toggle-arrow{ font-size:9px; transition:transform .2s ease; }
-  .bt-tasks-toggle.open .toggle-arrow{ transform:rotate(180deg); }
-  .bt-task{ flex-shrink:0; display:flex; align-items:center; gap:4px; padding:5px 10px; border:1px solid var(--border);
-    border-radius:999px; background:var(--bg); color:var(--dim); font-size:var(--fs-xxs); cursor:pointer; white-space:nowrap;
-    transition:all .15s; }
-  .bt-task:hover{ background:var(--hover); border-color:var(--dim); color:var(--text); }
-  .bfind{ order:2; }
-  .bframewrap{ order:4; flex:1; position:relative; min-height:0; background:var(--bg); }
   @container (max-width:560px){
-    .browser-tabbar{ padding:3px 5px 0; gap:1px; }
-    .btabs{ gap:1px; }
-    .btab{ flex-basis:124px; min-width:84px; max-width:136px; gap:4px; padding:0 3px 0 6px; font-size:11px; }
-    .btab.add{ flex-basis:24px; width:24px; height:28px; }
-    .btab .fav,.btab .fav img{ width:14px; height:14px; }
-    .btab .x{ width:21px; height:21px; font-size:12px; }
-    .btab .reload{ width:16px; height:16px; font-size:11px; }
-    .browser-toolbar{ padding:3px 5px; gap:1px; flex-wrap:nowrap; }
-    .btoolbar{ gap:1px; }
-    .bbtn{ width:26px; height:28px; border-radius:7px; font-size:13px; }
-    .btool-sep{ margin:0 2px; }
-    .addr-wrap{ flex:1 1 120px; }
-    #bAddr{ height:30px; padding-left:28px; padding-right:24px; font-size:12px; }
   }
   @container (max-width:420px){
-    .browser-tabbar{ flex-wrap:nowrap; min-height:32px; }
-    .btabs{ flex:1 1 auto; min-width:0; }
-    .btab{ flex-basis:112px; min-width:76px; max-width:120px; }
-    .btab .reload{ display:none; }
-    .btab .x{ display:grid; }
-    .browser-toolbar{ flex-wrap:nowrap; }
-    .addr-wrap{ flex:1 1 88px; min-width:88px; }
-    #bReader,#bDarkPage,#bFindBtn,#bOutlineBtn,#bSplitBtn,.page-actions,.btool-sep{ display:none; }
-    .bmenu{ top:72px; }
+    #bReader,#bDarkPage,#bFindBtn,#bOutlineBtn,#bSplitBtn{ display:none; }
   }
-  :root[data-theme="dark"] .bframewrap{ background:#181818; }
-  #bframe{ width:100%; height:100%; border:0; background:#fff; }
-  .bblank{ position:absolute; inset:0; display:grid; place-items:center; text-align:center; color:var(--dim);
-    font-size:13px; padding:24px; background:var(--bg); }
-  .bblank-inner{ max-width:380px; }
-  .bblank-logo{ font-size:48px; margin-bottom:16px; opacity:.7; }
-  .bblank h2{ font-size:18px; font-weight:600; color:var(--text); margin-bottom:6px; }
-  .bblank p{ margin-bottom:12px; line-height:1.6; }
-  .bblank-shortcuts{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:16px; }
-  .bblank-shortcut{ display:flex; align-items:center; gap:6px; padding:6px 12px; border:1px solid var(--border);
-    border-radius:10px; background:var(--bubble); color:var(--dim); font-size:12px; cursor:pointer;
-    transition:all .15s; }
-  .bblank-shortcut:hover{ background:var(--hover); color:var(--text); border-color:var(--dim); }
-  .bblank-shortcut span:first-child{ font-size:16px; }
-  :root[data-theme="dark"] .bblank{ background:#181818; }
-  .bread{ position:absolute; top:8px; left:50%; transform:translateX(-50%); z-index:5; display:none;
-    align-items:center; gap:6px; background:var(--accent); color:var(--accent-text); border-radius:20px;
-    padding:6px 14px; font-size:12px; box-shadow:var(--shadow); }
-  .bread.on{ display:flex; }
   @keyframes eyepulse{ 0%,100%{opacity:1} 50%{opacity:.4} }
   .beye{ animation:eyepulse 1s infinite; }
   /* reader mode overlay */
-  .breader{ position:absolute; inset:0; z-index:10; overflow-y:auto; background:#faf9f7; color:#2c2c2c; display:none;
-    padding:40px 24px 80px; }
-  :root[data-theme="dark"] .breader{ background:#1a1a1a; color:#ddd; }
-  .breader.on{ display:block; }
-  .breader-inner{ max-width:720px; margin:0 auto; font:17px/1.75 Georgia,"Times New Roman",serif; }
-  .breader-inner h1,.breader-inner h2,.breader-inner h3{ font-family:system-ui,sans-serif; margin:1.2em 0 .4em; line-height:1.3; }
-  .breader-inner h1{ font-size:28px; }
-  .breader-inner a{ color:#6b6b6b; text-decoration:none; }
-  .breader-inner img{ max-width:100%; height:auto; border-radius:8px; margin:12px 0; }
-  .breader-inner blockquote{ border-left:3px solid var(--border); margin:1em 0; padding:.5em 1em; color:#666; font-style:italic; }
-  .breader-inner pre{ background:#f0efed; padding:12px 16px; border-radius:8px; overflow-x:auto; font:13px/1.5 monospace; }
-  :root[data-theme="dark"] .breader-inner pre{ background:#2a2a2a; }
 
   /* notepad panel */
   #notesPanel{ width:var(--nw,clamp(260px,32vw,360px)); flex:0 0 var(--nw,clamp(260px,32vw,360px)); display:none; flex-direction:column; min-width:240px;
@@ -1071,7 +803,6 @@
     --note-border:#242828; --note-bar:#242828; --note-tab:#1a1d1d; --note-text:#f2f2ea;
     --note-muted:#a9b0aa; --note-btn:#d9ded8; --note-placeholder:#858d87; --note-date:#4a5250;
   }
-  body.browser-on.notes-on #browser{ width:min(var(--bw,400px),34vw); min-width:260px; }
   body.browser-on.notes-on #notesPanel{ width:clamp(260px,27vw,330px); min-width:260px; }
   body.notes-on #notesPanel{ display:flex; }
   /* Notepad floats on the main app too, docked to the right edge, so opening it
@@ -1133,7 +864,7 @@
   .note-clock-icon:after{ content:""; position:absolute; left:5px; top:5px; width:3.5px; height:1.3px; border-radius:1px; background:currentColor; transform:rotate(28deg); transform-origin:left center; }
   /* PDF / print: isolate the note content on the page */
   #printArea{ display:none; }
-  body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
+  body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after{
     animation-duration:0.001ms !important; animation-iteration-count:1 !important;
     transition-duration:0.001ms !important; scroll-behavior:auto !important;
   }
@@ -1548,6 +1279,8 @@
     animation:spin .8s linear infinite; flex-shrink:0; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
   .approval{ border:1px solid var(--border); background:var(--card); border-radius:14px; padding:14px 16px; box-shadow:var(--shadow); }
+  .approval.trade-approval{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center;
+    border-color:color-mix(in srgb,var(--green) 45%,var(--border)); }
   .approval .q{ font-size:13px; color:var(--dim); margin-bottom:6px; }
   .approval .cmd{ font:13px var(--mono); white-space:pre-wrap; word-break:break-all; margin-bottom:12px; }
   .approval-context{ display:grid; gap:5px; margin:-4px 0 12px; padding:8px 9px; border:1px solid var(--border); border-radius:8px; background:var(--input); }
@@ -1853,6 +1586,9 @@
   .model-engine-seg button:last-child{ border-right:0; }
   .model-engine-seg button.on{ border-radius:6px; background:color-mix(in srgb,var(--online) 9%,var(--bg)); color:var(--online); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--online) 52%,var(--border)); }
   .model-engine-seg button .engine-ready{ display:inline-block; width:5px; height:5px; margin-left:2px; border-radius:50%; background:var(--green); vertical-align:1px; }
+  .orchestration-engine-state{ display:inline-block; width:5px; height:5px; margin-left:4px; border-radius:50%;
+    background:var(--red); vertical-align:1px; }
+  .orchestration-engine-state.connected{ background:var(--green); }
   .model-engine-help{ margin:2px 2px 0; color:var(--dim); font:6.8px/1.15 var(--ui); white-space:normal; }
   .model-netseg{ width:92px; height:24px; margin:0; display:grid; grid-template-columns:1fr 1fr; gap:1px; padding:2px;
     border:1px solid var(--border); border-radius:9px; background:var(--bubble); }
@@ -2336,12 +2072,12 @@
   .usage-fold{ display:none; padding:2px 0 8px 6px; border-left:1px solid var(--border); margin-left:4px; }
   .usage-fold.open{ display:block; }
 
-  .navbtn,.thread,.setrow,.banner,.approval .cmd,.approval .q,.approval .verdict,.projline,.bsearch,.bbtn,#bAddr,.bfind input,.menu input,.menu .item{ font-size:var(--fs-md); }
+  .navbtn,.thread,.setrow,.banner,.approval .cmd,.approval .q,.approval .verdict,.projline,.menu input,.menu .item{ font-size:var(--fs-md); }
   .setrow .hint,.minibtn,.actbtn,.usage-grid,.usage-line,.status,.qchip,.chip,.toolhead,.approval button,.netseg button{ font-size:var(--fs-sm); }
-  .usage-tbl .m,.ctxbar,.toolout,.msg-time,.btab,.bread,.menu .item .dl,.menu .item .check{ font-size:var(--fs-xs); }
+  .usage-tbl .m,.ctxbar,.toolout,.msg-time,.menu .item .dl,.menu .item .check{ font-size:var(--fs-xs); }
   .app-footer .sidefoot-nav #topSettings{ gap:0; padding:0; margin:0; width:32px; color:var(--dim); font-size:0; }
   .app-footer .sidefoot-nav #topSettings svg{ width:17px; height:17px; stroke-width:1.8; }
-  .grouphead,.bmenu .histlist .item .hu{ font-size:var(--fs-xxs); }
+  .grouphead{ font-size:var(--fs-xxs); }
   .thread{ font-size:var(--fs-xs); }
   .grouphead{ font-size:var(--fs-xs); }
   .empty h1{ font-size:var(--fs-xl); }
@@ -3415,16 +3151,6 @@
   .diag-summary{ margin-top:8px; padding:7px 9px; border:1px solid var(--border); border-radius:8px; background:var(--bubble); color:var(--dim); font:11.5px/1.4 var(--ui); }
   .diag-fixes{ display:flex; flex-wrap:wrap; gap:5px; margin-top:7px; }
   .diag-fixes button{ padding:4px 9px; border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font:11px var(--ui); cursor:pointer; }
-  .tech-report{ display:none; border-top:1px solid var(--border); background:var(--bg); padding:8px 10px; max-height:220px; overflow:auto; }
-  .tech-report.open{ display:block; }
-  .tech-head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font:600 12px var(--ui); }
-  .tech-head small{ color:var(--dim); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .tech-list{ display:grid; gap:4px; }
-  .tech-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:start; border:1px solid var(--border); border-radius:8px; padding:6px 8px; background:var(--bubble); }
-  .tech-row b{ font:600 12px var(--ui); }
-  .tech-row small{ display:block; color:var(--dim); font:10.5px var(--ui); margin-top:2px; }
-  .tech-score{ font:11px var(--mono); color:var(--accent); }
-  .tech-group{ margin:8px 0 3px; color:var(--dim); font:700 10px var(--ui); text-transform:uppercase; letter-spacing:.04em; }
 
   /* ── Three-zone layout (sidebar | main | context panel) ── */
   #ctxZone{ width:0; flex-shrink:0; display:none; flex-direction:column; min-width:0;
@@ -3683,8 +3409,6 @@
   .browser-tasks{ display:flex; align-items:center; gap:3px; padding:3px 8px 4px; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid var(--border); background:var(--bg); flex-shrink:0; }
   .browser-tasks::-webkit-scrollbar{ display:none; }
   .browser-tasks.collapsed{ display:none; }
-  .bt-task{ flex-shrink:0; display:flex; align-items:center; gap:4px; padding:5px 10px; border:1px solid var(--border); border-radius:999px; background:var(--bg); color:var(--dim); font-size:var(--fs-xxs); cursor:pointer; white-space:nowrap; transition:all .15s; }
-  .bt-task:hover{ background:var(--hover); border-color:var(--dim); color:var(--text); }
 
   /* ── Note structured tabs ── */
   .note-cat-tabs{ display:flex; gap:2px; padding:3px 6px; border-bottom:1px solid var(--border); background:var(--sidebar); overflow-x:auto; scrollbar-width:none; flex-shrink:0; }
@@ -4205,9 +3929,6 @@ body:not(.composer-simple) main::after{
     border-radius:8px; transform:translateY(-50%);
   }
   body.browser-on .side-chat-launch,body.notes-on .side-chat-launch{ display:grid; }
-  #browserPill{
-    display:none !important;
-  }
 
   /* Docked side panes: notepad, context & browser dock to the RIGHT of the chat
      as a clean, full-height split — the chat resizes to make room and they sit
@@ -4217,9 +3938,7 @@ body:not(.composer-simple) main::after{
      native shell keeps its own layout below). */
   #floatPanels{ display:contents; }
 
-  body.notes-on:not(.shell) #notesPanel,
-  body.browser-on:not(.shell) #browser,
-  body.zone-3 #ctxZone{
+  body.notes-on:not(.shell) #notesPanel,body.zone-3 #ctxZone{
     position:relative; inset:auto; top:auto; right:auto; bottom:auto; left:auto; align-self:stretch;
     height:auto; max-height:none; z-index:auto; border-radius:0; overflow:hidden;
     box-shadow:none; animation:none; transition:width var(--t),flex-basis var(--t),opacity var(--t);
@@ -4249,12 +3968,6 @@ body:not(.composer-simple) main::after{
     order:4; display:flex; width:var(--cw,clamp(260px,24vw,340px)); min-width:240px; flex:0 0 var(--cw,clamp(260px,24vw,340px));
     border:0; border-left:1px solid var(--border); background:var(--bg);
   }
-  body.browser-on:not(.shell) #bdrag{ order:5; display:block!important; }
-  body.browser-on:not(.shell) #browser{
-    order:6; display:flex; width:var(--bw,clamp(260px,30vw,400px))!important; min-width:240px!important;
-    flex:0 0 var(--bw,clamp(260px,30vw,400px)); border:0; border-left:1px solid var(--border);
-  }
-  body.browser-on.chat-hidden:not(.shell) #browser{ inset:auto; border-radius:0; }
 
   @media(max-width:1100px){
     .workspace-tabs{ gap:clamp(6px,1.3vw,14px); padding-inline:6px; }
@@ -4301,7 +4014,6 @@ body:not(.composer-simple) main::after{
     .composer-tools #modetxt,.composer-tools .modebtn .chev{ display:none; }
     .composer-tools .modelbtn{ max-width:68px; padding-inline:2px; }
     body.notes-on:not(.shell) #notesPanel{ width:var(--nw,280px); min-width:250px; flex-basis:var(--nw,280px); }
-    body.browser-on:not(.shell) #browser{ width:var(--bw,320px)!important; min-width:270px!important; flex-basis:var(--bw,320px); }
     body.zone-3 #ctxZone{ width:var(--cw,280px); min-width:240px; flex-basis:var(--cw,280px); }
   }
   @media(max-width:700px){
@@ -4311,7 +4023,6 @@ body:not(.composer-simple) main::after{
     aside,body.shell aside{ --approved-sidebar-w:196px; }
     body.zone-3 #ctxZone,body.zone-3 #ctxdrag{ display:none; }
     body.notes-on:not(.shell) #notesPanel{ width:var(--nw,260px); min-width:230px; flex-basis:var(--nw,260px); }
-    body.browser-on:not(.shell) #browser{ width:var(--bw,280px)!important; min-width:240px!important; flex-basis:var(--bw,280px); }
     main,#chat,.col{ min-width:0; max-width:100%; overflow-x:hidden; box-sizing:border-box; }
     .msg-user,.msg-ai,body.win-lg .msg-user,body.win-lg .msg-ai{
       min-width:0; max-width:min(88%,calc(100% - 12px)); box-sizing:border-box;
@@ -4383,18 +4094,10 @@ body:not(.composer-simple) main::after{
   body.rail-menu-open #sideRail .rail-user-name,
   body.rail-menu-open #sideRail .rail-user-email{ display:block; width:100%; }
   @media(max-width:560px){
-    #browserPill{ top:calc(50% + 23px); width:20px; min-width:20px; height:28px; }
-    body.notes-on:not(.shell) #notesPanel,
-    body.browser-on:not(.shell) #browser,
-    body:not(.shell) #bdrag,
-    #ndrag,#ctxdrag{ display:none!important; }
+    body.notes-on:not(.shell) #notesPanel,#ndrag,#ctxdrag{ display:none!important; }
   }
   /* Classic keeps Projects and Chats completely flat in both display modes. */
-  :root[data-color-theme="classic"] aside,
-  :root[data-color-theme="classic"] body.shell aside,
-  :root[data-color-theme="classic"] #notesPanel,
-  :root[data-color-theme="classic"] #ctxZone,
-  :root[data-color-theme="classic"] #browser{
+  :root[data-color-theme="classic"] aside,:root[data-color-theme="classic"] body.shell aside,:root[data-color-theme="classic"] #notesPanel,:root[data-color-theme="classic"] #ctxZone{
     border:0!important;
     border-radius:0!important;
     outline:0!important;
@@ -5588,58 +5291,7 @@ body:not(.composer-simple) main::after{
      established the approved compact 6px corner; account, composer, floating
      workspaces, dialogs, and large cards now use that same geometry. Pills,
      round avatars, message bubbles, and compact controls keep their own shape. */
-  body:not(.shell) aside,
-  body:not(.shell) main,
-  body.sidebar-popover-open aside,
-  .sidehead,
-  .sidebar-account-card,
-  .account-popover,
-  .account-head,
-  .brand-tip,
-  .chat-utility-panel,
-  .side-chat-panel,
-  .bg-agent-panel,
-  body.rail-menu-open #sideRail,
-  body.chat-xs.rail-menu-open #sideRail,
-  body.collapsed.chat-xs.rail-menu-open #sideRail,
-  body.browser-on:not(.shell) #browser,
-  body.notes-on:not(.shell) #notesPanel,
-  .workspace-float,
-  .composer-wrap,
-  .composer,
-  body:not(.composer-simple) .composer-wrap,
-  body:not(.composer-simple) .composer,
-  dialog,
-  .app-modal-card,
-  .diff-card,
-  .approval,
-  .toolcard,
-  .about-hero,
-  .settings-card,
-  .local-data-card,
-  .agent-budget-card,
-  .rules-card,
-  .conn-card,
-  .cloudflare-connect-card,
-  .memory-status-card,
-  .memory-control-card,
-  .memory-card,
-  .memory-empty,
-  .memory-rule-card,
-  .legal-doc,
-  .loop-recovery-card,
-  .education-card,
-  .education-question-card,
-  .education-question-card-paper,
-  .education-pdf,
-  .education-answer-sheet,
-  .recipe-subpanel,
-  .mcp-card,
-  .research-card,
-  .markets-shell,
-  .market-card,
-  .market-chart,
-  .market-setup{
+  body:not(.shell) aside,body:not(.shell) main,body.sidebar-popover-open aside,.sidehead,.sidebar-account-card,.account-popover,.account-head,.brand-tip,.chat-utility-panel,.side-chat-panel,.bg-agent-panel,body.rail-menu-open #sideRail,body.chat-xs.rail-menu-open #sideRail,body.collapsed.chat-xs.rail-menu-open #sideRail,body.notes-on:not(.shell) #notesPanel,.workspace-float,.composer-wrap,.composer,body:not(.composer-simple) .composer-wrap,body:not(.composer-simple) .composer,dialog,.app-modal-card,.diff-card,.approval,.toolcard,.about-hero,.settings-card,.local-data-card,.agent-budget-card,.rules-card,.conn-card,.cloudflare-connect-card,.memory-status-card,.memory-control-card,.memory-card,.memory-empty,.memory-rule-card,.legal-doc,.loop-recovery-card,.education-card,.education-question-card,.education-question-card-paper,.education-pdf,.education-answer-sheet,.recipe-subpanel,.mcp-card,.research-card,.markets-shell,.market-card,.market-chart,.market-setup{
     border-radius:var(--surface-radius);
   }
   @media(max-width:760px){
@@ -5680,7 +5332,7 @@ body:not(.composer-simple) main::after{
       <input id="threadSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search projects and chats">
       <span class="thread-search-key" aria-hidden="true">Ctrl K</span>
     </div>
-    <button type="button" class="thread-new-chat" aria-label="New chat" title="New chat" onclick="newChat()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+    <button type="button" class="thread-new-chat" id="threadNewChat" aria-label="Start a new chat" title="Start a new chat"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M12 8v8M8 12h8"/></svg></button>
   </div>
   <div class="threadlist" id="threadlist"></div>
   <nav class="sidebar-navigation" id="sidebarNavigation" aria-label="Boolean navigation">
@@ -6234,6 +5886,10 @@ body:not(.composer-simple) main::after{
             <div class="cloudflare-account-actions">
               <button class="minibtn dangerbtn" id="cloudflareDisconnect" style="display:none">Disconnect</button>
             </div>
+            <div class="setrow" id="cloudflareFullAccessRow" style="display:none">
+              <div>Full access<div class="hint">Let Boolean use this token to its full extent — any endpoint it permits, plus wrangler deploys — like the Codex and Claude CLIs. Writes still require your approval. Off keeps Boolean limited to the selected account.</div></div>
+              <label class="switch" for="cloudflareFullAccess" title="Give Boolean full use of this Cloudflare token"><input type="checkbox" id="cloudflareFullAccess" role="switch" aria-label="Cloudflare full access" aria-checked="false"><span class="slider"></span></label>
+            </div>
             <div class="hint" id="cloudflareStatus" role="status" aria-live="polite" style="margin-top:7px"></div>
             <div id="cloudflareResources" style="display:none;margin-top:12px">
               <div class="setrow" style="display:block">
@@ -6564,6 +6220,7 @@ body:not(.composer-simple) main::after{
           <div class="setrow"><div>Let AI browse the web<div class="hint">forms &amp; downloads still ask first</div></div><label class="switch"><input type="checkbox" id="aiBrowser"><span class="slider"></span></label></div>
           <div class="setrow"><div>Research mode<div class="hint">Auto-summarize pages as you browse, extract key links, and save findings to notes. Adds cite/compare/source tools to research.</div></div><label class="switch"><input type="checkbox" id="researchMode"><span class="slider"></span></label></div>
           <div class="setrow"><div>Safe-click confirmation<div class="hint">Ask before clicking submit, login, payment, or delete buttons on pages.</div></div><label class="switch"><input type="checkbox" id="safeClickConfirm"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Confirmed trade clicks<div class="hint">Off by default. Allows one live Buy/Sell click only after you confirm the exact security or contract, side, quantity, order type, price, and broker. Never runs in Automations.</div></div><label class="switch"><input type="checkbox" id="permTradeClicks"><span class="slider"></span></label></div>
           <div class="setrow"><div>Search engine</div>
             <select id="searchEngine">
               <option value="google">Google</option>
@@ -7586,6 +7243,16 @@ body:not(.composer-simple) main::after{
     <div class="composer-top-strip">
       <div class="composer-chat-actions" id="composerChatActions"></div>
     </div>
+    <div class="trading-bar" id="tradingBar" style="display:none" role="region" aria-label="Trading controls">
+      <span class="tb-dot" aria-hidden="true">↕</span>
+      <span class="tb-title">Trading</span>
+      <span class="tb-quote" id="tbQuote">â€”</span>
+      <span class="tb-stat" id="tbStat">—</span>
+      <span class="tb-spacer"></span>
+      <button class="tb-btn" id="tbRobinhood" type="button" title="Open Robinhood in the built-in browser">Robinhood</button>
+      <button class="tb-btn" id="tbSync" type="button" title="Sync realized P&amp;L from the broker connector">Sync P&amp;L</button>
+      <button class="tb-kill" id="tbKill" type="button" aria-pressed="false" title="Kill-switch: instantly halt all trade staging and clicks">Kill-switch</button>
+    </div>
     <div class="composer">
       <button class="workspace-context-chip" id="workspaceContextChip" type="button" aria-pressed="true" title="Explore context is shared with Chat"><span id="workspaceContextLabel"></span><small id="workspaceContextState">Shared</small></button>
       <div class="model-capability-banner" id="modelCapabilityBanner" role="status"></div>
@@ -7616,6 +7283,7 @@ body:not(.composer-simple) main::after{
           <div class="item" data-mode="read_only"><span class="access-mode-copy"><b>Read only</b><small>Inspect and analyze; no edits or deploys.</small></span></div>
           <div class="item" data-mode="ask"><span class="access-mode-copy"><b>Read &amp; write</b><small>Ask before changes and commands.</small></span></div>
           <div class="item" data-mode="full_access"><span class="access-mode-copy"><b>Full access</b><small>Auto-approve workspace actions.</small></span></div>
+          <div class="item" data-mode="trading_confirm"><span class="access-mode-copy"><b>Trading access</b><small>Full access plus signed-in trading. Confirm every live order.</small></span></div>
         </div>
       </div>
       <div class="spacer"></div>
@@ -7808,150 +7476,9 @@ body:not(.composer-simple) main::after{
   <button id="noteMenuSend">Send to message</button>
   <button id="noteMenuSchedule">Schedule task</button>
 </div>
-<div class="chat-menu selection-menu" id="browserSelectionMenu">
-  <button id="browserMenuCopy">Copy</button>
-  <button id="browserMenuMessage">Send to message</button>
-  <button id="browserMenuNote">Send to notepad</button>
-</div>
 
-<div id="bdrag" title="Drag to resize"></div>
-<section id="browser">
-  <div class="browser-head">
-    <div class="browser-tabbar">
-      <div class="btabs" id="btabs"></div>
-    </div>
-    <div class="browser-toolbar">
-    <div class="btool-group">
-    <button class="bbtn" id="bBack" title="Back (Alt+←)">‹</button>
-    <button class="bbtn" id="bFwd" title="Forward (Alt+→)">›</button>
-    <button class="bbtn" id="bReload" title="Refresh (Ctrl+R)">⟳</button>
-    <button class="bbtn" id="bStop" title="Stop" style="display:none">✕</button>
-    </div>
-    <div class="addr-wrap ac-wrap">
-      <span class="addr-icon">⌕</span>
-      <input id="bAddr" placeholder="Search or type a URL…" spellcheck="false" autocomplete="off">
-      <button class="addr-clear" id="bAddrClear" type="button" title="Clear address" aria-label="Clear address">×</button>
-      <button class="addr-star" id="bStar" title="Bookmark this page" style="display:none">☆</button>
-      <div class="ac-list" id="acList"></div>
-    </div>
-    <div class="btool-sep"></div>
-    <div class="btool-group">
-    <button class="bbtn" id="bReader" title="Reader mode">📖</button>
-    <button class="bbtn" id="bDarkPage" title="Dark mode for websites" aria-pressed="false">🌗</button>
-    <button class="bbtn" id="bFindBtn" title="Find on page (Ctrl+F)">⌕</button>
-    <button class="bbtn" id="bOutlineBtn" title="Toggle page outline (O)">☰</button>
-    <button class="bbtn" id="bSplitBtn" title="Toggle split view (Ctrl+Shift+V)">⊞</button>
-    <button class="bbtn" id="bDeviceBtn" title="Responsive view: Desktop → Tablet → Mobile">▣</button>
-    </div>
-    <div class="btool-sep"></div>
-    <div class="page-actions" id="pageActions">
-      <button class="pa-btn" id="paToggle" title="Page actions">✦ Actions</button>
-      <div class="pa-dropdown" id="paDropdown">
-        <button class="page-action" id="paExtract" title="Extract key text, tables, and links"><span class="pa-icon">📋</span>Extract text &amp; links</button>
-        <button class="page-action" id="paSummarize" title="AI summarize this page"><span class="pa-icon">✦</span>Summarize with AI</button>
-        <button class="page-action" id="paPin" title="Pin page to project"><span class="pa-icon">📌</span>Pin to project</button>
-        <button class="page-action" id="paScreenshot" title="Send screenshot to AI"><span class="pa-icon">📸</span>Screenshot to AI</button>
-      </div>
-    </div>
-    <button class="bbtn" id="bMenuBtn" title="Browser menu">⋮</button>
-    <button class="bbtn active" id="bClose" title="Hide browser">◎</button>
-    </div>
-    <div class="bm-bar" id="bmBar"></div>
-    <div class="bm-bar bm-proj-bar" id="bmProjBar" style="display:none"></div>
-    <button class="bt-tasks-toggle" id="btTasksToggle" title="Show browser action shortcuts" aria-expanded="false">⚡ Actions <span class="toggle-arrow">▼</span></button>
-    <div class="browser-tasks collapsed" id="btTasks">
-      <button class="bt-task" data-btask="use" title="Send this page as context to Boolean">📄 Use page</button>
-      <button class="bt-task" data-btask="docs" title="Extract documentation and code samples">📖 Extract docs</button>
-      <button class="bt-task" data-btask="code" title="Turn this page into code">⌗ Turn into code</button>
-      <button class="bt-task" data-btask="summarize" title="Summarize this page and save to notes">✦ Summarize</button>
-      <button class="bt-task" data-btask="tech" title="Detect CMS, builder, framework, analytics, and hosting">Stack</button>
-      <button class="bt-task" data-btask="monitor" title="Watch this page for changes">⏱ Monitor</button>
-    </div>
-    <div class="tech-report" id="techReport"></div>
-  </div>
-  <div class="bfind" id="bfind">
-    <input id="bFindInput" placeholder="Find on page…" spellcheck="false">
-    <span class="bfind-count" id="bFindCount"></span>
-    <button class="bbtn" id="bFindPrev" title="Previous">↑</button>
-    <button class="bbtn" id="bFindNext" title="Next">↓</button>
-    <button class="bbtn" id="bFindClose" title="Close">✕</button>
-  </div>
-  <div style="display:flex;flex:1;min-height:0;position:relative">
-    <div class="bsidebar" id="bSidebar">
-      <div class="bsidebar-head"><span>Outline</span><button id="bSidebarClose" title="Close outline">✕</button></div>
-      <div class="bsidebar-body" id="bSidebarBody"></div>
-    </div>
-    <div class="bframe-row reading" id="bFrameRow">
-      <div class="bframewrap">
-        <div class="bread" id="bread"><span class="beye">👁</span> Boolean is browsing…</div>
-        <div class="dev-badge" id="bDevBadge"></div>
-        <iframe id="bframe" sandbox="allow-scripts allow-forms allow-modals allow-downloads" referrerpolicy="no-referrer"></iframe>
-        <div class="breader" id="breader"><div class="breader-inner" id="breaderInner"></div></div>
-        <div class="bblank" id="bblank">
-          <div class="bblank-inner">
-            <div class="bblank-logo">🌐</div>
-            <h2>Browse the web</h2>
-            <p>Search below, or type a URL / <b>localhost</b> address in the bar above.</p>
-            <input class="bsearch" id="bStartSearch" placeholder="Search the web…" spellcheck="false">
-            <div class="bsrv-list" id="bLocalServers"></div>
-            <div class="bblank-run" id="bblankRun">
-              <button class="brun-btn" id="bRunProject" title="Run the current project and open its local preview here">▶ Run current project<span class="brun-proj" id="bRunProjName"></span></button>
-              <div class="brun-sub">
-                <button class="brun-mini" id="bRunLocalhost" title="Open a running local server">⌂ localhost</button>
-                <button class="brun-mini" id="bRunReload" title="Reload the current preview">⟳ Reload preview</button>
-              </div>
-            </div>
-            <div class="bblank-shortcuts" id="bblankhints"></div>
-          </div>
-        </div>
-  <div class="menu bmenu" id="bmenu">
-    <div class="item" id="bmNewTab"><span>New tab <small style="color:var(--dim)">Ctrl+T</small></span></div>
-    <div class="item" id="bmCloseTab"><span>Close current tab <small style="color:var(--dim)">Ctrl+W</small></span></div>
-    <div class="item" id="bmCloseOthers"><span>Close other tabs</span></div>
-    <div class="sep"></div>
-    <div class="item" id="bmBookmark"><span>Add to bookmarks</span></div>
-    <div class="item" id="bmProjectPage"><span>Save to project pages</span></div>
-    <div class="item" id="bmReader"><span>Toggle reader mode</span></div>
-    <div class="sep"></div>
-    <div class="item" id="bmSendPage"><span>Send page to AI</span></div>
-    <div class="item" id="bmSendSel"><span>Send selected text to message</span></div>
-    <div class="item" id="bmSendSelNote"><span>Send selected text to notepad</span></div>
-    <div class="item" id="bmScreenshot"><span>Send screenshot to AI</span></div>
-    <div class="item" id="bmScreenshotNote"><span>Send screenshot to notepad</span></div>
-    <div class="sep"></div>
-    <div class="zrow"><span style="flex:1">Zoom</span>
-      <button id="bmZoomOut">−</button><span id="bmZoomVal" style="min-width:44px;text-align:center">100%</span><button id="bmZoomIn">+</button>
-    </div>
-    <div class="item" id="bmZoomFit"><span>Auto fit to window</span></div>
-    <div class="sep"></div>
-    <div class="item" id="bmHistory"><span>History</span><span class="check">▾</span></div>
-    <div class="histlist" id="bmHistList"></div>
-    <div class="item" id="bmClearData"><span>Clear browsing data</span></div>
-    <div class="sep"></div>
-    <div class="item" id="bmExternal"><span>Open in system browser</span></div>
-    <div class="item" id="bmFocus"><span id="bmFocusTxt">Hide chat (focus browser)</span></div>
-  </div>
-    </div><!-- end bFrameRow -->
-    <div id="vdrag"></div>
-    <div class="bcontext-panel" id="bContextPanel">
-      <div class="bcontext-head">
-        <span>Extracted Content</span>
-        <div class="bcontext-tabs">
-          <button class="bcontext-tab on" data-bc="extract">Extract</button>
-          <button class="bcontext-tab" data-bc="links">Links</button>
-          <button class="bcontext-tab" data-bc="summary">Summary</button>
-        </div>
-        <button class="bbtn" id="bSplitClose" title="Close split view" style="width:22px;height:22px">✕</button>
-      </div>
-      <div class="bcontext-body" id="bContextBody">
-        <div class="bcontext-empty"><span>📋</span><span>Use Extract, Summarize, or Pin to fill this panel</span></div>
-      </div>
-    </div>
-  </div><!-- end flex row -->
-</section>
 </div><!-- end floatPanels -->
 
-<div id="browserPill" title="Reopen browser" aria-label="Reopen browser"><span class="bp-ico" aria-hidden="true">‹</span><span class="bp-label">Browser</span></div>
 
 <input type="file" id="fileImage" accept="image/*" hidden>
 <input type="file" id="fileAny" hidden>
@@ -8370,6 +7897,7 @@ body:not(.composer-simple) main::after{
   let claudeEnablePending=false;
   let claudeInstallPending=false;
   let claudeLoginStarted=false;
+  let claudeLoginWatchTimer=0;
   const resolvedApprovalIds=new Set();
   const resolvedCodexInputIds=new Set();
   let lastThreadSignature="";
@@ -8775,8 +8303,7 @@ body:not(.composer-simple) main::after{
       sidebarManualState=view.sidebarOpen===false;
       document.body.classList.toggle("collapsed",sidebarManualState);
       openNotes(!!view.notesOpen,{remember:false,focus:false});
-      if(SHELL) hostPost({type:"browser",cmd:view.browserOpen?"show":"hide"});
-      else openBrowser(!!view.browserOpen,{remember:false});
+      openBrowser(!!view.browserOpen,{remember:false});
       syncPanelButtons();
     }finally{ navRestoring=false; updateAppBack(); }
   }
@@ -9025,7 +8552,7 @@ body:not(.composer-simple) main::after{
     return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.tabIndex=0; d.setAttribute("aria-expanded","false"); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'<button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">&#9662;</button></div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.tabIndex=0; d.setAttribute("aria-expanded","false"); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">Completed by '+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'<button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">&#9662;</button></div>'; return d; }
   // a screenshot / image the AI produced, shown inline in the transcript
   function makeShot(src, caption){
     const d=document.createElement("div"); d.className="shotcard";
@@ -9041,6 +8568,26 @@ body:not(.composer-simple) main::after{
     lb.querySelector("img").src=src; lb.classList.add("on");
   }
   function openUrlInBrowser(url){ try{ aiNavigate(url); }catch{ window.open(url,"_blank"); } }
+  async function openRobinhoodBrowser(){
+    try {
+      let symbol = "";
+      try {
+        const response = await fetch("/api/trading/state");
+        if (response.ok) {
+          const payload = await response.json();
+          symbol = normalizeSymbolInput(payload?.browserSymbol || "");
+        }
+      } catch {}
+      if (!symbol) {
+        const fallback = await resolveTradingQuoteSymbol({});
+        symbol = normalizeSymbolInput(fallback || "");
+      }
+      const url = symbol ? `https://robinhood.com/stocks/${symbol.toLowerCase()}` : "https://robinhood.com";
+      openUrlInBrowser(url);
+    } catch {
+      tempToast("Could not open Robinhood right now. Try again or check your browser permissions.");
+    }
+  }
   let aboutLoaded=false;
   async function loadAboutInfo({force=false}={}){
     if(aboutLoaded&&!force) return;
@@ -9170,6 +8717,20 @@ body:not(.composer-simple) main::after{
       team_worker:(entry?.args?.state==="done"?"✓ ":entry?.args?.state==="draining"?"Stopping safely · ":entry?.args?.state==="retrying"?"Retrying · ":entry?.args?.state==="failed"?"Unavailable · ":"● ")+(entry?.args?.role||"Team worker")+" · "+(entry?.args?.model||entry?.args?.provider||"model")
     };
     return labels[name]||compactActivityText(toolRawSummary(entry));
+  }
+  function plainWorkingStatus(value){
+    const text=compactActivityText(String(value||"").replace(/â€¦/g,"...").trim());
+    const lower=text.toLowerCase();
+    if(/^running (?:read_file|list_dir|find_files|search_files|repository_map|find_symbol)/.test(lower)) return "Reviewing the project files...";
+    if(/^running (?:write_file|edit_file|apply_patch)/.test(lower)||lower.includes("applying compatibility edit")) return "Updating the project files...";
+    if(/^running run_(?:command|background|project)/.test(lower)) return "Running the project checks...";
+    if(/^running (?:read_page|visible_browser_read|screenshot_page|inspect_page_layout)/.test(lower)) return "Checking the page in the browser...";
+    if(/^running web_search/.test(lower)) return "Researching the needed information...";
+    if(lower==="working..."||lower==="workingâ€¦") return "Working on the next step...";
+    if(lower==="planning the work...") return "Planning the best way to do this...";
+    if(lower==="checking the result...") return "Checking that everything works...";
+    if(lower==="recovering from the failed step...") return "Fixing a problem and trying again...";
+    return text||"Working on the task...";
   }
   function toolDetailText(entry){
     const summary=toolRawSummary(entry);
@@ -9728,6 +9289,25 @@ body:not(.composer-simple) main::after{
       : "Connect to manage domains, Workers, Pages, and storage from Boolean.";
     if($("cloudflareOAuthConnect")) $("cloudflareOAuthConnect").textContent=connected?"Manage access":"Connect Cloudflare";
     if($("cloudflareAdvanced")&&connected) $("cloudflareAdvanced").open=false;
+    const faRow=$("cloudflareFullAccessRow"), fa=$("cloudflareFullAccess");
+    if(faRow) faRow.style.display=connected?"":"none";
+    if(fa){ fa.checked=connection.fullAccess===true; fa.setAttribute("aria-checked",fa.checked?"true":"false"); }
+  }
+  async function setCloudflareFullAccess(enabled){
+    const fa=$("cloudflareFullAccess");
+    try{
+      const response=await fetch("/api/cloudflare/full-access",{method:"POST",body:JSON.stringify({enabled:enabled===true})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error||"Could not change Cloudflare access.");
+      state.connectors=state.connectors||{};
+      state.connectors.cloudflare=result.cloudflare||{};
+      updateCloudflareConnectionView(result.cloudflare||{});
+      cloudflareStatus(enabled?"Full access on — Boolean can use this token fully.":"Full access off — Boolean is limited to the selected account.",enabled?"var(--green)":"var(--dim)");
+      renderConnectorOverview();
+    }catch(error){
+      if(fa){ fa.checked=!enabled; fa.setAttribute("aria-checked",fa.checked?"true":"false"); }
+      cloudflareStatus(error.message||"Could not change Cloudflare access.","var(--danger,#d14343)");
+    }
   }
   function renderCloudflareAccounts(selected=""){
     const row=$("cloudflareAccountRow"), select=$("cloudflareAccount");
@@ -9861,11 +9441,125 @@ body:not(.composer-simple) main::after{
   }
   function accessModeLabel(mode,{compact=false}={}){
     const labels=compact
-      ?{read_only:"Read",ask:"Write",full_access:"Full"}
-      :{read_only:"Read only",ask:"Read & write",full_access:"Full access"};
+      ?{read_only:"Read",ask:"Write",full_access:"Full",trading_confirm:"Trade"}
+      :{read_only:"Read only",ask:"Read & write",full_access:"Full access",trading_confirm:"Trading access"};
     return labels[mode]||labels.ask;
   }
+  function signedInTradeUser(){
+    const cloud=state.cloudBackend||{},user=cloud.user||{};
+    return cloud.signedIn?String(user.email||user.id||"").trim().toLowerCase():"";
+  }
+  async function refreshSignedInTradeUser(){
+    if(state.cloudBackend?.signedIn!==true) return "";
+    try{
+      await fetch("/api/cloud/me");
+      await refresh();
+    }catch{}
+    return signedInTradeUser();
+  }
+  function tradingModeEnabled(){
+    const bp=state.ui?.browserPerms||{},user=signedInTradeUser();
+    return !!user&&bp.tradeClicks===true&&String(bp.tradeConsentUser||"").trim().toLowerCase()===user;
+  }
+  async function setTradingMode(enabled){
+    const current={...(state.ui?.browserPerms||{})};
+    if(!enabled){
+      await setUi({browserPerms:{...current,tradeClicks:false}});
+      applyMode();
+      return true;
+    }
+    let user=await refreshSignedInTradeUser();
+    if(!user){
+      tempToast("Sign in to Boolean before enabling trading access.");
+      await startCloudSignIn();
+      user=await refreshSignedInTradeUser();
+      if(!user){
+        return false;
+      }
+    }
+    const agreed=await appConfirm(
+      "Enable trading access?",
+      "Trading stocks, ETFs, options, futures, crypto, and other assets is risky and can cause rapid losses, including losses greater than the amount deposited. Browser data may be delayed or misread, and AI can make mistakes. Boolean does not provide financial advice. This mode includes Full access. You authorize and remain responsible for every order and resulting loss, fee, tax, or obligation; Boolean and its developers are not responsible for trading losses to the extent permitted by law. Boolean will still require one final confirmation for every live order.",
+      "I agree — enable",
+      true
+    );
+    if(!agreed) return false;
+    await saveAccessMode("full_access");
+    const saved=await setUi({browserPerms:{...current,tradeClicks:true,tradeConsentUser:user,tradeConsentAt:Date.now()}});
+    applyMode();
+    await refreshTradingBar();
+    if(saved){
+      openRobinhoodBrowser();
+      return true;
+    }
+    tempToast("Could not save trading access. Please try again.");
+    return false;
+  }
   let accessModeSaveQueue=Promise.resolve();
+  let tradingBarRefreshInFlight=null;
+  let tradingBarTicker=0;
+  let tradingBarQuoteTick=0;
+  let lastTradingQuoteSymbol="";
+
+  const normalizeSymbolInput=(value)=>String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g,"").slice(0,24);
+  async function resolveTradingQuoteSymbol(tradingState={}){
+    const browserSymbol = normalizeSymbolInput(tradingState.browserSymbol || "");
+    if(browserSymbol){
+      lastTradingQuoteSymbol=browserSymbol;
+      return browserSymbol;
+    }
+    const list=Array.isArray(tradingState.symbolAllowlist)?tradingState.symbolAllowlist:[];
+    const first=list.map(normalizeSymbolInput).find(Boolean);
+    if(first) return first;
+    if(lastTradingQuoteSymbol) return lastTradingQuoteSymbol;
+    const fromMarkets=normalizeSymbolInput(marketState?.selectedSymbol || "");
+    if(fromMarkets){ lastTradingQuoteSymbol=fromMarkets; return fromMarkets; }
+    try{
+      const response=await fetch("/api/markets/settings");
+      if(!response.ok) return "AAPL";
+      const payload=await response.json();
+      const next=normalizeSymbolInput(payload.selectedSymbol || "");
+      if(next){ lastTradingQuoteSymbol=next; return next; }
+    } catch {}
+    return "AAPL";
+  }
+  function updateTradingBarQuote(quote={}, symbol="AAPL"){
+    const target=$("tbQuote");
+    if(!target) return;
+    const safeSymbol=normalizeSymbolInput(symbol);
+    const price=Number(quote?.price);
+    const change=Number(quote?.changePercent);
+    target.classList.remove("up","down","ok");
+    if(!Number.isFinite(price)){
+      target.textContent = `${safeSymbol} loading price`;
+      target.classList.add("ok");
+      return;
+    }
+    const value=marketMoney(price, quote?.currency || "USD");
+    const delta=Number.isFinite(change)?`${change>=0?"+":""}${change.toFixed(2)}%`:"";
+    const delayed=quote?.delayed===true?" · delayed":"";
+    target.textContent = `${safeSymbol} ${value}${delta?` ${delta}`:""}${delayed}`;
+    if(Number.isFinite(change)) target.classList.add(change > 0 ? "up" : change < 0 ? "down" : "ok");
+    else target.classList.add("ok");
+  }
+  function startTradingBarTicker(){
+    if(tradingBarTicker) return;
+    tradingBarTicker=setInterval(()=>{
+      if(document.visibilityState!=="visible" || busy()) return;
+      void refreshTradingBar();
+    },5000);
+  }
+  function stopTradingBarTicker(){
+    if(tradingBarTicker){
+      clearInterval(tradingBarTicker);
+      tradingBarTicker=0;
+    }
+  }
+  function syncTradingBarTicker(){
+    if(tradingModeEnabled()) startTradingBarTicker();
+    else stopTradingBarTicker();
+  }
+
   function saveAccessMode(mode){
     const requested=["read_only","ask","full_access"].includes(mode)?mode:"ask";
     const operation=accessModeSaveQueue.then(async()=>{
@@ -9890,23 +9584,91 @@ body:not(.composer-simple) main::after{
     return operation;
   }
   function applyMode(){
-    const mode=currentAccessMode();
-    const full=mode==="full_access";
+    const mode=tradingModeEnabled()?"trading_confirm":currentAccessMode();
+    const full=mode==="full_access"||mode==="trading_confirm";
     $("modebtn").classList.toggle("full",full);
     $("modebtn").classList.toggle("read-only",mode==="read_only");
-    $("mdot").textContent=({read_only:"◉",ask:"✎",full_access:"⚡"})[mode];
+    $("mdot").textContent=({read_only:"◉",ask:"✎",full_access:"⚡",trading_confirm:"↕"})[mode];
     $("modetxt").textContent=accessModeLabel(mode,{compact:composerIsSimple()});
     $("modebtn").title=mode==="read_only"
       ?"Access: Read only — inspect and analyze; no edits or deploys"
       :mode==="full_access"
         ?"Access: Full access — auto-approve workspace actions"
+        :mode==="trading_confirm"
+          ?"Trading access — Full access plus signed-in trading; confirm every live order"
         :"Access: Read & write — ask before changes and commands";
     document.querySelectorAll("#modemenu .item").forEach(i=>{
       const selected=i.dataset.mode===mode;
       i.classList.toggle("disabled",selected);
       i.setAttribute("aria-current",selected?"true":"false");
     });
+    syncTradingBarTicker();
+    refreshTradingBar();
   }
+  // ---- Trading bar (visible only in Trading access; wired to the guardrails + ledger) ----
+  async function refreshTradingBar(){
+    const bar=$("tradingBar"); if(!bar) return;
+    if(tradingBarRefreshInFlight) return tradingBarRefreshInFlight;
+    const on=tradingModeEnabled();
+    bar.style.display=on?"":"none";
+    if(!on){
+      stopTradingBarTicker();
+      return;
+    }
+    const quote=$("tbQuote");
+    const st=$("tbStat");
+    const thisTick=++tradingBarQuoteTick;
+    if(quote){
+      quote.classList.remove("up","down","ok");
+      quote.textContent=`${lastTradingQuoteSymbol||"AAPL"} loading...`;
+    }
+    if(st) st.textContent="status loading...";
+
+    const call = (async () => {
+      try{
+        const stateResponse = await fetch("/api/trading/state");
+        if(!stateResponse.ok) throw new Error("Could not load trading state.");
+        const s = await stateResponse.json();
+        const kill=s.killSwitch===true;
+        const kb=$("tbKill");
+        if(kb){ kb.classList.toggle("engaged",kill); kb.setAttribute("aria-pressed",kill?"true":"false"); kb.textContent=kill?"Kill-switch ON":"Kill-switch"; }
+        const orders=s.maxOrdersPerDay>0?`${s.ordersToday||0}/${s.maxOrdersPerDay} orders`:`${s.ordersToday||0} orders`;
+        const loss=s.dailyLossCapUsd>0?`$${s.realizedLossUsd||0}/$${s.dailyLossCapUsd} loss`:`$${s.realizedLossUsd||0} loss`;
+        const lead=kill?"HALTED":(s.armed?"Armed":"Disarmed");
+        if(st) { st.textContent=`${lead} · ${orders} · ${loss} today`; st.classList.toggle("halted",kill); }
+        const symbol=await resolveTradingQuoteSymbol(s);
+        if(thisTick!==tradingBarQuoteTick) return;
+        lastTradingQuoteSymbol=symbol;
+        const qs=`${encodeURIComponent(symbol)}`;
+        const quoteResponse = await fetch(`/api/markets/quote?symbol=${qs}`);
+        if(!quoteResponse.ok) throw new Error("Could not load live price.");
+        const quotePayload=await quoteResponse.json();
+        if(thisTick!==tradingBarQuoteTick) return;
+        updateTradingBarQuote(quotePayload,symbol);
+      }catch{
+        if(thisTick!==tradingBarQuoteTick) return;
+        if(st) st.textContent="status unavailable";
+        if(quote){
+          quote.classList.remove("up","down","ok");
+          quote.textContent=`${lastTradingQuoteSymbol||"AAPL"} price unavailable`;
+          quote.classList.add("ok");
+        }
+      }
+    })();
+    tradingBarRefreshInFlight=call.finally(()=>{if(tradingBarRefreshInFlight===call) tradingBarRefreshInFlight=null;});
+    return tradingBarRefreshInFlight;
+  }
+  async function toggleKillSwitch(){
+    const engaged=$("tbKill")?.classList.contains("engaged");
+    try{
+      await fetch("/api/trading/settings",{method:"POST",body:JSON.stringify({killSwitch:!engaged})});
+      await refreshTradingBar();
+      tempToast(!engaged?"Kill-switch ON — all trades halted.":"Kill-switch off.");
+    }catch{ tempToast("Could not change the kill-switch."); }
+  }
+  $("tbKill")?.addEventListener("click",toggleKillSwitch);
+  $("tbRobinhood")?.addEventListener("click",openRobinhoodBrowser);
+  $("tbSync")?.addEventListener("click",()=>{ try{ askAI("Sync my realized trading P&L from the broker connector and update the daily loss cap using sync_trade_pnl."); }catch{} });
   function applyNetMode(){
     const online=state.provider!=="local";
     document.body.classList.toggle("online-mode", online);
@@ -10520,6 +10282,9 @@ body:not(.composer-simple) main::after{
     if($("brandVersion")) $("brandVersion").textContent=state.displayVersion||("v"+(state.version||"0.9.25"));
     if($("footerVersion")) $("footerVersion").textContent="Boolean "+(state.displayVersion||("v"+(state.version||"0.9.25")));
     { const nm=activeModelName(); setComposerModelDisplay(nm); updateFooterModelStatus(); }
+    const persistedProviderModel = state.providerModels?.[state.provider];
+    if(isDirectApiProvider(state.provider) && String(persistedProviderModel || "").trim()) markExplicitProviderChoice(state.provider);
+    else markExplicitProviderChoice("");
     updateCompareButton();
     $("providersel").value=state.provider;
     applyMode();
@@ -10667,7 +10432,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.70"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.71"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -11189,10 +10954,16 @@ body:not(.composer-simple) main::after{
     const preserveWorkspace=options?.preserveWorkspace===true;
     rememberCurrentView();
     if(!preserveWorkspace)closeConversationPanels();
-    const r=await (await fetch("/api/thread/new",{method:"POST"})).json();
+    // The sidebar chat-plus is an explicit New chat action. Never reuse an
+    // existing empty/starter thread; always create a distinct fresh chat.
+    const r=await (await fetch("/api/thread/new",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({forceNew:true})})).json();
     threadId=r.id; col.innerHTML=""; clearFileChips(); showEmpty(); updateSendButton(); updateComposerConsoleInfo(); await refresh();
     return threadId;
   }
+  $("threadNewChat").onclick=(event)=>{
+    event.preventDefault(); event.stopPropagation();
+    newChat().catch(()=>tempToast("Could not start a fresh chat."));
+  };
   async function newProjectChat(project){
     rememberCurrentView();
     closeConversationPanels();
@@ -11318,7 +11089,7 @@ body:not(.composer-simple) main::after{
     state.model=file;
     setComposerModelDisplay(displayName(file));
     $("modelmenu").classList.remove("open");
-    await fetch("/api/config",{method:"POST",body:JSON.stringify({model:file})});
+    await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local",model:file})});
     await refresh();
   }
   async function pullModel(m,item,force=false){
@@ -11872,14 +11643,21 @@ body:not(.composer-simple) main::after{
   function renderModelEnginePicker(){
     const picker=$("modelEnginePicker"); if(!picker)return;
     const selected=state.codingEngine||"boolean";
+    const localMode=(modelPickerNet||(state.provider==="local"?"local":"online"))==="local";
     const ready={codex:state.codex?.ready===true&&state.codex?.account?.signedIn===true,"claude-code":state.claudeCode?.ready===true&&state.claudeCode?.signedIn===true};
     picker.querySelectorAll("[data-picker-runtime]").forEach(button=>{
       const runtime=button.dataset.pickerRuntime;
       button.classList.toggle("on",runtime===selected);
       button.setAttribute("aria-pressed",String(runtime===selected));
-      const label=runtime==="claude-code"?"Claude":runtime[0].toUpperCase()+runtime.slice(1);
-      button.innerHTML=esc(label)+((runtime==="codex"||runtime==="claude-code")&&ready[runtime]?'<i class="engine-ready" aria-label="Connected"></i>':"");
+      const label=runtime==="boolean"&&localMode?"Local":runtime==="claude-code"?"Claude":runtime[0].toUpperCase()+runtime.slice(1);
+      const external=runtime==="codex"||runtime==="claude-code";
+      const status=ready[runtime]?"Connected":"Not connected";
+      button.innerHTML=esc(label)+(external?'<i class="engine-ready '+(ready[runtime]?"":"down")+'" aria-label="'+status+'" title="'+status+'"></i>':"");
     });
+    const help=picker.querySelector(".model-engine-help");
+    if(help) help.textContent=localMode
+      ? "Local uses the selected model on this PC."
+      : "Auto starts with Boolean and uses an approved Codex or Claude fallback when needed.";
   }
   const uKeyCopyIcon='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
   function closeRowMenus({restoreFocus=false}={}){
@@ -12407,7 +12185,7 @@ body:not(.composer-simple) main::after{
       if(key==="browserTabs") data[key]=Array.isArray(value)?value.slice(0,12).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140)})):[];
       else if(key==="browserHistory") data[key]=Array.isArray(value)?value.slice(-80).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140),at:Number(tab.at||0)})):[];
       else if(key==="expandedSections") data[key]=Array.isArray(value)?value.slice(0,10).map(String):[];
-      else if(key==="browserPerms"&&value&&typeof value==="object") data[key]={downloads:value.downloads!==false,camera:!!value.camera,mic:!!value.mic,geo:!!value.geo};
+      else if(key==="browserPerms"&&value&&typeof value==="object") data[key]={downloads:value.downloads!==false,camera:!!value.camera,mic:!!value.mic,geo:!!value.geo,tradeClicks:value.tradeClicks===true,tradeConsentUser:String(value.tradeConsentUser||"").slice(0,320),tradeConsentAt:Math.max(0,Number(value.tradeConsentAt)||0)};
       else if(key==="codingAgent"&&value&&typeof value==="object"){
         const team=value.teamwork&&typeof value.teamwork==="object"?value.teamwork:{};
         data[key]={mode:String(value.mode||"quick"),planningMode:["auto","quick","plan-first"].includes(String(value.planningMode||"auto"))?String(value.planningMode||"auto"):"auto",autoTest:value.autoTest!==false,stopLoop:value.stopLoop===true,compatibilityMode:["auto","patch","review"].includes(String(value.compatibilityMode||"auto"))?String(value.compatibilityMode||"auto"):"auto",maxRetries:Number(value.maxRetries||2),budget:String(value.budget||"normal"),autoCommit:!!value.autoCommit,autopilot:value.autopilot!==false,routing:String(value.routing||"auto"),teamwork:{mode:["solo","assist","team"].includes(String(team.mode||"solo"))?String(team.mode||"solo"):"solo",workerProvider:String(team.workerProvider||"auto"),maxWorkers:Math.max(1,Math.min(3,Number(team.maxWorkers)||3)),useLowCost:team.useLowCost!==false,taskBudget:Math.max(0,Math.min(100,Number(team.taskBudget)||0.5))}};
@@ -13453,15 +13231,15 @@ body:not(.composer-simple) main::after{
     if(/plan:/.test(text)) return "plan";
     return "tools";
   }
-  function workingActivityGroupLabel(group,count){
-    const plural=count===1?"":"s";
-    if(group==="searches") return "Searched "+count+" source"+plural;
-    if(group==="commands") return "Ran "+count+" command"+plural;
-    if(group==="files") return "Changed "+count+" file"+plural;
-    if(group==="agents") return "Messaged "+count+" agent"+plural;
-    if(group==="inspections") return "Inspected "+count+" item"+plural;
-    if(group==="plan") return "Updated plan";
-    return "Used "+count+" tool"+plural;
+  function workingActivityGroupLabel(group,count,items=[]){
+    const titles=items.map(item=>String(item?.title||"").toLowerCase()).join(" ");
+    if(group==="searches") return "Researched the needed sources";
+    if(group==="commands") return /check|test|build|lint|compile|typecheck/.test(titles)?"Checked the project":"Ran the project commands";
+    if(group==="files") return count===1?"Updated a project file":"Updated "+count+" project files";
+    if(group==="agents") return count===1?"Asked another model for help":"Asked other models for help";
+    if(group==="inspections") return /browser|page/.test(titles)?"Checked the page":"Reviewed the project files";
+    if(group==="plan") return "Planned the work";
+    return count===1?"Completed a project step":"Completed "+count+" project steps";
   }
   function workingActivityIcon(group){
     const paths={
@@ -13514,7 +13292,7 @@ body:not(.composer-simple) main::after{
     const summary=workingActivitySummary(ref);
     list.innerHTML=summary.segments.map(item=>item.kind==="commentary"
       ?'<p class="working-commentary" role="listitem">'+esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'')+'</p>'
-      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count))+'</b><span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
+      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+'</b><span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
     const current=summary.current;
     const status=card.querySelector(".stx");
     if(current&&status){ status.textContent=current.title||"Working"; status.title=current.detail||current.title||"Working"; }
@@ -13559,6 +13337,9 @@ body:not(.composer-simple) main::after{
     const mark=card.querySelector(".working-card-mark");
     if(mark) mark.textContent=outcome==="error"?"!":outcome==="paused"?"||":"\u2713";
     const status=card.querySelector(".stx"); if(status){ status.textContent=label; status.title=label; }
+    const worker=card.querySelector(".working-card-worker");
+    const completedBy=ref.aiLabel||shortAiName(ref.provider,ref.model)||"Boolean";
+    if(worker){ worker.textContent="Completed by "+completedBy; worker.title=ref.workerTrail?.length>1?"Worker path: "+ref.workerTrail.join(" → "):"Completed by "+completedBy; }
     const meta=card.querySelector(".meta"); if(meta) meta.textContent=(ref.steps||0)+" step"+(ref.steps===1?"":"s");
     card.querySelector('[data-working-action="cancel"]')?.remove();
     card.querySelector('[data-working-action="output"]')?.remove();
@@ -13847,9 +13628,13 @@ body:not(.composer-simple) main::after{
       run.statusEl.setAttribute("role","status");
       run.statusEl.setAttribute("aria-live","polite");
       run.statusEl.setAttribute("aria-label","Boolean task progress");
-      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="stx"></span><span class="working-card-actions"><span class="meta"></span><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
+      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><span class="meta"></span><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
       col.appendChild(run.statusEl);
       wireWorkingCard(run.statusEl,run);
+      // Activity can arrive before the card exists (especially fast tool calls).
+      // Paint the already-recorded rows immediately instead of leaving an empty
+      // card until another event or Stop forces a final render.
+      renderWorkingCardActivity(run);
     }
     const statusText=run.status||"thinking…";
     const statusNode=run.statusEl.querySelector(".stx");
@@ -13860,6 +13645,9 @@ body:not(.composer-simple) main::after{
     const phase=String(run.controller?.phase||"");
     const stateLabel=run.statusEl.querySelector(".working-card-state b");
     if(stateLabel) stateLabel.textContent=waiting?"Waiting":load?"Loading":phase==="planning"?"Planning":phase==="verifying"?"Verifying":"Working";
+    const workerLabel=run.aiLabel||shortAiName(run.provider,run.model)||"Boolean";
+    const worker=run.statusEl.querySelector(".working-card-worker");
+    if(worker){ worker.textContent=workerLabel; worker.title="Currently working: "+workerLabel; }
     run.statusEl.classList.toggle("waiting",waiting);
     run.statusEl.classList.toggle("local-model-load",!!load);
     const progress=run.statusEl.querySelector(".load-progress");
@@ -14311,11 +14099,13 @@ body:not(.composer-simple) main::after{
     const emailCleanup=/\bMove up to \d+ reviewed messages\b[\s\S]*\bto Trash\b/i.test(summary);
     const codex=ev.codex===true;
     const writeElevation=ev.kind==="writeElevation";
+    const tradeApproval=ev.kind==="trade";
+    if(tradeApproval)card.classList.add("trade-approval");
     const rows=approvalContextRows(ev);
     const decisions=approvalDecisions(ev,emailCleanup);
     const network=rows.some(row=>row.label==="Network")||ev.kind==="network";
-    const heading=writeElevation?'Boolean needs temporary project access:':emailCleanup?'Confirm email cleanup:':network?'Codex is requesting network access:':codex?'Codex is waiting for approval:':'Boolean is waiting for approval:';
-    const labels={accept:writeElevation?'Allow once':emailCleanup?'Move to Trash':codex?'Allow once':'Allow',acceptForSession:'Allow for session',decline:writeElevation?'Keep read only':'Deny',cancel:'Cancel'};
+    const heading=tradeApproval?'Confirm live trade order':writeElevation?'Boolean needs temporary project access:':emailCleanup?'Confirm email cleanup:':network?'Codex is requesting network access:':codex?'Codex is waiting for approval:':'Boolean is waiting for approval:';
+    const labels={accept:tradeApproval?'Confirm':writeElevation?'Allow once':emailCleanup?'Move to Trash':codex?'Allow once':'Allow',acceptForSession:'Allow for session',decline:tradeApproval?'Cancel':writeElevation?'Keep read only':'Deny',cancel:'Cancel'};
     const classes={accept:'allow',acceptForSession:'session',decline:'deny',cancel:'deny'};
     const contextHtml=rows.length?'<div class="approval-context">'+rows.map(row=>'<div class="approval-context-row"><span>'+esc(row.label)+'</span><code>'+esc(row.value)+'</code></div>').join('')+'</div>':'';
     card.innerHTML='<div class="q">'+heading+'</div><div class="cmd">'+esc(summary||"Review this action before continuing.")+'</div>'+contextHtml+'<div class="btns">'+decisions.map(decision=>'<button class="'+classes[decision]+'" data-decision="'+decision+'">'+labels[decision]+'</button>').join('')+'</div>';
@@ -14413,7 +14203,8 @@ body:not(.composer-simple) main::after{
     }
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){
-      run.status=ev.text;
+      run.status=plainWorkingStatus(ev.text);
+      run.statusUpdatedAt=Date.now();
       if(ev.kind==="commentary") addWorkingActivity(ev.text,{key:"commentary:"+String(ev.text||"").slice(0,80),group:"commentary"});
       setBooleanActivity(inferBooleanActivity(ev.text));
       run.localModelLoad=ev.kind==="local-model-load"?{phase:ev.phase||"",pct:Number(ev.pct)||0,model:ev.model||""}:null;
@@ -14424,8 +14215,10 @@ body:not(.composer-simple) main::after{
       run.provider=run.route.provider;
       run.model=run.route.model;
       run.aiLabel=shortAiName(run.provider,run.model);
+      run.workerTrail=run.workerTrail||[];
+      if(run.aiLabel&&run.workerTrail.at(-1)!==run.aiLabel) run.workerTrail.push(run.aiLabel);
       const routeName=AUTO_ROUTE_NAMES[run.route.route]||run.route.route||"Auto";
-      addWorkingActivity("Auto chose "+routeName,{detail:(run.model||run.provider)+(run.route.reason?" · "+run.route.reason:""),status:"done",key:"route:"+run.route.route+":"+run.provider+":"+run.model,group:"route"});
+      addWorkingActivity((ev.escalated?"Handed work to ":"Working with ")+run.aiLabel,{detail:routeName+(run.route.reason?" · "+run.route.reason:""),status:"done",key:"route:"+run.route.route+":"+run.provider+":"+run.model,group:"agents",subject:run.aiLabel});
       setComposerModelDisplay(run.model||run.provider);
       if(showing&&!workspaceBackground)ensureStatusEl();
     }
@@ -14441,8 +14234,8 @@ body:not(.composer-simple) main::after{
       if(run.controller?.teamWorkers&&typeof run.controller.teamWorkers==="object")run.teamWorkers=Object.fromEntries(Object.entries(run.controller.teamWorkers).map(([role,worker])=>[role,{role,...worker}]));
       const phase=run.controller?.phase;
       if(phase){
-        const labels={planning:"planning the work...",executing:"working...",verifying:"checking the result...",recovering:"recovering from the failed step..."};
-        if(labels[phase]) run.status=labels[phase];
+        const labels={planning:"Planning the best way to do this...",executing:"Working on the next step...",verifying:"Checking that everything works...",recovering:"Fixing a problem and trying again..."};
+        if(labels[phase]&&(phase!=="executing"||!run.statusUpdatedAt||Date.now()-run.statusUpdatedAt>1800)) run.status=labels[phase];
         setBooleanActivity(inferBooleanActivity(run.status));
         renderThreads(); if(showing&&!workspaceBackground){ ensureStatusEl(); ensurePlanChecklist(ev.controller); renderWorkingCardActivity(run); }
       }
@@ -14462,11 +14255,22 @@ body:not(.composer-simple) main::after{
       const toolDetail=compactActivityText(ev.entry?.summary||"");
       const activityGroup=workingToolActivityGroup(ev.entry);
       run.activitySequence=(run.activitySequence||0)+1;
+      if(showing&&!workspaceBackground){
+        // Ensure the live card exists before adding the event so the current
+        // step is visible during the run, not only after the task is stopped.
+        ensureStatusEl();
+      }
       addWorkingActivity(toolLabel,{detail:toolDetail&&toolDetail!==toolLabel?toolDetail:"",status:"done",key:"tool:"+activityGroup+":"+run.activitySequence,group:activityGroup,subject:workingToolActivitySubject(ev.entry)});
       if(showing&&!workspaceBackground){
         insertToolAbove(ev.entry);
         updateFileChip(ev.entry);
         captureTerminalFromStep(ev.entry);
+        if(run.previewUrl&&["write_file","edit_file","apply_patch"].includes(String(ev.entry?.name||""))){
+          // Keep the verified localhost build visible from the first runnable
+          // state through subsequent edits without creating extra tabs.
+          if(SHELL)hostPost({type:"browser",cmd:"navigate",url:run.previewUrl});
+          else navigate(run.previewUrl);
+        }
         if(ev.entry?.name!=="team_worker")run.status="working…";
         ensureStatusEl();
       }
@@ -14564,6 +14368,12 @@ body:not(.composer-simple) main::after{
       }
       if(showing) insertAbove(makeErr(ev));
       if(!showing) notify("Boolean encountered an error", ev.text||"The task failed unexpectedly.");
+    }
+    if(ev.type==="answer"||ev.type==="paused"){
+      run.workerTrail=run.workerTrail||[];
+      if(run.aiLabel&&run.workerTrail.at(-1)!==run.aiLabel) run.workerTrail.push(run.aiLabel);
+      const sender=run.liveAI?.querySelector(".msg-sender");
+      if(sender){ sender.textContent="Completed by "+run.aiLabel; sender.title=run.workerTrail.length>1?"Worker path: "+run.workerTrail.join(" → "):"Completed by "+run.aiLabel; }
     }
     salesWorkflowEvent(ev);
     workflowRunEvent(ev);
@@ -15501,11 +15311,20 @@ Optional bundled starter model:
     if(net==="local"){
       modelPickerNet="local";
       markExplicitProviderChoice("local");
-      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local"})});
+      state.codingEngine="boolean";
+      renderModelEnginePicker();
+      if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
+      setComposerModelDisplay(activeModelName());
+      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local",codingEngine:"boolean"})});
       await refresh();
+      modelPickerNet="local";
       if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
       return;
     }
+    modelPickerNet="online";
+    state.codingEngine="auto";
+    renderModelEnginePicker();
+    if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
     const cloud=state.cloud||{}, keys=state.keys||{};
     const cloudProviders=Object.keys(cloud);
     let prov=state.provider!=="local"&&keys[state.provider]?state.provider:"";
@@ -15513,14 +15332,17 @@ Optional bundled starter model:
     if(!prov) prov=cloudProviders.find(provider=>providerReadyForRun(provider)||keys[provider])||"";
     if(prov){
       const wasLocal=state.provider==="local";
-      modelPickerNet="online";
       markExplicitProviderChoice(prov);
-      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov})});
+      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov,codingEngine:"auto"})});
       await refresh();
+      modelPickerNet="online";
+      state.codingEngine="auto";
+      renderModelEnginePicker();
+      if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
       if(wasLocal) tempToast("Cloud mode: using your saved API key.");
     }
     else {
-      modelPickerNet="online";
+      await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine:"auto"})});
       $("modelmenu").classList.add("open");
       $("modelsearch").value="";
       renderModelList("");
@@ -15593,6 +15415,7 @@ Optional bundled starter model:
     await fetch("/api/open-url",{method:"POST",body:JSON.stringify({url:"https://dash.cloudflare.com/?to=/:account/oauth-clients"})});
   };
   if($("cloudflareDisconnect")) $("cloudflareDisconnect").onclick=()=>disconnectCloudflare(true);
+  if($("cloudflareFullAccess")) $("cloudflareFullAccess").onchange=(e)=>setCloudflareFullAccess(e.target.checked);
   if($("cloudHostingConnect")) $("cloudHostingConnect").onclick=connectCloudHosting;
   if($("cloudHostingDisconnect")) $("cloudHostingDisconnect").onclick=()=>disconnectCloudHosting();
   if($("cloudflarePaste")) $("cloudflarePaste").onclick=async()=>{
@@ -15716,9 +15539,13 @@ Optional bundled starter model:
   $("modebtn").onclick=(e)=>{ e.stopPropagation(); $("plusmenu").classList.remove("open"); $("modelmenu").classList.remove("open"); $("modemenu").classList.toggle("open"); };
   document.querySelectorAll("#modemenu .item").forEach(item=>item.onclick=async(e)=>{
     e.stopPropagation();
-    const mode=["read_only","ask","full_access"].includes(item.dataset.mode)?item.dataset.mode:"ask";
+    const mode=item.dataset.mode;
     $("modemenu").classList.remove("open");
-    try{ await saveAccessMode(mode); }
+    try{
+      if(mode==="trading_confirm"){ await setTradingMode(true); return; }
+      await setTradingMode(false);
+      await saveAccessMode(["read_only","ask","full_access"].includes(mode)?mode:"ask");
+    }
     catch(error){ applyMode(); tempToast(error?.message||"Could not save the access setting."); }
   });
   $("savesettings").onclick=async()=>{
@@ -15787,13 +15614,25 @@ Optional bundled starter model:
   }
   function renderCodexSettings(){
     const codex=state.codex||{};
+    const engineConnected={
+      codex:codex.ready===true&&codex.account?.signedIn===true,
+      "claude-code":state.claudeCode?.ready===true&&state.claudeCode?.signedIn===true
+    };
     const enabled=state.codingEngine==="codex";
     const codexSelected=enabled||codexSetupOpen;
     const selectedRuntime=claudeSetupOpen?"claude-code":codexSetupOpen?"codex":(state.codingEngine||"boolean");
     document.querySelectorAll("#orchestrationSeg button").forEach(button=>{
+      const runtime=button.dataset.runtime;
       const selected=button.dataset.runtime===selectedRuntime;
       button.classList.toggle("on",selected);
       button.setAttribute("aria-pressed",String(selected));
+      if(runtime==="codex"||runtime==="claude-code"){
+        const connected=engineConnected[runtime]===true;
+        const label=runtime==="codex"?"Codex":"Claude Code";
+        const status=connected?"Connected":"Not connected";
+        button.innerHTML=esc(label)+'<i class="orchestration-engine-state '+(connected?"connected":"")+'" aria-label="'+status+'" title="'+status+'"></i>';
+        button.setAttribute("aria-label",label+": "+status);
+      }
     });
     if($("orchestrationSelected")) $("orchestrationSelected").innerHTML="Selected: <b>"+esc(({auto:"Auto",boolean:"Boolean",codex:"Codex","claude-code":"Claude Code"})[selectedRuntime]||"Boolean")+"</b>";
     renderModelEnginePicker();
@@ -15911,13 +15750,15 @@ Optional bundled starter model:
   const AUTO_ROUTE_NAMES={chat:"Chat",coding:"Coding",vision:"Vision",research:"Research",fast:"Fast"};
   function modelRoutingState(ui=state.ui||{}){
     const saved=ui.modelRouting||{};
+    const subscriptionChoicesSaved=saved.subscriptionEngines?.explicit===true;
     return {
       selected:AUTO_ROUTE_NAMES[saved.selected]?saved.selected:"chat",
       preference:["cost","balanced","quality"].includes(saved.preference)?saved.preference:"balanced",
       allowEscalation:saved.allowEscalation!==false,
       subscriptionEngines:{
-        codex:saved.subscriptionEngines?.codex===true,
-        claudeCode:saved.subscriptionEngines?.claudeCode===true,
+        explicit:subscriptionChoicesSaved,
+        codex:subscriptionChoicesSaved?saved.subscriptionEngines?.codex!==false:true,
+        claudeCode:subscriptionChoicesSaved?saved.subscriptionEngines?.claudeCode!==false:true,
         preferred:["codex","claude-code","first-ready"].includes(saved.subscriptionEngines?.preferred)?saved.subscriptionEngines.preferred:"codex"
       },
       profiles:{...(saved.profiles||{})},
@@ -16037,15 +15878,8 @@ Optional bundled starter model:
     if($("safeClickConfirm")) $("safeClickConfirm").checked=ui.safeClickConfirm===true;
     // Website rendering follows Boolean's dark theme automatically. The saved
     // browser toggle can additionally request dark pages while Boolean is light.
-    if(darkPageOn!==browserDark){
-      darkPageOn=browserDark;
-      if($("bDarkPage")){
-        $("bDarkPage").classList.toggle("active",darkPageOn);
-        $("bDarkPage").setAttribute("aria-pressed",darkPageOn?"true":"false");
-        $("bDarkPage").title=darkPageOn?"Turn off website dark mode":"Dark mode for websites";
-      }
-      if(!SHELL){ const tab=curTab(); if(tab?.url) showFrame(tab); }
-    }
+    // The native pane renders its own dark-mode button; the shell theme push below
+    // carries the current preference to it.
     // tell the native shell to match the browser chrome and websites to the current theme
     if(SHELL){ hostPost({type:"browser",cmd:"theme",dark:resolvedDark,surface:selectedColorTheme(ui),browserDark}); }
     syncDockHeight();
@@ -16069,6 +15903,7 @@ Optional bundled starter model:
     $("permCamera").checked=!!bp.camera;
     $("permMic").checked=!!bp.mic;
     $("permGeo").checked=!!bp.geo;
+    $("permTradeClicks").checked=tradingModeEnabled();
 
     // ── restore new section states ──
     if($("notifInApp")) $("notifInApp").checked=notif.inApp!==false;
@@ -16237,13 +16072,30 @@ Optional bundled starter model:
     finally{ claudeInstallPending=false; renderCodexSettings(); }
   }
   async function startClaudeCodeSignIn(){
+    state.claudeCode={...(state.claudeCode||{}),error:""};
+    tempToast("Opening the Claude sign-in terminal and browser verification...");
     const response=await fetch("/api/claude-code/auth/start",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:"{}"});
     const result=await response.json().catch(()=>({}));
     if(!response.ok||result.ok!==true){ claudeLoginStarted=false; state.claudeCode={...(state.claudeCode||{}),error:result.message||result.error||"Claude Code sign-in could not start."}; renderCodexSettings(); return false; }
     claudeLoginStarted=true;
     renderCodexSettings();
     tempToast(result.message||"Finish signing in with Claude, then press Check.");
+    scheduleClaudeCodeLoginCheck();
     return true;
+  }
+  function scheduleClaudeCodeLoginCheck(attempt=0){
+    clearTimeout(claudeLoginWatchTimer);
+    if(!claudeLoginStarted||attempt>=60) return;
+    claudeLoginWatchTimer=setTimeout(async()=>{
+      const result=await refreshClaudeCodeStatus({quiet:true});
+      if(result.signedIn===true&&result.ready===true){
+        claudeLoginStarted=false;
+        renderCodexSettings();
+        tempToast("Claude Code connected.");
+        return;
+      }
+      scheduleClaudeCodeLoginCheck(attempt+1);
+    },2000);
   }
   async function refreshCodexStatus({start=true,quiet=false}={}){
     const response=await fetch("/api/codex/status?start="+(start?"1":"0")+"&refresh=1");
@@ -16552,11 +16404,11 @@ Optional bundled starter model:
   };
   if($("modelRoutingCodexSubscription"))$("modelRoutingCodexSubscription").onchange=async e=>{
     const routing=modelRoutingState();
-    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,codex:e.target.checked}}});
+    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,explicit:true,codex:e.target.checked}}});
   };
   if($("modelRoutingClaudeSubscription"))$("modelRoutingClaudeSubscription").onchange=async e=>{
     const routing=modelRoutingState();
-    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,claudeCode:e.target.checked}}});
+    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,explicit:true,claudeCode:e.target.checked}}});
   };
   if($("modelRoutingSubscriptionPreference"))$("modelRoutingSubscriptionPreference").onchange=async e=>{
     const routing=modelRoutingState();
@@ -16578,12 +16430,15 @@ Optional bundled starter model:
     const bp={...(state.ui&&state.ui.browserPerms||{}),[key]:val};
     await setUi({browserPerms:bp});
     if(SHELL){ hostPost({type:"browser",cmd:"reloadPerms"}); return; }
-    const t=curTab(); if(t&&t.url) showFrame(t); // re-apply sandbox/allow on the open page
   }
   $("permDownloads").onchange=e=>setPerm("downloads",e.target.checked);
   $("permCamera").onchange=e=>setPerm("camera",e.target.checked);
   $("permMic").onchange=e=>setPerm("mic",e.target.checked);
   $("permGeo").onchange=e=>setPerm("geo",e.target.checked);
+  $("permTradeClicks").onchange=async e=>{
+    const enabled=await setTradingMode(e.target.checked);
+    e.target.checked=enabled&&tradingModeEnabled();
+  };
   $("addAgentConnector").onclick=()=>editAgentConnector(null);
   $("addMcpConnector").onclick=()=>editMcpConnector(null);
   $("exportTxt").onclick=()=>window.open("/api/export?id="+threadId+"&format=txt");
@@ -16909,325 +16764,38 @@ Optional bundled starter model:
   // Render dynamic lists when sections open
   if($("shortcutList")) renderShortcutList();
 
-  // ── in-app browser (real internet via the /browse proxy) ──
-  const bframe=$("bframe"), bAddr=$("bAddr");
-  let btabs=[], bactive=-1, bhist=[], bbookmarks=[];
-  let readerOn=false, darkPageOn=false;
-  const faviconCache={};
-  const curTab=()=>btabs[bactive];
-  const isLocalUrl=(u)=>/^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0|192\.168\.|10\.)/i.test(u||"");
-  const browseBase=()=>state.browseBase||"";
-  const frameSrc=(u)=>!u?"about:blank":(isLocalUrl(u)?u:browseBase()+"/browse?u="+encodeURIComponent(u)+(darkPageOn?"&dark=1":"")+(readerOn?"&reader=1":"")+(state.ui&&state.ui.safeClickConfirm?"&safeclick=1":""));
-  const SEARCH_URLS={ google:"https://www.google.com/search?q=", bing:"https://www.bing.com/search?q=", duckduckgo:"https://duckduckgo.com/?q=" };
-  const searchUrl=(q)=>SEARCH_URLS[(state.ui&&state.ui.searchEngine)||"google"]+encodeURIComponent(q);
-  function normUrl(v){ v=(v||"").trim(); if(!v) return "";
-    if(/^https?:\/\//i.test(v)) return v;
-    if(/^(localhost|127\.|\d{1,3}\.\d{1,3}\.)/i.test(v)||/^[\w.-]+:\d{2,5}(\/|$)/.test(v)) return "http://"+v;
-    if(/\s/.test(v)||!v.includes(".")) return searchUrl(v);   // words → web search
-    return "https://"+v; }
-  function reportUrl(url){ fetch("/api/browser/url",{method:"POST",body:JSON.stringify({url:url||""})}).catch(()=>{}); }
-  function showBlank(b){ $("bblank").style.display=b?"grid":"none"; if(b){ refreshRunProjectUI(); refreshLocalServers(); } }
-  function currentProjectName(){ try{ const ts=threadSummary(); return ts&&ts.projectDir ? (ts.projectDir.split(/[\\/]/).filter(Boolean).pop()||"") : ""; }catch{ return ""; } }
-  function refreshRunProjectUI(){ const name=currentProjectName(); const label=$("bRunProjName"); if(label) label.textContent=name?` · ${name}`:""; }
-  function updateNav(){ const t=curTab(); $("bBack").disabled=!(t&&t.hi>0); $("bFwd").disabled=!(t&&t.hi<t.hist.length-1); }
-  let saveT=null;
-  function saveBrowser(){ clearTimeout(saveT); saveT=setTimeout(()=>setUi({ browserTabs:btabs.map(t=>({url:t.url,title:t.title})),
-    browserOpen:document.body.classList.contains("browser-on"), browserHistory:bhist.slice(-100), browserBookmarks:bbookmarks }),400); }
-  function pushHist(url,title){ if(!url) return; const last=bhist[bhist.length-1];
-    if(last&&last.url===url) { last.title=title||last.title; return; }
-    bhist.push({url,title:title||url,at:Date.now()}); if(bhist.length>150) bhist=bhist.slice(-100); }
-  // apply sandbox + permissions before loading: proxied pages run fully
-  // isolated (no same-origin), local dev pages keep the old relaxed sandbox
-  function applyFrameSecurity(url){
-    const perms=(state.ui&&state.ui.browserPerms)||{};
-    const dl=perms.downloads!==false?" allow-downloads":"";
-    // proxied pages render from the isolated proxy origin, so allow-same-origin
-    // is safe (they still can't reach the app's :port origin / API) and lets
-    // real sites use cookies + storage and render normally
-    bframe.setAttribute("sandbox",
-      "allow-scripts allow-forms allow-popups allow-same-origin allow-modals"+dl);
-    bframe.setAttribute("allow",[perms.camera?"camera":"",perms.mic?"microphone":"",perms.geo?"geolocation":""].filter(Boolean).join("; "));
-  }
-  function faviconURL(url){
-    if(!url) return "";
-    try{ const h=new URL(url).hostname; if(!h) return ""; return "https://www.google.com/s2/favicons?domain="+h+"&sz=32"; }catch{ return ""; }
-  }
-  function faviconHTML(url){
-    const f=faviconURL(url); if(!f) return '<span class="ph">◎</span>';
-    if(faviconCache[url]===false) return '<span class="ph">◎</span>';
-    if(faviconCache[url]) return '<img src="'+faviconCache[url]+'" />';
-    return '<img src="'+f+'" onerror="this.parentNode.innerHTML=\'<span class=&quot;ph&quot;>◎</span>\';" onload="this.dataset.ok=1" />';
-  }
-  function renderTabs(){
-    const el=$("btabs"); el.innerHTML="";
-    btabs.forEach((t,i)=>{ const d=document.createElement("div"); d.className="btab"+(i===bactive?" active":"");
-      const label=((t.ai?"AI ":"")+(t.title||t.url||"New tab")).replace(/^https?:\/\//,"").slice(0,24)||"New tab";
-      d.innerHTML=faviconHTML(t.url)+'<span class="t">'+esc(label)+'</span><span class="x">×</span>';
-      d.onclick=()=>switchTab(i);
-      d.querySelector(".x").onclick=(e)=>{ e.stopPropagation(); closeTab(i); };
-      el.appendChild(d); });
-    const add=document.createElement("div"); add.className="btab add"; add.textContent="+"; add.title="New tab"; add.onclick=()=>newTab(); el.appendChild(add);
-  }
-  function renderBookmarks(){
-    const el=$("bmBar"); if(!el) return; el.innerHTML="";
-    bbookmarks.forEach((bm,i)=>{
-      const d=document.createElement("button"); d.className="bm-item"; d.title=bm.title||bm.url;
-      d.innerHTML='<img src="'+faviconURL(bm.url)+'" onerror="this.style.display=\'none\'" />'+esc((bm.title||bm.url||"").replace(/^https?:\/\//,"").slice(0,20))+'<span class="bm-x">×</span>';
-      d.onclick=(e)=>{ if(e.target.classList.contains("bm-x")){ e.stopPropagation(); bbookmarks.splice(i,1); renderBookmarks(); saveBrowser(); updateStar(); } else navigate(bm.url); };
-      el.appendChild(d);
-    });
-    updateStar();
-  }
-  function isBookmarked(url){ return bbookmarks.some(b=>b.url===url); }
-  function updateStar(){ const star=$("bStar"); $("bAddrClear")?.classList.toggle("visible",bAddr.value.length>0); const t=curTab(); if(!t||!t.url){ star.style.display="none"; return; } star.style.display="grid"; star.classList.toggle("active",isBookmarked(t.url)); star.textContent=isBookmarked(t.url)?"★":"☆"; }
-  function toggleBookmark(){
-    const t=curTab(); if(!t||!t.url) return;
-    const i=bbookmarks.findIndex(b=>b.url===t.url);
-    if(i>=0){ bbookmarks.splice(i,1); tempToast("Removed from bookmarks"); }
-    else{ bbookmarks.push({url:t.url,title:t.title||t.url}); tempToast("Added to bookmarks"); }
-    renderBookmarks(); saveBrowser();
-  }
-// project pages block to insert
-  // ── project-scoped page memory ──
-  function projectKey(){
-    const ts=threadSummary();
-    if(ts&&ts.projectDir){ try{ return ts.projectDir.split(/[\\/]/).pop()||"default"; }catch{ return "default"; } }
-    return "global";
-  }
-  function getProjectPages(){
-    const all=(state.ui&&state.ui.projectPages)||{};
-    return Array.isArray(all[projectKey()])?all[projectKey()]:[];
-  }
-  function saveProjectPage(){
-    const t=curTab(); if(!t||!t.url){ tempToast("Open a page first."); return; }
-    const key=projectKey();
-    const all=JSON.parse(JSON.stringify((state.ui&&state.ui.projectPages)||{}));
-    if(!Array.isArray(all[key])) all[key]=[];
-    const i=all[key].findIndex(p=>p.url===t.url);
-    if(i>=0){ all[key].splice(i,1); tempToast("Removed from project pages"); }
-    else{ all[key].push({url:t.url,title:t.title||t.url}); tempToast("Saved to project pages ("+key+")"); }
-    setUi({projectPages:all});
-    renderProjectPages();
-  }
-  function renderProjectPages(){
-    const el=$("bmProjBar"); if(!el) return; el.innerHTML="";
-    const pages=getProjectPages();
-    if(!pages.length){ el.style.display="none"; return; }
-    el.style.display="flex";
-    const lbl=document.createElement("span"); lbl.className="bm-proj-label"; lbl.textContent="\u25A0 "+projectKey()+":"; el.appendChild(lbl);
-    pages.forEach((p)=>{
-      const d=document.createElement("button"); d.className="bm-item proj"; d.title=p.title||p.url;
-      d.innerHTML='<img src="'+faviconURL(p.url)+'" onerror="this.style.display=\'none\'" />'+esc((p.title||p.url||"").replace(/^https?:\/\//,"").slice(0,18))+'<span class="bm-x">\u00D7</span>';
-      d.onclick=(e)=>{ if(e.target.classList.contains("bm-x")){ e.stopPropagation(); const all=JSON.parse(JSON.stringify((state.ui&&state.ui.projectPages)||{})); const key=projectKey(); if(Array.isArray(all[key])){ all[key]=all[key].filter(x=>x.url!==p.url); setUi({projectPages:all}); renderProjectPages(); } } else navigate(p.url); };
-      el.appendChild(d);
-    });
-  }
-
-  // ── autocomplete ──
-  let acIndex=-1, acItems=[];
-  function buildAutocomplete(q){
-    q=(q||"").toLowerCase().trim(); if(!q) return [];
-    const results=[]; const seen=new Set();
-    for(const bm of bbookmarks){ if(bm.url.toLowerCase().includes(q)||(bm.title||"").toLowerCase().includes(q)){ if(!seen.has(bm.url)){ results.push({...bm,tag:"★"}); seen.add(bm.url); } } }
-    for(const h of bhist.slice(-50).reverse()){ if(h.url.toLowerCase().includes(q)||(h.title||"").toLowerCase().includes(q)){ if(!seen.has(h.url)){ results.push({url:h.url,title:h.title||h.url,tag:"⏱"}); seen.add(h.url); } } }
-    return results.slice(0,8);
-  }
-  function renderAutocomplete(){
-    const el=$("acList"); const q=bAddr.value.trim(); acItems=buildAutocomplete(q);
-    if(!acItems.length){ el.classList.remove("on"); el.innerHTML=""; acIndex=-1; return; }
-    el.innerHTML=acItems.map((it,i)=>'<div class="ac-item'+(i===acIndex?" sel":"")+'" data-i="'+i+'">'+
-      '<span class="ac-fav">'+(faviconURL(it.url)?'<img src="'+faviconURL(it.url)+'" onerror="this.style.display=\'none\'" />':'')+'</span>'+
-      '<div style="flex:1;min-width:0"><div class="ac-title">'+esc(it.title||it.url)+'</div><div class="ac-url">'+esc(it.url)+'</div></div>'+
-      '<span class="ac-tag'+(it.tag==="★"?" bm":"")+'">'+it.tag+'</span></div>').join("");
-    el.classList.add("on");
-    el.querySelectorAll(".ac-item").forEach(node=>{ node.onclick=()=>{ const i=+node.dataset.i; if(acItems[i]){ bAddr.value=acItems[i].url; hideAutocomplete(); navigate(acItems[i].url); } }; });
-  }
-  function hideAutocomplete(){ $("acList").classList.remove("on"); $("acList").innerHTML=""; acIndex=-1; }
-  function acMove(d){
-    if(!acItems.length) return; acIndex=Math.max(-1,Math.min(acItems.length-1,acIndex+d));
-    const sel=$("acList").querySelector(".sel"); if(sel) sel.classList.remove("sel");
-    if(acIndex>=0){ const node=$("acList").querySelector('[data-i="'+acIndex+'"]'); if(node) node.classList.add("sel"); }
-  }
-  // ── reader mode ──
-  async function toggleReader(){
-    const t=curTab(); if(!t||!t.url){ tempToast("Open a page first."); return; }
-    readerOn=!readerOn;
-    $("breader").classList.toggle("on",readerOn);
-    $("bReader").classList.toggle("active",readerOn);
-    if(readerOn){
-      $("breaderInner").innerHTML='<p style="color:var(--dim);text-align:center;padding:40px 0">Extracting article…</p>';
-      try{
-        const resp=await fetch("/browse?u="+encodeURIComponent(t.url)+"&reader=1");
-        const html=await resp.text();
-        // extract article content from reader HTML
-        const tmp=document.createElement("div"); tmp.innerHTML=html;
-        const article=extractArticle(tmp);
-        $("breaderInner").innerHTML=article;
-      }catch(err){ $("breaderInner").innerHTML='<p style="color:var(--dim)">Could not extract article: '+esc(err.message)+'</p>'; }
-    } else { showFrame(t); }
-  }
-  function extractArticle(doc){
-    // try common article containers first
-    const selectors=["article","main","[role=main]", ".article-content",".post-content",".entry-content",".article-body",".content"];
-    let best=null;
-    for(const sel of selectors){ const el=doc.querySelector(sel); if(el&&el.innerText.length>200){ best=el; break; } }
-    if(!best){
-      // score paragraphs by text density
-      const paras=[...doc.querySelectorAll("p,div")].filter(p=>p.children.length<=3&&p.innerText.length>80);
-      if(paras.length){ const container=document.createElement("div"); paras.forEach(p=>container.appendChild(p.cloneNode(true))); best=container; }
-      else best=doc.body||doc;
-    }
-    // get title
-    const title=doc.querySelector("h1")?.innerText||doc.title||"";
-    const titleHTML=title?("<h1>"+esc(title)+"</h1>"):"";
-    // clean: remove nav, ads, etc
-    best.querySelectorAll("script,style,nav,footer,header,aside,.ad,.ads,.sidebar,.share,.social,iframe").forEach(e=>e.remove());
-    return titleHTML+best.innerHTML;
-  }
-  // ── dark page toggle ──
-  function toggleDarkPage(){
-    darkPageOn=!darkPageOn;
-    $("bDarkPage").classList.toggle("active",darkPageOn);
-    $("bDarkPage").setAttribute("aria-pressed",darkPageOn?"true":"false");
-    $("bDarkPage").title=darkPageOn?"Turn off website dark mode":"Dark mode for websites";
-    setUi({browserDarkMode:darkPageOn});
-    const t=curTab(); if(t&&t.url) showFrame(t);
-  }
-  function showFrame(t){
-    applyFrameSecurity(t.url);
-    bframe.src=frameSrc(t.url); bAddr.value=t.url||""; showBlank(!t.url);
-    reportUrl(t.url); updateNav(); renderTabs(); updateStar(); syncBrowserTaskMode(t.url);
-  }
-  function loadUrl(url){
-    const t=curTab(); if(!t) return;
-    if(t.hist[t.hi]!==url){ t.hist=t.hist.slice(0,t.hi+1); t.hist.push(url); t.hi=t.hist.length-1; }
-    t.url=url; try{ t.title=new URL(url).host; }catch{ t.title=url; }
-    pushHist(url,t.title);
-    showFrame(t); saveBrowser();
-  }
-  function navigate(v){ const u=normUrl(v); if(u) loadUrl(u); }
-  function newTab(url){ btabs.push({url:url||"",title:url||"New tab",hist:url?[url]:[],hi:url?0:-1,zoom:1}); bactive=btabs.length-1;
-    document.body.classList.add("has-browser");
-    if(url) loadUrl(url); else { showFrame(curTab()); } saveBrowser(); }
-  function switchTab(i){ bactive=i; showFrame(curTab()); }
-  function closeTab(i){ btabs.splice(i,1); if(!btabs.length){ newTab(); return; } bactive=Math.min(bactive,btabs.length-1); switchTab(bactive); saveBrowser(); }
-  function closeOtherTabs(){ const t=curTab(); if(!t) return; btabs=[t]; bactive=0; showFrame(t); saveBrowser(); }
-  function back(){ const t=curTab(); if(t&&t.hi>0){ t.hi--; t.url=t.hist[t.hi]; showFrame(t); } }
-  function fwd(){ const t=curTab(); if(t&&t.hi<t.hist.length-1){ t.hi++; t.url=t.hist[t.hi]; showFrame(t); } }
-  function fitBrowserSplit(){
-    const sidebarW=$("sidebar").getBoundingClientRect().width;
-    const dragW=5;
-    const pageW=Math.min(document.documentElement.clientWidth,document.body.clientWidth||document.documentElement.clientWidth);
-    const notesOpen=document.body.classList.contains("notes-on");
-    const minMain=notesOpen?320:270;
-    const minBrowser=notesOpen?260:300;
-    const available=Math.max(minMain+minBrowser,pageW-sidebarW-dragW);
-    const maxBrowser=Math.max(minBrowser,available-minMain);
-    const w=Math.max(minBrowser,Math.min(Math.round(available/2),maxBrowser));
-    document.body.style.setProperty("--bw",w+"px");
-  }
-  let browserCloseTimer=0;
+  // ── browser bridge ───────────────────────────────────────────────
+  // Boolean has ONE browser: the desktop shell's native Chromium pane. The old
+  // HTML/iframe browser (and its /browse rewriting proxy) was removed — a proxied
+  // iframe cannot hold real login sessions, so every browser feature had to be
+  // built twice and the two drifted apart. Everything here talks to the native
+  // pane over the host bridge; outside the desktop app there is no browser.
+  const BROWSER_DESKTOP_ONLY="The built-in browser is part of the Boolean desktop app.";
+  // Last page the native pane reported (shellBrowserUrl). Page-scoped actions read
+  // this instead of walking browser tabs that no longer live in this document.
+  let shellBrowserPage={url:"",title:""};
+  function currentBrowserPage(){ return shellBrowserPage; }
+  function browserOpen(){ return document.body.classList.contains("browser-on"); }
   function openBrowser(on,{remember=false}={}){
-    const wasOn=document.body.classList.contains("browser-on");
-    if(remember && !!on!==wasOn) rememberCurrentView();
-    clearTimeout(browserCloseTimer);
-    if(on){
-      if(!browserManualSize) fitBrowserSplit();
-      document.body.classList.remove("browser-closing");
-      document.body.classList.add("browser-on","has-browser");
-    } else if(wasOn && !SHELL){
-      // full-window overlay: play the slide-down before unmounting the panel
-      document.body.classList.add("browser-closing");
-      browserCloseTimer=setTimeout(()=>{
-        document.body.classList.remove("browser-on","browser-closing");
-        scheduleResponsiveClasses();
-        syncPanelButtons();
-      },190);
-    } else {
-      document.body.classList.remove("browser-on");
-    }
-    if(!on)returnToChatAfterAuxiliaryClose("browser");
+    if(!SHELL){ if(on) tempToast(BROWSER_DESKTOP_ONLY); return; }
+    if(remember) rememberCurrentView();
+    hostPost({type:"browser",cmd:on?"show":"hide"});
+    document.body.classList.toggle("browser-on",!!on);
+    if(!on) returnToChatAfterAuxiliaryClose("browser");
     syncPanelButtons();
-    if(on&&!btabs.length) newTab();
-    if(!on) document.body.classList.remove("chat-hidden");
-    if(on) refreshRunProjectUI();
-    const t=curTab(); reportUrl(on&&t?t.url:""); saveBrowser(); }
-  function runProjectPreviewUrl(entry){
-    if(!entry || entry.name!=="run_project") return "";
-    const text=String(entry.result||entry.summary||"");
-    if(!/\bis running at\b/i.test(text) && !/\bHTTP \d{3}\b/i.test(text)) return "";
-    const match=text.match(/\bhttps?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/[^\s\)]*)?/i);
-    return match ? match[0].replace(/[.,;)\]]+$/,"") : "";
   }
-  function openRunProjectPreview(entry){
-    const url=runProjectPreviewUrl(entry);
+  function browserNavigate(url){
     if(!url) return;
-    try{
-      if(SHELL){
-        document.body.classList.add("browser-on");
-        syncPanelButtons();
-        hostPost({type:"browser",cmd:"navigate",url});
-      }else{
-        openBrowser(true,{remember:true});
-        navigate(url);
-      }
-      tempToast("Opened preview in built-in browser.");
-    }catch(err){
-      console.warn("Could not open run_project preview",err);
-    }
+    if(!SHELL){ tempToast(BROWSER_DESKTOP_ONLY); return; }
+    openBrowser(true);
+    hostPost({type:"browser",cmd:"navigate",url});
   }
-
-  // messages from proxied pages (they run sandboxed; postMessage is the bridge)
-  const textWaiters={}; // what -> resolve
-  const controlWaiters={}; // id -> resolve
-  let browserContextSelection="";
-  function hideBrowserSelectionMenu(){ $("browserSelectionMenu").classList.remove("open"); browserContextSelection=""; }
+  function currentProjectName(){ try{ const ts=threadSummary(); return ts&&ts.projectDir ? (ts.projectDir.split(/[\\/]/).filter(Boolean).pop()||"") : ""; }catch{ return ""; } }
   function sendBrowserText(text,target){
     text=String(text||"").trim();
     if(!text) return;
     if(target==="note"){ openNotes(true); insertPlainNoteText(text); }
     else appendToComposer(text);
-  }
-  window.addEventListener("message",async(e)=>{
-    if(e.source!==bframe.contentWindow) return;
-    const d=e.data||{};
-    if(d.saz3==="nav"){ const t=curTab(); if(!t) return;
-      if(t.url!==d.url){ if(t.hist[t.hi]!==d.url){ t.hist=t.hist.slice(0,t.hi+1); t.hist.push(d.url); t.hi=t.hist.length-1; } t.url=d.url; }
-      if(d.title) t.title=d.title;
-      bAddr.value=d.url; pushHist(d.url,d.title); reportUrl(d.url); updateNav(); renderTabs(); updateStar(); syncBrowserTaskMode(d.url); saveBrowser();
-      postFrame({cmd:"zoom",z:t.zoom||1});
-    }
-    else if(d.saz3==="newtab"&&d.url){ newTab(d.url); }
-    else if(d.saz3==="zoomFit"){ const t=curTab(); if(t&&d.z){ t.zoom=d.z; $("bmZoomVal").textContent=Math.round(t.zoom*100)+"%"; saveBrowser(); } }
-    else if(d.saz3==="text"){ const r=textWaiters[d.what]; delete textWaiters[d.what]; if(r) r(d); }
-    else if(d.saz3==="controlResult"){ const r=controlWaiters[d.id]; delete controlWaiters[d.id]; if(r) r(d); }
-    else if(d.saz3==="selectionMenu"&&d.text){
-      browserContextSelection=String(d.text).trim();
-      const rect=bframe.getBoundingClientRect();
-      positionSelectionMenu($("browserSelectionMenu"),rect.left+(Number(d.x)||0),rect.top+(Number(d.y)||0));
-    }
-    else if(d.saz3==="safeClick"&&d.text){
-      const ok=await appConfirm("Safe-click confirmation",
-        "The page wants to click \""+String(d.text).slice(0,100)+"\", which looks like a sensitive action (submit/login/payment). Allow this click?",
-        "Allow click",true);
-      if(ok) postFrame({cmd:"safeClickAllow",url:d.url});
-      else tempToast("Blocked by safe-click.");
-    }
-  });
-  ["browserMenuCopy","browserMenuMessage","browserMenuNote"].forEach(id=>$(id).onmousedown=(e)=>e.preventDefault());
-  $("browserMenuCopy").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); writeClipboardText(text).catch(()=>tempToast("Could not copy selection.")); };
-  $("browserMenuMessage").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); sendBrowserText(text,"message"); };
-  $("browserMenuNote").onclick=()=>{ const text=browserContextSelection; hideBrowserSelectionMenu(); sendBrowserText(text,"note"); };
-  function postFrame(msg){ try{ bframe.contentWindow.postMessage(msg,"*"); }catch{} }
-  function requestText(what){ return new Promise((resolve)=>{ textWaiters[what]=resolve; postFrame({cmd:"getText",what});
-    setTimeout(()=>{ if(textWaiters[what]){ delete textWaiters[what]; resolve(null); } },3000); }); }
-  function requestFrameControl(command){
-    const id=crypto.randomUUID();
-    return new Promise((resolve)=>{
-      controlWaiters[id]=resolve;
-      postFrame({cmd:"control",id,...command});
-      setTimeout(()=>{ if(controlWaiters[id]){ delete controlWaiters[id]; resolve({ok:false,error:"visible browser command timed out"}); } },10000);
-    });
   }
   async function postBrowserControlResult(id, body){
     await fetch("/api/browser/control-result",{method:"POST",body:JSON.stringify({id,...body})});
@@ -17246,17 +16814,10 @@ Optional bundled starter model:
     });
   }
   async function visibleBrowserContext(){
-    if(SHELL){
-      const ctx=await requestShellContext();
-      if(ctx?.browser) ctx.browser.text=clipText(ctx.browser.text||"",PANE_PREVIEW_CHARS);
-      if(ctx?.browser) ctx.browser.ocr=clipText(ctx.browser.ocr||"",PANE_PREVIEW_CHARS);
-      return ctx?.browser||{open:document.body.classList.contains("browser-on"),url:"",title:"",text:""};
-    }
-    const open=document.body.classList.contains("browser-on");
-    const t=curTab();
-    let page=null;
-    if(open&&t) page=await requestText("page");
-    return {open,url:page?.url||t?.url||"",title:page?.title||t?.title||"",text:clipText(page?.text||"",PANE_PREVIEW_CHARS)};
+    const ctx=await requestShellContext();
+    if(ctx?.browser) ctx.browser.text=clipText(ctx.browser.text||"",PANE_PREVIEW_CHARS);
+    if(ctx?.browser) ctx.browser.ocr=clipText(ctx.browser.ocr||"",PANE_PREVIEW_CHARS);
+    return ctx?.browser||{open:browserOpen(),url:shellBrowserPage.url,title:shellBrowserPage.title,text:""};
   }
   async function collectAppContext(){
     const note=activeNoteContext();
@@ -17304,67 +16865,19 @@ Optional bundled starter model:
       await postNotepadControlResult(id,{ok:false,error:"unknown notepad action: "+action});
     }catch(err){ await postNotepadControlResult(id,{ok:false,error:err.message||String(err)}); }
   }
-  // -- safe-click gate: confirm before clicking sensitive buttons --
-  const SENSITIVE_CLICK_RE=/\b(submit|sign\s*in|log\s*in|log\s*out|sign\s*up|register|checkout|pay|payment|buy|purchase|delete|remove|confirm|approve|authorize|send|transfer|deposit|withdraw|subscribe|unsubscribe|place\s*order|complete\s*order)\b/i;
-  function isSensitiveClick(text){ return SENSITIVE_CLICK_RE.test(text||""); }
-  async function safeClickGate(actionLabel, btnText){
-    if(!(state.ui&&state.ui.safeClickConfirm)) return true;
-    if(!isSensitiveClick(btnText)) return true;
-    return appConfirm("Safe-click confirmation","Boolean is about to click "+(btnText||"").slice(0,80)+""+" which looks like a sensitive action ("+actionLabel+"). Proceed?","Click it",true);
-  }
+  // Visible-browser tool calls run in the native pane; the shell posts the result
+  // back as browserControlResult. Safe-click confirmation lives in the shell too.
   async function executeBrowserControl(id, command){
-    try{
-      setBooleanActivity(command.action==="read"?"Reading page":"Browsing");
-      if(SHELL){ hostPost({type:"browser",cmd:"control",id,command}); return; }
-      const action=command.action;
-      if(action==="open"){ openBrowser(true); navigate(command.url); await new Promise(r=>setTimeout(r,900)); const r=await requestText("page"); const u=r?.url||curTab()?.url||command.url||""; await postBrowserControlResult(id,{ok:true,url:u,result:r?("URL: "+r.url+"\nTITLE: "+(r.title||"")+"\n\n"+r.text):("opened visible browser to "+u+"\n\nPage text is not readable yet.")}); return; }
-      if(action==="read"){ const r=await requestText("page"); await postBrowserControlResult(id,{ok:!!r,url:r?.url||curTab()?.url||"",result:r?("URL: "+r.url+"\nTITLE: "+(r.title||"")+"\n\n"+r.text):"",error:r?undefined:"could not read visible page"}); return; }
-      if(action==="click"){
-        if(!(await safeClickGate("click",command.text))){ await postBrowserControlResult(id,{ok:false,url:curTab()?.url||"",error:"User blocked the click (safe-click confirmation). The button "+(command.text||"").slice(0,60)+" looks like a submit/login/payment action."}); return; }
-        const r=await requestFrameControl({action:"click",text:command.text}); await new Promise(done=>setTimeout(done,500)); const page=await requestText("page"); await postBrowserControlResult(id,{ok:r.ok!==false,url:page?.url||r.url||curTab()?.url||"",result:(r.result||"clicked")+(page?.text?("\n\nAfter click:\nURL: "+page.url+"\nTITLE: "+(page.title||"")+"\n\n"+page.text.slice(0,12000)):""),error:r.error}); return;
-      }
-      if(action==="type"){ const r=await requestFrameControl({action:"type",target:command.target,text:command.text,value:command.text,enter:!!command.enter}); await new Promise(done=>setTimeout(done,500)); const page=await requestText("page"); await postBrowserControlResult(id,{ok:r.ok!==false,url:page?.url||r.url||curTab()?.url||"",result:(r.result||"typed")+(page?.text?("\n\nAfter type:\nURL: "+page.url+"\nTITLE: "+(page.title||"")+"\n\n"+page.text.slice(0,12000)):""),error:r.error}); return; }
-      if(action==="email_draft"){
-        if(!(await safeClickGate("email reply",command.text))){ await postBrowserControlResult(id,{ok:false,url:curTab()?.url||"",error:"User blocked the email draft (safe-click confirmation)."}); return; }
-        await requestFrameControl({action:"click",text:"Reply"});
-        await new Promise(done=>setTimeout(done,900));
-        const r=await requestFrameControl({action:"type",target:"message body",text:command.text,value:command.text});
-        await postBrowserControlResult(id,{ok:r.ok!==false,url:r.url||curTab()?.url||"",result:r.result||"inserted email draft",error:r.error});
-        return;
-      }
-      if(action==="capture"){ await postBrowserControlResult(id,{ok:false,error:"screenshots require the Boolean desktop app (embedded browser)"}); return; }
-      await postBrowserControlResult(id,{ok:false,error:"unknown visible browser action: "+action});
-    }catch(err){ await postBrowserControlResult(id,{ok:false,error:err.message||String(err)}); }
+    if(!SHELL){
+      await postBrowserControlResult(id,{ok:false,error:BROWSER_DESKTOP_ONLY});
+      return;
+    }
+    setBooleanActivity(command.action==="read"?"Reading page":"Browsing");
+    if(command.action==="open") openBrowser(true);
+    hostPost({type:"browser",cmd:"control",id,command});
   }
-
-  $("bBack").onclick=back; $("bFwd").onclick=fwd;
-  $("bReload").onclick=()=>{ const t=curTab(); if(t&&t.url) showFrame(t); };
-  $("bStop").onclick=()=>{ try{ bframe.contentWindow.stop(); }catch{ bframe.src="about:blank"; } };
-  if($("bHome")) $("bHome").onclick=()=>{ const t=curTab(); if(t){ t.url=""; t.hist=[]; t.hi=-1; t.title="New tab"; } showFrame(curTab()); saveBrowser(); };
-  $("bClose").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"hide"}) : openBrowser(false); };
-  $("browserToggle").onclick=()=>{ rememberCurrentView(); SHELL ? hostPost({type:"browser",cmd:"toggle"}) : openBrowser(!document.body.classList.contains("browser-on")); };
-  // floating edge pill — reopen the overlay after it collapses
-  $("browserPill")?.addEventListener("click",()=>{ SHELL ? hostPost({type:"browser",cmd:"show"}) : openBrowser(true,{remember:true}); });
-
-  // Responsive / device view: Desktop → Tablet → Mobile (mirrors native Browser)
-  const DEVICE_MODES=[
-    {id:"desktop",icon:"▣",label:"Desktop",w:0,h:0},
-    {id:"tablet",icon:"▭",label:"Tablet · 834 × 1112",w:834,h:1112},
-    {id:"mobile",icon:"▯",label:"Mobile · 390 × 844",w:390,h:844}
-  ];
-  let deviceModeIdx=0;
-  function applyDeviceMode(){
-    const m=DEVICE_MODES[deviceModeIdx], br=$("browser");
-    if(SHELL){ hostPost({type:"browser",cmd:"device",device:m.id,w:m.w,h:m.h}); }
-    br.classList.toggle("dev-view",m.w>0);
-    br.classList.toggle("dev-tablet",m.id==="tablet");
-    if(m.w){ document.body.style.setProperty("--dev-w",m.w+"px"); document.body.style.setProperty("--dev-h",m.h+"px"); }
-    const badge=$("bDevBadge"); if(badge) badge.textContent=m.w?m.label:"";
-    const btn=$("bDeviceBtn"); if(btn){ btn.textContent=m.icon; btn.classList.toggle("active",m.w>0); btn.title="Responsive view: "+m.label+" — click to switch"; }
-  }
-  $("bDeviceBtn")?.addEventListener("click",()=>{ deviceModeIdx=(deviceModeIdx+1)%DEVICE_MODES.length; applyDeviceMode(); });
-
-  // "Run current project" middle options on the start screen
+  $("browserToggle").onclick=()=>openBrowser(!browserOpen(),{remember:true});
+  // "Run current project" prompt, offered from the start screen and the shell chrome
   function askAI(text){ if(!text) return; input.value=text; try{ autosize(); }catch{} sendMessage(); }
   function runCurrentProject(){
     const name=currentProjectName();
@@ -17373,307 +16886,69 @@ Optional bundled starter model:
       : "Run the current project and open its local preview in the built-in browser. If no project is open, tell me how to start one.");
   }
   window.runCurrentProject=runCurrentProject;
-  $("bRunProject")?.addEventListener("click",runCurrentProject);
-  $("bRunLocalhost")?.addEventListener("click",()=>{ bAddr.value="http://localhost:"; bAddr.focus(); });
-  $("bRunReload")?.addEventListener("click",()=>{ const t=curTab(); if(t&&t.url) showFrame(t); else { bAddr.value="http://localhost:"; bAddr.focus(); } });
-  $("bReader").onclick=toggleReader;
-  $("bDarkPage").onclick=toggleDarkPage;
-  $("bStar").onclick=toggleBookmark;
-  $("bmBookmark").onclick=()=>{ bmenu.classList.remove("open"); toggleBookmark(); };
-  $("bmProjectPage").onclick=()=>{ bmenu.classList.remove("open"); saveProjectPage(); };
-  $("bmReader").onclick=()=>{ bmenu.classList.remove("open"); toggleReader(); };
-  bAddr.addEventListener("keydown",(e)=>{
-    if(e.key==="Enter"){ e.preventDefault(); if(acIndex>=0&&acItems[acIndex]){ bAddr.value=acItems[acIndex].url; hideAutocomplete(); navigate(acItems[acIndex].url); } else { hideAutocomplete(); navigate(bAddr.value); } return; }
-    if(e.key==="ArrowDown"){ e.preventDefault(); acMove(1); return; }
-    if(e.key==="ArrowUp"){ e.preventDefault(); acMove(-1); return; }
-    if(e.key==="Escape"){ hideAutocomplete(); return; }
-    setTimeout(renderAutocomplete,0);
-  });
-  bAddr.addEventListener("focus",()=>{ bAddr.select(); setTimeout(renderAutocomplete,0); });
-  bAddr.addEventListener("blur",()=>setTimeout(hideAutocomplete,200));
-  const syncAddressClear=()=>{ $("bAddrClear")?.classList.toggle("visible",bAddr.value.length>0); };
-  bAddr.addEventListener("input",syncAddressClear);
-  $("bAddrClear")?.addEventListener("click",()=>{ bAddr.value=""; syncAddressClear(); hideAutocomplete(); bAddr.focus(); });
-  syncAddressClear();
-  $("bStartSearch").addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&e.target.value.trim()){ e.preventDefault(); navigate(e.target.value); e.target.value=""; } });
-  const bblankhints=$("bblankhints");
-  if(bblankhints){
-    const quickLinks=[{u:"https://www.google.com",icon:"🔍",label:"Google"},{u:"https://en.wikipedia.org",icon:"📚",label:"Wikipedia"},{u:"https://github.com",icon:"🐙",label:"GitHub"},{u:"https://stackoverflow.com",icon:"📋",label:"Stack Overflow"}];
-    bblankhints.innerHTML=quickLinks.map(l=>`<div class="bblank-shortcut" data-u="${l.u}"><span>${l.icon}</span><span>${l.label}</span></div>`).join("");
-    bblankhints.querySelectorAll(".bblank-shortcut").forEach(s=>s.onclick=(e)=>{ e.preventDefault(); navigate(s.dataset.u); });
+  function runProjectPreviewUrl(entry){
+    if(!entry || entry.name!=="run_project") return "";
+    const text=String(entry.result||entry.summary||"");
+    if(!/\bis running at\b/i.test(text) && !/\bHTTP \d{3}\b/i.test(text)) return "";
+    const match=text.match(/\bhttps?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/[^\s\)]*)?/i);
+    return match ? match[0].replace(/[.,;)\]]+$/,"") : "";
   }
-  // Local dev servers that are actually running, offered as one-click entries.
-  async function refreshLocalServers(){
-    const host=$("bLocalServers");
-    if(!host) return;
+  function openRunProjectPreview(entry){
+    const url=runProjectPreviewUrl(entry);
+    if(!url) return;
     try{
-      const r=await fetch("/api/local-servers");
-      const servers=(await r.json()).servers||[];
-      if(!servers.length){ host.innerHTML=""; return; }
-      host.innerHTML=servers.map(s=>`<div class="bsrv" data-u="${esc(s.url)}">`
-        +`<span class="bsrv-ico">▤</span><span class="bsrv-nm">${esc(s.name)}</span>`
-        +`<span class="bsrv-pt">:${esc(String(s.port))}</span><span class="bsrv-go">▷</span></div>`).join("");
-      host.querySelectorAll(".bsrv").forEach(el=>el.onclick=()=>navigate(el.dataset.u));
-    }catch{ host.innerHTML=""; }
-  }
-  bframe.addEventListener("load",()=>{ const t=curTab(); if(t&&t.url) showBlank(false); });
-
-  // find on page (improved with match count)
-  $("bFindBtn").onclick=()=>{ $("bfind").classList.toggle("on"); if($("bfind").classList.contains("on")){ $("bFindInput").focus(); $("bFindInput").select(); } };
-  $("bFindClose").onclick=()=>{ $("bfind").classList.remove("on"); $("bFindCount").textContent=""; postFrame({cmd:"findClear"}); };
-  const doFind=(back)=>{ const q=$("bFindInput").value; if(q) postFrame({cmd:"find",q,back}); };
-  $("bFindInput").addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); doFind(e.shiftKey); } if(e.key==="Escape"){ $("bfind").classList.remove("on"); $("bFindCount").textContent=""; postFrame({cmd:"findClear"}); } });
-  $("bFindInput").addEventListener("input",()=>{ $("bFindCount").textContent=""; });
-  $("bFindNext").onclick=()=>doFind(false); $("bFindPrev").onclick=()=>doFind(true);
-
-  // ── Split View (page + context panel) ──
-  let splitRatio=.6;
-  $("bSplitBtn").onclick=()=>toggleSplitView();
-  $("bSplitClose").onclick=()=>toggleSplitView(false);
-  function toggleSplitView(on){
-    const bv=on!==undefined?on:!document.body.classList.contains("split-view");
-    document.body.classList.toggle("split-view",bv);
-    $("bSplitBtn").classList.toggle("active",bv);
-    if(bv) applySplitRatio();
-  }
-  function applySplitRatio(){
-    const row=$("bFrameRow"); if(!row) return;
-    row.style.flex=splitRatio.toFixed(2);
-    const cp=$("bContextPanel"); if(cp) cp.style.flex=(1-splitRatio).toFixed(2);
-  }
-  // Vertical drag handle
-  (function(){
-    const vd=$("vdrag"); if(!vd) return;
-    let startY=0, startRatio=0, dragging=false;
-    vd.addEventListener("mousedown",(e)=>{
-      dragging=true; startY=e.clientY; startRatio=splitRatio; vd.classList.add("dragging");
-      e.preventDefault();
-    });
-    document.addEventListener("mousemove",(e)=>{
-      if(!dragging) return;
-      const parent=vd.parentElement.getBoundingClientRect();
-      const dy=e.clientY-startY;
-      const newRatio=Math.max(.2,Math.min(.8,startRatio+dy/parent.height));
-      splitRatio=newRatio;
-      applySplitRatio();
-    });
-    document.addEventListener("mouseup",()=>{
-      if(dragging){ dragging=false; vd.classList.remove("dragging"); }
-    });
-  })();
-
-  // ── Page Outline Sidebar ──
-  let outlineOpen=false;
-  $("bOutlineBtn").onclick=()=>toggleOutline();
-  $("bSidebarClose").onclick=()=>toggleOutline(false);
-  function toggleOutline(on){
-    outlineOpen=on!==undefined?on:!outlineOpen;
-    $("bSidebar").classList.toggle("open",outlineOpen);
-    $("bOutlineBtn").classList.toggle("active",outlineOpen);
-    if(outlineOpen) requestOutline();
-  }
-  async function requestOutline(){
-    const body=$("bSidebarBody"); body.innerHTML="";
-    try{
-      const r=await requestText("outline");
-      if(!r||!r.headings||!r.headings.length){ body.innerHTML=""; return; }
-      r.headings.forEach(h=>{
-        const d=document.createElement("a"); d.className="bs-item "+(h.level?"h"+h.level:"");
-        d.textContent=h.text; d.title=h.text;
-        d.onclick=()=>{ postFrame({cmd:"scrollToHeading",text:h.text}); };
-        body.appendChild(d);
-      });
-    }catch(e){ body.innerHTML='<div style="padding:10px;color:var(--dim);font:12px var(--ui)">Could not extract outline</div>'; }
-  }
-
-  // ── Page Action Buttons ──
-  $("paExtract").onclick=async()=>{
-    const t=curTab(); if(!t?.url){ tempToast("No page loaded"); return; }
-    toggleSplitView(true);
-    $("paExtract").classList.add("active");
-    try{
-      const r=await requestText("page");
-      if(r?.text){
-        const body=$("bContextBody");
-        body.innerHTML=formatExtractedContent(r);
-        switchContextTab("extract");
-      }
-    }catch(e){ tempToast("Extract failed"); }
-    $("paExtract").classList.remove("active");
-  };
-  $("paSummarize").onclick=()=>{
-    const t=curTab(); if(!t?.url){ tempToast("No page loaded"); return; }
-    toggleSplitView(true);
-    switchContextTab("summary");
-    const body=$("bContextBody");
-    body.innerHTML='<div class="bcontext-empty"><span>✦</span><span>Generating summary…</span></div>';
-    // Trigger the existing summarize task
-    document.querySelector('[data-btask="summarize"]')?.click();
-  };
-  $("paPin").onclick=()=>{ saveProjectPage(); tempToast("Pinned to project pages"); };
-  $("paScreenshot").onclick=()=>{ $("bmScreenshot")?.click(); };
-
-  // Page actions dropdown toggle
-  const paToggle=$("paToggle"), paDropdown=$("paDropdown");
-  if(paToggle&&paDropdown){
-    const setPageActionsOpen=(open)=>{
-      paDropdown.classList.toggle("on",open);
-      paToggle.setAttribute("aria-expanded",open?"true":"false");
-    };
-    paToggle.onclick=(e)=>{
-      e.stopPropagation();
-      setPageActionsOpen(!paDropdown.classList.contains("on"));
-    };
-    document.addEventListener("click",(e)=>{
-      if(!e.target.closest(".page-actions")) setPageActionsOpen(false);
-    });
-    paDropdown.querySelectorAll(".page-action").forEach(btn=>{
-      btn.addEventListener("click",()=> setPageActionsOpen(false));
-    });
-  }
-
-  // Browser tasks collapse toggle
-  const btTasksToggle=$("btTasksToggle"), btTasks=$("btTasks");
-  if(btTasksToggle&&btTasks){
-    btTasksToggle.onclick=()=>{
-      btTasks.classList.toggle("collapsed");
-      btTasksToggle.classList.toggle("open");
-      btTasksToggle.setAttribute("aria-expanded",btTasksToggle.classList.contains("open")?"true":"false");
-    };
-  }
-
-  // Context panel tabs
-  document.querySelectorAll(".bcontext-tab").forEach(tab=>{
-    tab.onclick=()=>switchContextTab(tab.dataset.bc);
-  });
-  let extractedLinks=[];
-  function switchContextTab(name){
-    document.querySelectorAll(".bcontext-tab").forEach(t=>t.classList.toggle("on",t.dataset.bc===name));
-    const body=$("bContextBody");
-    if(name==="links"){
-      if(!extractedLinks.length){ body.innerHTML='<div class="bcontext-empty"><span>🔗</span><span>No links extracted yet — use Extract first</span></div>'; return; }
-      body.innerHTML=extractedLinks.map(l=>'<a href="'+esc(l.href)+'" target="_blank" onclick="event.preventDefault();navigate(\''+esc(l.href).replace(/'/g,"\\'")+'\')">'+esc((l.text||l.href).slice(0,60))+'</a>').join("<hr>");
+      browserNavigate(url);
+      if(SHELL) tempToast("Opened preview in built-in browser.");
+      if(run) run.previewUrl=url;
+    }catch(err){
+      console.warn("Could not open run_project preview",err);
     }
   }
-  function formatExtractedContent(r){
-    // Save links for the links tab
-    const links=[];
-    const text=r.text||"";
-    text.replace(/https?:\/\/[^\s<>"')\]]+/g,(u)=>{ links.push({href:u,text:u}); return u; });
-    extractedLinks=links.slice(0,50);
-    // Format with headings preserved
-    return text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
-  }
-
-  // ── Improved tab rendering with reload button per tab ──
-  const origRenderTabs=renderTabs;
-  renderTabs=function(){
-    const el=$("btabs"); el.innerHTML="";
-    btabs.forEach((t,i)=>{
-      const d=document.createElement("div"); d.className="btab"+(i===bactive?" active":"");
-      const label=((t.ai?"AI ":"")+(t.title||t.url||"New tab")).replace(/^https?:\/\//,"").slice(0,28)||"New tab";
-      d.innerHTML=faviconHTML(t.url)+'<span class="t">'+esc(label)+'</span><span class="reload" title="Reload tab">⟳</span><span class="x">×</span>';
-      d.onclick=()=>switchTab(i);
-      d.querySelector(".reload").onclick=(e)=>{ e.stopPropagation(); if(t.url) showFrame(t); };
-      d.querySelector(".x").onclick=(e)=>{ e.stopPropagation(); closeTab(i); };
-      el.appendChild(d);
-    });
-    const add=document.createElement("div"); add.className="btab add"; add.textContent="+"; add.title="New tab"; add.onclick=()=>newTab(); el.appendChild(add);
-  };
-
-  // browser menu
-  const bmenu=$("bmenu");
-  $("bMenuBtn").onclick=(e)=>{ e.stopPropagation(); bmenu.classList.toggle("open"); renderHistList(); };
-  document.addEventListener("click",(e)=>{ if(!bmenu.contains(e.target)&&e.target!==$("bMenuBtn")) bmenu.classList.remove("open"); });
-  $("bmNewTab").onclick=()=>{ bmenu.classList.remove("open"); newTab(); };
-  $("bmCloseTab").onclick=()=>{ bmenu.classList.remove("open"); closeTab(bactive); };
-  $("bmCloseOthers").onclick=()=>{ bmenu.classList.remove("open"); closeOtherTabs(); };
-  $("bmExternal").onclick=()=>{ bmenu.classList.remove("open"); const t=curTab(); if(t&&t.url) fetch("/api/open-url",{method:"POST",body:JSON.stringify({url:t.url})}); };
-  $("bmFocus").onclick=()=>{ document.body.classList.toggle("chat-hidden"); $("bmFocusTxt").textContent=document.body.classList.contains("chat-hidden")?"Show chat":"Hide chat (focus browser)"; bmenu.classList.remove("open"); };
-  function setZoom(dz){ const t=curTab(); if(!t) return; t.zoom=Math.min(3,Math.max(.3,Math.round(((t.zoom||1)+dz)*10)/10));
-    $("bmZoomVal").textContent=Math.round(t.zoom*100)+"%"; postFrame({cmd:"zoom",z:t.zoom}); }
-  $("bmZoomIn").onclick=()=>setZoom(.1); $("bmZoomOut").onclick=()=>setZoom(-.1);
-  $("bmZoomFit").onclick=()=>{ bmenu.classList.remove("open"); postFrame({cmd:"fitZoom"}); };
-  $("bmHistory").onclick=()=>{ $("bmHistList").classList.toggle("on"); renderHistList(); };
-  function renderHistList(){
-    const el=$("bmHistList"); el.innerHTML="";
-    [...bhist].reverse().slice(0,20).forEach(h=>{
-      const d=document.createElement("div"); d.className="item"; d.style.display="block";
-      d.innerHTML='<div>'+esc((h.title||h.url).slice(0,34))+'</div><div class="hu">'+esc(h.url.slice(0,44))+'</div>';
-      d.onclick=()=>{ bmenu.classList.remove("open"); loadUrl(h.url); };
-      el.appendChild(d);
-    });
-    if(!bhist.length) el.innerHTML='<div class="item disabled">no history yet</div>';
-  }
-  $("bmClearData").onclick=async()=>{ bmenu.classList.remove("open");
+  $("clearBrowseData").onclick=async()=>{
     if(!await appConfirm("Clear browsing data?","This clears browser history, bookmarks, and cookies saved by Boolean.","Clear",true)) return;
-    bhist=[]; bbookmarks=[]; renderBookmarks(); await fetch("/api/browse/clear",{method:"POST"}); setUi({browserHistory:[],browserBookmarks:[]}); };
-  $("clearBrowseData").onclick=async()=>{ if(!await appConfirm("Clear browsing data?","This clears browser history, bookmarks, and cookies saved by Boolean.","Clear",true)) return;
-    bhist=[]; bbookmarks=[]; renderBookmarks(); await fetch("/api/browse/clear",{method:"POST"}); setUi({browserHistory:[],browserBookmarks:[]}); };
-
-  // Send page content as context, or route selected text directly to a destination.
-  async function sendPageToAI(what){
-    bmenu.classList.remove("open");
-    const t=curTab();
-    if(!t||!t.url) return;
-    const r=await requestText(what);
-    if(!r||!r.text||!r.text.trim()){ appAlert(what==="selection"?"No text selected":"Could not read page",what==="selection"?"Select text in the page first, then try again.":"Local pages cannot always be captured from the browser panel."); return; }
-    attachments.push({kind:"file",name:(what==="selection"?"selection from ":"page ")+(r.title||t.url).slice(0,60)+".txt",
-      text:"Content of "+t.url+":\n\n"+r.text});
-    renderChips(); input.focus();
-  }
-  $("bmSendPage").onclick=()=>sendPageToAI("page");
-  async function sendSelectedBrowserText(target){
-    bmenu.classList.remove("open");
-    const r=await requestText("selection");
-    if(!r?.text?.trim()){ appAlert("No text selected","Select text in the page first, then try again."); return; }
-    sendBrowserText(r.text,target);
-  }
-  $("bmSendSel").onclick=()=>sendSelectedBrowserText("message");
-  $("bmSendSelNote").onclick=()=>sendSelectedBrowserText("note");
-  async function captureBrowserScreenshotDataURL(){
-    const stream=await navigator.mediaDevices.getDisplayMedia({video:true,preferCurrentTab:true});
-    const video=document.createElement("video"); video.srcObject=stream; await video.play();
-    await new Promise(r=>setTimeout(r,150));
-    const c=document.createElement("canvas"); c.width=video.videoWidth; c.height=video.videoHeight;
-    c.getContext("2d").drawImage(video,0,0);
-    stream.getTracks().forEach(tr=>tr.stop());
-    return c.toDataURL("image/png");
-  }
-  $("bmScreenshot").onclick=async()=>{
-    bmenu.classList.remove("open");
-    if(!visionOk()){ visionBlockNote(); return; }
-    try{
-      attachments.push({kind:"image",name:"screenshot.png",dataURL:await captureBrowserScreenshotDataURL()});
-      renderChips(); input.focus();
-    }catch(err){ if(err.name!=="NotAllowedError") appAlert("Screenshot failed",err.message); }
-  };
-  $("bmScreenshotNote").onclick=async()=>{
-    bmenu.classList.remove("open");
-    try{ addSnipImage(await captureBrowserScreenshotDataURL(),"note"); }
-    catch(err){ if(err.name!=="NotAllowedError") appAlert("Screenshot failed",err.message); }
+    await fetch("/api/browse/clear",{method:"POST"});
+    if(SHELL) hostPost({type:"browser",cmd:"clear"});
+    setUi({browserHistory:[],browserBookmarks:[]});
   };
 
   // Pane resize handles sit over shared borders, so connected panes remain gapless.
   // Move/up listeners live on `document` for the duration of a drag so the pane keeps
-  // tracking the pointer even when the cursor leaves the 9px handle (pointer capture is
+  // tracking the pointer even when the cursor leaves the handle (pointer capture is
   // unreliable once the handles are nested), fixing panes that wouldn't resize.
-  let browserManualSize=false;
   function installPaneResizer({handleId,panelId,cssVar,saveKey,minWidth=240}){
     const handle=$(handleId),panel=$(panelId);
-    let dragging=false,panelRight=0,pointerId=null;
+    if(!handle||!panel) return;
+    let dragging=false,pointerId=null,startX=0,startWidth=0,panelRight=0,maxWidth=0;
+    let rafId=0,pendingWidth=0,lastWidth=0,mainLeft=0;
+    const clampWidth=(width)=>Math.max(minWidth,Math.min(width,maxWidth));
+    const applyWidth=()=>{
+      rafId=0;
+      if(!dragging) return;
+      const next=clampWidth(pendingWidth);
+      if(next===lastWidth) return;
+      lastWidth=next;
+      document.body.style.setProperty(cssVar,next+"px");
+      if(handleId==="ndrag"&&typeof syncExploreNotepadDock==="function") syncExploreNotepadDock();
+    };
+    const queueWidth=(width)=>{
+      pendingWidth=width;
+      if(rafId) return;
+      rafId=requestAnimationFrame(applyWidth);
+    };
     const onMove=(e)=>{
       if(!dragging||e.pointerId!==pointerId) return;
-      const mainLeft=document.querySelector("main").getBoundingClientRect().left;
-      const maxWidth=Math.max(minWidth,panelRight-mainLeft-300);
-      const width=Math.max(minWidth,Math.min(panelRight-e.clientX,maxWidth));
-      document.body.style.setProperty(cssVar,width+"px");
-      if(handleId==="ndrag"&&typeof syncExploreNotepadDock==="function") syncExploreNotepadDock();
+      const width=Math.round(startWidth+(startX-e.clientX));
+      queueWidth(width);
       e.preventDefault();
     };
     const finish=(e)=>{
       if(!dragging||(e&&e.pointerId!=null&&e.pointerId!==pointerId)) return;
       dragging=false;
+      cancelAnimationFrame(rafId); rafId=0;
+      const finalWidth=clampWidth(Number.isFinite(pendingWidth)?pendingWidth:lastWidth);
+      document.body.style.setProperty(cssVar,finalWidth+"px");
+      lastWidth=finalWidth;
+      try{handle.releasePointerCapture?.(pointerId);}catch{}
       document.removeEventListener("pointermove",onMove);
       document.removeEventListener("pointerup",finish);
       document.removeEventListener("pointercancel",finish);
@@ -17684,9 +16959,17 @@ Optional bundled starter model:
     };
     handle.addEventListener("pointerdown",(e)=>{
       if(e.button!==0) return;
-      dragging=true; pointerId=e.pointerId; panelRight=panel.getBoundingClientRect().right;
-      if(handleId==="bdrag") browserManualSize=true;
+      dragging=true; pointerId=e.pointerId;
+      startX=e.clientX;
+      panelRight=panel.getBoundingClientRect().right;
+      startWidth=Math.round(panel.getBoundingClientRect().width);
+      mainLeft=document.querySelector("main")?.getBoundingClientRect().left||0;
+      maxWidth=Math.max(minWidth,panelRight-mainLeft-300);
+      maxWidth=Math.max(maxWidth,minWidth);
+      pendingWidth=lastWidth=startWidth;
+      try{handle.setPointerCapture?.(e.pointerId);}catch{}
       handle.classList.add("dragging"); document.body.classList.add("pane-resizing");
+      queueWidth(startWidth);
       document.addEventListener("pointermove",onMove);
       document.addEventListener("pointerup",finish);
       document.addEventListener("pointercancel",finish);
@@ -17695,35 +16978,19 @@ Optional bundled starter model:
   }
   installPaneResizer({handleId:"ndrag",panelId:"notesPanel",cssVar:"--nw",saveKey:"notepadW",minWidth:220});
   installPaneResizer({handleId:"ctxdrag",panelId:"ctxZone",cssVar:"--cw",saveKey:"contextW",minWidth:240});
-  installPaneResizer({handleId:"bdrag",panelId:"browser",cssVar:"--bw",saveKey:"browserW",minWidth:260});
-  window.addEventListener("resize",()=>{ if(document.body.classList.contains("browser-on")&&!browserManualSize) fitBrowserSplit(); });
 
   function applyBrowser(ui){
     ui=ui||{};
-    document.body.style.setProperty("--bw",(ui.browserW||460)+"px");
     if(ui.notepadW) document.body.style.setProperty("--nw",ui.notepadW+"px");
     if(ui.contextW) document.body.style.setProperty("--cw",ui.contextW+"px");
-    browserManualSize=!!ui.browserW;
-    bhist=Array.isArray(ui.browserHistory)?ui.browserHistory.slice():[];
-    bbookmarks=Array.isArray(ui.browserBookmarks)?ui.browserBookmarks.slice():[];
-    const browserThemeDark=(ui.theme==="dark")||(ui.theme!=="light"&&matchMedia("(prefers-color-scheme:dark)").matches);
-    darkPageOn=browserThemeDark||!!ui.browserDarkMode;
-    $("bDarkPage").classList.toggle("active",darkPageOn);
-    $("bDarkPage").setAttribute("aria-pressed",darkPageOn?"true":"false");
-    $("bDarkPage").title=darkPageOn?"Turn off website dark mode":"Dark mode for websites";
-    btabs=[];
-    bactive=-1;
     document.body.classList.remove("browser-on");
-    renderTabs(); renderBookmarks(); renderProjectPages();
   }
-  function showReading(){ setBooleanActivity("Reading page",{temporary:2600}); const b=$("bread"); b.classList.add("on"); clearTimeout(b._t); b._t=setTimeout(()=>b.classList.remove("on"),2600); }
-  // the AI opened a page — mirror it in a dedicated 🤖 tab
+  function showReading(){ setBooleanActivity("Reading page",{temporary:2600}); }
+  // the AI opened a page — show it in the native pane
   function aiNavigate(url){
-    if(SHELL){ hostPost({type:"browser",cmd:"navigate",url}); return; }
-    if(!document.body.classList.contains("browser-on")) openBrowser(true);
-    let i=btabs.findIndex(t=>t.ai);
-    if(i<0){ newTab(); i=bactive; btabs[i].ai=true; }
-    bactive=i; loadUrl(url); showReading();
+    browserNavigate(url);
+    if(!SHELL) return;
+    showReading();
     // research mode: auto-summarize navigated page after brief delay
     if(state.ui && state.ui.researchMode){
       clearTimeout(window._researchTimer);
@@ -17734,6 +17001,7 @@ Optional bundled starter model:
       },3000);
     }
   }
+
 
   // ── eula ──
   $("acceptEula").onclick=async()=>{ await fetch("/api/config",{method:"POST",body:JSON.stringify({acceptEula:true})}); $("eula").close(); input.focus(); };
@@ -17840,6 +17108,7 @@ Optional bundled starter model:
       else if(d.type==="petStop"){ if(run) stopRun(); }
       else if(d.type==="clipboard"&&d.id&&clipboardWaiters[d.id]){ const pending=clipboardWaiters[d.id]; delete clipboardWaiters[d.id]; d.ok?pending.resolve(d.text||""):pending.reject(new Error(d.error||"clipboard unavailable")); }
       else if(d.type==="folder"&&d.id&&folderWaiters[d.id]){ const resolve=folderWaiters[d.id]; delete folderWaiters[d.id]; resolve(d.ok&&d.path?{path:d.path}:{path:null,error:d.error||""}); }
+      else if(d.type==="shellBrowserUrl"){ shellBrowserPage={url:d.url||"",title:d.title||""}; if(tradingModeEnabled()) refreshTradingBar(); syncBrowserTaskMode(shellBrowserPage.url); }
       else if(d.type==="shellBrowser"){
         document.body.classList.toggle("browser-on",!!d.open);
         if(!d.open)returnToChatAfterAuxiliaryClose("browser");
@@ -17888,7 +17157,6 @@ Optional bundled starter model:
   });
   document.addEventListener("pointerdown",(e)=>{
     if(!$("noteContextMenu").contains(e.target)) hideNoteContextMenu();
-    if(!$("browserSelectionMenu").contains(e.target)) hideBrowserSelectionMenu();
     if(!e.target.closest("#modelmenu .api-row-menu,#modelmenu .api-row-more")) closeRowMenus();
     const noteTabs=$("noteTabs");
     const tabMenu=noteTabs?.querySelector(".note-tab-menu.open");
@@ -17950,19 +17218,8 @@ Optional bundled starter model:
     }
     if(e.altKey&&e.key==="ArrowLeft"&&!document.body.classList.contains("browser-on")){ e.preventDefault(); goBackInApp(); return; }
     if(e.altKey&&e.key==="ArrowRight"&&!document.body.classList.contains("browser-on")){ e.preventDefault(); goForwardInApp(); return; }
-    // browser keyboard shortcuts (only when browser is visible and focus is not in a text field)
-    if(!document.body.classList.contains("browser-on")) return;
-    const inField=e.target.matches("input,textarea,#bAddr,#bFindInput,noteEditor")||e.target.isContentEditable;
-    if(e.ctrlKey&&e.key==="t"&&!inField){ e.preventDefault(); newTab(); bAddr.focus(); return; }
-    if(e.ctrlKey&&e.key==="w"&&!inField){ e.preventDefault(); closeTab(bactive); return; }
-    if(e.ctrlKey&&e.key==="l"&&!inField){ e.preventDefault(); bAddr.focus(); bAddr.select(); return; }
-    if(e.ctrlKey&&e.key==="f"){ e.preventDefault(); $("bfind").classList.add("on"); $("bFindInput").focus(); return; }
-    if(e.ctrlKey&&e.key==="r"&&!inField){ e.preventDefault(); const t=curTab(); if(t&&t.url) showFrame(t); return; }
-    if(e.ctrlKey&&e.key==="d"&&!inField){ e.preventDefault(); toggleBookmark(); return; }
-    if(e.ctrlKey&&e.shiftKey&&e.key==="V"&&!inField){ e.preventDefault(); toggleSplitView(); return; }
-    if(e.key==="o"&&!inField&&!e.ctrlKey&&!e.altKey&&!e.metaKey){ e.preventDefault(); toggleOutline(); return; }
-    if(e.altKey&&e.key==="ArrowLeft"){ e.preventDefault(); back(); return; }
-    if(e.altKey&&e.key==="ArrowRight"){ e.preventDefault(); fwd(); return; }
+    // Browser shortcuts (tabs, find, history) belong to the native pane and are
+    // handled by the shell's own chrome, which has focus whenever it is showing.
   });
   input.focus();
 
@@ -18248,7 +17505,7 @@ Optional bundled starter model:
     const mode=$("chatUtilityModeValue"),model=$("chatUtilityModelValue"),access=$("chatUtilityAccessValue");
     if(mode)mode.textContent=state.provider==="local"?"Local":"Cloud";
     if(model){model.textContent=chatUtilityModelLabel();model.title=model.textContent;}
-    if(access)access.textContent=accessModeLabel(currentAccessMode());
+    if(access)access.textContent=accessModeLabel(tradingModeEnabled()?"trading_confirm":currentAccessMode());
     const tasks=$("chatUtilityTasksValue");
     if(tasks){
       const active=run?1:0;
@@ -18325,7 +17582,7 @@ Optional bundled starter model:
     new MutationObserver(()=>syncChatUtilityContent()).observe($("ctxChips"),{childList:true,subtree:true,characterData:true});
   }
   function closeWorkspaceTab(ws) {
-    if (ws === "browser") { SHELL ? hostPost({type:"browser",cmd:"hide"}) : openBrowser(false); }
+    if (ws === "browser") { openBrowser(false); }
     else if (ws === "notes") { openNotes(false,{remember:false,focus:false}); }
     else if (ws === "code") { toggleTerminal(false); }
     else if (ws === "recipes") {
@@ -19356,8 +18613,9 @@ Optional bundled starter model:
     }catch(error){ tempToast(String(error?.message||"Market service unavailable")); }
   }
   function openMarketBrowser(path){
-    openBrowser(true,{remember:true});
-    setTimeout(()=>navigate(path),SHELL?300:20);
+    if(!path) return;
+    rememberCurrentView();
+    browserNavigate(path);
   }
   $("marketModeTabs").onclick=event=>{
     const button=event.target.closest("[data-market-mode]");if(button)setMarketMode(button.dataset.marketMode);
@@ -19565,7 +18823,7 @@ Optional bundled starter model:
     markWorkspaceTab(ws);
     if (!["git","automations"].includes(ws)) closeSettingsPanel();
     if (ws === "chat") { openMostRecentChat(); }
-    else if (ws === "browser") { if (SHELL) { document.body.classList.add("browser-on"); syncPanelButtons(); hostPost({type:"browser",cmd:"show"}); } else openBrowser(true); }
+    else if (ws === "browser") { openBrowser(true); }
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { terminalAutoReveal=true; toggleTerminal(true); tempToast("Terminal opened for code work."); }
     else if (ws === "education") { ensureEducation(); }
@@ -19718,7 +18976,7 @@ Optional bundled starter model:
     $("input").dispatchEvent(new Event("input",{bubbles:true}));$("input").focus();
   }
   $("librarySavePage")?.addEventListener("click",()=>{
-    const tab=curTab(),url=String(tab?.url||"").trim();
+    const tab=currentBrowserPage(),url=String(tab.url||"").trim();
     if(!url){tempToast("Open a browser page first.");return;}
     let host=url;try{host=new URL(url).hostname;}catch{}
     libraryAdd({type:"page",title:tab.title&&tab.title!=="New tab"?tab.title:host,summary:`Saved from ${host}`,url});
@@ -23689,14 +22947,6 @@ Optional bundled starter model:
     setWorkspaceTab("chat");
     $("send")&&$("send").click();
   }
-  document.querySelectorAll(".bt-task").forEach(btn => {
-    btn.onclick = async () => {
-      const task = btn.dataset.btask;
-      if (task === "tech") { await detectCurrentSiteTech(); return; }
-      const tab=curTab&&curTab();
-      sendBrowserTask(task,{url:tab?.url||$("bAddr")?.value||"",title:tab?.title||""});
-    };
-  });
   function handleShellBrowserTask(d){
     const task=d&&d.task;
     if(task==="email_more"){ openEmailRecipes("email-briefing"); return; }
@@ -23704,40 +22954,6 @@ Optional bundled starter model:
     const title=(d&&d.title)||"";
     const page=title&&url ? title+" ("+url+")" : (url||title||"the current browser page");
     sendBrowserTask(task,{url,title,page});
-  }
-  async function detectCurrentSiteTech(){
-    const panel=$("techReport");
-    if(panel){ panel.classList.add("open"); panel.innerHTML='<div class="tech-head">Detecting stack...</div>'; }
-    const tab=curTab&&curTab();
-    const url=(tab&&tab.url)||($("bAddr")?.value||"");
-    try{
-      const r=await (await fetch("/api/browser/detect-tech",{method:"POST",body:JSON.stringify({url})})).json();
-      if(!r.ok) throw new Error(r.error||"detect failed");
-      renderTechReport(r.report||{});
-    }catch(e){
-      if(panel) panel.innerHTML='<div class="tech-head">Could not detect stack <small>'+esc(e.message||"")+'</small></div>';
-    }
-  }
-  function renderTechReport(report){
-    const panel=$("techReport"); if(!panel) return;
-    const items=Array.isArray(report.detected)?report.detected.slice(0,12):[];
-    const url=report.url||($("bAddr")?.value||"");
-    panel.classList.add("open");
-    if(!items.length){
-      panel.innerHTML='<div class="tech-head">No strong stack match <small>'+esc(url)+'</small></div><div class="hint">Boolean analyzed the page locally and did not find known CMS, builder, framework, analytics, or hosting markers.</div>';
-      return;
-    }
-    const groups={};
-    items.forEach(item=>{ (groups[item.category]=groups[item.category]||[]).push(item); });
-    panel.innerHTML='<div class="tech-head">Detected stack <small>'+esc(url)+'</small><span style="flex:1"></span><button class="minibtn" id="techCompare" type="button">Compare</button><button class="minibtn" id="techSaveNote" type="button">Save note</button></div>'
-      +'<div class="tech-list">'+Object.entries(groups).map(([cat,list])=>'<div class="tech-group">'+esc(cat)+'</div>'+list.map(item=>'<div class="tech-row"><div><b>'+esc(item.name)+'</b><small>'+esc((item.signals||[]).slice(0,3).join(", "))+'</small></div><span class="tech-score">'+esc(item.confidence)+'%</span></div>').join("")).join("")+'</div>';
-    const save=$("techSaveNote");
-    if(save) save.onclick=()=>{
-      const text="Website stack report for "+url+"\n\n"+items.map(item=>"- "+item.name+" ("+item.category+"): "+item.confidence+"% - "+(item.signals||[]).join(", ")).join("\n")+"\n\n"+(report.privacy||"Local analysis.");
-      openNotes(true); insertPlainNoteText(text); tempToast("Stack report saved to notes.");
-    };
-    const compare=$("techCompare");
-    if(compare) compare.onclick=()=>cmdSendChat("Compare this website stack with another site I provide. Current stack report:\n\n"+items.map(item=>"- "+item.name+" ("+item.category+"): "+item.confidence+"%").join("\n"));
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -23903,9 +23119,8 @@ Optional bundled starter model:
     if (task === "summarize") {
       // after sending the summarize prompt, also save a card
       try {
-        const addr = $("bAddr");
-        const title = addr ? addr.value : "Browser page";
-        addResearchCard({ title: title || "Browser page", summary: "Summary pending — Boolean is summarizing this page.", url: addr ? addr.value : "" });
+        const page = currentBrowserPage();
+        addResearchCard({ title: page.title || page.url || "Browser page", summary: "Summary pending — Boolean is summarizing this page.", url: page.url || "" });
       } catch(e) {}
     }
   };

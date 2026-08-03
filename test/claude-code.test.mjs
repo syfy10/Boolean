@@ -91,16 +91,20 @@ test("Claude Code setup uses Anthropic's recommended native installer and opens 
   let loginOptions = {};
   const login = startClaudeCodeLogin("claude", {
     platform: "win32", spawnSyncImpl: versionSpawn,
-    spawnImpl: (command, args, options) => { loginCommand = command; loginArgs = args; loginOptions = options; return { unref() {} }; }
+    env: { Path: "C:\\Windows", PATH: "C:\\Program Files\\nodejs" },
+    spawnImpl: (command, args, options) => { loginCommand = command; loginArgs = args; loginOptions = options; return { pid: 42, unref() {} }; }
   });
   assert.equal(login.ok, true);
   assert.equal(loginCommand, "powershell.exe");
-  assert.deepEqual(loginArgs.slice(0, 3), ["-NoProfile", "-NonInteractive", "-Command"]);
-  assert.match(loginArgs.at(-1), /Start-Process[\s\S]*-EncodedCommand/);
-  const encodedLogin = loginArgs.at(-1).match(/-EncodedCommand ([A-Za-z0-9+/=]+)/)?.[1] || "";
-  assert.match(Buffer.from(encodedLogin, "base64").toString("utf16le"), /auth login/);
+  assert.deepEqual(loginArgs.slice(0, 4), ["-NoLogo", "-NoExit", "-NoProfile", "-EncodedCommand"]);
+  const encodedLogin = loginArgs.at(-1);
+  const decodedLogin = Buffer.from(encodedLogin, "base64").toString("utf16le");
+  assert.match(decodedLogin, /auth login --claudeai/);
+  assert.doesNotMatch(decodedLogin, /Start-Process/);
   assert.equal(loginOptions.detached, true);
-  assert.equal(loginOptions.windowsHide, true);
+  assert.equal(loginOptions.windowsHide, false);
+  assert.equal(loginOptions.env.Path, "C:\\Windows");
+  assert.equal(loginOptions.env.PATH, "C:\\Program Files\\nodejs");
 });
 
 test("Claude Code setup falls back to the official WinGet package", async () => {

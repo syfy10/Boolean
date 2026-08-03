@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { preserveSavedApiKeys, preserveSavedConnections } from "../src/config.js";
+import fs from "node:fs";
+import { defaultConfig, hasAnySavedCredential, preserveSavedApiKeys, preserveSavedConnections, setCurrentModel } from "../src/config.js";
+
+const configSource = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 
 test("config saves preserve existing API keys when new payload has blanks", () => {
   const previous = {
@@ -245,6 +248,43 @@ test("Cloudflare tokens survive ordinary partial settings saves", () => {
   const next = { connectors: { cloudflare: { token: "", connected: true, accountId: "a".repeat(32), accountName: "Demo" } } };
   preserveSavedApiKeys(next, previous);
   assert.equal(next.connectors.cloudflare.token, "cf-secret");
+});
+
+test("a Cloudflare-only connection is recognized as upgrade recovery data", () => {
+  assert.equal(hasAnySavedCredential({ connectors: { cloudflare: { token: "cfat_saved", connected: true, accountId: "account-1" } } }), true);
+  assert.equal(hasAnySavedCredential({ connectors: { cloudflare: { oauth: { refreshToken: "refresh" }, connected: true } } }), true);
+});
+
+test("blank upgrade defaults restore the complete saved Cloudflare connection", () => {
+  const previous = { connectors: { cloudflare: {
+    token: "cfat_saved", connected: true, accountId: "account-1", accountName: "Production",
+    tokenId: "token-1", status: "active", fullAccess: true, lastTestedAt: 123
+  } } };
+  const next = { connectors: { cloudflare: {
+    token: "", connected: false, accountId: "", accountName: "", tokenId: "", status: "", fullAccess: false, lastTestedAt: 0
+  } } };
+  preserveSavedApiKeys(next, previous);
+  assert.deepEqual(next.connectors.cloudflare, previous.connectors.cloudflare);
+});
+
+test("a successful atomic config save refreshes the latest recovery backup", () => {
+  assert.match(configSource, /fs\.renameSync\(tmp, file\);[\s\S]*fs\.copyFileSync\(file, backup\);/);
+});
+
+test("setCurrentModel can target explicit providers and keeps active provider stable", () => {
+  const cfg = defaultConfig();
+  cfg.provider = "openai";
+  cfg.openai.model = "gpt-5.1";
+  cfg.glm.model = "glm-4.6";
+
+  setCurrentModel(cfg, "GLM-5.2", "glm");
+  assert.equal(cfg.openai.model, "gpt-5.1");
+  assert.equal(cfg.glm.model, "GLM-5.2");
+
+  cfg.provider = "local";
+  setCurrentModel(cfg, "qwen2.5-7b");
+  assert.equal(cfg.local.model, "qwen2.5-7b");
+  assert.equal(cfg.provider, "local");
 });
 
 test("explicit connector replacement can still remove rows", () => {
