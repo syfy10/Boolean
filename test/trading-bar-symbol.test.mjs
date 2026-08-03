@@ -51,10 +51,21 @@ test("a page ticker only applies when the URL carries none", () => {
   assert.match(ui, /if\(!SHELL\) return "";/);
 });
 
-test("a failed quote says why instead of a bare unavailable", () => {
-  assert.match(ui, /let reason="";[\s\S]*?reason=String\(\(await quoteResponse\.json\(\)\)\?\.error\|\|""\);/);
-  assert.match(ui, /const signIn=\/sign in\/i\.test\(why\);/);
-  assert.match(ui, /sign in for live prices/);
+test("the page is the only price source — no second market feed", () => {
+  // The market API was a second price that needed a Boolean account, 401'd, and
+  // could disagree with the page by a cent. The bar reads the page or says so.
+  assert.doesNotMatch(ui, /api\/markets\/quote\?symbol=/);
+  assert.doesNotMatch(ui, /updateTradingBarQuote/);
+  assert.doesNotMatch(ui, /sign in for live prices/);
+  assert.match(ui, /const pageQuote=await readQuoteFromVisiblePage\(\);/);
+  assert.match(ui, /"no quote on this page"/);
+});
+
+test("Sync P&L is gone — it had no working data source", () => {
+  // Robinhood exposes no realized-P&L-today scalar, so the button promised a
+  // one-click sync that could never complete. record_trade_result still exists.
+  assert.doesNotMatch(ui, /tbSync/);
+  assert.doesNotMatch(ui, /sync_trade_pnl/);
 });
 
 test("market session uses New York timezone and labels pre/after as non-open", () => {
@@ -124,8 +135,10 @@ function loadMarketSessionNow() {
 test("an unread page does not fall back to a stale ticker", () => {
   // The bar showed "AAPL price unavailable" while GOOGL/TSLA was on screen. If the
   // symbol did not come from the page, URL, or a pin, the bar must say so.
-  assert.match(ui, /const fromPage=lastTradingSymbolSource==="page"\|\|lastTradingSymbolSource==="url"\|\|lastTradingSymbolSource==="pin";/);
-  assert.match(ui, /"no symbol on this page"/);
+  // With the market feed gone the bar names only a pinned symbol; otherwise it
+  // reports that the page has no quote rather than inventing a ticker.
+  assert.doesNotMatch(ui, /lastTradingQuoteSymbol\|\|"AAPL"/);
+  assert.match(ui, /\$\{pinnedTradingSymbol\} — no quote on this page/);
   // An older shell has no pageText command; the slower context read still works.
   assert.match(ui, /if\(!page\) page=\(await requestShellContext\(6000\)\)\?\.browser\|\|null;/);
   assert.match(ui, /quoteFromPageText\(page\.text\)\|\|quoteFromPageText\(page\.ocr\)/);
@@ -144,5 +157,5 @@ test("a page read that times out reports why", () => {
   // The context read runs OCR; 2.5s was too short and looked like "no symbol".
   assert.match(ui, /if\(!page\) page=\(await requestShellContext\(6000\)\)\?\.browser\|\|null;/);
   assert.match(ui, /lastPageReadIssue="the browser pane did not answer in time"/);
-  assert.match(ui, /if\(!shown&&lastPageReadIssue\) quote\.title=`Could not read a quote: \$\{lastPageReadIssue\}`;/);
+  assert.match(ui, /quote\.title=lastPageReadIssue\s*\?\s*`Could not read a quote: \$\{lastPageReadIssue\}`/);
 });

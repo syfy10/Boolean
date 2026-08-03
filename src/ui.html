@@ -7327,7 +7327,6 @@ body:not(.composer-simple) main::after{
         <span class="tb-spacer"></span>
         <button class="tb-btn tb-arm" id="tbArm" type="button" aria-pressed="false" title="Arm trade clicks for a limited window">Arm</button>
         <button class="tb-btn" id="tbRobinhood" type="button" title="Open broker site in the built-in browser for manual trading">Open broker</button>
-        <button class="tb-btn" id="tbSync" type="button" title="Sync realized P&amp;L from the broker connector">Sync P&amp;L</button>
         <button class="tb-kill" id="tbKill" type="button" aria-pressed="false" title="Kill-switch: instantly halt all trade staging and clicks">Kill-switch</button>
       </div>
     </div>
@@ -9735,25 +9734,6 @@ body:not(.composer-simple) main::after{
     target.title=`Read from the page open in the browser (${quote.symbol}). Boolean is not using a separate market-data feed.`;
     if(st) st.dataset.source="page";
   }
-  function updateTradingBarQuote(quote={}, symbol="AAPL"){
-    const target=$("tbQuote");
-    if(!target) return;
-    const safeSymbol=normalizeSymbolInput(symbol);
-    const price=Number(quote?.price);
-    const change=Number(quote?.changePercent);
-    target.classList.remove("up","down","ok");
-    if(!Number.isFinite(price)){
-      target.textContent = `${safeSymbol} loading price`;
-      target.classList.add("ok");
-      return;
-    }
-    const value=marketMoney(price, quote?.currency || "USD");
-    const delta=Number.isFinite(change)?`${change>=0?"+":""}${change.toFixed(2)}%`:"";
-    const delayed=quote?.delayed===true?" · delayed":"";
-    target.textContent = `${safeSymbol} ${value}${delta?` ${delta}`:""}${delayed}`;
-    if(Number.isFinite(change)) target.classList.add(change > 0 ? "up" : change < 0 ? "down" : "ok");
-    else target.classList.add("ok");
-  }
   function startTradingBarTicker(){
     if(tradingBarTicker) return;
     tradingBarTicker=setInterval(()=>{
@@ -9934,7 +9914,7 @@ body:not(.composer-simple) main::after{
     const thisTick=++tradingBarQuoteTick;
     if(quote){
       quote.classList.remove("up","down","ok");
-      quote.textContent=`${lastTradingQuoteSymbol||"AAPL"} loading...`;
+      quote.textContent=lastTradingQuoteSymbol?`${lastTradingQuoteSymbol} reading...`:"reading page...";
     }
     if(st) st.textContent="status loading...";
 
@@ -9959,9 +9939,9 @@ body:not(.composer-simple) main::after{
           renderTradingAccount(broker);
           renderTradingPower(broker);
         }).catch(()=>renderTradingAccount(null));
-        // What is on screen wins. The broker page is the thing the user is
-        // actually looking at, so the bar mirrors it rather than a second feed.
-        const pageQuote=pinnedTradingSymbol?null:await readQuoteFromVisiblePage();
+        // The page in the browser pane is the ONLY price source. There is no
+        // second market feed to disagree with it, lag behind it, or 401.
+        const pageQuote=await readQuoteFromVisiblePage();
         if(thisTick!==tradingBarQuoteTick) return;
         if(pageQuote){
           lastTradingQuoteSymbol=pageQuote.symbol;
@@ -9969,37 +9949,25 @@ body:not(.composer-simple) main::after{
           renderPageQuote(pageQuote);
           return;
         }
-        const symbol=await resolveTradingQuoteSymbol(s);
-        if(thisTick!==tradingBarQuoteTick) return;
-        lastTradingQuoteSymbol=symbol;
-        const qs=`${encodeURIComponent(symbol)}`;
-        const quoteResponse = await fetch(`/api/markets/quote?symbol=${qs}`);
-        if(!quoteResponse.ok){
-          // Say WHY. A blank "price unavailable" hides the common case: live
-          // quotes need a signed-in Boolean account (the endpoint 401s).
-          let reason="";
-          try{ reason=String((await quoteResponse.json())?.error||""); }catch{}
-          throw new Error(reason||`Could not load live price (HTTP ${quoteResponse.status}).`);
+        if(quote){
+          quote.classList.remove("up","down","ok");
+          quote.classList.add("ok");
+          quote.textContent=pinnedTradingSymbol
+            ? `${pinnedTradingSymbol} — no quote on this page`
+            : "no quote on this page";
+          quote.title=lastPageReadIssue
+            ? `Could not read a quote: ${lastPageReadIssue}`
+            : "Open a broker page showing this symbol; the bar reads the price from it.";
         }
-        const quotePayload=await quoteResponse.json();
-        if(thisTick!==tradingBarQuoteTick) return;
-        updateTradingBarQuote(quotePayload,symbol);
       }catch(err){
         if(thisTick!==tradingBarQuoteTick) return;
         const why=String(err?.message||"").trim();
-        const signIn=/sign in/i.test(why);
         if(st) st.textContent=why?why.replace(/\.$/,""):"status unavailable";
         if(quote){
           quote.classList.remove("up","down","ok");
-          // Never name a symbol the page never showed. Falling back to a stale
-          // "AAPL" is how this read as "the bar ignores my browser".
-          const fromPage=lastTradingSymbolSource==="page"||lastTradingSymbolSource==="url"||lastTradingSymbolSource==="pin";
-          const shown=fromPage?lastTradingQuoteSymbol:"";
-          quote.textContent=!shown
-            ? "no symbol on this page"
-            : (signIn?`${shown} — sign in for live prices`:`${shown} price unavailable`);
+          quote.textContent="no quote on this page";
           quote.classList.add("ok");
-          if(!shown&&lastPageReadIssue) quote.title=`Could not read a quote: ${lastPageReadIssue}`;
+          if(why) quote.title=why;
         }
         if(quote&&why) quote.title=why;
       }
@@ -10061,7 +10029,6 @@ body:not(.composer-simple) main::after{
   $("tbPin")?.addEventListener("click",toggleSymbolPin);
   $("tbKill")?.addEventListener("click",toggleKillSwitch);
   $("tbRobinhood")?.addEventListener("click",openRobinhoodBrowser);
-  $("tbSync")?.addEventListener("click",()=>{ try{ askAI("Sync my realized trading P&L from the broker connector and update the daily loss cap using sync_trade_pnl."); }catch{} });
   function applyNetMode(){
     const online=state.provider!=="local";
     document.body.classList.toggle("online-mode", online);
