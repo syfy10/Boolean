@@ -9,8 +9,10 @@ import { executeTool } from "../src/tools.js";
 const TODAY = "2026-08-02";
 
 test("rollDaily resets counters when the day changes and sanitizes otherwise", () => {
-  assert.deepEqual(rollDaily({ date: "2026-08-01", ordersToday: 5, realizedLossUsd: 200 }, TODAY), { date: TODAY, ordersToday: 0, realizedLossUsd: 0 });
-  assert.deepEqual(rollDaily({ date: TODAY, ordersToday: 3, realizedLossUsd: 50 }, TODAY), { date: TODAY, ordersToday: 3, realizedLossUsd: 50 });
+  assert.deepEqual(rollDaily({ date: "2026-08-01", ordersToday: 5, realizedLossUsd: 200 }, TODAY), { date: TODAY, ordersToday: 0, realizedLossUsd: 0, lastAction: null });
+  assert.deepEqual(rollDaily({ date: TODAY, ordersToday: 3, realizedLossUsd: 50 }, TODAY), { date: TODAY, ordersToday: 3, realizedLossUsd: 50, lastAction: null });
+  // A yesterday order does not survive the day roll into "last order today".
+  assert.equal(rollDaily({ date: "2026-08-01", ordersToday: 1, lastAction: { at: 1, symbol: "AAPL" } }, TODAY).lastAction, null);
 });
 
 test("applyPlacement counts orders; applyResult accumulates only losses", () => {
@@ -26,9 +28,15 @@ test("the ledger persists and reloads through a directory", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-ledger-"));
   try {
     recordTradePlacement(dir);
-    recordTradePlacement(dir);
+    recordTradePlacement(dir, { symbol: "googl", side: "Buy" });
     recordTradeResult(dir, -75);
-    assert.deepEqual(currentTradeState(dir), { ordersToday: 2, realizedLossUsd: 75 });
+    const state = currentTradeState(dir);
+    assert.equal(state.ordersToday, 2);
+    assert.equal(state.realizedLossUsd, 75);
+    // The bar shows what the last order actually was, not just a count.
+    assert.equal(state.lastAction.symbol, "GOOGL");
+    assert.equal(state.lastAction.side, "buy");
+    assert.ok(state.lastAction.at > 0);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

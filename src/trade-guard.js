@@ -31,6 +31,37 @@ export function normalizeTradeGuard(raw = {}) {
   };
 }
 
+// ── auto-disarm ────────────────────────────────────────────────────────
+// Trade-click consent used to last forever once given. It now expires, so an
+// account armed hours ago is not still armed when you have forgotten about it.
+// One rule, shared by the guard, /api/trading/state, and the trading bar.
+export const DEFAULT_ARM_WINDOW_MINUTES = 30;
+
+export function armWindowMs(trading = {}) {
+  const raw = Number(trading?.armWindowMinutes);
+  const minutes = Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_ARM_WINDOW_MINUTES;
+  return Math.round(minutes * 60_000);
+}
+
+// When the current arming lapses (0 = never / not armed).
+export function armExpiresAt(config = {}) {
+  const window = armWindowMs(config?.connectors?.trading);
+  if (window <= 0) return 0;
+  const at = Number(config?.ui?.browserPerms?.tradeConsentAt) || 0;
+  return at > 0 ? at + window : 0;
+}
+
+// True when this signed-in user has live, unexpired trade-click consent.
+export function tradeConsentActive(config = {}, now = Date.now()) {
+  const perms = config?.ui?.browserPerms || {};
+  if (perms.tradeClicks !== true) return false;
+  const user = String(config?.cloudBackend?.user?.email || config?.cloudBackend?.user?.id || "").trim().toLowerCase();
+  const consented = String(perms.tradeConsentUser || "").trim().toLowerCase();
+  if (!user || consented !== user) return false;
+  const expires = armExpiresAt(config);
+  return expires === 0 ? true : now <= expires;
+}
+
 const SIDES = new Set(["buy", "sell"]);
 const TYPES = new Set(["market", "limit"]);
 

@@ -14,6 +14,7 @@ import {
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
   ACCESS_MODES, currentAccessMode, defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
+import { tradeConsentActive, armExpiresAt, armWindowMs } from "./trade-guard.js";
 import { currentTradeState } from "./trade-ledger.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, currentTurnInstructionText, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
@@ -44,6 +45,7 @@ import {
   exchangeMcpAuthorizationCode,
   classifyMcpError,
   mcpStatusPayload,
+  mcpCallTool,
   MCP_STATUS
 } from "./mcp.js";
 import {
@@ -1415,6 +1417,103 @@ export function startServer(config, {
   let browserUrl = ""; // the page currently open in the in-app browser
   let browserTitle = ""; // optional page title sent with the current browser URL
   let serverPort = 0;  // this app's own port, hidden from local-server discovery
+
+  // ── broker snapshot for the trading bar ──────────────────────────
+  // Which account the agent would actually act on, whether that account is
+  // agent-tradable at all, and its buying power. An account with
+  // agentic_allowed=false silently rejects every order, so the bar has to be able
+  // to say so BEFORE a trade is attempted. Cached: these are slow MCP round-trips
+  // and the bar polls.
+  let brokerSnapshot = { at: 0, payload: null, inFlight: null };
+  const BROKER_SNAPSHOT_TTL = 30_000;
+
+  const maskAccount = (value = "") => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    return raw.length <= 4 ? raw : `••••${raw.slice(-4)}`;
+  };
+
+  function brokerConnector() {
+    const list = Array.isArray(config.connectors?.mcp) ? config.connectors.mcp : [];
+    const enabled = list.filter((item) => item && item.enabled !== false && item.url);
+    const configured = String(config.connectors?.trading?.broker
+      || config.connectors?.trading?.pnl?.connector || "").trim().toLowerCase();
+    if (configured) {
+      const match = enabled.find((item) =>
+        String(item.name || "").trim().toLowerCase() === configured ||
+        String(item.id || "").trim().toLowerCase() === configured);
+      if (match) return match;
+    }
+    return enabled.find((item) => /robinhood|broker|trading|schwab|alpaca|ibkr|tradier/i
+      .test(`${item.name || ""} ${item.url || ""}`)) || null;
+  }
+
+  function mcpStructured(result) {
+    if (result?.structuredContent) return result.structuredContent;
+    const text = result?.content?.find?.((part) => part?.type === "text")?.text;
+    if (!text) return null;
+    try { return JSON.parse(text); } catch { return null; }
+  }
+
+  async function loadBrokerSnapshot() {
+    const connector = brokerConnector();
+    if (!connector) return { ok: false, error: "No broker connector is configured." };
+    const accountsResult = await mcpCallTool(connector, "get_accounts", {});
+    const accounts = mcpStructured(accountsResult)?.data?.accounts;
+    if (!Array.isArray(accounts) || !accounts.length) {
+      return { ok: false, connector: connector.name || connector.id, error: "The broker returned no accounts." };
+    }
+    const active = accounts.find((a) => a.is_default) || accounts[0];
+    const agentic = accounts.find((a) => a.agentic_allowed === true) || null;
+
+    let buyingPower = null;
+    let accountValue = null;
+    try {
+      // get_portfolio requires the account it should report on.
+      const portfolio = mcpStructured(await mcpCallTool(connector, "get_portfolio",
+        { account_number: String(active.account_number || "") }))?.data;
+      const raw = Number(portfolio?.buying_power?.buying_power);
+      if (Number.isFinite(raw)) buyingPower = Math.round(raw * 100) / 100;
+      const total = Number(portfolio?.total_value);
+      if (Number.isFinite(total)) accountValue = Math.round(total * 100) / 100;
+    } catch { /* balances are a bonus; the account identity is the point */ }
+
+    return {
+      ok: true,
+      connector: connector.name || connector.id,
+      // Never send full account numbers to the UI — it only ever displays them.
+      account: {
+        masked: maskAccount(active.account_number),
+        type: String(active.brokerage_account_type || active.type || ""),
+        nickname: String(active.nickname || ""),
+        agenticAllowed: active.agentic_allowed === true
+      },
+      agenticAccount: agentic && agentic !== active
+        ? { masked: maskAccount(agentic.account_number), nickname: String(agentic.nickname || "") }
+        : null,
+      anyAgentic: accounts.some((a) => a.agentic_allowed === true),
+      buyingPower,
+      accountValue
+    };
+  }
+
+  async function brokerSnapshotCached({ refresh = false } = {}) {
+    const fresh = !refresh && brokerSnapshot.payload && Date.now() - brokerSnapshot.at < BROKER_SNAPSHOT_TTL;
+    if (fresh) return brokerSnapshot.payload;
+    if (brokerSnapshot.inFlight) return brokerSnapshot.inFlight;
+    brokerSnapshot.inFlight = (async () => {
+      try {
+        const payload = await loadBrokerSnapshot();
+        brokerSnapshot = { at: Date.now(), payload, inFlight: null };
+        return payload;
+      } catch (err) {
+        const payload = { ok: false, error: String(err?.message || err).slice(0, 200) };
+        brokerSnapshot = { at: Date.now(), payload, inFlight: null };
+        return payload;
+      }
+    })();
+    return brokerSnapshot.inFlight;
+  }
   let codexClient = null;
   let codexRunner = null;
   let codexClientCommand = "";
@@ -4109,7 +4208,13 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const user = String(config.cloudBackend?.user?.email || config.cloudBackend?.user?.id || "").trim().toLowerCase();
         const ledger = currentTradeState(SAZ_DIR);
         return json({
-          armed: !!user && bp.tradeClicks === true && String(bp.tradeConsentUser || "").trim().toLowerCase() === user,
+          armed: tradeConsentActive(config),
+          // Consent was given, but the arming window has lapsed — the bar offers a re-arm.
+          armLapsed: !!user && bp.tradeClicks === true
+            && String(bp.tradeConsentUser || "").trim().toLowerCase() === user
+            && !tradeConsentActive(config),
+          armExpiresAt: armExpiresAt(config),
+          armWindowMinutes: Math.round(armWindowMs(g) / 60_000),
           enabled: g.enabled === true,
           killSwitch: g.killSwitch === true,
           maxOrdersPerDay: Number(g.maxOrdersPerDay) || 0,
@@ -4118,8 +4223,14 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           symbolAllowlist: Array.isArray(g.symbolAllowlist) ? g.symbolAllowlist : [],
           browserSymbol: extractTradingSymbolFromUrl(browserUrl, browserTitle),
           ordersToday: ledger.ordersToday,
-          realizedLossUsd: ledger.realizedLossUsd
+          realizedLossUsd: ledger.realizedLossUsd,
+          lastAction: ledger.lastAction || null
         });
+      }
+
+      if (req.method === "GET" && p === "/api/trading/broker") {
+        const refresh = url.searchParams.get("refresh") === "1";
+        return json(await brokerSnapshotCached({ refresh }));
       }
 
       if (req.method === "POST" && p === "/api/trading/settings") {
@@ -4131,6 +4242,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         if ("maxOrdersPerDay" in body) g.maxOrdersPerDay = Math.max(0, Number(body.maxOrdersPerDay) || 0);
         if ("dailyLossCapUsd" in body) g.dailyLossCapUsd = Math.max(0, Number(body.dailyLossCapUsd) || 0);
         if ("maxNotionalUsd" in body) g.maxNotionalUsd = Math.max(0, Number(body.maxNotionalUsd) || 0);
+        if ("armWindowMinutes" in body) g.armWindowMinutes = Math.max(0, Number(body.armWindowMinutes) || 0);
         if (Array.isArray(body.symbolAllowlist)) g.symbolAllowlist = body.symbolAllowlist.map((s) => String(s || "").trim().toUpperCase()).filter(Boolean);
         config.connectors.trading = g;
         saveConfig(config);

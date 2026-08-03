@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { evaluateTradeGuard, normalizeTradeGuard, defaultTradeGuard } from "../src/trade-guard.js";
+import { evaluateTradeGuard, normalizeTradeGuard, defaultTradeGuard, tradeConsentActive, armWindowMs, armExpiresAt } from "../src/trade-guard.js";
 import { executeTool } from "../src/tools.js";
 
 const ON = { enabled: true };
@@ -43,6 +43,35 @@ test("normalizeTradeGuard uppercases the allowlist and clamps negatives", () => 
   const g = normalizeTradeGuard({ enabled: true, symbolAllowlist: ["nvda", " aapl "], maxNotionalUsd: -5 });
   assert.deepEqual(g.symbolAllowlist, ["NVDA", "AAPL"]);
   assert.equal(g.maxNotionalUsd, 0);
+});
+
+test("trade consent is valid for the signed-in user inside the arm window", () => {
+  const base = Date.UTC(2026, 7, 2, 16, 0, 0);
+  const config = {
+    ui: { browserPerms: { tradeClicks: true, tradeConsentUser: "Trader@Example.com", tradeConsentAt: base - 10 * 60_000 } },
+    cloudBackend: { user: { email: "trader@example.com" } },
+    connectors: { trading: { armWindowMinutes: 30 } }
+  };
+  assert.equal(tradeConsentActive(config, base), true);
+  assert.equal(armWindowMs(config.connectors.trading), 30 * 60_000);
+  assert.equal(armExpiresAt(config), base + 20 * 60_000);
+});
+
+test("trade consent is false after expiry or user mismatch", () => {
+  const base = Date.UTC(2026, 7, 2, 16, 0, 0);
+  const configForDifferentUser = {
+    ui: { browserPerms: { tradeClicks: true, tradeConsentUser: "other@example.com", tradeConsentAt: base - 10 * 60_000 } },
+    cloudBackend: { user: { email: "trader@example.com" } },
+    connectors: { trading: { armWindowMinutes: 30 } }
+  };
+  const configExpired = {
+    ui: { browserPerms: { tradeClicks: true, tradeConsentUser: "trader@example.com", tradeConsentAt: base - 60 * 60_000 } },
+    cloudBackend: { user: { email: "trader@example.com" } },
+    connectors: { trading: { armWindowMinutes: 30 } }
+  };
+  assert.equal(tradeConsentActive(configForDifferentUser, base), false);
+  assert.equal(tradeConsentActive(configExpired, base), false);
+  assert.equal(armExpiresAt(configExpired), base - 30 * 60_000);
 });
 
 test("the stage_trade tool stages but never submits, and honors the guard", async () => {

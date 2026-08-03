@@ -55,3 +55,26 @@ test("a failed quote says why instead of a bare unavailable", () => {
   assert.match(ui, /const signIn=\/sign in\/i\.test\(why\);/);
   assert.match(ui, /sign in for live prices/);
 });
+
+test("market session uses New York timezone and labels pre/after as non-open", () => {
+  const sessionFn = loadMarketSessionNow();
+  const pre = sessionFn(new Date("2026-01-02T08:30:00-05:00"));
+  const open = sessionFn(new Date("2026-01-02T10:00:00-05:00"));
+  const after = sessionFn(new Date("2026-01-02T16:30:00-05:00"));
+  const closed = sessionFn(new Date("2026-01-02T20:00:00-05:00"));
+  const weekend = sessionFn(new Date("2026-01-03T10:00:00-05:00"));
+  assert.equal(pre.id, "extended");
+  assert.equal(open.id, "open");
+  assert.equal(after.id, "extended");
+  assert.equal(closed.id, "closed");
+  assert.equal(weekend.id, "closed");
+  assert.equal(weekend.label, "Weekend");
+});
+
+function loadMarketSessionNow() {
+  const start = ui.indexOf("  // Market session, in New York time.");
+  const end = ui.indexOf("\n  function renderTradingSession()", start);
+  assert.ok(start >= 0 && end > start, "marketSessionNow not found in ui.html");
+  const block = ui.slice(start, end);
+  return new Function(`${block}\nreturn marketSessionNow;`)();
+}

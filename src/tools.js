@@ -10,7 +10,7 @@ import { providerImageSupport } from "./providers.js";
 import { SYSTEM_ACTION_DEFINITIONS, executeSystemAction } from "./system-actions.js";
 import { mcpTestConnection, mcpCallTool } from "./mcp.js";
 import { cloudflareRequest, cloudflareResourceList, assertCloudflarePath } from "./cloudflare.js";
-import { evaluateTradeGuard } from "./trade-guard.js";
+import { evaluateTradeGuard, tradeConsentActive } from "./trade-guard.js";
 import { currentTradeState, recordTradePlacement, recordTradeResult, setRealizedLoss } from "./trade-ledger.js";
 import { azureResourceList, awsResourceList, googleCloudResourceList } from "./cloud-hosting.js";
 import {
@@ -1373,6 +1373,11 @@ async function visibleBrowserTrade(args, ctx) {
   if (!ctx.config?.cloudBackend?.sessionToken || !signedInUser || consentUser !== signedInUser) {
     return "blocked: trading access requires a signed-in Boolean account whose risk agreement matches the current user.";
   }
+  // Arming expires. Consent given hours ago is not consent now. Checked after the
+  // identity gate so a wrong-user mismatch still reports the specific reason.
+  if (!tradeConsentActive(ctx.config)) {
+    return "blocked: trading access has auto-disarmed. Press Arm in the trading bar to re-arm it, then ask again.";
+  }
   const contract = String(args.contract || "").trim().toUpperCase();
   const side = String(args.side || "").trim().toLowerCase();
   const quantity = Number(args.quantity);
@@ -1409,7 +1414,7 @@ async function visibleBrowserTrade(args, ctx) {
   // configured (so cap-free setups do no file IO) and the caller isn't injecting
   // its own state (state-override tests own the counting).
   if (!ctx.tradingState && (Number(trading.maxOrdersPerDay) || 0) > 0) {
-    recordTradePlacement(ctx.sazDir || SAZ_DIR);
+    recordTradePlacement(ctx.sazDir || SAZ_DIR, { symbol: contract, side });
   }
   return clickResult;
 }

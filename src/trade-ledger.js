@@ -17,7 +17,7 @@ export function localDate(now = new Date()) {
 }
 
 export function emptyLedger(date = localDate()) {
-  return { date, ordersToday: 0, realizedLossUsd: 0 };
+  return { date, ordersToday: 0, realizedLossUsd: 0, lastAction: null };
 }
 
 // Reset the counters when the day has rolled over; otherwise sanitize in place.
@@ -26,14 +26,30 @@ export function rollDaily(ledger, date = localDate()) {
   return {
     date,
     ordersToday: Math.max(0, Math.floor(Number(ledger.ordersToday) || 0)),
-    realizedLossUsd: Math.max(0, Number(ledger.realizedLossUsd) || 0)
+    realizedLossUsd: Math.max(0, Number(ledger.realizedLossUsd) || 0),
+    lastAction: ledger.lastAction && Number(ledger.lastAction.at) > 0
+      ? {
+          at: Number(ledger.lastAction.at),
+          symbol: String(ledger.lastAction.symbol || ""),
+          side: String(ledger.lastAction.side || "")
+        }
+      : null
   };
 }
 
 // One order placed today.
-export function applyPlacement(ledger, date = localDate()) {
+export function applyPlacement(ledger, date = localDate(), action = {}) {
   const rolled = rollDaily(ledger, date);
-  return { ...rolled, ordersToday: rolled.ordersToday + 1 };
+  return {
+    ...rolled,
+    ordersToday: rolled.ordersToday + 1,
+    // What the bar shows as "last order" — a bare counter never said what it was.
+    lastAction: {
+      at: Number(action.at) || Date.now(),
+      symbol: String(action.symbol || "").toUpperCase(),
+      side: String(action.side || "").toLowerCase()
+    }
+  };
 }
 
 // Record a realized result. Only losses accumulate toward the daily loss cap;
@@ -66,11 +82,11 @@ export function saveLedger(dir, ledger) {
 // The guardrail state the trade guard expects: { ordersToday, realizedLossUsd }.
 export function currentTradeState(dir) {
   const l = loadLedger(dir);
-  return { ordersToday: l.ordersToday, realizedLossUsd: l.realizedLossUsd };
+  return { ordersToday: l.ordersToday, realizedLossUsd: l.realizedLossUsd, lastAction: l.lastAction || null };
 }
 
-export function recordTradePlacement(dir) {
-  return saveLedger(dir, applyPlacement(loadLedger(dir)));
+export function recordTradePlacement(dir, action = {}) {
+  return saveLedger(dir, applyPlacement(loadLedger(dir), localDate(), action));
 }
 
 export function recordTradeResult(dir, realizedPnlUsd) {

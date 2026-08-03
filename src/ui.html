@@ -1282,23 +1282,65 @@
   .approval.trade-approval{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center;
     border-color:color-mix(in srgb,var(--green) 45%,var(--border)); }
   /* Trading bar above the composer, shown only while trading access is on. */
-  .trading-bar{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0 0 7px; padding:8px 11px;
+  .trading-bar{ display:flex; flex-direction:column; gap:6px; margin:0 0 7px; padding:8px 11px;
     border:1px solid color-mix(in srgb,var(--green) 40%,var(--border)); border-radius:12px;
     background:color-mix(in srgb,var(--green) 7%,var(--card)); font:12px var(--ui); color:var(--text); }
+  .trading-bar .tb-row{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; min-width:0; }
   .trading-bar .tb-dot{ color:var(--green); font-size:13px; line-height:1; }
   .trading-bar .tb-title{ font-weight:600; }
   .trading-bar .tb-quote{ padding:3px 9px; border:1px solid color-mix(in srgb,var(--green) 35%,var(--border));
     border-radius:999px; background:var(--bg); font:11.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-quote.up{ color:var(--ready); border-color:color-mix(in srgb,var(--ready) 45%,var(--border)); }
+  .trading-bar .tb-quote.down{ color:var(--not-ready); border-color:color-mix(in srgb,var(--not-ready) 45%,var(--border)); }
   .trading-bar .tb-stat{ color:var(--dim); font:11.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-stat.halted{ color:var(--not-ready); font-weight:600; }
   .trading-bar .tb-spacer{ flex:1; min-width:0; }
+  /* Market session: extended-hours and closed states must not read as "open". */
+  .trading-bar .tb-session{ padding:2px 8px; border-radius:999px; border:1px solid var(--border);
+    background:var(--bg); color:var(--dim); font:10.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-session.open{ color:var(--ready); border-color:color-mix(in srgb,var(--ready) 45%,var(--border)); }
+  .trading-bar .tb-session.extended{ color:var(--online); border-color:color-mix(in srgb,var(--online) 45%,var(--border)); }
+  .trading-bar .tb-pin{ width:22px; height:22px; padding:0; border:1px solid transparent; border-radius:7px;
+    background:transparent; color:var(--dim); font-size:11px; line-height:1; cursor:pointer; opacity:.55; }
+  .trading-bar .tb-pin:hover{ opacity:1; background:var(--hover); }
+  .trading-bar .tb-pin[aria-pressed="true"]{ opacity:1; color:var(--green);
+    border-color:color-mix(in srgb,var(--green) 45%,var(--border)); background:var(--bg); }
+  /* Account identity: an account with agentic_allowed=false rejects every order. */
+  .trading-bar .tb-account{ padding:2px 8px; border-radius:999px; border:1px solid var(--border);
+    background:var(--bg); color:var(--dim); font:10.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-account.tradable{ color:var(--ready); border-color:color-mix(in srgb,var(--ready) 45%,var(--border)); }
+  .trading-bar .tb-account.blocked{ color:var(--not-ready); font-weight:600;
+    border-color:color-mix(in srgb,var(--not-ready) 50%,var(--border));
+    background:color-mix(in srgb,var(--not-ready) 8%,var(--bg)); }
+  /* Caps as meters: the numbers were there before but you had to read them. */
+  .trading-bar .tb-meter{ display:inline-flex; align-items:center; gap:6px; min-width:0; }
+  .trading-bar .tb-meter b{ color:var(--dim); font:10.5px var(--ui); font-weight:600; }
+  .trading-bar .tb-meter i{ display:block; width:74px; height:5px; border-radius:999px;
+    background:color-mix(in srgb,var(--dim) 22%,transparent); overflow:hidden; }
+  .trading-bar .tb-meter u{ display:block; height:100%; border-radius:999px; background:var(--ready);
+    transition:width .2s ease,background .2s ease; }
+  .trading-bar .tb-meter small{ color:var(--dim); font:10.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-meter.warn u{ background:var(--online); }
+  .trading-bar .tb-meter.warn small{ color:var(--online); }
+  .trading-bar .tb-meter.stop u{ background:var(--not-ready); }
+  .trading-bar .tb-meter.stop small{ color:var(--not-ready); font-weight:600; }
+  .trading-bar .tb-meter.off i{ display:none; }
+  .trading-bar .tb-power,.trading-bar .tb-last{ color:var(--dim); font:10.5px var(--mono); white-space:nowrap; }
+  .trading-bar .tb-power:empty,.trading-bar .tb-last:empty{ display:none; }
   .trading-bar .tb-btn{ height:26px; padding:0 11px; border:1px solid var(--border); border-radius:8px;
     background:var(--bg); color:var(--text); font:11.5px var(--ui); cursor:pointer; transition:background .12s,border-color .12s; }
   .trading-bar .tb-btn:hover{ border-color:var(--dim); background:var(--hover); }
+  .trading-bar .tb-arm[aria-pressed="true"]{ color:var(--ready); font-weight:600;
+    border-color:color-mix(in srgb,var(--ready) 50%,var(--border)); background:color-mix(in srgb,var(--ready) 10%,var(--bg)); }
   .trading-bar .tb-kill{ height:26px; padding:0 11px; border:1px solid color-mix(in srgb,var(--not-ready) 55%,var(--border));
     border-radius:8px; background:var(--bg); color:var(--not-ready); font:11.5px/1 var(--ui); font-weight:600; cursor:pointer;
     transition:background .12s,color .12s; }
   .trading-bar .tb-kill:hover{ background:color-mix(in srgb,var(--not-ready) 12%,transparent); }
-  .trading-bar .tb-kill[aria-pressed="true"]{ background:var(--not-ready); color:#fff; }
+  .trading-bar .tb-kill.engaged,.trading-bar .tb-kill[aria-pressed="true"]{ background:var(--not-ready); color:#fff; }
+  @container(max-width:520px){
+    .trading-bar .tb-meter i{ width:52px; }
+    .trading-bar .tb-power,.trading-bar .tb-last,.trading-bar .tb-session{ display:none; }
+  }
   .approval .q{ font-size:13px; color:var(--dim); margin-bottom:6px; }
   .approval .cmd{ font:13px var(--mono); white-space:pre-wrap; word-break:break-all; margin-bottom:12px; }
   .approval-context{ display:grid; gap:5px; margin:-4px 0 12px; padding:8px 9px; border:1px solid var(--border); border-radius:8px; background:var(--input); }
@@ -7262,14 +7304,31 @@ body:not(.composer-simple) main::after{
       <div class="composer-chat-actions" id="composerChatActions"></div>
     </div>
     <div class="trading-bar" id="tradingBar" style="display:none" role="region" aria-label="Trading controls">
-      <span class="tb-dot" aria-hidden="true">↕</span>
-      <span class="tb-title">Trading</span>
-      <span class="tb-quote" id="tbQuote">—</span>
-      <span class="tb-stat" id="tbStat">—</span>
-      <span class="tb-spacer"></span>
-      <button class="tb-btn" id="tbRobinhood" type="button" title="Open Robinhood in the built-in browser">Robinhood</button>
-      <button class="tb-btn" id="tbSync" type="button" title="Sync realized P&amp;L from the broker connector">Sync P&amp;L</button>
-      <button class="tb-kill" id="tbKill" type="button" aria-pressed="false" title="Kill-switch: instantly halt all trade staging and clicks">Kill-switch</button>
+      <div class="tb-row">
+        <span class="tb-dot" aria-hidden="true">↕</span>
+        <span class="tb-title">Trading</span>
+        <span class="tb-session" id="tbSession" title="US market session">—</span>
+        <span class="tb-quote" id="tbQuote">—</span>
+        <button class="tb-pin" id="tbPin" type="button" aria-pressed="false" title="Pin this symbol so the bar stops following the browser">📌</button>
+        <span class="tb-stat" id="tbStat">—</span>
+        <span class="tb-spacer"></span>
+        <span class="tb-account" id="tbAccount" title="Broker account the agent would trade">—</span>
+      </div>
+      <div class="tb-row tb-row-meters">
+        <span class="tb-meter" id="tbOrdersMeter" title="Orders placed today against the daily limit">
+          <b>Orders</b><i><u style="width:0%"></u></i><small>—</small>
+        </span>
+        <span class="tb-meter" id="tbLossMeter" title="Realized loss today against the daily loss cap">
+          <b>Loss</b><i><u style="width:0%"></u></i><small>—</small>
+        </span>
+        <span class="tb-power" id="tbPower" title="Buying power reported by the broker"></span>
+        <span class="tb-last" id="tbLast"></span>
+        <span class="tb-spacer"></span>
+        <button class="tb-btn tb-arm" id="tbArm" type="button" aria-pressed="false" title="Arm trade clicks for a limited window">Arm</button>
+        <button class="tb-btn" id="tbRobinhood" type="button" title="Open Robinhood in the built-in browser">Robinhood</button>
+        <button class="tb-btn" id="tbSync" type="button" title="Sync realized P&amp;L from the broker connector">Sync P&amp;L</button>
+        <button class="tb-kill" id="tbKill" type="button" aria-pressed="false" title="Kill-switch: instantly halt all trade staging and clicks">Kill-switch</button>
+      </div>
     </div>
     <div class="composer">
       <button class="workspace-context-chip" id="workspaceContextChip" type="button" aria-pressed="true" title="Explore context is shared with Chat"><span id="workspaceContextLabel"></span><small id="workspaceContextState">Shared</small></button>
@@ -9518,6 +9577,7 @@ body:not(.composer-simple) main::after{
   let tradingBarTicker=0;
   let tradingBarQuoteTick=0;
   let lastTradingQuoteSymbol="";
+  let pinnedTradingSymbol="";
 
   const normalizeSymbolInput=(value)=>String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g,"").slice(0,24);
   // Some broker pages carry no ticker in the URL at all — a Robinhood Legend
@@ -9564,6 +9624,11 @@ body:not(.composer-simple) main::after{
     }catch{ return ""; }
   }
   async function resolveTradingQuoteSymbol(tradingState={}){
+    // A pinned symbol wins over everything — that is the point of pinning.
+    if(pinnedTradingSymbol){
+      lastTradingQuoteSymbol=pinnedTradingSymbol;
+      return pinnedTradingSymbol;
+    }
     const browserSymbol = normalizeSymbolInput(tradingState.browserSymbol || "");
     if(browserSymbol){
       lastTradingQuoteSymbol=browserSymbol;
@@ -9672,6 +9737,108 @@ body:not(.composer-simple) main::after{
     refreshTradingBar();
   }
   // ---- Trading bar (visible only in Trading access; wired to the guardrails + ledger) ----
+  // ── trading bar rendering ────────────────────────────────────────
+  // Market session, in New York time. Extended-hours orders fill differently, so
+  // "closed" and "pre/after" must never look like "open".
+  function marketSessionNow(now=new Date()){
+    let parts;
+    try{
+      parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",weekday:"short",
+        hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(now);
+    }catch{ return {id:"unknown",label:""}; }
+    const get=(t)=>parts.find(p=>p.type===t)?.value||"";
+    const day=get("weekday");
+    if(day==="Sat"||day==="Sun") return {id:"closed",label:"Weekend"};
+    const minutes=Number(get("hour"))*60+Number(get("minute"));
+    if(minutes>=240&&minutes<570) return {id:"extended",label:"Pre-market"};
+    if(minutes>=570&&minutes<960) return {id:"open",label:"Market open"};
+    if(minutes>=960&&minutes<1200) return {id:"extended",label:"After-hours"};
+    return {id:"closed",label:"Closed"};
+  }
+  function renderTradingSession(){
+    const el=$("tbSession"); if(!el) return;
+    const s=marketSessionNow();
+    el.textContent=s.label||"—";
+    el.classList.toggle("open",s.id==="open");
+    el.classList.toggle("extended",s.id==="extended");
+  }
+  // A meter beats a number you have to read. `used` of `cap`; no cap = plain count.
+  function renderTradingMeter(id,label,used,cap,format){
+    const el=$(id); if(!el) return;
+    const fill=el.querySelector("u"), text=el.querySelector("small");
+    const capped=Number(cap)>0;
+    const ratio=capped?Math.min(1,Number(used)/Number(cap)):0;
+    el.classList.toggle("off",!capped);
+    el.classList.toggle("warn",capped&&ratio>=0.7&&ratio<1);
+    el.classList.toggle("stop",capped&&ratio>=1);
+    if(fill) fill.style.width=Math.round(ratio*100)+"%";
+    if(text) text.textContent=capped?`${format(used)}/${format(cap)}`:`${format(used)} · no cap`;
+    el.title=capped
+      ? `${label}: ${format(used)} of ${format(cap)} today${ratio>=1?" — cap reached, staging halted":""}`
+      : `${label}: ${format(used)} today (no cap set)`;
+  }
+  function renderTradingAccount(broker){
+    const el=$("tbAccount"); if(!el) return;
+    el.classList.remove("tradable","blocked");
+    if(!broker||broker.ok!==true){
+      el.textContent=broker?.error?"broker unavailable":"no broker";
+      el.title=broker?.error||"No broker connector is configured.";
+      return;
+    }
+    const acct=broker.account||{};
+    const name=acct.nickname||acct.type||"account";
+    if(acct.agenticAllowed){
+      el.textContent=`${acct.masked} · agent-tradable`;
+      el.classList.add("tradable");
+      el.title=`${name} ${acct.masked} on ${broker.connector} accepts agent orders.`;
+      return;
+    }
+    // The failure this exists to prevent: every order is rejected by this account.
+    el.textContent=`${acct.masked} · NOT agent-tradable`;
+    el.classList.add("blocked");
+    el.title=broker.agenticAccount
+      ? `${name} ${acct.masked} rejects agent orders. ${broker.agenticAccount.nickname||"Agentic"} ${broker.agenticAccount.masked} accepts them — switch accounts before trading.`
+      : `${name} ${acct.masked} rejects agent orders, and no account on ${broker.connector} is enabled for this agent.`;
+  }
+  function renderTradingArm(s){
+    const btn=$("tbArm"); if(!btn) return;
+    const armed=s?.armed===true;
+    btn.setAttribute("aria-pressed",armed?"true":"false");
+    if(armed){
+      const left=Number(s.armExpiresAt)>0?Math.max(0,Number(s.armExpiresAt)-Date.now()):0;
+      const mins=left>0?Math.ceil(left/60000):0;
+      btn.textContent=mins>0?`Armed ${mins}m`:"Armed";
+      btn.title=mins>0
+        ? `Trade clicks are armed for about ${mins} more minute(s). Click to disarm now.`
+        : "Trade clicks are armed. Click to disarm.";
+      return;
+    }
+    btn.textContent=s?.armLapsed?"Re-arm":"Arm";
+    btn.title=s?.armLapsed
+      ? `Trade clicks auto-disarmed after ${s.armWindowMinutes||30} minutes. Click to re-arm.`
+      : "Arm trade clicks so Boolean may click a confirmed buy/sell button.";
+  }
+  function renderTradingLast(s){
+    const el=$("tbLast"); if(!el) return;
+    const last=s?.lastAction;
+    if(!last||!last.at){ el.textContent=""; return; }
+    let when="";
+    try{ when=new Date(last.at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}); }catch{}
+    const side=last.side?last.side.toUpperCase():"ORDER";
+    el.textContent=`last ${side} ${last.symbol||""} ${when}`.replace(/\s+/g," ").trim();
+    el.title="Most recent order Boolean clicked today.";
+  }
+  function renderTradingPower(broker){
+    const el=$("tbPower"); if(!el) return;
+    const bp=Number(broker?.buyingPower);
+    if(!Number.isFinite(bp)){ el.textContent=""; return; }
+    el.textContent=`BP $${bp.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+    const value=Number(broker?.accountValue);
+    el.title=Number.isFinite(value)
+      ? `Buying power $${bp.toLocaleString()} · account value $${value.toLocaleString()}`
+      : `Buying power $${bp.toLocaleString()}`;
+  }
+
   async function refreshTradingBar(){
     const bar=$("tradingBar"); if(!bar) return;
     if(tradingBarRefreshInFlight) return tradingBarRefreshInFlight;
@@ -9698,10 +9865,19 @@ body:not(.composer-simple) main::after{
         const kill=s.killSwitch===true;
         const kb=$("tbKill");
         if(kb){ kb.classList.toggle("engaged",kill); kb.setAttribute("aria-pressed",kill?"true":"false"); kb.textContent=kill?"Kill-switch ON":"Kill-switch"; }
-        const orders=s.maxOrdersPerDay>0?`${s.ordersToday||0}/${s.maxOrdersPerDay} orders`:`${s.ordersToday||0} orders`;
-        const loss=s.dailyLossCapUsd>0?`$${s.realizedLossUsd||0}/$${s.dailyLossCapUsd} loss`:`$${s.realizedLossUsd||0} loss`;
-        const lead=kill?"HALTED":(s.armed?"Armed":"Disarmed");
-        if(st) { st.textContent=`${lead} · ${orders} · ${loss} today`; st.classList.toggle("halted",kill); }
+        const lead=kill?"HALTED":(s.armed?"Armed":(s.armLapsed?"Auto-disarmed":"Disarmed"));
+        if(st) { st.textContent=lead; st.classList.toggle("halted",kill); }
+        renderTradingSession();
+        renderTradingMeter("tbOrdersMeter","Orders today",s.ordersToday||0,s.maxOrdersPerDay||0,(n)=>String(n));
+        renderTradingMeter("tbLossMeter","Realized loss",s.realizedLossUsd||0,s.dailyLossCapUsd||0,(n)=>`$${Number(n).toLocaleString(undefined,{maximumFractionDigits:0})}`);
+        renderTradingArm(s);
+        renderTradingLast(s);
+        // The broker snapshot is cached server-side; a failure here must not stop
+        // the quote from rendering.
+        fetch("/api/trading/broker").then(r=>r.json()).then((broker)=>{
+          renderTradingAccount(broker);
+          renderTradingPower(broker);
+        }).catch(()=>renderTradingAccount(null));
         const symbol=await resolveTradingQuoteSymbol(s);
         if(thisTick!==tradingBarQuoteTick) return;
         lastTradingQuoteSymbol=symbol;
@@ -9743,6 +9919,50 @@ body:not(.composer-simple) main::after{
       tempToast(!engaged?"Kill-switch ON — all trades halted.":"Kill-switch off.");
     }catch{ tempToast("Could not change the kill-switch."); }
   }
+  // Arm / disarm. Re-arming after the window lapses only needs to refresh the
+  // consent timestamp — the risk agreement itself is already on file for this user.
+  async function toggleArmTradeClicks(){
+    const perms={...(state.ui?.browserPerms||{})};
+    const user=signedInTradeUser();
+    const sameUser=!!user&&String(perms.tradeConsentUser||"").trim().toLowerCase()===user;
+    if(tradingModeEnabled()&&sameUser&&perms.tradeClicks===true){
+      let armed=false;
+      try{ armed=(await (await fetch("/api/trading/state")).json())?.armed===true; }catch{}
+      if(armed){
+        await setUi({browserPerms:{...perms,tradeConsentAt:0}});
+        await refreshTradingBar();
+        tempToast("Trade clicks disarmed.");
+        return;
+      }
+      const minutes=Number(state.tradingArmWindowMinutes)||30;
+      if(!await appConfirm("Re-arm trade clicks?",
+        `Boolean may click confirmed buy/sell buttons again for the next ${minutes} minutes. Every live order still needs a final confirmation.`,
+        "Re-arm",true)) return;
+      await setUi({browserPerms:{...perms,tradeConsentAt:Date.now()}});
+      await refreshTradingBar();
+      tempToast(`Armed for ${minutes} minutes.`);
+      return;
+    }
+    await setTradingMode(true);
+  }
+  $("tbArm")?.addEventListener("click",toggleArmTradeClicks);
+  // Pin the symbol so the bar stops following whatever the browser shows.
+  function toggleSymbolPin(){
+    const btn=$("tbPin"); if(!btn) return;
+    if(pinnedTradingSymbol){
+      pinnedTradingSymbol="";
+      btn.setAttribute("aria-pressed","false");
+      tempToast("Symbol unpinned — following the browser again.");
+    }else{
+      const symbol=normalizeSymbolInput(lastTradingQuoteSymbol||"");
+      if(!symbol){ tempToast("No symbol to pin yet."); return; }
+      pinnedTradingSymbol=symbol;
+      btn.setAttribute("aria-pressed","true");
+      tempToast(`Pinned ${symbol}.`);
+    }
+    refreshTradingBar();
+  }
+  $("tbPin")?.addEventListener("click",toggleSymbolPin);
   $("tbKill")?.addEventListener("click",toggleKillSwitch);
   $("tbRobinhood")?.addEventListener("click",openRobinhoodBrowser);
   $("tbSync")?.addEventListener("click",()=>{ try{ askAI("Sync my realized trading P&L from the broker connector and update the daily loss cap using sync_trade_pnl."); }catch{} });
