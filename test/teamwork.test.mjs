@@ -243,7 +243,7 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.match(ui, /team_worker:\(entry\?\.args\?\.state==="done"/);
   assert.match(ui, /function updateTeamWorker\(entry\)/);
   assert.match(ui, /function workingToolActivitySubject\(entry\)/);
-  assert.match(ui, /if\(group==="agents"\) return "Messaged "\+count\+" agent"\+plural/);
+  assert.match(ui, /if\(group==="agents"\) return count===1\?"Asked another model for help":"Asked other models for help"/);
   assert.match(ui, /run\?\.statusEl\?\.classList\.remove\("team-active"\)/);
   assert.doesNotMatch(ui, /class="team-run-progress"/);
   assert.match(ui, /Stopping safely/);

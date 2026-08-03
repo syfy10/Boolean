@@ -404,12 +404,12 @@ function loadLegalText(file) {
 const ABOUT_RELEASES = [
   {
     version: "0.9.71",
-    date: "2026-08-02",
-    title: "Automatic routing, verified changes, and Boolean Pet",
+    date: "2026-08-03",
+    title: "Trading workspace, model routing, and verified changes",
     details: [
-      "Routes eligible coding tasks through connected Codex or Claude subscriptions only when the selected API model cannot complete them, with project-aware capability and fallback rules.",
-      "Exposes exact created, modified, and deleted files plus diffs through Boolean's Changes system even in non-git folders, and hardens approved Wrangler deploy access.",
-      "Adds the optional always-on-top Boolean Pet with live chat activity, hover-to-reply, safe Stop, and a clear completed check state."
+      "Adds a compact trading bar that follows the active built-in browser symbol, shows live market and broker state, and keeps live orders behind explicit consent and safety gates.",
+      "Routes eligible coding tasks through connected models, Codex, or Claude with verification, clearer worker labels, and project-aware fallback rules.",
+      "Improves local and cloud switching, saved connection behavior, fresh-chat navigation, browser resizing, and exact on-disk change verification."
     ]
   },
   {

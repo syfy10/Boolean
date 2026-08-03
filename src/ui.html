@@ -8797,14 +8797,14 @@ body:not(.composer-simple) main::after{
     return labels[name]||compactActivityText(toolRawSummary(entry));
   }
   function plainWorkingStatus(value){
-    const text=compactActivityText(String(value||"").replace(/â€¦/g,"...").trim());
+    const text=compactActivityText(String(value||"").replace(/\u2026/g,"...").trim());
     const lower=text.toLowerCase();
     if(/^running (?:read_file|list_dir|find_files|search_files|repository_map|find_symbol)/.test(lower)) return "Reviewing the project files...";
     if(/^running (?:write_file|edit_file|apply_patch)/.test(lower)||lower.includes("applying compatibility edit")) return "Updating the project files...";
     if(/^running run_(?:command|background|project)/.test(lower)) return "Running the project checks...";
     if(/^running (?:read_page|visible_browser_read|screenshot_page|inspect_page_layout)/.test(lower)) return "Checking the page in the browser...";
     if(/^running web_search/.test(lower)) return "Researching the needed information...";
-    if(lower==="working..."||lower==="workingâ€¦") return "Working on the next step...";
+    if(lower==="working...") return "Working on the next step...";
     if(lower==="planning the work...") return "Planning the best way to do this...";
     if(lower==="checking the result...") return "Checking that everything works...";
     if(lower==="recovering from the failed step...") return "Fixing a problem and trying again...";

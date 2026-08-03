@@ -141,8 +141,8 @@
    "browserTabs": []
   },
   "appName": "Boolean",
-  "version": "0.9.70",
-  "displayVersion": "v0.9.70",
+  "version": "0.9.71",
+  "displayVersion": "v0.9.71",
   "providers": [
    "local",
    "openai",
@@ -259,8 +259,8 @@
  },
  "/api/about": {
   "appName": "Boolean",
-  "version": "0.9.70",
-  "displayVersion": "v0.9.70",
+  "version": "0.9.71",
+  "displayVersion": "v0.9.71",
   "channel": "Stable",
   "repository": "https://github.com/syfy10/Boolean",
   "sourceAvailable": true
@@ -1907,6 +1907,7 @@
   .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; align-items:stretch; width:min(100%,640px); min-width:0; margin:7px 0 4px;
     overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; font-family:var(--ui); }
   .working-card-header{ display:flex; align-items:center; gap:8px; width:100%; min-width:0; min-height:28px; padding:3px 2px; box-sizing:border-box; cursor:pointer; user-select:none; }
+  .working-card-worker{ flex:0 0 auto; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 7px; border:1px solid var(--border); border-radius:999px; color:var(--text); font:600 11px var(--ui); background:var(--panel); }
   .working-card-header:hover{ background:transparent; }
   .working-card-state{ display:inline-flex; align-items:center; gap:0; flex:0 0 auto; min-height:20px; color:var(--dim); }
   .working-card-state b{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
@@ -9497,7 +9498,7 @@ body:not(.composer-simple) main::after{
     return d;
   }
   const responseCopyIcon='<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="6" width="7" height="7" rx="1.5"/><path d="M4 10H3.5A1.5 1.5 0 0 1 2 8.5v-5A1.5 1.5 0 0 1 3.5 2h5A1.5 1.5 0 0 1 10 3.5V4"/></svg>';
-  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.tabIndex=0; d.setAttribute("aria-expanded","false"); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">'+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'<button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">&#9662;</button></div>'; return d; }
+  function makeAI(text, at, provider, model, aiLabel){ const d=document.createElement("div"); const meta=aiMetaFromText(text,provider,model,aiLabel); provider=meta.provider; model=meta.model; aiLabel=meta.aiLabel; const cloud=provider&&provider!=="local"; const label=aiLabel||shortAiName(provider,model); d.className="msg-ai"+(cloud?" cloud":""); d.tabIndex=0; d.setAttribute("aria-expanded","false"); d.dataset.provider=provider||""; d.dataset.model=model||""; d.dataset.aiLabel=label; d._raw=text||""; d.innerHTML='<div class="body"><button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(text||"")+'</div><div class="msg-foot"><span class="msg-sender">Completed by '+esc(label)+'</span>'+inlineTimeHtml(at)+estimatedTokenHtml(text)+'<span class="usage-inline live-usage"></span>'+chatActionButtons("ai")+'<button class="msg-collapse-btn" type="button" title="Collapse" aria-label="Collapse exchange">&#9662;</button></div>'; return d; }
   // a screenshot / image the AI produced, shown inline in the transcript
   function makeShot(src, caption){
     const d=document.createElement("div"); d.className="shotcard";
@@ -9642,6 +9643,20 @@ body:not(.composer-simple) main::after{
       team_worker:(entry?.args?.state==="done"?"✓ ":entry?.args?.state==="draining"?"Stopping safely · ":entry?.args?.state==="retrying"?"Retrying · ":entry?.args?.state==="failed"?"Unavailable · ":"● ")+(entry?.args?.role||"Team worker")+" · "+(entry?.args?.model||entry?.args?.provider||"model")
     };
     return labels[name]||compactActivityText(toolRawSummary(entry));
+  }
+  function plainWorkingStatus(value){
+    const text=compactActivityText(String(value||"").replace(/\u2026/g,"...").trim());
+    const lower=text.toLowerCase();
+    if(/^running (?:read_file|list_dir|find_files|search_files|repository_map|find_symbol)/.test(lower)) return "Reviewing the project files...";
+    if(/^running (?:write_file|edit_file|apply_patch)/.test(lower)||lower.includes("applying compatibility edit")) return "Updating the project files...";
+    if(/^running run_(?:command|background|project)/.test(lower)) return "Running the project checks...";
+    if(/^running (?:read_page|visible_browser_read|screenshot_page|inspect_page_layout)/.test(lower)) return "Checking the page in the browser...";
+    if(/^running web_search/.test(lower)) return "Researching the needed information...";
+    if(lower==="working...") return "Working on the next step...";
+    if(lower==="planning the work...") return "Planning the best way to do this...";
+    if(lower==="checking the result...") return "Checking that everything works...";
+    if(lower==="recovering from the failed step...") return "Fixing a problem and trying again...";
+    return text||"Working on the task...";
   }
   function toolDetailText(entry){
     const summary=toolRawSummary(entry);
@@ -11137,7 +11152,7 @@ body:not(.composer-simple) main::after{
     const info=$("composerInfo");
     const actions=$("composerChatActions");
     const prompt=$("composerPrompt");
-    const version=state.displayVersion||("v"+(state.version||"0.9.70"));
+    const version=state.displayVersion||("v"+(state.version||"0.9.71"));
     const chatTotal=[...col.querySelectorAll(".msg-user,.msg-ai")]
       .reduce((sum,msg)=>sum+estimateTextTokens(msg._raw||msg.innerText||""),0);
     if(actions) actions.innerHTML=''
@@ -11659,7 +11674,7 @@ body:not(.composer-simple) main::after{
     const preserveWorkspace=options?.preserveWorkspace===true;
     rememberCurrentView();
     if(!preserveWorkspace)closeConversationPanels();
-    const r=await (await fetch("/api/thread/new",{method:"POST"})).json();
+    const r=await (await fetch("/api/thread/new",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({forceNew:true})})).json();
     threadId=r.id; col.innerHTML=""; clearFileChips(); showEmpty(); updateSendButton(); updateComposerConsoleInfo(); await refresh();
     return threadId;
   }
@@ -13878,15 +13893,15 @@ body:not(.composer-simple) main::after{
     if(/plan:/.test(text)) return "plan";
     return "tools";
   }
-  function workingActivityGroupLabel(group,count){
-    const plural=count===1?"":"s";
-    if(group==="searches") return "Searched "+count+" source"+plural;
-    if(group==="commands") return "Ran "+count+" command"+plural;
-    if(group==="files") return "Changed "+count+" file"+plural;
-    if(group==="agents") return "Messaged "+count+" agent"+plural;
-    if(group==="inspections") return "Inspected "+count+" item"+plural;
-    if(group==="plan") return "Updated plan";
-    return "Used "+count+" tool"+plural;
+  function workingActivityGroupLabel(group,count,items=[]){
+    const titles=items.map(item=>String(item?.title||"").toLowerCase()).join(" ");
+    if(group==="searches") return "Researched the needed sources";
+    if(group==="commands") return /check|test|build|lint|compile|typecheck/.test(titles)?"Checked the project":"Ran the project commands";
+    if(group==="files") return count===1?"Updated a project file":"Updated "+count+" project files";
+    if(group==="agents") return count===1?"Asked another model for help":"Asked other models for help";
+    if(group==="inspections") return /browser|page/.test(titles)?"Checked the page":"Reviewed the project files";
+    if(group==="plan") return "Planned the work";
+    return count===1?"Completed a project step":"Completed "+count+" project steps";
   }
   function workingActivityIcon(group){
     const paths={
@@ -13939,7 +13954,7 @@ body:not(.composer-simple) main::after{
     const summary=workingActivitySummary(ref);
     list.innerHTML=summary.segments.map(item=>item.kind==="commentary"
       ?'<p class="working-commentary" role="listitem">'+esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'')+'</p>'
-      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count))+'</b><span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
+      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+'</b><span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
     const current=summary.current;
     const status=card.querySelector(".stx");
     if(current&&status){ status.textContent=current.title||"Working"; status.title=current.detail||current.title||"Working"; }
@@ -14272,7 +14287,7 @@ body:not(.composer-simple) main::after{
       run.statusEl.setAttribute("role","status");
       run.statusEl.setAttribute("aria-live","polite");
       run.statusEl.setAttribute("aria-label","Boolean task progress");
-      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="stx"></span><span class="working-card-actions"><span class="meta"></span><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
+      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><span class="meta"></span><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
       col.appendChild(run.statusEl);
       wireWorkingCard(run.statusEl,run);
     }
@@ -14285,6 +14300,9 @@ body:not(.composer-simple) main::after{
     const phase=String(run.controller?.phase||"");
     const stateLabel=run.statusEl.querySelector(".working-card-state b");
     if(stateLabel) stateLabel.textContent=waiting?"Waiting":load?"Loading":phase==="planning"?"Planning":phase==="verifying"?"Verifying":"Working";
+    const workerLabel=run.aiLabel||shortAiName(run.provider,run.model)||"Boolean";
+    const worker=run.statusEl.querySelector(".working-card-worker");
+    if(worker){ worker.textContent=workerLabel; worker.title="Currently working: "+workerLabel; }
     run.statusEl.classList.toggle("waiting",waiting);
     run.statusEl.classList.toggle("local-model-load",!!load);
     const progress=run.statusEl.querySelector(".load-progress");
@@ -14838,7 +14856,8 @@ body:not(.composer-simple) main::after{
     }
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){
-      run.status=ev.text;
+      run.status=plainWorkingStatus(ev.text);
+      run.statusUpdatedAt=Date.now();
       if(ev.kind==="commentary") addWorkingActivity(ev.text,{key:"commentary:"+String(ev.text||"").slice(0,80),group:"commentary"});
       setBooleanActivity(inferBooleanActivity(ev.text));
       run.localModelLoad=ev.kind==="local-model-load"?{phase:ev.phase||"",pct:Number(ev.pct)||0,model:ev.model||""}:null;
@@ -14866,8 +14885,8 @@ body:not(.composer-simple) main::after{
       if(run.controller?.teamWorkers&&typeof run.controller.teamWorkers==="object")run.teamWorkers=Object.fromEntries(Object.entries(run.controller.teamWorkers).map(([role,worker])=>[role,{role,...worker}]));
       const phase=run.controller?.phase;
       if(phase){
-        const labels={planning:"planning the work...",executing:"working...",verifying:"checking the result...",recovering:"recovering from the failed step..."};
-        if(labels[phase]) run.status=labels[phase];
+        const labels={planning:"Planning the best way to do this...",executing:"Working on the next step...",verifying:"Checking that everything works...",recovering:"Fixing a problem and trying again..."};
+        if(labels[phase]&&(phase!=="executing"||!run.statusUpdatedAt||Date.now()-run.statusUpdatedAt>1800)) run.status=labels[phase];
         setBooleanActivity(inferBooleanActivity(run.status));
         renderThreads(); if(showing&&!workspaceBackground){ ensureStatusEl(); ensurePlanChecklist(ev.controller); renderWorkingCardActivity(run); }
       }
@@ -15926,11 +15945,20 @@ Optional bundled starter model:
     if(net==="local"){
       modelPickerNet="local";
       markExplicitProviderChoice("local");
-      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local"})});
+      state.codingEngine="boolean";
+      renderModelEnginePicker();
+      if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
+      setComposerModelDisplay(activeModelName());
+      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:"local",codingEngine:"boolean"})});
       await refresh();
+      modelPickerNet="local";
       if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
       return;
     }
+    modelPickerNet="online";
+    state.codingEngine="auto";
+    renderModelEnginePicker();
+    if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
     const cloud=state.cloud||{}, keys=state.keys||{};
     const cloudProviders=Object.keys(cloud);
     let prov=state.provider!=="local"&&keys[state.provider]?state.provider:"";
@@ -15938,14 +15966,17 @@ Optional bundled starter model:
     if(!prov) prov=cloudProviders.find(provider=>providerReadyForRun(provider)||keys[provider])||"";
     if(prov){
       const wasLocal=state.provider==="local";
-      modelPickerNet="online";
       markExplicitProviderChoice(prov);
-      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov})});
+      await fetch("/api/config",{method:"POST",body:JSON.stringify({provider:prov,codingEngine:"auto"})});
       await refresh();
+      modelPickerNet="online";
+      state.codingEngine="auto";
+      renderModelEnginePicker();
+      if($("modelmenu")?.classList.contains("open")) renderModelList($("modelsearch")?.value||"");
       if(wasLocal) tempToast("Cloud mode: using your saved API key.");
     }
     else {
-      modelPickerNet="online";
+      await fetch("/api/config",{method:"POST",body:JSON.stringify({codingEngine:"auto"})});
       $("modelmenu").classList.add("open");
       $("modelsearch").value="";
       renderModelList("");
@@ -16328,13 +16359,15 @@ Optional bundled starter model:
   const AUTO_ROUTE_NAMES={chat:"Chat",coding:"Coding",vision:"Vision",research:"Research",fast:"Fast"};
   function modelRoutingState(ui=state.ui||{}){
     const saved=ui.modelRouting||{};
+    const subscriptionChoicesSaved=saved.subscriptionEngines?.explicit===true;
     return {
       selected:AUTO_ROUTE_NAMES[saved.selected]?saved.selected:"chat",
       preference:["cost","balanced","quality"].includes(saved.preference)?saved.preference:"balanced",
       allowEscalation:saved.allowEscalation!==false,
       subscriptionEngines:{
-        codex:saved.subscriptionEngines?.codex===true,
-        claudeCode:saved.subscriptionEngines?.claudeCode===true,
+        explicit:subscriptionChoicesSaved,
+        codex:subscriptionChoicesSaved?saved.subscriptionEngines?.codex!==false:true,
+        claudeCode:subscriptionChoicesSaved?saved.subscriptionEngines?.claudeCode!==false:true,
         preferred:["codex","claude-code","first-ready"].includes(saved.subscriptionEngines?.preferred)?saved.subscriptionEngines.preferred:"codex"
       },
       profiles:{...(saved.profiles||{})},
@@ -16962,11 +16995,11 @@ Optional bundled starter model:
   };
   if($("modelRoutingCodexSubscription"))$("modelRoutingCodexSubscription").onchange=async e=>{
     const routing=modelRoutingState();
-    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,codex:e.target.checked}}});
+    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,explicit:true,codex:e.target.checked}}});
   };
   if($("modelRoutingClaudeSubscription"))$("modelRoutingClaudeSubscription").onchange=async e=>{
     const routing=modelRoutingState();
-    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,claudeCode:e.target.checked}}});
+    await setUi({modelRouting:{...routing,subscriptionEngines:{...routing.subscriptionEngines,explicit:true,claudeCode:e.target.checked}}});
   };
   if($("modelRoutingSubscriptionPreference"))$("modelRoutingSubscriptionPreference").onchange=async e=>{
     const routing=modelRoutingState();

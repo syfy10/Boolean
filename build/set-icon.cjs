@@ -11,8 +11,8 @@ rcedit(process.argv[2], {
     LegalCopyright: "Copyright 2026 Boolean",
     OriginalFilename: "Boolean-core.exe"
   },
-  "file-version": "0.9.70",
-  "product-version": "0.9.70"
+  "file-version": "0.9.71",
+  "product-version": "0.9.71"
 })
   .then(() => console.log("icon + version info set"))
   .catch((err) => {
