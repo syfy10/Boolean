@@ -6281,6 +6281,7 @@ body:not(.composer-simple) main::after{
           <div class="setrow"><div>Research mode<div class="hint">Auto-summarize pages as you browse, extract key links, and save findings to notes. Adds cite/compare/source tools to research.</div></div><label class="switch"><input type="checkbox" id="researchMode"><span class="slider"></span></label></div>
           <div class="setrow"><div>Safe-click confirmation<div class="hint">Ask before clicking submit, login, payment, or delete buttons on pages.</div></div><label class="switch"><input type="checkbox" id="safeClickConfirm"><span class="slider"></span></label></div>
           <div class="setrow"><div>Confirmed trade clicks<div class="hint">Off by default. Allows one live Buy/Sell click only after you confirm the exact security or contract, side, quantity, order type, price, and broker. Never runs in Automations.</div></div><label class="switch"><input type="checkbox" id="permTradeClicks"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Manual broker trading<div class="hint">If your connected account is not agent-tradable, use the Open broker page and place orders manually in the visible website.</div></div></div>
           <div class="setrow"><div>Search engine</div>
             <select id="searchEngine">
               <option value="google">Google</option>
@@ -7325,7 +7326,7 @@ body:not(.composer-simple) main::after{
         <span class="tb-last" id="tbLast"></span>
         <span class="tb-spacer"></span>
         <button class="tb-btn tb-arm" id="tbArm" type="button" aria-pressed="false" title="Arm trade clicks for a limited window">Arm</button>
-        <button class="tb-btn" id="tbRobinhood" type="button" title="Open Robinhood in the built-in browser">Robinhood</button>
+        <button class="tb-btn" id="tbRobinhood" type="button" title="Open broker site in the built-in browser for manual trading">Open broker</button>
         <button class="tb-btn" id="tbSync" type="button" title="Sync realized P&amp;L from the broker connector">Sync P&amp;L</button>
         <button class="tb-kill" id="tbKill" type="button" aria-pressed="false" title="Kill-switch: instantly halt all trade staging and clicks">Kill-switch</button>
       </div>
@@ -9794,11 +9795,11 @@ body:not(.composer-simple) main::after{
       return;
     }
     // The failure this exists to prevent: every order is rejected by this account.
-    el.textContent=`${acct.masked} · NOT agent-tradable`;
+    el.textContent=`${acct.masked} · NOT agent-tradable (manual only)`;
     el.classList.add("blocked");
     el.title=broker.agenticAccount
-      ? `${name} ${acct.masked} rejects agent orders. ${broker.agenticAccount.nickname||"Agentic"} ${broker.agenticAccount.masked} accepts them — switch accounts before trading.`
-      : `${name} ${acct.masked} rejects agent orders, and no account on ${broker.connector} is enabled for this agent.`;
+      ? `${name} ${acct.masked} rejects auto-trade actions. ${broker.agenticAccount.nickname||"Agentic"} ${broker.agenticAccount.masked} is agent-tradable. Switch accounts before auto-trade. Manual browser trading is still available in the Open broker page.`
+      : `${name} ${acct.masked} rejects auto-trade actions, and no account on ${broker.connector} is marked for agentic trading. Manual browser trading is still available in the Open broker page if your session allows it.`;
   }
   function renderTradingArm(s){
     const btn=$("tbArm"); if(!btn) return;
