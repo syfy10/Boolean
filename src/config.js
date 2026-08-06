@@ -609,6 +609,18 @@ function hasSavedUserState(cfg) {
   if (!cfg) return false;
   if (hasAnySavedCredential(cfg)) return true;
   if (cfg.provider && cfg.provider !== DEFAULTS.provider) return true;
+  if (cfg.codingEngine && cfg.codingEngine !== DEFAULTS.codingEngine) return true;
+  if (cfg.referenceModel && cfg.referenceModel !== DEFAULTS.referenceModel) return true;
+  if (JSON.stringify(cfg.cloudFallback || {}) !== JSON.stringify(DEFAULTS.cloudFallback || {})) return true;
+  // Local models and provider/model preferences are user setup even when they
+  // do not require a credential. A reset upgrade must not discard them merely
+  // because the active provider happens to still be Local.
+  for (const provider of PROVIDERS) {
+    const saved = cfg[provider] || {}, defaults = DEFAULTS[provider] || {};
+    for (const key of ["model", "baseUrl", "ctx", "autoTune", "warmStart", "approvedUse"]) {
+      if (saved[key] !== undefined && JSON.stringify(saved[key]) !== JSON.stringify(defaults[key])) return true;
+    }
+  }
   if (cfg.accessMode && cfg.accessMode !== DEFAULTS.accessMode) return true;
   if (cfg.projectsDir && cfg.projectsDir !== DEFAULTS.projectsDir) return true;
   // Legal acceptance and onboarding markers are install metadata, not user
@@ -662,7 +674,10 @@ export function loadConfig() {
       if (file === CONFIG_FILE) recovered = recoverConfigFromBackup(cfg);
       // Coding Plan traffic must always use Z.AI's dedicated endpoint.
       cfg.zaiCoding.baseUrl = DEFAULTS.zaiCoding.baseUrl;
-      if (!["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"].includes(cfg.zaiCoding.model)) cfg.zaiCoding.model = "GLM-4.7";
+      // Model IDs come from the provider and may change case or gain new
+      // versions. Preserve every non-empty saved ID instead of silently
+      // replacing a valid user choice with an older built-in fallback.
+      if (!nonEmptyString(cfg.zaiCoding.model)) cfg.zaiCoding.model = DEFAULTS.zaiCoding.model;
       // Ollama support was removed - fall back to the built-in local engine
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
       // Missing legacy values use the practical first-load default.

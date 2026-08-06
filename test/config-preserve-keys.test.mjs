@@ -315,6 +315,26 @@ test("upgrade recovery also restores UI-only customization", () => {
   assert.equal(reset.ui.compact, true);
 });
 
+test("upgrade recovery treats local model and AI runtime choices as saved setup", () => {
+  const reset = defaultConfig();
+  const saved = defaultConfig();
+  saved.local.model = "my-local-model.gguf";
+  saved.local.ctx = 32768;
+  saved.codingEngine = "auto";
+  saved.zaiCoding.model = "glm-5.1";
+
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.local.model, "my-local-model.gguf");
+  assert.equal(reset.local.ctx, 32768);
+  assert.equal(reset.codingEngine, "auto");
+  assert.equal(reset.zaiCoding.model, "glm-5.1");
+});
+
+test("Coding Plan startup preserves provider model IDs instead of whitelisting versions", () => {
+  assert.match(configSource, /if \(!nonEmptyString\(cfg\.zaiCoding\.model\)\) cfg\.zaiCoding\.model = DEFAULTS\.zaiCoding\.model/);
+  assert.doesNotMatch(configSource, /\["GLM-5\.1", "GLM-5-Turbo", "GLM-4\.7", "GLM-4\.5-Air"\]\.includes/);
+});
+
 test("legal and onboarding markers do not block recovery of richer user settings", () => {
   const reset = defaultConfig();
   reset.eulaAccepted = "1.0";
