@@ -76,6 +76,21 @@ test("Z.AI Coding discovery keeps every GLM model returned by the account", asyn
   assert.ok(models.some((item) => item.name === "glm-5"));
 });
 
+test("Z.AI Coding discovery accepts provider models without a GLM name prefix", async (t) => {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ data: [{ id: "glm-5.1" }, { id: "coding-plan-next" }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  clearProviderModelCache();
+  const models = await listProviderModels({
+    provider: "zaiCoding",
+    zaiCoding: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "glm-5.1", apiKey: "test-key" }
+  }, { strict: true });
+  assert.deepEqual(models.map((item) => item.name), ["glm-5.1", "coding-plan-next"]);
+});
+
 test("strict model discovery reports a rejected key instead of showing fallback models", async (t) => {
   const server = http.createServer((_req, res) => {
     res.writeHead(401, { "content-type": "application/json" });

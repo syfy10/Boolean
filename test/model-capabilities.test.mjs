@@ -32,19 +32,19 @@ function config(overrides = {}) {
   };
 }
 
-test("GLM-5-Turbo on the Z.AI Coding Plan uses the compatibility tool bridge", () => {
+test("an untested GLM model starts by checking its native tool capability", () => {
   const cfg = config();
   const target = { provider: "zaiCoding", base: cfg.zaiCoding.baseUrl, model: cfg.zaiCoding.model };
   const profile = modelCapabilityProfile(cfg, target, { vision: false });
-  assert.equal(nativeToolSupport(cfg, target), false);
-  assert.equal(profile.mode, "patch");
-  assert.equal(profile.label, "Compatible coding");
+  assert.equal(nativeToolSupport(cfg, target), null);
+  assert.equal(profile.mode, "checking");
+  assert.equal(profile.label, "Checking tool support");
   assert.equal(profile.capabilities.fileEdit, true);
   assert.equal(profile.capabilities.terminal, true);
   assert.equal(profile.capabilities.browser, true);
   assert.equal(profile.capabilities.deploy, true);
   assert.equal(profile.capabilities.vision, false);
-  assert.match(profile.warning, /validated compatibility bridge/i);
+  assert.equal(profile.warning, "");
 });
 
 test("capability records are scoped to provider endpoint and model and override inference", () => {

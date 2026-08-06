@@ -22,15 +22,8 @@ export function canonicalCapabilityModelId(config, target = {}) {
 }
 
 function inferredNativeToolSupport(config, target = {}) {
-  const provider = clean(target.provider || config?.provider).toLowerCase();
-  const model = clean(target.model || config?.[provider]?.model).toLowerCase();
-  const base = clean(target.base || config?.[provider]?.baseUrl).toLowerCase();
-  // Z.AI's GLM-5-Turbo Coding Plan endpoint currently rejects Boollm's
-  // OpenAI-compatible native function catalog. Keep this scoped to the exact
-  // provider/endpoint/model combination; a future successful native call
-  // overwrites the inference in the persisted capability record.
-  if (provider === "zaicoding" && model === "glm-5-turbo") return false;
-  if (/api\.z\.ai\/api\/coding\/paas\/v4\/?$/.test(base) && model === "glm-5-turbo") return false;
+  // Try each model's native tool protocol first, then persist the observed
+  // capability per provider, endpoint, and model. Avoid model-specific rules.
   return null;
 }
 

@@ -418,9 +418,6 @@ export function clearProviderModelCache(provider = "") {
 
 function usableProviderModels(provider, ids, selected = "") {
   let models = [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
-  if (provider === "zaiCoding") {
-    models = models.filter((id) => /^glm-/i.test(id));
-  }
   if (provider === "openai") {
     const incompatible = /(?:audio|realtime|transcrib|tts|whisper|image|dall-e|embedding|moderation|sora|search-preview|search-api|deep-research)/i;
     models = models.filter((id) => /^(?:gpt-|o[1345](?:-|$)|chat-latest$)/i.test(id) && !incompatible.test(id));

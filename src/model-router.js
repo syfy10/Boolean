@@ -118,7 +118,7 @@ function costRank(candidate) {
 function qualityRank(candidate) {
   const model = lower(candidate.model);
   let score = 2;
-  if (/\b(?:pro|opus|max|ultra|reason|thinking|gpt-5|glm-5|sonnet)\b/.test(model)) score += 3;
+  if (/\b(?:pro|opus|max|ultra|reason|thinking|gpt-5|sonnet)\b/.test(model)) score += 3;
   if (/\b(?:mini|lite|flash|turbo|fast|air|nano)\b/.test(model)) score -= 1;
   if (/\b(?:code|coder|codex|devstral)\b/.test(model)) score += 1;
   return score;
@@ -237,7 +237,7 @@ function preferenceScore(candidate, route, preference) {
   const cost = costRank(candidate);
   let score = preference === "quality" ? quality * 8 - cost : preference === "cost" ? -cost * 8 + quality : quality * 4 - cost * 3;
   const model = lower(candidate.model);
-  if (route === "coding" && /\b(?:code|coder|codex|devstral|glm-5|gpt-5|sonnet)\b/.test(model)) score += 8;
+  if (route === "coding" && /\b(?:code|coder|codex|devstral|gpt-5|sonnet)\b/.test(model)) score += 8;
   if (route === "research" && /\b(?:gemini|gpt|claude|sonnet|grok)\b/.test(model)) score += 5;
   if (route === "fast" && /\b(?:flash|turbo|fast|mini|lite|air|nano)\b/.test(model)) score += 9;
   if (route === "chat" && candidate.provider === "local") score += 3;
