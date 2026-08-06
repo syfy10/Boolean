@@ -492,6 +492,7 @@
     .about-git-row{ grid-template-columns:48px minmax(0,1fr); }
     .about-git-row span:last-child{ grid-column:2; }
   }
+  body.rail-menu-open #sidebar .sidebar-account-card{ display:none!important; }
 
   /* settings index and focused section pages */
   .settings-dashboard{ max-width:880px; margin:0 auto 8px; padding:2px 0 0; }
@@ -1810,6 +1811,8 @@
     border-bottom:0; }
   #modelmenu .model-picker-title b{ font:700 10.8px/1.2 var(--ui); color:var(--text); white-space:nowrap; }
   #modelmenu .model-netseg{ position:absolute; top:8px; right:8px; z-index:1; }
+  #modelmenu #teamAnchor{ position:absolute; top:8px; left:8px; z-index:2; }
+  #modelmenu #teambtn{ height:23px; min-width:57px; padding:0 7px; font-size:9px; }
   .model-engine-picker{ margin:1px 2px 4px; padding:0 2px 4px; border-bottom:1px solid color-mix(in srgb,var(--text) 9%,var(--border)); }
   .model-engine-picker>span{ display:block; margin:0 2px 2px; color:var(--label); font:500 8px/1 var(--ui); }
   .model-engine-seg{ height:23px; display:grid; grid-template-columns:.8fr 1fr .85fr 1fr; padding:2px; border:1px solid var(--border); border-radius:7px; background:var(--bubble); }
@@ -14188,6 +14191,10 @@ body:not(.composer-simple) main::after{
   };
   $("compareA").onchange=()=>{ if($("compareA").value===$("compareB").value) $("compareNote").textContent="Choose two different models."; };
   $("compareB").onchange=()=>{ if($("compareA").value===$("compareB").value) $("compareNote").textContent="Choose two different models."; };
+  // Teamwork belongs to the API/model picker beside Local and Cloud. Keeping
+  // one live control preserves its existing settings and avoids another
+  // composer-level dropdown competing for space.
+  if($("teamAnchor")&&$("modelmenu")) $("modelmenu").insertBefore($("teamAnchor"),$("modelmenu").firstChild);
   function currentTeamwork(){
     const saved=state.ui?.codingAgent?.teamwork||{};
     return {
@@ -14250,7 +14257,7 @@ body:not(.composer-simple) main::after{
   }
   $("teambtn").onclick=(event)=>{
     event.stopPropagation();
-    $("plusmenu").classList.remove("open"); $("modemenu").classList.remove("open"); $("modelmenu").classList.remove("open"); $("comparemenu").classList.remove("open");
+    $("plusmenu").classList.remove("open"); $("modemenu").classList.remove("open"); $("comparemenu").classList.remove("open");
     $("teammenu").classList.toggle("open");
     renderTeamMenu();
     requestAnimationFrame(positionTeamMenu);

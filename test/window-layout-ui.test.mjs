@@ -242,6 +242,12 @@ test("account settings and project navigation surfaces are mutually exclusive", 
   assert.match(ui, /if\(t\.kind==="project"\)[\s\S]{0,260}classList\.add\("collapsed"\)/);
 });
 
+test("expanded navigation has one account and teamwork lives in the API picker", () => {
+  assert.match(ui, /body\.rail-menu-open #sidebar \.sidebar-account-card\{ display:none!important; \}/);
+  assert.match(ui, /\$\("modelmenu"\)\) \$\("modelmenu"\)\.insertBefore\(\$\("teamAnchor"\)/);
+  assert.match(ui, /#modelmenu #teamAnchor\{ position:absolute; top:8px; left:8px/);
+});
+
 test("about page shows build metadata, release history, and working links", () => {
   assert.equal((ui.match(/id="aboutVersion"/g) || []).length, 1);
   assert.match(ui, /data-settings-tab="about" title="About Updates"/);
