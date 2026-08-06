@@ -5,6 +5,11 @@ import vm from "node:vm";
 
 const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
 
+test("project plan output hiding never hides the live working card", () => {
+  assert.match(ui, /function markCurrentPlanOutput\(\)[\s\S]*?!node\.classList\?\.contains\("working-card"\)/);
+  assert.match(ui, /run\.statusEl\?\.classList\.remove\("live-plan-output"\);\s*col\.classList\.add\("plan-output-hidden"\)/);
+});
+
 function functionSource(name) {
   const start = ui.indexOf(`function ${name}(`);
   assert.ok(start >= 0, `${name} is present`);

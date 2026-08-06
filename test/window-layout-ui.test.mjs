@@ -132,7 +132,7 @@ test("completed plan checklists keep raw agent output hidden until requested", (
   assert.match(ui, /snapshot\?\.showPlan === true \|\| snapshot\?\.artifactRequired === true/);
   assert.match(ui, /!shouldShowProjectPlan\(snapshot\)/);
   assert.match(ui, /function markCurrentPlanOutput\(\)/);
-  assert.match(ui, /markCurrentPlanOutput\(\);\s*col\.classList\.add\("plan-output-hidden"\)/);
+  assert.match(ui, /markCurrentPlanOutput\(\);[\s\S]*?run\.statusEl\?\.classList\.remove\("live-plan-output"\);\s*col\.classList\.add\("plan-output-hidden"\)/);
   assert.match(ui, /const hasOutput=live\|\|Boolean\(col\.querySelector\("\.live-plan-output"\)\)/);
   assert.match(ui, /hasOutput\?'<button class="plan-checklist-action"[^]*data-plan-action="raw"/);
   assert.match(ui, /if\(!planEl\?\.isConnected\) col\.classList\.remove\("plan-output-hidden"\)/);

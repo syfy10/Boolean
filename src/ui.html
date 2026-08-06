@@ -15896,6 +15896,7 @@ body:not(.composer-simple) main::after{
     children.forEach((node,index)=>{ if(node.classList?.contains("msg-user")) lastUser=index; });
     children.slice(lastUser+1).forEach(node=>{
       if(!node.classList?.contains("plan-checklist")
+        && !node.classList?.contains("working-card")
         && !node.classList?.contains("approval")
         && !node.classList?.contains("next-edit-bar")) {
         node.classList?.add("live-plan-output");
@@ -15910,6 +15911,9 @@ body:not(.composer-simple) main::after{
     }
     if (!planEl || !planEl.isConnected) {
       markCurrentPlanOutput();
+      // The progress card is task chrome, not raw model output. Keep it visible
+      // while the plan hides streamed/tool output behind "Show output".
+      run.statusEl?.classList.remove("live-plan-output");
       col.classList.add("plan-output-hidden");
       planEl = makePlanChecklist(snapshot,{live:true});
       insertAbove(planEl);
