@@ -1713,7 +1713,7 @@ test("project timelines stay hidden regardless of project binding", () => {
 
 test("Projects and Chats uses the flat Codex-style navigation and list hierarchy", () => {
   assert.match(ui, /id="sidebarPrimary" aria-label="Primary navigation"/);
-  for(const label of ["New chat","Pull requests","Sites","Scheduled","Plugins"])
+  for(const label of ["New chat","GitHub","Preview","Scheduled","Skills"])
     assert.match(ui,new RegExp(`<span>${label}<\\/span>`));
   assert.match(ui, /--approved-sidebar-w:286px;/);
   assert.match(ui, /#sidebar \.thread-search-wrap,#sidebar \.pinned-list[^\n]*display:none!important;/);
