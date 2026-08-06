@@ -1570,7 +1570,7 @@
   .composer textarea{ width:100%; min-width:0; border:0; outline:0; resize:none; background:transparent; color:var(--text);
     font:inherit; font-size:var(--fs-lg); padding:8px 8px 4px 7px; max-height:180px; }
   .composer textarea::placeholder{ color:var(--dim); opacity:.6; }
-  /* quiet tool strip below the pill — attach, snip, approval mode, compare, model */
+  /* quiet tool strip below the pill — attach, approval mode, compare, model */
   .composer-base{ margin:0 0 calc(-1 * var(--composer-bottom));
     padding:5px 12px var(--composer-bottom); background:var(--bg); pointer-events:auto; }
   .composer-tools{ display:flex; align-items:center; gap:5px; width:100%; min-width:0;
@@ -4215,10 +4215,6 @@ body:not(.composer-simple) main::after{
   body:not(.composer-simple) .composer-tools{ height:32px; gap:5px; overflow:hidden; }
   body:not(.composer-simple) .composer-tools:has(.menu.open){ overflow:visible; }
   body:not(.composer-simple) .composer-tools #plusbtn{ order:0; }
-  body:not(.composer-simple) .composer-tools #snipbtn{
-    display:grid; order:1; color:var(--dim); font-weight:400;
-  }
-  body:not(.composer-simple) .composer-tools #snipbtn .snip-icon{ color:currentColor; }
   body:not(.composer-simple) .composer-tools .anchor:has(#modebtn){ order:2; }
   body:not(.composer-simple) .composer-tools .spacer{ order:10; }
   body:not(.composer-simple) .composer-tools .anchor:has(#modelbtn){ order:20; margin-left:0; }
@@ -4231,8 +4227,7 @@ body:not(.composer-simple) main::after{
   body:not(.composer-simple) .composer-tools .modelbtn{ max-width:132px; padding-inline:7px; color:var(--text); }
   body.chat-xxs:not(.composer-simple) .composer-tools #modetxt,
   body.chat-xxs:not(.composer-simple) .composer-tools .modebtn .chev{ display:none; }
-  body.chat-micro:not(.composer-simple) .composer-tools .modelbtn .chev,
-  body.chat-micro:not(.composer-simple) .composer-tools #snipbtn{ display:none; }
+  body.chat-micro:not(.composer-simple) .composer-tools .modelbtn .chev{ display:none; }
   body.chat-micro:not(.composer-simple) .composer-tools .anchor:has(#modelbtn){ margin-left:0; }
   body:not(.composer-simple).online-mode .composer-tools .modelbtn{ background:transparent; }
   body:not(.composer-simple) .promptline #interruptEdit{
@@ -7818,7 +7813,6 @@ body:not(.composer-simple) main::after{
           <div class="item" id="attFolder"><span>Open models folder</span></div>
         </div>
       </div>
-      <button class="iconbtn" id="snipbtn" title="Snip screen" aria-label="Snip screen"><span class="snip-icon"></span></button>
       <div class="anchor">
         <button class="modebtn" id="modebtn" title="Access: Read &amp; write">
           <span class="mdot" id="mdot"></span><span id="modetxt">Read &amp; write</span> <span class="chev">▼</span>
@@ -14419,7 +14413,6 @@ body:not(.composer-simple) main::after{
   $("attImage").onclick=()=>{ $("plusmenu").classList.remove("open"); if(!visionOk()){ visionBlockNote(); return; } $("fileImage").click(); };
   $("attFile").onclick=()=>{ $("plusmenu").classList.remove("open"); $("fileAny").click(); };
   $("attSnip").onclick=()=>{ $("plusmenu").classList.remove("open"); startSnip("message"); };
-  $("snipbtn").onclick=()=>{ $("plusmenu").classList.remove("open"); startSnip("message"); };
   $("attFolder").onclick=()=>{ $("plusmenu").classList.remove("open"); fetch("/api/open-models",{method:"POST"}); };
   input.addEventListener("paste",(e)=>{ for(const it of e.clipboardData.items){ if(it.type.startsWith("image/")){ addImageFile(it.getAsFile()); e.preventDefault(); } } });
   const composerDrop=document.querySelector(".composer");

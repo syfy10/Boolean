@@ -717,7 +717,7 @@ test("narrow chat contains its header messages and composer without clipping", (
   assert.match(ui, /\.msg-user,\.msg-ai,body\.win-lg \.msg-user,body\.win-lg \.msg-ai\{[\s\S]*?max-width:min\(88%,calc\(100% - 12px\)\);/);
   assert.match(ui, /\.composer-wrap,body\.composer-simple \.composer-wrap,[\s\S]*?\.composer-tools\{ min-width:0; max-width:100%; box-sizing:border-box; \}/);
   assert.match(ui, /body\.chat-xxs:not\(\.composer-simple\) \.composer-tools #modetxt,[\s\S]*?\.modebtn \.chev\{ display:none; \}/);
-  assert.match(ui, /body\.chat-micro:not\(\.composer-simple\) \.composer-tools \.modelbtn \.chev,[\s\S]*?#snipbtn\{ display:none; \}/);
+  assert.match(ui, /body\.chat-micro:not\(\.composer-simple\) \.composer-tools \.modelbtn \.chev\{ display:none; \}/);
 });
 
 test("workspace card shows the selected API model's real readiness", () => {
@@ -1228,7 +1228,8 @@ test("round composer uses the compact floating card layout without changing line
   assert.match(ui, /window\.SpeechRecognition\|\|window\.webkitSpeechRecognition/);
   assert.match(ui, /\?\{read_only:"Read",ask:"Write",full_access:"Full",trading_confirm:"Trade"\}\s*:\{read_only:"Read only",ask:"Read & write",full_access:"Full access",trading_confirm:"Trading access"\}/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools #plusbtn\{ order:0; \}/);
-  assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools #snipbtn\{[^}]*display:grid; order:1; color:var\(--dim\); font-weight:400;/);
+  assert.doesNotMatch(ui, /id="snipbtn"/);
+  assert.match(ui, /id="attSnip"><span>Snip screen<\/span>/);
   assert.match(ui, /body:not\(\.composer-simple\) \.composer-tools \.anchor:has\(#modebtn\)\{ order:2; \}/);
   assert.match(ui, /body:not\(\.composer-simple\) \.col::after\{ background:var\(--approved-canvas\); \}/);
   assert.match(ui, /body:not\(\.composer-simple\) \.promptline #send\{[^}]*width:36px; height:36px;[^}]*border-radius:50%;[^}]*background:#202124/s);
