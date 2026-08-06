@@ -97,9 +97,10 @@ test("compact rail uses the matching notepad icon and Boollm search", () => {
   assert.match(ui, /if\(action==="search"\)\{ if\(typeof openCmdPalette==="function"\) openCmdPalette\(\);/);
 });
 
-test("open project is visible in the Projects and Chats pane and uses the standard Windows folder picker", () => {
-  assert.match(ui, /list\.appendChild\(accordion\);[\s\S]*className="project-open-action"[\s\S]*setAttribute\("aria-label","Open project"\)[\s\S]*<span>Open project<\/span>[\s\S]*openProject\.onclick=adoptProject;[\s\S]*list\.appendChild\(openProject\);[\s\S]*const chatHead=/);
-  assert.doesNotMatch(ui, /#sidebar \.thread-search-wrap,#sidebar \.pinned-list,#sidebar \.grouphead\.foldable:first-child,#sidebar \.project-open-action\{ display:none!important; \}/);
+test("open project lives in the New project dialog and uses the standard Windows folder picker", () => {
+  assert.doesNotMatch(ui, /className="project-open-action"/);
+  assert.match(ui, /id="appModalAlternate" class="alternate"[^>]*hidden>Open project<\/button>/);
+  assert.match(ui, /appPrompt\("New project",[\s\S]*?80,"Open project"\)[\s\S]*?name===APP_PROMPT_ALTERNATE[\s\S]*?await adoptProject\(\)/);
   assert.match(shell, /using var dialog = new FolderBrowserDialog/);
   assert.match(shell, /AutoUpgradeEnabled = true/);
   assert.match(shell, /UseDescriptionForTitle = true/);

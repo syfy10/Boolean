@@ -2348,6 +2348,7 @@
   .app-modal-actions button{ min-width:68px; height:32px; padding:0 13px; border-radius:8px; border:1px solid var(--border);
     background:var(--bg); color:var(--text); font:inherit; cursor:pointer; }
   .app-modal-actions button:hover{ background:var(--hover); }
+  .app-modal-actions .alternate{ margin-right:auto; }
   .app-modal-actions .primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-text); }
   .app-modal-actions .danger{ background:#dc3f42; border-color:#dc3f42; color:#fff; }
   .schedule-card{ width:min(470px,calc(100vw - 38px)); }
@@ -3917,13 +3918,6 @@
   #sidebar .grouphead .section-action{ order:initial; margin-left:0; color:var(--text); }
   #sidebar .grouphead .chat-add{ font:500 17px/1 var(--ui); }
   #sidebar .project-accordion{ border-top:0; }
-  #sidebar .project-open-action{
-    display:flex; width:100%; min-height:29px; margin:4px 0 2px; padding:4px 9px;
-    align-items:center; gap:7px; color:var(--dim); background:transparent; border:0;
-    border-radius:6px; text-align:left; font:500 10px/1.2 var(--ui); cursor:pointer;
-  }
-  #sidebar .project-open-action:hover{ color:var(--text); background:var(--hover); }
-  #sidebar .project-open-action svg{ width:14px; height:14px; flex:0 0 auto; fill:none; stroke:var(--green); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   #sidebar .project-group-head{ min-height:31px; gap:6px; padding:3px 5px; }
   #sidebar .project-group-head .project-folder svg{ width:14px; height:14px; }
   #sidebar .project-group-head .project-title{ font-size:11px; font-weight:500; }
@@ -8037,6 +8031,7 @@ body:not(.composer-simple) main::after{
     <h2 id="appModalTitle">Confirm</h2>
     <div class="app-modal-body" id="appModalBody"></div>
     <div class="app-modal-actions">
+      <button id="appModalAlternate" class="alternate" type="button" hidden>Open project</button>
       <button id="appModalCancel">Cancel</button>
       <button id="appModalOk" class="primary">OK</button>
     </div>
@@ -8185,12 +8180,13 @@ body:not(.composer-simple) main::after{
   }
   requestAnimationFrame(()=>perfMark("appVisible"));
   function appModal({title="Confirm", body="", okText="OK", cancelText="", danger=false}={}){
-    const modal=$("appModal"), ok=$("appModalOk"), cancel=$("appModalCancel");
+    const modal=$("appModal"), ok=$("appModalOk"), cancel=$("appModalCancel"), alternate=$("appModalAlternate");
     $("appModalTitle").textContent=title;
     $("appModalBody").textContent=body;
     ok.textContent=okText;
     cancel.textContent=cancelText||"Cancel";
     cancel.style.display=cancelText?"":"none";
+    alternate.hidden=true; alternate.onclick=null;
     ok.className=danger?"danger":"primary";
     modal.classList.add("open");
     modal.setAttribute("aria-hidden","false");
@@ -8217,8 +8213,9 @@ body:not(.composer-simple) main::after{
   }
   const appConfirm=(title,body,okText="OK",danger=false)=>appModal({title,body,okText,cancelText:"Cancel",danger});
   const appAlert=(title,body="",okText="OK")=>appModal({title,body,okText});
-  function appPrompt(title,body,placeholder="",initialValue="",maxLength=80){
-    const modal=$("appModal"), ok=$("appModalOk"), cancel=$("appModalCancel"), bodyEl=$("appModalBody");
+  const APP_PROMPT_ALTERNATE=Symbol("appPromptAlternate");
+  function appPrompt(title,body,placeholder="",initialValue="",maxLength=80,alternateText=""){
+    const modal=$("appModal"), ok=$("appModalOk"), cancel=$("appModalCancel"), alternate=$("appModalAlternate"), bodyEl=$("appModalBody");
     $("appModalTitle").textContent=title;
     bodyEl.textContent=body;
     const field=document.createElement("input");
@@ -8226,14 +8223,15 @@ body:not(.composer-simple) main::after{
     bodyEl.appendChild(field);
     ok.textContent="Continue"; ok.className="primary";
     cancel.textContent="Cancel"; cancel.style.display="";
+    alternate.textContent=alternateText; alternate.hidden=!alternateText;
     modal.classList.add("open"); modal.setAttribute("aria-hidden","false");
     let done=false;
     return new Promise(resolve=>{
       const close=(value)=>{ if(done)return; done=true; modal.classList.remove("open"); modal.setAttribute("aria-hidden","true");
-        ok.onclick=null; cancel.onclick=null; modal.onclick=null; document.removeEventListener("keydown",onKey,true); resolve(value); };
+        ok.onclick=null; cancel.onclick=null; alternate.onclick=null; alternate.hidden=true; modal.onclick=null; document.removeEventListener("keydown",onKey,true); resolve(value); };
       const submit=()=>{ const value=field.value.trim(); if(value) close(value); else field.focus(); };
       const onKey=(e)=>{ if(e.key==="Escape"){e.preventDefault();close(null);} if(e.key==="Enter"){e.preventDefault();submit();} };
-      ok.onclick=submit; cancel.onclick=()=>close(null); modal.onclick=(e)=>{if(e.target===modal)close(null);};
+      ok.onclick=submit; cancel.onclick=()=>close(null); alternate.onclick=()=>close(APP_PROMPT_ALTERNATE); modal.onclick=(e)=>{if(e.target===modal)close(null);};
       document.addEventListener("keydown",onKey,true); setTimeout(()=>{ field.focus(); if(initialValue) field.select(); },0);
     });
   }
@@ -13223,13 +13221,6 @@ body:not(.composer-simple) main::after{
       accordion.appendChild(group);
     });
     list.appendChild(accordion);
-    const openProject=document.createElement("button");
-    openProject.type="button";
-    openProject.className="project-open-action";
-    openProject.setAttribute("aria-label","Open project");
-    openProject.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6l2 2h8v10H4z"/><path d="M14 5h5v5M19 5l-7 7"/></svg><span>Open project</span>';
-    openProject.onclick=adoptProject;
-    list.appendChild(openProject);
 
     const chatHead=document.createElement("div");
     const chatsOpen=threadGroups.Chats!==false;
@@ -13371,7 +13362,8 @@ body:not(.composer-simple) main::after{
     tempToast("New chat added to "+project.title,2600);
   }
   async function createProject(){
-    const name=await appPrompt("New project","Name your project. Boollm will create a folder and a dedicated project chat.","Project name");
+    const name=await appPrompt("New project","Name your project. Boollm will create a folder and a dedicated project chat.","Project name","",80,"Open project");
+    if(name===APP_PROMPT_ALTERNATE){ await adoptProject(); return; }
     if(!name) return;
     let parentDir=state.projectsDir;
     while(true){
