@@ -734,7 +734,7 @@ test("workspace card, create actions, search, and account match the approved gro
   assert.match(ui, /\.sidebar-brand-mark circle\{ fill:currentColor; \}/);
   assert.match(ui, /<svg class="sidebar-brand-mark"[\s\S]*?<circle cx="20" cy="20" r="3\.8"\/>[\s\S]*?<\/svg>/);
   assert.doesNotMatch(ui, /id="sidebarNewProject"|id="sidebarNewChat"/);
-  assert.match(ui, /<span>Chats<\/span><button type=\"button\" class=\"section-action chat-add\" title=\"Create\" aria-label=\"Create chat or project\">\+<\/button><span class=\"gcaret\">/);
+  assert.match(ui, /<span>Recents<\/span><button type=\"button\" class=\"section-action chat-add\" title=\"Create\" aria-label=\"Create chat or project\">\+<\/button><span class=\"gcaret\">/);
   assert.match(ui, /\.thread-new-chat\{[^}]*background:transparent; color:var\(--dim\)/);
   assert.match(ui, /chatCreateMenu\.innerHTML=[\s\S]*?data-create="chat"[\s\S]*?New chat[\s\S]*?data-create="project"[\s\S]*?New project/);
   assert.match(ui, /\.chat-create-menu button \+ button\{ border-left:1px solid var\(--border\);/);
@@ -877,7 +877,7 @@ test("surface styles reach the native footer and the account identity owns Profi
 });
 
 test("approved sidebar follows window width until the user toggles it", () => {
-  assert.match(ui, /--approved-sidebar-w:196px;/);
+  assert.match(ui, /--approved-sidebar-w:286px;/);
   assert.match(ui, /const estimatedOpenMainW=currentMainW-\(document\.body\.classList\.contains\("collapsed"\)\?sidebarW:0\);/);
   assert.match(ui, /const shouldCollapseApprovedSidebar=w<=640\|\|auxiliaryNeedsRoom;/);
   assert.match(ui, /document\.body\.classList\.toggle\("collapsed",auxiliaryNeedsRoom\|\|recipesNeedRoom\|\|educationNeedsRoom\s*\?true/);
@@ -1711,6 +1711,20 @@ test("project timelines stay hidden regardless of project binding", () => {
   assert.match(ui, /function shouldShowProjectPlan\(snapshot\) \{\s*return false;\s*\}/);
 });
 
+test("Projects and Chats uses the flat Codex-style navigation and list hierarchy", () => {
+  assert.match(ui, /id="sidebarPrimary" aria-label="Primary navigation"/);
+  for(const label of ["New chat","Pull requests","Sites","Scheduled","Plugins"])
+    assert.match(ui,new RegExp(`<span>${label}<\\/span>`));
+  assert.match(ui, /--approved-sidebar-w:286px;/);
+  assert.match(ui, /#sidebar \.thread-search-wrap,#sidebar \.pinned-list[^\n]*display:none!important;/);
+  assert.match(ui, /#sidebar \.project-group-body\{ margin-left:0; padding:0 0 4px 25px; border-left:0; \}/);
+  assert.match(ui, /#sidebar \.project-group-body \.thread::before\{ display:none; \}/);
+  assert.match(ui, /#sidebar \.thread\.active,#sidebar \.project-group-body \.thread\.active\{[^}]*box-shadow:none;/);
+  assert.match(ui, /document\.querySelectorAll\("#sidebarNavigation,#sidebarPrimary"\)/);
+  assert.match(ui, /if\(action==="new-chat"\)\{ newChat\(\); return; \}/);
+  assert.match(ui, /else if\(action==="plugins"\)\{ openSettings\("connectors"\); \}/);
+});
+
 test("pinned projects and chats use the compact grouped sidebar", () => {
   assert.match(ui,/projectHead\.className="grouphead project-section-head"/);
   assert.match(ui,/class="section-action project-add"[^>]*aria-label="New project">\+<\/button>/);
@@ -1734,7 +1748,7 @@ test("pinned projects and chats use the compact grouped sidebar", () => {
   assert.match(ui,/const pinned=ts\.filter\(t=>t\.pinned\)/);
   assert.match(ui,/pinnedHead\.innerHTML='<span>Pinned<\/span>/);
   assert.match(ui,/makeThreadRow\(t,\{pinnedSection:true\}\)/);
-  assert.match(ui,/chatHead\.innerHTML='<span>Chats<\/span>/);
+  assert.match(ui,/chatHead\.innerHTML='<span>Recents<\/span>/);
   assert.match(ui,/threadGroups\.Chats=!chatsOpen/);
   assert.match(ui,/class=\"project-edit\" title=\"New chat in project\"/);
   assert.match(ui,/aria-label=\"New chat in '\+esc\(t\.title\)\+'\">\+<\/button>/);

@@ -3778,7 +3778,7 @@
   /* Approved Win11 mockup layout — one shared gray canvas with floating panes. */
   :root{
     --app-footer-h:0px; --approved-gap:8px; --approved-bottom-gap:20px;
-    --approved-topbar-h:38px; --approved-sidebar-w:196px; --approved-canvas:#f2f2f0;
+    --approved-topbar-h:38px; --approved-sidebar-w:286px; --approved-canvas:#f2f2f0;
     --approved-card:#f8f8f6;
   }
   @media(prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --approved-canvas:#181818; --approved-card:#1c1c1c; } }
@@ -4325,7 +4325,7 @@ body:not(.composer-simple) main::after{
     .cmd-bar .cmd-input{ min-width:80px; font-size:11px; }
   }
   @media(max-width:760px){
-    :root{ --approved-sidebar-w:196px; }
+    :root{ --approved-sidebar-w:286px; }
     .workspace-tabs{ gap:3px; }
     .ws-tab{ padding:0 5px; }
     .cmd-bar{ gap:3px; }
@@ -4355,7 +4355,7 @@ body:not(.composer-simple) main::after{
     body,body.shell{ gap:5px; padding-left:5px; padding-right:5px; padding-bottom:10px; }
     #sideRail,body.collapsed #sideRail,body.collapsed.rail-expanded #sideRail{ flex-basis:30px; width:30px; min-width:30px; }
     #sideRail .rail-btn,#sideRail .rail-user{ width:27px; height:27px; }
-    aside,body.shell aside{ --approved-sidebar-w:196px; }
+    aside,body.shell aside{ --approved-sidebar-w:286px; }
     body.zone-3 #ctxZone,body.zone-3 #ctxdrag{ display:none; }
     body.notes-on:not(.shell) #notesPanel{ width:var(--nw,260px); min-width:230px; flex-basis:var(--nw,260px); }
     main,#chat,.col{ min-width:0; max-width:100%; overflow-x:hidden; box-sizing:border-box; }
@@ -4453,6 +4453,34 @@ body:not(.composer-simple) main::after{
     box-shadow:none!important;
     pointer-events:none!important;
   }
+  /* Codex-style Projects & Chats pane: one quiet navigation/list surface. */
+  #sidebar .sidebar-primary{ flex:0 0 auto; display:flex; flex-direction:column; gap:1px; padding:10px 8px 7px; }
+  #sidebar .sidebar-primary-item{ width:100%; min-height:30px; display:grid; grid-template-columns:17px minmax(0,1fr) 8px; align-items:center; gap:8px; padding:0 5px; border:0; border-radius:7px; background:transparent; color:var(--text); cursor:pointer; text-align:left; font:400 12.5px/1.2 var(--ui); }
+  #sidebar .sidebar-primary-item:hover,#sidebar .sidebar-primary-item.active{ background:color-mix(in srgb,var(--text) 6%,transparent); }
+  #sidebar .sidebar-primary-item svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.65; stroke-linecap:round; stroke-linejoin:round; }
+  #sidebar .sidebar-primary-state{ width:7px; height:7px; border-radius:50%; background:#2f8cff; opacity:0; }
+  #sidebar .sidebar-primary-item[data-sidebar-workspace="automations"] .sidebar-primary-state{ opacity:1; }
+  #sidebar .thread-search-wrap,#sidebar .pinned-list,#sidebar .grouphead.foldable:first-child,#sidebar .project-open-action{ display:none!important; }
+  #sidebar .threadlist{ padding:2px 8px 12px; }
+  #sidebar .project-section-head{ margin:3px 0 5px; padding:7px 2px 3px!important; border-top:0; color:var(--dim); font-size:12px; font-weight:400; }
+  #sidebar .project-section-head .project-add{ opacity:0; }
+  #sidebar .project-section-head:hover .project-add{ opacity:1; }
+  #sidebar .project-group-head{ min-height:31px; padding:2px 3px; border-radius:7px; }
+  #sidebar .project-group-head .project-title{ font-size:12.5px; font-weight:400; }
+  #sidebar .project-group-head .project-caret{ display:none; }
+  #sidebar .project-group-head .project-edit{ opacity:0; }
+  #sidebar .project-group-head:hover .project-edit{ opacity:1; }
+  #sidebar .project-group-body{ margin-left:0; padding:0 0 4px 25px; border-left:0; }
+  #sidebar .project-group-body .thread{ min-height:31px; padding:3px 8px; border-radius:8px; font-size:12.5px; }
+  #sidebar .project-group-body .thread::before{ display:none; }
+  #sidebar .project-group-body .thread .tico,#sidebar .project-group-body .thread .twhen{ display:none; }
+  #sidebar .thread.active,#sidebar .project-group-body .thread.active{ background:color-mix(in srgb,var(--text) 7%,var(--sidebar)); box-shadow:none; font-weight:400; }
+  #sidebar .thread.working{ background:color-mix(in srgb,var(--text) 7%,var(--sidebar)); box-shadow:none; }
+  #sidebar .personal-chat-head{ margin:8px 0 5px; padding:7px 2px 3px; border-top:0; color:var(--dim); font-size:12px; font-weight:400; }
+  #sidebar .personal-chat-head .section-action,#sidebar .personal-chat-head .gcaret{ display:none; }
+  #sidebar .personal-chat-head ~ .thread{ min-height:31px; padding:3px 2px; border-radius:7px; font-size:12.5px; }
+  #sidebar .personal-chat-head ~ .thread .tico,#sidebar .personal-chat-head ~ .thread .twhen{ display:none; }
+  #sidebar .personal-chat-more{ margin-left:2px; min-height:28px; font-size:11.5px; }
   .markets-panel{ display:none; flex:1; min-height:0; margin:0 0 var(--app-footer-h); padding:12px var(--content-x) 18px; overflow:auto; background:var(--bg); }
   body.markets-open .markets-panel{ display:block; }
   body.markets-open #banner,body.markets-open .proj-dashboard,body.markets-open .task-stepper,
@@ -5643,6 +5671,13 @@ body:not(.composer-simple) main::after{
 <div class="temp-toast" id="tempToast" role="status" aria-live="polite"></div>
 
 <aside id="sidebar">
+  <nav class="sidebar-primary" id="sidebarPrimary" aria-label="Primary navigation">
+    <button class="sidebar-primary-item" type="button" data-sidebar-action="new-chat"><svg viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v12H7a2 2 0 0 1-2-2z"/><path d="m14 3 4 4M12 9l6-6"/></svg><span>New chat</span><span class="sidebar-primary-state"></span></button>
+    <button class="sidebar-primary-item" type="button" data-sidebar-action="git"><svg viewBox="0 0 24 24"><circle cx="7" cy="5" r="2"/><circle cx="17" cy="19" r="2"/><circle cx="17" cy="5" r="2"/><path d="M7 7v7a5 5 0 0 0 5 5h3M9 7l6-2M17 7v5"/></svg><span>Pull requests</span><span class="sidebar-primary-state"></span></button>
+    <button class="sidebar-primary-item" type="button" data-sidebar-workspace="preview"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 17h6M17 14v6"/></svg><span>Sites</span><span class="sidebar-primary-state"></span></button>
+    <button class="sidebar-primary-item" type="button" data-sidebar-workspace="automations"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l-3 2"/></svg><span>Scheduled</span><span class="sidebar-primary-state"></span></button>
+    <button class="sidebar-primary-item" type="button" data-sidebar-action="plugins"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 9a4 4 0 0 1 6 0l1 1M15 15a4 4 0 0 1-6 0l-1-1M8 12h8"/></svg><span>Plugins</span><span class="sidebar-primary-state"></span></button>
+  </nav>
   <div class="sidebar-shortcuts" id="sidebarShortcuts" aria-label="Boolean shortcuts" hidden>
     <button class="sidebar-shortcut" type="button" data-sidebar-action="tasks" title="Tasks">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle class="icon-field" cx="11" cy="12" r="8.5"/><circle cx="11" cy="12" r="8.5"/><circle cx="11" cy="12" r="4.8"/><path d="m7.8 12 2.2 2.2 6.8-7"/><path d="M15.8 4.2 19.6 3l1.2 3.8"/></svg><span>Tasks</span>
@@ -13198,7 +13233,7 @@ body:not(.composer-simple) main::after{
     const chatHead=document.createElement("div");
     const chatsOpen=threadGroups.Chats!==false;
     chatHead.className="grouphead foldable personal-chat-head";
-    chatHead.innerHTML='<span>Chats</span><button type="button" class="section-action chat-add" title="Create" aria-label="Create chat or project">+</button><span class="gcaret">'+(chatsOpen?'&#8964;':'&#8250;')+'</span>';
+    chatHead.innerHTML='<span>Recents</span><button type="button" class="section-action chat-add" title="Create" aria-label="Create chat or project">+</button><span class="gcaret">'+(chatsOpen?'&#8964;':'&#8250;')+'</span>';
     chatHead.setAttribute("aria-expanded",String(chatsOpen));
     chatHead.onclick=()=>{ threadGroups.Chats=!chatsOpen; localStorage.setItem("sazThreadGroups",JSON.stringify(threadGroups)); renderThreads(); };
     chatHead.querySelector(".section-action").onclick=(e)=>{ e.stopPropagation(); chatCreateMenu.classList.toggle("open"); };
@@ -16923,12 +16958,12 @@ body:not(.composer-simple) main::after{
     await setUi({theme:choice.dataset.sidebarTheme});
     updateAccountMenu();
   }));
-  $("sidebarNavigation")?.addEventListener("click",event=>{
+  document.querySelectorAll("#sidebarNavigation,#sidebarPrimary").forEach(navigation=>navigation.addEventListener("click",event=>{
     const workspace=event.target.closest("[data-sidebar-workspace]")?.dataset.sidebarWorkspace;
     if(workspace){ setWorkspaceTab(workspace); syncPanelButtons(); return; }
     const action=event.target.closest("[data-sidebar-action]")?.dataset.sidebarAction;
     if(action) handleRailAction(action,event);
-  });
+  }));
   function syncPanelButtons(){
     const sidebarClosed=document.body.classList.contains("collapsed")||document.body.classList.contains("sidebar-popup-mode");
     const sidebarPopover=document.body.classList.contains("sidebar-popover-open");
@@ -16991,11 +17026,13 @@ body:not(.composer-simple) main::after{
     document.body.classList.remove("rail-expanded","rail-menu-open","rail-menu-docked");
     $("railMenuToggle")?.setAttribute("aria-expanded","false");
     if(action==="projects"){ adoptProject(); return; }
+    if(action==="new-chat"){ newChat(); return; }
     if(action==="search"){ if(typeof openCmdPalette==="function") openCmdPalette(); else $("cmdInput")?.focus(); }
     else if(action==="tasks"){ setWorkspaceTab("automations",{force:true}); }
     else if(action==="files"){ setWorkspaceTab("code"); }
     else if(action==="changes"){ setWorkspaceTab("git"); }
     else if(action==="models"){ openSettings("model"); }
+    else if(action==="plugins"){ openSettings("connectors"); }
     else if(action==="sources"){ $("ctxToggle")?.click(); }
     else if(action==="browser"){ $("browserToggle")?.click(); }
     else if(action==="context"){ $("ctxToggle")?.click(); }
