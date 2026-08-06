@@ -602,6 +602,7 @@ test("Explore docks the native browser into its Web tab when browser home is ena
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"dock",rect:/);
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"undock"\}/);
   assert.match(shell, /void DockBrowserInExplore\(JsonElement root\)/);
+  assert.match(shell, /void RestoreBrowserPaneToSplit\(\)[\s\S]*?_split\.Panel2\.Controls\.Add\(_browserPane\);\s*_browserPane\.Visible = true;/);
   assert.match(shell, /case "dock": DockBrowserInExplore\(root\); break;/);
   assert.match(shell, /case "undock": UndockExploreBrowser\(\); break;/);
   // The Explore window keeps a way back to the real web browser.

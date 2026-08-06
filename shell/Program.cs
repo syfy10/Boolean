@@ -2491,6 +2491,7 @@ try {
         _browserPane.Visible = false;
         _browserPane.Dock = DockStyle.Fill;
         _split.Panel2.Controls.Add(_browserPane);
+        _browserPane.Visible = true;
     }
 
     void DockBrowserInExplore(JsonElement root)
