@@ -6543,6 +6543,13 @@ body:not(.composer-simple) main::after{
             <button class="theme-choice" data-val="dark"><span class="theme-ico">☾</span><span><b>Dark Mode</b><small>Use the dark theme.</small></span><span class="theme-check">✓</span></button>
             <button class="theme-choice" data-val="system"><span class="theme-ico">▣</span><span><b>System</b><small>Match this device setting.</small></span><span class="theme-check">✓</span></button>
           </div>
+          <div class="setrow" style="margin-top:8px"><div>App zoom<div class="hint">Resize the entire Boolean interface. Browser pages keep their own zoom.</div></div>
+            <div style="display:flex;align-items:center;gap:5px">
+              <button class="minibtn" id="appZoomOut" type="button" title="Zoom out (Ctrl+-)" aria-label="Zoom app out">−</button>
+              <button class="minibtn" id="appZoomReset" type="button" title="Reset app zoom (Ctrl+0)" style="min-width:48px" aria-label="Reset app zoom"><span id="appZoomValue">100%</span></button>
+              <button class="minibtn" id="appZoomIn" type="button" title="Zoom in (Ctrl++)" aria-label="Zoom app in">+</button>
+            </div>
+          </div>
           <div class="seg settings-hidden" id="fontSeg" style="margin-top:6px"><button data-val="small">Small</button><button data-val="medium">Medium</button><button data-val="large">Large</button></div>
           <div class="seg settings-hidden" id="densitySeg" style="margin-top:6px"><button data-val="comfortable">Comfortable</button><button data-val="compact">Compact</button></div>
           <div class="setrow" style="margin-top:6px"><div>Show timestamps</div><label class="switch"><input type="checkbox" id="showTimestamps" title="Show time on each message in the chat"><span class="slider"></span></label></div>
@@ -14575,7 +14582,7 @@ body:not(.composer-simple) main::after{
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
   function safeCloudUiPayload(ui=state.ui||{}){
-    const allowed=["theme","colorTheme","composerStyle","notepadTheme","noteAutoSave","noteAutoName","browserSummaryAutoSave","browserDarkMode","showTimestamps","showTokens","showOnboarding","onboarded","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","notepadW","contextW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","browserBookmarks","browserExploreHome","expandedSections","shortcuts","notif","privacy"];
+    const allowed=["theme","appZoom","colorTheme","composerStyle","notepadTheme","noteAutoSave","noteAutoName","browserSummaryAutoSave","browserDarkMode","showTimestamps","showTokens","showOnboarding","onboarded","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","notepadW","contextW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","browserBookmarks","browserExploreHome","expandedSections","shortcuts","notif","privacy"];
     const data={};
     allowed.forEach(key=>{
       const value=ui[key];
@@ -18279,6 +18286,10 @@ Optional bundled starter model:
     ui=ui||{};
     ui={...ui,fontSize:"medium",density:"compact"};
     const root=document.documentElement;
+    const appZoom=Math.max(75,Math.min(150,Math.round(Number(ui.appZoom)||100)));
+    if(SHELL) hostPost({type:"window",action:"appZoom",percent:appZoom});
+    else root.style.zoom=String(appZoom/100);
+    if($("appZoomValue")) $("appZoomValue").textContent=appZoom+"%";
     if(ui.theme==="light") root.setAttribute("data-theme","light");
     else if(ui.theme==="dark") root.setAttribute("data-theme","dark");
     else root.removeAttribute("data-theme");
@@ -18410,6 +18421,13 @@ Optional bundled starter model:
     h.onkeydown=(event)=>{ if(event.key==="Enter"||event.key===" "){ event.preventDefault(); open(); } };
   });
   ["themeSeg","fontSeg","densitySeg"].forEach(id=>$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{ const key=id==="themeSeg"?"theme":id==="fontSeg"?"fontSize":"density"; setUi({[key]:b.dataset.val}); }));
+  function changeAppZoom(delta){
+    const current=Math.max(75,Math.min(150,Math.round(Number(state.ui?.appZoom)||100)));
+    setUi({appZoom:delta===0?100:Math.max(75,Math.min(150,current+delta))});
+  }
+  $("appZoomOut").onclick=()=>changeAppZoom(-10);
+  $("appZoomReset").onclick=()=>changeAppZoom(0);
+  $("appZoomIn").onclick=()=>changeAppZoom(10);
   $("noteColorSeg").querySelectorAll("button").forEach(b=>b.onclick=()=>setUi({notepadTheme:b.dataset.val}));
   async function saveImageSettings(){
     if(!$("imageProvider").value) return;
@@ -19833,6 +19851,11 @@ Optional bundled starter model:
   document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"){ pullCloudNotes().catch(()=>{}); syncAdminCloudVault({pushOnly:true,silent:true}).catch(()=>{}); } });
   window.addEventListener("pagehide",()=>{ saveAppFrameState(); navigator.sendBeacon("/api/bye"); });
   window.addEventListener("keydown",e=>{
+    if(e.ctrlKey&&!e.altKey&&!e.metaKey){
+      if(e.key==="0"){ e.preventDefault(); changeAppZoom(0); return; }
+      if(e.key==="+"||e.key==="="){ e.preventDefault(); changeAppZoom(10); return; }
+      if(e.key==="-"||e.key==="_"){ e.preventDefault(); changeAppZoom(-10); return; }
+    }
     const configuredAction=shortcutActionFor(e);
     if(configuredAction&&configuredAction!=="send_message"&&configuredAction!=="newline"){
       runConfiguredShortcut(configuredAction,e).catch(()=>tempToast("Shortcut action failed."));

@@ -835,7 +835,7 @@ test("Classic is Boolean's only surface foundation", () => {
   assert.match(config, /colorTheme:\s*"classic"/);
   assert.match(config, /if \(cfg\.ui\.colorTheme !== "classic"\)[\s\S]*?cfg\.ui\.colorTheme = "classic"/);
   assert.match(ui, /root\.dataset\.visualTheme=resolvedDark\?"dark":"light";[\s\S]*?root\.dataset\.colorTheme=selectedColorTheme\(ui\);/);
-  assert.match(ui, /\["theme","colorTheme","composerStyle"/);
+  assert.match(ui, /\["theme","appZoom","colorTheme","composerStyle"/);
   assert.match(ui, /:root\[data-visual-theme="light"\]\[data-color-theme="classic"\][\s\S]*?--approved-canvas:#f5f5f3; --approved-card:#f7f7f5;/);
   assert.match(ui, /:root\[data-visual-theme="dark"\]\[data-color-theme="classic"\][\s\S]*?--approved-canvas:#181818; --approved-card:#1c1c1c;/);
   assert.match(ui, /:root\[data-color-theme="classic"\] aside,[\s\S]*?data-color-theme="classic"\] body\.shell aside,/);

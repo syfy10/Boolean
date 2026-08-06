@@ -240,6 +240,7 @@ const DEFAULTS = {
   // UI/behavior preferences (surfaced in the organized Settings page)
   ui: {
     theme: "system",          // system | light | dark
+    appZoom: 100,             // whole Boolean interface, 75-150 percent
     colorTheme: "classic",
     composerStyle: "pill",    // pill | simple
     fontSize: "medium",       // small | medium | large

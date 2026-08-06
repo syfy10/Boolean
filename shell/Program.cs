@@ -762,6 +762,10 @@ sealed class MainForm : Form
             case "snapleft": SnapWindow(false); break;
             case "snapright": SnapWindow(true); break;
             case "maxtoggle": ToggleMaximize(); break;
+            case "appZoom":
+                if (root.TryGetProperty("percent", out var zoomp) && zoomp.TryGetDouble(out var percent))
+                    _chat.ZoomFactor = Math.Clamp(percent, 75d, 150d) / 100d;
+                break;
             case "close": Close(); break;
         }
     }
@@ -1486,6 +1490,7 @@ try {
             await _chat.EnsureCoreWebView2Async(_env);
             _chat.CoreWebView2.WebMessageReceived += OnChatMessage;
             _chat.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
+            _chat.CoreWebView2.Settings.IsZoomControlEnabled = false;
             _chat.NavigationCompleted += (_, __) =>
             {
                 try
