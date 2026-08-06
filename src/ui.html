@@ -12737,7 +12737,12 @@ body:not(.composer-simple) main::after{
     accountHoverPreview=false;
     updateAccountMenu();
     const menu=$("accountMenu");
-    if(menu) menu.classList.toggle("open");
+    if(menu){
+      const opening=!menu.classList.contains("open");
+      if(opening&&$("settingsPanel")?.classList.contains("open")) closeSettingsPanel();
+      if(opening){ closeNavigationMenu(); document.body.classList.remove("sidebar-popover-open"); }
+      menu.classList.toggle("open",opening);
+    }
   }
   function updateComposerConsoleInfo(){
     const info=$("composerInfo");
@@ -13254,6 +13259,10 @@ body:not(.composer-simple) main::after{
     closeConversationPanels();
     threadId=id;
     const t=await (await fetch("/api/thread?id="+encodeURIComponent(id)+"&tail="+THREAD_PAGE_SIZE)).json();
+    if(t.kind==="project"){
+      closeAccountMenu();closeNavigationMenu();document.body.classList.remove("sidebar-popover-open");
+      document.body.classList.add("collapsed");sidebarManualState=true;syncPanelButtons();
+    }
     renderThreadPayload(t);
   }
   async function loadOlderMessages(){
@@ -17665,6 +17674,7 @@ Optional bundled starter model:
     }
   }
   function openSettings(sec,{remember=true}={}){
+    closeAccountMenu();closeNavigationMenu();document.body.classList.remove("sidebar-popover-open");
     prepareWorkspaceForSettings(sec);
     if(!$("settingsPanel").classList.contains("open")){
       if(remember) rememberCurrentView();

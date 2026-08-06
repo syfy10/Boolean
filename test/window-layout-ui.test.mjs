@@ -236,6 +236,12 @@ test("settings and account stay on the rail while status moves into the sidebar 
   assert.match(ui, /#cloudSignInText\{ display:none; \}/);
 });
 
+test("account settings and project navigation surfaces are mutually exclusive", () => {
+  assert.match(ui, /if\(opening&&\$\("settingsPanel"\)\?\.classList\.contains\("open"\)\) closeSettingsPanel\(\)/);
+  assert.match(ui, /function openSettings\(sec,[\s\S]{0,180}closeAccountMenu\(\);closeNavigationMenu\(\)/);
+  assert.match(ui, /if\(t\.kind==="project"\)[\s\S]{0,260}classList\.add\("collapsed"\)/);
+});
+
 test("about page shows build metadata, release history, and working links", () => {
   assert.equal((ui.match(/id="aboutVersion"/g) || []).length, 1);
   assert.match(ui, /data-settings-tab="about" title="About Updates"/);

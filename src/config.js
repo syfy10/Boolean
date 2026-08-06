@@ -606,8 +606,15 @@ function hasSavedUserState(cfg) {
   if (cfg.provider && cfg.provider !== DEFAULTS.provider) return true;
   if (cfg.accessMode && cfg.accessMode !== DEFAULTS.accessMode) return true;
   if (cfg.projectsDir && cfg.projectsDir !== DEFAULTS.projectsDir) return true;
-  if (cfg.eulaAccepted) return true;
-  try { return JSON.stringify(cfg.ui || {}) !== JSON.stringify(DEFAULTS.ui || {}); }
+  // Legal acceptance and onboarding markers are install metadata, not user
+  // preferences. Treating them as meaningful saved state lets an otherwise
+  // reset post-install config block restoration of the richer backup.
+  try {
+    const ui = { ...(cfg.ui || {}) }, defaults = { ...(DEFAULTS.ui || {}) };
+    delete ui.onboarded; delete ui.showOnboarding;
+    delete defaults.onboarded; delete defaults.showOnboarding;
+    return JSON.stringify(ui) !== JSON.stringify(defaults);
+  }
   catch { return false; }
 }
 

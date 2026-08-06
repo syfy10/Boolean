@@ -301,6 +301,20 @@ test("upgrade recovery also restores UI-only customization", () => {
   assert.equal(reset.ui.compact, true);
 });
 
+test("legal and onboarding markers do not block recovery of richer user settings", () => {
+  const reset = defaultConfig();
+  reset.eulaAccepted = "1.0";
+  reset.ui.onboarded = true;
+  reset.ui.showOnboarding = false;
+  const saved = defaultConfig();
+  saved.provider = "deepseek";
+  saved.deepseek.apiKey = "saved-key";
+  saved.accessMode = "full_access";
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.provider, "deepseek");
+  assert.equal(reset.accessMode, "full_access");
+});
+
 test("setCurrentModel can target explicit providers and keeps active provider stable", () => {
   const cfg = defaultConfig();
   cfg.provider = "openai";
