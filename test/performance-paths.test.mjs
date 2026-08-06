@@ -107,10 +107,10 @@ test("UI keeps the fast interaction paths and omits retry controls", () => {
   assert.match(server, /res\.flushHeaders\?\.\(\)/);
 });
 
-test("coding plans render as persistent, controllable progress checklists", () => {
+test("coding runs expose activity without forcing the legacy checklist", () => {
   const html = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
   const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
-  assert.match(html, /function makePlanChecklist\(snapshot,\{live=false\}=\{\}\)/);
+  assert.match(html, /function shouldShowProjectPlan\(snapshot\) \{\s*return false;\s*\}/);
   assert.match(html, /t\.pendingTask\?\.controller/);
   assert.match(html, /data-plan-action="raw"/);
   assert.match(html, /data-plan-action="cancel"/);

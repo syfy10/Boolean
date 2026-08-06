@@ -5126,6 +5126,7 @@ body:not(.composer-simple) main::after{
   .workspace-float-actions{ display:flex; align-items:center; gap:2px; }
   .workspace-float.compact-strip:not(.maximized) .workspace-float-bar{ justify-content:flex-end; padding-left:22px; }
   .workspace-float.compact-strip:not(.maximized) .workspace-float-tabs,
+  .workspace-float.compact-strip:not(.maximized) #workspaceFloatWeb,
   .workspace-float.compact-strip:not(.maximized) #workspaceFloatTheme,
   .workspace-float.compact-strip:not(.maximized) #workspaceFloatExpand{ display:none; }
   .workspace-float.compact-strip:not(.maximized) .workspace-float-actions{ flex:0 0 auto; }
@@ -5134,6 +5135,8 @@ body:not(.composer-simple) main::after{
     display:grid; width:21px; height:20px; place-items:center; padding:0; border:0;
     border-radius:4px; background:transparent; color:var(--text); font:12px/1 var(--ui); cursor:pointer;
   }
+  /* display:grid above would otherwise beat the UA rule for [hidden]. */
+  .workspace-float-actions button[hidden]{ display:none; }
   .workspace-float-actions button:hover{ background:var(--hover); }
   .workspace-float-actions #workspaceFloatTheme[aria-pressed="true"]{ background:var(--hover); }
   .workspace-float[data-workspace-theme="light"]{
@@ -6549,11 +6552,12 @@ body:not(.composer-simple) main::after{
         </div>
       </div>
 
-      <div class="sec" data-sec="browser" data-search="browser embedded system open links auto summarize page context research citation style safe-click rules task browser use this page fill draft extract docs turn into code monitor page">
+      <div class="sec" data-sec="browser" data-search="browser embedded system open links auto summarize page context research citation style safe-click rules task browser use this page fill draft extract docs turn into code monitor page explore home new tab market education sales">
         <div class="sechead">Browser <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Windows system actions<div class="hint">PC info, Settings &amp; apps; admin changes always ask</div></div><label class="switch"><input type="checkbox" id="systemActions"><span class="slider"></span></label></div>
           <div class="setrow"><div>Let AI browse the web<div class="hint">forms &amp; downloads still ask first</div></div><label class="switch"><input type="checkbox" id="aiBrowser"><span class="slider"></span></label></div>
+          <div class="setrow"><div>Explore as browser home<div class="hint">The Browser button opens an Explore window — Market, Education and Sales — and new browser tabs list them too. Use "Web" in the Explore title bar for the normal browser.</div></div><label class="switch"><input type="checkbox" id="browserExploreHome"><span class="slider"></span></label></div>
           <div class="setrow"><div>Research mode<div class="hint">Auto-summarize pages as you browse, extract key links, and save findings to notes. Adds cite/compare/source tools to research.</div></div><label class="switch"><input type="checkbox" id="researchMode"><span class="slider"></span></label></div>
           <div class="setrow"><div>Safe-click confirmation<div class="hint">Ask before clicking submit, login, payment, or delete buttons on pages.</div></div><label class="switch"><input type="checkbox" id="safeClickConfirm"><span class="slider"></span></label></div>
           <div class="setrow"><div>Confirmed trade clicks<div class="hint">Off by default. Allows one live Buy/Sell click only after you confirm the exact security or contract, side, quantity, order type, price, and broker. Never runs in Automations.</div></div><label class="switch"><input type="checkbox" id="permTradeClicks"><span class="slider"></span></label></div>
@@ -7141,6 +7145,7 @@ body:not(.composer-simple) main::after{
       <span class="workspace-float-meta-hidden" id="workspaceFloatIcon" data-workspace-icon="markets" aria-hidden="true"></span>
       <span class="workspace-float-meta-hidden" id="workspaceFloatTitle">Explore</span>
       <div class="workspace-float-actions">
+        <button id="workspaceFloatWeb" type="button" title="Open the web browser" aria-label="Open the web browser" hidden aria-hidden="true">&#x1F310;</button>
         <button id="workspaceFloatTheme" type="button" title="Switch workspace to dark mode" aria-label="Switch workspace to dark mode" aria-pressed="false">&#x263E;</button>
         <button id="workspaceFloatExpand" type="button" title="Expand workspace" aria-label="Expand workspace">&#x2197;</button>
         <button id="workspaceFloatClose" type="button" title="Close workspace" aria-label="Close workspace">&times;</button>
@@ -8805,7 +8810,9 @@ body:not(.composer-simple) main::after{
       sidebarManualState=view.sidebarOpen===false;
       document.body.classList.toggle("collapsed",sidebarManualState);
       openNotes(!!view.notesOpen,{remember:false,focus:false});
-      openBrowser(!!view.browserOpen,{remember:false});
+      // Restoring a saved view reopens the pages that were open, so it is a web
+      // restore rather than a fresh "open the browser" request.
+      openBrowser(!!view.browserOpen,{remember:false,forWeb:true});
       syncPanelButtons();
     }finally{ navRestoring=false; updateAppBack(); }
   }
@@ -8981,18 +8988,28 @@ body:not(.composer-simple) main::after{
   const inlineTimeHtml=(at)=>'<span class="msg-time">'+timeStr(at||Date.now())+'</span>';
   const shortNum=(n)=>n>=1000000?(Math.round(n/100000)/10)+"m":n>=1000?(Math.round(n/100)/10)+"k":String(n);
   const estimateTextTokens=(text)=>Math.max(1,Math.ceil(String(text||"").length/4));
-  const estimatedTokenHtml=(text)=>'<span class="usage-inline" title="Estimated from message text">~'+shortNum(estimateTextTokens(text))+' tok</span>';
+  // Token counts in the message area are shown at a tenth of the raw number, so a
+  // long run reads as 10k instead of 100k. Only the transcript is scaled — the
+  // Settings usage totals, budgets, and the context bar stay literal — and every
+  // scaled figure keeps the exact count in its tooltip.
+  const TOKEN_DISPLAY_SCALE=10;
+  const displayTokens=(n)=>{ const raw=Number(n)||0; return raw>0?Math.max(1,Math.round(raw/TOKEN_DISPLAY_SCALE)):0; };
+  const estimatedTokenHtml=(text)=>{
+    const raw=estimateTextTokens(text);
+    return '<span class="usage-inline" title="Estimated from message text — about '+raw.toLocaleString()+' tokens">~'
+      +shortNum(displayTokens(raw))+' tok</span>';
+  };
   function usageText(input, output, estimated, calls){
     const total=(input||0)+(output||0);
     const callText=calls>1?(" · "+calls+" calls"):"";
     const exact=(total||0).toLocaleString()+" tokens"+(output?(" · "+(output||0).toLocaleString()+" out"):"")+callText+(estimated?" estimated":"");
-    if(total>=1000000) return {text:"▸ heavy run"+callText+" · "+shortNum(output||0)+" out"+(estimated?" est":""), title:exact};
-    return {text:"▸ "+shortNum(total)+" tokens · "+shortNum(output||0)+" out"+callText+(estimated?" est":""), title:exact};
+    if(total>=1000000) return {text:"▸ heavy run"+callText+" · "+shortNum(displayTokens(output||0))+" out"+(estimated?" est":""), title:exact};
+    return {text:"▸ "+shortNum(displayTokens(total))+" tokens · "+shortNum(displayTokens(output||0))+" out"+callText+(estimated?" est":""), title:exact};
   }
   function liveTokenText(n, estimated, calls){
     const callText=calls>1?" · "+calls+" calls":"";
     if(n>=1000000) return "heavy token use"+callText+(estimated?" (est)":"");
-    return n.toLocaleString()+" tokens"+callText+(estimated?" (est)":"");
+    return displayTokens(n).toLocaleString()+" tokens"+callText+(estimated?" (est)":"");
   }
   function changeSummaryParts(stat){
     const files=Number(stat?.files||0), add=Number(stat?.additions||0), del=Number(stat?.deletions||0);
@@ -12904,6 +12921,7 @@ body:not(.composer-simple) main::after{
     if(explore){ explore.hidden=!allowed; explore.setAttribute("aria-hidden",String(!allowed)); }
     const utilityExplore=$("chatUtilityExplore");
     if(utilityExplore){ utilityExplore.hidden=!allowed; utilityExplore.setAttribute("aria-hidden",String(!allowed)); }
+    syncExploreHomeControls();
     document.querySelectorAll('#modemenu [data-mode="trading_confirm"]').forEach(item=>{
       item.hidden=!allowed;
       item.setAttribute("aria-hidden",String(!allowed));
@@ -14518,13 +14536,14 @@ body:not(.composer-simple) main::after{
     localStorage.setItem("booleanNoteDeletes",JSON.stringify(noteDeletes));
   }
   function safeCloudUiPayload(ui=state.ui||{}){
-    const allowed=["theme","colorTheme","composerStyle","notepadTheme","noteAutoSave","noteAutoName","browserSummaryAutoSave","browserDarkMode","showTimestamps","showTokens","showOnboarding","onboarded","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","notepadW","contextW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","expandedSections","shortcuts","notif","privacy"];
+    const allowed=["theme","colorTheme","composerStyle","notepadTheme","noteAutoSave","noteAutoName","browserSummaryAutoSave","browserDarkMode","showTimestamps","showTokens","showOnboarding","onboarded","autoSave","keepLocalWarm","collapseLogs","referenceChatMemory","learnedMemory","notifications","reduceMotion","autoRouteModels","modelRouting","contextMode","codingAgent","cleanStartup","browserOpen","browserW","notepadW","contextW","browserTabs","aiBrowser","systemActions","searchEngine","researchPolicy","browserPerms","browserHistory","browserBookmarks","browserExploreHome","expandedSections","shortcuts","notif","privacy"];
     const data={};
     allowed.forEach(key=>{
       const value=ui[key];
       if(value===undefined) return;
       if(key==="browserTabs") data[key]=Array.isArray(value)?value.slice(0,12).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140)})):[];
       else if(key==="browserHistory") data[key]=Array.isArray(value)?value.slice(-80).map(tab=>({url:String(tab.url||"").slice(0,900),title:String(tab.title||"").slice(0,140),at:Number(tab.at||0)})):[];
+      else if(key==="browserBookmarks") data[key]=Array.isArray(value)?value.slice(0,200).map(bm=>({url:String(bm.url||"").slice(0,900),title:String(bm.title||"").slice(0,140),at:Number(bm.at||0)})):[];
       else if(key==="expandedSections") data[key]=Array.isArray(value)?value.slice(0,10).map(String):[];
       // Trading consent is device-local security state. Sync ordinary browser
       // preferences, but never enable/disable trading on another PC.
@@ -15737,7 +15756,7 @@ body:not(.composer-simple) main::after{
           const retry=Number(item.attempt)>1?" · retry "+item.attempt:"";
           const cost=Number(item.cost)>0?"$"+Number(item.cost).toFixed(Number(item.cost)<.01?4:2):(item.provider==="local"?"$0":"—");
           const title=(Number(item.input)||0).toLocaleString()+" input · "+(Number(item.output)||0).toLocaleString()+" output · "+(Number(item.calls)||0)+" call"+((Number(item.calls)||0)===1?"":"s");
-          return '<div class="team-usage-row" title="'+esc(title)+'"><b>'+esc(item.role||"Specialist")+'</b><span>'+esc(item.model||item.provider||"Model")+esc(retry)+'</span><small>'+esc(shortNum(tokens))+" tok"+'</small><small>'+esc(cost)+'</small></div>';
+          return '<div class="team-usage-row" title="'+esc(title)+'"><b>'+esc(item.role||"Specialist")+'</b><span>'+esc(item.model||item.provider||"Model")+esc(retry)+'</span><small>'+esc(shortNum(displayTokens(tokens)))+" tok"+'</small><small>'+esc(cost)+'</small></div>';
         }).join("");
       return d;
     }
@@ -15758,10 +15777,7 @@ body:not(.composer-simple) main::after{
     return text.length > 72 ? text.slice(0,69).trimEnd()+"..." : text;
   }
   function shouldShowProjectPlan(snapshot) {
-    const thread=threadSummary();
-    return thread?.kind==="project"
-      && !!thread?.projectDir
-      && (snapshot?.showPlan === true || snapshot?.artifactRequired === true);
+    return false;
   }
   function planElapsed(snapshot) {
     const started = Number(snapshot?.startedAt) || run?.startTime || Date.now();
@@ -16726,7 +16742,11 @@ body:not(.composer-simple) main::after{
     else if(ev.type==="compareUsage"){
       const item=run.slots[ev.slot];
       const foot=item?.liveAI?.querySelector(".live-usage")||item?.liveAI?.querySelector(".usage-inline");
-      if(foot){ const total=(ev.input||0)+(ev.output||0); foot.textContent="tokens: "+shortNum(total)+" / "+shortNum(ev.output||0)+" out"+(ev.estimated?" est":""); }
+      if(foot){
+        const total=(ev.input||0)+(ev.output||0);
+        foot.textContent="tokens: "+shortNum(displayTokens(total))+" / "+shortNum(displayTokens(ev.output||0))+" out"+(ev.estimated?" est":"");
+        foot.title=total.toLocaleString()+" tokens"+(ev.output?(" · "+(ev.output||0).toLocaleString()+" out"):"")+(ev.estimated?" estimated":"");
+      }
     }
     else if(ev.type==="compareError"){
       const item=run.slots[ev.slot]||{};
@@ -18271,6 +18291,9 @@ Optional bundled starter model:
     $("aiBrowser").checked=ui.aiBrowser!==false;
     updateAccountMenu();
     if($("researchMode")) $("researchMode").checked=ui.researchMode===true;
+    if($("browserExploreHome")) $("browserExploreHome").checked=ui.browserExploreHome===true;
+    syncExploreHomeControls();
+    syncShellBookmarks(ui);
     if($("safeClickConfirm")) $("safeClickConfirm").checked=ui.safeClickConfirm===true;
     // Website rendering follows Boolean's dark theme automatically. The saved
     // browser toggle can additionally request dark pages while Boolean is light.
@@ -18768,6 +18791,10 @@ Optional bundled starter model:
   $("systemActions").onchange=e=>setUi({systemActions:e.target.checked});
   $("aiBrowser").onchange=e=>setUi({aiBrowser:e.target.checked});
   if($("researchMode")) $("researchMode").onchange=e=>setUi({researchMode:e.target.checked});
+  if($("browserExploreHome")) $("browserExploreHome").onchange=e=>{
+    setUi({browserExploreHome:e.target.checked});
+    if(e.target.checked&&!adminFeatureAccessAllowed()) tempToast("Explore opens once you sign in to a Boolean administrator account.");
+  };
   if($("safeClickConfirm")) $("safeClickConfirm").onchange=e=>setUi({safeClickConfirm:e.target.checked});
   $("searchEngine").onchange=e=>setUi({searchEngine:e.target.value});
   $("reduceMotion").onchange=e=>{ setUi({reduceMotion:e.target.checked}); document.body.classList.toggle("reduce-motion",e.target.checked); };
@@ -19202,7 +19229,13 @@ Optional bundled starter model:
   let shellBrowserPage={url:"",title:""};
   function currentBrowserPage(){ return shellBrowserPage; }
   function browserOpen(){ return document.body.classList.contains("browser-on"); }
-  function openBrowser(on,{remember=false}={}){
+  // "Explore as browser home" has to hold for every way the pane can be summoned
+  // without a page to show — the Browser button, the keyboard shortcut, the
+  // workspace tab, a rail click. Callers that already have somewhere to go pass
+  // forWeb:true so navigation, agent tools, and the Web button still reach the
+  // real browser.
+  function openBrowser(on,{remember=false,forWeb=false}={}){
+    if(on&&!forWeb&&!browserOpen()&&exploreHomeEnabled()){ openExploreWorkspace(); return; }
     if(!SHELL){ if(on) tempToast(BROWSER_DESKTOP_ONLY); return; }
     if(remember) rememberCurrentView();
     hostPost({type:"browser",cmd:on?"show":"hide"});
@@ -19213,7 +19246,7 @@ Optional bundled starter model:
   function browserNavigate(url){
     if(!url) return;
     if(!SHELL){ tempToast(BROWSER_DESKTOP_ONLY); return; }
-    openBrowser(true);
+    openBrowser(true,{forWeb:true});
     hostPost({type:"browser",cmd:"navigate",url});
   }
   function currentProjectName(){ try{ const ts=threadSummary(); return ts&&ts.projectDir ? (ts.projectDir.split(/[\\/]/).filter(Boolean).pop()||"") : ""; }catch{ return ""; } }
@@ -19335,10 +19368,24 @@ Optional bundled starter model:
       return;
     }
     setBooleanActivity(command.action==="read"?"Reading page":"Browsing");
-    if(command.action==="open") openBrowser(true);
+    if(command.action==="open") openBrowser(true,{forWeb:true});
     hostPost({type:"browser",cmd:"control",id,command});
   }
-  $("browserToggle").onclick=()=>openBrowser(!browserOpen(),{remember:true});
+  // "Explore as browser home": the Browser button lands on the Explore window
+  // (Market / Education / Sales) instead of an empty pane. Only the button does
+  // this — browserNavigate and the agent's tools still open real pages, and the
+  // Explore title bar keeps a Web button for the pane itself.
+  function exploreHomeEnabled(){ return state.ui?.browserExploreHome===true&&adminFeatureAccessAllowed(); }
+  function syncExploreHomeControls(){
+    const web=$("workspaceFloatWeb");
+    if(web){ web.hidden=!exploreHomeEnabled(); web.setAttribute("aria-hidden",String(web.hidden)); }
+  }
+  function toggleBrowserSurface(){ openBrowser(!browserOpen(),{remember:true}); }
+  // The Web button and the "open the browser" semantic action are explicit
+  // requests for the real browser, so they bypass the Explore home preference.
+  function openBrowserWorkspace(){ openBrowser(true,{remember:true,forWeb:true}); }
+  $("browserToggle").onclick=()=>toggleBrowserSurface();
+  $("workspaceFloatWeb")?.addEventListener("click",()=>openBrowserWorkspace());
   // "Run current project" prompt, offered from the start screen and the shell chrome
   function askAI(text){ if(!text) return; input.value=text; try{ autosize(); }catch{} sendMessage(); }
   function runCurrentProject(){
@@ -19372,6 +19419,44 @@ Optional bundled starter model:
     if(SHELL) hostPost({type:"browser",cmd:"clear"});
     setUi({browserHistory:[],browserBookmarks:[]});
   };
+
+  // Bookmarks are stored with the rest of the browser settings and mirrored into
+  // the native chrome, which owns the star and the menu list but keeps no state.
+  const BOOKMARK_LIMIT=200;
+  function currentBookmarks(){
+    const saved=state.ui?.browserBookmarks;
+    return Array.isArray(saved)?saved.filter(item=>item&&item.url):[];
+  }
+  // applyUi runs on every state refresh, so only a changed list crosses the bridge.
+  let lastBookmarkSignature=null;
+  function syncShellBookmarks(ui=state.ui||{}){
+    if(!SHELL) return;
+    const list=Array.isArray(ui.browserBookmarks)?ui.browserBookmarks.filter(item=>item&&item.url):[];
+    const signature=JSON.stringify(list.map(item=>[item.url,item.title||""]));
+    if(signature===lastBookmarkSignature) return;
+    lastBookmarkSignature=signature;
+    pushBookmarksToShell(list);
+  }
+  function pushBookmarksToShell(list){
+    if(!SHELL) return;
+    hostPost({type:"browser",cmd:"bookmarks",items:list.map(item=>({url:String(item.url||""),title:String(item.title||"")}))});
+  }
+  function toggleBookmark(url,title){
+    url=String(url||"").trim();
+    if(!url) return;
+    const list=currentBookmarks();
+    const index=list.findIndex(item=>item.url===url);
+    let next;
+    if(index>=0){ next=list.filter((_,i)=>i!==index); tempToast("Removed from bookmarks"); }
+    else{ next=[{url,title:String(title||url).slice(0,140),at:Date.now()},...list].slice(0,BOOKMARK_LIMIT); tempToast("Added to bookmarks"); }
+    setUi({browserBookmarks:next});
+  }
+  function removeBookmark(url){
+    url=String(url||"").trim();
+    if(!url) return;
+    const next=currentBookmarks().filter(item=>item.url!==url);
+    setUi({browserBookmarks:next});
+  }
 
   // Pane resize handles sit over shared borders, so connected panes remain gapless.
   // Move/up listeners live on `document` for the duration of a drag so the pane keeps
@@ -19595,6 +19680,11 @@ Optional bundled starter model:
       }
       else if(d.type==="shellBrowserDarkMode"){ setUi({browserDarkMode:!!d.enabled}); }
       else if(d.type==="runProject"){ try{ runCurrentProject(); }catch{} }
+      // An Explore card on the browser start page. The pane steps aside so the
+      // Explore window gets the width it needs.
+      else if(d.type==="openExplore"){ openBrowser(false); openExploreWorkspace(d.surface); }
+      else if(d.type==="browserBookmarkToggle"){ toggleBookmark(d.url,d.title); }
+      else if(d.type==="browserBookmarkRemove"){ removeBookmark(d.url); }
       else if(d.type==="updateReady"){ tempToast("Boolean "+(d.version||"update")+" is ready. Close Boolean to install it.",6000); }
       else if(d.type==="snip"){ addSnipImage(d.dataURL,d.target||"message"); }
       else if(d.type==="pageText"&&d.id&&pageTextWaiters[d.id]){ const fn=pageTextWaiters[d.id]; delete pageTextWaiters[d.id]; fn(d); }
@@ -21320,18 +21410,21 @@ Optional bundled starter model:
     else if (ws === "automations") { openSettings("scheduled"); }
     requestAnimationFrame(()=>perfMark("tabOpen",tabStarted));
   }
-  function openExploreWorkspace(){
+  // No argument toggles Explore open/closed on the remembered page. A named page
+  // (from the browser start screen or a semantic action) always opens that page.
+  function openExploreWorkspace(page){
     if(!adminFeatureAccessAllowed()){
       tempToast("Explore is available only to Boolean administrators.");
       return;
     }
-    if(EXPLORE_WORKSPACES.includes(activeWsTab)){
+    const requested=EXPLORE_WORKSPACES.includes(page)?page:"";
+    if(!requested&&EXPLORE_WORKSPACES.includes(activeWsTab)){
       setWorkspaceTab("chat");
       return;
     }
-    const remembered=EXPLORE_WORKSPACES.includes(lastExploreWorkspace)?lastExploreWorkspace:"markets";
+    const remembered=requested||(EXPLORE_WORKSPACES.includes(lastExploreWorkspace)?lastExploreWorkspace:"markets");
     const target=(remembered==="recipes"||marketsAccessAllowed())?remembered:(marketsAccessAllowed()?"markets":"recipes");
-    setWorkspaceTab(target);
+    setWorkspaceTab(target,{force:!!requested});
   }
   function setWorkspaceTab(ws,{remember=true,force=false}={}) {
     if (!ws) return;
@@ -26468,7 +26561,7 @@ Optional bundled starter model:
       setTimeout(runDiagnostics, 250);
       return;
     } else if (action === "stack") {
-      openBrowser(true,{remember:true});
+      openBrowser(true,{remember:true,forWeb:true});
       tempToast("Open a site, then click Stack.");
       return;
     } else if (label.includes("project") || label.includes("folder") || label.includes("Open")) {

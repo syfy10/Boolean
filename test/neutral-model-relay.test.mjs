@@ -12,7 +12,7 @@ test("Boolean sends a provider-neutral operating policy and no fabricated person
     ui: { codingAgent: { mode: "deep", autoTest: true, autoCommit: true } }
   });
   assert.ok(prompt.startsWith(booleanAgentPolicy()));
-  assert.match(prompt, /PLANNING MODE: AUTO/);
+  assert.doesNotMatch(prompt, /PLANNING MODE|wait for one user approval/i);
   assert.equal(BOOLEAN_AGENT_RULES.length >= 10, true);
   assert.match(prompt, /latest user request/i);
   assert.match(prompt, /deploy.*require user authority/i);

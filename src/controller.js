@@ -531,10 +531,10 @@ export class AgentController {
       ...(Array.isArray(saved.constraints) ? saved.constraints.map((item) => cleanText(item, 260)) : []),
       ...extractConstraints(this.taskContext)
     ])].filter((item) => item && !permissionRestrictionSuperseded(item, permissionAuthority)).slice(-10);
-    this.phase = saved.phase || (this.artifactRequired ? "planning" : "executing");
-    this.plan = (this.artifactRequired || this.actionRequired)
-      ? normalizePlan(saved.plan, this.projectBound, this.debugRequired, this.objective)
-      : [];
+    this.phase = saved.phase === "planning" ? "executing" : (saved.phase || "executing");
+    // Models own their working method. Boolean tracks actual activity and safety
+    // state, but no longer invents or restores a product-authored task checklist.
+    this.plan = [];
     this.toolCount = Number(saved.toolCount) || 0;
     this.preparationCount = Number(saved.preparationCount) || 0;
     this.inspectionCount = Number(saved.inspectionCount) || 0;
@@ -642,7 +642,7 @@ export class AgentController {
       debugRequired: this.debugRequired,
       actionRequired: this.actionRequired,
       projectBound: this.projectBound,
-      showPlan: this.artifactRequired,
+      showPlan: false,
       phase: this.phase,
       plan: this.plan.map((item) => ({ ...item })),
       toolCount: this.toolCount,

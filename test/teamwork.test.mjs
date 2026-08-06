@@ -260,3 +260,60 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.doesNotMatch(ui, /â|Ã|Â|ð/);
   assert.match(ui, /id="teambtn"[^>]*>Solo <span class="chev">&#9660;<\/span>/);
 });
+
+// Specialists used to spawn from the classification alone, so a question Boolean
+// misread as a build burned three worker calls and left worker chips in the UI
+// before the lead had touched anything. The handoff now waits for a real change.
+test("specialists do not spawn until the lead actually changes something", async (t) => {
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    requests.push(body);
+    // The lead answers the question outright and never edits a file.
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "The one change I would make is caching the repository map." } }],
+      usage: { prompt_tokens: 90, completion_tokens: 20 }
+    }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-team-idle-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  const cfg = teamConfig(server.address().port, "team");
+  const steps = [];
+  const controllers = [];
+  const answer = await runTurn({
+    config: cfg,
+    projectDir,
+    forceNoArtifact: true,
+    approve: async () => true,
+    onStatus() {},
+    onStep(step) { steps.push(step); },
+    onController(controller) { controllers.push(controller); },
+    onUsage() {},
+    onCheckpoint() {}
+  }, [
+    { role: "system", content: systemPrompt(projectDir, true, cfg) },
+    { role: "user", content: "give 1 thing we can change to make this application better" }
+  ]);
+
+  assert.match(answer, /caching the repository map/);
+  assert.equal(steps.filter((step) => step.name === "team_worker").length, 0, "no specialist may run for a turn that changed nothing");
+  assert.ok(
+    !requests.some((body) => (body.messages || []).some((message) => /supporting a lead coding agent/i.test(String(message.content || "")))),
+    "no worker prompt may reach a model"
+  );
+  assert.ok(
+    !requests.some((body) => (body.messages || []).some((message) => /BOOLEAN TEAM HANDOFF/.test(String(message.content || "")))),
+    "no team handoff may be injected"
+  );
+  assert.notEqual(controllers.at(-1)?.showPlan, true, "a turn that ran no tool must not raise a step plan");
+});

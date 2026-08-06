@@ -164,7 +164,7 @@ test("opening Settings closes Recipes instead of stacking panels", () => {
   assert.match(html, /closeWorkspaceTab\(activeWsTab\)/);
   assert.match(html, /markWorkspaceTab\(settingsWs\|\|"chat"\)/);
   assert.match(html, /if\(opening\) prepareWorkspaceForSettings\(null\)/);
-  assert.match(html, /function openSettings\(sec,\{remember=true\}=\{\}\)\{\s*prepareWorkspaceForSettings\(sec\)/);
+  assert.match(html, /function openSettings\(sec,\{remember=true\}=\{\}\)\{[\s\S]*?closeAccountMenu\(\);closeNavigationMenu\(\);[\s\S]*?prepareWorkspaceForSettings\(sec\)/);
 });
 
 test("Recipes explain effects, prerequisites, and action safety before starting", () => {

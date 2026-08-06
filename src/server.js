@@ -2079,9 +2079,34 @@ export function startServer(config, {
 
   // Entry page for the built-in browser. Kept deliberately small and dependency
   // free: local servers first (the thing you almost always want), then links.
-  const browserStartPage = (servers) => {
+  const browserStartPage = (servers, { explore = false, bookmarks = [] } = {}) => {
     const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    // With "Explore as browser home" on, every new tab leads with the three
+    // Explore surfaces. They are app UI, not web pages, so the cards ask the
+    // shell (which owns both this pane and the chat WebView) to open them.
+    const exploreCards = [
+      ["markets", "Market", "Quotes, movers, screeners and research"],
+      ["education", "Education", "Practice exams and study sessions"],
+      ["sales", "Sales", "Research a company and build an outreach plan"]
+    ].map(([id, label, desc]) => `<button class="exp" data-surface="${id}">
+          <span class="nm">${label}</span>
+          <span class="ds">${desc}</span>
+          <span class="go">▷</span>
+        </button>`).join("");
+    const exploreBlock = explore
+      ? `<h1>Explore</h1><div class="list">${exploreCards}</div>`
+      : "";
+    const exploreScript = explore
+      ? `<script>
+document.querySelectorAll(".exp").forEach(function(b){
+  b.addEventListener("click",function(){
+    try{ window.chrome.webview.postMessage({type:"exploreSurface",surface:b.dataset.surface}); }
+    catch(e){ b.classList.add("off"); }
+  });
+});
+</script>`
+      : "";
     const cards = servers.length
       ? servers.map((s) => `<a class="srv" href="${esc(s.url)}">
           <span class="ico">▤</span>
@@ -2096,6 +2121,12 @@ export function startServer(config, {
       ["https://stackoverflow.com", "Stack Overflow"],
       ["https://developer.mozilla.org", "MDN"]
     ].map(([u, l]) => `<a class="lnk" href="${u}">${l}</a>`).join("");
+    const saved = bookmarks
+      .filter((b) => b && typeof b.url === "string" && /^https?:\/\//i.test(b.url))
+      .slice(0, 24)
+      .map((b) => `<a class="lnk" href="${esc(b.url)}" title="${esc(b.url)}">${esc(b.title || b.url)}</a>`)
+      .join("");
+    const savedBlock = saved ? `<h1>Bookmarks</h1><div class="links">${saved}</div>` : "";
     return `<!doctype html><html><head><meta charset="utf-8"><title>New tab</title><style>
 :root{color-scheme:light dark}
 *{box-sizing:border-box}
@@ -2119,10 +2150,20 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 .lnk{padding:6px 13px;border:1px solid #e2e2df;border-radius:999px;color:inherit;text-decoration:none;font-size:13px;opacity:.8}
 .lnk:hover{opacity:1}
 @media(prefers-color-scheme:dark){.lnk{border-color:#3a3a3a}}
+.exp{display:flex;align-items:center;gap:12px;width:100%;padding:13px 15px;border:1px solid #e2e2df;border-radius:11px;
+  background:#fff;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,transform .08s}
+.exp:hover{border-color:#9a9a95}
+.exp:active{transform:translateY(1px)}
+.exp .ds{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.55}
+.exp.off{opacity:.5;cursor:default}
+@media(prefers-color-scheme:dark){.exp{background:#242424;border-color:#3a3a3a}.exp:hover{border-color:#5a5a5a}}
 </style></head><body>
+${exploreBlock}
 <h1>Running locally</h1>
 <div class="list">${cards}</div>
+${savedBlock}
 <div class="links">${links}</div>
+${exploreScript}
 </body></html>`;
   };
 
@@ -2204,6 +2245,16 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     width:100%;text-align:left;color:var(--text);font-size:12.5px}
   .mi:hover{background:var(--hover)}
   .sep{height:1px;margin:5px 6px;background:var(--border)}
+  /* bookmarks list inside the overflow menu */
+  .bms{max-height:210px;overflow-y:auto;scrollbar-color:var(--dim) transparent}
+  .bms:empty{display:none}
+  .bm{display:flex;align-items:center;gap:6px;height:28px;padding:0 6px 0 10px;border-radius:8px;color:var(--text)}
+  .bm:hover{background:var(--hover)}
+  .bm .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;text-align:left}
+  .bm .x{display:grid;place-items:center;width:18px;height:18px;border-radius:6px;font-size:13px;color:var(--dim);flex:none;opacity:0}
+  .bm:hover .x{opacity:1}
+  .bm .x:hover{background:color-mix(in srgb,var(--text) 12%,transparent);color:var(--text)}
+  .bmnone{padding:4px 10px 6px;color:var(--dim);font-size:11.5px}
   .devw{display:none;align-items:center;height:26px;padding:0 8px;border-radius:7px;background:var(--card);
     color:var(--dim);font:11px/1 ui-monospace,Consolas,monospace;white-space:nowrap}
   .devw.on{display:flex}
@@ -2233,6 +2284,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       <span class="devw" id="devw" title="Preview width — drag the preview's right edge to change it"></span>
       <button class="ico" id="run" title="Run current project">&#x25B6;</button>
       <button class="ico" id="darkPage" title="Dark mode for websites" aria-pressed="false">&#x263E;</button>
+      <button class="ico" id="star" title="Bookmark this page" aria-pressed="false">&#x2606;</button>
       <div class="addr">
         <input id="url" placeholder="Search or enter a URL" spellcheck="false" autocomplete="off">
         <button class="clr" id="clr" title="Clear">&times;</button>
@@ -2245,6 +2297,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     <button class="mi" data-a="newTab">New tab</button>
     <button class="mi" data-a="closeTab">Close current tab</button>
     <button class="mi" data-a="closeOthers">Close other tabs</button>
+    <div class="sep"></div>
+    <button class="mi" data-a="bookmark">Bookmark this page</button>
+    <div class="bms" id="bms"></div>
     <div class="sep"></div>
     <button class="mi" data-a="sendPageAI">Send page to AI</button>
     <button class="mi" data-a="sendSelMsg">Send selection to message</button>
@@ -2277,6 +2332,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     $("device").onclick = function(){ act("device"); };
     $("run").onclick    = function(){ act("run"); };
     $("darkPage").onclick = function(){ act("darkPage"); };
+    $("star").onclick   = function(){ act("bookmark"); };
     $("add").onclick    = function(){ act("newTab"); };
     $("full").onclick   = function(){ act("hideChat"); };
     $("browserClose").onclick = function(){ act("hideBrowser"); };
@@ -2342,6 +2398,29 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         host.appendChild(b);
       });
     }
+    // Saved pages, newest first. Opening one takes a new tab; the × removes it
+    // without closing the menu, so several can be cleaned up in one pass.
+    function renderBookmarks(list){
+      var host = $("bms"); host.innerHTML="";
+      if(!list || !list.length){
+        var none = document.createElement("div");
+        none.className="bmnone"; none.textContent="No bookmarks yet";
+        host.appendChild(none);
+        return;
+      }
+      list.forEach(function(b){
+        var row = document.createElement("div");
+        row.className="bm"; row.title=b.url;
+        var t = document.createElement("span"); t.className="t"; t.textContent=b.title||b.url; row.appendChild(t);
+        var x = document.createElement("span"); x.className="x"; x.innerHTML="&times;"; x.title="Remove bookmark"; row.appendChild(x);
+        row.addEventListener("click", function(e){
+          if(e.target===x){ e.stopPropagation(); act("bookmarkRemove",{url:b.url}); return; }
+          act("bookmarkOpen",{url:b.url});
+          setMenu(false);
+        });
+        host.appendChild(row);
+      });
+    }
     function applyTheme(dark, surface){
       var r = document.documentElement;
       r.style.colorScheme = dark ? "dark" : "light";
@@ -2364,6 +2443,15 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       $("darkPage").classList.toggle("on", !!s.darkPage);
       $("darkPage").setAttribute("aria-pressed", s.darkPage ? "true" : "false");
       $("darkPage").title = s.darkPage ? "Turn off website dark mode" : "Dark mode for websites";
+      renderBookmarks(s.bookmarks);
+      var star = $("star");
+      star.innerHTML = s.bookmarked ? "\\u2605" : "\\u2606";
+      star.classList.toggle("on", !!s.bookmarked);
+      star.setAttribute("aria-pressed", s.bookmarked ? "true" : "false");
+      star.title = s.bookmarked ? "Remove bookmark" : "Bookmark this page";
+      star.disabled = !s.url;
+      var bmItem = dd.querySelector('[data-a="bookmark"]');
+      if(bmItem) bmItem.textContent = s.bookmarked ? "Remove bookmark" : "Bookmark this page";
       $("zpct").textContent = (s.zoom||100) + "%";
       var wm = $("wmax"); wm.innerHTML = s.maxed ? "\\uE923" : "\\uE922"; wm.title = s.maxed ? "Restore" : "Maximize";
     }
@@ -2496,7 +2584,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       objective: String(controller.objective || "").slice(0, 500),
       phase: String(controller.phase || ""),
       artifactRequired: controller.artifactRequired === true,
-      showPlan: controller.showPlan === true || controller.artifactRequired === true,
+      // The controller decides this once real work starts; artifactRequired alone
+      // is only a classification and must not raise a plan on its own.
+      showPlan: controller.showPlan === true,
       plan: controller.plan.slice(0, 40).map((step) => ({
         step: String(step?.step || "").slice(0, 300),
         status: ["pending", "in_progress", "done"].includes(step?.status) ? step.status : "pending"
@@ -3009,7 +3099,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         let servers = [];
         try { servers = await detectLocalServers({ excludePort: serverPort }); } catch { /* best effort */ }
         res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-        res.end(browserStartPage(servers));
+        res.end(browserStartPage(servers, {
+          explore: config.ui?.browserExploreHome === true,
+          bookmarks: Array.isArray(config.ui?.browserBookmarks) ? config.ui.browserBookmarks : []
+        }));
         return;
       }
 

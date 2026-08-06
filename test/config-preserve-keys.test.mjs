@@ -5,6 +5,20 @@ import { defaultConfig, hasAnySavedCredential, preserveSavedApiKeys, preserveSav
 
 const configSource = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 
+test("ordinary config saves preserve a signed-in Boolean account", () => {
+  const previous = {
+    cloudBackend: {
+      url: "https://api.boollm.com",
+      sessionToken: "saved-session",
+      user: { email: "admin@example.com", role: "admin" },
+      tokens: { plan: "pro" }
+    }
+  };
+  const next = { cloudBackend: {} };
+  preserveSavedApiKeys(next, previous);
+  assert.deepEqual(next.cloudBackend, previous.cloudBackend);
+});
+
 test("config saves preserve existing API keys when new payload has blanks", () => {
   const previous = {
     openai: { apiKey: "sk-openai" },

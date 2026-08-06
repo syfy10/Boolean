@@ -912,6 +912,7 @@ sealed class MainForm : Form
     int _port;
     volatile bool _corePrintedServing;
     string _homeUrl = "https://www.google.com";
+    readonly List<(string url, string title)> _bookmarks = new(); // mirrored from Settings by the chat UI
     readonly HttpClient _http = new(new HttpClientHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(3) };
     readonly string _logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "saz3", "logs");
     readonly string _updateDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "saz3", "updates");
@@ -1875,6 +1876,8 @@ try {
             maxed = WindowState == FormWindowState.Maximized,
             full = _full,
             tasks = specs,
+            bookmarks = _bookmarks.Select(b => new { url = b.url, title = b.title }).ToArray(),
+            bookmarked = !string.IsNullOrEmpty(t?.Url) && _bookmarks.Any(b => b.url == t!.Url),
             dark = _themeDark,
             darkPage = _browserDarkMode,
             surface = _themeSurface
@@ -1916,6 +1919,26 @@ try {
     void SelectTabById(int id) { var i = _tabs.FindIndex(x => x.Id == id); if (i >= 0) Activate(i); }
     void CloseTabById(int id) { var i = _tabs.FindIndex(x => x.Id == id); if (i >= 0) CloseTab(i); }
 
+    // Messages from a page inside the browser pane. The only page allowed to send
+    // any is Boolean's own start screen, whose Explore cards open Market,
+    // Education or Sales in the app window next to the pane.
+    void OnPageMessage(CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        try
+        {
+            var source = e.Source ?? "";
+            if (!source.StartsWith($"http://127.0.0.1:{_port}/", StringComparison.OrdinalIgnoreCase)) return;
+            using var doc = JsonDocument.Parse(e.WebMessageAsJson);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return;
+            if (!root.TryGetProperty("type", out var kind) || kind.GetString() != "exploreSurface") return;
+            var surface = root.TryGetProperty("surface", out var s) ? s.GetString() ?? "" : "";
+            if (surface != "markets" && surface != "education" && surface != "sales") return;
+            PostToChat(new { type = "openExplore", surface });
+        }
+        catch { }
+    }
+
     void OnChromeMessage(object? s, CoreWebView2WebMessageReceivedEventArgs e)
     {
         try
@@ -1952,6 +1975,24 @@ try {
                     _ = SetBrowserDarkModeAsync(!_browserDarkMode, notifyChat: true);
                     break;
                 case "task": SendBrowserTask(Task()); break;
+                // The star and the menu's bookmark list. Saving and deleting go
+                // through the chat UI, which owns the stored list and pushes the
+                // result back; opening one is pure navigation and stays here.
+                case "bookmark":
+                {
+                    var bt = Active();
+                    if (bt != null && !string.IsNullOrWhiteSpace(bt.Url))
+                        PostToChat(new { type = "browserBookmarkToggle", url = bt.Url, title = ChromeTabTitle(bt) });
+                    break;
+                }
+                case "bookmarkOpen":
+                    if (r.TryGetProperty("url", out var bmOpen) && bmOpen.GetString() is { Length: > 0 } bmOpenUrl)
+                        AddTab(bmOpenUrl, activate: true, navigate: true);
+                    break;
+                case "bookmarkRemove":
+                    if (r.TryGetProperty("url", out var bmDel) && bmDel.GetString() is { Length: > 0 } bmDelUrl)
+                        PostToChat(new { type = "browserBookmarkRemove", url = bmDelUrl });
+                    break;
                 case "zoomIn": Zoom(0.1); break;
                 case "zoomOut": Zoom(-0.1); break;
                 case "zoomReset": ResetZoom(); break;
@@ -2172,6 +2213,9 @@ try {
             ev.Handled = true;
             AddTab(ev.Uri, activate: true, navigate: true);
         };
+        // Only Boolean's own start page may talk to the shell from a browser tab.
+        // Every other site's messages are dropped before they are even parsed.
+        c.WebMessageReceived += (_, ev) => OnPageMessage(ev);
         c.ContextMenuRequested += (_, ev) =>
         {
             var text = ev.ContextMenuTarget.SelectionText?.Trim();
@@ -2749,6 +2793,25 @@ try {
                     {
                         _ = SendPageTextAsync(pageTextId);
                     }
+                    break;
+                // Bookmarks live in Boolean's settings, next to history and
+                // permissions. The chat UI owns that store and pushes the list
+                // here whenever it changes; the shell only mirrors it into the
+                // browser chrome.
+                case "bookmarks":
+                    _bookmarks.Clear();
+                    if (root.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in items.EnumerateArray())
+                        {
+                            if (item.ValueKind != JsonValueKind.Object) continue;
+                            var bmUrl = item.TryGetProperty("url", out var bu) ? bu.GetString() ?? "" : "";
+                            if (string.IsNullOrWhiteSpace(bmUrl)) continue;
+                            var bmTitle = item.TryGetProperty("title", out var bt) ? bt.GetString() ?? "" : "";
+                            _bookmarks.Add((bmUrl, string.IsNullOrWhiteSpace(bmTitle) ? bmUrl : bmTitle));
+                        }
+                    }
+                    PushChromeState();
                     break;
                 case "reloadPerms": ReadPerms(); break;
                 case "snip":

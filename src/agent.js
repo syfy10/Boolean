@@ -98,6 +98,43 @@ async function verifyAutoCompletion(config, route, workerTarget, objective, answ
   }
 }
 
+const ARTIFACT_INTENT_TIMEOUT_MS = 12000;
+
+// Keyword lists cannot separate "1 thing we can change" from "change this thing",
+// so the narrow overlap where the build words fire but the sentence reads as a
+// question gets one cheap model call instead of another regex. Every failure path
+// keeps the safe answer (advice): wrongly starting work is the expensive mistake,
+// and a wrongly conversational turn costs only a follow-up message.
+async function resolveArtifactIntent(config, text, signal) {
+  const request = String(text || "").trim();
+  if (!request) return { action: false, reason: "empty request" };
+  const candidate = handoffCandidates(config, "fast")[0];
+  if (!candidate) return { action: false, reason: "no connected model was available to classify intent" };
+  const aborter = new AbortController();
+  const abort = () => aborter.abort();
+  signal?.addEventListener?.("abort", abort);
+  const timer = setTimeout(abort, ARTIFACT_INTENT_TIMEOUT_MS);
+  try {
+    const resolved = await resolveProviderTarget(config, candidate.provider);
+    const target = candidate.model ? { ...resolved, model: candidate.model } : resolved;
+    const reply = await chatCompletion(target, [
+      {
+        role: "system",
+        content: "Classify one message sent to a coding assistant. Answer with only compact JSON: {\"intent\":\"action\"} when the user is telling the assistant to change, build, fix, or run something now. {\"intent\":\"advice\"} when the user is asking a question, or asking for ideas, opinions, options, or an explanation. A question that merely mentions a possible change is advice, not action."
+      },
+      { role: "user", content: request.slice(0, 1200) }
+    ], undefined, aborter.signal);
+    const intent = String(reply?.content || "").match(/"intent"\s*:\s*"(action|advice)"/i)?.[1]?.toLowerCase();
+    if (!intent) return { action: false, reason: "the intent check returned no verdict; treated as a question", target };
+    return { action: intent === "action", reason: `intent check: ${intent}`, target };
+  } catch (error) {
+    return { action: false, reason: `intent check unavailable (${String(error?.message || error).slice(0, 120)}); treated as a question` };
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener?.("abort", abort);
+  }
+}
+
 async function chatCompletionWithFallback(config, primaryTarget, messages, tools, signal, onToken, onStatus) {
   const startedAt = Date.now();
   let emitted = false;
@@ -185,17 +222,8 @@ function connectorSummary(config) {
   return parts.join(" | ");
 }
 
-function planningModePolicy(config = null) {
-  const saved = String(config?.ui?.codingAgent?.planningMode || "auto").toLowerCase();
-  const mode = ["auto", "quick", "plan-first"].includes(saved) ? saved : "auto";
-  const shared = "Inspect relevant project files and existing conventions before asking discoverable questions. Ask only questions whose wrong answer would cause discarded work. A plan is working state, not a reason to delay an answer or a safe implementation.";
-  if (mode === "quick") return `PLANNING MODE: QUICK\n${shared} For small, clear, low-risk changes, implement and verify immediately without stopping for a plan approval.`;
-  if (mode === "plan-first") return `PLANNING MODE: PLAN FIRST\n${shared} Before the first write or external action, present a compact Goal, Blocking questions (0-3, each with a recommended default), Assumptions, and Plan with files and verification. Then stop and wait for one user approval. After approval, execute that plan without requesting the same approval again. If implementation disproves a material assumption, stop and explain the changed evidence before changing direction.`;
-  return `PLANNING MODE: AUTO\n${shared} Work directly on clear requests. For complex work, keep a concise internal checklist and communicate progress, but pause only for a genuinely blocking choice, missing authority, or a risky external action that requires approval.`;
-}
-
 function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned, config = null) {
-  return `${booleanAgentPolicy()}\n\n${planningModePolicy(config)}`;
+  return booleanAgentPolicy();
 }
 
 export function systemPrompt(projectsDir = "", fullAccess = false, config = null) {
@@ -685,6 +713,48 @@ const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|
 const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do|replace|swap|apply|use|put|switch|rebrand|restyle|regenerate)\s+(?:it|this|that|those|them|all that|all of (?:it|that|those|them))(?:\s+for me)?\b/i;
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|whether|why|what (?:game|app|website)|how (?:can|could|would|do|does|to)|should (?:we|i|you)|would it)\b/i;
 const ANSWER_ONLY_REQUEST = /\b(?:do\s*not|don't|dont|no)\s+(?:make\s+)?(?:changes?|edits?|updates?|modify|write|touch|code)\b|\b(?:just|only)\s+(?:tell|explain|describe|summari[sz]e|review|show|list|answer)\b|\b(?:tell|explain|describe|summari[sz]e|review|show|list)\s+(?:me\s+)?(?:about|what|where|how|everything|the current|this project)\b/i;
+// A question ABOUT a change is not an instruction to make it. The verb lists
+// above cannot tell them apart — "1 thing we can change" and "change this thing"
+// share every keyword — so this reads sentence FORM instead, which is far more
+// stable than vocabulary. "Can you add X" is a question only in punctuation, so
+// polite commands are excluded before the advisory shapes are tested.
+const POLITE_COMMAND = /^\s*(?:so\s+|ok(?:ay)?[,\s]+|now\s+)?(?:please\s+)?(?:can|could|would|will)\s+(?:you|u|we)\b|\bplease\s+(?:add|build|change|create|edit|fix|implement|make|update|write|remove|delete|move|rename|replace|run|deploy|do)\b|\bgo\s+ahead\b|\bdo\s+it\b/i;
+const ADVISORY_REQUEST = new RegExp([
+  // opens with an interrogative or an opinion word
+  "^\\s*(?:what|why|which|who|when|where|how|should|is|are|was|were|do|does|did|any|thoughts?|opinion)\\b",
+  // asks for a quantity of ideas: "give 1 thing", "list a few improvements"
+  "\\b(?:give|list|name|show|suggest|recommend|share)\\s+(?:me\\s+)?(?:\\d+|a|an|one|two|three|some|a few|the top|your)?\\s*(?:thing|things|idea|ideas|change|changes|improvement|improvements|suggestion|suggestions|option|options|recommendation|recommendations|way|ways|thought|thoughts)\\b",
+  // "what would you change", "where should we start"
+  "\\b(?:what|which|where|how)\\s+(?:would|should|could|do|can)\\s+(?:you|we|i)\\b",
+  // "your thoughts", "any advice"
+  "\\b(?:your|any)\\s+(?:thoughts?|opinion|advice|recommendations?|suggestions?)\\b",
+  // "worth doing?", "is it worth changing"
+  "\\bworth\\s+(?:doing|changing|adding|fixing|building)\\b",
+  // trailing question mark on a sentence that is not a polite command
+  "\\?\\s*$"
+].join("|"), "i");
+
+/** True when the message asks for an opinion or idea rather than ordering work. */
+export function looksLikeAdviceRequest(text) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value) return false;
+  if (POLITE_COMMAND.test(value)) return false;
+  return ADVISORY_REQUEST.test(value);
+}
+
+/**
+ * The build keywords fired, but the sentence reads like a question. These are the
+ * only turns worth spending a model call on — everything else is already decided
+ * confidently by form plus keywords.
+ */
+export function artifactIntentAmbiguous(messages) {
+  const latest = currentTurnInstructionText(
+    [...(Array.isArray(messages) ? messages : [])].reverse().find((message) => message?.role === "user")
+  );
+  if (!latest || ANSWER_ONLY_REQUEST.test(latest)) return false;
+  if (!ARTIFACT_ACTION.test(latest) || !ARTIFACT_TARGET.test(latest)) return false;
+  return looksLikeAdviceRequest(latest) || ANSWER_ONLY_ARTIFACT.test(latest);
+}
 const INSPECT_REQUEST = /\b(?:project|repo(?:sitory)?|codebase|files?|folder|git|diff|changes?|status|progress|roadmap|implementation|what (?:was|is|has been) (?:changed|done|built|implemented)|where (?:are we|is the project)|last (?:deploy|build|update))\b/i;
 const CONTEXTUAL_INSPECTION_REQUEST = /\b(?:review|inspect|analy[sz]e|assess|audit|evaluate|improve|improvements?|recommend(?:ation)?s?|suggest(?:ion)?s?)\b[\s\S]{0,100}\b(?:this|the|it|current|local|running)?\s*(?:app|application|site|website|project|code|ui|layout|version)\b|\bhow (?:can|could|would|should|do)\s+(?:you\s+)?improve\b/i;
 const LOCAL_PROJECT_CONTEXT = /(?:[a-z]:\\[^\r\n`]+|(?:^|[\s`])(?:\.{0,2}[\\/])?(?:src|app|public|outputs?|projects?|build|dist)[\\/][^\s`]+|https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?|(?:project|source|local-ready copy|production build)\s*:)/i;
@@ -810,7 +880,9 @@ export function classifyTurnMode(messages, options = {}) {
   if (options.directAction || artifactActionRequired) return "action";
   if (RESEARCH_REQUEST.test(latest)) return "research";
   if (INSPECT_REQUEST.test(latest) && /\b(?:status|progress|review|inspect|check|show|list|tell|explain|summari[sz]e|what|where)\b/i.test(latest)) return "inspect";
-  if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "action";
+  // AGENT_REQUEST is deliberately broad (it matches "task", "project", "file"),
+  // so a question that merely mentions one of those words must not become an action.
+  if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest) && !looksLikeAdviceRequest(latest)) return "action";
   return "chat";
 }
 
@@ -936,7 +1008,8 @@ export function requiresArtifactAction(messages) {
   const latestUser = [...(Array.isArray(messages) ? messages : [])].reverse().find((message) => message?.role === "user");
   const latest = currentTurnInstructionText(latestUser);
   if (ANSWER_ONLY_REQUEST.test(latest)) return false;
-  if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return true;
+  if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest)
+      && !ANSWER_ONLY_ARTIFACT.test(latest) && !looksLikeAdviceRequest(latest)) return true;
   if (!ACTION_ONLY_FOLLOWUP.test(latest)) return false;
   return users.slice(-4, -1).some((text) => ARTIFACT_TARGET.test(text));
 }
@@ -1437,7 +1510,20 @@ export async function runTurn(ctx, messages) {
   wrapApproval("approve");
   wrapApproval("approveAlways");
   const forceChat = ctx.forceTurnMode === "chat";
-  const artifactActionRequired = forceChat || ctx.forceNoArtifact === true ? false : requiresArtifactAction(messages);
+  let artifactActionRequired = forceChat || ctx.forceNoArtifact === true ? false : requiresArtifactAction(messages);
+  // The keywords and the sentence form disagree on this turn. Sub-agents inherit
+  // the lead's decision, so only a top-level turn spends the classification call.
+  if (!artifactActionRequired && !forceChat && ctx.forceNoArtifact !== true
+      && !ctx.subagentDepth && artifactIntentAmbiguous(messages)) {
+    const intent = await resolveArtifactIntent(config, ctx.latestUserText, signal);
+    artifactActionRequired = intent.action === true;
+    emitStep({
+      name: "intent_check",
+      args: { provider: intent.target?.provider || "", model: intent.target?.model || "" },
+      result: `${intent.reason} — treating this turn as ${artifactActionRequired ? "a request to make the change" : "a question to answer"}.`
+    });
+    if (artifactActionRequired) onStatus("reading that as a request to make the change...");
+  }
   const connectorActionRequired = forceChat ? false : requiresConnectorContinuationAction(messages);
   const connectorToolResultRequired = forceChat ? false : requiresConnectorToolResult(messages);
   const explicitActionToolResultRequired = forceChat ? false : requiresExplicitActionToolResult(messages);
@@ -1621,7 +1707,13 @@ export async function runTurn(ctx, messages) {
   const teamAssignments = !ctx.subagentDepth && artifactActionRequired && ctx.projectDir
     ? teamworkAssignments(config)
     : [];
-  if (teamAssignments.length) {
+  // Specialists are expensive and highly visible, so they no longer start on the
+  // classification alone. The handoff runs once the turn has actually changed
+  // something, which means a misread question costs nothing instead of three
+  // model calls and a row of worker chips the user never asked for.
+  let teamHandoffPending = teamAssignments.length > 0;
+  const runTeamHandoff = async () => {
+    teamHandoffPending = false;
     const teamMode = String(config?.ui?.codingAgent?.teamwork?.mode || "assist");
     const recordTeamWorker = (assignment, state, detail, attempt = 1, meta = {}) => {
       const worker = { role: assignment.role, provider: assignment.provider, model: assignment.model, state, attempt, ...meta };
@@ -1702,7 +1794,7 @@ export async function runTurn(ctx, messages) {
       ].join("\n\n")
     });
     onStatus("specialist reports ready - lead model is integrating them...");
-  }
+  };
   let target = autoModelRoute.enabled
     ? await resolveProviderTarget(config, autoModelRoute.target.provider, onStatus)
     : await resolveTarget(config, onStatus);
@@ -1939,6 +2031,10 @@ export async function runTurn(ctx, messages) {
   agentLoop: for (;;) {
     turn++;
     if (signal?.aborted) return stopped();
+    // The turn has changed a file, so this really is build work: bring the
+    // specialists in now, between clean turns, where appending their handoff
+    // cannot break an assistant/tool message pair.
+    if (teamHandoffPending && controller.snapshot().mutationCount > 0) await runTeamHandoff();
     // Check per-run token/time budget and user cancellation
     const budget = controller.checkBudget();
     if (budget.budgeted) {

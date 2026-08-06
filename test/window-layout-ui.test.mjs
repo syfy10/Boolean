@@ -127,9 +127,13 @@ test("recipes use a flat category rail, recipe list, and detail editor", () => {
   assert.doesNotMatch(ui,/recipes-close|recipesClose/);
 });
 
-test("completed plan checklists keep raw agent output hidden until requested", () => {
+test("project runs never display Boolean-authored plan checklists", () => {
   assert.match(ui, /function shouldShowProjectPlan\(snapshot\)/);
-  assert.match(ui, /snapshot\?\.showPlan === true \|\| snapshot\?\.artifactRequired === true/);
+  // The plan chip follows the controller's showPlan only. artifactRequired is a
+  // classification, and on its own it used to raise a "1/7" plan for turns that
+  // never ran a tool — including questions Boolean had misread as build requests.
+  assert.match(ui, /function shouldShowProjectPlan\(snapshot\) \{\s*return false;\s*\}/);
+  assert.doesNotMatch(ui, /snapshot\?\.showPlan === true \|\| snapshot\?\.artifactRequired === true/);
   assert.match(ui, /!shouldShowProjectPlan\(snapshot\)/);
   assert.match(ui, /function markCurrentPlanOutput\(\)/);
   assert.match(ui, /markCurrentPlanOutput\(\);[\s\S]*?run\.statusEl\?\.classList\.remove\("live-plan-output"\);\s*col\.classList\.add\("plan-output-hidden"\)/);
@@ -563,6 +567,70 @@ test("browser dark mode is persistent and reaches both browser implementations",
   assert.match(shell, /case "darkPage":[\s\S]*?SetBrowserDarkModeAsync\(!_browserDarkMode, notifyChat: true\)/);
   assert.match(shell, /new \{ type = "shellBrowserDarkMode", enabled \}/);
   // Website dark mode is injected by the shell into the native pane (BrowserDarkModeScript above); the /browse proxy that used to do it for the HTML pane is gone.
+});
+
+test("transcript token counts are shown at a tenth, with exact counts in the tooltip", () => {
+  assert.match(ui, /const TOKEN_DISPLAY_SCALE=10;/);
+  assert.match(ui, /const displayTokens=\(n\)=>\{ const raw=Number\(n\)\|\|0; return raw>0\?Math\.max\(1,Math\.round\(raw\/TOKEN_DISPLAY_SCALE\)\):0; \};/);
+  assert.match(ui, /shortNum\(displayTokens\(total\)\)\+" tokens · "\+shortNum\(displayTokens\(output\|\|0\)\)/);
+  assert.match(ui, /return displayTokens\(n\)\.toLocaleString\(\)\+" tokens"/);
+  assert.match(ui, /title="Estimated from message text — about '\+raw\.toLocaleString\(\)\+' tokens"/);
+  assert.match(ui, /esc\(shortNum\(displayTokens\(tokens\)\)\)\+" tok"/);
+  assert.match(ui, /foot\.textContent="tokens: "\+shortNum\(displayTokens\(total\)\)/);
+  // The raw figure still reaches the user through the hover title.
+  assert.match(ui, /const exact=\(total\|\|0\)\.toLocaleString\(\)\+" tokens"/);
+  // Budgets, the context bar, and Settings usage totals stay literal.
+  assert.match(ui, /\$\("ctxLenLabel"\)\.textContent=fmtCtx\(CTX_STEPS\[idx\]\)\+" tokens"/);
+});
+
+test("Explore can take over as the browser home on both surfaces", () => {
+  assert.match(config, /browserExploreHome: false,/);
+  assert.match(ui, /id="browserExploreHome"/);
+  assert.match(ui, /setUi\(\{browserExploreHome:e\.target\.checked\}\)/);
+  assert.match(ui, /function exploreHomeEnabled\(\)\{ return state\.ui\?\.browserExploreHome===true&&adminFeatureAccessAllowed\(\); \}/);
+  assert.match(ui, /\$\("browserToggle"\)\.onclick=\(\)=>toggleBrowserSurface\(\)/);
+  // The preference lives in openBrowser itself, so every entry point that summons
+  // the pane without a page — button, keyboard shortcut, workspace tab, rail —
+  // lands on Explore. Guarding only the button left those paths opening the web.
+  assert.match(ui, /function openBrowser\(on,\{remember=false,forWeb=false\}=\{\}\)\{\s*if\(on&&!forWeb&&!browserOpen\(\)&&exploreHomeEnabled\(\)\)\{ openExploreWorkspace\(\); return; \}/);
+  assert.match(ui, /function toggleBrowserSurface\(\)\{ openBrowser\(!browserOpen\(\),\{remember:true\}\); \}/);
+  // Callers that already have somewhere to go must still reach the real browser.
+  assert.match(ui, /openBrowser\(true,\{forWeb:true\}\);\s*hostPost\(\{type:"browser",cmd:"navigate",url\}\)/);
+  assert.match(ui, /if\(command\.action==="open"\) openBrowser\(true,\{forWeb:true\}\)/);
+  assert.match(ui, /function openBrowserWorkspace\(\)\{ openBrowser\(true,\{remember:true,forWeb:true\}\); \}/);
+  // The Explore window keeps a way back to the real web browser.
+  assert.match(ui, /id="workspaceFloatWeb"[^>]*hidden/);
+  assert.match(ui, /\.workspace-float-actions button\[hidden\]\{ display:none; \}/);
+  // Desktop: the start page offers the three surfaces and the shell relays the click.
+  assert.match(server, /const browserStartPage = \(servers, \{ explore = false, bookmarks = \[\] \} = \{\}\) =>/);
+  assert.match(server, /explore: config\.ui\?\.browserExploreHome === true/);
+  assert.match(server, /type:"exploreSurface",surface:b\.dataset\.surface/);
+  assert.match(shell, /if \(!source\.StartsWith\(\$"http:\/\/127\.0\.0\.1:\{_port\}\/", StringComparison\.OrdinalIgnoreCase\)\) return;/);
+  assert.match(shell, /surface != "markets" && surface != "education" && surface != "sales"/);
+  assert.match(shell, /PostToChat\(new \{ type = "openExplore", surface \}\)/);
+  assert.match(ui, /d\.type==="openExplore"\)\{ openBrowser\(false\); openExploreWorkspace\(d\.surface\); \}/);
+});
+
+test("browser bookmarks are stored in Settings and mirrored into the native chrome", () => {
+  assert.match(config, /browserBookmarks: \[\],/);
+  assert.match(server, /id="star" title="Bookmark this page" aria-pressed="false"/);
+  assert.match(server, /\$\("star"\)\.onclick   = function\(\)\{ act\("bookmark"\); \};/);
+  assert.match(server, /act\("bookmarkOpen",\{url:b\.url\}\)/);
+  assert.match(server, /act\("bookmarkRemove",\{url:b\.url\}\)/);
+  // Saving and deleting belong to the chat UI, which owns the stored list.
+  assert.match(shell, /case "bookmark":[\s\S]*?type = "browserBookmarkToggle"/);
+  assert.match(shell, /case "bookmarkOpen":[\s\S]*?AddTab\(bmOpenUrl, activate: true, navigate: true\)/);
+  assert.match(shell, /case "bookmarkRemove":[\s\S]*?type = "browserBookmarkRemove", url = bmDelUrl/);
+  assert.match(shell, /bookmarked = !string\.IsNullOrEmpty\(t\?\.Url\) && _bookmarks\.Any\(b => b\.url == t!\.Url\)/);
+  assert.match(shell, /case "bookmarks":[\s\S]*?PushChromeState\(\);/);
+  assert.match(ui, /d\.type==="browserBookmarkToggle"\)\{ toggleBookmark\(d\.url,d\.title\); \}/);
+  assert.match(ui, /d\.type==="browserBookmarkRemove"\)\{ removeBookmark\(d\.url\); \}/);
+  assert.match(ui, /cmd:"bookmarks",items:list\.map/);
+  // Only a changed list crosses the bridge, and clearing browsing data drops it.
+  assert.match(ui, /if\(signature===lastBookmarkSignature\) return;/);
+  assert.match(ui, /setUi\(\{browserHistory:\[\],browserBookmarks:\[\]\}\)/);
+  // The new-tab page lists saved pages and refuses non-web schemes.
+  assert.match(server, /\/\^https\?:\\\/\\\/\/i\.test\(b\.url\)/);
 });
 
 test("compact pane button opens projects and chats as a floating sidebar", () => {
@@ -1598,7 +1666,11 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /document\.body\.classList\.toggle\("recipes-open", activeWsTab === "recipes"\)/);
   const workspaceSetter=ui.slice(ui.indexOf("function setWorkspaceTab"),ui.indexOf('document.querySelectorAll(".ws-tab")'));
   assert.doesNotMatch(workspaceSetter, /requestAnimationFrame\(\(\)=>markWorkspaceTab\("chat"\)\)/);
-  assert.match(ui,/function openExploreWorkspace\(\)\{\s*if\(!adminFeatureAccessAllowed\(\)\)\{[\s\S]*?if\(EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)\{\s*setWorkspaceTab\("chat"\);\s*return;/);
+  assert.match(ui,/function openExploreWorkspace\(page\)\{\s*if\(!adminFeatureAccessAllowed\(\)\)\{[\s\S]*?if\(!requested&&EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)\{\s*setWorkspaceTab\("chat"\);\s*return;/);
+  // A named Explore page (browser start screen, semantic action) must open that
+  // page instead of toggling the window shut when it is already active.
+  assert.match(ui,/const requested=EXPLORE_WORKSPACES\.includes\(page\)\?page:"";/);
+  assert.match(ui,/setWorkspaceTab\(target,\{force:!!requested\}\);/);
   assert.match(ui,/\.icon-btn\[hidden\],#modemenu \.item\[hidden\]\{display:none!important\}/);
   assert.doesNotMatch(ui, /body\.browser-on \.workspace-float/);
 });
@@ -1628,8 +1700,8 @@ test("Education stays compact, unfaded, and always has an exit", () => {
   assert.match(ui, /\.education-question-map\{ flex:1; min-height:48px; overflow:auto; display:grid; grid-template-columns:repeat\(7,1fr\)/);
 });
 
-test("project timelines appear only for chats explicitly bound to a folder", () => {
-  assert.match(ui, /function shouldShowProjectPlan\(snapshot\)[\s\S]*?thread\?\.kind==="project"[\s\S]*?!!thread\?\.projectDir/);
+test("project timelines stay hidden regardless of project binding", () => {
+  assert.match(ui, /function shouldShowProjectPlan\(snapshot\) \{\s*return false;\s*\}/);
 });
 
 test("pinned projects and chats use the compact grouped sidebar", () => {

@@ -307,11 +307,13 @@ const DEFAULTS = {
     contextW: 300,            // context panel width (px)
     browserTabs: [],          // [{url,title}] restored on launch
     aiBrowser: true,          // allow the AI to browse the web (search/open/click/forms)
+    browserExploreHome: false, // Browser button and new tabs land on Explore (Market/Education/Sales)
     systemActions: true,      // typed Windows inspection/settings/package actions
     searchEngine: "google",   // google | bing | duckduckgo - address-bar searches
     researchPolicy: "authoritative",
     browserPerms: { downloads: true, camera: false, mic: false, geo: false, tradeClicks: false, tradeConsentUser: "", tradeConsentAt: 0 },
     browserHistory: [],       // [{url,title,at}] capped at 100
+    browserBookmarks: [],     // [{url,title,at}] saved pages, newest first
     expandedSections: ["model"], // which Settings sections are open
     // ── Keyboard Shortcuts ──
     shortcuts: {
@@ -466,6 +468,8 @@ function restoreEmailConnection(nextEmail, prevEmail) {
 
 export function preserveSavedApiKeys(next, previous) {
   if (!next || !previous) return next;
+  next.cloudBackend = next.cloudBackend || {};
+  restoreCloudBackend(next.cloudBackend, previous.cloudBackend);
   for (const provider of [...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"]) {
     preserveApiKey(next, previous, provider);
   }

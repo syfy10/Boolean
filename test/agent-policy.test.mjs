@@ -31,11 +31,12 @@ test("operating policy uses one concise Codex-style task contract", () => {
   assert.equal(BOOLEAN_AGENT_RULES.every((rule) => rule.length > 20), true);
 });
 
-test("planning modes scale implementation pauses to task risk", () => {
-  const prompt = (planningMode) => systemPrompt("", false, { ui: { codingAgent: { planningMode } } });
-  assert.match(prompt("auto"), /PLANNING MODE: AUTO[\s\S]*Work directly on clear requests[\s\S]*pause only for a genuinely blocking choice/);
-  assert.match(prompt("quick"), /PLANNING MODE: QUICK[\s\S]*implement and verify immediately without stopping/);
-  assert.match(prompt("plan-first"), /PLANNING MODE: PLAN FIRST[\s\S]*Blocking questions \(0-3[\s\S]*wait for one user approval[\s\S]*without requesting the same approval again/);
+test("Boolean does not override a model with a product-authored planning mode", () => {
+  const prompts = ["auto", "quick", "plan-first"].map((planningMode) =>
+    systemPrompt("", false, { ui: { codingAgent: { planningMode } } })
+  );
+  assert.equal(new Set(prompts).size, 1);
+  assert.doesNotMatch(prompts[0], /PLANNING MODE|Blocking questions \(0-3|wait for one user approval/i);
 });
 
 test("project builds require an early persistent live preview", (t) => {
