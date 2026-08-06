@@ -5259,6 +5259,8 @@ body:not(.composer-simple) main::after{
   .workspace-float[data-workspace-theme="dark"] .market-bottom-tape{ border-color:#353a3e!important; }
   .workspace-float[data-workspace-theme="dark"] .market-research-actions .primary{ border-color:#ff7900!important; color:#e4e8ea!important; }
   .workspace-float-content{ flex:1; min-width:0; min-height:0; padding:0; overflow:hidden; background:var(--approved-card,var(--card)); }
+  .web-panel{ display:none; width:100%; height:100%; min-width:0; min-height:0; background:var(--approved-card,var(--card)); }
+  body.web-open .web-panel{ display:block; }
   .workspace-float .recipes-shell,
   .workspace-float .recipe-actions{ background:var(--approved-card,var(--card)); }
   .workspace-float .education-panel,.workspace-float .markets-panel,.workspace-float .recipes-panel{
@@ -7134,6 +7136,7 @@ body:not(.composer-simple) main::after{
   <div class="workspace-float" id="workspaceFloat" role="dialog" aria-modal="false" aria-label="Explore workspace">
     <header class="workspace-float-bar" id="workspaceFloatBar">
       <nav class="workspace-float-tabs" id="workspaceFloatTabs" role="tablist" aria-label="Explore pages">
+        <button class="workspace-float-page-tab" id="webWorkspaceTab" type="button" role="tab" data-workspace-page="web" aria-controls="webPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Web</button>
         <button class="workspace-float-page-tab active" id="marketsWorkspaceTab" type="button" role="tab" data-workspace-page="markets" aria-controls="marketsPanel" aria-selected="true" hidden aria-hidden="true"><span class="workspace-float-page-dot"></span>Markets</button>
         <button class="workspace-float-page-tab" id="educationWorkspaceTab" type="button" role="tab" data-workspace-page="education" aria-controls="educationPanel" aria-selected="false" hidden aria-hidden="true"><span class="workspace-float-page-dot"></span>Education</button>
         <button class="workspace-float-page-tab" id="recipesWorkspaceTab" type="button" role="tab" data-workspace-page="recipes" aria-controls="recipesPanel" aria-selected="false"><span class="workspace-float-page-dot"></span>Workflows</button>
@@ -7152,6 +7155,7 @@ body:not(.composer-simple) main::after{
       </div>
     </header>
     <div class="workspace-float-content">
+  <section class="web-panel" id="webPanel" aria-label="Web browser"></section>
   <section class="studio-panel" id="studioPanel" aria-label="Creation Studio">
     <div class="studio-shell">
       <header class="studio-head"><h2>Creation Studio</h2><p>Draft, work with documents, and design repeatable workflows without leaving Explore.</p></header>
@@ -19235,7 +19239,7 @@ Optional bundled starter model:
   // forWeb:true so navigation, agent tools, and the Web button still reach the
   // real browser.
   function openBrowser(on,{remember=false,forWeb=false}={}){
-    if(on&&!forWeb&&!browserOpen()&&exploreHomeEnabled()){ openExploreWorkspace(); return; }
+    if(on&&!forWeb&&!browserOpen()&&exploreHomeEnabled()){ openExploreWorkspace("web"); return; }
     if(!SHELL){ if(on) tempToast(BROWSER_DESKTOP_ONLY); return; }
     if(remember) rememberCurrentView();
     hostPost({type:"browser",cmd:on?"show":"hide"});
@@ -19246,8 +19250,13 @@ Optional bundled starter model:
   function browserNavigate(url){
     if(!url) return;
     if(!SHELL){ tempToast(BROWSER_DESKTOP_ONLY); return; }
-    openBrowser(true,{forWeb:true});
-    hostPost({type:"browser",cmd:"navigate",url});
+    if(exploreHomeEnabled()){
+      openExploreWorkspace("web");
+      requestAnimationFrame(()=>hostPost({type:"browser",cmd:"navigate",url}));
+    }else{
+      openBrowser(true,{forWeb:true});
+      hostPost({type:"browser",cmd:"navigate",url});
+    }
   }
   function currentProjectName(){ try{ const ts=threadSummary(); return ts&&ts.projectDir ? (ts.projectDir.split(/[\\/]/).filter(Boolean).pop()||"") : ""; }catch{ return ""; } }
   function sendBrowserText(text,target){
@@ -19368,7 +19377,13 @@ Optional bundled starter model:
       return;
     }
     setBooleanActivity(command.action==="read"?"Reading page":"Browsing");
-    if(command.action==="open") openBrowser(true,{forWeb:true});
+    if(command.action==="open"){
+      if(exploreHomeEnabled()){
+        openExploreWorkspace("web");
+        requestAnimationFrame(()=>hostPost({type:"browser",cmd:"control",id,command}));
+        return;
+      }else openBrowser(true,{forWeb:true});
+    }
     hostPost({type:"browser",cmd:"control",id,command});
   }
   // "Explore as browser home": the Browser button lands on the Explore window
@@ -19377,13 +19392,19 @@ Optional bundled starter model:
   // Explore title bar keeps a Web button for the pane itself.
   function exploreHomeEnabled(){ return state.ui?.browserExploreHome===true&&adminFeatureAccessAllowed(); }
   function syncExploreHomeControls(){
-    const web=$("workspaceFloatWeb");
-    if(web){ web.hidden=!exploreHomeEnabled(); web.setAttribute("aria-hidden",String(web.hidden)); }
+    const tab=$("webWorkspaceTab");
+    if(tab){ tab.hidden=!exploreHomeEnabled(); tab.setAttribute("aria-hidden",String(tab.hidden)); }
   }
-  function toggleBrowserSurface(){ openBrowser(!browserOpen(),{remember:true}); }
+  function toggleBrowserSurface(){
+    if(activeWsTab==="web"){setWorkspaceTab("chat");return;}
+    openBrowser(!browserOpen(),{remember:true});
+  }
   // The Web button and the "open the browser" semantic action are explicit
   // requests for the real browser, so they bypass the Explore home preference.
-  function openBrowserWorkspace(){ openBrowser(true,{remember:true,forWeb:true}); }
+  function openBrowserWorkspace(){
+    if(exploreHomeEnabled()) openExploreWorkspace("web");
+    else openBrowser(true,{remember:true,forWeb:true});
+  }
   $("browserToggle").onclick=()=>toggleBrowserSurface();
   $("workspaceFloatWeb")?.addEventListener("click",()=>openBrowserWorkspace());
   // "Run current project" prompt, offered from the start screen and the shell chrome
@@ -19793,13 +19814,14 @@ Optional bundled starter model:
   let activeWsTab = "chat";
   workspaceDockReady=true;
   let previousWsTab = "chat";
-  const EXPLORE_WORKSPACES=["markets","education","recipes","sales","library","studio"];
+  const EXPLORE_WORKSPACES=["web","markets","education","recipes","sales","library","studio"];
   let lastExploreWorkspace=EXPLORE_WORKSPACES.includes(savedAppFrame?.exploreWorkspace)
     ?savedAppFrame.exploreWorkspace:"markets";
   const WORKSPACE_FLOAT_KEY="booleanWorkspaceDockWidthV4";
   const WORKSPACE_THEME_KEY="booleanWorkspaceThemeV1";
   const WORKSPACE_MINIMIZED_KEY="booleanWorkspaceMinimizedV1";
   const WORKSPACE_FLOAT_META={
+    web:{label:"Web",icon:'<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2C6 4 6 12 8 14"/></svg>'},
     education:{label:"Education",icon:'<svg viewBox="0 0 16 16"><path d="m2 6 6-3 6 3-6 3-6-3Z"/><path d="M5 7.5V11c1.8 1.3 4.2 1.3 6 0V7.5M14 6v4"/></svg>'},
     markets:{label:"Markets",icon:'<svg viewBox="0 0 16 16"><path d="M5 6V4.8C5 3.8 5.8 3 6.8 3h2.4c1 0 1.8.8 1.8 1.8V6"/><rect x="2.5" y="6" width="11" height="7" rx="1"/><path d="M2.5 8.5h11M7 8h2v1.5H7z"/></svg>'},
     recipes:{label:"Recipes",icon:'<svg viewBox="0 0 16 16"><path d="M4 2v5M2.5 2v3.5C2.5 6.3 3.2 7 4 7s1.5-.7 1.5-1.5V2M4 7v7M11 2c-1.4 1.4-1.8 3.8-1 5.8l1 .2v6M11 2v6"/></svg>'},
@@ -19813,6 +19835,25 @@ Optional bundled starter model:
   let workspacePendingWidth=null;
   let workspaceSwitchFrame=0;
   let workspaceLayoutSuspended=false;
+  let exploreWebDocked=false,exploreWebDockFrame=0;
+  function syncExploreWebDock(){
+    if(!SHELL)return;
+    const active=activeWsTab==="web"&&!$("workspaceFloat")?.classList.contains("minimized");
+    if(!active){
+      cancelAnimationFrame(exploreWebDockFrame);exploreWebDockFrame=0;
+      if(exploreWebDocked){exploreWebDocked=false;hostPost({type:"browser",cmd:"undock"});document.body.classList.remove("browser-on");}
+      return;
+    }
+    cancelAnimationFrame(exploreWebDockFrame);
+    exploreWebDockFrame=requestAnimationFrame(()=>{
+      exploreWebDockFrame=0;
+      const rect=$("webPanel")?.getBoundingClientRect();
+      if(!rect||rect.width<2||rect.height<2)return;
+      exploreWebDocked=true;
+      hostPost({type:"browser",cmd:"dock",rect:{x:rect.x,y:rect.y,width:rect.width,height:rect.height,viewportWidth:innerWidth,viewportHeight:innerHeight}});
+      document.body.classList.add("browser-on");
+    });
+  }
   function applyWorkspaceTheme(theme,{save=false}={}){
     const frame=$("workspaceFloat"),button=$("workspaceFloatTheme");if(!frame||!button)return;
     const dark=theme==="dark";
@@ -19935,6 +19976,7 @@ Optional bundled starter model:
     if(!frame)return;
     if(frame.classList.contains("maximized"))syncWorkspaceChatReservation();
     else restoreWorkspaceFloatWidth();
+    syncExploreWebDock();
   }
   function beginWorkspaceLayoutSwitch(){
     document.body.classList.add("workspace-layout-switching");
@@ -20022,6 +20064,7 @@ Optional bundled starter model:
     window.addEventListener("resize",()=>{
       if(document.hidden)return;
       if(!EXPLORE_WORKSPACES.includes(activeWsTab))return;
+      syncExploreWebDock();
       if(innerWidth<500||innerHeight<300){workspaceLayoutSuspended=true;return;}
       if(workspaceLayoutSuspended){
         workspaceLayoutSuspended=false;
@@ -20051,6 +20094,7 @@ Optional bundled starter model:
         });
       }).observe(main);
     }
+    if(typeof ResizeObserver!=="undefined")new ResizeObserver(()=>syncExploreWebDock()).observe(frame);
     document.addEventListener("visibilitychange",()=>{
       if(document.hidden||!EXPLORE_WORKSPACES.includes(activeWsTab))return;
       if(frame.classList.contains("maximized"))syncWorkspaceChatReservation();
@@ -20149,6 +20193,7 @@ Optional bundled starter model:
     if (ws === "browser") { openBrowser(false); }
     else if (ws === "notes") { openNotes(false,{remember:false,focus:false}); }
     else if (ws === "code") { toggleTerminal(false); }
+    else if (ws === "web") { syncExploreWebDock(); }
     else if (ws === "recipes") {
       document.body.classList.remove("recipes-open");
       recipesSidebarAutoClosed=false;
@@ -20187,6 +20232,7 @@ Optional bundled starter model:
     document.body.classList.toggle("sales-open", activeWsTab === "sales");
     document.body.classList.toggle("library-open", activeWsTab === "library");
     document.body.classList.toggle("studio-open", activeWsTab === "studio");
+    document.body.classList.toggle("web-open", activeWsTab === "web");
     $("exploreToggle")?.classList.toggle("active",EXPLORE_WORKSPACES.includes(activeWsTab));
     if(EXPLORE_WORKSPACES.includes(activeWsTab))showWorkspaceFloat(activeWsTab);
     else{
@@ -20194,6 +20240,7 @@ Optional bundled starter model:
       document.body.style.removeProperty("--workspace-chat-width");
       scheduleResponsiveClasses();
     }
+    syncExploreWebDock();
     document.querySelectorAll(".ws-tab").forEach(tab => {
       const active = tab.dataset.ws === activeWsTab
         ||(tab.dataset.ws==="explore"&&EXPLORE_WORKSPACES.includes(activeWsTab));
@@ -21391,6 +21438,7 @@ Optional bundled starter model:
     else if (ws === "browser") { openBrowser(true); }
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { ensureCodeWorkspace(); }
+    else if (ws === "web") { syncExploreWebDock(); }
     else if (ws === "education") { ensureEducation(); }
     else if (ws === "markets") { ensureMarkets(); }
     else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
@@ -21417,13 +21465,13 @@ Optional bundled starter model:
       tempToast("Explore is available only to Boolean administrators.");
       return;
     }
-    const requested=EXPLORE_WORKSPACES.includes(page)?page:"";
+    const requested=EXPLORE_WORKSPACES.includes(page)&&(page!=="web"||exploreHomeEnabled())?page:"";
     if(!requested&&EXPLORE_WORKSPACES.includes(activeWsTab)){
       setWorkspaceTab("chat");
       return;
     }
-    const remembered=requested||(EXPLORE_WORKSPACES.includes(lastExploreWorkspace)?lastExploreWorkspace:"markets");
-    const target=(remembered==="recipes"||marketsAccessAllowed())?remembered:(marketsAccessAllowed()?"markets":"recipes");
+    const remembered=requested||(EXPLORE_WORKSPACES.includes(lastExploreWorkspace)&&(lastExploreWorkspace!=="web"||exploreHomeEnabled())?lastExploreWorkspace:"markets");
+    const target=(["web","recipes"].includes(remembered)||marketsAccessAllowed())?remembered:(marketsAccessAllowed()?"markets":"recipes");
     setWorkspaceTab(target,{force:!!requested});
   }
   function setWorkspaceTab(ws,{remember=true,force=false}={}) {

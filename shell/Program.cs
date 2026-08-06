@@ -2481,7 +2481,67 @@ try {
 
     // ── show / hide the browser pane (driven by the chat UI toggle) ──
     bool _browserOpen = false;
-    bool BrowserPaneIsOpen() => !_split.Panel2Collapsed && _browserPane.Visible;
+    bool _browserEmbedded = false;
+    bool BrowserPaneIsOpen() => _browserEmbedded || (!_split.Panel2Collapsed && _browserPane.Visible);
+
+    void RestoreBrowserPaneToSplit()
+    {
+        if (!_browserEmbedded) return;
+        _browserEmbedded = false;
+        _browserPane.Visible = false;
+        _browserPane.Dock = DockStyle.Fill;
+        _split.Panel2.Controls.Add(_browserPane);
+    }
+
+    void DockBrowserInExplore(JsonElement root)
+    {
+        if (!root.TryGetProperty("rect", out var rect) || rect.ValueKind != JsonValueKind.Object) return;
+        static double Number(JsonElement value, string name) =>
+            value.TryGetProperty(name, out var property) && property.TryGetDouble(out var number) ? number : 0;
+        double viewportWidth = Number(rect, "viewportWidth"), viewportHeight = Number(rect, "viewportHeight");
+        double x = Number(rect, "x"), y = Number(rect, "y");
+        double width = Number(rect, "width"), height = Number(rect, "height");
+        if (viewportWidth <= 0 || viewportHeight <= 0 || width < 2 || height < 2) return;
+
+        _browserOpen = true;
+        HideBrowserPill();
+        _split.Panel2Collapsed = true;
+        _split.Panel1Collapsed = false;
+        if (_browserPane.Parent != this)
+        {
+            _browserPane.Visible = false;
+            _browserPane.Dock = DockStyle.None;
+            Controls.Add(_browserPane);
+        }
+        _browserEmbedded = true;
+        var chatOrigin = PointToClient(_chat.PointToScreen(Point.Empty));
+        double scaleX = _chat.ClientSize.Width / viewportWidth;
+        double scaleY = _chat.ClientSize.Height / viewportHeight;
+        _browserPane.Bounds = new Rectangle(
+            chatOrigin.X + (int)Math.Round(x * scaleX),
+            chatOrigin.Y + (int)Math.Round(y * scaleY),
+            Math.Max(1, (int)Math.Round(width * scaleX)),
+            Math.Max(1, (int)Math.Round(height * scaleY)));
+        _browserPane.Visible = true;
+        _browserPane.BringToFront();
+        if (_tabs.Count == 0) AddTab(_homeUrl, activate: true, navigate: true);
+        LayoutBrowserPane();
+        PostToChat(new { type = "shellBrowser", open = true, embedded = true });
+        PushChromeState();
+        ReportBrowserUrl(null);
+    }
+
+    void UndockExploreBrowser()
+    {
+        if (!_browserEmbedded) return;
+        RestoreBrowserPaneToSplit();
+        _browserOpen = false;
+        _split.Panel2Collapsed = true;
+        _split.Panel1Collapsed = false;
+        ShowBrowserPill();
+        PostToChat(new { type = "shellBrowser", open = false, embedded = false });
+        ReportBrowserUrl(null);
+    }
 
     // Floating edge pill: when the full-window browser is closed it collapses to
     // a small tab peeking off the right edge that reopens it.
@@ -2622,6 +2682,7 @@ try {
 
     void ToggleBrowser(bool? force = null, bool ensureTab = true)
     {
+        if (_browserEmbedded) RestoreBrowserPaneToSplit();
         _browserOpen = force ?? !_browserOpen;
         if (_browserOpen)
         {
@@ -2739,6 +2800,8 @@ try {
             var cmd = root.TryGetProperty("cmd", out var cp) ? cp.GetString() : null;
             switch (cmd)
             {
+                case "dock": DockBrowserInExplore(root); break;
+                case "undock": UndockExploreBrowser(); break;
                 case "toggle": ToggleBrowser(); break;
                 case "show": ToggleBrowser(true); break;
                 case "hide": ToggleBrowser(false); break;

@@ -133,7 +133,7 @@ test("the fast page read includes only the live quote strip OCR", () => {
   assert.match(shell, /ReadVisibleBrowserQuoteOcrAsync/);
   assert.match(shell, /Accessibility\.getFullAXTree/);
   assert.match(shell, /ReadBrowserAccessibilityTextAsync/);
-  assert.match(shell, /bool BrowserPaneIsOpen\(\) => !_split\.Panel2Collapsed && _browserPane\.Visible/);
+  assert.match(shell, /bool BrowserPaneIsOpen\(\) => _browserEmbedded \|\| \(!_split\.Panel2Collapsed && _browserPane\.Visible\)/);
   assert.match(shell, /var paneOpen = BrowserPaneIsOpen\(\);/);
   assert.match(shell, /Math\.Max\(180, source\.Height \/ 3\)/);
   // Ordered page text first, then the unordered hint block, then OCR. The

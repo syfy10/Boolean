@@ -583,7 +583,7 @@ test("transcript token counts are shown at a tenth, with exact counts in the too
   assert.match(ui, /\$\("ctxLenLabel"\)\.textContent=fmtCtx\(CTX_STEPS\[idx\]\)\+" tokens"/);
 });
 
-test("Explore can take over as the browser home on both surfaces", () => {
+test("Explore docks the native browser into its Web tab when browser home is enabled", () => {
   assert.match(config, /browserExploreHome: false,/);
   assert.match(ui, /id="browserExploreHome"/);
   assert.match(ui, /setUi\(\{browserExploreHome:e\.target\.checked\}\)/);
@@ -592,14 +592,18 @@ test("Explore can take over as the browser home on both surfaces", () => {
   // The preference lives in openBrowser itself, so every entry point that summons
   // the pane without a page — button, keyboard shortcut, workspace tab, rail —
   // lands on Explore. Guarding only the button left those paths opening the web.
-  assert.match(ui, /function openBrowser\(on,\{remember=false,forWeb=false\}=\{\}\)\{\s*if\(on&&!forWeb&&!browserOpen\(\)&&exploreHomeEnabled\(\)\)\{ openExploreWorkspace\(\); return; \}/);
-  assert.match(ui, /function toggleBrowserSurface\(\)\{ openBrowser\(!browserOpen\(\),\{remember:true\}\); \}/);
+  assert.match(ui, /openExploreWorkspace\("web"\); return;/);
+  assert.match(ui, /if\(activeWsTab==="web"\)\{setWorkspaceTab\("chat"\);return;\}/);
   // Callers that already have somewhere to go must still reach the real browser.
-  assert.match(ui, /openBrowser\(true,\{forWeb:true\}\);\s*hostPost\(\{type:"browser",cmd:"navigate",url\}\)/);
-  assert.match(ui, /if\(command\.action==="open"\) openBrowser\(true,\{forWeb:true\}\)/);
-  assert.match(ui, /function openBrowserWorkspace\(\)\{ openBrowser\(true,\{remember:true,forWeb:true\}\); \}/);
+  assert.match(ui, /id="webWorkspaceTab"[^>]*data-workspace-page="web"[^>]*aria-controls="webPanel"/);
+  assert.match(ui, /id="webPanel" aria-label="Web browser"/);
+  assert.match(ui, /hostPost\(\{type:"browser",cmd:"dock",rect:/);
+  assert.match(ui, /hostPost\(\{type:"browser",cmd:"undock"\}/);
+  assert.match(shell, /void DockBrowserInExplore\(JsonElement root\)/);
+  assert.match(shell, /case "dock": DockBrowserInExplore\(root\); break;/);
+  assert.match(shell, /case "undock": UndockExploreBrowser\(\); break;/);
   // The Explore window keeps a way back to the real web browser.
-  assert.match(ui, /id="workspaceFloatWeb"[^>]*hidden/);
+  assert.match(shell, /bool BrowserPaneIsOpen\(\) => _browserEmbedded \|\|/);
   assert.match(ui, /\.workspace-float-actions button\[hidden\]\{ display:none; \}/);
   // Desktop: the start page offers the three surfaces and the shell relays the click.
   assert.match(server, /const browserStartPage = \(servers, \{ explore = false, bookmarks = \[\] \} = \{\}\) =>/);
@@ -1436,12 +1440,12 @@ test("Explore pages share internal tabs in one flat workspace header", () => {
   const tabsEnd=header.indexOf("</nav>",tabsStart);
   const tabs=header.slice(tabsStart,tabsEnd);
   let tabPrevious=-1;
-  for(const page of ["markets","education","recipes","sales","library"]){
+  for(const page of ["web","markets","education","recipes","sales","library"]){
     const next=tabs.indexOf(`data-workspace-page="${page}"`);
     assert.ok(next>tabPrevious,`${page} should remain in the approved internal-tab order`);
     tabPrevious=next;
   }
-  assert.equal((tabs.match(/data-workspace-page="/g)||[]).length,6,"the Explore pane should expose exactly six page tabs");
+  assert.equal((tabs.match(/data-workspace-page="/g)||[]).length,7,"the Explore pane should expose exactly seven page tabs");
   const initializeWorkspace=ui.slice(ui.indexOf("function initializeWorkspaceFloat"),ui.indexOf("initializeWorkspaceFloat();"));
   assert.match(initializeWorkspace,/\$\("workspaceFloatTabs"\)\?\.addEventListener\("click",event=>\{/);
   assert.match(initializeWorkspace,/const tab=event\.target\.closest\("\[data-workspace-page\]"\)/);
@@ -1669,7 +1673,7 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui,/function openExploreWorkspace\(page\)\{\s*if\(!adminFeatureAccessAllowed\(\)\)\{[\s\S]*?if\(!requested&&EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)\{\s*setWorkspaceTab\("chat"\);\s*return;/);
   // A named Explore page (browser start screen, semantic action) must open that
   // page instead of toggling the window shut when it is already active.
-  assert.match(ui,/const requested=EXPLORE_WORKSPACES\.includes\(page\)\?page:"";/);
+  assert.match(ui,/const requested=EXPLORE_WORKSPACES\.includes\(page\)&&\(page!=="web"\|\|exploreHomeEnabled\(\)\)\?page:"";/);
   assert.match(ui,/setWorkspaceTab\(target,\{force:!!requested\}\);/);
   assert.match(ui,/\.icon-btn\[hidden\],#modemenu \.item\[hidden\]\{display:none!important\}/);
   assert.doesNotMatch(ui, /body\.browser-on \.workspace-float/);
