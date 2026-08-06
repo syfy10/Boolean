@@ -46,6 +46,8 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /\.status\.working-card\{[^}]*align-items:stretch;/s);
   assert.match(ui, /\.working-card-header\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);
   assert.match(ui, /\.working-card-header\{[^}]*align-items:center;/s);
+  assert.match(ui, /\.working-card-worker\{[^}]*flex:0 0 auto;[^}]*white-space:nowrap;/s);
+  assert.match(ui, /\.working-card \.stx\{[^}]*min-width:120px;[^}]*flex:1 1 120px;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/s);
   assert.match(ui, /class="working-card-actions"><button class="working-card-action meta" type="button" data-working-action="steps"/);
   assert.match(ui, /\.working-card \.meta\{[^}]*display:inline-flex;[^}]*align-items:center;[^}]*min-height:24px;/s);
   assert.match(ui, /\.working-card-actions\{[^}]*align-items:center;[^}]*min-height:24px;/s);
