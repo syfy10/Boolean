@@ -1,4 +1,4 @@
-// Local HTTP server hosting the Boolean UI and bridging it to the agent loop.
+// Local HTTP server hosting the Boollm UI and bridging it to the agent loop.
 // NDJSON streaming for chat; approvals round-trip to the browser as events.
 // Multi-thread conversation store, per-thread stop/abort, image attachments.
 import http from "node:http";
@@ -158,7 +158,7 @@ export function normalizeTicketFields(raw = {}) {
   return out;
 }
 
-// Whether Boolean may click trade controls on the broker page at all. Shared by
+// Whether Boollm may click trade controls on the broker page at all. Shared by
 // the ticket and by cancelling, because they need the same consent: the
 // permission switch, a signed-in user whose risk agreement matches, and an arm
 // window that has not lapsed.
@@ -179,7 +179,7 @@ export function tradeClickPermission(config = {}) {
     reason: !tradeClicks
       ? "Confirmed trade clicks is off in Settings > Browser."
       : !identityOk
-        ? "Trading is available only to a signed-in Boolean administrator whose risk agreement matches the current user."
+        ? "Trading is available only to a signed-in Boollm administrator whose risk agreement matches the current user."
         : !armed
           ? "Trade clicks have auto-disarmed. Press Arm to re-arm."
           : ""
@@ -455,7 +455,7 @@ function websiteInternalLinks(html, baseUrl, limit = 8) {
 async function fetchSmallDataUrl(url) {
   if (!url) return "";
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Boolean Ad Studio" } });
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Boollm Ad Studio" } });
     const type = response.headers.get("content-type") || "";
     const size = Number(response.headers.get("content-length") || 0);
     if (!response.ok || !type.startsWith("image/") || type.includes("svg") || size > 3_000_000) return "";
@@ -517,7 +517,7 @@ const SESSION_TOKEN_PLACEHOLDER = "__SAZ_SESSION_TOKEN__";
 // Stand-in for the src/ui/ bundle (build/build-ui-logic.mjs). ui.html is one
 // huge inline script, so browser logic that wants a real unit test lives in
 // src/ui/ as an ES module and is inlined here on the way out.
-const UI_LOGIC_PLACEHOLDER = "/*__BOOLEAN_UI_LOGIC__*/";
+const UI_LOGIC_PLACEHOLDER = "/*__BOOLLM_UI_LOGIC__*/";
 const loadUiLogic = () => {
   if (IS_SEA) return loadAsset("ui-logic.js", "./assets/ui-logic.js").toString("utf8");
   return fs.readFileSync(appPath("src", "assets", "ui-logic.js"), "utf8");
@@ -588,7 +588,7 @@ const ABOUT_RELEASES = [
     date: "2026-08-01",
     title: "Reliable Codex and Claude Code engines",
     details: [
-      "Adds guided Claude Code installation and sign-in with Sonnet, Opus, and Haiku orchestration beside Boolean and Codex.",
+      "Adds guided Claude Code installation and sign-in with Sonnet, Opus, and Haiku orchestration beside Boollm and Codex.",
       "Maps Read only, Read & write, and Full access to native coding-engine permissions and preserves the selected project boundary.",
       "Verifies every claimed Codex or Claude file change against the exact path and diff on disk before it appears in Changes."
     ]
@@ -620,7 +620,7 @@ const ABOUT_RELEASES = [
     details: [
       "Refined the native split workspace so Projects, Chat, Notepad, and Browser resize and hide cleanly across compact and maximized windows.",
       "Added Paper Minimal, Soft Glass, and Graphite Mist surface styles with consistent light and dark panel colors.",
-      "Simplified Boolean identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
+      "Simplified Boollm identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
     ]
   },
   {
@@ -769,7 +769,7 @@ async function cloudRequest(config, endpoint, options = {}) {
     if (res.status === 401 && options.auth !== false) {
       config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
       saveConfig(config);
-      const err = new Error("Your Boolean account session expired. Sign in again to continue.");
+      const err = new Error("Your Boollm account session expired. Sign in again to continue.");
       err.status = 401;
       err.code = "cloud_auth_required";
       throw err;
@@ -868,15 +868,15 @@ export async function firstReachableLocalPreview(values = [], { timeoutMs = 2500
   return "";
 }
 
-const BOOLEAN_PREVIEW_HANDOFF = "Boolean owns the built-in browser. Start and verify the local preview, but do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls. Include the exact localhost URL in your final answer; Boolean will open it in its own browser.";
+const BOOLLM_PREVIEW_HANDOFF = "Boollm owns the built-in browser. Start and verify the local preview, but do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls. Include the exact localhost URL in your final answer; Boollm will open it in its own browser.";
 
-export function withBooleanPreviewHandoff(messages = []) {
+export function withBoollmPreviewHandoff(messages = []) {
   const copy = Array.isArray(messages) ? messages.map((message) => ({ ...message })) : [];
   const index = copy.findLastIndex((message) => message?.role === "user");
   if (index < 0) return copy;
   const content = copy[index].content;
-  if (Array.isArray(content)) copy[index].content = [...content, { type: "text", text: `\n\n<boolean_preview_handoff>\n${BOOLEAN_PREVIEW_HANDOFF}\n</boolean_preview_handoff>` }];
-  else copy[index].content = `${String(content || "")}\n\n<boolean_preview_handoff>\n${BOOLEAN_PREVIEW_HANDOFF}\n</boolean_preview_handoff>`;
+  if (Array.isArray(content)) copy[index].content = [...content, { type: "text", text: `\n\n<boolean_preview_handoff>\n${BOOLLM_PREVIEW_HANDOFF}\n</boolean_preview_handoff>` }];
+  else copy[index].content = `${String(content || "")}\n\n<boolean_preview_handoff>\n${BOOLLM_PREVIEW_HANDOFF}\n</boolean_preview_handoff>`;
   return copy;
 }
 
@@ -892,9 +892,9 @@ function codexThreadIds(threads = []) {
 }
 
 /**
- * Boolean and Codex keep separate conversation histories. Any Boolean-side
+ * Boollm and Codex keep separate conversation histories. Any Boollm-side
  * rewind must detach the public app-server thread mapping so the next turn is
- * bootstrapped from the newly truncated Boolean transcript instead of
+ * bootstrapped from the newly truncated Boollm transcript instead of
  * appending to stale Codex context.
  */
 export function clearCodexThreadMapping(thread) {
@@ -945,12 +945,12 @@ export function interruptOrphanedPendingTask(thread, { now = Date.now(), graceMs
   return true;
 }
 
-/** Describe the result without implying that Boolean owns Codex's storage. */
+/** Describe the result without implying that Boollm owns Codex's storage. */
 export function codexHistoryDisposition(threadIds = [], archivedThreadIds = []) {
   const linked = [...new Set((threadIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   const archived = [...new Set((archivedThreadIds || []).map((id) => String(id || "").trim()).filter((id) => linked.includes(id)))];
   const archiveNote = archived.length
-    ? `Boolean also archived ${archived.length} linked Codex task${archived.length === 1 ? "" : "s"}. `
+    ? `Boollm also archived ${archived.length} linked Codex task${archived.length === 1 ? "" : "s"}. `
     : "";
   return {
     managedBy: "codex",
@@ -958,8 +958,8 @@ export function codexHistoryDisposition(threadIds = [], archivedThreadIds = []) 
     archivedThreads: archived.length,
     retainedExternally: linked.length > 0,
     notice: linked.length
-      ? `Boolean deleted its local chat copy. ${archiveNote}Codex manages its task history separately and it may remain until removed from Codex.`
-      : "Boolean deleted its local chat history. No linked Codex task history was found."
+      ? `Boollm deleted its local chat copy. ${archiveNote}Codex manages its task history separately and it may remain until removed from Codex.`
+      : "Boollm deleted its local chat history. No linked Codex task history was found."
   };
 }
 
@@ -1030,16 +1030,16 @@ function adminCloudVaultEnabled(config) {
 }
 
 function launchGithubGuide(action, projectDir) {
-  const intro = "$Host.UI.RawUI.WindowTitle='Boolean GitHub setup'; Write-Host 'Boolean GitHub setup' -ForegroundColor Green;";
+  const intro = "$Host.UI.RawUI.WindowTitle='Boollm GitHub setup'; Write-Host 'Boollm GitHub setup' -ForegroundColor Green;";
   let script;
   if (action === "install") {
-    script = `${intro} Write-Host 'Installing the official GitHub CLI...'; winget install --id GitHub.cli --exact --accept-source-agreements --accept-package-agreements; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub CLI installed. Return to Boolean and press Connect GitHub.' -ForegroundColor Green } else { Write-Host 'Installation did not finish. You can retry from Boolean.' -ForegroundColor Red }; Read-Host 'Press Enter to close'`;
+    script = `${intro} Write-Host 'Installing the official GitHub CLI...'; winget install --id GitHub.cli --exact --accept-source-agreements --accept-package-agreements; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub CLI installed. Return to Boollm and press Connect GitHub.' -ForegroundColor Green } else { Write-Host 'Installation did not finish. You can retry from Boollm.' -ForegroundColor Red }; Read-Host 'Press Enter to close'`;
   } else if (action === "connect") {
-    script = `${intro} Write-Host 'A secure GitHub sign-in page will open. Follow the browser instructions.'; gh auth login --hostname github.com --git-protocol https --web; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub connected. You can return to Boolean.' -ForegroundColor Green } else { Write-Host 'GitHub sign-in did not finish. You can retry from Boolean.' -ForegroundColor Red }; Start-Sleep -Seconds 4`;
+    script = `${intro} Write-Host 'A secure GitHub sign-in page will open. Follow the browser instructions.'; gh auth login --hostname github.com --git-protocol https --web; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub connected. You can return to Boollm.' -ForegroundColor Green } else { Write-Host 'GitHub sign-in did not finish. You can retry from Boollm.' -ForegroundColor Red }; Start-Sleep -Seconds 4`;
   } else if (action === "disconnect") {
-    script = `${intro} gh auth logout --hostname github.com; Write-Host 'Return to Boolean when finished.'; Start-Sleep -Seconds 3`;
+    script = `${intro} gh auth logout --hostname github.com; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 3`;
   } else if (action === "switch") {
-    script = `${intro} Write-Host 'Choose the current account to sign out, then sign in to the other account.'; gh auth logout --hostname github.com; gh auth login --hostname github.com --git-protocol https --web; Write-Host 'Return to Boolean when finished.'; Start-Sleep -Seconds 4`;
+    script = `${intro} Write-Host 'Choose the current account to sign out, then sign in to the other account.'; gh auth logout --hostname github.com; gh auth login --hostname github.com --git-protocol https --web; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 4`;
   } else throw new Error("Unsupported GitHub setup action.");
   const child = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
     cwd: projectDir, detached: true, stdio: "ignore", windowsHide: false
@@ -1662,7 +1662,7 @@ export function startServer(config, {
   // be told plainly, because a model asked to "read the visible page" with no
   // page attached will otherwise report numbers it invented.
   const browserSnapshotGap = () => {
-    if (!browserSnapshot) return "no page has been read from Boolean's built-in browser yet";
+    if (!browserSnapshot) return "no page has been read from Boollm's built-in browser yet";
     const ageSeconds = Math.round(Math.max(0, Date.now() - Number(browserSnapshot.at || 0)) / 1000);
     if (ageSeconds > 120) return `the last page read is ${ageSeconds} seconds old (stale beyond the 120-second limit)`;
     return "";
@@ -1678,7 +1678,7 @@ export function startServer(config, {
       .filter(Boolean)
       .join("\n\n");
     return [
-      "CURRENT VISIBLE BROWSER SNAPSHOT (live from Boolean's built-in browser):",
+      "CURRENT VISIBLE BROWSER SNAPSHOT (live from Boollm's built-in browser):",
       `URL: ${browserSnapshot.url || "(none)"}`,
       `Title: ${browserSnapshot.title || "(none)"}`,
       `Page status: ${browserSnapshot.open === false ? "closed" : "open"}`,
@@ -1890,7 +1890,7 @@ export function startServer(config, {
   let claudeCheckedAt = 0;
   let claudeStatus = null;
   const codexLoginLeaseMs = Math.max(1000, Number(codexLoginTtlMs) || 10 * 60 * 1000);
-  // Keep npx/Wrangler scratch writes in a small Boolean-owned temp subtree.
+  // Keep npx/Wrangler scratch writes in a small Boollm-owned temp subtree.
   // The same environment is passed to the app-server and its sandbox policy.
   const codexProcessEnvironment = codexToolEnvironment(process.env);
 
@@ -1930,7 +1930,7 @@ export function startServer(config, {
   const codexErrorMessage = (error) => {
     const raw = String(error?.message || error || "Codex app-server is unavailable.");
     if (/access is denied|eperm|eacces/i.test(raw)) {
-      return "Windows blocked that Codex executable. Install the public Codex CLI, or choose its executable in Settings. The Microsoft Store desktop bundle cannot be launched as a CLI by Boolean.";
+      return "Windows blocked that Codex executable. Install the public Codex CLI, or choose its executable in Settings. The Microsoft Store desktop bundle cannot be launched as a CLI by Boollm.";
     }
     if (/enoent|not recognized|cannot find|could not start/i.test(raw)) {
       return "Codex CLI was not found. Use Set up Codex in Settings to install the official standalone CLI.";
@@ -2017,7 +2017,7 @@ export function startServer(config, {
         command,
         args: ["app-server", "--stdio"],
         env: codexProcessEnvironment,
-        clientInfo: { name: "boolean", title: "Boolean", version: APP_VERSION },
+        clientInfo: { name: "boolean", title: "Boollm", version: APP_VERSION },
         capabilities: { experimentalApi: true },
         onStatus: () => { codexCheckedAt = Date.now(); },
         onEvent: (message) => {
@@ -2062,7 +2062,7 @@ export function startServer(config, {
   const archiveLinkedCodexThreads = async (threadIds = []) => {
     const linked = [...new Set(threadIds.map((id) => String(id || "").trim()).filter(Boolean))];
     const archived = [];
-    // Deleting a Boolean chat must remain reliable even when Codex is not
+    // Deleting a Boollm chat must remain reliable even when Codex is not
     // running. If the public app-server is already available, archive its
     // linked task; either way the response explicitly says Codex retains and
     // manages its own history.
@@ -2811,7 +2811,7 @@ ${exploreScript}
             if (!["read", "inspect_layout"].includes(String(command.action || ""))) {
               return "Scheduled tasks may read the cached visible browser page but cannot interact with it unattended.";
             }
-            return browserSnapshotText() || "The visible browser has not supplied a recent page snapshot. Keep Boolean open with the broker page visible, then try again.";
+            return browserSnapshotText() || "The visible browser has not supplied a recent page snapshot. Keep Boollm open with the broker page visible, then try again.";
           },
           captureScreenshot: async () => ({ ok: false, error: "Visible screenshots are unavailable during an unattended scheduled task." }),
           notepad: async () => "The visible notepad is unavailable during an unattended scheduled task."
@@ -2867,7 +2867,7 @@ ${exploreScript}
   let lastPing = Date.now();
   let activeChats = 0;
   let byeTimer = null;
-  const syncWarmEnv = () => { process.env.BOOLEAN_KEEP_ENGINE_WARM = config.ui?.keepLocalWarm !== false ? "1" : ""; };
+  const syncWarmEnv = () => { process.env.BOOLLM_KEEP_ENGINE_WARM = config.ui?.keepLocalWarm !== false ? "1" : ""; };
   syncWarmEnv();
   const saveMcpConnector = (connector) => {
     config.connectors = config.connectors || { mcp: [], agents: [] };
@@ -2972,7 +2972,7 @@ ${exploreScript}
       }
       if (req.method === "GET" && p === "/api/education/official") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boolean account to use Education." }, 401);
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
           return;
         }
         json(officialEducationCatalog);
@@ -2980,7 +2980,7 @@ ${exploreScript}
       }
       if (req.method === "GET" && p === "/api/education/card") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boolean account to use Education." }, 401);
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
           return;
         }
         const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
@@ -3006,7 +3006,7 @@ ${exploreScript}
       }
       if (req.method === "GET" && p === "/api/education/pdf") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boolean account to use Education." }, 401);
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
           return;
         }
         const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
@@ -3056,7 +3056,7 @@ ${exploreScript}
       if (req.method === "GET" && p === "/manifest.json") {
         res.writeHead(200, { "content-type": "application/manifest+json" });
         res.end(JSON.stringify({
-          name: APP_NAME, short_name: "Boolean", description: APP_TAGLINE,
+          name: APP_NAME, short_name: "Boollm", description: APP_TAGLINE,
           start_url: "/", display: "standalone",
           background_color: "#17181a", theme_color: "#17181a",
           icons: [
@@ -3257,7 +3257,7 @@ ${exploreScript}
         } catch (err) {
           json({
             error: "capability_probe_failed",
-            message: "Boolean could not complete the safe capability check. No tools were executed.",
+            message: "Boollm could not complete the safe capability check. No tools were executed.",
             detail: String(err?.message || err)
           }, 502);
         }
@@ -3478,7 +3478,7 @@ ${exploreScript}
       }
 
       if (req.method === "GET" && p === "/api/top-prompts") {
-        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLEAN CONTROLLER)/i;
+        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLLM CONTROLLER)/i;
         const counts = new Map();
         for (const t of threads.values()) {
           for (const m of t.messages || []) {
@@ -3919,7 +3919,7 @@ ${exploreScript}
         try {
           json({ ok: true, ...gitRestoreFiles(activeProjectDir(threads, activeThreadId), body.files) });
         } catch {
-          // Boolean can review verified changes in a non-Git folder, but it
+          // Boollm can review verified changes in a non-Git folder, but it
           // never guesses how to restore them without a repository baseline.
           json({ ok: true, restored: [], skipped: Array.isArray(body.files) ? body.files : [], message: "Non-Git changes were left on disk." });
         }
@@ -4051,7 +4051,7 @@ ${exploreScript}
         return;
       }
 
-      // Delete Boolean's saved copy. Codex owns a separate local history, so
+      // Delete Boollm's saved copy. Codex owns a separate local history, so
       // archive linked app-server tasks when possible and always disclose that
       // the underlying Codex history is managed separately.
       if (req.method === "POST" && p === "/api/clear-history") {
@@ -4516,8 +4516,8 @@ ${exploreScript}
 
       if (req.method === "POST" && p === "/api/delete-all-data") {
         const body = await readBody(req);
-        if (body.confirm !== "DELETE ALL BOOLEAN DATA") {
-          json({ ok: false, error: "Type DELETE ALL BOOLEAN DATA to confirm." }, 400);
+        if (body.confirm !== "DELETE ALL BOOLLM DATA") {
+          json({ ok: false, error: "Type DELETE ALL BOOLLM DATA to confirm." }, 400);
           return;
         }
         for (const thread of threads.values()) {
@@ -4707,7 +4707,7 @@ ${exploreScript}
       }
 
       if (p.startsWith("/api/trading/") && !adminFeatureAccessAllowed(config)) {
-        return json({ ok: false, error: "Trading is available only to Boolean administrators." }, 403);
+        return json({ ok: false, error: "Trading is available only to Boollm administrators." }, 403);
       }
 
       if (req.method === "GET" && p === "/api/trading/state") {
@@ -4944,7 +4944,7 @@ ${exploreScript}
         const transaction = pendingCloudflareOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect Cloudflare again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect Cloudflare again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -4980,8 +4980,8 @@ ${exploreScript}
           transaction.accounts = verified.accounts;
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
           res.end(oauthResultPage("Cloudflare connected", selected
-            ? `${selected.name} is ready in Boolean. This window will close.`
-            : "Cloudflare approved access. Return to Boolean and choose an account.", true));
+            ? `${selected.name} is ready in Boollm. This window will close.`
+            : "Cloudflare approved access. Return to Boollm and choose an account.", true));
         } catch (error) {
           transaction.status = "error";
           transaction.error = error.message || "Cloudflare authorization failed.";
@@ -5122,7 +5122,7 @@ ${exploreScript}
         const transaction = pendingMcpOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and try connecting again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and try connecting again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -5136,7 +5136,7 @@ ${exploreScript}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boolean.", false));
+          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boollm.", false));
           return;
         }
         try {
@@ -5172,7 +5172,7 @@ ${exploreScript}
           transaction.toolCount = result.toolCount;
           transaction.tools = result.tools.map((tool) => tool.name).filter(Boolean);
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boolean. This window will close.`, true));
+          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boollm. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
@@ -5184,7 +5184,7 @@ ${exploreScript}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect", "Return to Boolean and try again.", false));
+          res.end(oauthResultPage("Could not connect", "Return to Boollm and try again.", false));
         }
         return;
       }
@@ -5211,7 +5211,7 @@ ${exploreScript}
           const label = provider === "gmail" ? "Google" : "Microsoft";
           return json({
             error: mode === "managed"
-              ? `${label} sign-in is not provisioned in this Boolean build. Open Advanced setup to add a public client ID.`
+              ? `${label} sign-in is not provisioned in this Boollm build. Open Advanced setup to add a public client ID.`
               : `Enter the ${label} OAuth public client ID first.`,
             code: "email_oauth_setup_required",
             provider,
@@ -5269,7 +5269,7 @@ ${exploreScript}
         const transaction = pendingEmailOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect the email account again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect the email account again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -5326,12 +5326,12 @@ ${exploreScript}
           transaction.status = "complete";
           transaction.account = connection.account;
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boolean. This window will close.`, true));
+          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boollm. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boolean and check the OAuth client settings.`, false));
+          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boollm and check the OAuth client settings.`, false));
         }
         return;
       }
@@ -5747,7 +5747,7 @@ ${exploreScript}
           try {
             const response = await fetch(parsed.toString(), {
               signal: controller.signal,
-              headers: { "user-agent": "Boolean Website Tech Detector" }
+              headers: { "user-agent": "Boollm Website Tech Detector" }
             });
             finalUrl = response.url || finalUrl;
             headers = Object.fromEntries(response.headers.entries());
@@ -5802,11 +5802,11 @@ ${exploreScript}
       if (req.method === "POST" && p === "/api/pick-folder") {
         const psScript = "Add-Type -AssemblyName System.Windows.Forms; " +
           "$d = New-Object System.Windows.Forms.FolderBrowserDialog; " +
-          "$initial = $env:BOOLEAN_PICK_FOLDER; if ($initial -and (Test-Path -LiteralPath $initial)) { $d.SelectedPath = $initial }; " +
+          "$initial = $env:BOOLLM_PICK_FOLDER; if ($initial -and (Test-Path -LiteralPath $initial)) { $d.SelectedPath = $initial }; " +
           "if ($d.ShowDialog() -eq 'OK') { [Console]::Out.Write($d.SelectedPath) }";
         const ps = spawn("powershell", ["-NoProfile", "-STA", "-Command", psScript], {
           windowsHide: true,
-          env: { ...process.env, BOOLEAN_PICK_FOLDER: config.projectsDir }
+          env: { ...process.env, BOOLLM_PICK_FOLDER: config.projectsDir }
         });
         let out = "";
         ps.stdout.on("data", (d) => (out += d.toString()));
@@ -5855,7 +5855,7 @@ ${exploreScript}
         if (!/^https?:$/.test(parsed.protocol) || /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|\[?::1)/i.test(parsed.hostname)) {
           throw new Error("Enter a public http or https website.");
         }
-        const response = await fetch(parsed.toString(), { redirect: "follow", signal: AbortSignal.timeout(10000), headers: { "user-agent": "Mozilla/5.0 Boolean Ad Studio" } });
+        const response = await fetch(parsed.toString(), { redirect: "follow", signal: AbortSignal.timeout(10000), headers: { "user-agent": "Mozilla/5.0 Boollm Ad Studio" } });
         if (!response.ok) throw new Error(`Website returned ${response.status}.`);
         const html = (await response.text()).slice(0, 2_000_000);
         const finalUrl = response.url || parsed.toString();
@@ -5866,7 +5866,7 @@ ${exploreScript}
         if (visualUrls.length < requestedLimit * 2) {
           const pages = await Promise.all(pageUrls.map(async pageUrl => {
             try {
-              const page = await fetch(pageUrl, { redirect: "follow", signal: AbortSignal.timeout(7000), headers: { "user-agent": "Mozilla/5.0 Boolean Ad Studio" } });
+              const page = await fetch(pageUrl, { redirect: "follow", signal: AbortSignal.timeout(7000), headers: { "user-agent": "Mozilla/5.0 Boollm Ad Studio" } });
               if (!page.ok || !(page.headers.get("content-type") || "").includes("text/html")) return null;
               const pageFinalUrl = page.url || pageUrl;
               if (new URL(pageFinalUrl).origin !== new URL(finalUrl).origin) return null;
@@ -6187,7 +6187,7 @@ ${exploreScript}
 
         if (externalEngineRequested && Array.isArray(body.images) && body.images.length) {
           const send = openNdjsonStream(res);
-          send({ type: "error", text: `This ${selectedCodingEngine === "claude-code" ? "Claude Code" : "Codex"} integration does not accept pasted image data yet. Switch the orchestration engine to Boolean for this image turn.` });
+          send({ type: "error", text: `This ${selectedCodingEngine === "claude-code" ? "Claude Code" : "Codex"} integration does not accept pasted image data yet. Switch the orchestration engine to Boollm for this image turn.` });
           send({ type: "done" });
           res.end();
           return;
@@ -6675,7 +6675,7 @@ ${exploreScript}
             engine: selectedCodingEngine,
             escalated: true
           });
-          send({ type: "status", text: `Boolean could not finish or verify this task. Continuing with ${useCodex ? "Codex" : "Claude Code"}...` });
+          send({ type: "status", text: `Boollm could not finish or verify this task. Continuing with ${useCodex ? "Codex" : "Claude Code"}...` });
           return true;
         };
 
@@ -6749,11 +6749,11 @@ ${exploreScript}
             let result;
             try {
               result = await runner.runCodexTurn({
-              messages: previewRequested ? withBooleanPreviewHandoff(t.messages) : t.messages,
+              messages: previewRequested ? withBoollmPreviewHandoff(t.messages) : t.messages,
               mapping: t.codex || {},
               model: config.codex?.model || "",
               effort: config.codex?.reasoningEffort || "medium",
-              // Match Boolean's native behavior: project chats work in their
+              // Match Boollm's native behavior: project chats work in their
               // own folder, while an ordinary New chat can create a project
               // beneath the configured projects workspace instead of being
               // silently downgraded to read-only.
@@ -6870,7 +6870,7 @@ ${exploreScript}
             const result = await claudeTurnRunner({
               command: config.claudeCode?.command || "claude",
               input: previewRequested
-                ? currentTurnInstructionText(withBooleanPreviewHandoff([latestUser || { role: "user", content: "" }]).at(-1) || "")
+                ? currentTurnInstructionText(withBoollmPreviewHandoff([latestUser || { role: "user", content: "" }]).at(-1) || "")
                 : currentTurnInstructionText(latestUser || ""),
               projectDir: t.projectDir || config.projectsDir || "",
               workspaceChanges: booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
@@ -6895,12 +6895,12 @@ ${exploreScript}
             try {
               answer = await runTurn(ctx, t.messages);
             } catch (error) {
-              if (await activateAutoSubscriptionEscalation(`Boolean error: ${error?.message || error}`)) continue;
+              if (await activateAutoSubscriptionEscalation(`Boollm error: ${error?.message || error}`)) continue;
               throw error;
             }
             const booleanTurnStatus = ctx.orchestrationResult?.thread?.turns?.at(-1)?.status || "completed";
             if (booleanTurnStatus !== "completed"
-                && await activateAutoSubscriptionEscalation(`Boolean ended with ${booleanTurnStatus}.`)) continue;
+                && await activateAutoSubscriptionEscalation(`Boollm ended with ${booleanTurnStatus}.`)) continue;
             break;
           }
           }
@@ -6913,7 +6913,7 @@ ${exploreScript}
           }
           if (verifiedWorkspaceChangeThisTurn) {
             const report = workspaceChangesReport(booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads));
-            if (!String(answer || "").includes("Boolean Changes:")) answer = `${String(answer || "").trim()}\n\n${report}`.trim();
+            if (!String(answer || "").includes("Boollm Changes:")) answer = `${String(answer || "").trim()}\n\n${report}`.trim();
           }
           if (String(answer || "").trim()) {
             if (useExternalEngine) t.messages.push({ role: "assistant", content: answer });
@@ -7091,7 +7091,7 @@ export function openAppWindow(url) {
     const dir = path.dirname(process.execPath);
     script = path.join(dir, "set-window-icon.ps1");
     icon = path.join(dir, "saz.ico");
-    if (!fs.existsSync(icon)) icon = path.join(dir, "Boolean.exe"); // fall back to exe icon
+    if (!fs.existsSync(icon)) icon = path.join(dir, "Boollm.exe"); // fall back to exe icon
   } else {
     script = appPath("assets", "set-window-icon.ps1");
     icon = appPath("assets", "saz.ico");

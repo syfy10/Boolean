@@ -316,7 +316,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     if (/\b(?:clean|cleanup|trash|spam|old mail|old email)\b/.test(task)) {
       return [
         { step: "Verify the connected mailbox", status: "in_progress" },
-        { step: "Open the mailbox in Boolean browser", status: "pending" },
+        { step: "Open the mailbox in Boollm browser", status: "pending" },
         { step: "Apply protection rules", status: "pending" },
         { step: "Scan and group cleanup candidates", status: "pending" },
         { step: "Review the read-only cleanup plan", status: "pending" },
@@ -326,7 +326,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     }
     return [
       { step: "Verify the connected mailbox", status: "in_progress" },
-      { step: "Open the relevant email in Boolean browser", status: "pending" },
+      { step: "Open the relevant email in Boollm browser", status: "pending" },
       { step: "Read the requested conversation or messages", status: "pending" },
       { step: "Prepare the requested email result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
@@ -338,7 +338,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
       { step: "Create the implementation plan", status: "pending" },
       { step: "Build the requested experience", status: "pending" },
       { step: "Run the project locally", status: "pending" },
-      { step: "Open the result in Boolean browser", status: "pending" },
+      { step: "Open the result in Boollm browser", status: "pending" },
       { step: "Run checks and inspect the result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
     ];
@@ -356,7 +356,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
   if (/\b(?:browser|web page|page|site|research|search the web|look up)\b/.test(task)) {
     return [
       { step: "Confirm the requested page or research target", status: "in_progress" },
-      { step: "Open the target in Boolean browser", status: "pending" },
+      { step: "Open the target in Boollm browser", status: "pending" },
       { step: "Inspect the relevant content", status: "pending" },
       { step: "Complete the requested browser task", status: "pending" },
       { step: "Report the verified result", status: "pending" }
@@ -532,7 +532,7 @@ export class AgentController {
       ...extractConstraints(this.taskContext)
     ])].filter((item) => item && !permissionRestrictionSuperseded(item, permissionAuthority)).slice(-10);
     this.phase = saved.phase === "planning" ? "executing" : (saved.phase || "executing");
-    // Models own their working method. Boolean tracks actual activity and safety
+    // Models own their working method. Boollm tracks actual activity and safety
     // state, but no longer invents or restores a product-authored task checklist.
     this.plan = [];
     this.toolCount = Number(saved.toolCount) || 0;
@@ -770,7 +770,7 @@ export class AgentController {
     const next = this.plan.find((item) => item.status === "in_progress")?.step ||
       this.plan.find((item) => item.status === "pending")?.step || "Answer or report the completed result.";
     const lines = [
-      "BOOLEAN WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
+      "BOOLLM WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
       `Objective: ${cleanText(this.objective || "Complete the latest request.", 700)}`,
       `Mode: ${this.contract.mode}; access: ${this.contract.accessMode}; file changes: ${this.contract.writeAllowed ? "allowed" : "blocked"}; browser: ${this.contract.browserPolicy}; deploy: ${this.contract.deployAllowed ? "allowed" : "blocked unless explicitly requested"}.`,
       this.contract.allowedRoots.length ? `Allowed workspace roots: ${this.contract.allowedRoots.join(" | ")}` : "",
@@ -816,7 +816,7 @@ export class AgentController {
   prompt() {
     const lines = [
       this.workingMemory(),
-      "BOOLEAN TASK CONTROLLER:",
+      "BOOLLM TASK CONTROLLER:",
       `Phase: ${this.phase}.`
     ];
     if (this.plan.length) {
@@ -1166,7 +1166,7 @@ export class AgentController {
     return this.snapshot();
   }
 
-  // The model decides when a task is finished. Boolean no longer refuses a final
+  // The model decides when a task is finished. Boollm no longer refuses a final
   // answer for missing evidence — the only hard requirement is that an answer exists.
   // A still-running background process is the one soft nudge worth keeping, because
   // leaving one behind makes a finished task look stuck.
@@ -1178,7 +1178,7 @@ export class AgentController {
       return { complete: false, reason: `The task is paused after a blocked action: ${cleanText(this.lastFailure, 300)}` };
     }
     // Tool/process activity remains visible in the task timeline, but it is
-    // evidence for the model rather than a Boolean-authored completion gate.
+    // evidence for the model rather than a Boollm-authored completion gate.
     // Verification nudge (autopilot only): a build/fix task that changed files but
     // ran no build/test/check should confirm before finishing — once, so it can
     // never loop. Neutral relay keeps its current "accept the answer" behavior.

@@ -28,7 +28,7 @@ export function saveThreads(threads) {
       pendingTask: t.pendingTask && typeof t.pendingTask === "object" ? t.pendingTask : null,
       orchestration: t.orchestration && typeof t.orchestration === "object" ? t.orchestration : null,
       memoryDigest: t.memoryDigest && typeof t.memoryDigest === "object" ? t.memoryDigest : null,
-      // Boolean's verified change ledger is independent of Git so Codex and
+      // Boollm's verified change ledger is independent of Git so Codex and
       // the Changes panel can inspect ordinary project folders too.
       workspaceChanges: Array.isArray(t.workspaceChanges) ? t.workspaceChanges.slice(-100).map((change) => ({
         path: typeof change?.path === "string" ? change.path : "",
@@ -36,7 +36,7 @@ export function saveThreads(threads) {
         diff: typeof change?.diff === "string" ? change.diff.slice(0, 12000) : ""
       })).filter((change) => change.path) : [],
       // Public Codex app-server session mapping only. Credentials stay in the
-      // Codex CLI's own home and are never copied into Boolean's thread store.
+      // Codex CLI's own home and are never copied into Boollm's thread store.
       codex: t.codex && typeof t.codex === "object" ? {
         threadId: typeof t.codex.threadId === "string" ? t.codex.threadId : "",
         turnId: typeof t.codex.turnId === "string" ? t.codex.turnId : "",

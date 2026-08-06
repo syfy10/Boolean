@@ -192,7 +192,7 @@ export function startClaudeCodeLogin(command = "claude", { spawnImpl = spawn, sp
   try {
     if (platform === "win32") {
       const escaped = launch.command.replace(/'/g, "''");
-      const script = `Write-Host 'Opening Claude account verification in your browser...' -ForegroundColor Cyan; & '${escaped}' auth login --claudeai; if ($LASTEXITCODE -eq 0) { Write-Host 'Claude Code sign-in complete. Return to Boolean and press Check connection.' -ForegroundColor Green } else { Write-Host 'Claude Code sign-in did not finish. Keep this window open and try again.' -ForegroundColor Yellow }`;
+      const script = `Write-Host 'Opening Claude account verification in your browser...' -ForegroundColor Cyan; & '${escaped}' auth login --claudeai; if ($LASTEXITCODE -eq 0) { Write-Host 'Claude Code sign-in complete. Return to Boollm and press Check connection.' -ForegroundColor Green } else { Write-Host 'Claude Code sign-in did not finish. Keep this window open and try again.' -ForegroundColor Yellow }`;
       // Launch the authentication terminal directly. A nested Start-Process
       // rebuilds the Windows environment as a case-insensitive dictionary and
       // can fail silently when Path and PATH are both present. detached:true
@@ -334,7 +334,7 @@ function promptWithChanges(input, changes = []) {
   if (!changes.length) return cleanInput;
   const rows = changes.slice(0, 12).map((row) =>
     `- ${safeProcessArg(row.status)}: ${safeProcessArg(row.absolutePath || row.path)}\n${safeProcessArg(row.diff, 3000)}`);
-  return `${cleanInput}\n\n<verified_workspace_changes>\nThese are the exact current changes verified by Boolean. You may inspect them before continuing.\n${rows.join("\n")}\n</verified_workspace_changes>`;
+  return `${cleanInput}\n\n<verified_workspace_changes>\nThese are the exact current changes verified by Boollm. You may inspect them before continuing.\n${rows.join("\n")}\n</verified_workspace_changes>`;
 }
 
 export async function runClaudeCodeTurn({

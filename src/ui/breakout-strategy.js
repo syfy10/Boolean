@@ -266,7 +266,7 @@ function advanceOpenSignals(runtime,closed,cfg,resolved){
   }
   runtime.openSignals=still.slice(-20);
 }
-// Build real completed candles from the quote visible in Boolean's browser.
+// Build real completed candles from the quote visible in Boollm's browser.
 // This engine emits display-only setups. It never clicks, stages, or submits.
 function stepBreakoutStrategy(runtime,quote,config,at=Date.now()){
   const next=runtime&&typeof runtime==="object"?runtime:emptyBreakoutRuntime();

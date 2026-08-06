@@ -56,7 +56,7 @@ test("the server serves the bundle folder as static assets", () => {
 test("the Monaco entry keeps workers same-origin and publishes the api", () => {
   assert.match(entry, /const BASE = "\/assets\/monaco\/";/);
   assert.match(entry, /new Worker\(`\$\{BASE\}\$\{name\}\.worker\.js`/);
-  assert.match(entry, /self\.BooleanMonaco = monaco;/);
+  assert.match(entry, /self\.BoollmMonaco = monaco;/);
   for (const label of ["json", "css", "html", "typescript", "javascript"]) {
     assert.match(entry, new RegExp(`${label}: "`), `missing worker mapping for ${label}`);
   }

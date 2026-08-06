@@ -89,9 +89,9 @@ test("Codex Wrangler sandbox resolves a project bundle but denies writes outside
     });
     assert.match(fs.readFileSync(bundlePath, "utf8"), /sandbox ok/);
 
-    // A deploy verification project belongs under Boolean's dedicated temp
+    // A deploy verification project belongs under Boollm's dedicated temp
     // project root, never beside unrelated files in the user's general TEMP.
-    const tempWorker = path.join(environment.BOOLEAN_CODEX_TEMP_PROJECTS, "codex-worker-sandbox-verify");
+    const tempWorker = path.join(environment.BOOLLM_CODEX_TEMP_PROJECTS, "codex-worker-sandbox-verify");
     fs.mkdirSync(path.join(tempWorker, "assets"), { recursive: true });
     fs.writeFileSync(path.join(tempWorker, "worker.js"), 'export default { fetch() { return new Response("temp worker ok"); } };\n');
     fs.writeFileSync(path.join(tempWorker, "assets", "index.html"), "<!doctype html><title>temp asset</title>\n");
@@ -120,7 +120,7 @@ test("Codex Wrangler sandbox resolves a project bundle but denies writes outside
     const npxPrefix = process.platform === "win32"
       ? [path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npx-cli.js")]
       : [];
-    const requestedPackage = String(process.env.BOOLEAN_WRANGLER_PACKAGE || "").trim();
+    const requestedPackage = String(process.env.BOOLLM_WRANGLER_PACKAGE || "").trim();
     const wranglerArgs = requestedPackage
       ? ["--yes", requestedPackage]
       : ["--no-install", "wrangler"];

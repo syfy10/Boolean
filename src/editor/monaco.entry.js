@@ -1,4 +1,4 @@
-// Boolean's Monaco bundle entry. `build/build-editor.mjs` bundles this with
+// Boollm's Monaco bundle entry. `build/build-editor.mjs` bundles this with
 // esbuild into src/assets/monaco/editor.js (+ editor.css and the codicon font);
 // server.js serves that folder at /assets/monaco/ and ui.html loads it lazily
 // the first time the Code workspace opens. Monaco is a build-time dependency
@@ -28,5 +28,5 @@ self.MonacoEnvironment = {
   }
 };
 
-self.BooleanMonaco = monaco;
+self.BoollmMonaco = monaco;
 self.dispatchEvent(new Event("boolean-monaco-ready"));

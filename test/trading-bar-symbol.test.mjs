@@ -44,7 +44,7 @@ test("a page ticker only applies when the URL carries none", () => {
 });
 
 test("the page is the only price source — no second market feed", () => {
-  // The market API was a second price that needed a Boolean account, 401'd, and
+  // The market API was a second price that needed a Boollm account, 401'd, and
   // could disagree with the page by a cent. The bar reads the page or says so.
   assert.doesNotMatch(ui, /api\/markets\/quote\?symbol=/);
   assert.doesNotMatch(ui, /updateTradingBarQuote/);

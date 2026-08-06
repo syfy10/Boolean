@@ -155,5 +155,5 @@ test("trading broker endpoints reject non-admin users", async (t) => {
   });
   const response = await fetch(`http://127.0.0.1:${app.port}/api/trading/state`);
   assert.equal(response.status, 403);
-  assert.match((await response.json()).error, /only to Boolean administrators/i);
+  assert.match((await response.json()).error, /only to Boollm administrators/i);
 });

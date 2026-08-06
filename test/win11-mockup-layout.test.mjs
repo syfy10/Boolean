@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const mockup = fs.readFileSync(new URL("../site/win11-main.html", import.meta.url), "utf8");
 
-test("Win11 mockup top controls match Boolean spacing and icon sizing", () => {
+test("Win11 mockup top controls match Boollm spacing and icon sizing", () => {
   assert.match(mockup, /\.top-bar \{[\s\S]*?height: 38px;[\s\S]*?gap: 5px;[\s\S]*?padding: 0 10px;/);
   assert.match(mockup, /\.top-bar \{[\s\S]*?background: transparent;[\s\S]*?border-bottom: 0;/);
   assert.match(mockup, /\.win-btn \{ width: 30px; height: 30px;/);

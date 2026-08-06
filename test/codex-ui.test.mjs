@@ -33,7 +33,7 @@ test("Codex is enabled only after a successful check and ChatGPT sign-in", () =>
   assert.doesNotMatch(ui, /const enabled=button\.dataset\.runtime==="codex";\s*if\(!await saveCodexSettings\(\{enabled\}\)\)/);
 });
 
-test("Codex reconnects after Boolean restarts even when Auto is selected", () => {
+test("Codex reconnects after Boollm restarts even when Auto is selected", () => {
   assert.match(ui, /if\(!state\.codex\?\.ready&&!codexAutoCheckStarted\)\{ codexAutoCheckStarted=true; whenIdle\(\(\)=>refreshCodexStatus\(\{start:true,quiet:true\}\)\); \}/);
   assert.doesNotMatch(ui, /if\(state\.codex\?\.enabled===true&&!state\.codex\.ready&&!codexAutoCheckStarted\)/);
 });

@@ -11,13 +11,13 @@ const config = fs.readFileSync(new URL("../src/config.js", import.meta.url), "ut
 const website = fs.readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
 const installer = fs.readFileSync(new URL("../build/installer.iss", import.meta.url), "utf8");
 
-test("product branding is Boolean while the website remains boollm.com", () => {
-  assert.match(ui, /<title>Boolean<\/title>/);
-  assert.match(ui, /<div class="brand-name">Boolean<\/div>/);
-  assert.doesNotMatch(ui, />Boollm</);
-  assert.match(shell, /Text = "Boolean"/);
-  assert.match(installer, /#define AppName "Boolean"/);
-  assert.match(installer, /OutputBaseFilename=Boolean-setup/);
+test("product branding is Boollm while the website remains boollm.com", () => {
+  assert.match(ui, /<title>Boollm<\/title>/);
+  assert.match(ui, /<div class="brand-name">Boollm<\/div>/);
+  assert.doesNotMatch(ui, />Boolean</);
+  assert.match(shell, /Text = "Boollm"/);
+  assert.match(installer, /#define AppName "Boollm"/);
+  assert.match(installer, /OutputBaseFilename=Boollm-setup/);
   assert.match(website, /https:\/\/boollm\.com\//);
   assert.doesNotMatch(website, /https:\/\/boolean\.com\//i);
 });
@@ -41,7 +41,7 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.doesNotMatch(ui, /data-rail="sidechat"/);
   assert.doesNotMatch(ui, /data-rail="toggle"/);
   assert.match(ui, /#sideRail,body\.collapsed #sideRail,body\.collapsed\.rail-expanded #sideRail\{[\s\S]*?display:flex;[\s\S]*?flex:0 0 37px;[\s\S]*?opacity:1; pointer-events:auto;/);
-  assert.match(ui, /<div class="rail-brand sidebar-brand" aria-hidden="true">[\s\S]*<div class="brand-name">Boolean<\/div>[\s\S]*id="railBrandReady"[\s\S]*id="railBrandDot"[\s\S]*id="railBrandStatus"[\s\S]*class="brand-about"/);
+  assert.match(ui, /<div class="rail-brand sidebar-brand" aria-hidden="true">[\s\S]*<div class="brand-name">Boollm<\/div>[\s\S]*id="railBrandReady"[\s\S]*id="railBrandDot"[\s\S]*id="railBrandStatus"[\s\S]*class="brand-about"/);
   assert.match(ui, /body\.collapsed\.rail-expanded \.rail-brand\{ display:flex; \}/);
   assert.match(ui, /\.rail-brand\{[^}]*min-height:52px;[^}]*padding:7px 8px;/s);
   assert.match(ui, /body\.collapsed\.rail-expanded \.rail-main\{ padding:4px 7px; \}/);
@@ -57,7 +57,7 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.match(ui, /data-rail="git" title="Git" aria-label="Git"[\s\S]*<span class="rail-label">Git<\/span>/);
   assert.match(ui, /<div class="rail-stack rail-main">/);
   assert.match(ui, /<div class="rail-stack rail-footer">[\s\S]*data-rail="settings"[\s\S]*class="rail-user"/);
-  assert.match(ui, /class="rail-user-initial">B<\/span><span class="rail-user-copy"><span class="rail-user-name">Boolean<\/span><span class="rail-user-email">Local Boolean workspace<\/span><\/span>/);
+  assert.match(ui, /class="rail-user-initial">B<\/span><span class="rail-user-copy"><span class="rail-user-name">Boollm<\/span><span class="rail-user-email">Local Boollm workspace<\/span><\/span>/);
   assert.match(ui, /body\.rail-menu-open #sideRail \.rail-user,[\s\S]*?grid-template-columns:24px minmax\(0,1fr\);[\s\S]*?justify-content:start;/);
   assert.match(ui, /body\.rail-menu-open #sideRail \.rail-user-copy\{ display:grid;[\s\S]*?body\.rail-menu-open #sideRail \.rail-user-email\{ display:block;/);
   assert.doesNotMatch(ui, /id="railReadyStatus"/);
@@ -85,12 +85,12 @@ test("approved layout keeps the compact app rail beside the floating sidebar", (
   assert.match(ui, /<button class="side-chat-launch" id="sideChatToggle" title="Open side AI chat"/);
 });
 
-test("compact rail uses the matching notepad icon and Boolean search", () => {
+test("compact rail uses the matching notepad icon and Boollm search", () => {
   assert.match(ui, /data-rail="notes" title="Notepad" aria-label="Notepad"/);
   assert.match(ui, /data-rail="notes"[\s\S]*viewBox="0 0 64 64"[\s\S]*class="notepad-paper"/);
   assert.match(ui, /\.rail-btn\[data-rail="notes"\] \.notepad-paper/);
-  assert.match(ui, /data-rail="search" title="Search Boolean" aria-label="Search Boolean"/);
-  assert.match(ui, /placeholder="Search Boolean\.\.\. chats, projects, commands\.\.\."/);
+  assert.match(ui, /data-rail="search" title="Search Boollm" aria-label="Search Boollm"/);
+  assert.match(ui, /placeholder="Search Boollm\.\.\. chats, projects, commands\.\.\."/);
   assert.match(ui, /function cmdRecentThreads\(query\)/);
   assert.match(ui, /id: "chat:" \+ t\.id/);
   assert.ok(ui.indexOf('id="cmdPalette"') < ui.indexOf("<script>"), "search palette must exist before handlers bind");
@@ -127,11 +127,11 @@ test("recipes use a flat category rail, recipe list, and detail editor", () => {
   assert.doesNotMatch(ui,/recipes-close|recipesClose/);
 });
 
-test("project runs never display Boolean-authored plan checklists", () => {
+test("project runs never display Boollm-authored plan checklists", () => {
   assert.match(ui, /function shouldShowProjectPlan\(snapshot\)/);
   // The plan chip follows the controller's showPlan only. artifactRequired is a
   // classification, and on its own it used to raise a "1/7" plan for turns that
-  // never ran a tool — including questions Boolean had misread as build requests.
+  // never ran a tool — including questions Boollm had misread as build requests.
   assert.match(ui, /function shouldShowProjectPlan\(snapshot\) \{\s*return false;\s*\}/);
   assert.doesNotMatch(ui, /snapshot\?\.showPlan === true \|\| snapshot\?\.artifactRequired === true/);
   assert.match(ui, /!shouldShowProjectPlan\(snapshot\)/);
@@ -222,15 +222,15 @@ test("composer footer does not duplicate settings gear", () => {
 test("settings and account stay on the rail while status moves into the sidebar footer", () => {
   assert.doesNotMatch(ui, /<aside id="sidebar">[\s\S]*<div class="sidefoot-nav">[\s\S]*id="topSettings"/);
   assert.doesNotMatch(ui, /composer-footer-nav/);
-  assert.match(ui, /<div class="app-footer" aria-label="App footer">\s*<div class="sidefoot-nav" aria-label="Settings and account">[\s\S]*id="topSettings" title="Settings" aria-label="Settings"[\s\S]*id="cloudSignIn" title="Sign in to your Boolean account" aria-label="Account"/);
+  assert.match(ui, /<div class="app-footer" aria-label="App footer">\s*<div class="sidefoot-nav" aria-label="Settings and account">[\s\S]*id="topSettings" title="Settings" aria-label="Settings"[\s\S]*id="cloudSignIn" title="Sign in to your Boollm account" aria-label="Account"/);
   assert.match(ui, /\.sidefoot-nav\{[^}]*display:flex;[^}]*background:transparent;[^}]*box-shadow:none;/s);
   assert.match(ui, /--app-footer-h:28px/);
   assert.match(ui, /if\(approvedFooter&&approvedSidebar\) approvedSidebar\.insertBefore\(approvedFooter,approvedSidefoot\|\|null\);/);
   assert.match(ui, /\.app-footer\{[\s\S]*?left:8px; right:8px; bottom:7px;[\s\S]*?border:0; background:var\(--sidebar\);/);
   assert.match(ui, /\.app-footer \.sidefoot-nav,\.app-footer-version\{ display:none; \}/);
-  assert.match(ui, /id="footerVersion" aria-label="Boolean version"/);
+  assert.match(ui, /id="footerVersion" aria-label="Boollm version"/);
   assert.match(ui, /\.app-footer-version\{[^}]*margin-left:auto;[^}]*font:7\.5px\/1 var\(--mono\);/s);
-  assert.match(ui, /if\(\$\("footerVersion"\)\) \$\("footerVersion"\)\.textContent="Boolean "\+\(state\.displayVersion/);
+  assert.match(ui, /if\(\$\("footerVersion"\)\) \$\("footerVersion"\)\.textContent="Boollm "\+\(state\.displayVersion/);
   assert.match(ui, /if\(info\) info\.innerHTML="";/);
   assert.doesNotMatch(ui, /composer-brand/);
   assert.doesNotMatch(ui, /\.composer-tools > \.sidefoot-nav\{ display:flex; \}/);
@@ -298,7 +298,7 @@ test("readiness dots keep green ready and red down states", () => {
   assert.match(ui, /\.app-footer \.cmd-chip-dot\.ok\{ background:var\(--green\); \}/);
 });
 
-test("duplicate sidebar footer status is hidden because readiness lives under Boolean", () => {
+test("duplicate sidebar footer status is hidden because readiness lives under Boollm", () => {
   assert.match(ui, /<div class="app-footer" aria-label="App footer">[\s\S]*id="cmdProjectStatus"/);
   assert.match(ui, /\.workspace-tabs \.cmd-status\{ display:none; \}/);
   assert.match(ui, /\.app-footer\{[\s\S]*?display:none !important;[\s\S]*?background:var\(--sidebar\);/);
@@ -543,7 +543,7 @@ test("native browser split uses the approved gray header without a separate bott
   assert.match(ui, /body\.collapsed:not\(\.sidebar-popover-open\) aside\{\s*display:none; min-width:0; margin:0; padding:0; border:0; background:transparent;/);
 });
 
-test("native browser close hides the browser panel without closing Boolean", () => {
+test("native browser close hides the browser panel without closing Boollm", () => {
   assert.ok(server.includes('<button class="ico close" id="browserClose" title="Close browser panel" aria-label="Close browser panel">&#xE8BB;</button>'));
   assert.ok(server.includes('$("browserClose").onclick = function(){ act("hideBrowser"); };'));
   assert.doesNotMatch(server, /class="ico close" data-w="close"/);
@@ -828,7 +828,7 @@ test("projects chats and browser use one shared pane background", () => {
   assert.match(shell, /_themeSurface = "classic";[\s\S]*?return Palette\.Light;/);
 });
 
-test("Classic is Boolean's only surface foundation", () => {
+test("Classic is Boollm's only surface foundation", () => {
   assert.doesNotMatch(ui, /id="colorThemeSeg"|id="brandThemeMenu"|id="brandThemeButton"|data-account-surface/);
   assert.doesNotMatch(ui, /soft-gloss|paper-minimal|graphite-mist|>Clex</);
   assert.match(ui, /function selectedColorTheme\(\)\{ return "classic"; \}/);
@@ -926,7 +926,7 @@ test("model picker includes the local cloud toggle and stays synced", () => {
   assert.match(ui, /target\.innerHTML=`<span class="model-label-text">\$\{esc\(full\)\}<\/span><span class="model-label-compact">\$\{esc\(compact\|\|full\)\}<\/span>`;/);
   assert.match(ui, /target\.setAttribute\("aria-label",modelName\|\|"Select a model"\)/);
   assert.match(ui, /\$\("providersel"\)\.onchange=async\(e\)=>\{[\s\S]*?const provider=e\.target\.value;[\s\S]*?JSON\.stringify\(\{provider\}\)/);
-  assert.match(ui, /modelPickerNet="online";[\s\S]*?const firstMissing=\$\("modellist"\)\?\.querySelector\("\.api-provider\.missing"\);[\s\S]*?Boolean will stay on Local until it is saved\./);
+  assert.match(ui, /modelPickerNet="online";[\s\S]*?const firstMissing=\$\("modellist"\)\?\.querySelector\("\.api-provider\.missing"\);[\s\S]*?Boollm will stay on Local until it is saved\./);
   assert.match(ui, /if\(net==="local"\)\{[\s\S]*?modelPickerNet="local";[\s\S]*?state\.codingEngine="boolean";[\s\S]*?JSON\.stringify\(\{provider:"local",codingEngine:"boolean"\}\)/);
   assert.match(ui, /modelPickerNet="online";\s*state\.codingEngine="auto";[\s\S]*?JSON\.stringify\(\{provider:prov,codingEngine:"auto"\}\)/);
   assert.match(ui, /await fetch\("\/api\/config",\{method:"POST",body:JSON\.stringify\(\{codingEngine:"auto"\}\)\}\);[\s\S]*?\$\("modelmenu"\)\.classList\.add\("open"\)/);
@@ -1100,7 +1100,7 @@ test("composer access menu persists read, write, full-access, and signed-in trad
   assert.match(ui, /Trading stocks, ETFs, options, futures, crypto, and other assets is risky/);
   assert.match(ui, /This mode includes Full access/);
   assert.match(ui, /await saveAccessMode\("full_access"\)/);
-  assert.match(ui, /Sign in to Boolean before enabling trading access/);
+  assert.match(ui, /Sign in to Boollm before enabling trading access/);
   assert.match(ui, /\.approval\.trade-approval\{ display:grid; grid-template-columns:minmax\(0,1fr\) auto;/);
   assert.match(ui, /tradeApproval\?'Confirm live trade order'/);
   assert.match(ui, /tradeApproval\?'Confirm'/);
@@ -1362,7 +1362,7 @@ test("Markets closes the projects pane once on entry and signed-out accounts exp
   assert.match(ui, /const enteringMarkets=ws==="markets"&&ws!==activeWsTab;/);
   assert.match(ui, /if\(enteringMarkets&&!document\.body\.classList\.contains\("collapsed"\)\)\{[\s\S]*?classList\.add\("collapsed"\)[\s\S]*?sidebarManualState=true;[\s\S]*?syncPanelButtons\(\);/);
   assert.doesNotMatch(ui, /body\.markets-open[^}]*#sidebar[^}]*display:none/);
-  assert.match(ui, /id="accountAuthNote">Optional — Boolean works without an account\. Your data stays local on this PC\.<\/div>/);
+  assert.match(ui, /id="accountAuthNote">Optional — Boollm works without an account\. Your data stays local on this PC\.<\/div>/);
   assert.match(ui, /id="accountAuthText">Sign in or sign up<\/span>/);
   assert.match(ui, /if\(auth\) auth\.textContent=cloud\.signedIn\?"Log out":"Sign in or sign up";/);
   assert.match(ui, /if\(authNote\) authNote\.hidden=!!cloud\.signedIn;/);
@@ -1375,7 +1375,7 @@ test("Education closes Projects and Chats when the workspace opens", () => {
   assert.match(ui, /else if \(ws === "education"\) \{[\s\S]*?educationSidebarAutoClosed=false;scheduleResponsiveClasses\(\); \}/);
 });
 
-test("Markets dark mode uses the shared Boolean canvas and card blacks", () => {
+test("Markets dark mode uses the shared Boollm canvas and card blacks", () => {
   assert.match(ui, /body\.markets-open \.markets-shell\{\s*--market-bg:var\(--approved-canvas\);\s*--market-card:var\(--approved-card\);\s*--market-card-2:var\(--card\);/);
   assert.match(ui, /body\.markets-open \.workspace-tabs,[\s\S]*?body\.markets-open \.market-bottom-tape\{\s*background:var\(--approved-canvas\);/);
   assert.match(ui, /body\.markets-open \.market-watch,[\s\S]*?body\.markets-open \.market-ai-summary\{\s*background:var\(--approved-card\);/);
@@ -1392,7 +1392,7 @@ test("Education offers saved practice exams with both feedback modes and topic r
   assert.match(ui, /sat:\[11,12\]/);
   assert.match(ui, /const EDUCATION_SAVE_KEY="boollmEducationPracticeV1"/);
   assert.match(ui, /function educationShowResults\(\)/);
-  assert.match(ui, /Questions in Boolean are newly generated practice items, not copied secure test questions/);
+  assert.match(ui, /Questions in Boollm are newly generated practice items, not copied secure test questions/);
   assert.match(ui, /body\.education-open #chat,body\.markets-open #chat,body\.recipes-open #chat\{ display:block!important; \}/);
 });
 
@@ -1685,7 +1685,7 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
 test("every Grade 7 practice supports a 250-question session", () => {
   assert.match(ui, /educationQuestionCounts=examId=>educationExamGrades\[examId\]\?\.includes\(7\)\?\[5,10,15,20,25,50,100,150,200,250\]/);
   for (const exam of ["grade7","iseeMiddle","ssatMiddle","hspt","iq"]) {
-    assert.match(ui, new RegExp(`${exam}:\\{name:[^\\n]+up to 250 Boolean original questions per session`));
+    assert.match(ui, new RegExp(`${exam}:\\{name:[^\\n]+up to 250 Boollm original questions per session`));
   }
   assert.match(ui, /teas:\{name:"ATI TEAS"/);
   assert.match(ui, /hesiA2:\{name:"HESI A2"/);
@@ -1764,7 +1764,7 @@ test("pinned projects and chats use the compact grouped sidebar", () => {
   assert.doesNotMatch(ui, /createRow\.append\(createProjectButton,openFolderButton\)/);
 });
 
-test("wide Chat shows a Codex-inspired Boolean workspace rail", () => {
+test("wide Chat shows a Codex-inspired Boollm workspace rail", () => {
   assert.match(ui, /id="chatUtilityPanel" aria-label="Chat workspace details"/);
   assert.match(ui, /id="notesToggle"[\s\S]*?id="exploreToggle"[^>]*aria-label="Toggle Explore"[\s\S]*?id="browserToggle"/);
   assert.match(ui, /\$\("exploreToggle"\)\.onclick=\(\)=>openExploreWorkspace\(\)/);
@@ -1837,17 +1837,17 @@ test("successful run_project opens the local preview in the built-in browser", (
   assert.match(shell, /AddTab\(u, activate: true, navigate: true\);/);
 });
 
-test("Boolean brand reports live work activity without provider-specific status text", () => {
-  assert.match(ui, /function setBooleanActivity\(text,\{temporary=0,ready=true\}=\{\}\)/);
+test("Boollm brand reports live work activity without provider-specific status text", () => {
+  assert.match(ui, /function setBoollmActivity\(text,\{temporary=0,ready=true\}=\{\}\)/);
   for (const label of ["Ready", "Working", "Reading page", "Browsing", "Saving to notes", "Summarizing"]) {
-    assert.ok(ui.includes(`"${label}"`), `missing Boolean activity label: ${label}`);
+    assert.ok(ui.includes(`"${label}"`), `missing Boollm activity label: ${label}`);
   }
-  assert.match(ui, /if\(!run\) setBooleanActivity\(text,\{ready\}\)/);
-  assert.match(ui, /setBooleanActivity\("Working"\);\s*if\(opts\.provider\)/);
-  assert.match(ui, /setBooleanActivity\(inferBooleanActivity\(ev\.text\)\)/);
-  assert.match(ui, /setBooleanActivity\(ev\.command\?\.action==="write"\?"Saving to notes":"Working"\)/);
-  assert.match(ui, /function showReading\(\)\{ setBooleanActivity\("Reading page",\{temporary:2600\}\)/);
-  assert.match(ui, /setBooleanActivity\(\/summar\|email_summary\/\.test\(task\)\?"Summarizing":"Browsing"\)/);
+  assert.match(ui, /if\(!run\) setBoollmActivity\(text,\{ready\}\)/);
+  assert.match(ui, /setBoollmActivity\("Working"\);\s*if\(opts\.provider\)/);
+  assert.match(ui, /setBoollmActivity\(inferBoollmActivity\(ev\.text\)\)/);
+  assert.match(ui, /setBoollmActivity\(ev\.command\?\.action==="write"\?"Saving to notes":"Working"\)/);
+  assert.match(ui, /function showReading\(\)\{ setBoollmActivity\("Reading page",\{temporary:2600\}\)/);
+  assert.match(ui, /setBoollmActivity\(\/summar\|email_summary\/\.test\(task\)\?"Summarizing":"Browsing"\)/);
   assert.match(ui, /\.brand-about\.ready\{ color:var\(--dim\); background:transparent; \}/);
   assert.doesNotMatch(ui, /const text=ready\?shortLabel\+" ready":"Not ready"/);
 });

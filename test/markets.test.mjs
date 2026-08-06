@@ -254,7 +254,7 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   assert.match(server, /\/api\/markets\/trade-ideas/);
   assert.match(server, /\/api\/markets\/cot/);
   assert.match(server, /p\.startsWith\("\/api\/markets\/"\) && !marketAccessAllowed\(config\)/);
-  assert.match(server, /Markets is available only to signed-in Boolean administrators\./);
+  assert.match(server, /Markets is available only to signed-in Boollm administrators\./);
   assert.match(server, /return !!cloud\.sessionToken && \(user\.role === "admin" \|\| user\.is_admin === true\)/);
 });
 
@@ -268,7 +268,7 @@ test("Markets uses the selected flat floating-workspace layout", () => {
   const headerEnd=ui.indexOf("</header>",headerStart);
   const header=ui.slice(headerStart,headerEnd);
   assert.ok(headerStart>=0&&headerEnd>headerStart,"Markets should retain its flat page header");
-  assert.doesNotMatch(header,/<h2>|Boolean Markets/);
+  assert.doesNotMatch(header,/<h2>|Boollm Markets/);
   assert.doesNotMatch(header,/id="marketCommand"/);
   assert.doesNotMatch(header,/id="marketSource"|market-source-wrap|market-source-info/);
   assert.match(ui,/\.workspace-float \.market-flat \.market-index\{[^}]*height:26px;[^}]*min-height:26px;[^}]*padding:1px 10px;/s);
@@ -376,12 +376,12 @@ test("Markets keeps the bottom ticker after both page bodies and in the final gr
 test("Markets shows a transparent local composite instead of an options card", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
   assert.match(ui, /\.workspace-float \.market-flat \.market-chart-sentiment\{[^}]*grid-template-columns:1fr;/);
-  assert.match(ui, /Boolean Sentiment/);
+  assert.match(ui, /Boollm Sentiment/);
   assert.match(ui, /Sentiment &amp; Sources/);
   assert.match(ui, /function marketCompositeSentiment\(\)/);
   assert.match(ui, /Price action/);
   assert.match(ui, /Price \+ volume/);
-  assert.match(ui, /Boolean news tone/);
+  assert.match(ui, /Boollm news tone/);
   assert.match(ui, /Filing fundamentals/);
   assert.match(ui, /Missing inputs are excluded and remaining weights are normalized/);
   assert.match(ui, /No social or crowd data/);

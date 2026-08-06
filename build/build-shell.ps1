@@ -1,6 +1,6 @@
 # Builds the native WebView2 shell distribution into dist\saz-app\:
-#   Boolean.exe      - the .NET WebView2 window we own (taskbar icon, real browser)
-#   Boolean-core.exe - the Node backend (engine + server + web UI), launched by the shell
+#   Boollm.exe      - the .NET WebView2 window we own (taskbar icon, real browser)
+#   Boollm-core.exe - the Node backend (engine + server + web UI), launched by the shell
 #   engine\, templates\, saz.ico, docs
 # Run:  powershell -ExecutionPolicy Bypass -File build\build-shell.ps1
 $ErrorActionPreference = "Stop"
@@ -12,11 +12,11 @@ Write-Host "[0/5] bundling the Monaco editor for the Code workspace..."
 & node "$root\build\build-editor.mjs"
 if ($LASTEXITCODE -ne 0) { throw "editor bundle failed" }
 
-Write-Host "[1/5] building Node core (Boolean-core.exe)..."
+Write-Host "[1/5] building Node core (Boollm-core.exe)..."
 & powershell -ExecutionPolicy Bypass -File "$root\build\build-exe.ps1"
 if ($LASTEXITCODE -ne 0) { throw "core build failed" }
 
-Write-Host "[2/5] publishing .NET shell (self-contained Boolean.exe)..."
+Write-Host "[2/5] publishing .NET shell (self-contained Boollm.exe)..."
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 & dotnet publish "$root\shell\SazShell.csproj" -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
@@ -25,7 +25,7 @@ if (Test-Path $out) { Remove-Item $out -Recurse -Force }
 if ($LASTEXITCODE -ne 0) { throw "shell publish failed" }
 
 Write-Host "[3/5] placing the Node core next to the shell..."
-Copy-Item "$root\dist\saz.exe" "$out\Boolean-core.exe" -Force
+Copy-Item "$root\dist\saz.exe" "$out\Boollm-core.exe" -Force
 
 Write-Host "[4/5] bundling engine, templates and icon..."
 Copy-Item "$root\build\engine" "$out\engine" -Recurse -Force
@@ -69,10 +69,10 @@ if (Test-Path $oauthSource) {
     $oauthClients.outlook.clientSecret = [string]$configured.outlook.clientSecret
   }
 }
-if ($env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID) { $oauthClients.gmail.clientId = $env:BOOLEAN_GOOGLE_OAUTH_CLIENT_ID.Trim() }
-if ($env:BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET) { $oauthClients.gmail.clientSecret = $env:BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET.Trim() }
-if ($env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID) { $oauthClients.outlook.clientId = $env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID.Trim() }
-if ($env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_SECRET) { $oauthClients.outlook.clientSecret = $env:BOOLEAN_MICROSOFT_OAUTH_CLIENT_SECRET.Trim() }
+if ($env:BOOLLM_GOOGLE_OAUTH_CLIENT_ID) { $oauthClients.gmail.clientId = $env:BOOLLM_GOOGLE_OAUTH_CLIENT_ID.Trim() }
+if ($env:BOOLLM_GOOGLE_OAUTH_CLIENT_SECRET) { $oauthClients.gmail.clientSecret = $env:BOOLLM_GOOGLE_OAUTH_CLIENT_SECRET.Trim() }
+if ($env:BOOLLM_MICROSOFT_OAUTH_CLIENT_ID) { $oauthClients.outlook.clientId = $env:BOOLLM_MICROSOFT_OAUTH_CLIENT_ID.Trim() }
+if ($env:BOOLLM_MICROSOFT_OAUTH_CLIENT_SECRET) { $oauthClients.outlook.clientSecret = $env:BOOLLM_MICROSOFT_OAUTH_CLIENT_SECRET.Trim() }
 $oauthClients | ConvertTo-Json | Set-Content "$out\oauth-clients.json" -Encoding ASCII
 
 Write-Host "[5/5] copying docs..."

@@ -30,5 +30,5 @@ http.createServer((req, res) => {
     res.end(data);
   });
 }).listen(port, "127.0.0.1", () => {
-  console.log(`Boolean site preview: http://localhost:${port}/`);
+  console.log(`Boollm site preview: http://localhost:${port}/`);
 });

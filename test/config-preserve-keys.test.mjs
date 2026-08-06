@@ -5,7 +5,7 @@ import { defaultConfig, hasAnySavedCredential, preserveSavedApiKeys, preserveSav
 
 const configSource = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 
-test("ordinary config saves preserve a signed-in Boolean account", () => {
+test("ordinary config saves preserve a signed-in Boollm account", () => {
   const previous = {
     cloudBackend: {
       url: "https://api.boollm.com",

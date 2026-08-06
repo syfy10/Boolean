@@ -20,7 +20,7 @@ test("Codex installation requires confirmation and auto-checks after the explici
   assert.match(installFunction, /fetch\("\/api\/codex\/install",\{method:"POST",headers:\{"content-type":"application\/json","x-saz":"1"\},body:"\{\}"\}\)/);
   assert.ok(installFunction.indexOf("appConfirm") < installFunction.indexOf('fetch("/api/codex/install"'));
   assert.match(installFunction, /const raw=await response\.text\(\)/);
-  assert.match(installFunction, /response\.status===404[\s\S]*backend is out of date\. Restart Boolean/);
+  assert.match(installFunction, /response\.status===404[\s\S]*backend is out of date\. Restart Boollm/);
   assert.match(installFunction, /await refreshCodexStatus\(\{start:true,quiet:true\}\)/);
   assert.match(uiSource, /installing\?"Installing Codex…"/);
 });

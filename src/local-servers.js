@@ -63,7 +63,7 @@ async function probe(port, timeoutMs) {
  * Return the local HTTP servers worth offering in the browser.
  * @param {object} options
  * @param {number} [options.timeoutMs] per-port probe budget
- * @param {number} [options.excludePort] Boolean's own port, when it should be hidden
+ * @param {number} [options.excludePort] Boollm's own port, when it should be hidden
  * @returns {Promise<Array<{port:number,url:string,name:string,status:number}>>}
  */
 export async function detectLocalServers({ timeoutMs = 700, excludePort = 0, limit = 12 } = {}) {

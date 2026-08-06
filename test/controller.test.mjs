@@ -68,7 +68,7 @@ test("controller persists its objective, plan, evidence, and recovery state", ()
 test("action requests are detected but no longer gate the final answer", () => {
   const controller = new AgentController({ objective: "Please send the saved email draft" });
   assert.equal(controller.actionRequired, true, "still classified as an action task");
-  // Boolean used to refuse this answer; the model now decides.
+  // Boollm used to refuse this answer; the model now decides.
   assert.equal(controller.evaluateCompletion("The draft was sent.").complete, true);
 
   controller.noteTool("email_send_draft", { id: "draft-1" }, "sent draft draft-1");
@@ -82,9 +82,9 @@ test("explicit controller action requirement no longer blocks a status answer", 
 });
 
 test("ordinary questions do not require tools", () => {
-  const controller = new AgentController({ objective: "What is a Boolean value?" });
+  const controller = new AgentController({ objective: "What is a Boollm value?" });
   assert.equal(controller.actionRequired, false);
-  assert.equal(controller.evaluateCompletion("A Boolean is true or false.").complete, true);
+  assert.equal(controller.evaluateCompletion("A Boollm is true or false.").complete, true);
 });
 
 test("debug tasks are detected but edits are never blocked", () => {
@@ -187,7 +187,7 @@ test("the visible browser is never gated — the model decides when to open it",
   assert.deepEqual(email.snapshot().plan, []);
 });
 
-test("task activity does not create or display a Boolean-authored checklist", () => {
+test("task activity does not create or display a Boollm-authored checklist", () => {
   const email = new AgentController({ objective: "Clean up old Outlook email", actionRequired: true });
   email.noteTool("email_cleanup_preview", { provider: "outlook" }, "Plan ready with 20 candidates");
   assert.equal(email.snapshot().showPlan, false);
@@ -673,7 +673,7 @@ test("optional visual inspection failure after successful verification does not 
 
   controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
   controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
-  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boollm page loaded");
   controller.noteTool("inspect_page_layout", { selector: "#browser" }, "visible browser error: The JSON value could not be converted to System.String.");
 
   const result = controller.evaluateCompletion("Updated and checked.");
@@ -691,7 +691,7 @@ test("models may finish while a recorded background process remains active", () 
   controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
   controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
   controller.noteTool("run_background", { name: "preview", command: "npm run dev" }, "Started background process 'preview' - running (pid 42).");
-  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boollm page loaded");
 
   const completed = controller.evaluateCompletion("Done.");
   assert.equal(completed.complete, true);
@@ -701,10 +701,10 @@ test("models may finish while a recorded background process remains active", () 
   assert.equal(controller.evaluateCompletion("Done.").complete, true);
 });
 
-test("project rules load from BOOLEAN.md and inject into project brief", () => {
+test("project rules load from BOOLLM.md and inject into project brief", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-rules-"));
   try {
-    fs.writeFileSync(path.join(dir, "BOOLEAN.md"), "# My Project\n\nBuild with foo --bar\nNever deploy.");
+    fs.writeFileSync(path.join(dir, "BOOLLM.md"), "# My Project\n\nBuild with foo --bar\nNever deploy.");
     const rules = loadProjectRules(dir);
     assert.match(rules, /PROJECT RULES/);
     assert.match(rules, /Build with foo --bar/);
@@ -752,20 +752,20 @@ test("remember records model findings into working memory and survives a snapsho
   assert.match(restored.workingMemory(), /DPI mismatch/, "notes persist across snapshot");
 });
 
-test("project rules prefer Boolean paths and preserve Boollm legacy fallback", () => {
+test("project rules prefer Boollm paths and preserve Boolean legacy fallback", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boollm-rules-"));
   try {
     fs.mkdirSync(path.join(dir, ".boollm"), { recursive: true });
     fs.writeFileSync(path.join(dir, ".boollm", "rules.md"), "Style: use spaces.");
-    fs.writeFileSync(path.join(dir, "BOOLEAN.md"), "Boolean rules win.");
+    fs.writeFileSync(path.join(dir, "BOOLLM.md"), "Boollm rules win.");
     const rules = loadProjectRules(dir);
-    assert.match(rules, /from BOOLEAN\.md/);
-    assert.match(rules, /Boolean rules win/);
+    assert.match(rules, /from BOOLLM\.md/);
+    assert.match(rules, /Boollm rules win/);
 
-    fs.rmSync(path.join(dir, "BOOLEAN.md"));
-    const legacyRules = loadProjectRules(dir);
-    assert.match(legacyRules, /from \.boollm\/rules\.md \(legacy\)/);
-    assert.match(legacyRules, /use spaces/);
+    fs.rmSync(path.join(dir, "BOOLLM.md"));
+    const boollmRules = loadProjectRules(dir);
+    assert.match(boollmRules, /from \.boollm\/rules\.md/);
+    assert.match(boollmRules, /use spaces/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

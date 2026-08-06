@@ -179,11 +179,11 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
       automatic: false,
       engine: configured,
       route,
-      reason: configured === "boolean" ? "Boolean was selected manually." : `${configured === "codex" ? "Codex" : "Claude Code"} was selected manually.`
+      reason: configured === "boolean" ? "Boollm was selected manually." : `${configured === "codex" ? "Codex" : "Claude Code"} was selected manually.`
     };
   }
   if (configured !== "auto" || options.disabled === true) {
-    return { automatic: configured === "auto", engine: "boolean", route, reason: options.disabled === true ? "Automatic subscription routing is unavailable for this turn." : "Boolean was selected manually." };
+    return { automatic: configured === "auto", engine: "boolean", route, reason: options.disabled === true ? "Automatic subscription routing is unavailable for this turn." : "Boollm was selected manually." };
   }
 
   const routing = config?.ui?.modelRouting || {};
@@ -198,20 +198,20 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
   };
 
   // Auto always gives the selected GLM, DeepSeek, local, or other connected
-  // Boolean model the first attempt. Subscription engines are escalation-only
+  // Boollm model the first attempt. Subscription engines are escalation-only
   // after a code/project task fails or cannot produce a verified completion.
   if (!escalationRequired) {
-    return { automatic: true, engine: "boolean", route, reason: "The selected Boolean API gets the first attempt." };
+    return { automatic: true, engine: "boolean", route, reason: "The selected Boollm API gets the first attempt." };
   }
   if ((route !== "coding" && !taskExecution) || route === "vision" || route === "research") {
     return { automatic: true, engine: "boolean", route, reason: "Subscription escalation is limited to code and project tasks." };
   }
   if (requested === "boolean") {
-    return { automatic: true, engine: "boolean", route, reason: `${route} is assigned to Boolean with no subscription fallback.` };
+    return { automatic: true, engine: "boolean", route, reason: `${route} is assigned to Boollm with no subscription fallback.` };
   }
   if (["codex", "claude-code"].includes(requested)) {
     if (ready[requested]) {
-      return { automatic: true, engine: requested, route, reason: `Boolean could not verify this task; escalating to the approved ${requested === "codex" ? "Codex" : "Claude"} subscription.` };
+      return { automatic: true, engine: requested, route, reason: `Boollm could not verify this task; escalating to the approved ${requested === "codex" ? "Codex" : "Claude"} subscription.` };
     }
     return { automatic: true, engine: "boolean", route, reason: `${requested === "codex" ? "Codex" : "Claude Code"} is the configured fallback but is not signed in and ready.` };
   }
@@ -227,8 +227,8 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
     engine,
     route,
     reason: engine === "boolean"
-      ? "No approved subscription engine is signed in and ready; keeping the task in Boolean."
-      : `Boolean could not complete or verify this task; escalating to the approved ${engine === "codex" ? "Codex" : "Claude"} subscription.`
+      ? "No approved subscription engine is signed in and ready; keeping the task in Boollm."
+      : `Boollm could not complete or verify this task; escalating to the approved ${engine === "codex" ? "Codex" : "Claude"} subscription.`
   };
 }
 

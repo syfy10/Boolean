@@ -105,7 +105,7 @@ test("handoff does not fire when autoHandoff is disabled", async (t) => {
   assert.equal(answer, "I've updated app.js as requested.");
 });
 
-test("a Boolean budget checkpoint is reported as failed so Auto can escalate", async (t) => {
+test("a Boollm budget checkpoint is reported as failed so Auto can escalate", async (t) => {
   resetAutoModelHealth();
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-budget-handoff-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));

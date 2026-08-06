@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BOOLEAN_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js";
+import { BOOLLM_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js";
 import { projectBrief, systemPrompt } from "../src/agent.js";
 import fs from "node:fs";
 import os from "node:os";
@@ -28,10 +28,10 @@ test("operating policy uses one concise Codex-style task contract", () => {
     /Finish when the requested answer or outcome is delivered/i
   ];
   for (const pattern of required) assert.match(policy, pattern);
-  assert.equal(BOOLEAN_AGENT_RULES.every((rule) => rule.length > 20), true);
+  assert.equal(BOOLLM_AGENT_RULES.every((rule) => rule.length > 20), true);
 });
 
-test("Boolean does not override a model with a product-authored planning mode", () => {
+test("Boollm does not override a model with a product-authored planning mode", () => {
   const prompts = ["auto", "quick", "plan-first"].map((planningMode) =>
     systemPrompt("", false, { ui: { codingAgent: { planningMode } } })
   );

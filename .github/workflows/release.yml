@@ -53,7 +53,7 @@ jobs:
         shell: powershell
         run: |
           $manifest = Get-Content dist/update.json -Raw | ConvertFrom-Json
-          $actual = (Get-FileHash dist/Boolean-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          $actual = (Get-FileHash dist/Boollm-setup.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($manifest.sha256 -ne $actual) { throw "Installer hash does not match update.json" }
           if ($manifest.version -ne "${{ github.ref_name }}".TrimStart("v")) {
             throw "Manifest version does not match the release tag"
@@ -65,8 +65,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ github.ref_name }}" `
-            "dist/Boolean-setup.exe#Boolean Windows installer" `
-            "dist/update.json#Boolean automatic update manifest" `
+            "dist/Boollm-setup.exe#Boollm Windows installer" `
+            "dist/update.json#Boollm automatic update manifest" `
             --repo "${{ github.repository }}" `
-            --title "Boolean ${{ github.ref_name }}" `
+            --title "Boollm ${{ github.ref_name }}" `
             --generate-notes

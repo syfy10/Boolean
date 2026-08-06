@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Boolean live demo</title>
+<title>Boollm live demo</title>
 <link rel="stylesheet" href="./app-demo.css">
 <style>
   /* demo-only: fit inside the marketing iframe, hide scrollbars, freeze at app size */
@@ -51,12 +51,12 @@
 
 <aside id="sidebar">
   <div class="sidehead">
-    <div class="sidebar-brand" aria-label="Boolean">
+    <div class="sidebar-brand" aria-label="Boollm">
       <div class="brand-word">
-        <div class="brand-name">Boolean</div>
+        <div class="brand-name">Boollm</div>
         <div class="foot-status" id="footStatus"><span class="dot" id="statusdot"></span><span id="statustext">Ready</span></div>
       </div>
-      <div class="brand-about" aria-label="About Boolean">
+      <div class="brand-about" aria-label="About Boollm">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5h.01"/></svg>
       </div>
     </div>
@@ -374,7 +374,7 @@
         const d = document.createElement("div"); d.className = "demo-toolout"; d.innerHTML = n.tool; body.appendChild(d); scrollDown(); await sleep(260);
       } else if(n.code !== undefined){
         const d = document.createElement("div"); d.className = "demo-code";
-        d.innerHTML = '<div class="cbar"><i></i>'+n.file+' · edited by Boolean</div><pre></pre>';
+        d.innerHTML = '<div class="cbar"><i></i>'+n.file+' · edited by Boollm</div><pre></pre>';
         body.appendChild(d); const pre = d.querySelector("pre"); scrollDown();
         for(const line of n.code){ const s=document.createElement("span"); s.style.display="block"; s.innerHTML=line||"&nbsp;"; pre.appendChild(s); scrollDown(); await sleep(46); }
       }

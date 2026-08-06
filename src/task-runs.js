@@ -53,8 +53,8 @@ export function updateTaskRunVisual(run, update = {}) {
   const eventForState = {
     building: ["visual.building", "active", "Updating the app", "Files changed; the preview will refresh after the next successful run."],
     launching: ["visual.launching", "active", "Launching preview", next.previewUrl || "Starting the local app."],
-    previewing: ["visual.preview", "active", "Live preview ready", next.previewUrl || "The app is open in Boolean's browser."],
-    inspecting: ["visual.inspecting", "active", "Inspecting the screen", "Boolean is reviewing the rendered result."],
+    previewing: ["visual.preview", "active", "Live preview ready", next.previewUrl || "The app is open in Boollm's browser."],
+    inspecting: ["visual.inspecting", "active", "Inspecting the screen", "Boollm is reviewing the rendered result."],
     verified: ["visual.verified", "done", "Visual check passed", "The latest rendered preview was inspected."],
     failed: ["visual.failed", "failed", "Preview needs attention", clean(update.detail, 320) || "The visual build step failed."]
   }[next.state];

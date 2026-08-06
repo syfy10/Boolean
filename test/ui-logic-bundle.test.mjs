@@ -33,8 +33,8 @@ test("the trading parsers are a real module, not a slice of ui.html", () => {
 });
 
 test("ui.html takes the bundle from the server rather than defining it", () => {
-  assert.match(ui, /\/\*__BOOLEAN_UI_LOGIC__\*\//);
-  assert.match(ui, /window\.BooleanTradingLogic/);
+  assert.match(ui, /\/\*__BOOLLM_UI_LOGIC__\*\//);
+  assert.match(ui, /window\.BoollmTradingLogic/);
 });
 
 test("the bundle is build output, wired into install and packaging", () => {
@@ -54,7 +54,7 @@ test("the served page carries the bundle inlined", async (t) => {
 
   const html = await (await fetch(`http://127.0.0.1:${app.port}/`)).text();
 
-  assert.ok(!html.includes("/*__BOOLEAN_UI_LOGIC__*/"), "placeholder was never replaced");
-  assert.ok(html.includes("var BooleanTradingLogic"), "bundle missing from the served page");
+  assert.ok(!html.includes("/*__BOOLLM_UI_LOGIC__*/"), "placeholder was never replaced");
+  assert.ok(html.includes("var BoollmTradingLogic"), "bundle missing from the served page");
   assert.ok(html.includes("function symbolFromPageText"), "parser missing from the served page");
 });

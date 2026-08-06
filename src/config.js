@@ -4,7 +4,7 @@ import os from "node:os";
 
 export const APP_VERSION = "0.9.71";
 export const APP_DISPLAY_VERSION = "v0.9.71";
-export const APP_NAME = "Boolean";
+export const APP_NAME = "Boollm";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
 export const AI_BEHAVIOR_VERSION = 2;
@@ -46,7 +46,7 @@ const DEFAULTS = {
     model: ""
   },
   // Optional native orchestration through OpenAI's public Codex app-server.
-  // Authentication remains owned by the Codex CLI; Boolean never stores its
+  // Authentication remains owned by the Codex CLI; Boollm never stores its
   // access tokens. The existing local/cloud provider loop remains the default.
   codex: {
     enabled: false,
@@ -55,14 +55,14 @@ const DEFAULTS = {
     reasoningEffort: "medium"
   },
   // Optional native Claude Code orchestration. Claude owns authentication;
-  // Boolean stores only the executable path and selected model.
+  // Boollm stores only the executable path and selected model.
   codingEngine: "boolean", // boolean | auto | codex | claude-code
   claudeCode: {
     enabled: false,
     command: "claude",
     model: "sonnet"
   },
-  // Per provider + endpoint + model capability probes. Boolean records native
+  // Per provider + endpoint + model capability probes. Boollm records native
   // function support after a real request succeeds or is rejected so a model
   // is not repeatedly placed into an agent mode it cannot reliably use.
   modelCapabilities: {},
@@ -154,7 +154,7 @@ const DEFAULTS = {
   // EULA version the user accepted ("" = not yet accepted)
   eulaAccepted: "",
   // where generated projects are saved (user can change)
-  projectsDir: path.join(os.homedir(), "Documents", "Boolean"),
+  projectsDir: path.join(os.homedir(), "Documents", "Boollm"),
   // reference model for the "estimated savings" figure
   referenceModel: "gpt-5.1",
   // monthly cloud spending budget in USD. 0 = no limit. UI warns at 80%+.
@@ -187,7 +187,7 @@ const DEFAULTS = {
       optionsProvider: "alpaca", optionsFeed: "indicative",
       alpacaKeyId: "", alpacaSecretKey: "", massiveApiKey: ""
     },
-    // Price-action "signal + stage" guardrails. Boolean can watch price action and
+    // Price-action "signal + stage" guardrails. Boollm can watch price action and
     // STAGE a pre-filled order for your review, but never auto-executes: enabled is
     // off by default and killSwitch halts staging instantly. Execution stays a
     // separate, human-confirmed step through the broker connector.
@@ -199,7 +199,7 @@ const DEFAULTS = {
       maxOrdersPerDay: 0,
       dailyLossCapUsd: 0,
       // Local, page-fed signal helper. It builds completed candles from the
-      // quote visible in Boolean's browser and never submits an order itself.
+      // quote visible in Boollm's browser and never submits an order itself.
       strategy: {
         enabled: false,
         key: "multi",
@@ -240,7 +240,7 @@ const DEFAULTS = {
   // UI/behavior preferences (surfaced in the organized Settings page)
   ui: {
     theme: "system",          // system | light | dark
-    appZoom: 100,             // whole Boolean interface, 75-150 percent
+    appZoom: 100,             // whole Boollm interface, 75-150 percent
     colorTheme: "classic",
     composerStyle: "pill",    // pill | simple
     fontSize: "medium",       // small | medium | large
@@ -257,7 +257,7 @@ const DEFAULTS = {
     referenceChatMemory: true, // compact memory of the open chat for follow-ups
     learnedMemory: true,      // saved safe user preferences/behaviors
     notifications: false,
-    desktopPet: false,       // optional native always-on-top Boolean activity companion
+    desktopPet: false,       // optional native always-on-top Boollm activity companion
     autoRouteModels: false,   // automatically select an approved connected model for each task type
     modelRouting: {
       selected: "chat",
@@ -685,7 +685,7 @@ export function loadConfig() {
       let migrated = recovered;
       // This marker lives beside user data, outside the replaceable install
       // folder. Once setup is complete, an upgrade cannot accidentally make
-      // Boolean look like a first install. The explicit Settings switch still
+      // Boollm look like a first install. The explicit Settings switch still
       // wins when a user intentionally asks to see setup again.
       if (fs.existsSync(ONBOARDING_COMPLETE_FILE) && raw.ui?.showOnboarding !== true) {
         if (cfg.ui.onboarded !== true || cfg.ui.showOnboarding !== false) migrated = true;
@@ -720,8 +720,9 @@ export function loadConfig() {
       const oldProjects = path.join(os.homedir(), "Documents", "SAZ3 Projects");
       const loxaProjects = path.join(os.homedir(), "Documents", "Loxa Projects");
       const booleanProjects = path.join(os.homedir(), "Documents", "Boolean Projects");
-      const newProjects = path.join(os.homedir(), "Documents", "Boolean");
-      if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects) { cfg.projectsDir = newProjects; migrated = true; }
+      const boollmProjects = path.join(os.homedir(), "Documents", "Boollm Projects");
+      const newProjects = path.join(os.homedir(), "Documents", "Boollm");
+      if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects || cfg.projectsDir === boollmProjects) { cfg.projectsDir = newProjects; migrated = true; }
       if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
         cfg.aiBehaviorVersion = AI_BEHAVIOR_VERSION;
         cfg.ui.contextMode = "balanced";

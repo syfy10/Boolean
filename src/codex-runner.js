@@ -20,12 +20,12 @@ const TOOL_ITEM_TYPES = new Set([
 ]);
 const BOOTSTRAP_MESSAGES = 10;
 const BOOTSTRAP_CHARS = 12000;
-const BOOLEAN_DYNAMIC_TOOLS_VERSION = 1;
-const BOOLEAN_PERMISSION_PROFILE = "boolean_workspace_only";
-const BOOLEAN_CHANGES_TOOL = Object.freeze({
+const BOOLLM_DYNAMIC_TOOLS_VERSION = 1;
+const BOOLLM_PERMISSION_PROFILE = "boolean_workspace_only";
+const BOOLLM_CHANGES_TOOL = Object.freeze({
   type: "function",
   name: "boolean_changes",
-  description: "Read Boolean's live, host-verified Changes panel. Returns the authoritative non-Git change count, exact file paths, created/modified/deleted status, and diff text for the selected project.",
+  description: "Read Boollm's live, host-verified Changes panel. Returns the authoritative non-Git change count, exact file paths, created/modified/deleted status, and diff text for the selected project.",
   inputSchema: {
     type: "object",
     properties: {},
@@ -63,14 +63,14 @@ function workspaceChangesContext(changes = []) {
     return `- ${status}: ${exactPath}${diff ? `\n${diff}` : ""}`;
   });
   return [
-    `Boolean Changes panel before this turn: ${source.length} changed file${source.length === 1 ? "" : "s"}.`,
-    "This count is authoritative and comes from Boolean's host-verified Changes system, independent of Git. Do not use Git to calculate it.",
+    `Boollm Changes panel before this turn: ${source.length} changed file${source.length === 1 ? "" : "s"}.`,
+    "This count is authoritative and comes from Boollm's host-verified Changes system, independent of Git. Do not use Git to calculate it.",
     ...rows,
-    source.length ? "Use these exact paths, statuses, and diffs when the request depends on them." : "There are currently no retained Boolean workspace changes."
+    source.length ? "Use these exact paths, statuses, and diffs when the request depends on them." : "There are currently no retained Boollm workspace changes."
   ].join("\n").slice(0, 12000);
 }
 
-/** Build a bounded one-time handoff when a Boolean chat first becomes a Codex thread. */
+/** Build a bounded one-time handoff when a Boollm chat first becomes a Codex thread. */
 export function buildCodexBootstrap(messages = [], input = "", {
   maxMessages = BOOTSTRAP_MESSAGES,
   maxChars = BOOTSTRAP_CHARS
@@ -97,7 +97,7 @@ export function buildCodexBootstrap(messages = [], input = "", {
   if (history.length > historyBudget) history = historyBudget ? history.slice(-historyBudget) : "";
   if (!history) return current;
   return [
-    "Continue this existing Boolean conversation. The excerpt below is context only; follow the current request at the end.",
+    "Continue this existing Boollm conversation. The excerpt below is context only; follow the current request at the end.",
     "",
     history,
     "",
@@ -301,7 +301,7 @@ function nearestRealPath(value) {
  * is even resolved.
  */
 export function codexToolEnvironment(env = process.env, { tempDir = os.tmpdir(), create = true } = {}) {
-  const base = path.resolve(String(tempDir || os.tmpdir()), "Boolean", "codex-tools");
+  const base = path.resolve(String(tempDir || os.tmpdir()), "Boollm", "codex-tools");
   const scratch = path.join(base, "tmp");
   const projects = path.join(base, "projects");
   const npmCache = String(env.npm_config_cache || "").trim() || path.join(base, "npm-cache");
@@ -316,7 +316,7 @@ export function codexToolEnvironment(env = process.env, { tempDir = os.tmpdir(),
     TEMP: scratch,
     TMP: scratch,
     TMPDIR: scratch,
-    BOOLEAN_CODEX_TEMP_PROJECTS: projects,
+    BOOLLM_CODEX_TEMP_PROJECTS: projects,
     npm_config_cache: npmCache,
     WRANGLER_LOG_PATH: wranglerLog
   };
@@ -335,7 +335,7 @@ export function codexWorkspaceSandboxPolicy(projectDir, {
     toolEnv.TEMP,
     toolEnv.TMP,
     toolEnv.TMPDIR,
-    toolEnv.BOOLEAN_CODEX_TEMP_PROJECTS,
+    toolEnv.BOOLLM_CODEX_TEMP_PROJECTS,
     toolEnv.npm_config_cache,
     path.dirname(toolEnv.WRANGLER_LOG_PATH)
   ]);
@@ -343,7 +343,7 @@ export function codexWorkspaceSandboxPolicy(projectDir, {
     type: "workspaceWrite",
     writableRoots,
     // Newer app-server builds enforce these read roots directly. Older builds
-    // ignore the extension, so Boolean also rejects explicit outside-root
+    // ignore the extension, so Boollm also rejects explicit outside-root
     // command/file approvals through the canonical host guard below.
     readOnlyAccess: {
       type: "restricted",
@@ -380,14 +380,14 @@ function permissionProfileFor(policy, { readOnly = false, networkAccess = false 
   const homeRoot = path.resolve(os.homedir());
   const windowsProbe = path.resolve(String(process.env.WINDIR || "C:\\Windows"), "win.ini");
   return {
-    permissions: BOOLEAN_PERMISSION_PROFILE,
+    permissions: BOOLLM_PERMISSION_PROFILE,
     runtimeWorkspaceRoots: roots,
     config: {
       // app-server's config field is JSON, so permission tables must remain
       // nested objects. Dotted keys are interpreted as literal paths by
       // Codex 0.146 and fail FilesystemPermissionToml deserialization.
       permissions: {
-        [BOOLEAN_PERMISSION_PROFILE]: {
+        [BOOLLM_PERMISSION_PROFILE]: {
           filesystem: {
             glob_scan_max_depth: 12,
             ":minimal": "read",
@@ -459,7 +459,7 @@ export function verifyCodexFileChanges(projectDir, items = [], { turnDiff = "", 
   if (turnDiffSeen && !String(turnDiff || "").trim()) return { changes: [], issues: [] };
   for (const item of items) {
     if (String(item?.status || "").toLowerCase() !== "completed") {
-      if (String(item?.status || "").toLowerCase() === "failed") issues.push("Codex reported that a file edit failed; Boolean did not count it as a change.");
+      if (String(item?.status || "").toLowerCase() === "failed") issues.push("Codex reported that a file edit failed; Boollm did not count it as a change.");
       continue;
     }
     for (const change of Array.isArray(item?.changes) ? item.changes : []) {
@@ -490,7 +490,7 @@ export function verifyCodexFileChanges(projectDir, items = [], { turnDiff = "", 
       } catch {}
       const deletion = kind === "delete" || kind === "deleted";
       if ((!deletion && (!exists || !readable)) || (deletion && exists)) {
-        issues.push(`Codex reported ${kind} for ${relativePath}, but Boolean could not verify that result on disk.`);
+        issues.push(`Codex reported ${kind} for ${relativePath}, but Boollm could not verify that result on disk.`);
         continue;
       }
       const changeDiff = String(change?.diff || "");
@@ -500,7 +500,7 @@ export function verifyCodexFileChanges(projectDir, items = [], { turnDiff = "", 
         .filter((line) => line.trim())
         .slice(0, 80);
       if (!deletion && currentText !== null && expectedAddedLines.some((line) => !currentText.includes(line))) {
-        issues.push(`Codex reported a completed edit for ${relativePath}, but the reported content was not written. Boolean did not count it as a change.`);
+        issues.push(`Codex reported a completed edit for ${relativePath}, but the reported content was not written. Boollm did not count it as a change.`);
         continue;
       }
       const key = `${kind}:${relativePath.toLowerCase()}`;
@@ -669,9 +669,9 @@ export class CodexRunner {
     };
     let threadId = String(mapping.threadId || mapping.codexThreadId || "");
     // Dynamic tools are persisted by app-server at thread creation. Upgrade
-    // older Boolean mappings once so every active Codex thread can query the
+    // older Boollm mappings once so every active Codex thread can query the
     // live Changes panel instead of relying on stale prompt text.
-    if (Number(mapping.booleanToolsVersion || 0) < BOOLEAN_DYNAMIC_TOOLS_VERSION) threadId = "";
+    if (Number(mapping.booleanToolsVersion || 0) < BOOLLM_DYNAMIC_TOOLS_VERSION) threadId = "";
     let isNewThread = !threadId;
     let threadResult;
     if (threadId) {
@@ -689,7 +689,7 @@ export class CodexRunner {
       callback(onStatus, "Opening a new Codex task...");
       threadResult = await client.threadStart({
         ...commonThread,
-        dynamicTools: [BOOLEAN_CHANGES_TOOL]
+        dynamicTools: [BOOLLM_CHANGES_TOOL]
       });
       threadId = idFrom(threadResult, "thread");
     } else {
@@ -699,7 +699,7 @@ export class CodexRunner {
     let mapped = {
       ...mapping,
       threadId,
-      booleanToolsVersion: BOOLEAN_DYNAMIC_TOOLS_VERSION,
+      booleanToolsVersion: BOOLLM_DYNAMIC_TOOLS_VERSION,
       model: model || mapping.model || "",
       updatedAt: Date.now()
     };
@@ -894,7 +894,7 @@ export class CodexRunner {
         if (method === "item/completed" && item.type === "fileChange") {
           run.fileChangeItems.push(item);
           if (String(item.status || "").toLowerCase() === "failed") {
-            callback(run.callbacks.onStatus, "Codex could not apply that file change. Boolean did not add it to Changes.", { warning: true, kind: "file_verification" });
+            callback(run.callbacks.onStatus, "Codex could not apply that file change. Boollm did not add it to Changes.", { warning: true, kind: "file_verification" });
           }
         } else if (method === "item/completed" && TOOL_ITEM_TYPES.has(item.type)) {
           callback(run.callbacks.onStep, stepFromItem(item));
@@ -981,7 +981,7 @@ export class CodexRunner {
       if (APPROVAL_METHODS.has(method)) respond({ decision: "cancel" });
       else if (method === "item/tool/requestUserInput") respond({ answers: {} });
       else if (method === "item/permissions/requestApproval") respond({ permissions: {}, scope: "turn" });
-      else respondError({ code: -32601, message: `Boolean does not handle ${method}` });
+      else respondError({ code: -32601, message: `Boollm does not handle ${method}` });
       return;
     }
     const requestKey = String(message.id);
@@ -994,7 +994,7 @@ export class CodexRunner {
       else respond(value);
     };
     try {
-      if (method === "item/tool/call" && params.tool === BOOLEAN_CHANGES_TOOL.name) {
+      if (method === "item/tool/call" && params.tool === BOOLLM_CHANGES_TOOL.name) {
         const current = typeof run.callbacks.getWorkspaceChanges === "function"
           ? await run.callbacks.getWorkspaceChanges()
           : run.workspaceChanges;
@@ -1073,7 +1073,7 @@ export class CodexRunner {
         finish(result && typeof result === "object" ? result : { permissions: {}, scope: "turn" });
         return;
       }
-      finish({ code: -32601, message: `Boolean does not handle ${method}` }, true);
+      finish({ code: -32601, message: `Boollm does not handle ${method}` }, true);
     } catch (error) {
       finish(error, true);
     }

@@ -82,7 +82,7 @@ test("compatibility models can patch files and continue through terminal verific
   assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 2;\n");
   assert.ok(mock.calls() >= 3);
   assert.equal(mock.requests[0].tools, undefined);
-  assert.match(mock.requests[0].messages[0].content, /BOOLEAN COMPATIBILITY MODE/);
+  assert.match(mock.requests[0].messages[0].content, /BOOLLM COMPATIBILITY MODE/);
   assert.ok(steps.some((step) => step.name === "boolean_patch"));
   assert.ok(steps.some((step) => step.name === "run_command"));
 });

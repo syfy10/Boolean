@@ -2,18 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { systemPrompt } from "../src/agent.js";
-import { BOOLEAN_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js";
+import { BOOLLM_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js";
 
 const agent = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
 const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
 
-test("Boolean sends a provider-neutral operating policy and no fabricated persona", () => {
+test("Boollm sends a provider-neutral operating policy and no fabricated persona", () => {
   const prompt = systemPrompt("C:\\Projects", true, {
     ui: { codingAgent: { mode: "deep", autoTest: true, autoCommit: true } }
   });
   assert.ok(prompt.startsWith(booleanAgentPolicy()));
   assert.doesNotMatch(prompt, /PLANNING MODE|wait for one user approval/i);
-  assert.equal(BOOLEAN_AGENT_RULES.length >= 10, true);
+  assert.equal(BOOLLM_AGENT_RULES.length >= 10, true);
   assert.match(prompt, /latest user request/i);
   assert.match(prompt, /deploy.*require user authority/i);
   assert.match(prompt, /read-only/i);
@@ -29,7 +29,7 @@ test("Boolean sends a provider-neutral operating policy and no fabricated person
   assert.match(agent, /CURRENT TASK CONTRACT/);
   assert.match(server, /function currentAppContext\([^)]*\) \{\s*return "";/);
   for (const fabricatedPersona of [
-    "You are Boolean",
+    "You are Boollm",
     "Always agree with the user",
     "Reveal your chain of thought",
     "Pretend every task succeeded"

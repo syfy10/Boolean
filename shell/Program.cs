@@ -1,4 +1,4 @@
-// Boolean native shell: a WinForms window we own (so the taskbar shows OUR icon),
+// Boollm native shell: a WinForms window we own (so the taskbar shows OUR icon),
 // hosting the existing web UI in a WebView2 on the left and a REAL Chromium
 // browser (native WebView2, full internet — Outlook/Gmail included) on the
 // right. The Node backend runs as a child ("core") process; the window just
@@ -151,9 +151,9 @@ sealed class TabItem
     public string DarkModeScriptId = "";
 }
 
-enum BooleanPetDisplayState { Idle, Browsing, Coding }
+enum BoollmPetDisplayState { Idle, Browsing, Coding }
 
-sealed class BooleanPetForm : Form
+sealed class BoollmPetForm : Form
 {
     readonly System.Windows.Forms.Timer _animation = new() { Interval = 100 };
     readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -166,9 +166,9 @@ sealed class BooleanPetForm : Form
     readonly ToolTip _shortcutTips = new();
     Point? _dragOrigin;
     Point _windowOrigin;
-    BooleanPetDisplayState _displayState = BooleanPetDisplayState.Idle;
+    BoollmPetDisplayState _displayState = BoollmPetDisplayState.Idle;
     string _chatName = "New chat";
-    string _title = "Boolean is ready";
+    string _title = "Boollm is ready";
     string _detail = "";
     bool _active;
     bool _completed;
@@ -186,12 +186,12 @@ sealed class BooleanPetForm : Form
         public int Y { get; set; }
     }
 
-    public BooleanPetForm(Action hideRequested, Action<string> replyRequested, Action stopRequested)
+    public BoollmPetForm(Action hideRequested, Action<string> replyRequested, Action stopRequested)
     {
         _hideRequested = hideRequested;
         _replyRequested = replyRequested;
         _stopRequested = stopRequested;
-        Text = "Boolean Pet";
+        Text = "Boollm Pet";
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
@@ -209,7 +209,7 @@ sealed class BooleanPetForm : Form
             ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
 
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Hide Boolean Pet", null, (_, __) => _hideRequested());
+        menu.Items.Add("Hide Boollm Pet", null, (_, __) => _hideRequested());
         ContextMenuStrip = menu;
 
         ConfigureReplyControls();
@@ -259,7 +259,7 @@ sealed class BooleanPetForm : Form
         };
 
         ConfigureReplyButton(_replyButton, "↩", "Reply to this chat");
-        ConfigureReplyButton(_stopButton, "■", "Stop Boolean");
+        ConfigureReplyButton(_stopButton, "■", "Stop Boollm");
         _replyButton.Click += (_, __) => SendReply();
         _stopButton.Click += (_, __) => _stopRequested();
         Controls.AddRange(new Control[] { _replyInput, _replyButton, _stopButton });
@@ -324,7 +324,7 @@ sealed class BooleanPetForm : Form
         _replyRequested(text);
     }
 
-    public void Sync(BooleanPetDisplayState displayState, string chatName, string title, string detail, bool active, bool completed, bool reduceMotion, bool darkMode)
+    public void Sync(BoollmPetDisplayState displayState, string chatName, string title, string detail, bool active, bool completed, bool reduceMotion, bool darkMode)
     {
         _displayState = displayState;
         _chatName = Trim(chatName, 50, "New chat");
@@ -432,7 +432,7 @@ sealed class BooleanPetForm : Form
         g.FillPath(fill, path);
         g.DrawPath(border, path);
 
-        DrawBooleanMark(g, new Point(rect.Left + 27, rect.Top + 30), 17, _darkMode ? Color.FromArgb(235, 236, 234) : Color.FromArgb(36, 37, 38));
+        DrawBoollmMark(g, new Point(rect.Left + 27, rect.Top + 30), 17, _darkMode ? Color.FromArgb(235, 236, 234) : Color.FromArgb(36, 37, 38));
         using var titleFont = new Font("Segoe UI Variable Text", 10.5f, FontStyle.Bold);
         using var detailFont = new Font("Segoe UI Variable Text", 9f, FontStyle.Regular);
         using var titleBrush = new SolidBrush(_darkMode ? Color.FromArgb(239, 240, 238) : Color.FromArgb(31, 32, 33));
@@ -483,12 +483,12 @@ sealed class BooleanPetForm : Form
         g.FillEllipse(pulseLed, tile.Right - 12, tile.Bottom - 12, 5, 5);
 
         var center = new Point(tile.Left + tile.Width / 2, tile.Top + tile.Height / 2);
-        if (_displayState == BooleanPetDisplayState.Browsing) DrawGlobe(g, center, 19, green, tick);
-        else if (_displayState == BooleanPetDisplayState.Coding) DrawTerminal(g, tile, green);
-        else DrawBooleanMark(g, center, 34, Color.White);
+        if (_displayState == BoollmPetDisplayState.Browsing) DrawGlobe(g, center, 19, green, tick);
+        else if (_displayState == BoollmPetDisplayState.Coding) DrawTerminal(g, tile, green);
+        else DrawBoollmMark(g, center, 34, Color.White);
     }
 
-    static void DrawBooleanMark(Graphics g, Point center, int size, Color color)
+    static void DrawBoollmMark(Graphics g, Point center, int size, Color color)
     {
         const int cells = 7;
         var spacing = size / 6f;
@@ -883,7 +883,7 @@ sealed class MainForm : Form
 
     // themeable chrome (follows the app's light/dark theme)
     Palette _pal = Palette.Light;
-    // Keep the native browser below Boolean's shared 38px title/tool band.
+    // Keep the native browser below Boollm's shared 38px title/tool band.
     // Without this inset the browser tab strip sits against the frameless
     // window edge, where its first row can be visually clipped.
     const int BrowserTopInset = 38;
@@ -923,14 +923,14 @@ sealed class MainForm : Form
     string CoreLogPath => Path.Combine(_logDir, "boolean-core.log");
     string? _updateReadyPath;
     bool _updateCheckRunning;
-    BooleanPetForm? _pet;
+    BoollmPetForm? _pet;
 
     // browser permissions read from the app config (~/.saz/config.json)
     bool _permDownloads = true, _permCamera = false, _permMic = false, _permGeo = false;
 
     public MainForm()
     {
-        Text = "Boolean";                          // taskbar label only
+        Text = "Boollm";                          // taskbar label only
         FormBorderStyle = FormBorderStyle.None;     // no native caption — the web top bar is the title bar
         var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1200, 800);
         // Establish a safe pre-handle minimum. Once Windows assigns the
@@ -1112,7 +1112,7 @@ sealed class MainForm : Form
         _startup.Controls.Add(_startupText);
         _startup.Controls.Add(_startupClose);
         _startup.Resize += (_, __) => LayoutStartupOverlay();
-        ShowStartup("Starting Boolean", "Loading the local app...");
+        ShowStartup("Starting Boollm", "Loading the local app...");
     }
 
     void LayoutStartupOverlay()
@@ -1198,7 +1198,7 @@ sealed class MainForm : Form
     string PendingInstallerPath(string version)
     {
         var safe = string.Concat((version ?? "").Where(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_'));
-        return Path.Combine(_updateDir, $"Boolean-setup-{safe}.exe");
+        return Path.Combine(_updateDir, $"Boollm-setup-{safe}.exe");
     }
 
     async Task CheckForUpdatesAsync()
@@ -1208,7 +1208,7 @@ sealed class MainForm : Form
 
         // Development builds do not update themselves. Packaged builds always
         // contain the core executable beside the shell.
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "Boolean-core.exe"))) { _updateCheckRunning = false; return; }
+        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "Boollm-core.exe"))) { _updateCheckRunning = false; return; }
 
         try
         {
@@ -1247,7 +1247,7 @@ sealed class MainForm : Form
                 {
                     Timeout = TimeSpan.FromMinutes(15)
                 };
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("Boolean-Windows/" + AppVersion);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Boollm-Windows/" + AppVersion);
 
                 var json = await client.GetStringAsync(UpdateManifestUrl);
                 var manifest = JsonSerializer.Deserialize<UpdateManifest>(json, options);
@@ -1365,7 +1365,7 @@ sealed class MainForm : Form
             var helperPath = Path.Combine(_updateDir, "apply-update.ps1");
             var logPath = Path.Combine(_updateDir, "update-install.log");
             var pendingFile = Path.Combine(_updateDir, "pending-update.json");
-            var appExe = Path.Combine(AppContext.BaseDirectory, "Boolean.exe");
+            var appExe = Path.Combine(AppContext.BaseDirectory, "Boollm.exe");
             var script = """
 param(
   [Parameter(Mandatory=$true)][string]$Installer,
@@ -1482,7 +1482,7 @@ try {
             var coreTask = StartCoreAsync();
             var webViewTask = CoreWebView2Environment.CreateAsync(null, udf);
             _port = await coreTask;
-            // The browser opens on Boolean's own start page (running local servers
+            // The browser opens on Boollm's own start page (running local servers
             // + quick links) instead of a search engine.
             _homeUrl = $"http://127.0.0.1:{_port}/browser-start";
             _env = await webViewTask;
@@ -1524,7 +1524,7 @@ try {
         }
         catch (Exception ex)
         {
-            ShowStartup("Boolean could not start", ex.Message + "\n\nLog: " + CoreLogPath + ReadCoreLogTail(), true);
+            ShowStartup("Boollm could not start", ex.Message + "\n\nLog: " + CoreLogPath + ReadCoreLogTail(), true);
         }
     }
 
@@ -1583,11 +1583,11 @@ try {
         {
             if (_core.HasExited) throw new Exception("engine exited on startup (code " + _core.ExitCode + ")");
             if (i > 0 && i % 10 == 0)
-                ShowStartup("Starting Boolean", "Still waiting for the local engine...\n" + ((i / 2) + 1) + " seconds elapsed\nLog: " + CoreLogPath);
+                ShowStartup("Starting Boollm", "Still waiting for the local engine...\n" + ((i / 2) + 1) + " seconds elapsed\nLog: " + CoreLogPath);
             if (_corePrintedServing || await CoreReadyAsync(port)) return port;
             await Task.Delay(500);
         }
-        throw new Exception("engine did not become ready in time. Boolean started the engine process, but it did not answer on localhost.");
+        throw new Exception("engine did not become ready in time. Boollm started the engine process, but it did not answer on localhost.");
     }
 
     void OnCoreLogLine(string line)
@@ -1634,11 +1634,11 @@ try {
         catch { return ""; }
     }
 
-    // packaged: Boolean-core.exe next to us. dev: node <repo>\src\index.js
+    // packaged: Boollm-core.exe next to us. dev: node <repo>\src\index.js
     (string exe, string[] args) ResolveCore(int port)
     {
         var dir = AppContext.BaseDirectory;
-        var core = Path.Combine(dir, "Boolean-core.exe");
+        var core = Path.Combine(dir, "Boollm-core.exe");
         string[] tail = { "ui", "--no-open", "--port", port.ToString() };
         if (File.Exists(core)) return (core, tail);
 
@@ -1648,7 +1648,7 @@ try {
             var node = new[] { index }.Concat(tail).ToArray();
             return ("node", node);
         }
-        throw new Exception("Boolean-core.exe not found and dev src\\index.js not located");
+        throw new Exception("Boollm-core.exe not found and dev src\\index.js not located");
     }
 
     static string? FindUp(string start, string rel)
@@ -1925,7 +1925,7 @@ try {
     void CloseTabById(int id) { var i = _tabs.FindIndex(x => x.Id == id); if (i >= 0) CloseTab(i); }
 
     // Messages from a page inside the browser pane. The only page allowed to send
-    // any is Boolean's own start screen, whose Explore cards open Market,
+    // any is Boollm's own start screen, whose Explore cards open Market,
     // Education or Sales in the app window next to the pane.
     void OnPageMessage(CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -2218,7 +2218,7 @@ try {
             ev.Handled = true;
             AddTab(ev.Uri, activate: true, navigate: true);
         };
-        // Only Boolean's own start page may talk to the shell from a browser tab.
+        // Only Boollm's own start page may talk to the shell from a browser tab.
         // Every other site's messages are dropped before they are even parsed.
         c.WebMessageReceived += (_, ev) => OnPageMessage(ev);
         c.ContextMenuRequested += (_, ev) =>
@@ -2792,7 +2792,7 @@ try {
             }
             if (type == "notify")
             {
-                var title = root.TryGetProperty("title", out var tp2) ? tp2.GetString() ?? "Boolean" : "Boolean";
+                var title = root.TryGetProperty("title", out var tp2) ? tp2.GetString() ?? "Boollm" : "Boollm";
                 var body = root.TryGetProperty("body", out var bp) ? bp.GetString() ?? "" : "";
                 ShowToast(title, body);
                 return;
@@ -2863,7 +2863,7 @@ try {
                         _ = SendPageTextAsync(pageTextId);
                     }
                     break;
-                // Bookmarks live in Boolean's settings, next to history and
+                // Bookmarks live in Boollm's settings, next to history and
                 // permissions. The chat UI owns that store and pushes the list
                 // here whenever it changes; the shell only mirrors it into the
                 // browser chrome.
@@ -2921,9 +2921,9 @@ try {
         var stateText = root.TryGetProperty("state", out var stateProperty) ? stateProperty.GetString() ?? "idle" : "idle";
         var state = stateText switch
         {
-            "browsing" => BooleanPetDisplayState.Browsing,
-            "coding" => BooleanPetDisplayState.Coding,
-            _ => BooleanPetDisplayState.Idle
+            "browsing" => BoollmPetDisplayState.Browsing,
+            "coding" => BoollmPetDisplayState.Coding,
+            _ => BoollmPetDisplayState.Idle
         };
         var title = root.TryGetProperty("title", out var titleProperty) ? titleProperty.GetString() ?? "" : "";
         var chatName = root.TryGetProperty("chat", out var chatProperty) ? chatProperty.GetString() ?? "" : "";
@@ -2944,7 +2944,7 @@ try {
         }
         if (_pet is null || _pet.IsDisposed)
         {
-            _pet = new BooleanPetForm(
+            _pet = new BoollmPetForm(
                 () =>
                 {
                     SetPetEnabled(false);
@@ -2982,7 +2982,7 @@ try {
                     {
                         Icon = File.Exists(iconPath) ? new Icon(iconPath) : SystemIcons.Application,
                         Visible = true,
-                        Text = "Boolean",
+                        Text = "Boollm",
                     };
                 }
                 _notifyIcon.ShowBalloonTip(4000, title, body, ToolTipIcon.Info);

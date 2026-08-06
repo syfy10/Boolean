@@ -3,12 +3,12 @@ import { appPath } from "./paths.js";
 
 const ENV_KEYS = {
   gmail: {
-    clientId: "BOOLEAN_GOOGLE_OAUTH_CLIENT_ID",
-    clientSecret: "BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET"
+    clientId: "BOOLLM_GOOGLE_OAUTH_CLIENT_ID",
+    clientSecret: "BOOLLM_GOOGLE_OAUTH_CLIENT_SECRET"
   },
   outlook: {
-    clientId: "BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID",
-    clientSecret: "BOOLEAN_MICROSOFT_OAUTH_CLIENT_SECRET"
+    clientId: "BOOLLM_MICROSOFT_OAUTH_CLIENT_ID",
+    clientSecret: "BOOLLM_MICROSOFT_OAUTH_CLIENT_SECRET"
   }
 };
 
@@ -50,7 +50,7 @@ export function loadManagedEmailOAuthClients({ env = process.env, filePaths } = 
       clients.outlook.clientId ||= outlook.clientId;
       clients.outlook.clientSecret ||= outlook.clientSecret;
     } catch {
-      // A missing or malformed optional file should not prevent Boolean starting.
+      // A missing or malformed optional file should not prevent Boollm starting.
     }
   }
 

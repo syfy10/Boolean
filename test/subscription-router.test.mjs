@@ -98,7 +98,7 @@ test("Auto tries the selected API first and escalates only its unverified coding
   const events = await readNdjson(response);
 
   assert.ok(modelCalls >= 1, "the selected API must receive the first attempt");
-  assert.equal(claudeCalls, 1, "Claude should run once after Boolean cannot verify the task");
+  assert.equal(claudeCalls, 1, "Claude should run once after Boollm cannot verify the task");
   assert.ok(events.some((event) => event.type === "route" && event.engine === "claude-code" && event.escalated === true));
   assert.ok(events.some((event) => event.type === "answer" && /Claude completed/.test(event.text)));
 });

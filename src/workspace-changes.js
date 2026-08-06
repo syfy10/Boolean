@@ -40,7 +40,7 @@ export function normalizeWorkspaceChanges(changes = [], projectDir = "") {
 }
 
 /**
- * Maintain Boolean's own authoritative change ledger. This deliberately does
+ * Maintain Boollm's own authoritative change ledger. This deliberately does
  * not call Git: verified Codex/Claude edits must remain visible in ordinary
  * folders too. Creating and then deleting the same new file cancels the entry.
  */
@@ -122,10 +122,10 @@ export function workspaceChangesReview(changes = []) {
 
 export function workspaceChangesReport(changes = []) {
   const rows = Array.isArray(changes) ? changes : [];
-  if (!rows.length) return "Boolean Changes: 0 files.";
+  if (!rows.length) return "Boollm Changes: 0 files.";
   const details = rows.slice(0, 12).map((row) => {
     const diff = String(row.diff || "").trim().slice(0, 3000);
     return `- ${row.status}: ${row.absolutePath || row.path}${diff ? `\n\`\`\`diff\n${diff}\n\`\`\`` : ""}`;
   });
-  return [`Boolean Changes: ${rows.length} file${rows.length === 1 ? "" : "s"}.`, ...details].join("\n");
+  return [`Boollm Changes: ${rows.length} file${rows.length === 1 ? "" : "s"}.`, ...details].join("\n");
 }

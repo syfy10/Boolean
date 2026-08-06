@@ -187,7 +187,7 @@ export function gitDiffFiles(projectDir, options = {}) {
           path: file,
           status: "untracked",
           absolutePath: inside ? absolute : "",
-          lines: lines.length ? lines : [{ type: "ctx", num: "", text: "Untracked binary, large, or directory entry. Accept keeps it; Reject skips it so Boolean does not delete new files unexpectedly." }]
+          lines: lines.length ? lines : [{ type: "ctx", num: "", text: "Untracked binary, large, or directory entry. Accept keeps it; Reject skips it so Boollm does not delete new files unexpectedly." }]
         });
       }
     }

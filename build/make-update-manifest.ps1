@@ -1,8 +1,8 @@
-# Creates the release manifest consumed by Boolean's built-in updater.
+# Creates the release manifest consumed by Boollm's built-in updater.
 # Run after build-installer.ps1. Keep this file ASCII for Windows PowerShell 5.1.
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
-$installer = Join-Path $root "dist\Boolean-setup.exe"
+$installer = Join-Path $root "dist\Boollm-setup.exe"
 $iss = Join-Path $root "build\installer.iss"
 
 if (-not (Test-Path $installer)) { throw "installer not found: $installer" }
@@ -14,7 +14,7 @@ $sha256 = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
 
 $manifest = [ordered]@{
   version = $version
-  url = "https://github.com/syfy10/Boolean/releases/download/v$version/Boolean-setup.exe"
+  url = "https://github.com/syfy10/Boolean/releases/download/v$version/Boollm-setup.exe"
   sha256 = $sha256
 } | ConvertTo-Json
 

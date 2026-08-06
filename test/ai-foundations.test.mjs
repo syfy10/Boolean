@@ -19,7 +19,7 @@ test("Education includes a local AI Foundations learning path",()=>{
 test("AI Foundations preserves attribution and optional source lessons",()=>{
   assert.match(ui,/microsoft\/AI-For-Beginners/);
   assert.match(ui,/under the MIT license/);
-  assert.match(ui,/Simplified Boolean lessons are not Microsoft-authored/);
+  assert.match(ui,/Simplified Boollm lessons are not Microsoft-authored/);
   assert.match(ui,/id="aiLessonSource"/);
   assert.match(ui,/id="aiLessonAsk"/);
 });

@@ -20,7 +20,7 @@ export async function marketsRoutes({ req, p, url, config, json, readBody, saveC
   if (!p.startsWith("/api/markets/")) return false;
 
   if (p.startsWith("/api/markets/") && !marketAccessAllowed(config)) {
-    json({ error: "Markets is available only to signed-in Boolean administrators." }, 403);
+    json({ error: "Markets is available only to signed-in Boollm administrators." }, 403);
     return true;
   }
 

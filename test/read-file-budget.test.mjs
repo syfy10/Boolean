@@ -16,7 +16,7 @@ test("large read_file calls return a compact preview instead of full contents", 
 
   const full = await executeTool("read_file", { path: file }, ctx);
   assert.match(full, /Large file preview/);
-  assert.match(full, /Boolean did not return the full file/);
+  assert.match(full, /Boollm did not return the full file/);
   assert.match(full, /read_file with offset and limit/);
   assert.doesNotMatch(full, /line 420/);
 

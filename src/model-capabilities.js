@@ -25,7 +25,7 @@ function inferredNativeToolSupport(config, target = {}) {
   const provider = clean(target.provider || config?.provider).toLowerCase();
   const model = clean(target.model || config?.[provider]?.model).toLowerCase();
   const base = clean(target.base || config?.[provider]?.baseUrl).toLowerCase();
-  // Z.AI's GLM-5-Turbo Coding Plan endpoint currently rejects Boolean's
+  // Z.AI's GLM-5-Turbo Coding Plan endpoint currently rejects Boollm's
   // OpenAI-compatible native function catalog. Keep this scoped to the exact
   // provider/endpoint/model combination; a future successful native call
   // overwrites the inference in the persisted capability record.
@@ -71,7 +71,7 @@ const CAPABILITY_PROBE_TOOL = {
   type: "function",
   function: {
     name: "boolean_capability_probe",
-    description: "Harmless capability check. Request this function once; Boolean will not execute it.",
+    description: "Harmless capability check. Request this function once; Boollm will not execute it.",
     parameters: {
       type: "object",
       properties: {},
@@ -91,7 +91,7 @@ export function evaluateCapabilityProbeReply(reply) {
     supported: matched,
     reason: matched
       ? "Native function-call probe passed."
-      : "The model answered without requesting Boolean's capability probe."
+      : "The model answered without requesting Boollm's capability probe."
   };
 }
 
@@ -133,7 +133,7 @@ export function modelCapabilityProfile(config, target = {}, options = {}) {
           ? "Review/chat only"
           : "Checking tool support",
     warning: mode === "patch"
-      ? "This model does not use native function calls. Boolean provides coding, terminal, browser, and deployment tools through its validated compatibility bridge."
+      ? "This model does not use native function calls. Boollm provides coding, terminal, browser, and deployment tools through its validated compatibility bridge."
         : mode === "review"
           ? "This model is restricted to review and chat. It cannot edit files, use the terminal or browser, or deploy."
           : "",
@@ -152,11 +152,11 @@ export function modelCapabilityProfile(config, target = {}, options = {}) {
   };
 }
 
-export function validateBooleanPatch(value, projectDir) {
+export function validateBoollmPatch(value, projectDir) {
   const edits = Array.isArray(value?.edits) ? value.edits : [];
   if (!projectDir) throw new Error("Patch mode requires an open project.");
-  if (!edits.length) throw new Error("The Boolean patch contains no edits.");
-  if (edits.length > 100) throw new Error("A Boolean patch may contain at most 100 edits.");
+  if (!edits.length) throw new Error("The Boollm patch contains no edits.");
+  if (edits.length > 100) throw new Error("A Boollm patch may contain at most 100 edits.");
   const root = path.resolve(projectDir);
   const files = new Set();
   const normalized = edits.map((edit, index) => {
@@ -168,7 +168,7 @@ export function validateBooleanPatch(value, projectDir) {
       throw new Error(`Patch edit ${index + 1} points outside the open project.`);
     }
     files.add(absolute.toLowerCase());
-    if (files.size > 40) throw new Error("A Boolean patch may change at most 40 files.");
+    if (files.size > 40) throw new Error("A Boollm patch may change at most 40 files.");
     if (typeof edit.old === "string" && typeof edit.new === "string" && edit.old.length) {
       if (edit.old.length + edit.new.length > 120_000) throw new Error(`Patch edit ${index + 1} is too large.`);
       return { kind: "replace", path: relative, absolute, old: edit.old, new: edit.new };
@@ -182,7 +182,7 @@ export function validateBooleanPatch(value, projectDir) {
   return normalized;
 }
 
-export function parseBooleanPatch(text, projectDir) {
+export function parseBoollmPatch(text, projectDir) {
   const source = String(text || "");
   const blocks = [...source.matchAll(/```boolean_patch\s*\r?\n([\s\S]*?)\r?\n```/gi)];
   if (!blocks.length) return null;
@@ -193,5 +193,5 @@ export function parseBooleanPatch(text, projectDir) {
   } catch {
     throw new Error("The boolean_patch block must contain valid JSON.");
   }
-  return validateBooleanPatch(value, projectDir);
+  return validateBoollmPatch(value, projectDir);
 }

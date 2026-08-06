@@ -43,8 +43,8 @@ sending always requires confirmation, and cleanup moves reviewed messages to
 Trash so the user can undo it.
 
 Release builds should include product-owned public OAuth client IDs in
-`assets/oauth-clients.json`, or set `BOOLEAN_GOOGLE_OAUTH_CLIENT_ID` and
-`BOOLEAN_MICROSOFT_OAUTH_CLIENT_ID` while running `build/build-shell.ps1`.
+`assets/oauth-clients.json`, or set `BOOLLM_GOOGLE_OAUTH_CLIENT_ID` and
+`BOOLLM_MICROSOFT_OAUTH_CLIENT_ID` while running `build/build-shell.ps1`.
 These IDs are public application identifiers, not client secrets. Google builds
 must enable the Gmail API and complete any verification required for the
 restricted `gmail.modify` scope. Microsoft builds must enable public client

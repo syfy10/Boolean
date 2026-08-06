@@ -10,7 +10,7 @@ import {
   modelCapabilityKey,
   modelCapabilityProfile,
   nativeToolSupport,
-  parseBooleanPatch,
+  parseBoollmPatch,
   recordNativeToolSupport
 } from "../src/model-capabilities.js";
 
@@ -98,9 +98,9 @@ test("only explicit provider tool-support errors become a limited capability res
   }), false);
 });
 
-test("Boolean patches require one explicit fenced block with exact bounded edits", () => {
+test("Boollm patches require one explicit fenced block with exact bounded edits", () => {
   const root = path.join(os.tmpdir(), "boolean-patch-root");
-  const parsed = parseBooleanPatch([
+  const parsed = parseBoollmPatch([
     "```boolean_patch",
     JSON.stringify({ edits: [{ path: "src/app.js", old: "const old = 1;", new: "const next = 2;" }] }),
     "```"
@@ -108,12 +108,12 @@ test("Boolean patches require one explicit fenced block with exact bounded edits
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].kind, "replace");
   assert.equal(parsed[0].path, "src/app.js");
-  assert.equal(parseBooleanPatch('{"edits":[]}', root), null, "bare JSON is never translated into an edit");
-  assert.throws(() => parseBooleanPatch([
+  assert.equal(parseBoollmPatch('{"edits":[]}', root), null, "bare JSON is never translated into an edit");
+  assert.throws(() => parseBoollmPatch([
     "```boolean_patch", '{"edits":[]}', "```",
     "```boolean_patch", '{"edits":[]}', "```"
   ].join("\n"), root), /exactly one/i);
-  assert.throws(() => parseBooleanPatch([
+  assert.throws(() => parseBoollmPatch([
     "```boolean_patch",
     JSON.stringify({ edits: [{ path: "../outside.js", content: "unsafe" }] }),
     "```"

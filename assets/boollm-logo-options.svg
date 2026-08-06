@@ -12,7 +12,7 @@
 
   <g transform="translate(70 46)">
     <rect class="card" x="0" y="0" width="390" height="320" rx="28"/>
-    <text class="label" x="195" y="355" text-anchor="middle">Boolean switch</text>
+    <text class="label" x="195" y="355" text-anchor="middle">Boollm switch</text>
 
     <g transform="translate(95 78)">
       <rect x="0" y="0" width="200" height="118" rx="59" class="ink"/>
@@ -22,7 +22,7 @@
       <rect x="72" y="143" width="58" height="7" rx="3.5" class="green"/>
     </g>
 
-    <text class="note" x="195" y="246" text-anchor="middle">Best for the Boolean name</text>
+    <text class="note" x="195" y="246" text-anchor="middle">Best for the Boollm name</text>
     <text class="note" x="195" y="268" text-anchor="middle">simple, but more product-like</text>
   </g>
 

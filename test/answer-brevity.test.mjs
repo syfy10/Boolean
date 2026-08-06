@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BOOLEAN_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js";
+import { BOOLLM_AGENT_RULES, booleanAgentPolicy } from "../src/agent-policy.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const tools = fs.readFileSync(path.join(root, "src", "tools.js"), "utf8").replace(/\r/g, "");
@@ -43,8 +43,8 @@ test("the notepad is not read as background context", () => {
 
 test("the added rules keep the policy's existing shape", () => {
   // Numbered, one line each, no persona or writing-style prescription.
-  assert.equal(BOOLEAN_AGENT_RULES.every((rule) => rule.length > 20 && !rule.includes("\n")), true);
-  assert.match(policy, /^BOOLEAN OPERATING POLICY\n1\. /);
+  assert.equal(BOOLLM_AGENT_RULES.every((rule) => rule.length > 20 && !rule.includes("\n")), true);
+  assert.match(policy, /^BOOLLM OPERATING POLICY\n1\. /);
   for (const persona of [/\bfriendly\b/i, /\bcheerful\b/i, /\byou are an?\b/i, /\bpersona\b/i]) {
     assert.doesNotMatch(policy, persona);
   }

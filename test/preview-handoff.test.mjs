@@ -6,7 +6,7 @@ import {
   firstReachableLocalPreview,
   localPreviewUrls,
   requestsLocalPreview,
-  withBooleanPreviewHandoff
+  withBoollmPreviewHandoff
 } from "../src/server.js";
 
 test("preview intent is limited to explicit run/open/browser requests", () => {
@@ -22,16 +22,16 @@ test("local preview URLs are normalized and public URLs are ignored", () => {
   ), ["http://127.0.0.1:4173/app", "http://localhost:3000/"]);
 });
 
-test("Boolean preview handoff preserves text and image user messages", () => {
+test("Boollm preview handoff preserves text and image user messages", () => {
   const source = [{ role: "user", content: [{ type: "text", text: "Run it" }, { type: "image_url", image_url: { url: "data:image/png;base64,x" } }] }];
-  const augmented = withBooleanPreviewHandoff(source);
+  const augmented = withBoollmPreviewHandoff(source);
   assert.equal(source[0].content.length, 2);
   assert.equal(augmented[0].content.length, 3);
-  assert.match(augmented[0].content.at(-1).text, /Boolean owns the built-in browser/);
+  assert.match(augmented[0].content.at(-1).text, /Boollm owns the built-in browser/);
   assert.match(augmented[0].content.at(-1).text, /do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls/);
 });
 
-test("Boolean verifies a localhost preview before handing it to the browser", async (t) => {
+test("Boollm verifies a localhost preview before handing it to the browser", async (t) => {
   const server = http.createServer((_request, response) => {
     response.writeHead(200, { "content-type": "text/html" });
     response.end("<title>Preview</title>");

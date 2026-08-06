@@ -181,6 +181,6 @@ export function detectWebsiteTech(input = {}) {
     url,
     detected,
     categories,
-    privacy: "Analyzed locally inside Boolean. No third-party detection API was called."
+    privacy: "Analyzed locally inside Boollm. No third-party detection API was called."
   };
 }

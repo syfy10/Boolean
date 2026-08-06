@@ -1,4 +1,4 @@
-/* Boolean marketing demo runtime.
+/* Boollm marketing demo runtime.
  * Injected into a copy of the real app UI (src/ui.html) BEFORE the app's own
  * scripts run. It intercepts window.fetch so every /api/* call is served locally:
  *  - read endpoints return sanitized fixtures (window.__DEMO_FIXTURES__)
@@ -82,11 +82,11 @@
         "- **Every weekday at 8am** — summarize new important email into a note",
         "- Draft replies for you to review (never sent without a click)",
         "",
-        "This is a demo, so nothing is connected here — download Boolean to link a real account.",
+        "This is a demo, so nothing is connected here — download Boollm to link a real account.",
       ].join("\n");
     }
     return [
-      "Happy to help with that. In Boolean I can chat, write and run code, research the web, and keep notes — all in one window on your PC.",
+      "Happy to help with that. In Boollm I can chat, write and run code, research the web, and keep notes — all in one window on your PC.",
       "",
       "A few things people ask me first:",
       "- “Build me a small web app”",

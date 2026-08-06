@@ -36,7 +36,7 @@ test("the gap names why there is no page, not just that there isn't one", () => 
   const end = server.indexOf("const browserSnapshotText =", start);
   assert.ok(start >= 0 && end > start, "browserSnapshotGap was not found");
   const gap = server.slice(start, end);
-  assert.match(gap, /no page has been read from Boolean's built-in browser yet/);
+  assert.match(gap, /no page has been read from Boollm's built-in browser yet/);
   assert.match(gap, /stale beyond the 120-second limit/);
   // The staleness cutoff the gap reports has to be the same one the snapshot
   // reader enforces, or the explanation would contradict the behaviour.

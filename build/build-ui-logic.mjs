@@ -36,7 +36,7 @@ await esbuild.build({
   // A classic script assigning one global, so ui.html's existing inline script
   // can destructure it without becoming a module itself.
   format: "iife",
-  globalName: "BooleanTradingLogic",
+  globalName: "BoollmTradingLogic",
   platform: "browser",
   target: ["chrome110"],
   minify: false,

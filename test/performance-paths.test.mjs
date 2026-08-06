@@ -133,7 +133,7 @@ test("coding runs expose activity without forcing the legacy checklist", () => {
 test("loop pauses ask before restarting and clear only exhausted loop counters", () => {
   const html = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
   const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
-  assert.match(html, /Boolean stopped a repeated loop\./);
+  assert.match(html, /Boollm stopped a repeated loop\./);
   assert.match(html, /Use saved evidence/);
   assert.match(html, /Create one patch/);
   assert.match(server, /function resetLoopRecoveryState\(task\)/);

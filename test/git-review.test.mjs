@@ -45,7 +45,7 @@ test("gitDiffFiles includes untracked files without treating them as restorable 
   const git = (...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
   git("init");
   git("config", "user.email", "test@example.com");
-  git("config", "user.name", "Boolean Test");
+  git("config", "user.name", "Boollm Test");
   fs.writeFileSync(path.join(dir, "tracked.txt"), "old\n");
   git("add", "tracked.txt");
   git("commit", "-m", "initial");
@@ -83,7 +83,7 @@ test("Changes exposes an exact new-file diff and returns to zero after that file
   try {
     git("init");
     git("config", "user.email", "test@example.com");
-    git("config", "user.name", "Boolean Test");
+    git("config", "user.name", "Boollm Test");
     fs.writeFileSync(path.join(dir, "baseline.txt"), "baseline\n");
     git("add", "baseline.txt");
     git("commit", "-m", "initial");
@@ -108,7 +108,7 @@ test("source control status stages unstages and commits selected files", () => {
   try {
     git("init");
     git("config", "user.email", "test@example.com");
-    git("config", "user.name", "Boolean Test");
+    git("config", "user.name", "Boollm Test");
     fs.writeFileSync(path.join(dir, "app.js"), "export const value = 1;\n");
     gitStageFiles(dir, ["app.js"]);
     assert.deepEqual(gitSourceStatus(dir).staged.map((row) => row.path), ["app.js"]);
@@ -127,7 +127,7 @@ test("side-by-side diff content reads HEAD index and working tree separately", (
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-side-diff-"));
   const git = (...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
   try {
-    git("init");git("config", "user.email", "test@example.com");git("config", "user.name", "Boolean Test");
+    git("init");git("config", "user.email", "test@example.com");git("config", "user.name", "Boollm Test");
     fs.writeFileSync(path.join(dir, "app.js"), "const value = 1;\n");git("add", "app.js");git("commit", "-m", "initial");
     fs.writeFileSync(path.join(dir, "app.js"), "const value = 2;\n");git("add", "app.js");
     fs.writeFileSync(path.join(dir, "app.js"), "const value = 3;\n");

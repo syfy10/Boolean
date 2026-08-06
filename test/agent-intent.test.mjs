@@ -135,7 +135,7 @@ test("an attached stale action does not turn an answer-only instruction into an 
   assert.equal(classifyTurnMode(messages, { projectDir: "C:\\repo" }), "inspect");
 });
 
-// Boolean used to decide "is this a build request?" from vocabulary alone. The
+// Boollm used to decide "is this a build request?" from vocabulary alone. The
 // words in "give 1 thing we can change to this application" and "change this
 // application" are identical, so a question about improvements was executed as a
 // build: an action turn, a seven-step plan, and three spawned specialists.

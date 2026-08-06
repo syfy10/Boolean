@@ -97,7 +97,7 @@ test("assist runs a specialist first and passes its report to the lead", async (
 
   assert.equal(answer, "Lead integrated the reviewer report and completed the task.");
   assert.ok(requests.length >= 2);
-  assert.ok(requests.some((body) => (body.messages || []).some((message) => /BOOLEAN TEAM HANDOFF/.test(String(message.content || "")))));
+  assert.ok(requests.some((body) => (body.messages || []).some((message) => /BOOLLM TEAM HANDOFF/.test(String(message.content || "")))));
   assert.deepEqual(steps.filter((step) => step.name === "team_worker").map((step) => step.args.state), ["queued", "working", "done"]);
   assert.equal(controllers.at(-1)?.teamWorkers?.Reviewer?.state, "done");
   assert.equal(controllers.at(-1)?.teamWorkers?.Reviewer?.workspace, projectDir);
@@ -261,7 +261,7 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.match(ui, /id="teambtn"[^>]*>Solo <span class="chev">&#9660;<\/span>/);
 });
 
-// Specialists used to spawn from the classification alone, so a question Boolean
+// Specialists used to spawn from the classification alone, so a question Boollm
 // misread as a build burned three worker calls and left worker chips in the UI
 // before the lead had touched anything. The handoff now waits for a real change.
 test("specialists do not spawn until the lead actually changes something", async (t) => {
@@ -312,7 +312,7 @@ test("specialists do not spawn until the lead actually changes something", async
     "no worker prompt may reach a model"
   );
   assert.ok(
-    !requests.some((body) => (body.messages || []).some((message) => /BOOLEAN TEAM HANDOFF/.test(String(message.content || "")))),
+    !requests.some((body) => (body.messages || []).some((message) => /BOOLLM TEAM HANDOFF/.test(String(message.content || "")))),
     "no team handoff may be injected"
   );
   assert.notEqual(controllers.at(-1)?.showPlan, true, "a turn that ran no tool must not raise a step plan");

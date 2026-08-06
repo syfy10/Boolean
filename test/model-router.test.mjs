@@ -72,7 +72,7 @@ test("manual execution-engine choices are never overridden", () => {
   }
 });
 
-test("Auto tries the selected Boolean API before any coding subscription", () => {
+test("Auto tries the selected Boollm API before any coding subscription", () => {
   const cfg = config({ codingEngine: "auto" });
   cfg.ui.modelRouting.subscriptionEngines = { codex: true, claudeCode: true, preferred: "codex" };
   let result = selectExecutionEngine(cfg, [{ role: "user", content: "Fix the CSS and run tests" }], { codexReady: true, claudeReady: true });

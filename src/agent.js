@@ -7,7 +7,7 @@ import { CLOUD, currentAccessMode } from "./config.js";
 import {
   modelCapabilityProfile,
   nativeToolSupport,
-  parseBooleanPatch,
+  parseBoollmPatch,
   recordNativeToolSupport
 } from "./model-capabilities.js";
 import { summarizeLearnedPreferences } from "./preferences.js";
@@ -72,7 +72,7 @@ async function verifyAutoCompletion(config, route, workerTarget, objective, answ
     const review = await chatCompletion(reviewerTarget, [
       {
         role: "system",
-        content: "You are Boolean's independent completion verifier. Review the claimed result against the concrete controller evidence. Do not propose edits and do not trust the worker's claim by itself. Return only compact JSON: {\"verified\":true|false,\"reason\":\"specific evidence-based reason\"}. Mark verified false if work, testing, or requested deliverables are missing, failed, merely described, or cannot be established from the evidence."
+        content: "You are Boollm's independent completion verifier. Review the claimed result against the concrete controller evidence. Do not propose edits and do not trust the worker's claim by itself. Return only compact JSON: {\"verified\":true|false,\"reason\":\"specific evidence-based reason\"}. Mark verified false if work, testing, or requested deliverables are missing, failed, merely described, or cannot be established from the evidence."
       },
       {
         role: "user",
@@ -230,7 +230,7 @@ export function systemPrompt(projectsDir = "", fullAccess = false, config = null
   return cleanSystemPrompt(projectsDir, fullAccess, connectorSummary(config), "", config);
 }
 
-// Prefer Boolean project rules, while retaining the two legacy Boollm paths
+// Prefer Boollm project rules, while retaining the two legacy Boolean paths
 // so existing projects continue to work after the product rename.
 // These files teach the project's coding style, commands, architecture, and constraints
 // so it doesn't need to re-discover them every turn. Capped to 4 KB.
@@ -239,10 +239,10 @@ export function loadProjectRules(projectDir) {
   try {
     if (!projectDir || !fs.existsSync(projectDir)) return "";
     const candidates = [
-      path.join(projectDir, "BOOLEAN.md"),
-      path.join(projectDir, ".boolean", "rules.md"),
       path.join(projectDir, "BOOLLM.md"),
-      path.join(projectDir, ".boollm", "rules.md")
+      path.join(projectDir, ".boollm", "rules.md"),
+      path.join(projectDir, "BOOLEAN.md"),
+      path.join(projectDir, ".boolean", "rules.md")
     ];
     for (const candidate of candidates) {
       if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
@@ -252,7 +252,7 @@ export function loadProjectRules(projectDir) {
         text = text.replace(/^#\s+.+\r?\n?/, "").trim();
         if (text.length > MAX_RULES_BYTES) text = text.slice(0, MAX_RULES_BYTES) + "\n…(rules truncated)";
         const relative = path.relative(projectDir, candidate).replaceAll("\\", "/");
-        const label = relative === "BOOLLM.md" || relative === ".boollm/rules.md"
+        const label = relative === "BOOLEAN.md" || relative === ".boolean/rules.md"
           ? `${relative} (legacy)`
           : relative;
         return `PROJECT RULES (from ${label}):\n${text}`;
@@ -297,7 +297,7 @@ export function projectBrief(projectDir) {
       "",
       `PROJECT: This chat is bound to the folder ${projectDir}.`,
       "Work only on files in THIS folder. Choose the tools, order of work, level of inspection, and verification that fit the request.",
-      "Use the project rules below when present. Boolean does not require a particular planning, preview, editing, or testing sequence."
+      "Use the project rules below when present. Boollm does not require a particular planning, preview, editing, or testing sequence."
     ];
     const rules = loadProjectRules(projectDir);
     if (rules) header.push(rules);
@@ -392,7 +392,7 @@ function withTurnModeSystem(messages, mode, config) {
   const systemIndex = copy.findIndex((message) => message?.role === "system");
   if (systemIndex >= 0) {
     const existing = String(copy[systemIndex].content || "").trim();
-    if (!existing.includes("BOOLEAN OPERATING POLICY")) {
+    if (!existing.includes("BOOLLM OPERATING POLICY")) {
       copy[systemIndex].content = existing ? `${existing}\n\n${policy}` : policy;
     }
   } else {
@@ -412,12 +412,12 @@ function fallbackToolPrompt(definitions = TOOL_DEFINITIONS, options = {}) {
       }));
   return [
     "",
-    "COMPATIBILITY TOOL PROTOCOL: To use a Boolean tool, reply with ONLY one fenced block like this:",
+    "COMPATIBILITY TOOL PROTOCOL: To use a Boollm tool, reply with ONLY one fenced block like this:",
     "```tool",
     '{"name": "run_command", "arguments": {"command": "Get-Date"}}',
     "```",
     "Bare JSON, trailing JSON, prose instructions, and mutation commands are not executed.",
-    "Continue using the available tools as needed to complete and verify the requested outcome. Boolean's shared loop guard pauses repeated calls that stop making progress.",
+    "Continue using the available tools as needed to complete and verify the requested outcome. Boollm's shared loop guard pauses repeated calls that stop making progress.",
     compact ? "Available tools (name: purpose). Use the obvious JSON arguments for the selected tool:" : "Available tools (JSON schema):",
     compact ? tools.map((line) => `- ${line}`).join("\n") : JSON.stringify(tools, null, 2)
   ].join("\n");
@@ -436,13 +436,13 @@ function patchModePrompt(reviewOnly = false) {
   if (reviewOnly) {
     return [
       "",
-      "BOOLEAN REVIEW MODE: This model has no native tool access. Review the available evidence and answer plainly.",
+      "BOOLLM REVIEW MODE: This model has no native tool access. Review the available evidence and answer plainly.",
       "Do not claim to edit files, run commands, browse, test, or deploy."
     ].join("\n");
   }
   return [
     "",
-    "BOOLEAN COMPATIBILITY MODE: This model uses Boolean's validated text tool bridge instead of native function calls.",
+    "BOOLLM COMPATIBILITY MODE: This model uses Boollm's validated text tool bridge instead of native function calls.",
     "Use the provided fenced tool-call protocol to inspect files, edit, run terminal commands, browse, test, and deploy when the task and approval policy allow it.",
     "To change files, return exactly ONE fenced boolean_patch block and no vague editing instructions:",
     "```boolean_patch",
@@ -450,7 +450,7 @@ function patchModePrompt(reviewOnly = false) {
     "```",
     "For a new file use {\"path\":\"relative/path\",\"content\":\"complete file content\"}.",
     "Paths must be relative to the open project. Existing-file old text must match exactly and uniquely.",
-    "Boolean validates the complete patch before applying any edit. After editing, use the provided tools to test and verify the result."
+    "Boollm validates the complete patch before applying any edit. After editing, use the provided tools to test and verify the result."
   ].join("\n");
 }
 
@@ -461,7 +461,7 @@ function withCompatibilityProtocol(messages, definitions, options = {}) {
     patchModePrompt(options.reviewOnly === true),
     definitions.length ? fallbackToolPrompt(definitions, { compact: true }) : ""
   ].filter(Boolean).join("\n");
-  if (systemIndex >= 0 && !/BOOLEAN (?:COMPATIBILITY|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
+  if (systemIndex >= 0 && !/BOOLLM (?:COMPATIBILITY|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
     copy[systemIndex].content = `${copy[systemIndex].content}\n${protocol}`;
   }
   return copy;
@@ -518,7 +518,7 @@ function compatibilityToolDefinitions(definitions = []) {
   return definitions.filter((tool) => COMPATIBILITY_INSPECT_TOOL_NAMES.has(String(tool.function?.name || "")));
 }
 
-function preflightBooleanPatch(edits) {
+function preflightBoollmPatch(edits) {
   for (const edit of edits) {
     if (edit.kind === "create") {
       if (fs.existsSync(edit.absolute)) throw new Error(`Patch refused: '${edit.path}' already exists.`);
@@ -696,7 +696,7 @@ function plainMessageText(message) {
 // File attachments are appended to the user's visible instruction so the
 // provider can read them. They are evidence, not authority for the current
 // turn: a pasted report that says "read only" or "replace the logo" must not
-// silently change how Boolean routes the instruction above it.
+// silently change how Boollm routes the instruction above it.
 const ATTACHED_FILE_BLOCK = /\r?\n\s*\r?\nAttached file [^\r\n]+:\s*\r?\n```[\s\S]*$/i;
 
 export function currentTurnInstructionText(messageOrText) {
@@ -893,7 +893,7 @@ export function isLightweightLocalChat(text) {
 
 export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false, projectBound = false) {
   // Keep the full catalog visible on every normal main-chat turn. The model
-  // should decide whether a tool is useful; Boolean's controller, approvals,
+  // should decide whether a tool is useful; Boollm's controller, approvals,
   // and tool implementations remain the authority for whether a requested
   // action may execute. Project filesystem tools are the one deliberate
   // boundary: the user must first create or open a project from the UI.
@@ -909,7 +909,7 @@ function isRealUserRequest(message) {
   const text = plainMessageText(message).trim();
   return !!text
     && !/^SYSTEM PREFLIGHT:/i.test(text)
-    && !/^BOOLEAN CONTINUATION:/i.test(text)
+    && !/^BOOLLM CONTINUATION:/i.test(text)
     && !/^TOOL RESULT for /i.test(text)
     && !/^Screenshot captured by the requested tool\./i.test(text);
 }
@@ -996,7 +996,7 @@ function withRecentTaskStatusMemory(focused, fullMessages) {
 }
 
 // Keep the model in charge of implementation details, but recognize the narrow
-// case where a user clearly asked Boolean to produce a software/file artifact.
+// case where a user clearly asked Boollm to produce a software/file artifact.
 // This is used only to retry a model that answered with a tutorial and made no
 // tool call; it does not route or execute an action itself.
 export function requiresArtifactAction(messages) {
@@ -1390,7 +1390,7 @@ export function teamworkAssignments(config = {}) {
   });
 }
 
-// Questions about a stopped or paused run must be answered before Boolean
+// Questions about a stopped or paused run must be answered before Boollm
 // resumes it. This intentionally wins over continuation wording in mixed
 // messages such as "so do it, why did you stop?".
 export function isTaskStatusQuestion(text) {
@@ -1404,7 +1404,7 @@ export function taskStopAnswer(task) {
   const rawReason = String(controller.lastFailure || "").trim();
   let reason = rawReason;
   if (/loop guard|repeated the same kind of inspection|repeated inspection/i.test(rawReason)) {
-    reason = "Boolean's loop guard detected repeated inspections without a progress step, so it paused to prevent an endless loop.";
+    reason = "Boollm's loop guard detected repeated inspections without a progress step, so it paused to prevent an endless loop.";
   } else if (/tool budget/i.test(rawReason)) {
     reason = "the run reached its tool budget and paused instead of continuing indefinitely.";
   } else if (!reason && controller.phase === "blocked") {
@@ -1412,7 +1412,7 @@ export function taskStopAnswer(task) {
   } else if (!reason) {
     reason = "the previous run ended or was interrupted before it saved a specific failure reason.";
   }
-  return `It stopped because ${reason}\n\nI did not restart it. Say **Resume** when you want Boolean to continue from the saved checkpoint.`;
+  return `It stopped because ${reason}\n\nI did not restart it. Say **Resume** when you want Boollm to continue from the saved checkpoint.`;
 }
 
 export async function runBoundedWorkers(items, limit, handler) {
@@ -1437,7 +1437,7 @@ function compactTeamReport(value, maxChars = 2400) {
   if (text.length <= maxChars) return text;
   const head = text.slice(0, Math.max(600, maxChars - 220));
   const cut = Math.max(head.lastIndexOf("\n"), head.lastIndexOf(". "));
-  return `${head.slice(0, cut > 500 ? cut + 1 : head.length).trim()}\n\n[Worker report compacted by Boolean; the lead retains the workspace and saved evidence.]`;
+  return `${head.slice(0, cut > 500 ? cut + 1 : head.length).trim()}\n\n[Worker report compacted by Boollm; the lead retains the workspace and saved evidence.]`;
 }
 
 /**
@@ -1449,7 +1449,7 @@ function compactTeamReport(value, maxChars = 2400) {
  * @returns {Promise<string>} the model's final answer
  */
 export async function runTurn(ctx, messages) {
-  // The provider still owns the answer and tool choices. Boolean supplies the
+  // The provider still owns the answer and tool choices. Boollm supplies the
   // operating policy and enforces hard permission boundaries, but does not
   // replace a model's substantive response with an opinionated workflow.
   const { config, onStatus, onToken: rawOnToken, onStep, onUsage, signal } = ctx;
@@ -1623,7 +1623,7 @@ export async function runTurn(ctx, messages) {
       const blocked = controller.noteBlockedTool(name, args, gate.reason);
       publishController();
       if (blocked.stop) {
-        const result = `blocked: ${gate.reason}\nBoolean has blocked repeated attempts. Stop now and explain this blocker plainly instead of trying another equivalent action.`;
+        const result = `blocked: ${gate.reason}\nBoollm has blocked repeated attempts. Stop now and explain this blocker plainly instead of trying another equivalent action.`;
         orchestration.failItem(toolItem.id, gate.reason);
         return result;
       }
@@ -1787,7 +1787,7 @@ export async function runTurn(ctx, messages) {
     messages.push({
       role: "user",
       content: [
-        "BOOLEAN TEAM HANDOFF",
+        "BOOLLM TEAM HANDOFF",
         "These specialists worked in parallel. Use their evidence, resolve disagreements yourself, make the implementation, and run final verification. Do not merely repeat their reports.",
         ...reports
       ].join("\n\n")
@@ -1852,10 +1852,10 @@ export async function runTurn(ctx, messages) {
   if (compatibilityMode && artifactActionRequired) {
     onStatus(reviewOnlyCompatibility
       ? `${target.model || "This model"} is in review/chat-only mode`
-      : `${target.model || "This model"} is using Boolean's compatibility tool bridge`);
+      : `${target.model || "This model"} is using Boollm's compatibility tool bridge`);
   }
   if (reviewOnlyCompatibility && (artifactActionRequired || explicitActionToolResultRequired)) {
-    const answer = `${target.model || "The selected model"} is in Review/chat-only mode and cannot use Boolean's terminal, file-edit, browser, or deployment tools. The requested command was not run. Switch to a Full coding or Compatible coding model, then retry the same task; Boolean will not substitute unrelated cloud or connector inspections.`;
+    const answer = `${target.model || "The selected model"} is in Review/chat-only mode and cannot use Boollm's terminal, file-edit, browser, or deployment tools. The requested command was not run. Switch to a Full coding or Compatible coding model, then retry the same task; Boollm will not substitute unrelated cloud or connector inspections.`;
     messages.push({ role: "assistant", content: answer });
     return finishOrchestration(answer, "failed");
   }
@@ -2229,9 +2229,9 @@ export async function runTurn(ctx, messages) {
 
     if (compatibilityMode && !reviewOnlyCompatibility) {
       try {
-        const edits = parseBooleanPatch(assistantContent, ctx.projectDir);
+        const edits = parseBoollmPatch(assistantContent, ctx.projectDir);
         if (edits) {
-          preflightBooleanPatch(edits);
+          preflightBoollmPatch(edits);
           messages.push({ role: "assistant", content: assistantContent });
           const results = [];
           for (const edit of edits) {
@@ -2253,7 +2253,7 @@ export async function runTurn(ctx, messages) {
           resetStallCounters();
           messages.push({
             role: "user",
-            content: `BOOLEAN PATCH RESULT:\n${results.join("\n")}\nContinue the task. Use the compatibility tools to run the requested tests and verification before summarizing.`
+            content: `BOOLLM PATCH RESULT:\n${results.join("\n")}\nContinue the task. Use the compatibility tools to run the requested tests and verification before summarizing.`
           });
           checkpoint();
           continue;
@@ -2265,7 +2265,7 @@ export async function runTurn(ctx, messages) {
           messages.push({ role: "assistant", content: assistantContent });
           messages.push({
             role: "user",
-            content: `BOOLEAN PATCH REJECTED (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES}): ${reason}\nUse the saved evidence to return one corrected fenced boolean_patch block, or use read_file/edit_file through the compatibility tool protocol if the exact target changed.`
+            content: `BOOLLM PATCH REJECTED (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES}): ${reason}\nUse the saved evidence to return one corrected fenced boolean_patch block, or use read_file/edit_file through the compatibility tool protocol if the exact target changed.`
           });
           onStatus(`the proposed patch did not match the project - recovering (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES})...`);
           continue;
@@ -2274,7 +2274,7 @@ export async function runTurn(ctx, messages) {
         messages.push({ role: "assistant", content: assistantContent });
         messages.push({
           role: "user",
-          content: `BOOLEAN PATCH RECOVERY: ${reason}\nThe bulk patch path was exhausted, but the task is still active. Use repository_map, read_file, and edit_file through the compatibility tool protocol to make smaller grounded edits, then run verification. Do not repeat the rejected patch.`
+          content: `BOOLLM PATCH RECOVERY: ${reason}\nThe bulk patch path was exhausted, but the task is still active. Use repository_map, read_file, and edit_file through the compatibility tool protocol to make smaller grounded edits, then run verification. Do not repeat the rejected patch.`
         });
         onStatus("switching from the rejected bulk patch to smaller grounded edits...");
         checkpoint();
@@ -2326,7 +2326,7 @@ export async function runTurn(ctx, messages) {
           : "the model returned no answer - retrying...");
         continue;
       }
-      throw new Error("The model returned an empty response repeatedly after Boolean retried automatically. The task remains checkpointed.");
+      throw new Error("The model returned an empty response repeatedly after Boollm retried automatically. The task remains checkpointed.");
     }
 
     // The model announced an inspection or action ("let me read the files now")
@@ -2344,8 +2344,8 @@ export async function runTurn(ctx, messages) {
       messages.push({
         role: "user",
         content: compatibilityMode
-          ? "BOOLEAN CONTINUATION:\nTake the announced step now. Return exactly one fenced tool call using the BOOLEAN TOOL PROTOCOL already provided. Do not describe what you will do - call the tool in this turn."
-          : "BOOLEAN CONTINUATION:\nTake the announced step now by calling the tool directly. Do not describe what you will do - do it in this turn."
+          ? "BOOLLM CONTINUATION:\nTake the announced step now. Return exactly one fenced tool call using the BOOLLM TOOL PROTOCOL already provided. Do not describe what you will do - call the tool in this turn."
+          : "BOOLLM CONTINUATION:\nTake the announced step now by calling the tool directly. Do not describe what you will do - do it in this turn."
       });
       onStatus("taking the announced step...");
       continue;

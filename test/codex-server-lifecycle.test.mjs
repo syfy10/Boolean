@@ -34,7 +34,7 @@ test("an interrupted outer task repairs a nested timeline still claiming to run"
   assert.equal(thread.pendingTask.controller.taskRun.events.at(-1).title, "Task interrupted");
 });
 
-test("Boolean history rewinds detach stale Codex thread state", () => {
+test("Boollm history rewinds detach stale Codex thread state", () => {
   const thread = {
     codex: { threadId: "codex-thread", turnId: "old-turn" },
     codexActive: { threadId: "codex-thread", turnId: "active-turn" },
