@@ -146,6 +146,22 @@ test("Claude Code creates a file only when the exact disk diff exists", async ()
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("Claude Code strips null bytes from prompt and verified workspace changes", async () => {
+  const root = tempGitRepo();
+  try {
+    let launch = null;
+    await runClaudeCodeTurn({
+      command: "claude", input: "prosta\0titis", projectDir: root,
+      workspaceChanges: [{ path: "document.docx", status: "untracked", diff: "PK\0binary" }],
+      spawnSyncImpl: versionSpawn,
+      spawnImpl: successfulClaudeSpawn({ capture: (value) => { launch = value; } })
+    });
+    assert.equal(launch.args.some((arg) => String(arg).includes("\0")), false);
+    assert.match(launch.args[1], /prostatitis/);
+    assert.match(launch.args[1], /PKbinary/);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("Claude Code cannot claim a change when no file content changed", async () => {
   const root = tempGitRepo();
   try {

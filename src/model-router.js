@@ -49,6 +49,12 @@ function healthKey(provider, model) {
   return `${lower(provider)}|${lower(model)}`;
 }
 
+export function canonicalModelId(target = {}) {
+  const provider = lower(target.provider || "unknown") || "unknown";
+  const model = clean(target.model || "default").replace(/^\/+|\/+$/g, "") || "default";
+  return `${provider}/${model}`;
+}
+
 export function noteAutoModelOutcome(target = {}, outcome = {}) {
   const provider = clean(target.provider);
   const model = clean(target.model);
@@ -74,6 +80,19 @@ export function autoModelHealth(target = {}) {
 
 export function resetAutoModelHealth() {
   providerHealth.clear();
+}
+
+export function autoModelHealthSnapshot() {
+  const now = Date.now();
+  return [...providerHealth.entries()].map(([key, value]) => ({
+    id: key.replace("|", "/"),
+    successes: Number(value.successes || 0),
+    failures: Number(value.failures || 0),
+    latencyMs: Number(value.latencyMs || 0),
+    state: Number(value.cooldownUntil || 0) > now ? "cooldown" : "ready",
+    cooldownMs: Math.max(0, Number(value.cooldownUntil || 0) - now),
+    lastError: clean(value.lastError).slice(0, 160)
+  }));
 }
 
 function connectedCandidates(config = {}) {
@@ -249,7 +268,25 @@ export function selectAutoModelRoute(config = {}, messages = [], options = {}) {
     return { enabled: true, route, target: selected, alternates: [], preference, reason: `No connected ${route} model is available; keeping the selected model.` };
   }
 
-  if (requestedProvider && requestedProvider !== "auto" && requestedProvider !== "selected") {
+  const orderedTargets=Array.isArray(profile.targets)?profile.targets.map((item)=>{
+    if(typeof item==="string"){
+      const slash=item.indexOf("/");
+      return slash>0?{provider:item.slice(0,slash),model:item.slice(slash+1)}:null;
+    }
+    return item&&typeof item==="object"?{provider:clean(item.provider),model:clean(item.model)}:null;
+  }).filter(Boolean):[];
+  if(orderedTargets.length){
+    const rank=(candidate)=>{
+      const index=orderedTargets.findIndex((item)=>lower(item.provider)===lower(candidate.provider)&&(!item.model||lower(item.model)===lower(candidate.model)));
+      return index<0?Number.MAX_SAFE_INTEGER:index;
+    };
+    candidates.sort((a,b)=>{
+      const coolingA=Number(autoModelHealth(a).cooldownUntil||0)>Date.now()?1:0;
+      const coolingB=Number(autoModelHealth(b).cooldownUntil||0)>Date.now()?1:0;
+      if(coolingA!==coolingB)return coolingA-coolingB;
+      return rank(a)-rank(b)||preferenceScore(b,route,preference)-preferenceScore(a,route,preference);
+    });
+  } else if (requestedProvider && requestedProvider !== "auto" && requestedProvider !== "selected") {
     const configured = candidates.find((candidate) => candidate.provider === requestedProvider
       && (!requestedModel || candidate.model === requestedModel));
     if (configured) {
@@ -269,6 +306,8 @@ export function selectAutoModelRoute(config = {}, messages = [], options = {}) {
   const target = candidates[0];
   const source = locked
     ? "project lock"
+    : orderedTargets.length
+      ? `ordered ${route} profile`
     : requestedProvider && requestedProvider !== "auto" && target.provider !== requestedProvider
       ? `healthy fallback for the ${route} profile`
       : requestedProvider && requestedProvider !== "auto"

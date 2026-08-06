@@ -8,6 +8,10 @@ $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root
 $out = "$root\dist\saz-app"
 
+Write-Host "[0/5] bundling the Monaco editor for the Code workspace..."
+& node "$root\build\build-editor.mjs"
+if ($LASTEXITCODE -ne 0) { throw "editor bundle failed" }
+
 Write-Host "[1/5] building Node core (Boolean-core.exe)..."
 & powershell -ExecutionPolicy Bypass -File "$root\build\build-exe.ps1"
 if ($LASTEXITCODE -ne 0) { throw "core build failed" }
@@ -39,6 +43,11 @@ Get-ChildItem "$out\engine" -Recurse -File | Where-Object { $deadEngineDlls -con
 Copy-Item "$root\templates" "$out\templates" -Recurse -Force
 Copy-Item "$root\assets\saz.ico" "$out\saz.ico" -Force
 Copy-Item "$root\assets\education-cards" "$out\education-cards" -Recurse -Force
+# Monaco is too large for a SEA asset, so it ships as a plain folder the server
+# reads from disk. Missing folder = the Code workspace falls back to plain text.
+$editorSource = "$root\src\assets\monaco"
+if (Test-Path $editorSource) { Copy-Item $editorSource "$out\editor" -Recurse -Force }
+else { Write-Host "warning: no Monaco bundle found; Code will use the plain text editor" }
 
 # Release builds can provide managed OAuth credentials through a local source
 # JSON file or environment overrides. Do not commit production secrets.

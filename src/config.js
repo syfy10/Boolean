@@ -198,6 +198,22 @@ const DEFAULTS = {
       maxNotionalUsd: 0,
       maxOrdersPerDay: 0,
       dailyLossCapUsd: 0,
+      // Local, page-fed signal helper. It builds completed candles from the
+      // quote visible in Boolean's browser and never submits an order itself.
+      strategy: {
+        enabled: false,
+        key: "multi",
+        mode: "all",
+        timeframeMinutes: 5,
+        lookbackBars: 20,
+        fastBars: 9,
+        slowBars: 21,
+        meanBars: 20,
+        meanSigma: 2,
+        riskReward: 2,
+        maxSignalsPerDay: 4,
+        cooldownBars: 2
+      },
       // Optional auto P&L sync for the daily loss cap. Point at the broker
       // connector's realized-P&L field; sync_trade_pnl reads the number at `path`.
       // Fail-closed: if it can't read a reliable number the cap is left unchanged.
@@ -255,11 +271,11 @@ const DEFAULTS = {
         preferred: "codex" // codex | claude-code | first-ready
       },
       profiles: {
-        chat: { engine: "auto", provider: "auto", model: "" },
-        coding: { engine: "auto", provider: "auto", model: "" },
-        vision: { engine: "auto", provider: "auto", model: "" },
-        research: { engine: "auto", provider: "auto", model: "" },
-        fast: { engine: "auto", provider: "auto", model: "" }
+        chat: { engine: "auto", provider: "auto", model: "", targets: [] },
+        coding: { engine: "auto", provider: "auto", model: "", targets: [] },
+        vision: { engine: "auto", provider: "auto", model: "", targets: [] },
+        research: { engine: "auto", provider: "auto", model: "", targets: [] },
+        fast: { engine: "auto", provider: "auto", model: "", targets: [] }
       },
       projects: {}
     },
@@ -414,6 +430,21 @@ function hasSavedCloudflareCredential(connection) {
     || connection?.connected === true;
 }
 
+function hasSavedCloudSession(connection) {
+  return nonEmptyString(connection?.sessionToken) && !!(
+    nonEmptyString(connection?.user?.email) || nonEmptyString(connection?.user?.id)
+  );
+}
+
+function restoreCloudBackend(nextCloud = {}, previousCloud = {}) {
+  if (!hasSavedCloudSession(previousCloud)) return;
+  if (!nonEmptyString(nextCloud?.url)) nextCloud.url = previousCloud.url || "";
+  if (hasSavedCloudSession(nextCloud) || nonEmptyString(nextCloud.tokens)) return;
+  nextCloud.sessionToken = previousCloud.sessionToken;
+  nextCloud.user = previousCloud.user || null;
+  nextCloud.tokens = previousCloud.tokens || null;
+}
+
 function restoreEmailConnection(nextEmail, prevEmail) {
   if (!nextEmail || !prevEmail || !hasSavedEmailCredential(prevEmail)) return;
   const nextHasCredential = hasSavedEmailCredential(nextEmail);
@@ -560,6 +591,7 @@ export function hasAnySavedCredential(cfg) {
   const email = c.email || {};
   if (["gmail", "outlook"].some((p) => hasSavedEmailCredential(email[p]))) return true;
   if (hasSavedCloudflareCredential(c.cloudflare)) return true;
+  if (hasSavedCloudSession(cfg?.cloudBackend || {})) return true;
   if ([...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"].some((p) => nonEmptyString(cfg?.[p]?.apiKey))) return true;
   if (nonEmptyString(c.azure?.clientSecret)) return true;
   if (nonEmptyString(c.aws?.secretAccessKey) || nonEmptyString(c.aws?.sessionToken)) return true;
@@ -568,19 +600,39 @@ export function hasAnySavedCredential(cfg) {
   return false;
 }
 
+function hasSavedUserState(cfg) {
+  if (!cfg) return false;
+  if (hasAnySavedCredential(cfg)) return true;
+  if (cfg.provider && cfg.provider !== DEFAULTS.provider) return true;
+  if (cfg.accessMode && cfg.accessMode !== DEFAULTS.accessMode) return true;
+  if (cfg.projectsDir && cfg.projectsDir !== DEFAULTS.projectsDir) return true;
+  if (cfg.eulaAccepted) return true;
+  try { return JSON.stringify(cfg.ui || {}) !== JSON.stringify(DEFAULTS.ui || {}); }
+  catch { return false; }
+}
+
 // If the primary config came back with no credentials at all but a backup still
 // has them, the primary was reset (e.g. wiped during an app update). Restore the
 // saved connections/keys from the backup. Only fires on a total wipe, so it never
 // resurrects a single credential the user deliberately removed.
-function recoverCredentialsFromBackup(cfg) {
-  if (hasAnySavedCredential(cfg)) return false;
+export function restoreResetConfig(cfg, backup) {
+  if (hasSavedUserState(cfg) || !hasSavedUserState(backup)) return false;
+  const restored = deepMerge(DEFAULTS, backup);
+  for (const key of Object.keys(cfg)) delete cfg[key];
+  Object.assign(cfg, restored);
+  return true;
+}
+
+function recoverConfigFromBackup(cfg) {
+  if (hasSavedUserState(cfg)) return false;
   for (const backupFile of [CONFIG_BACKUP_FILE, LEGACY_CONFIG_FILE]) {
     try {
       const backup = readJsonFile(backupFile);
-      if (!hasAnySavedCredential(backup)) continue;
-      cfg.connectors = deepMerge(cfg.connectors || {}, backup.connectors || {});
-      preserveSavedApiKeys(cfg, backup);
-      return true;
+      if (!hasSavedUserState(backup)) continue;
+      // A reset primary file is not only a credential loss. Restore the entire
+      // last-known-good user configuration so provider/model choices, UI
+      // preferences, permissions, and the signed-in session survive an update.
+      if (restoreResetConfig(cfg, backup)) return true;
     } catch {
       /* try next backup */
     }
@@ -595,7 +647,7 @@ export function loadConfig() {
       const cfg = deepMerge(DEFAULTS, raw);
       // Recover connections/keys wiped from the primary config by an update.
       let recovered = false;
-      if (file === CONFIG_FILE) recovered = recoverCredentialsFromBackup(cfg);
+      if (file === CONFIG_FILE) recovered = recoverConfigFromBackup(cfg);
       // Coding Plan traffic must always use Z.AI's dedicated endpoint.
       cfg.zaiCoding.baseUrl = DEFAULTS.zaiCoding.baseUrl;
       if (!["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"].includes(cfg.zaiCoding.model)) cfg.zaiCoding.model = "GLM-4.7";

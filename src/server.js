@@ -9,13 +9,15 @@ import crypto from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { spawn, spawnSync } from "node:child_process";
 import * as sea from "node:sea";
+import { listCodeExtensions, discoverLanguageServices } from "./code-extensions.js";
 import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
   ACCESS_MODES, currentAccessMode, defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
-import { tradeConsentActive, armExpiresAt, armWindowMs } from "./trade-guard.js";
-import { currentTradeState } from "./trade-ledger.js";
+import { tradeConsentActive, armExpiresAt, armWindowMs, evaluateTradeGuard } from "./trade-guard.js";
+import { currentTradeState, recordTradePlacement } from "./trade-ledger.js";
+import { recordSignalOutcomes, signalStats } from "./signal-log.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, currentTurnInstructionText, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
 import {
@@ -73,9 +75,10 @@ import {
 import { emailOAuthRedirectUri, loadManagedEmailOAuthClients, managedEmailOAuthCredential } from "./email-oauth-config.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
+import { EDITOR_ASSET_PREFIX, resolveEditorAsset } from "./editor-assets.js";
 import { detectLocalServers } from "./local-servers.js";
 import { detectWebsiteTech } from "./tech-detector.js";
-import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
+import { gitCommit, gitCreateBranch, gitDiffFiles, gitFileContents, gitPushBranch, gitRestoreFiles, gitSourceStatus, gitStageFiles, githubCreatePullRequest } from "./git-review.js";
 import {
   combineWorkspaceChanges,
   mergeWorkspaceChanges,
@@ -85,7 +88,7 @@ import {
   workspaceChangesReview
 } from "./workspace-changes.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
-import { autoSubscriptionEnabled, routeForTurn, selectExecutionEngine } from "./model-router.js";
+import { autoModelHealthSnapshot, autoSubscriptionEnabled, canonicalModelId, routeForTurn, selectExecutionEngine } from "./model-router.js";
 import { createCodexAppServer, installCodexStandaloneCli } from "./codex-app-server.js";
 import { codexToolEnvironment, createCodexRunner } from "./codex-runner.js";
 import {
@@ -94,8 +97,137 @@ import {
 } from "./claude-code.js";
 import officialEducationCatalog from "./education-official.json" with { type: "json" };
 import { listActions, searchActions } from "./actions.js";
+import {
+  listWorkspaceTree, readWorkspaceFile, writeWorkspaceFile,
+  createWorkspaceEntry, renameWorkspaceEntry, deleteWorkspaceEntry,
+  findWorkspaceFiles, findWorkspaceSymbols, searchWorkspaceText
+} from "./workspace-files.js";
 
 const studioVideoOperations = new Map();
+
+async function detectOpenCodex() {
+  const endpoint = "http://127.0.0.1:10100";
+  try {
+    const response = await fetch(`${endpoint}/v1/models`, { signal: AbortSignal.timeout(1200) });
+    if (!response.ok) return { detected: false, endpoint, status: response.status };
+    const payload = await response.json().catch(() => ({}));
+    const models = Array.isArray(payload?.data) ? payload.data.map((item) => String(item?.id || "")).filter(Boolean) : [];
+    return { detected: true, endpoint, apiBase: `${endpoint}/v1`, models: models.slice(0, 50), modelCount: models.length };
+  } catch {
+    return { detected: false, endpoint };
+  }
+}
+
+// Labels the trading bar looks for on the broker's own order form when it
+// types a ticket. Values are matched against a control's visible text, label,
+// placeholder, name, or id, so "quantity" finds a Quantity field. Nothing here
+// places an order on its own — it only says where each number goes.
+// Values may contain {symbol} and {Side}, expanded per ticket by the bar — a
+// broker's final button is usually named after the order ("Buy SPY"), so a
+// fixed label could never match it.
+const TICKET_FIELD_KEYS = ["quantity", "orderType", "timeInForce", "limit", "trigger", "trail",
+  "stop", "target", "positionEffect", "buy", "sell", "place", "cancel"];
+// Order settings that belong to the account rather than to one order, so the
+// bar can keep them out of the four lines and still send them every time.
+const TICKET_DEFAULT_KEYS = ["positionEffect", "instruction", "exchange", "taxLot", "accountName",
+  "submitAt", "submitOn", "cancelAt", "cancelOn", "tif"];
+export function normalizeTicketDefaults(raw = {}) {
+  const out = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const key of TICKET_DEFAULT_KEYS) {
+    const value = String(raw[key] || "").trim().slice(0, 60);
+    if (value) out[key] = value;
+  }
+  return out;
+}
+
+export function normalizeTicketFields(raw = {}) {
+  const out = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const key of TICKET_FIELD_KEYS) {
+    // A slot may hold one label or several to try in order — brokers name the
+    // same control differently, and a page that answers to none of the
+    // built-in guesses needs somewhere to put the one that works.
+    const values = (Array.isArray(raw[key]) ? raw[key] : [raw[key]])
+      .map((value) => String(value || "").trim().slice(0, 120))
+      .filter(Boolean)
+      .slice(0, 6);
+    if (values.length) out[key] = values;
+  }
+  return out;
+}
+
+// Whether Boolean may click trade controls on the broker page at all. Shared by
+// the ticket and by cancelling, because they need the same consent: the
+// permission switch, a signed-in user whose risk agreement matches, and an arm
+// window that has not lapsed.
+export function tradeClickPermission(config = {}) {
+  const perms = config.ui?.browserPerms || {};
+  const user = String(config.cloudBackend?.user?.email || config.cloudBackend?.user?.id || "").trim().toLowerCase();
+  const consentUser = String(perms.tradeConsentUser || "").trim().toLowerCase();
+  const tradeClicks = perms.tradeClicks === true;
+  const cloudUser = config.cloudBackend?.user || {};
+  const admin = cloudUser.role === "admin" || cloudUser.is_admin === true;
+  const identityOk = admin && !!config.cloudBackend?.sessionToken && !!user && consentUser === user;
+  const armed = tradeConsentActive(config);
+  return {
+    tradeClicks,
+    identityOk,
+    armed,
+    canClick: tradeClicks && identityOk && armed,
+    reason: !tradeClicks
+      ? "Confirmed trade clicks is off in Settings > Browser."
+      : !identityOk
+        ? "Trading is available only to a signed-in Boolean administrator whose risk agreement matches the current user."
+        : !armed
+          ? "Trade clicks have auto-disarmed. Press Arm to re-arm."
+          : ""
+  };
+}
+
+export function normalizeTradingStrategy(value = {}) {
+  const input = value && typeof value === "object" ? value : {};
+  const timeframe = [1, 5, 15].includes(Number(input.timeframeMinutes))
+    ? Number(input.timeframeMinutes)
+    : 5;
+  const modes = new Set(["breakout", "ema", "meanReversion", "all"]);
+  const requestedMode = String(input.mode || (input.key === "breakout" ? "breakout" : ""));
+  const mode = modes.has(requestedMode) ? requestedMode : "all";
+  const fastBars = Math.min(50, Math.max(3, Math.round(Number(input.fastBars) || 9)));
+  const slowBars = Math.min(100, Math.max(fastBars + 2, Math.round(Number(input.slowBars) || 21)));
+  return {
+    enabled: input.enabled === true,
+    key: mode === "all" ? "multi" : mode,
+    mode,
+    timeframeMinutes: timeframe,
+    lookbackBars: Math.min(100, Math.max(5, Math.round(Number(input.lookbackBars) || 20))),
+    fastBars,
+    slowBars,
+    meanBars: Math.min(100, Math.max(10, Math.round(Number(input.meanBars) || 20))),
+    meanSigma: Math.min(3, Math.max(1, Number(input.meanSigma) || 2)),
+    riskReward: Math.min(5, Math.max(1, Number(input.riskReward) || 2)),
+    maxSignalsPerDay: Math.min(10, Math.max(1, Math.round(Number(input.maxSignalsPerDay) || 4))),
+    cooldownBars: Math.min(12, Math.max(1, Math.round(Number(input.cooldownBars) || 2))),
+    // Stops used to be the signal candle's own low/high, which on a thin bar
+    // sits cents from the entry. The stop is now floored at this many ATRs.
+    // 0 restores the old candle-extreme behaviour.
+    atrBars: Math.min(50, Math.max(5, Math.round(Number(input.atrBars) || 14))),
+    atrStopMultiple: Math.min(3, Math.max(0, Number(input.atrStopMultiple ?? 1))),
+    // Regime gate. Breakout and EMA want a trending tape; mean reversion wants
+    // a still one. These thresholds are starting assumptions — the signal log
+    // records the regime with every signal so they can be checked against real
+    // outcomes rather than left as guesses.
+    regimeFilter: input.regimeFilter !== false,
+    trendMinEfficiency: Math.min(1, Math.max(0, Number(input.trendMinEfficiency ?? 0.35))),
+    rangeMaxEfficiency: Math.min(1, Math.max(0, Number(input.rangeMaxEfficiency ?? 0.25))),
+    // How far past the range edge a breakout close must land, in ATRs, before
+    // it counts as a break rather than a poke.
+    breakoutBufferAtr: Math.min(2, Math.max(0, Number(input.breakoutBufferAtr ?? 0.25))),
+    // How many completed bars a fired signal is followed for before it is
+    // recorded as unresolved.
+    outcomeHorizonBars: Math.min(100, Math.max(5, Math.round(Number(input.outcomeHorizonBars) || 20)))
+  };
+}
 
 function decodeHtmlText(value = "") {
   return String(value)
@@ -396,6 +528,34 @@ function compressedUiHtml(html) {
   }
   return uiGzipCache.gzip;
 }
+// Monaco bundle for the Code workspace (see editor-assets.js).
+function serveEditorAsset(urlPath, req, res) {
+  const asset = resolveEditorAsset(urlPath);
+  let stat = null;
+  try {
+    stat = asset ? fs.statSync(asset.file) : null;
+  } catch {
+    stat = null;
+  }
+  if (!stat || !stat.isFile()) { res.writeHead(404); res.end("not found"); return; }
+  // Rebuilding the bundle keeps the same file names, so the browser must
+  // revalidate rather than serve a stale editor for an hour.
+  const etag = `W/"${stat.size.toString(16)}-${Math.round(stat.mtimeMs).toString(16)}"`;
+  if (req.headers["if-none-match"] === etag) {
+    res.writeHead(304, { etag, "cache-control": "no-cache" });
+    res.end();
+    return;
+  }
+  const body = fs.readFileSync(asset.file);
+  res.writeHead(200, {
+    "content-type": asset.type,
+    "content-length": body.length,
+    "cache-control": "no-cache",
+    etag
+  });
+  res.end(body);
+}
+
 function loadLegalText(file) {
   if (IS_SEA) return fs.readFileSync(path.join(path.dirname(process.execPath), file), "utf8");
   return fs.readFileSync(appPath("assets", file), "utf8");
@@ -1055,8 +1215,14 @@ async function probeCurrentModelCapability(config, { force = false } = {}) {
   return pending;
 }
 
+function adminFeatureAccessAllowed(config) {
+  const cloud = config.cloudBackend || {};
+  const user = cloud.user || {};
+  return !!cloud.sessionToken && (user.role === "admin" || user.is_admin === true);
+}
+
 function marketAccessAllowed(config) {
-  return !!config.cloudBackend?.sessionToken;
+  return adminFeatureAccessAllowed(config);
 }
 
 function publicImageGeneration(config) {
@@ -1416,7 +1582,37 @@ export function startServer(config, {
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
   let browserTitle = ""; // optional page title sent with the current browser URL
+  let browserSnapshot = null; // last live page read pushed by the desktop shell UI
   let serverPort = 0;  // this app's own port, hidden from local-server discovery
+
+  // Why a scheduled monitor has no page to look at. A prompt-type task has no
+  // tools, so the snapshot is its only eyes; when it is missing the task must
+  // be told plainly, because a model asked to "read the visible page" with no
+  // page attached will otherwise report numbers it invented.
+  const browserSnapshotGap = () => {
+    if (!browserSnapshot) return "no page has been read from Boolean's built-in browser yet";
+    const ageSeconds = Math.round(Math.max(0, Date.now() - Number(browserSnapshot.at || 0)) / 1000);
+    if (ageSeconds > 120) return `the last page read is ${ageSeconds} seconds old (stale beyond the 120-second limit)`;
+    return "";
+  };
+
+  const browserSnapshotText = () => {
+    if (!browserSnapshot) return "";
+    const ageMs = Math.max(0, Date.now() - Number(browserSnapshot.at || 0));
+    if (ageMs > 120000) return "";
+    const domText = String(browserSnapshot.text || "").trim();
+    const ocrText = String(browserSnapshot.ocr || "").trim();
+    const pageText = [domText, ocrText && ocrText !== domText ? `Rendered-page OCR:\n${ocrText}` : ""]
+      .filter(Boolean)
+      .join("\n\n");
+    return [
+      "CURRENT VISIBLE BROWSER SNAPSHOT (live from Boolean's built-in browser):",
+      `URL: ${browserSnapshot.url || "(none)"}`,
+      `Title: ${browserSnapshot.title || "(none)"}`,
+      `Page status: ${browserSnapshot.open === false ? "closed" : "open"}`,
+      pageText ? `Visible page text:\n${pageText}` : "Visible page text: (no readable text)"
+    ].join("\n");
+  };
 
   // ── broker snapshot for the trading bar ──────────────────────────
   // Which account the agent would actually act on, whether that account is
@@ -1424,8 +1620,79 @@ export function startServer(config, {
   // agentic_allowed=false silently rejects every order, so the bar has to be able
   // to say so BEFORE a trade is attempted. Cached: these are slow MCP round-trips
   // and the bar polls.
-  let brokerSnapshot = { at: 0, payload: null, inFlight: null };
+  let brokerSnapshot = { at: 0, payload: null, inFlight: null, connector: "" };
   const BROKER_SNAPSHOT_TTL = 30_000;
+
+  const BROKER_CONNECTOR_HINTS = [
+    { id: "robinhood", label: "Robinhood", aliases: ["robinhood", "robinhoodlegend", "rh"], hosts: ["robinhood.com"] },
+    { id: "schwab", label: "Schwab", aliases: ["schwab", "fidelityschwab", "charlesschwab"], hosts: ["schwab.com"] },
+    { id: "alpaca", label: "Alpaca", aliases: ["alpaca"], hosts: ["alpaca.markets"] },
+    { id: "ibkr", label: "IBKR", aliases: ["ibkr", "interactivebrokers", "ibkr"], hosts: ["interactivebrokers.com"] },
+    { id: "tradier", label: "Tradier", aliases: ["tradier"], hosts: ["tradier.com"] },
+    { id: "trade", label: "Broker", aliases: ["trading", "broker"], hosts: [] }
+  ];
+
+  const normalizeTradingAdapterId = (value = "") => String(value || "")
+    .toLowerCase()
+    .replace(/(^https?:\/\/|\/.*$)/g, "")
+    .replace(/[^\w]/g, "");
+
+  const normalizeTradingHost = (value = "") => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      return normalizeTradingAdapterId(new URL(raw).hostname || "");
+    } catch {
+      return normalizeTradingAdapterId(raw);
+    }
+  };
+
+  const tradingAdapterForConnector = (connector = {}) => {
+    const candidates = [
+      normalizeTradingAdapterId(connector?.id),
+      normalizeTradingAdapterId(connector?.name),
+      normalizeTradingHost(connector?.url),
+      normalizeTradingAdapterId(connector?.url)
+    ].filter(Boolean);
+    const flat = candidates.join(" ");
+    for (const hint of BROKER_CONNECTOR_HINTS) {
+      const aliases = new Set((hint.aliases || []).map((value) => normalizeTradingAdapterId(value)));
+      const hosts = new Set((hint.hosts || []).map((value) => normalizeTradingAdapterId(value)));
+      if (candidates.some((candidate) => aliases.has(candidate) || hosts.has(candidate))) return hint.id;
+      if (flat.includes(hint.id)) return hint.id;
+    }
+    return "";
+  };
+
+  const tradingConnectorMatchesConnector = (connector, requestedAdapter = "", fallbackName = "") => {
+    const requested = normalizeTradingAdapterId(requestedAdapter);
+    const fallback = normalizeTradingAdapterId(fallbackName);
+    if (!requested && !fallback) return false;
+    const normalized = [
+      normalizeTradingAdapterId(connector?.id),
+      normalizeTradingAdapterId(connector?.name),
+      normalizeTradingHost(connector?.url),
+      normalizeTradingAdapterId(connector?.url),
+      tradingAdapterForConnector(connector)
+    ].filter(Boolean);
+    return normalized.some((candidate) => candidate === requested || candidate === fallback);
+  };
+
+  const tradingAdapterCatalog = (nextConfig = config) => {
+    const list = Array.isArray(nextConfig?.connectors?.mcp) ? nextConfig.connectors.mcp : [];
+    const enabled = list.filter((item) => item && item.enabled !== false && item.url);
+    return enabled.map((item) => ({
+      id: String(item.id || ""),
+      name: String(item.name || item.id || ""),
+      url: String(item.url || ""),
+      adapter: tradingAdapterForConnector(item),
+      label: BROKER_CONNECTOR_HINTS.find((hint) => hint.id === tradingAdapterForConnector(item))?.label || ""
+    }));
+  };
+
+  const tradingAdapterSummary = (nextConfig = config) => (
+    tradingAdapterCatalog(nextConfig).map((item) => item.adapter || item.name || item.id).filter(Boolean)
+  );
 
   const maskAccount = (value = "") => {
     const raw = String(value || "").trim();
@@ -1433,20 +1700,36 @@ export function startServer(config, {
     return raw.length <= 4 ? raw : `••••${raw.slice(-4)}`;
   };
 
-  function brokerConnector() {
-    const list = Array.isArray(config.connectors?.mcp) ? config.connectors.mcp : [];
+  const brokerConnector = (nextConfig = config, requestedConnector = "") => {
+    const list = Array.isArray(nextConfig?.connectors?.mcp) ? nextConfig.connectors.mcp : [];
     const enabled = list.filter((item) => item && item.enabled !== false && item.url);
-    const configured = String(config.connectors?.trading?.broker
-      || config.connectors?.trading?.pnl?.connector || "").trim().toLowerCase();
-    if (configured) {
-      const match = enabled.find((item) =>
-        String(item.name || "").trim().toLowerCase() === configured ||
-        String(item.id || "").trim().toLowerCase() === configured);
-      if (match) return match;
+    const requested = normalizeTradingAdapterId(requestedConnector);
+    if (requested) {
+      const direct = enabled.find((item) => tradingConnectorMatchesConnector(item, requested, ""));
+      if (direct) return direct;
     }
+    const configured = String(nextConfig?.connectors?.trading?.broker
+      || nextConfig?.connectors?.trading?.pnl?.connector || "").trim();
+    if (configured) {
+      const configuredMatch = enabled.find((item) => tradingConnectorMatchesConnector(
+        item,
+        configured,
+        String(nextConfig?.connectors?.trading?.pnl?.connector || "")
+      ));
+      if (configuredMatch) return configuredMatch;
+    }
+    const pnlConnector = String(nextConfig?.connectors?.trading?.pnl?.connector || "").trim();
+    if (pnlConnector) {
+      const pnlMatch = enabled.find((item) => tradingConnectorMatchesConnector(item, pnlConnector, ""));
+      if (pnlMatch) return pnlMatch;
+    }
+    const robinhood = enabled.find((item) => tradingAdapterForConnector(item) === "robinhood");
+    if (robinhood) return robinhood;
+    const brokerHint = enabled.find((item) => BROKER_CONNECTOR_HINTS.some((hint) => tradingAdapterForConnector(item) === hint.id));
+    if (brokerHint) return brokerHint;
     return enabled.find((item) => /robinhood|broker|trading|schwab|alpaca|ibkr|tradier/i
       .test(`${item.name || ""} ${item.url || ""}`)) || null;
-  }
+  };
 
   function mcpStructured(result) {
     if (result?.structuredContent) return result.structuredContent;
@@ -1455,8 +1738,8 @@ export function startServer(config, {
     try { return JSON.parse(text); } catch { return null; }
   }
 
-  async function loadBrokerSnapshot() {
-    const connector = brokerConnector();
+  async function loadBrokerSnapshot(nextConfig = config, requestedConnector = "") {
+    const connector = brokerConnector(nextConfig, requestedConnector);
     if (!connector) return { ok: false, error: "No broker connector is configured." };
     const accountsResult = await mcpCallTool(connector, "get_accounts", {});
     const accounts = mcpStructured(accountsResult)?.data?.accounts;
@@ -1497,18 +1780,23 @@ export function startServer(config, {
     };
   }
 
-  async function brokerSnapshotCached({ refresh = false } = {}) {
-    const fresh = !refresh && brokerSnapshot.payload && Date.now() - brokerSnapshot.at < BROKER_SNAPSHOT_TTL;
+  async function brokerSnapshotCached({
+    refresh = false,
+    connector: requestedConnector = ""
+  } = {}) {
+    const connectorKey = normalizeTradingAdapterId(requestedConnector || config?.connectors?.trading?.broker || config?.connectors?.trading?.pnl?.connector || "");
+    const fresh = !refresh && brokerSnapshot.payload && brokerSnapshot.connector === connectorKey
+      && Date.now() - brokerSnapshot.at < BROKER_SNAPSHOT_TTL;
     if (fresh) return brokerSnapshot.payload;
     if (brokerSnapshot.inFlight) return brokerSnapshot.inFlight;
     brokerSnapshot.inFlight = (async () => {
       try {
-        const payload = await loadBrokerSnapshot();
-        brokerSnapshot = { at: Date.now(), payload, inFlight: null };
+        const payload = await loadBrokerSnapshot(config, requestedConnector);
+        brokerSnapshot = { at: Date.now(), payload, inFlight: null, connector: connectorKey };
         return payload;
       } catch (err) {
         const payload = { ok: false, error: String(err?.message || err).slice(0, 200) };
-        brokerSnapshot = { at: Date.now(), payload, inFlight: null };
+        brokerSnapshot = { at: Date.now(), payload, inFlight: null, connector: connectorKey };
         return payload;
       }
     })();
@@ -2277,9 +2565,31 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     if (!["prompt", "agent"].includes(item.actionType)) return { code: 1, output: `Unsupported scheduled action: ${item.actionType}` };
 
     const t = threads.get(item.threadId) || reuseOrNewThread();
+    // Keep every scheduled monitor in its own continuing chat. runDueAutomations
+    // persists this runtime field with the rest of the item after the first run,
+    // so its previous same-symbol reading becomes the next run's baseline.
+    if (!item.threadId) item.threadId = t.id;
     const text = String(item.text || "").trim();
     if (!text) return { code: 1, output: "The scheduled AI prompt is empty.", threadId: t.id };
-    const content = `Scheduled task: ${text}`;
+    const needsVisiblePage = /\b(browser|visible page|current page|robinhood|legend|broker page)\b/i.test(text);
+    const liveBrowserContext = needsVisiblePage ? browserSnapshotText() : "";
+    // A task that asks to read a page, with no page attached and (for prompt
+    // tasks) no tools to fetch one, is the shape that produced invented prices
+    // and alerts about moves that never happened. Name the gap and forbid the
+    // guess rather than leaving a blank the model will fill.
+    const missingPage = needsVisiblePage && !liveBrowserContext ? browserSnapshotGap() : "";
+    const content = `Scheduled task: ${text}`
+      + (liveBrowserContext
+        ? `\n\n${liveBrowserContext}\n\nTreat the symbol or contract visible in this snapshot as the monitored instrument. If it differs from an older symbol, reset the comparison baseline for the newly visible instrument and do not ask to reopen the old one.`
+        : "")
+      + (missingPage
+        ? `\n\nNO PAGE SNAPSHOT IS AVAILABLE — ${missingPage}.`
+          + (item.actionType === "agent"
+            ? " Read the page with visible_browser_read before answering. If that fails, report that you could not read it."
+            : " This task type has no tools, so there is no way to read the page on this run.")
+          + " Do NOT estimate, assume, or repeat earlier values as if they were current, and do NOT raise an alert."
+          + " Reply with one line saying the page could not be read and why."
+        : "");
     const provider = item.provider && config[item.provider] ? item.provider : config.provider;
     const runConfig = {
       ...config,
@@ -2332,7 +2642,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             saveConfig(config);
           },
           onBrowse: () => {},
-          visibleBrowser: async () => "The visible browser is unavailable during an unattended scheduled task. Use background web tools instead.",
+          visibleBrowser: async (command = {}) => {
+            if (!["read", "inspect_layout"].includes(String(command.action || ""))) {
+              return "Scheduled tasks may read the cached visible browser page but cannot interact with it unattended.";
+            }
+            return browserSnapshotText() || "The visible browser has not supplied a recent page snapshot. Keep Boolean open with the broker page visible, then try again.";
+          },
           captureScreenshot: async () => ({ ok: false, error: "Visible screenshots are unavailable during an unattended scheduled task." }),
           notepad: async () => "The visible notepad is unavailable during an unattended scheduled task."
         };
@@ -2473,6 +2788,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", vary: "Accept-Encoding" });
           res.end(html);
         }
+        return;
+      }
+      if (req.method === "GET" && p.startsWith(EDITOR_ASSET_PREFIX)) {
+        serveEditorAsset(p, req, res);
         return;
       }
       if (req.method === "GET" && p === "/favicon.ico") {
@@ -2730,6 +3049,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           claudeCode: publicClaudeStatus(),
           codexPendingInputs: publicCodexInputs(),
           codexPendingApprovals: publicCodexApprovals(),
+          tradingAdapters: tradingAdapterSummary(config),
           threads: threadList(),
           activeThreadId
         });
@@ -3083,6 +3403,65 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       // ── Semantic actions and capability search ──
+      if (p.startsWith("/api/workspace/")) {
+        const requestedThreadId = String(url.searchParams.get("threadId") || activeThreadId || "");
+        const workspaceThread = threads.get(requestedThreadId);
+        if (!workspaceThread || workspaceThread.kind !== "project" || !workspaceThread.projectDir) {
+          return json({ error: "Open a project task before using Code." }, 400);
+        }
+        // The global CSRF guard only covers POST, and these routes create,
+        // move, and delete real files in the user's project.
+        if (req.method !== "GET" && req.headers["x-saz"] !== "1") {
+          res.writeHead(403); res.end("forbidden"); return;
+        }
+        try {
+          if (req.method === "POST" && p === "/api/workspace/entry") {
+            const body = await readBody(req);
+            const created = createWorkspaceEntry(workspaceThread.projectDir, body.path, { type: body.type, content: body.content });
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...created });
+          }
+          if (req.method === "PATCH" && p === "/api/workspace/entry") {
+            const body = await readBody(req);
+            const moved = renameWorkspaceEntry(workspaceThread.projectDir, body.from, body.to);
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...moved });
+          }
+          if (req.method === "DELETE" && p === "/api/workspace/entry") {
+            const removed = deleteWorkspaceEntry(workspaceThread.projectDir, url.searchParams.get("path") || "");
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...removed });
+          }
+          if (req.method === "GET" && p === "/api/workspace/tree") {
+            return json({ threadId: workspaceThread.id, ...listWorkspaceTree(workspaceThread.projectDir) });
+          }
+          if (req.method === "GET" && p === "/api/workspace/search") {
+            const query = url.searchParams.get("q") || "";
+            const mode = url.searchParams.get("mode");
+            const found = mode === "text"
+              ? searchWorkspaceText(workspaceThread.projectDir, query, { caseSensitive: url.searchParams.get("case") === "1" })
+              : mode === "symbols" ? findWorkspaceSymbols(workspaceThread.projectDir, query)
+              : findWorkspaceFiles(workspaceThread.projectDir, query);
+            return json({ threadId: workspaceThread.id, ...found });
+          }
+          if (req.method === "GET" && p === "/api/workspace/file") {
+            const file = readWorkspaceFile(workspaceThread.projectDir, url.searchParams.get("path") || "");
+            return json({ threadId: workspaceThread.id, root: path.resolve(workspaceThread.projectDir), ...file });
+          }
+          if (req.method === "PUT" && p === "/api/workspace/file") {
+            const body = await readBody(req);
+            const saved = writeWorkspaceFile(workspaceThread.projectDir, body.path, body.content, { expectedMtimeMs: body.expectedMtimeMs, expectedHash: body.expectedHash });
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...saved });
+          }
+        } catch (err) {
+          const status = err?.code === "WORKSPACE_FILE_CONFLICT" || err?.code === "WORKSPACE_ENTRY_EXISTS" ? 409
+            : err?.code === "WORKSPACE_UNAVAILABLE" || err?.code === "WORKSPACE_ENTRY_MISSING" ? 404
+              : err?.code?.startsWith("WORKSPACE_") ? 400 : 500;
+          return json({ error: err.message, code: err.code || "WORKSPACE_ERROR" }, status);
+        }
+      }
+
       if (req.method === "GET" && p === "/api/actions") {
         const query = url.searchParams.get("q") || "";
         json({ ok: true, actions: query ? searchActions(query) : listActions() });
@@ -3102,8 +3481,19 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       // ── Diagnostics ──
+      if (req.method === "GET" && p === "/api/opencodex/status") {
+        json(await detectOpenCodex());
+        return;
+      }
       if (req.method === "GET" && p === "/api/diagnostics/export") {
         const active = threads.get(activeThreadId);
+        const activeProvider = String(config.provider || "local");
+        const activeModel = String(currentModel(config) || "").slice(0, 160);
+        const capability = modelCapabilityProfile(config, {
+          provider: activeProvider,
+          model: activeModel,
+          base: config?.[activeProvider]?.baseUrl || ""
+        });
         const report = {
           format: "boolean-diagnostics",
           version: 1,
@@ -3111,11 +3501,21 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           app: { name: APP_NAME, version: APP_VERSION, packaged: IS_SEA, platform: process.platform, arch: process.arch },
           runtime: { node: process.version, uptimeSeconds: Math.round(process.uptime()), activeChats },
           model: {
-            provider: String(config.provider || "local"),
-            model: String(currentModel(config) || "").slice(0, 160),
+            id: canonicalModelId({ provider: activeProvider, model: activeModel }),
+            provider: activeProvider,
+            model: activeModel,
             accessMode: currentAccessMode(config),
-            autoApprove: config.autoApprove === true
+            autoApprove: config.autoApprove === true,
+            capabilities: capability.capabilities,
+            capabilityMode: capability.mode
           },
+          routing: {
+            enabled: config.ui?.autoRouteModels === true,
+            preference: config.ui?.modelRouting?.preference || "balanced",
+            profiles: config.ui?.modelRouting?.profiles || {},
+            health: autoModelHealthSnapshot()
+          },
+          openCodex: await detectOpenCodex(),
           task: publicPendingTask(active?.pendingTask),
           capabilities: listActions().map((action) => action.capability)
         };
@@ -3140,6 +3540,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         // Provider/backend
         const provider = config.provider || "local";
         results.provider = { status: "ok", label: provider === "local" ? "Local engine" : provider, detail: config.backendUp === false ? "needs setup" : "ready" };
+        const openCodex = await detectOpenCodex();
+        results.openCodex = {
+          status: openCodex.detected ? "ok" : "warn",
+          label: openCodex.detected ? `OpenCodex · ${openCodex.modelCount} models` : "OpenCodex not running",
+          detail: openCodex.detected ? `${openCodex.apiBase} · optional gateway available` : "Optional · start it on localhost:10100 to make it discoverable"
+        };
 
         // Local model
         const modelFile = config.model || "";
@@ -3233,6 +3639,81 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const t = threads.get(activeThreadId);
         const changes = booleanWorkspaceChanges(t, t?.projectDir || "", threads);
         json({ ok: true, count: changes.length, changes, ...workspaceChangesReview(changes) });
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/git/source-status") {
+        try {
+          json({ ok: true, ...gitSourceStatus(activeProjectDir(threads, activeThreadId)) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not read Git status." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/code/extensions") {
+        try {
+          const projectDir = activeProjectDir(threads, activeThreadId);
+          json({ ok: true, ...listCodeExtensions(projectDir), services: discoverLanguageServices({ probe: url.searchParams.get("probe") !== "0" }) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not inspect Code extensions." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/git/file-diff") {
+        try {
+          json({ ok: true, ...gitFileContents(activeProjectDir(threads, activeThreadId), url.searchParams.get("path"), { staged: url.searchParams.get("staged") === "1" }) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not open the file diff." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/stage") {
+        const body = await readBody(req);
+        try {
+          const projectDir = activeProjectDir(threads, activeThreadId);
+          const result = gitStageFiles(projectDir, body.files, { unstage: body.unstage === true });
+          invalidateProjectStatus(projectDir);
+          json({ ok: true, ...result, status: gitSourceStatus(projectDir) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not update the Git index." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/commit") {
+        const body = await readBody(req);
+        try {
+          const projectDir = activeProjectDir(threads, activeThreadId);
+          const result = gitCommit(projectDir, body.message);
+          invalidateProjectStatus(projectDir);
+          json({ ok: true, ...result, status: gitSourceStatus(projectDir) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not create the commit." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/branch") {
+        const body = await readBody(req);
+        try { const projectDir = activeProjectDir(threads, activeThreadId); json({ ok: true, ...gitCreateBranch(projectDir, body.name), status: gitSourceStatus(projectDir) }); }
+        catch (error) { json({ ok: false, error: error?.message || "Could not create branch." }, 400); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/push") {
+        const body = await readBody(req);
+        try { json({ ok: true, ...gitPushBranch(activeProjectDir(threads, activeThreadId), body) }); }
+        catch (error) { json({ ok: false, error: error?.message || "Could not push branch." }, 400); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/github/pull-request") {
+        const body = await readBody(req);
+        try { json({ ok: true, ...githubCreatePullRequest(activeProjectDir(threads, activeThreadId), body) }); }
+        catch (error) { json({ ok: false, error: error?.message || "Could not create pull request." }, 400); }
         return;
       }
 
@@ -3814,7 +4295,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (p.startsWith("/api/markets/") && !marketAccessAllowed(config)) {
-        json({ error: "Sign in to your Boolean account to use Markets." }, 401);
+        json({ error: "Markets is available only to signed-in Boolean administrators." }, 403);
         return;
       }
 
@@ -3884,7 +4365,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           const snapshot = await getMarketSnapshot(
             config.connectors?.marketData || {},
             url.searchParams.get("symbol") || "AAPL",
-            url.searchParams.get("range") || "6mo"
+            url.searchParams.get("range") || "6mo",
+            url.searchParams.get("interval") || ""
           );
           json({ ok: true, ...snapshot });
         } catch (error) {
@@ -3959,8 +4441,15 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         try {
           const body = await readBody(req);
           const symbol = String(body.symbol || "AAPL").slice(0, 16);
-          const range = ["6mo", "1y", "5y", "max"].includes(body.range) ? body.range : "5y";
-          const snapshot = await getMarketSnapshot(config.connectors?.marketData || {}, symbol, range);
+          const range = ["6mo", "1y", "2y", "5y", "max"].includes(body.range) ? body.range : "5y";
+          const interval = String(body.interval || "").toLowerCase();
+          const validIntervals = new Set(["5m", "15m", "30m", "1h", "1d", "1wk", "1mo"]);
+          const snapshot = await getMarketSnapshot(
+            config.connectors?.marketData || {},
+            symbol,
+            range,
+            validIntervals.has(interval) ? interval : ""
+          );
           json({ ok: true, ...runStrategyBacktest(snapshot, { ...body, symbol }) });
         } catch (error) {
           json({ error: String(error?.message || error) }, 400);
@@ -4217,6 +4706,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
       }
 
+      if (p.startsWith("/api/trading/") && !adminFeatureAccessAllowed(config)) {
+        return json({ ok: false, error: "Trading is available only to Boolean administrators." }, 403);
+      }
+
       if (req.method === "GET" && p === "/api/trading/state") {
         const g = config.connectors?.trading || {};
         const bp = config.ui?.browserPerms || {};
@@ -4235,7 +4728,14 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           maxOrdersPerDay: Number(g.maxOrdersPerDay) || 0,
           dailyLossCapUsd: Number(g.dailyLossCapUsd) || 0,
           maxNotionalUsd: Number(g.maxNotionalUsd) || 0,
+          maxRiskPerTradeUsd: Number(g.maxRiskPerTradeUsd) || 0,
           symbolAllowlist: Array.isArray(g.symbolAllowlist) ? g.symbolAllowlist : [],
+          strategy: normalizeTradingStrategy(g.strategy),
+          // Which control on the broker's own order form each ticket value goes
+          // into. Broker forms differ, so this is configurable; the bar falls
+          // back to sensible labels when a key is unset.
+          ticketFields: normalizeTicketFields(g.ticketFields),
+          ticketDefaults: normalizeTicketDefaults(g.ticketDefaults),
           browserSymbol: extractTradingSymbolFromUrl(browserUrl, browserTitle),
           ordersToday: ledger.ordersToday,
           realizedLossUsd: ledger.realizedLossUsd,
@@ -4245,26 +4745,130 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
       if (req.method === "GET" && p === "/api/trading/broker") {
         const refresh = url.searchParams.get("refresh") === "1";
-        return json(await brokerSnapshotCached({ refresh }));
+        const connector = String(url.searchParams.get("connector") || "").trim();
+        return json(await brokerSnapshotCached({ refresh, connector }));
+      }
+
+      if (req.method === "GET" && p === "/api/trading/adapters") {
+        return json({
+          ok: true,
+          selected: String(config.connectors?.trading?.broker || config.connectors?.trading?.pnl?.connector || ""),
+          adapters: tradingAdapterCatalog(config)
+        });
       }
 
       if (req.method === "POST" && p === "/api/trading/settings") {
         const body = await readBody(req);
         config.connectors = config.connectors || {};
         const g = { ...(config.connectors.trading || {}) };
+        if ("broker" in body) g.broker = String(body.broker || "").trim();
         if ("killSwitch" in body) g.killSwitch = body.killSwitch === true;
         if ("enabled" in body) g.enabled = body.enabled === true;
         if ("maxOrdersPerDay" in body) g.maxOrdersPerDay = Math.max(0, Number(body.maxOrdersPerDay) || 0);
-        if ("dailyLossCapUsd" in body) g.dailyLossCapUsd = Math.max(0, Number(body.dailyLossCapUsd) || 0);
+        if ("dailyLossCapUsd" in body) g.dailyLossCapUsd = Math.min(100_000_000, Math.max(0, Math.round((Number(body.dailyLossCapUsd) || 0) * 100) / 100));
         if ("maxNotionalUsd" in body) g.maxNotionalUsd = Math.max(0, Number(body.maxNotionalUsd) || 0);
+        if ("maxRiskPerTradeUsd" in body) g.maxRiskPerTradeUsd = Math.min(100_000_000, Math.max(0, Math.round((Number(body.maxRiskPerTradeUsd) || 0) * 100) / 100));
         if ("armWindowMinutes" in body) g.armWindowMinutes = Math.max(0, Number(body.armWindowMinutes) || 0);
         if (Array.isArray(body.symbolAllowlist)) g.symbolAllowlist = body.symbolAllowlist.map((s) => String(s || "").trim().toUpperCase()).filter(Boolean);
+        if (body.strategy && typeof body.strategy === "object") {
+          g.strategy = normalizeTradingStrategy({ ...(g.strategy || {}), ...body.strategy });
+        }
+        if (body.ticketFields && typeof body.ticketFields === "object") {
+          g.ticketFields = normalizeTicketFields({ ...(g.ticketFields || {}), ...body.ticketFields });
+        }
+        if (body.ticketDefaults && typeof body.ticketDefaults === "object") {
+          g.ticketDefaults = normalizeTicketDefaults({ ...(g.ticketDefaults || {}), ...body.ticketDefaults });
+        }
         config.connectors.trading = g;
         saveConfig(config);
         const ledger = currentTradeState(SAZ_DIR);
         return json({ ok: true, killSwitch: g.killSwitch === true, enabled: g.enabled === true,
           maxOrdersPerDay: g.maxOrdersPerDay || 0, dailyLossCapUsd: g.dailyLossCapUsd || 0,
+          maxRiskPerTradeUsd: g.maxRiskPerTradeUsd || 0,
+          strategy: normalizeTradingStrategy(g.strategy),
           ordersToday: ledger.ordersToday, realizedLossUsd: ledger.realizedLossUsd });
+      }
+
+      // What the strategies actually did. Read-only history of resolved
+      // signals; none of these were auto-traded, so this measures the ideas,
+      // not the account.
+      if (req.method === "GET" && p === "/api/trading/signals") {
+        return json({ ok: true, stats: signalStats(SAZ_DIR) });
+      }
+
+      if (req.method === "POST" && p === "/api/trading/signals") {
+        const body = await readBody(req);
+        const result = recordSignalOutcomes(SAZ_DIR, Array.isArray(body.outcomes) ? body.outcomes : []);
+        return json({ ok: true, ...result });
+      }
+
+      // Price a trading-bar ticket against the guard. Read-only: it evaluates
+      // and reports, and never types, clicks, or places anything. The bar calls
+      // it as the ticket is edited so a blocked order says why before the user
+      // reaches for Send.
+      if (req.method === "POST" && p === "/api/trading/ticket/check") {
+        const body = await readBody(req);
+        const g = config.connectors?.trading || {};
+        // The ticket rides the confirmed-click permission, which has its own
+        // on/off switch, so the guard's master `enabled` gate is skipped here
+        // exactly as it is for visible_browser_trade. Caps and kill-switch stay.
+        const verdict = evaluateTradeGuard(g, {
+          symbol: body.symbol,
+          side: body.side,
+          quantity: body.quantity,
+          // The guard owns which order types exist and which prices each needs,
+          // so the ticket's choice is passed through rather than flattened.
+          orderType: body.orderType,
+          timeInForce: body.timeInForce,
+          limitPrice: Number(body.limitPrice) || 0,
+          triggerPrice: Number(body.triggerPrice) || 0,
+          trailAmount: Number(body.trailAmount) || 0,
+          referencePrice: Number(body.referencePrice) || 0,
+          stopPrice: Number(body.stopPrice) || 0,
+          targetPrice: Number(body.targetPrice) || 0,
+          reducesPosition: body.reducesPosition === true
+        }, currentTradeState(SAZ_DIR), { skipEnabled: true });
+        const clicks = tradeClickPermission(config);
+        return json({
+          ok: true,
+          allowed: verdict.allowed,
+          reason: verdict.reason,
+          order: verdict.order,
+          armed: clicks.armed,
+          identityOk: clicks.identityOk,
+          tradeClicks: clicks.tradeClicks,
+          canSend: verdict.allowed && clicks.canClick,
+          sendBlockedReason: clicks.reason
+        });
+      }
+
+      // Whether a working order may be cancelled from the bar.
+      //
+      // Deliberately NOT gated on the kill-switch or the risk caps. Those exist
+      // to stop new exposure, and a resting order is exposure — refusing to
+      // cancel while halted would trap the user in the very thing the halt was
+      // meant to escape. The click consent still applies: this drives the
+      // broker page, so it needs the same permission every other click does.
+      if (req.method === "GET" && p === "/api/trading/cancel/check") {
+        const clicks = tradeClickPermission(config);
+        return json({ ok: true, ...clicks, canCancel: clicks.canClick, blockedReason: clicks.reason });
+      }
+
+      // Count an order the user actually sent from the ticket, so the daily
+      // order cap sees bar-placed orders the same way it sees agent-placed
+      // ones. Mirrors the tools.js rule: only touch the ledger when a cap is
+      // configured, so cap-free setups do no file IO.
+      if (req.method === "POST" && p === "/api/trading/ticket/placed") {
+        const body = await readBody(req);
+        const g = config.connectors?.trading || {};
+        if ((Number(g.maxOrdersPerDay) || 0) > 0) {
+          recordTradePlacement(SAZ_DIR, {
+            symbol: String(body.symbol || "").trim().toUpperCase(),
+            side: String(body.side || "").trim().toLowerCase()
+          });
+        }
+        const ledger = currentTradeState(SAZ_DIR);
+        return json({ ok: true, ordersToday: ledger.ordersToday, realizedLossUsd: ledger.realizedLossUsd });
       }
 
       if (req.method === "POST" && p === "/api/cloudflare/full-access") {
@@ -5113,6 +5717,21 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         browserUrl = typeof body.url === "string" ? body.url : "";
         browserTitle = typeof body.title === "string" ? body.title : "";
         json({ ok: true });
+        return;
+      }
+      if (req.method === "POST" && p === "/api/browser/context-snapshot") {
+        const body = await readBody(req);
+        browserUrl = typeof body.url === "string" ? body.url.slice(0, 4096) : browserUrl;
+        browserTitle = typeof body.title === "string" ? body.title.slice(0, 1000) : browserTitle;
+        browserSnapshot = {
+          at: Date.now(),
+          open: body.open !== false,
+          url: browserUrl,
+          title: browserTitle,
+          text: String(body.text || "").slice(0, 120000),
+          ocr: String(body.ocr || "").slice(0, 120000)
+        };
+        json({ ok: true, at: browserSnapshot.at });
         return;
       }
       if (req.method === "POST" && p === "/api/browser/detect-tech") {

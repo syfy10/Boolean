@@ -193,7 +193,7 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   assert.match(ui, /id="exploreToggle"[^>]*aria-label="Toggle Explore"/);
   assert.doesNotMatch(mainNav, /data-ws="markets"|id="marketsWorkspaceTab"/);
   assert.match(ui, /function marketsAccessAllowed\(\)/);
-  assert.match(ui, /\["education","markets"\]\.includes\(ws\)&&!marketsAccessAllowed\(\)/);
+  assert.match(ui, /EXPLORE_WORKSPACES\.includes\(ws\)&&!adminFeatureAccessAllowed\(\)/);
   assert.match(ui, /Save snapshot to Notepad/);
   assert.match(ui, /Major market indexes|Major market indexes/i);
   assert.match(ui, /id="marketSectors"[^>]*Sector year-to-date and month-to-date performance/);
@@ -251,7 +251,8 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   assert.match(server, /\/api\/markets\/trade-ideas/);
   assert.match(server, /\/api\/markets\/cot/);
   assert.match(server, /p\.startsWith\("\/api\/markets\/"\) && !marketAccessAllowed\(config\)/);
-  assert.match(server, /Sign in to your Boolean account to use Markets\./);
+  assert.match(server, /Markets is available only to signed-in Boolean administrators\./);
+  assert.match(server, /return !!cloud\.sessionToken && \(user\.role === "admin" \|\| user\.is_admin === true\)/);
 });
 
 test("Markets uses the selected flat floating-workspace layout", () => {

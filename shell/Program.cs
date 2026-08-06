@@ -1891,8 +1891,9 @@ try {
     {
         var active = Active();
         if (t != null && !ReferenceEquals(t, active)) return;
-        var url = _browserOpen ? active?.Url ?? "" : "";
-        var title = _browserOpen ? active?.Title ?? "" : "";
+        var paneOpen = BrowserPaneIsOpen();
+        var url = paneOpen ? active?.Url ?? "" : "";
+        var title = paneOpen ? active?.Title ?? "" : "";
         var key = url + " " + title;
         if (key == _reportedBrowserUrl) return;
         _reportedBrowserUrl = key;
@@ -2436,6 +2437,7 @@ try {
 
     // ── show / hide the browser pane (driven by the chat UI toggle) ──
     bool _browserOpen = false;
+    bool BrowserPaneIsOpen() => !_split.Panel2Collapsed && _browserPane.Visible;
 
     // Floating edge pill: when the full-window browser is closed it collapses to
     // a small tab peeking off the right edge that reopens it.
@@ -2487,7 +2489,10 @@ try {
         _fittingBrowserSplit = true;
         try
         {
-        const int chatMin = 300;
+        // Below this width the trading ticket stops being a compact control
+        // strip and turns into a tall stack of individually wrapped fields.
+        // Make the splitter's drag limit agree with the UI's compact breakpoint.
+        const int chatMin = 520;
         const int browserMin = 340;
         int panelWidth = Math.Max(0, _split.Width - _split.SplitterWidth);
         if (panelWidth <= chatMin + browserMin)
@@ -2736,9 +2741,9 @@ try {
                         _ = SendContextAsync(cid);
                     }
                     break;
-                // Text only, no OCR. The trading bar polls this every few seconds to
-                // track the symbol and price on screen; the OCR in "context" takes
-                // seconds and is far too slow to poll.
+                // Fast DOM text plus OCR of only the quote strip. Robinhood Legend
+                // renders its live chart quote outside useful body.innerText, while
+                // full-page OCR is too slow to poll every few seconds.
                 case "pageText":
                     if (root.TryGetProperty("id", out var ptid) && ptid.GetString() is { } pageTextId)
                     {
@@ -2924,9 +2929,10 @@ try {
     async Task SendPageTextAsync(string id)
     {
         var t = Active();
-        if (t?.View.CoreWebView2 == null || !_browserOpen)
+        var paneOpen = BrowserPaneIsOpen();
+        if (t?.View.CoreWebView2 == null || !paneOpen)
         {
-            PostToChat(new { type = "pageText", id, open = _browserOpen, url = "", title = "", text = "" });
+            PostToChat(new { type = "pageText", id, open = paneOpen, url = "", title = "", text = "" });
             return;
         }
         try
@@ -2935,28 +2941,34 @@ try {
                 "(function(){return {url:location.href,title:document.title,text:(document.body?document.body.innerText:'').slice(0,20000)}})()");
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
+            var domText = root.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : "";
+            var snapshotText = await ReadBrowserDomSnapshotTextAsync(t);
+            var renderedText = await ReadBrowserAccessibilityTextAsync(t);
+            var ocr = await ReadVisibleBrowserQuoteOcrAsync(t);
             PostToChat(new
             {
                 type = "pageText",
                 id,
-                open = _browserOpen,
+                open = paneOpen,
                 url = root.TryGetProperty("url", out var u) ? u.GetString() ?? t.Url : t.Url,
                 title = root.TryGetProperty("title", out var ti) ? ti.GetString() ?? t.Title : t.Title,
-                text = root.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : ""
+                text = string.Join("\n", new[] { domText, snapshotText, renderedText }.Where(value => !string.IsNullOrWhiteSpace(value))),
+                ocr
             });
         }
         catch (Exception ex)
         {
-            PostToChat(new { type = "pageText", id, open = _browserOpen, url = t.Url, title = t.Title, text = "", error = ex.Message });
+            PostToChat(new { type = "pageText", id, open = paneOpen, url = t.Url, title = t.Title, text = "", error = ex.Message });
         }
     }
 
     async Task SendContextAsync(string id)
     {
         var t = Active();
-        if (t?.View.CoreWebView2 == null || !_browserOpen)
+        var paneOpen = BrowserPaneIsOpen();
+        if (t?.View.CoreWebView2 == null || !paneOpen)
         {
-            PostToChat(new { type = "context", id, browser = new { open = _browserOpen, url = "", title = "", text = "" } });
+            PostToChat(new { type = "context", id, browser = new { open = paneOpen, url = "", title = "", text = "" } });
             return;
         }
         try
@@ -2965,6 +2977,9 @@ try {
                 "(function(){return {url:location.href,title:document.title,text:(document.body?document.body.innerText:'')}})()");
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
+            var domText = root.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : "";
+            var snapshotText = await ReadBrowserDomSnapshotTextAsync(t);
+            var renderedText = await ReadBrowserAccessibilityTextAsync(t);
             var ocr = await ReadVisibleBrowserOcrAsync(t);
             PostToChat(new
             {
@@ -2972,17 +2987,17 @@ try {
                 id,
                 browser = new
                 {
-                    open = _browserOpen,
+                    open = paneOpen,
                     url = root.TryGetProperty("url", out var u) ? u.GetString() ?? t.Url : t.Url,
                     title = root.TryGetProperty("title", out var ti) ? ti.GetString() ?? t.Title : t.Title,
-                    text = root.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : "",
+                    text = string.Join("\n", new[] { domText, snapshotText, renderedText }.Where(value => !string.IsNullOrWhiteSpace(value))),
                     ocr
                 }
             });
         }
         catch (Exception ex)
         {
-            PostToChat(new { type = "context", id, browser = new { open = _browserOpen, url = t.Url, title = t.Title, text = "", error = ex.Message } });
+            PostToChat(new { type = "context", id, browser = new { open = paneOpen, url = t.Url, title = t.Title, text = "", error = ex.Message } });
         }
     }
 
@@ -3036,6 +3051,392 @@ try {
     {
         var png = await CaptureBrowserPngAsync(t);
         return png == null ? "" : await OcrPngAsync(png);
+    }
+
+    async Task<string> ReadBrowserAccessibilityTextAsync(TabItem t)
+    {
+        if (t.View.CoreWebView2 == null) return "";
+        try
+        {
+            var json = await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Accessibility.getFullAXTree", "{}");
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array) return "";
+            var lines = new List<string>();
+            var length = 0;
+            foreach (var node in nodes.EnumerateArray())
+            {
+                if (!node.TryGetProperty("name", out var name) || !name.TryGetProperty("value", out var value)) continue;
+                var text = value.GetString()?.Trim();
+                // Repeated cell values are meaningful in trading tables (mark
+                // and last are commonly identical). De-duplicating AX names
+                // silently removed those cells and made a complete position
+                // row fail the UI parser.
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                lines.Add(text);
+                length += text.Length + 1;
+                if (length >= 40000) break;
+            }
+            return string.Join("\n", lines);
+        }
+        catch { return ""; }
+    }
+
+    // ── acting on controls the page does not expose to querySelectorAll ────
+    // Reading Legend already goes through CDP because its UI lives in React
+    // portals, shadow DOM and embedded frames (see the DOM snapshot reader
+    // below). Clicking did not, so it searched the top document, found nothing,
+    // and reported "no buy control on the page" while the button sat on screen.
+    // The accessibility tree sees every one of those surfaces, and a backend
+    // node id from it resolves to the real element regardless of where it lives.
+    static readonly string[] ClickRoles = { "button", "link", "menuitem", "menuitemradio", "tab", "radio", "checkbox", "switch" };
+    static readonly string[] TypeRoles = { "textbox", "searchbox", "spinbutton", "combobox" };
+    static readonly string[] SelectRoles = { "combobox", "listbox", "menu", "popupbutton" };
+    static readonly string[] AnyControlRoles = { "button", "link", "menuitem", "menuitemradio", "tab", "radio", "checkbox",
+        "switch", "textbox", "searchbox", "spinbutton", "combobox", "listbox" };
+
+    static string AxName(JsonElement node) =>
+        node.TryGetProperty("name", out var n) && n.TryGetProperty("value", out var v) ? (v.GetString() ?? "").Trim() : "";
+    static string AxRole(JsonElement node) =>
+        node.TryGetProperty("role", out var r) && r.TryGetProperty("value", out var v) ? (v.GetString() ?? "") : "";
+
+    async Task<JsonDocument?> AxTreeAsync(TabItem t)
+    {
+        if (t.View.CoreWebView2 == null) return null;
+        try
+        {
+            var json = await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Accessibility.getFullAXTree", "{}");
+            return JsonDocument.Parse(json);
+        }
+        catch { return null; }
+    }
+
+    // The narrowest name that contains the query wins, exact matches first — so
+    // "Buy" picks the Buy button, not a container whose name happens to include
+    // the word.
+    async Task<(string objectId, string name)> ResolveAxControlAsync(TabItem t, string query, string[] roles)
+    {
+        using var doc = await AxTreeAsync(t);
+        if (doc == null || !doc.RootElement.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array)
+            return ("", "");
+        var want = query.Trim().ToLowerInvariant();
+        long bestBackend = 0;
+        var bestName = "";
+        var bestScore = long.MaxValue;
+        foreach (var node in nodes.EnumerateArray())
+        {
+            if (node.TryGetProperty("ignored", out var ignored) && ignored.ValueKind == JsonValueKind.True) continue;
+            if (!node.TryGetProperty("backendDOMNodeId", out var backendProp) || !backendProp.TryGetInt64(out var backend)) continue;
+            if (roles.Length > 0 && Array.IndexOf(roles, AxRole(node)) < 0) continue;
+            var name = AxName(node);
+            if (name.Length == 0) continue;
+            var lower = name.ToLowerInvariant();
+            if (!lower.Contains(want)) continue;
+            var rank = lower == want ? 0 : lower.StartsWith(want) ? 1 : 2;
+            var score = rank * 100000L + name.Length;
+            if (score < bestScore) { bestScore = score; bestBackend = backend; bestName = name; }
+        }
+        if (bestBackend == 0) return ("", "");
+        try
+        {
+            var resolved = await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                "DOM.resolveNode", "{\"backendNodeId\":" + bestBackend + "}");
+            using var rdoc = JsonDocument.Parse(resolved);
+            if (rdoc.RootElement.TryGetProperty("object", out var obj) && obj.TryGetProperty("objectId", out var oid))
+                return (oid.GetString() ?? "", bestName);
+        }
+        catch { }
+        return ("", bestName);
+    }
+
+    async Task<string> CallOnAxNodeAsync(TabItem t, string objectId, string function, string? argJson = null)
+    {
+        if (t.View.CoreWebView2 == null || string.IsNullOrEmpty(objectId)) return "";
+        var args = argJson == null ? "" : ",\"arguments\":[{\"value\":" + argJson + "}]";
+        var payload = "{\"objectId\":" + JsonSerializer.Serialize(objectId) +
+            ",\"functionDeclaration\":" + JsonSerializer.Serialize(function) + args +
+            ",\"returnByValue\":true,\"awaitPromise\":true}";
+        try
+        {
+            var json = await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync("Runtime.callFunctionOn", payload);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("exceptionDetails", out _)) return "";
+            if (doc.RootElement.TryGetProperty("result", out var result) && result.TryGetProperty("value", out var value))
+                return value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : value.ToString();
+        }
+        catch { }
+        return "";
+    }
+
+    // React tracks its own copy of an input's value, so a plain el.value =
+    // assignment is reverted on the next render. Going through the prototype's
+    // native setter is what makes the framework notice.
+    const string AxTypeFunction =
+        "function(v){var el=this;try{el.scrollIntoView({block:'center'})}catch(_){}el.focus();" +
+        "var proto=(typeof HTMLTextAreaElement!=='undefined'&&el instanceof HTMLTextAreaElement)?HTMLTextAreaElement.prototype:HTMLInputElement.prototype;" +
+        "var d=Object.getOwnPropertyDescriptor(proto,'value');" +
+        "if(d&&d.set){d.set.call(el,String(v))}else if('value' in el){el.value=String(v)}else{el.textContent=String(v)}" +
+        "el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));" +
+        "return 'typed '+String(v).length+' chars'}";
+
+    const string AxClickFunction =
+        "function(){var el=this;try{el.scrollIntoView({block:'center',inline:'center'})}catch(_){}" +
+        "var r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;" +
+        "['pointerdown','mousedown','pointerup','mouseup','click'].forEach(function(type){" +
+        "try{el.dispatchEvent(new MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y,view:window}))}catch(_){}});" +
+        "try{if(typeof el.click==='function')el.click()}catch(_){}return 'clicked'}";
+
+    const string AxSelectFunction =
+        "function(v){var el=this,want=String(v).toLowerCase().trim();" +
+        "if(el.tagName!=='SELECT')return '';" +
+        "var opts=[].slice.call(el.options||[]);" +
+        "var hit=opts.filter(function(o){return String(o.text||'').toLowerCase().trim()===want||String(o.value||'').toLowerCase().trim()===want})[0]" +
+        "||opts.filter(function(o){return String(o.text||'').toLowerCase().indexOf(want)>=0})[0];" +
+        "if(!hit)return '';" +
+        "var d=Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value');" +
+        "if(d&&d.set){d.set.call(el,hit.value)}else{el.value=hit.value}" +
+        "el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));" +
+        "return 'selected '+(hit.text||hit.value)}";
+
+    // Legend does not render its Cancel button until a working-order row is
+    // opened. Find the symbol next to a live status in AX reading order, open
+    // that row, then resolve the newly rendered Cancel control. This is kept
+    // symbol-scoped so a page with several working orders cannot cancel an
+    // arbitrary row.
+    async Task<string> TryCancelOrderAccessibilityAsync(TabItem t, string symbol)
+    {
+        symbol = (symbol ?? "").Trim().ToUpperInvariant();
+        if (t.View.CoreWebView2 == null || symbol.Length == 0) return "";
+        using var doc = await AxTreeAsync(t);
+        if (doc == null || !doc.RootElement.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array)
+            return "";
+        var list = nodes.EnumerateArray().ToList();
+        long backend = 0;
+        // Prefer the selectable data-grid row itself. Clicking a symbol cell
+        // bubbles in ordinary HTML, but Legend attaches its expansion handler
+        // to the ARIA row and ignores synthetic events dispatched on the cell.
+        for (var i = 0; i < list.Count; i++)
+        {
+            var name = AxName(list[i]);
+            if (!string.Equals(AxRole(list[i]), "row", StringComparison.OrdinalIgnoreCase) ||
+                !name.Contains(symbol, StringComparison.OrdinalIgnoreCase) ||
+                !System.Text.RegularExpressions.Regex.IsMatch(name,
+                    @"\b(Working|Pending|Open|Submitted|Queued|New|Partially filled)\b",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+            if (list[i].TryGetProperty("backendDOMNodeId", out var rowBackend) && rowBackend.TryGetInt64(out backend)) break;
+        }
+        // Older broker tables expose only selectable cells. Keep that fallback,
+        // but current Legend is expected to take the row path above.
+        for (var i = 0; backend == 0 && i < list.Count; i++)
+        {
+            if (!string.Equals(AxName(list[i]), symbol, StringComparison.OrdinalIgnoreCase)) continue;
+            var from = Math.Max(0, i - 8);
+            var to = Math.Min(list.Count - 1, i + 12);
+            var nearby = string.Join(" ", list.Skip(from).Take(to - from + 1).Select(AxName));
+            if (!System.Text.RegularExpressions.Regex.IsMatch(nearby,
+                @"\b(Working|Pending|Open|Submitted|Queued|New|Partially filled)\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+            if (list[i].TryGetProperty("backendDOMNodeId", out var bp) && bp.TryGetInt64(out backend)) break;
+        }
+        if (backend == 0) return "";
+        string rowObject = "";
+        try
+        {
+            var resolved = await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                "DOM.resolveNode", "{\"backendNodeId\":" + backend + "}");
+            using var rdoc = JsonDocument.Parse(resolved);
+            if (rdoc.RootElement.TryGetProperty("object", out var obj) && obj.TryGetProperty("objectId", out var oid))
+                rowObject = oid.GetString() ?? "";
+        }
+        catch { }
+        if (string.IsNullOrEmpty(rowObject) || string.IsNullOrEmpty(await CallOnAxNodeAsync(t, rowObject, AxClickFunction))) return "";
+        await Task.Delay(700);
+        var (cancelObject, cancelName) = await ResolveAxControlAsync(t, "Cancel order", ClickRoles);
+        if (string.IsNullOrEmpty(cancelObject)) (cancelObject, cancelName) = await ResolveAxControlAsync(t, "Cancel", ClickRoles);
+        if (string.IsNullOrEmpty(cancelObject)) return "";
+        return string.IsNullOrEmpty(await CallOnAxNodeAsync(t, cancelObject, AxClickFunction))
+            ? "" : "clicked " + cancelName + " in " + symbol + " order row";
+    }
+
+    // Returns the step's success string, or "" to mean "the accessibility tree
+    // could not do this" — in which case the caller falls back to the DOM scan,
+    // which is still the better path on ordinary pages.
+    async Task<string> TryAccessibilityActionAsync(TabItem t, string action, JsonElement command)
+    {
+        if (t.View.CoreWebView2 == null) return "";
+        var text = command.TryGetProperty("text", out var xp) ? xp.GetString() ?? "" : "";
+        var target = command.TryGetProperty("target", out var tp) ? tp.GetString() ?? "" : "";
+        var value = command.TryGetProperty("value", out var vp) ? vp.GetString() ?? "" : text;
+
+        if (action == "controls")
+        {
+            using var doc = await AxTreeAsync(t);
+            if (doc == null || !doc.RootElement.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array)
+                return "";
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var lines = new List<string>();
+            foreach (var node in nodes.EnumerateArray())
+            {
+                if (node.TryGetProperty("ignored", out var ignored) && ignored.ValueKind == JsonValueKind.True) continue;
+                var role = AxRole(node);
+                if (Array.IndexOf(AnyControlRoles, role) < 0) continue;
+                var name = AxName(node);
+                if (name.Length == 0 || name.Length > 60 || !seen.Add(role + ":" + name)) continue;
+                lines.Add(role + ": " + name);
+                if (lines.Count >= 80) break;
+            }
+            return lines.Count > 0 ? string.Join("\n", lines) : "";
+        }
+
+        var query = action == "click" ? text : (!string.IsNullOrWhiteSpace(target) ? target : text);
+        if (string.IsNullOrWhiteSpace(query)) return "";
+
+        if (action == "click")
+        {
+            var (objectId, name) = await ResolveAxControlAsync(t, query, ClickRoles);
+            if (string.IsNullOrEmpty(objectId)) return "";
+            var done = await CallOnAxNodeAsync(t, objectId, AxClickFunction);
+            return string.IsNullOrEmpty(done) ? "" : "clicked " + name;
+        }
+        if (action == "type")
+        {
+            var (objectId, name) = await ResolveAxControlAsync(t, query, TypeRoles);
+            if (string.IsNullOrEmpty(objectId)) return "";
+            var done = await CallOnAxNodeAsync(t, objectId, AxTypeFunction, JsonSerializer.Serialize(value));
+            return string.IsNullOrEmpty(done) ? "" : done + " into " + name;
+        }
+        if (action == "select")
+        {
+            var (objectId, name) = await ResolveAxControlAsync(t, query, SelectRoles);
+            if (string.IsNullOrEmpty(objectId)) return "";
+            var done = await CallOnAxNodeAsync(t, objectId, AxSelectFunction, JsonSerializer.Serialize(value));
+            if (!string.IsNullOrEmpty(done)) return done;
+            // Not a native <select>. Custom dropdowns open a list of options, so
+            // open it and click the option by the name it shows.
+            if (string.IsNullOrEmpty(await CallOnAxNodeAsync(t, objectId, AxClickFunction))) return "";
+            await Task.Delay(500);
+            var (optionId, optionName) = await ResolveAxControlAsync(t, value,
+                new[] { "option", "menuitem", "menuitemradio", "listitem", "button" });
+            if (string.IsNullOrEmpty(optionId)) return "";
+            return string.IsNullOrEmpty(await CallOnAxNodeAsync(t, optionId, AxClickFunction))
+                ? "" : "selected " + optionName;
+        }
+        return "";
+    }
+
+    // Chromium's DOM snapshot includes text stored in React portals, shadow DOM,
+    // and embedded frame documents that body.innerText and the AX tree can omit.
+    // Robinhood Legend uses those surfaces for its live contract and quote strip.
+    async Task<string> ReadBrowserDomSnapshotTextAsync(TabItem t)
+    {
+        if (t.View.CoreWebView2 == null) return "";
+        try
+        {
+            var json = await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                "DOMSnapshot.captureSnapshot",
+                "{\"computedStyles\":[],\"includePaintOrder\":false,\"includeDOMRects\":false}");
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("strings", out var strings) || strings.ValueKind != JsonValueKind.Array) return "";
+            if (!doc.RootElement.TryGetProperty("documents", out var documents) || documents.ValueKind != JsonValueKind.Array) return "";
+            var lines = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var length = 0;
+            void AddStringIndex(JsonElement value)
+            {
+                if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var index) || index < 0 || index >= strings.GetArrayLength()) return;
+                var item = strings[index];
+                if (item.ValueKind != JsonValueKind.String) return;
+                var text = item.GetString()?.Trim();
+                if (string.IsNullOrWhiteSpace(text) || text.Length > 500 || !seen.Add(text)) return;
+                lines.Add(text);
+                length += text.Length + 1;
+            }
+            foreach (var document in documents.EnumerateArray())
+            {
+                // Layout.text is emitted in rendered document order and avoids
+                // pairing a ticker with an unrelated number from CDP's global,
+                // unordered string dictionary.
+                if (document.TryGetProperty("layout", out var layout) &&
+                    layout.TryGetProperty("text", out var layoutText) && layoutText.ValueKind == JsonValueKind.Array)
+                    foreach (var value in layoutText.EnumerateArray())
+                    {
+                        AddStringIndex(value);
+                        if (length >= 60000) break;
+                    }
+                if (length >= 60000) break;
+                // Keep DOM text-node values as a fallback for rendered portals
+                // that Chromium omits from the layout text array.
+                if (document.TryGetProperty("nodes", out var nodes) &&
+                    nodes.TryGetProperty("nodeValue", out var nodeValues) && nodeValues.ValueKind == JsonValueKind.Array)
+                    foreach (var value in nodeValues.EnumerateArray())
+                    {
+                        AddStringIndex(value);
+                        if (length >= 60000) break;
+                    }
+                if (length >= 60000) break;
+            }
+            // Canvas-heavy broker UIs may keep their live quote strings in
+            // React state/attributes rather than rendered text nodes. Expose
+            // the bounded string table as an explicitly unordered hint block;
+            // the UI uses it only for quote detection, never table-row parsing.
+            lines.Add("DOM quote hints:");
+            foreach (var value in strings.EnumerateArray())
+            {
+                if (value.ValueKind != JsonValueKind.String) continue;
+                var text = value.GetString()?.Trim();
+                if (string.IsNullOrWhiteSpace(text) || text.Length > 500 || seen.Contains(text)) continue;
+                seen.Add(text);
+                lines.Add(text);
+                length += text.Length + 1;
+                if (length >= 70000) break;
+            }
+            return string.Join("\n", lines);
+        }
+        catch { return ""; }
+    }
+
+    async Task<string> ReadVisibleBrowserQuoteOcrAsync(TabItem t)
+    {
+        var png = await CaptureBrowserPngAsync(t);
+        if (png == null) return "";
+        try
+        {
+            using var input = new MemoryStream(png);
+            using var source = new Bitmap(input);
+            var quoteHeight = Math.Min(source.Height, Math.Max(180, source.Height / 3));
+            const int scale = 3;
+            using var quote = new Bitmap(source.Width * scale, quoteHeight * scale, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var graphics = Graphics.FromImage(quote))
+            {
+                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                graphics.DrawImage(source, new Rectangle(0, 0, quote.Width, quote.Height), new Rectangle(0, 0, source.Width, quoteHeight), GraphicsUnit.Pixel);
+            }
+            using var original = new MemoryStream();
+            quote.Save(original, System.Drawing.Imaging.ImageFormat.Png);
+            var originalText = await OcrPngAsync(original.ToArray());
+
+            // Legend uses small light/green text on a dark canvas. Inverting an
+            // enlarged copy gives Windows OCR a conventional dark-on-light
+            // pass without changing what the user sees in the browser.
+            using var inverted = new Bitmap(quote.Width, quote.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (var graphics = Graphics.FromImage(inverted))
+            using (var attributes = new System.Drawing.Imaging.ImageAttributes())
+            {
+                attributes.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(new[]
+                {
+                    new float[] { -1, 0, 0, 0, 0 },
+                    new float[] { 0, -1, 0, 0, 0 },
+                    new float[] { 0, 0, -1, 0, 0 },
+                    new float[] { 0, 0, 0, 1, 0 },
+                    new float[] { 1, 1, 1, 0, 1 }
+                }));
+                graphics.DrawImage(quote, new Rectangle(0, 0, inverted.Width, inverted.Height), 0, 0, quote.Width, quote.Height, GraphicsUnit.Pixel, attributes);
+            }
+            using var invertedOutput = new MemoryStream();
+            inverted.Save(invertedOutput, System.Drawing.Imaging.ImageFormat.Png);
+            var invertedText = await OcrPngAsync(invertedOutput.ToArray());
+            return string.Join("\n", new[] { originalText, invertedText }.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct());
+        }
+        catch { return ""; }
     }
 
     async Task WaitForNavOrDelayAsync(TabItem t, int ms = 900)
@@ -3153,6 +3554,28 @@ try {
         });
     }
 
+    // Shared by the click, type and controls scripts. Searches shadow roots and
+    // same-origin frames as well as the top document — a broker order ticket is
+    // routinely inside one of those, and a control that cannot be seen reads
+    // exactly like a control that does not exist.
+    const string DomProbeHelpers =
+        "function roots(){var out=[document];function walk(r){try{[].slice.call(r.querySelectorAll('*')).forEach(function(e){if(e.shadowRoot){out.push(e.shadowRoot);walk(e.shadowRoot)}})}catch(_){}}walk(document);" +
+        "try{[].slice.call(document.querySelectorAll('iframe,frame')).forEach(function(f){try{if(f.contentDocument){out.push(f.contentDocument)}}catch(_){}})}catch(_){}return out}" +
+        "function all(sel){var a=[];roots().forEach(function(r){try{a=a.concat([].slice.call(r.querySelectorAll(sel)))}catch(_){}});return a}" +
+        "function queryDeep(sel){var hit=null;roots().some(function(r){try{var e=r.querySelector(sel);if(e&&shown(e)){hit=e;return true}}catch(_){}return false});return hit}" +
+        "function shown(e){try{var r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'}catch(_){return false}}" +
+        "function tight(e){var parts=[e.getAttribute&&e.getAttribute('aria-label'),e.value,e.getAttribute&&e.getAttribute('placeholder'),e.innerText,e.getAttribute&&e.getAttribute('title'),e.name,e.id];" +
+        "for(var i=0;i<parts.length;i++){var p=String(parts[i]||'').replace(/\\s+/g,' ').trim();if(p)return p}return ''}" +
+        "function label(e){return [e.innerText,e.value,e.getAttribute&&e.getAttribute('aria-label'),e.getAttribute&&e.getAttribute('title'),e.getAttribute&&e.getAttribute('placeholder'),e.name,e.id].filter(Boolean).join(' ').toLowerCase()}" +
+        // The narrowest label that contains the query wins, exact matches first,
+        // so a wrapper whose innerText happens to include the word never beats
+        // the button itself.
+        "function best(list,sel){var hits=list.filter(function(e){return shown(e)&&label(e).indexOf(sel)>=0});" +
+        "hits.sort(function(a,b){var la=tight(a).toLowerCase(),lb=tight(b).toLowerCase();" +
+        "var ea=la===sel?0:1,eb=lb===sel?0:1;if(ea!==eb)return ea-eb;" +
+        "var sa=la.indexOf(sel)===0?0:1,sb=lb.indexOf(sel)===0?0:1;if(sa!==sb)return sa-sb;" +
+        "return la.length-lb.length});return hits[0]||null}";
+
     async Task ExecuteBrowserControlAsync(string id, JsonElement command)
     {
         if (!_browserOpen) ToggleBrowser(true);
@@ -3205,6 +3628,38 @@ try {
 
             var text = command.TryGetProperty("text", out var xp) ? xp.GetString() ?? "" : "";
             var target = command.TryGetProperty("target", out var tp) ? tp.GetString() ?? "" : "";
+            if (action == "cancel_order")
+            {
+                var orderSymbol = command.TryGetProperty("symbol", out var symp) ? symp.GetString() ?? "" : "";
+                var axCancel = await TryCancelOrderAccessibilityAsync(t, orderSymbol);
+                if (!string.IsNullOrEmpty(axCancel))
+                {
+                    await WaitForNavOrDelayAsync(t, 900);
+                    PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url,
+                        result = axCancel + "\n\nAfter cancel:\n" + await ReadActivePageAsync(t) });
+                    return;
+                }
+            }
+            // Try the accessibility tree before the DOM scan for anything that
+            // acts on a control. On pages that keep their UI in portals, shadow
+            // roots or frames the scan sees nothing at all, and the AX tree is
+            // the same surface the page reader already relies on.
+            if (action == "click" || action == "type" || action == "select" || action == "controls")
+            {
+                var axResult = await TryAccessibilityActionAsync(t, action, command);
+                if (!string.IsNullOrEmpty(axResult))
+                {
+                    if (action == "controls")
+                    {
+                        PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url, result = axResult });
+                        return;
+                    }
+                    await WaitForNavOrDelayAsync(t, 900);
+                    PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url,
+                        result = axResult + "\n\nAfter " + action + ":\n" + await ReadActivePageAsync(t) });
+                    return;
+                }
+            }
             var value = command.TryGetProperty("value", out var vp) ? vp.GetString() ?? "" :
                 command.TryGetProperty("text", out var tvp) ? tvp.GetString() ?? "" : "";
             var enter = command.TryGetProperty("enter", out var ep) && ep.ValueKind == JsonValueKind.True;
@@ -3250,33 +3705,125 @@ try {
             }
             else if (action == "click")
             {
-                script = "(function(){var q=" + q + ".toLowerCase().trim();" +
-                    "function shown(e){var r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'}" +
-                    "function label(e){return [e.innerText,e.value,e.getAttribute('aria-label'),e.getAttribute('title'),e.getAttribute('placeholder'),e.name,e.id].filter(Boolean).join(' ').toLowerCase()}" +
-                    "function find(sel){if(/^[.#\\[]/.test(sel)){try{var e=document.querySelector(sel);if(e&&shown(e))return e}catch(_){}}" +
-                    "var all=[].slice.call(document.querySelectorAll('button,a,input,textarea,select,[role=button],[onclick],[tabindex]'));return all.find(function(e){return shown(e)&&label(e).indexOf(sel)>=0})}" +
+                // Two changes over the original document.querySelectorAll scan.
+                // Shadow roots and same-origin frames are searched, because a
+                // broker's order ticket is frequently in one of them and the
+                // control simply "did not exist" otherwise. And among matches
+                // the TIGHTEST label wins: innerText matching means a wrapper
+                // holding half the page also contains "buy", and clicking that
+                // does nothing useful.
+                script = "(function(){var q=" + q + ".toLowerCase().trim();" + DomProbeHelpers +
+                    "function find(sel){if(/^[.#\\[]/.test(sel)){var direct=queryDeep(sel);if(direct)return direct}" +
+                    "return best(all('button,a,input,textarea,select,[role=button],[onclick],[tabindex]'),sel)}" +
                     "var el=find(q);if(!el)throw new Error('no visible element matching: '+q);el.scrollIntoView({block:'center',inline:'center'});el.click();return 'clicked '+q;})()";
+            }
+            else if (action == "cancel_order")
+            {
+                // A Legend row button is normally named only "Cancel". The
+                // generic accessibility-name lookup cannot associate that
+                // button with its SPY row, and refusing a bare match is the
+                // correct safety behavior when several orders are live. Find
+                // the smallest visible row-like ancestor containing both the
+                // requested symbol and a Cancel control, then click inside it.
+                var symbol = JsonSerializer.Serialize(command.TryGetProperty("symbol", out var domSymp) ? domSymp.GetString() ?? "" : "");
+                script = "(function(){var sym=" + symbol + ".toUpperCase().trim();" + DomProbeHelpers +
+                    "if(!sym)throw new Error('no order symbol supplied');" +
+                    "var controls=all('button,a,[role=button],[onclick],[tabindex]').filter(function(e){return shown(e)&&/^cancel(?:\\s+order)?$/i.test(tight(e))});" +
+                    "var hits=[];controls.forEach(function(c){var p=c;for(var depth=0;p&&depth<10;depth++,p=p.parentElement){var txt=String(p.innerText||p.textContent||'').replace(/\\s+/g,' ').toUpperCase();if(txt.indexOf(sym)>=0){hits.push({c:c,p:p,len:txt.length,depth:depth});break}}});" +
+                    "hits.sort(function(a,b){return a.len-b.len||a.depth-b.depth});var hit=hits[0];" +
+                    "if(!hit)throw new Error('no visible Cancel control in the '+sym+' order row');" +
+                    "hit.c.scrollIntoView({block:'center',inline:'center'});hit.c.click();return 'clicked Cancel in '+sym+' order row';})()";
             }
             else if (action == "type")
             {
-                script = "(function(){var q=" + q + ".toLowerCase().trim(),val=" + v + ";" +
-                    "function shown(e){var r=e.getBoundingClientRect(),s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'}" +
-                    "function label(e){return [e.innerText,e.value,e.getAttribute('aria-label'),e.getAttribute('title'),e.getAttribute('placeholder'),e.name,e.id].filter(Boolean).join(' ').toLowerCase()}" +
-                    "function find(sel){if(!sel)return null;if(/^[.#\\[]/.test(sel)){try{var e=document.querySelector(sel);if(e&&shown(e))return e}catch(_){}}" +
-                    "var all=[].slice.call(document.querySelectorAll('input,textarea,[contenteditable=true],select'));return all.find(function(e){return shown(e)&&label(e).indexOf(sel)>=0})}" +
+                script = "(function(){var q=" + q + ".toLowerCase().trim(),val=" + v + ";" + DomProbeHelpers +
+                    "function find(sel){if(!sel)return null;if(/^[.#\\[]/.test(sel)){var direct=queryDeep(sel);if(direct)return direct}" +
+                    "return best(all('input,textarea,[contenteditable=true],select'),sel)}" +
                     "var el=find(q)||document.activeElement;if(!el)throw new Error('no matching or active input');el.focus();" +
                     "if('value' in el){el.value=val;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}))}else{document.execCommand('insertText',false,val)}" +
                     (enter ? "el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));el.dispatchEvent(new KeyboardEvent('keyup',{key:'Enter',bubbles:true}));" : "") +
                     "return 'typed '+val.length+' chars';})()";
+            }
+            // Dropdowns need their option chosen by what it says, not by
+            // assigning a value that may not be the option's value. Order type
+            // on a broker ticket is one of these, which is why a limit order
+            // could not be set up from the trading bar at all.
+            else if (action == "select")
+            {
+                script = "(function(){var q=" + q + ".toLowerCase().trim(),val=" + v + ";" + DomProbeHelpers +
+                    "var el=best(all('select'),q);" +
+                    "if(!el){var near=best(all('label,div,span'),q);if(near){var scope=near.closest?near.closest('div,form,section'):null;" +
+                    "if(scope){el=[].slice.call(scope.querySelectorAll('select')).filter(shown)[0]}}}" +
+                    "if(!el)throw new Error('no dropdown matching: '+q);" +
+                    "var opts=[].slice.call(el.options||[]),want=String(val).toLowerCase().trim();" +
+                    "var hit=opts.filter(function(o){return String(o.text||'').toLowerCase().trim()===want||String(o.value||'').toLowerCase().trim()===want})[0]" +
+                    "||opts.filter(function(o){return String(o.text||'').toLowerCase().indexOf(want)>=0})[0];" +
+                    "if(!hit)throw new Error('no option \\''+val+'\\' in that dropdown (has: '+opts.map(function(o){return o.text}).join(', ')+')');" +
+                    "el.value=hit.value;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));" +
+                    "return 'selected '+(hit.text||hit.value);})()";
+            }
+            // What the page actually offers. "No buy control on the page" is a
+            // dead end on its own; the list of controls that ARE there turns it
+            // into a label you can configure.
+            else if (action == "controls")
+            {
+                script = "(function(){" + DomProbeHelpers +
+                    "var seen={},out=[];" +
+                    "all('button,a,input,textarea,select,[role=button],[onclick],[tabindex]').forEach(function(e){" +
+                    "if(!shown(e))return;var text=tight(e);if(!text||text.length>60)return;" +
+                    "if(seen[text])return;seen[text]=1;out.push(e.tagName.toLowerCase()+': '+text)});" +
+                    "return out.slice(0,80).join('\\n');})()";
             }
             else
             {
                 PostToChat(new { type = "browserControlResult", id, ok = false, error = "unknown visible browser action: " + action });
                 return;
             }
-            var resultJson = await t.View.CoreWebView2.ExecuteScriptAsync(script);
-            var result = JsonSerializer.Deserialize<string>(resultJson) ?? action;
-            if (action == "inspect_layout")
+            // The click and type scripts signal "no element matched" by throwing.
+            // ExecuteScriptAsync swallows that into the string "null", which the
+            // old ?? fallback turned into the action name and reported as ok:true
+            // — so a click that found nothing looked exactly like a click that
+            // worked. Wrap the script so a failure comes back as a failure.
+            var wrapped = "(async function(){try{var r=await (" + script + ");" +
+                "return JSON.stringify({ok:true,result:r===undefined||r===null?'':String(r)});}" +
+                "catch(e){return JSON.stringify({ok:false,error:String((e&&e.message)||e)});}})()";
+            var resultJson = await t.View.CoreWebView2.ExecuteScriptAsync(wrapped);
+            var raw = JsonSerializer.Deserialize<string>(resultJson);
+            var ok = true;
+            var result = action;
+            var scriptError = "";
+            if (string.IsNullOrEmpty(raw))
+            {
+                ok = false;
+                scriptError = "the page did not answer the " + action + " request";
+            }
+            else
+            {
+                try
+                {
+                    using var envelope = JsonDocument.Parse(raw);
+                    ok = !envelope.RootElement.TryGetProperty("ok", out var okProp) || okProp.ValueKind != JsonValueKind.False;
+                    if (ok)
+                    {
+                        result = envelope.RootElement.TryGetProperty("result", out var resProp) ? resProp.GetString() ?? action : action;
+                        if (string.IsNullOrEmpty(result)) result = action;
+                    }
+                    else
+                    {
+                        scriptError = envelope.RootElement.TryGetProperty("error", out var errProp) ? errProp.GetString() ?? "" : "";
+                        if (string.IsNullOrEmpty(scriptError)) scriptError = action + " failed on the page";
+                    }
+                }
+                catch { result = raw; }
+            }
+            if (!ok)
+            {
+                PostToChat(new { type = "browserControlResult", id, ok = false, url = t.Url, error = scriptError });
+                return;
+            }
+            // Both of these are read-only probes; appending a full page read
+            // would bury the answer and cost a second of OCR for nothing.
+            if (action == "inspect_layout" || action == "controls")
             {
                 PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url, result });
                 return;

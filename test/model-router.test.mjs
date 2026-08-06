@@ -1,8 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   autoModelHealth,
+  autoModelHealthSnapshot,
+  canonicalModelId,
   handoffCandidates,
   nextAutoModelTarget,
   noteAutoModelOutcome,
@@ -11,6 +16,10 @@ import {
   selectExecutionEngine,
   selectAutoModelRoute
 } from "../src/model-router.js";
+
+const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8");
+const server = fs.readFileSync(path.join(root, "src", "server.js"), "utf8");
 
 function config(overrides = {}) {
   return {
@@ -129,6 +138,28 @@ test("a saved task profile selects its connected provider and retains fallbacks"
   assert.equal(result.route, "coding");
   assert.deepEqual(result.target, { provider: "openai", model: "gpt-5.1" });
   assert.ok(result.alternates.some((candidate) => candidate.provider === "zaiCoding"));
+});
+
+test("ordered task profiles use canonical provider/model targets and skip cooling targets", () => {
+  const cfg = config();
+  cfg.ui.modelRouting.profiles.coding = {
+    targets: ["google/gemini-3.6-flash", "openai/gpt-5.1", "zaiCoding/GLM-5.1"]
+  };
+  const first = selectAutoModelRoute(cfg, [{ role: "user", content: "Build the feature" }], { turnMode: "action" });
+  assert.equal(canonicalModelId(first.target), "google/gemini-3.6-flash");
+  assert.match(first.reason, /ordered coding profile/i);
+  noteAutoModelOutcome(first.target, { ok: false, error: "temporary outage" });
+  const second = selectAutoModelRoute(cfg, [{ role: "user", content: "Build the feature" }], { turnMode: "action" });
+  assert.equal(canonicalModelId(second.target), "openai/gpt-5.1");
+  assert.equal(autoModelHealthSnapshot().find((item) => item.id === "google/gemini-3.6-flash")?.state, "cooldown");
+});
+
+test("ordered profiles are editable and optional OpenCodex is loopback-only", () => {
+  assert.match(ui, /id="modelRoutingTargets"/);
+  assert.match(ui, /profiles:\{\.\.\.routing\.profiles,\[route\]:\{\.\.\.current,targets\}\}/);
+  assert.match(server, /const endpoint = "http:\/\/127\.0\.0\.1:10100"/);
+  assert.match(server, /p === "\/api\/opencodex\/status"/);
+  assert.doesNotMatch(server.slice(server.indexOf("async function detectOpenCodex"), server.indexOf("async function detectOpenCodex") + 800), /0\.0\.0\.0|hostname/);
 });
 
 test("Cloud Auto never routes, retries, or hands completion verification to Local", () => {

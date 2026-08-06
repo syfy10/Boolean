@@ -14,6 +14,13 @@ export function modelCapabilityKey(config, target = {}) {
   return `${provider}|${base}|${model}`;
 }
 
+export function canonicalCapabilityModelId(config, target = {}) {
+  const provider = clean(target.provider || config?.provider || "unknown").toLowerCase() || "unknown";
+  const settings = config?.[provider] || {};
+  const model = clean(target.model || settings.model || "default").replace(/^\/+|\/+$/g, "") || "default";
+  return `${provider}/${model}`;
+}
+
 function inferredNativeToolSupport(config, target = {}) {
   const provider = clean(target.provider || config?.provider).toLowerCase();
   const model = clean(target.model || config?.[provider]?.model).toLowerCase();
@@ -114,6 +121,7 @@ export function modelCapabilityProfile(config, target = {}, options = {}) {
   const vision = options.vision === true ? true : options.vision === false ? false : null;
   return {
     key: modelCapabilityKey(config, target),
+    id: canonicalCapabilityModelId(config, target),
     provider: clean(target.provider || config?.provider),
     model: clean(target.model || config?.[target.provider || config?.provider]?.model),
     mode,

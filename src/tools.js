@@ -596,7 +596,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "notepad_read",
-      description: "Read the active in-app notepad tab so you can use the user's notes as context. Use proactively when Full access is on.",
+      description: "Read the active in-app notepad tab. Use it only when the user refers to their notes or the answer depends on them — never as background context for an unrelated question, which drags a stale note into an answer that had nothing to do with it.",
       parameters: { type: "object", properties: {}, required: [] }
     }
   },
@@ -604,7 +604,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "notepad_write",
-      description: "Write text into the active in-app notepad tab. Use append by default; replace only when the user asks. Use proactively when Full access is on to save useful notes.",
+      description: "Write text into the active in-app notepad tab. Use append by default; replace only when the user asks. Write when the user asks for something to be saved, not on your own initiative.",
       parameters: {
         type: "object",
         properties: {

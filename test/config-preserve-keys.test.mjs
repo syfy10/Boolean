@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { defaultConfig, hasAnySavedCredential, preserveSavedApiKeys, preserveSavedConnections, setCurrentModel } from "../src/config.js";
+import { defaultConfig, hasAnySavedCredential, preserveSavedApiKeys, preserveSavedConnections, restoreResetConfig, setCurrentModel } from "../src/config.js";
 
 const configSource = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 
@@ -269,6 +269,36 @@ test("blank upgrade defaults restore the complete saved Cloudflare connection", 
 
 test("a successful atomic config save refreshes the latest recovery backup", () => {
   assert.match(configSource, /fs\.renameSync\(tmp, file\);[\s\S]*fs\.copyFileSync\(file, backup\);/);
+});
+
+test("upgrade recovery restores session, API, provider, and UI settings together", () => {
+  const reset = defaultConfig();
+  const saved = defaultConfig();
+  saved.provider = "openai";
+  saved.openai.apiKey = "sk-saved";
+  saved.openai.model = "gpt-saved";
+  saved.cloudBackend = { sessionToken: "session-saved", user: { email: "admin@example.com", role: "admin" } };
+  saved.ui.theme = "dark";
+  saved.ui.compact = true;
+
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.provider, "openai");
+  assert.equal(reset.openai.apiKey, "sk-saved");
+  assert.equal(reset.openai.model, "gpt-saved");
+  assert.equal(reset.cloudBackend.sessionToken, "session-saved");
+  assert.equal(reset.cloudBackend.user.role, "admin");
+  assert.equal(reset.ui.theme, "dark");
+  assert.equal(reset.ui.compact, true);
+});
+
+test("upgrade recovery also restores UI-only customization", () => {
+  const reset = defaultConfig();
+  const saved = defaultConfig();
+  saved.ui.theme = "dark";
+  saved.ui.compact = true;
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.ui.theme, "dark");
+  assert.equal(reset.ui.compact, true);
 });
 
 test("setCurrentModel can target explicit providers and keeps active provider stable", () => {

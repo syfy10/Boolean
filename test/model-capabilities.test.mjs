@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import {
+  canonicalCapabilityModelId,
   capabilityProbeTool,
   capabilityProbeUnsupportedError,
   evaluateCapabilityProbeReply,
@@ -12,6 +13,11 @@ import {
   parseBooleanPatch,
   recordNativeToolSupport
 } from "../src/model-capabilities.js";
+
+test("capability metadata exposes a stable canonical provider/model id", () => {
+  const cfg = { provider: "openai", openai: { baseUrl: "https://api.openai.com/v1", model: "gpt-5.1" } };
+  assert.equal(canonicalCapabilityModelId(cfg, {}), "openai/gpt-5.1");
+});
 
 function config(overrides = {}) {
   return {

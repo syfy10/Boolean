@@ -41,7 +41,7 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /\.status\.working-card\{[^}]*align-items:stretch;/s);
   assert.match(ui, /\.working-card-header\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);
   assert.match(ui, /\.working-card-header\{[^}]*align-items:center;/s);
-  assert.match(ui, /class="working-card-actions"><span class="meta"><\/span><button class="working-card-action"/);
+  assert.match(ui, /class="working-card-actions"><button class="working-card-action meta" type="button" data-working-action="steps"/);
   assert.match(ui, /\.working-card \.meta\{[^}]*display:inline-flex;[^}]*align-items:center;[^}]*min-height:24px;/s);
   assert.match(ui, /\.working-card-actions\{[^}]*align-items:center;[^}]*min-height:24px;/s);
   assert.match(ui, /\.working-card-body\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);
@@ -118,7 +118,7 @@ test("the same work card becomes a truthful completion summary", () => {
   assert.match(ui, /"Paused after "\+elapsed\+" - work saved"/);
   assert.match(ui, /"Stopped after "\+elapsed\+" - work saved"/);
   assert.match(ui, /card\.classList\.add\("finalized",outcome\)/);
-  assert.match(ui, /card\.classList\.remove\("collapsed"\)/);
+  assert.match(ui, /card\.classList\.add\("collapsed"\)/);
   assert.match(ui, /if\(ref\.liveAI\?\.isConnected\) col\.insertBefore\(card,ref\.liveAI\)/);
   assert.match(ui, /const finishedCard=threadId===tid\?finalizeWorkingCard\(finishedRun\):null/);
   assert.doesNotMatch(ui, /if\(run&&run\.statusEl&&run\.statusEl\.isConnected\) run\.statusEl\.remove\(\)/);
@@ -146,4 +146,37 @@ test("live tool activity is painted after the progress card exists", () => {
   assert.ok(ensureIndex >= 0, "the step handler creates the live progress card first");
   assert.ok(addIndex > ensureIndex, "the current tool activity is added after the card exists");
   assert.match(ui, /wireWorkingCard\(run\.statusEl,run\);[\s\S]{0,400}renderWorkingCardActivity\(run\);/);
+});
+
+test("tool calls do not erase text already streamed to the message board", () => {
+  const step = ui.slice(ui.indexOf('else if(ev.type==="step")'), ui.indexOf('else if(ev.type==="approval")'));
+  assert.doesNotMatch(step, /run\.raw=""/);
+  assert.doesNotMatch(step, /run\.liveAI=null/);
+  assert.match(ui, /Completed "\+count\+" steps/);
+  assert.doesNotMatch(ui, /Completed "\+count\+" project steps/);
+});
+
+test("a completed background research answer is restored to the message board", () => {
+  assert.match(ui, /const finalText=String\(ev\.text\|\|""\)/);
+  assert.match(ui, /if\(finalText\.trim\(\)\|\|!String\(run\.raw\|\|""\)\.trim\(\)\) run\.raw=finalText/);
+  assert.match(ui, /if\(threadId===tid&&String\(finishedRun\?\.raw\|\|""\)\.trim\(\)&&!finishedRun\.liveAI\?\.isConnected\)/);
+  assert.match(ui, /finishedRun\.liveAI=makeAI\(finishedRun\.raw,null,finishedRun\.provider,finishedRun\.model,finishedRun\.aiLabel\)/);
+  assert.match(ui, /ref\.liveAI\?\.classList\.remove\("live-run-output","live-plan-output"\)/);
+  assert.match(ui, /if\(threadId===tid&&finishedRun\?\.liveAI\?\.isConnected\) scrollDown\(true\)/);
+});
+
+test("completed research collapses to a clickable step summary", () => {
+  const finalize = ui.slice(ui.indexOf("function finalizeWorkingCard"), ui.indexOf("function makeUsage"));
+  assert.match(finalize, /card\.classList\.add\("collapsed"\)/);
+  assert.match(finalize, /ref\.workCardCollapsed=true/);
+  assert.match(finalize, /col\.classList\.add\("run-output-hidden"\)/);
+  assert.doesNotMatch(finalize, /remove\("run-output-hidden"\)/);
+  assert.match(ui, /data-working-action="steps"/);
+  assert.match(ui, /steps\.textContent=count\+" Step"/);
+  assert.match(ui, /View research steps/);
+  assert.match(ui, /card\.querySelectorAll\("\.working-activity-group"\)\.forEach\(item=>item\.open=true\)/);
+  assert.match(ui, /function compactSavedResearchLogs\(root=col\)/);
+  assert.match(ui, /saved-research-card/);
+  assert.match(ui, /if\(!viewingRun\(\)\) compactSavedResearchLogs\(col\)/);
+  assert.match(ui, /tools\.forEach\(item=>events\.appendChild\(item\)\)/);
 });

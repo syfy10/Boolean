@@ -58,7 +58,7 @@ test("the page is the only price source — no second market feed", () => {
   assert.doesNotMatch(ui, /updateTradingBarQuote/);
   assert.doesNotMatch(ui, /sign in for live prices/);
   assert.match(ui, /const pageQuote=await readQuoteFromVisiblePage\(\);/);
-  assert.match(ui, /"no quote on this page"/);
+  assert.match(ui, /"No quote"/);
 });
 
 test("Sync P&L is gone — it had no working data source", () => {
@@ -95,20 +95,61 @@ test("the quote is read from the broker page, not a second market feed", () => {
   const falling = quoteFromPageText("TSLA\n$402.10\n▼ $8.40 (2.05%)\nBuy Short");
   assert.equal(falling.changePercent, -2.05);
   assert.equal(falling.changeAbs, -8.4);
+  // Legend futures omit the dollar sign and prefix the contract with a slash.
+  const future = quoteFromPageText("/MYMU26 53,418 ▲ 84 (0.16%) O 53428 H 53435 L 53413 C 53418 V 269.00");
+  assert.equal(future.symbol, "/MYMU26");
+  assert.equal(future.price, 53418);
+  assert.equal(future.changePercent, 0.16);
+  assert.equal(future.changeAbs, 84);
+  // Windows OCR can put toolbar words between the contract and the live quote.
+  const spacedFuture = quoteFromPageText("Stock trading /MYMU26 Search chart 53,429 ▲ 95 (0.18%) O 53407 H 53433 L 53395 C 53429 V 321.00");
+  assert.equal(spacedFuture.symbol, "/MYMU26");
+  assert.equal(spacedFuture.price, 53429);
+  // When OCR misses the large quote label, Legend's C value is the page's
+  // current price and remains a browser-only fallback.
+  const ohlcFuture = quoteFromPageText("/MYMU26 Buy Sell Volume O 53407 H 53433 L 53395 C 53429 V 321.00");
+  assert.equal(ohlcFuture.symbol, "/MYMU26");
+  assert.equal(ohlcFuture.price, 53429);
+  // Windows OCR can emit the headline before the symbol. It must beat a
+  // historical candle C value that appears later in the same page read.
+  const ocrFuture = quoteFromPageText("53,469 A 135 (0.25%)\nStock trading\nQ /MYMU26\nO 52379 H 52483 L 52364 C 52451 V 3446.00");
+  assert.equal(ocrFuture.symbol, "/MYMU26");
+  assert.equal(ocrFuture.price, 53469);
+  assert.equal(ocrFuture.changePercent, 0.25);
   // A page with no quote must not invent one.
   assert.equal(quoteFromPageText("Robinhood Legend\nWatchlist"), null);
   assert.equal(quoteFromPageText(""), null);
 });
 
-test("the page read is fast-path only — OCR is too slow to poll", () => {
-  // The bar polls pageText (script only); "context" runs OCR and takes seconds.
+test("Open broker always opens the Robinhood Legend workspace", () => {
+  const start = ui.indexOf("async function openRobinhoodBrowser()");
+  const end = ui.indexOf("\n  let aboutLoaded", start);
+  const opener = ui.slice(start, end);
+  assert.match(opener, /openUrlInBrowser\("https:\/\/robinhood\.com\/legend"\)/);
+  assert.doesNotMatch(opener, /\/stocks\//);
+});
+
+test("an already-open browser is not replaced when one quote read fails", () => {
+  assert.match(ui, /if\(SHELL&&emptyBrowser&&!browserOpen\(\)&&!tradingBrokerAutoOpened\)/);
+});
+
+test("the fast page read includes only the live quote strip OCR", () => {
+  // Canvas-rendered Legend prices are absent from body.innerText. The shell
+  // OCRs only the top quote strip and reserves full OCR as fallback.
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"pageText",id\}\)/);
   assert.match(shell, /case "pageText":/);
   assert.match(shell, /async Task SendPageTextAsync\(string id\)/);
-  assert.doesNotMatch(
-    ui.slice(ui.indexOf("function requestPageText()"), ui.indexOf("function quoteFromPageText")),
-    /ocr/i
-  );
+  assert.match(shell, /ReadVisibleBrowserQuoteOcrAsync/);
+  assert.match(shell, /Accessibility\.getFullAXTree/);
+  assert.match(shell, /ReadBrowserAccessibilityTextAsync/);
+  assert.match(shell, /bool BrowserPaneIsOpen\(\) => !_split\.Panel2Collapsed && _browserPane\.Visible/);
+  assert.match(shell, /var paneOpen = BrowserPaneIsOpen\(\);/);
+  assert.match(shell, /Math\.Max\(180, source\.Height \/ 3\)/);
+  // Ordered page text first, then the unordered hint block, then OCR. The
+  // hints are a bounded React-state string table with no document order, so
+  // "the first price after the symbol" is meaningless inside it.
+  assert.match(ui, /const fastQuote=quoteFromPageText\(beforeQuoteHints\(page\?\.text\)\)\|\|quoteFromPageText\(page\?\.text\)\|\|quoteFromPageText\(page\?\.ocr\)/);
+  assert.match(ui, /if\(!page\|\|!fastQuote\)\{\s*const visual=\(await requestShellContext\(10000\)\)/);
 });
 
 function loadPageQuoteReader() {
@@ -138,10 +179,39 @@ test("an unread page does not fall back to a stale ticker", () => {
   // With the market feed gone the bar names only a pinned symbol; otherwise it
   // reports that the page has no quote rather than inventing a ticker.
   assert.doesNotMatch(ui, /lastTradingQuoteSymbol\|\|"AAPL"/);
-  assert.match(ui, /\$\{pinnedTradingSymbol\} — no quote on this page/);
-  // An older shell has no pageText command; the slower context read still works.
-  assert.match(ui, /if\(!page\) page=\(await requestShellContext\(6000\)\)\?\.browser\|\|null;/);
-  assert.match(ui, /quoteFromPageText\(page\.text\)\|\|quoteFromPageText\(page\.ocr\)/);
+  assert.match(ui, /\$\{pinnedTradingSymbol\} · no quote/);
+  // An older shell or a canvas-rendered Legend quote uses the visual context.
+  assert.match(ui, /if\(!page\|\|!fastQuote\)/);
+  assert.match(ui, /requestShellContext\(10000\)/);
+  assert.match(ui, /const textQuote=fastQuote\|\|quoteFromPageText\(beforeQuoteHints\(page\.text\)\)\|\|quoteFromPageText\(page\.text\);/);
+  assert.match(ui, /const ocrQuote=quoteFromPageText\(page\.ocr\);/);
+  assert.match(ui, /const quote=textQuote\|\|ocrQuote;/);
+});
+
+// The bar read $40.05 while the Legend header read $40.01. 40.05 was the OHLC
+// strip's open, and the parser had taken "the first dollar amount within 400
+// characters of the ticker" — which, once the shell's unordered hint block is
+// in the text, can be almost anything.
+test("the OHLC strip is not mistaken for the quote", () => {
+  const quoteFromPageText = loadPageQuoteReader();
+  const page = "ENPH $40.01 ▲ $0.66 (1.69%) O 40.05 H 40.05 L 40.01 C 40.01 V 2899.00";
+  const quote = quoteFromPageText(page);
+  assert.equal(quote.symbol, "ENPH");
+  assert.equal(quote.price, 40.01, "the header quote wins over the candle's open");
+  assert.equal(quote.changePercent, 1.69);
+
+  // Even with the OHLC strip rendered ahead of the header, the full headline
+  // shape — price, change, percent — is what identifies the quote.
+  const reordered = quoteFromPageText("O 40.05 H 40.05 L 40.01 C 40.01 V 2899.00 ENPH $40.01 ▲ $0.66 (1.69%)");
+  assert.equal(reordered.price, 40.01);
+});
+
+test("the unordered DOM hint block is not searched for a price first", () => {
+  const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
+  // The shell labels that block unordered on purpose; the quote reader has to
+  // respect the label rather than treat it as more page text.
+  assert.match(ui, /const beforeQuoteHints=\(text\)=>String\(text\|\|""\)\.split\("DOM quote hints:"\)\[0\];/);
+  assert.match(ui, /const orderedText=beforeQuoteHints\(page\.text\);/);
 });
 
 test("the company name between ticker and price does not break the read", () => {
@@ -155,7 +225,23 @@ test("the company name between ticker and price does not break the read", () => 
 
 test("a page read that times out reports why", () => {
   // The context read runs OCR; 2.5s was too short and looked like "no symbol".
-  assert.match(ui, /if\(!page\) page=\(await requestShellContext\(6000\)\)\?\.browser\|\|null;/);
+  assert.match(ui, /if\(!page\|\|!fastQuote\)/);
+  assert.match(ui, /requestShellContext\(10000\)/);
   assert.match(ui, /lastPageReadIssue="the browser pane did not answer in time"/);
   assert.match(ui, /quote\.title=lastPageReadIssue\s*\?\s*`Could not read a quote: \$\{lastPageReadIssue\}`/);
+});
+
+test("the local quote poll is not frozen by chat work or its first promise", () => {
+  assert.match(ui, /if\(document\.visibilityState!=="visible"\) return;/);
+  assert.doesNotMatch(ui, /document\.visibilityState!=="visible" \|\| busy\(\)/);
+  assert.match(ui, /tradingBarRefreshInFlight=call\.finally\(\(\)=>\{tradingBarRefreshInFlight=null;\}\)/);
+});
+
+test("trading consent stays local when UI preferences sync", () => {
+  assert.match(ui, /Trading consent is device-local security state/);
+  const payloadStart=ui.indexOf("function safeCloudUiPayload");
+  const payloadEnd=ui.indexOf("async function applyCloudUiPayload",payloadStart);
+  const payload=ui.slice(payloadStart,payloadEnd);
+  assert.doesNotMatch(payload,/tradeConsentUser|tradeConsentAt|tradeClicks:value/);
+  assert.match(ui,/const localPerms=\{\.\.\.\(state\.ui\?\.browserPerms\|\|\{\}\)\};/);
 });

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const uiSource = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+const uiSource = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8").replace(/\r/g, "");
 
 test("Codex setup uses one guided three-step card instead of exposed app-server controls", () => {
   assert.match(uiSource, /<b>Codex coding engine<\/b>/);

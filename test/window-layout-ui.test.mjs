@@ -148,13 +148,14 @@ test("project tasks show a compact live visual build lifecycle", () => {
   assert.match(ui, /if\(openPreview\) openPreview\.onclick=.*aiNavigate\(url\)/);
 });
 
-test("ClearFix respects manual hiding and closes after successful coding work", () => {
+test("terminal respects manual hiding while Code opens its dedicated workspace", () => {
   assert.match(ui, /let terminalAutoReveal = true;/);
   assert.match(ui, /function toggleTerminal\(force, userInitiated=false\)/);
   assert.match(ui, /if\(userInitiated\) terminalAutoReveal=open;/);
   assert.match(ui, /if\(terminalAutoReveal\) toggleTerminal\(true\);/);
   assert.match(ui, /\$\("termToggle"\)\.onclick = \(\) => toggleTerminal\(false,true\)/);
-  assert.match(ui, /ws === "code"\) \{ terminalAutoReveal=true; toggleTerminal\(true\)/);
+  assert.match(ui, /ws === "code"\) \{ ensureCodeWorkspace\(\); \}/);
+  assert.match(ui, /document\.body\.classList\.toggle\("code-open", activeWsTab === "code"\)/);
   assert.match(ui, /const terminalRunComplete=finishedRun&&!holdQueue&&finishedRun\.outcome!=="paused"&&finishedRun\.outcome!=="error"/);
   assert.match(ui, /if\(terminalRunComplete&&!\(q&&q\.length\)&&document\.body\.classList\.contains\("ws-terminal-open"\)\)\{[\s\S]*?terminalAutoReveal=false;[\s\S]*?setTimeout\(\(\)=>toggleTerminal\(false\),260\)/);
 });
@@ -1585,7 +1586,8 @@ test("Education, Markets, and Recipes open in a shared floating resizable worksp
   assert.match(ui, /document\.body\.classList\.toggle\("recipes-open", activeWsTab === "recipes"\)/);
   const workspaceSetter=ui.slice(ui.indexOf("function setWorkspaceTab"),ui.indexOf('document.querySelectorAll(".ws-tab")'));
   assert.doesNotMatch(workspaceSetter, /requestAnimationFrame\(\(\)=>markWorkspaceTab\("chat"\)\)/);
-  assert.match(ui,/function openExploreWorkspace\(\)\{\s*if\(EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)\{\s*setWorkspaceTab\("chat"\);\s*return;/);
+  assert.match(ui,/function openExploreWorkspace\(\)\{\s*if\(!adminFeatureAccessAllowed\(\)\)\{[\s\S]*?if\(EXPLORE_WORKSPACES\.includes\(activeWsTab\)\)\{\s*setWorkspaceTab\("chat"\);\s*return;/);
+  assert.match(ui,/\.icon-btn\[hidden\],#modemenu \.item\[hidden\]\{display:none!important\}/);
   assert.doesNotMatch(ui, /body\.browser-on \.workspace-float/);
 });
 
@@ -1688,7 +1690,7 @@ test("closing Browser or Notepad restores the wide Chat workspace rail", () => {
 });
 
 test("native browser keeps a usable split width and auto-fits narrow pages", () => {
-  assert.match(shell, /const int chatMin = 300;/);
+  assert.match(shell, /const int chatMin = 520;/);
   assert.match(shell, /const int browserMin = 340;/);
   assert.match(shell, /readonly SplitContainer _split = new\(\) \{ Orientation = Orientation\.Vertical, SplitterWidth = 5 \};/);
   assert.doesNotMatch(shell, /TabIcon\("\\u2014", "Minimize"/);

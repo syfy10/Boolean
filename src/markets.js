@@ -378,7 +378,7 @@ export function parseAlphaDaily(payload, symbol) {
   })).filter((point) => point.close !== null).sort((a, b) => a.time - b.time);
 }
 
-export async function getMarketSnapshot(settings, symbol, requestedRange = "6mo") {
+export async function getMarketSnapshot(settings, symbol, requestedRange = "6mo", requestedInterval = "") {
   const safeSymbol = normalizeSymbol(symbol);
   if (!safeSymbol) throw new Error("Enter a valid market symbol.");
   if (settings?.provider === "alphaVantage" && settings.apiKey) {
@@ -391,6 +391,8 @@ export async function getMarketSnapshot(settings, symbol, requestedRange = "6mo"
     return { ...parseAlphaQuote(quotePayload, safeSymbol), points: parseAlphaDaily(dailyPayload, safeSymbol) };
   }
   const encoded = encodeURIComponent(safeSymbol);
+  const normalizedRange = String(requestedRange || "").toLowerCase();
+  const normalizedInterval = String(requestedInterval || "").toLowerCase();
   const rangeMap = {
     "1d": ["1d", "5m"],
     "5d": ["5d", "15m"],
@@ -399,12 +401,27 @@ export async function getMarketSnapshot(settings, symbol, requestedRange = "6mo"
     "6mo": ["6mo", "1d"],
     ytd: ["ytd", "1d"],
     "1y": ["1y", "1d"],
+    "2y": ["5y", "1wk"],
     "5y": ["5y", "1wk"],
     max: ["max", "1mo"]
   };
-  const [range, interval] = rangeMap[String(requestedRange || "").toLowerCase()] || rangeMap["6mo"];
+  const [range, interval] = rangeMap[normalizedRange] || rangeMap["6mo"];
+  const isTwoYear = normalizedRange === "2y";
+  // 1m and 2m are Yahoo's finest grains (last ~7 days only). They exist here so
+  // the strategy engine can seed its history at the same timeframe it builds
+  // live candles on; asking for a coarser grain and bucketing it produces bars
+  // that claim to be intraday and are not.
+  const normalizedIntervals = new Set(["1m", "2m", "5m", "15m", "30m", "1h", "1d", "1wk", "1mo"]);
+  const intervalOverride = normalizedInterval && normalizedIntervals.has(normalizedInterval) ? normalizedInterval : "";
   const payload = await jsonFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?range=${range}&interval=${interval}&events=div%2Csplits`);
-  return parseYahooChart(payload, safeSymbol);
+  const payloadWithInterval = intervalOverride && intervalOverride !== interval
+    ? await jsonFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?range=${range}&interval=${intervalOverride}&events=div%2Csplits`)
+    : payload;
+  const parsed = parseYahooChart(intervalOverride ? payloadWithInterval : payload, safeSymbol);
+  if (!isTwoYear) return parsed;
+  const twoYearCutoff = Date.now() - Math.round(365.25 * 2 * 24 * 60 * 60 * 1000);
+  const filteredPoints = (parsed.points || []).filter((point) => Number(point?.time) >= twoYearCutoff);
+  return { ...parsed, points: filteredPoints.length >= 30 ? filteredPoints : parsed.points };
 }
 
 export async function getMarketQuote(settings, symbol = "AAPL") {
