@@ -4,6 +4,7 @@ import fs from "node:fs";
 import vm from "node:vm";
 
 const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
+const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
 
 test("project plan output hiding never hides the live working card", () => {
   assert.match(ui, /function markCurrentPlanOutput\(\)[\s\S]*?!node\.classList\?\.contains\("working-card"\)/);
@@ -33,6 +34,8 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /data-working-action="cancel"/);
   assert.match(ui, /class="working-card-events" role="list" aria-label="Task activity"/);
   assert.match(ui, /class="working-card-worker"/);
+  assert.match(ui, /function workingModelLabel\(provider,model,aiLabel=""\)/);
+  assert.match(ui, /const workerLabel=workingModelLabel\(run\.provider,run\.model,run\.aiLabel\)/);
   assert.match(ui, /worker\.title="Currently working: "\+workerLabel/);
   assert.match(ui, /worker\.textContent="Completed by "\+completedBy/);
   assert.match(ui, /sender\.textContent="Completed by "\+run\.aiLabel/);
@@ -67,12 +70,35 @@ test("activity is grouped into compact chronological batches", () => {
   assert.match(ui, /if\(group==="agents"\) return count===1\?"Asked another model for help"/);
   assert.match(ui, /if\(group==="inspections"\) return \/browser\|page\/.+\?"Checked the page":"Reviewed the project files"/);
   assert.match(ui, /workingActivityGroupLabel\(item\.group,item\.count,item\.items\)/);
+  assert.match(ui, /workingChangeStatHtml\(item\.items\)/);
+  assert.match(ui, /changeStat:workingStepChangeStat\(ev\.entry\)/);
+  assert.match(ui, /\.working-change-stat \.add\{ color:#16a05d; \}/);
+  assert.match(ui, /\.working-change-stat \.del\{ color:#df3154; \}/);
   assert.match(ui, /if\(segment\?\.kind!=="activity"\|\|segment\.group!==group\)/);
   assert.match(ui, /segments:segments\.slice\(-10\)/);
   assert.match(ui, /items:segment\.items\.slice\(-8\)/);
   assert.match(ui, /if\(segment\.identities\.has\(identity\)\)/);
   assert.doesNotMatch(ui, /const groups=new Map\(\)/);
   assert.doesNotMatch(ui, /<details class="working-activity-group"[^>]* open/);
+});
+
+test("verified file edits show exact added and removed line counts", () => {
+  const context = vm.createContext({});
+  vm.runInContext([
+    functionSource("workingStepChangeStat"),
+    functionSource("workingChangeStatHtml"),
+  ].join("\n"), context);
+  const stat = context.workingStepChangeStat({
+    name: "apply_patch",
+    verified: true,
+    args: { changes: [
+      { path: "src/a.js", diff: "--- a/src/a.js\n+++ b/src/a.js\n-old\n+new\n+more" },
+      { path: "src/b.js", diff: "@@\n-gone\n+here" },
+    ] },
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(stat)), { files: 2, additions: 3, deletions: 2 });
+  assert.match(context.workingChangeStatHtml([{ changeStat: stat }]), />\+3<.*>-2</);
+  assert.match(server, /result: step\.result, verified: step\.verified === true/);
 });
 
 test("command and agent batches keep their true timeline order", () => {
@@ -141,7 +167,7 @@ test("raw live output stays behind Show output and is restored when work ends", 
 
 test("compact activity stays usable in a narrow chat pane", () => {
   assert.match(ui, /\.working-card-events\{[^}]*min-width:0;/s);
-  assert.match(ui, /\.working-activity-group summary\{[^}]*grid-template-columns:18px minmax\(0,1fr\) 14px;/s);
+  assert.match(ui, /\.working-activity-group summary\{[^}]*grid-template-columns:18px minmax\(0,1fr\) auto 14px;/s);
   assert.match(ui, /\.working-activity-group summary b\{[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/s);
   assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.working-card-body\{ padding-inline:0; \}/);
   assert.match(ui, /@media\(max-width:620px\)\{[\s\S]*?\.working-card-actions\{ order:3; margin-left:20px; \}/);

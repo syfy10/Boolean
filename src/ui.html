@@ -1161,10 +1161,13 @@
   .working-commentary small{ display:block; margin-top:2px; color:var(--dim); font-size:var(--fs-xs); }
   .working-activity-group{ min-width:0; border:0; border-radius:0; color:var(--dim); background:transparent; }
   .working-activity-group[open]{ background:transparent; }
-  .working-activity-group summary{ display:grid; grid-template-columns:18px minmax(0,1fr) 14px; gap:8px; align-items:center; min-width:0; min-height:31px; padding:3px 0; border-radius:5px; cursor:pointer; list-style:none; font:400 var(--fs-md)/1.35 var(--ui); }
+  .working-activity-group summary{ display:grid; grid-template-columns:18px minmax(0,1fr) auto 14px; gap:8px; align-items:center; min-width:0; min-height:31px; padding:3px 0; border-radius:5px; cursor:pointer; list-style:none; font:400 var(--fs-md)/1.35 var(--ui); }
   .working-activity-group summary::-webkit-details-marker{ display:none; }
   .working-activity-group summary:hover{ background:transparent; color:var(--text); }
   .working-activity-group summary b{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:inherit; font-weight:400; }
+  .working-change-stat{ display:inline-flex; align-items:center; gap:5px; flex:0 0 auto; white-space:nowrap; font:500 var(--fs-xs)/1 var(--mono); }
+  .working-change-stat .add{ color:#16a05d; }
+  .working-change-stat .del{ color:#df3154; }
   .working-activity-glyph{ display:inline-flex; width:18px; height:18px; align-items:center; justify-content:center; color:currentColor; }
   .working-activity-glyph svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
   .working-activity-caret{ justify-self:end; font-size:15px; line-height:1; transition:transform var(--t); }
@@ -1193,7 +1196,7 @@
     .working-card .stx{ flex:1 1 calc(100% - 22px); }
     .working-card-actions{ order:3; margin-left:20px; }
     .working-card-body{ padding-inline:0; }
-    .working-activity-group summary{ grid-template-columns:17px minmax(0,1fr) 12px; gap:7px; }
+    .working-activity-group summary{ grid-template-columns:17px minmax(0,1fr) auto 12px; gap:7px; }
     .working-activity-details{ margin-left:23px; }
   }
   .run-result{ align-self:flex-start; display:flex; align-items:center; gap:6px; min-height:20px; padding:1px 3px;
@@ -8917,6 +8920,14 @@ body:not(.composer-simple) main::after{
     if(provider==="compare") return "Compare";
     return provider==="local"?"Local AI":"AI";
   }
+  function workingModelLabel(provider,model,aiLabel=""){
+    const exact=friendlyModelName(model);
+    if(exact) return exact;
+    if(aiLabel&&!/^AI$/i.test(aiLabel)) return aiLabel;
+    if(provider==="codex") return "Codex";
+    if(provider==="claude-code") return "Claude Code";
+    return shortAiName(provider,model)||"Boollm";
+  }
   function aiMetaFromText(text,provider,model,aiLabel){
     if(provider||aiLabel) return {provider,model,aiLabel};
     const labels=[...String(text||"").matchAll(/^\[(GPT|GLM|Claude|Qwen|Gemma|Llama|Mistral|Phi|SmolLM)\]\s*$/gmi)]
@@ -15567,7 +15578,7 @@ body:not(.composer-simple) main::after{
     if(["waiting","paused"].includes(value)) return "waiting";
     return "active";
   }
-  function addWorkingActivity(title,{detail="",status="active",key="",group="",subject=""}={}){
+  function addWorkingActivity(title,{detail="",status="active",key="",group="",subject="",changeStat=null}={}){
     if(!run) return;
     const cleanTitle=compactActivityText(String(title||"").replace(/\s+/g," ").trim()).slice(0,300);
     const cleanDetail=compactActivityText(String(detail||"").replace(/\s+/g," ").trim()).slice(0,360);
@@ -15575,11 +15586,11 @@ body:not(.composer-simple) main::after{
     const items=run.activityItems||(run.activityItems=[]);
     const identity=key||cleanTitle.toLowerCase();
     const last=items[items.length-1];
-    if(last?.key===identity) Object.assign(last,{title:cleanTitle,detail:cleanDetail||last.detail,status,group:group||last.group||"",subject:subject||last.subject||"",at:Date.now()});
+    if(last?.key===identity) Object.assign(last,{title:cleanTitle,detail:cleanDetail||last.detail,status,group:group||last.group||"",subject:subject||last.subject||"",changeStat:changeStat||last.changeStat||null,at:Date.now()});
     else{
       const incomingTone=workingEventTone(status);
       items.forEach(item=>{ const tone=workingEventTone(item.status); if(tone==="active"||(tone==="waiting"&&incomingTone!=="waiting")) item.status="done"; });
-      items.push({key:identity,title:cleanTitle,detail:cleanDetail,status,group,subject,at:Date.now()});
+      items.push({key:identity,title:cleanTitle,detail:cleanDetail,status,group,subject,changeStat,at:Date.now()});
       if(items.length>48) items.splice(0,items.length-48);
     }
     renderWorkingCardActivity(run);
@@ -15603,6 +15614,27 @@ body:not(.composer-simple) main::after{
     if(!run) return;
     run.changedFiles=run.changedFiles||new Set();
     workingStepFiles(entry).forEach(path=>run.changedFiles.add(path));
+  }
+  function workingStepChangeStat(entry){
+    if(entry?.name!=="apply_patch"||entry?.verified!==true||!Array.isArray(entry?.args?.changes)) return null;
+    const files=new Set(), stat={files:0,additions:0,deletions:0};
+    entry.args.changes.forEach(change=>{
+      const path=String(change?.path||change?.file||change?.target||"").trim();
+      if(path) files.add(path.toLowerCase());
+      String(change?.diff||"").split(/\r?\n/).forEach(line=>{
+        if(line.startsWith("+")&&!line.startsWith("+++")) stat.additions++;
+        else if(line.startsWith("-")&&!line.startsWith("---")) stat.deletions++;
+      });
+    });
+    stat.files=files.size;
+    return stat.files?stat:null;
+  }
+  function workingChangeStatHtml(items=[]){
+    const stats=items.map(item=>item?.changeStat).filter(Boolean);
+    if(!stats.length) return "";
+    const add=stats.reduce((sum,stat)=>sum+Number(stat.additions||0),0);
+    const del=stats.reduce((sum,stat)=>sum+Number(stat.deletions||0),0);
+    return '<span class="working-change-stat" aria-label="'+add+' lines added, '+del+' lines removed"><span class="add">+'+add+'</span><span class="del">-'+del+'</span></span>';
   }
   function workingActivityRows(ref=run){
     if(!ref) return [];
@@ -15696,7 +15728,7 @@ body:not(.composer-simple) main::after{
     const summary=workingActivitySummary(ref);
     list.innerHTML=summary.segments.map(item=>item.kind==="commentary"
       ?'<p class="working-commentary" role="listitem">'+esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'')+'</p>'
-      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+'</b><span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
+      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+'</b>'+workingChangeStatHtml(item.items)+'<span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
     const current=summary.current;
     const status=card.querySelector(".stx");
     if(current&&status){ status.textContent=current.title||"Working"; status.title=current.detail||current.title||"Working"; }
@@ -15759,7 +15791,7 @@ body:not(.composer-simple) main::after{
     if(mark) mark.textContent=outcome==="error"?"!":outcome==="paused"?"||":"\u2713";
     const status=card.querySelector(".stx"); if(status){ status.textContent=label; status.title=label; }
     const worker=card.querySelector(".working-card-worker");
-    const completedBy=ref.aiLabel||shortAiName(ref.provider,ref.model)||"Boollm";
+    const completedBy=workingModelLabel(ref.provider,ref.model,ref.aiLabel);
     if(worker){ worker.textContent="Completed by "+completedBy; worker.title=ref.workerTrail?.length>1?"Worker path: "+ref.workerTrail.join(" → "):"Completed by "+completedBy; }
     card.querySelector('[data-working-action="cancel"]')?.remove();
     card.querySelector('[data-working-action="output"]')?.remove();
@@ -16073,7 +16105,7 @@ body:not(.composer-simple) main::after{
     const phase=String(run.controller?.phase||"");
     const stateLabel=run.statusEl.querySelector(".working-card-state b");
     if(stateLabel) stateLabel.textContent=waiting?"Waiting":load?"Loading":phase==="planning"?"Planning":phase==="verifying"?"Verifying":"Working";
-    const workerLabel=run.aiLabel||shortAiName(run.provider,run.model)||"Boollm";
+    const workerLabel=workingModelLabel(run.provider,run.model,run.aiLabel);
     const worker=run.statusEl.querySelector(".working-card-worker");
     if(worker){ worker.textContent=workerLabel; worker.title="Currently working: "+workerLabel; }
     run.statusEl.classList.toggle("waiting",waiting);
@@ -16333,7 +16365,9 @@ body:not(.composer-simple) main::after{
       if((mode==="chat"||mode==="compare")&&!opts.salesWorkflow&&!opts.workflowRun){ col.querySelector(".empty")?.remove(); addUser(opts.display, opts.images, Date.now(),{provider:opts.provider||(mode==="compare"?"compare":state.provider||"local")}); }
       else if(mode==="retry"||mode==="compare-retry"){ removeLastTurnDom(); }
     }
-    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), perfStart:performance.now(), steps:0, provider:state.provider||"local", pendingApprovals:[], pendingCodexInputs:[],
+    const initialProvider=opts.provider||state.provider||"local";
+    const initialModel=opts.model||(initialProvider==="local"?state.model:((state.providerModels&&state.providerModels[initialProvider])||""));
+    run={ threadId:tid, status:"thinking…", raw:"", liveAI:null, statusEl:null, startTime:Date.now(), perfStart:performance.now(), steps:0, provider:initialProvider, model:initialModel, pendingApprovals:[], pendingCodexInputs:[],
       request:{...opts,images:[...(opts.images||[])]}, holdQueue:false, teamWorkers:{} };
     run.activityItems=[{key:"starting",title:"Understanding the request",detail:"",status:"active",at:Date.now()}];
     run.changedFiles=new Set();
@@ -16652,7 +16686,7 @@ body:not(.composer-simple) main::after{
       run.route={route:ev.route||"chat",provider:ev.provider||run.provider,model:ev.model||run.model,reason:ev.reason||""};
       run.provider=run.route.provider;
       run.model=run.route.model;
-      run.aiLabel=shortAiName(run.provider,run.model);
+      run.aiLabel=workingModelLabel(run.provider,run.model);
       run.workerTrail=run.workerTrail||[];
       if(run.aiLabel&&run.workerTrail.at(-1)!==run.aiLabel) run.workerTrail.push(run.aiLabel);
       const routeName=AUTO_ROUTE_NAMES[run.route.route]||run.route.route||"Auto";
@@ -16699,7 +16733,7 @@ body:not(.composer-simple) main::after{
         // step is visible during the run, not only after the task is stopped.
         ensureStatusEl();
       }
-      addWorkingActivity(toolLabel,{detail:toolDetail&&toolDetail!==toolLabel?toolDetail:"",status:"done",key:"tool:"+activityGroup+":"+run.activitySequence,group:activityGroup,subject:workingToolActivitySubject(ev.entry)});
+      addWorkingActivity(toolLabel,{detail:toolDetail&&toolDetail!==toolLabel?toolDetail:"",status:"done",key:"tool:"+activityGroup+":"+run.activitySequence,group:activityGroup,subject:workingToolActivitySubject(ev.entry),changeStat:workingStepChangeStat(ev.entry)});
       if(showing&&!workspaceBackground){
         insertToolAbove(ev.entry);
         updateFileChip(ev.entry);

@@ -6486,7 +6486,7 @@ ${exploreScript}
                 changes: normalizeWorkspaceChanges(t.workspaceChanges, changeRoot)
               });
             }
-            const entry = { t: "tool", name: step.name, args: step.args || {}, summary: stepSummary(step.name, step.args), result: step.result };
+            const entry = { t: "tool", name: step.name, args: step.args || {}, summary: stepSummary(step.name, step.args), result: step.result, verified: step.verified === true };
             t.log.push(entry);
             send({ type: "step", entry, ...((options.salesWorkflow === true || options.workflowRun === true) ? { stepArgs: step.args || {} } : {}) });
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
