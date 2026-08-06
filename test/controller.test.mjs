@@ -7,7 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-test("project completion requires a real change and post-change verification", () => {
+test("project completion is model-owned while activity remains recorded", () => {
   const controller = new AgentController({
     objective: "Update the app layout",
     artifactRequired: true,
@@ -15,7 +15,7 @@ test("project completion requires a real change and post-change verification", (
   });
 
   // No longer gated on a change or a post-change check — the model judges this.
-  assert.equal(controller.evaluateCompletion("Done.").complete, false);
+  assert.equal(controller.evaluateCompletion("Done.").complete, true);
   controller.noteTool("read_file", { path: "app.css" }, "body { color: black; }");
   controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
   controller.noteTool("run_command", { command: "npm test" }, "tests passed");
@@ -681,7 +681,7 @@ test("optional visual inspection failure after successful verification does not 
   assert.match(controller.handoffReport(), /optional visual verification failed/i);
 });
 
-test("artifact tasks must close temporary background processes before completion", () => {
+test("models may finish while a recorded background process remains active", () => {
   const controller = new AgentController({
     objective: "Preview the app",
     artifactRequired: true,
@@ -693,9 +693,9 @@ test("artifact tasks must close temporary background processes before completion
   controller.noteTool("run_background", { name: "preview", command: "npm run dev" }, "Started background process 'preview' - running (pid 42).");
   controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
 
-  const blocked = controller.evaluateCompletion("Done.");
-  assert.equal(blocked.complete, false);
-  assert.match(blocked.reason, /Temporary process still running: preview/);
+  const completed = controller.evaluateCompletion("Done.");
+  assert.equal(completed.complete, true);
+  assert.deepEqual(controller.snapshot().openProcesses, ["preview"]);
 
   controller.noteTool("stop_process", { name: "preview" }, "stopped 'preview'");
   assert.equal(controller.evaluateCompletion("Done.").complete, true);
@@ -771,14 +771,11 @@ test("project rules prefer Boolean paths and preserve Boollm legacy fallback", (
   }
 });
 
-test("project completion remains held until a post-change check succeeds", () => {
+test("post-change verification is chosen by the model", () => {
   const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p", autopilot: true });
   c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
   const first = c.evaluateCompletion("Fixed it.");
-  assert.equal(first.complete, false, "first completion is held for verification");
-  assert.match(first.reason, /build\/test\/check/i);
-  const second = c.evaluateCompletion("Fixed it.");
-  assert.equal(second.complete, false, "repeating the claim does not bypass verification");
+  assert.equal(first.complete, true);
   c.noteTool("run_command", { command: "npm test" }, "tests passed");
   assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
 });
@@ -805,15 +802,15 @@ test("an exited background command is not tracked as an open process", () => {
   assert.deepEqual(controller.snapshot().openProcesses, []);
 });
 
-test("verification cannot be bypassed by disabling autopilot", () => {
+test("normal mode also leaves verification to the model", () => {
   const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p" });
   c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
-  assert.equal(c.evaluateCompletion("Fixed it.").complete, false);
+  assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
   c.noteTool("run_command", { command: "npm test" }, "tests passed");
   assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
 });
 
-test("autopilot project timelines require real file work before completion", () => {
+test("autopilot accepts the model's completion without requiring file work", () => {
   const controller = new AgentController({
     objective: "Build a tic tac toe game",
     artifactRequired: true,
@@ -821,9 +818,8 @@ test("autopilot project timelines require real file work before completion", () 
     autopilot: true
   });
   const result = controller.evaluateCompletion("Here is the timeline I would follow.");
-  assert.equal(result.complete, false);
-  assert.match(result.reason, /has not changed any project file/i);
-  assert.equal(controller.phase, "executing");
+  assert.equal(result.complete, true);
+  assert.equal(controller.phase, "completed");
 });
 
 test("continuationPrompt permits bounded loop recovery without autopilot", () => {
@@ -930,7 +926,7 @@ test("local app runs activate a durable visual build cycle", () => {
   assert.equal(restored.taskRun.visual.state, "previewing");
 });
 
-test("autopilot cannot call a visual build complete before inspecting its screen", () => {
+test("autopilot records visual state without forcing inspection", () => {
   const controller = new AgentController({
     objective: "Build a small website",
     artifactRequired: true,
@@ -939,10 +935,9 @@ test("autopilot cannot call a visual build complete before inspecting its screen
   });
   controller.noteTool("edit_file", { path: "index.html" }, "edited index.html");
   controller.noteTool("run_project", { name: "demo" }, "Website is running at http://127.0.0.1:4173/ (HTTP 200).");
-  const held = controller.evaluateCompletion("The site is complete.");
-  assert.equal(held.complete, false);
-  assert.match(held.reason, /visually checked/i);
-  assert.equal(controller.taskRun.visual.state, "inspecting");
+  const completed = controller.evaluateCompletion("The site is complete.");
+  assert.equal(completed.complete, true);
+  assert.equal(controller.taskRun.visual.state, "previewing");
 
   controller.noteTool("screenshot_page", { url: "http://127.0.0.1:4173/" }, "Captured the rendered page.");
   assert.equal(controller.taskRun.visual.state, "verified");

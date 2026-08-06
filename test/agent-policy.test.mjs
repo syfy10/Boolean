@@ -39,11 +39,11 @@ test("Boolean does not override a model with a product-authored planning mode", 
   assert.doesNotMatch(prompts[0], /PLANNING MODE|Blocking questions \(0-3|wait for one user approval/i);
 });
 
-test("project builds require an early persistent live preview", (t) => {
+test("project briefs leave workflow and preview timing to the model", (t) => {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-preview-policy-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
   const prompt = projectBrief(projectDir);
-  assert.match(prompt, /LIVE PROJECT PREVIEW/);
-  assert.match(prompt, /call run_project as soon as the existing project can start/);
-  assert.match(prompt, /Never use a file:\/\/ URL/);
+  assert.match(prompt, /Choose the tools, order of work, level of inspection, and verification/);
+  assert.match(prompt, /does not require a particular planning, preview, editing, or testing sequence/);
+  assert.doesNotMatch(prompt, /LIVE PROJECT PREVIEW|run_project as soon/);
 });

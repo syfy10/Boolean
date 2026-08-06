@@ -964,7 +964,7 @@ test("agent tasks continue past the legacy tool-turn limit", async (t) => {
   assert.equal(checkpoints, 16, "every tool result and final answer should be checkpointed");
 });
 
-test("clear artifact requests keep working until files are changed and checked", async (t) => {
+test("clear artifact requests respect the selected model's workflow", async (t) => {
   let calls = 0;
   let nudgedRequest = null;
   let protocolRequest = null;
@@ -1018,13 +1018,13 @@ test("clear artifact requests keep working until files are changed and checked",
     onCheckpoint() {}
   }, messages);
 
-  assert.equal(answer, "Built and verified the requested game.");
-  assert.equal(calls, 5);
-  assert.deepEqual(steps, ["list_dir", "write_file", "run_command"]);
+  assert.equal(answer, "Here are the steps you can follow to make the game yourself.");
+  assert.equal(calls, 1);
+  assert.deepEqual(steps, []);
   assert.match(nudgedRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
   assert.match(nudgedRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.equal(nudgedRequest.tool_choice, undefined);
-  assert.ok(protocolRequest);
+  assert.equal(protocolRequest, null);
   assert.match(messages.map((message) => message.content || "").join("\n"), /steps you can follow/);
 });
 

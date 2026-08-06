@@ -1177,43 +1177,11 @@ export class AgentController {
       syncTaskRunFromController(this.taskRun, this);
       return { complete: false, reason: `The task is paused after a blocked action: ${cleanText(this.lastFailure, 300)}` };
     }
-    if (this.openProcesses.length) {
-      const visualVerified = this.taskRun.visual?.state === "verified";
-      const blockingProcesses = this.openProcesses.filter((name) => {
-        const command = this.openProcessCommands[name] || "";
-        const looksLikePreview = /(?:preview|server|serve|dev|watch)/i.test(`${name} ${command}`);
-        return !(visualVerified && looksLikePreview);
-      });
-      if (blockingProcesses.length) {
-        return { complete: false, reason: `Temporary process still running: ${blockingProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
-      }
-    }
-    if (this.projectBound && this.artifactRequired && this.mutationCount === 0) {
-      this.phase = "executing";
-      this.updatedAt = Date.now();
-      return {
-        complete: false,
-        reason: "This project task has not changed any project file. Use the available project tools to implement the requested work instead of only describing a timeline or tutorial."
-      };
-    }
+    // Tool/process activity remains visible in the task timeline, but it is
+    // evidence for the model rather than a Boolean-authored completion gate.
     // Verification nudge (autopilot only): a build/fix task that changed files but
     // ran no build/test/check should confirm before finishing — once, so it can
     // never loop. Neutral relay keeps its current "accept the answer" behavior.
-    if (this.projectBound && this.artifactRequired && this.mutationCount > 0
-        && this.lastVerification < this.lastMutation && !this.postFixEvidence) {
-      this.verificationNudged = true;
-      this.phase = "verifying";
-      this.updatedAt = Date.now();
-      return { complete: false, reason: "Files changed, but no successful build/test/check has verified the current edits. Run the project's relevant check after the last change. If verification is unavailable or fails, report the exact blocker instead of claiming completion." };
-    }
-    if (this.autopilot && !this.visualVerificationNudged && this.taskRun.visual?.enabled
-        && this.taskRun.visual.previewUrl && this.taskRun.visual.state !== "verified") {
-      this.visualVerificationNudged = true;
-      this.phase = "verifying";
-      this.updatedAt = Date.now();
-      updateTaskRunVisual(this.taskRun, { state: "inspecting" });
-      return { complete: false, reason: "The local preview is open but the latest screen has not been visually checked. Capture or inspect the rendered page once, fix any visible issue, and then finish with the verified outcome." };
-    }
     this.phase = "completed";
     for (const item of this.plan) item.status = "done";
     this.updatedAt = Date.now();

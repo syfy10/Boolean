@@ -296,9 +296,8 @@ export function projectBrief(projectDir) {
       "",
       "",
       `PROJECT: This chat is bound to the folder ${projectDir}.`,
-      "Work on the files in THIS folder. For multi-file tasks, use repository_map to rank the relevant files,",
-      "then inspect exact symbols or line ranges, prefer edit_file for targeted changes, and verify with run_command before claiming success.",
-      "LIVE PROJECT PREVIEW: For every browser-previewable website or web app build/change task, call run_project as soon as the existing project can start, before lengthy implementation. Keep that localhost preview running while you edit, and call run_project again after meaningful changes so Boolean refreshes the built-in browser. Never use a file:// URL or open an unrelated localhost service. Desktop/native projects open their real app window instead."
+      "Work only on files in THIS folder. Choose the tools, order of work, level of inspection, and verification that fit the request.",
+      "Use the project rules below when present. Boolean does not require a particular planning, preview, editing, or testing sequence."
     ];
     const rules = loadProjectRules(projectDir);
     if (rules) header.push(rules);
