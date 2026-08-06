@@ -5595,25 +5595,25 @@ body:not(.composer-simple) main::after{
   body.sales-open .workspace-float .sales-panel{ display:flex; }
   body.library-open .workspace-float .library-panel{ display:flex; }
   body.studio-open .workspace-float .studio-panel{ display:block; }
-  body.education-open #chat,body.markets-open #chat,body.recipes-open #chat{ display:block!important; }
-  body.education-open .composer-wrap,body.markets-open .composer-wrap,body.recipes-open .composer-wrap{ display:flex!important; }
-  body.education-open #cmdBar,body.markets-open .cmd-bar,body.recipes-open .cmd-bar{ display:flex!important; }
+  body.web-open #chat,body.education-open #chat,body.markets-open #chat,body.recipes-open #chat{ display:block!important; }
+  body.web-open .composer-wrap,body.education-open .composer-wrap,body.markets-open .composer-wrap,body.recipes-open .composer-wrap{ display:flex!important; }
+  body.web-open .cmd-bar,body.education-open #cmdBar,body.markets-open .cmd-bar,body.recipes-open .cmd-bar{ display:flex!important; }
   body.sales-open #chat,body.library-open #chat,body.studio-open #chat{ display:block!important; }
   body.sales-open .composer-wrap,body.sales-open .cmd-bar,body.library-open .composer-wrap,body.library-open .cmd-bar,body.studio-open .composer-wrap,body.studio-open .cmd-bar{ display:flex!important; }
-  body.education-open #chat,body.markets-open #chat,body.recipes-open #chat{
+  body.web-open #chat,body.education-open #chat,body.markets-open #chat,body.recipes-open #chat{
     align-self:flex-start; width:var(--workspace-chat-width,360px); max-width:var(--workspace-chat-width,360px);
     padding-inline:min(12px,calc(var(--workspace-chat-width,360px) / 4)); border-right:1px solid color-mix(in srgb,var(--border) 72%,transparent); box-sizing:border-box;
     overflow-x:hidden; overflow-y:auto; overscroll-behavior-y:contain;
   }
   body.sales-open #chat,body.library-open #chat,body.studio-open #chat{ right:auto!important; width:var(--workspace-chat-width,360px)!important; max-width:none!important; }
-  body.education-open .cmd-bar,body.markets-open .cmd-bar,body.recipes-open .cmd-bar{
+  body.web-open .cmd-bar,body.education-open .cmd-bar,body.markets-open .cmd-bar,body.recipes-open .cmd-bar{
     align-self:flex-start; width:var(--workspace-chat-width,360px); max-width:var(--workspace-chat-width,360px);
     box-sizing:border-box;
   }
   body.sales-open .cmd-bar,body.library-open .cmd-bar,body.studio-open .cmd-bar{ right:auto!important; width:var(--workspace-chat-width,360px)!important; max-width:none!important; }
-  body.education-open .composer-wrap,body.markets-open .composer-wrap,
+  body.web-open .composer-wrap,body.education-open .composer-wrap,body.markets-open .composer-wrap,
   body.recipes-open .composer-wrap,
-  body.education-open.composer-simple .composer-wrap,body.markets-open.composer-simple .composer-wrap,
+  body.web-open.composer-simple .composer-wrap,body.education-open.composer-simple .composer-wrap,body.markets-open.composer-simple .composer-wrap,
   body.recipes-open.composer-simple .composer-wrap{
     left:1px; right:auto; width:var(--workspace-chat-width,360px); max-width:var(--workspace-chat-width,360px);
     transform:none; box-sizing:border-box;
@@ -5623,15 +5623,15 @@ body:not(.composer-simple) main::after{
     left:1px; right:auto; width:var(--workspace-chat-width,360px); max-width:var(--workspace-chat-width,360px);
     transform:none; box-sizing:border-box;
   }
-  body.education-open .msg-user,body.markets-open .msg-user,body.recipes-open .msg-user{ max-width:88%; }
-  body.education-open .msg-ai,body.markets-open .msg-ai,body.recipes-open .msg-ai{ min-width:0; overflow-wrap:anywhere; }
+  body.web-open .msg-user,body.education-open .msg-user,body.markets-open .msg-user,body.recipes-open .msg-user{ max-width:88%; }
+  body.web-open .msg-ai,body.education-open .msg-ai,body.markets-open .msg-ai,body.recipes-open .msg-ai{ min-width:0; overflow-wrap:anywhere; }
   body.sales-open .msg-user,body.library-open .msg-user,body.studio-open .msg-user{ max-width:88%; }
   body.sales-open .msg-ai,body.library-open .msg-ai,body.studio-open .msg-ai{ min-width:0; overflow-wrap:anywhere; }
   body.workspace-chat-covered #chat,body.workspace-chat-covered .cmd-bar,
   body.workspace-chat-covered .composer-wrap,body.workspace-chat-covered main::after{
     visibility:hidden!important; pointer-events:none!important;
   }
-  body.education-open main::after,body.markets-open main::after,body.recipes-open main::after{
+  body.web-open main::after,body.education-open main::after,body.markets-open main::after,body.recipes-open main::after{
     display:block!important; left:0; right:auto; width:var(--workspace-chat-width,360px);
   }
   body.sales-open main::after,body.library-open main::after,body.studio-open main::after{ display:block!important; left:0; right:auto; width:var(--workspace-chat-width,360px); }

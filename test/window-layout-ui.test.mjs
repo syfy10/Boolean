@@ -1711,6 +1711,13 @@ test("project timelines stay hidden regardless of project binding", () => {
   assert.match(ui, /function shouldShowProjectPlan\(snapshot\) \{\s*return false;\s*\}/);
 });
 
+test("Explore Web keeps the chat transcript and composer visible", () => {
+  assert.match(ui, /body\.web-open #chat,body\.education-open #chat,body\.markets-open #chat,body\.recipes-open #chat\{ display:block!important; \}/);
+  assert.match(ui, /body\.web-open \.composer-wrap,body\.education-open \.composer-wrap,body\.markets-open \.composer-wrap,body\.recipes-open \.composer-wrap\{ display:flex!important; \}/);
+  assert.match(ui, /body\.web-open #chat,body\.education-open #chat,body\.markets-open #chat,body\.recipes-open #chat\{[\s\S]*?width:var\(--workspace-chat-width,360px\)/);
+  assert.match(ui, /body\.web-open\.composer-simple \.composer-wrap/);
+});
+
 test("Projects and Chats uses the flat Codex-style navigation and list hierarchy", () => {
   assert.match(ui, /id="sidebarPrimary" aria-label="Primary navigation"/);
   for(const label of ["New chat","GitHub","Preview","Scheduled","Skills"])
