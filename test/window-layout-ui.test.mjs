@@ -263,8 +263,8 @@ test("about page shows build metadata, release history, and working links", () =
   assert.match(ui, /id="aboutGitList"/);
   assert.match(ui, /async function loadAboutInfo/);
   assert.match(ui, /if\(section\.dataset\.sec==="about"\) loadAboutInfo\(\);/);
-  assert.match(ui, /aboutSource:"https:\/\/github\.com\/syfy10\/Boolean"/);
-  assert.match(ui, /aboutReleases:"https:\/\/github\.com\/syfy10\/Boolean\/releases"/);
+  assert.match(ui, /aboutSource:"https:\/\/github\.com\/syfy10\/Boollm"/);
+  assert.match(ui, /aboutReleases:"https:\/\/github\.com\/syfy10\/Boollm\/releases"/);
   assert.match(server, /if \(req\.method === "GET" && p === "\/api\/about"\)/);
   assert.match(server, /"log", "-6", "--date=short"/);
   assert.match(server, /releases: ABOUT_RELEASES/);

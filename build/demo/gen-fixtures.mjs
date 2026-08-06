@@ -88,7 +88,7 @@ const status = {
 };
 
 // ---- about (public repo info; safe to keep, but strip any local paths) ----
-const about = readCap("about.json", { appName: "Boollm", version: "0.9.71", displayVersion: "v0.9.71", channel: "Stable", repository: "https://github.com/syfy10/Boolean", sourceAvailable: true });
+const about = readCap("about.json", { appName: "Boollm", version: "0.9.71", displayVersion: "v0.9.71", channel: "Stable", repository: "https://github.com/syfy10/Boollm", sourceAvailable: true });
 
 const fixtures = {
   "/api/state": state,

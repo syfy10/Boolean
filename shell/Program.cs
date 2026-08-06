@@ -542,7 +542,7 @@ sealed class MainForm : Form
     static readonly string AppVersion =
         typeof(MainForm).Assembly.GetName().Version is { } av ? $"{av.Major}.{av.Minor}.{av.Build}" : "0.0.0";
     // Keep the existing repository URL until the GitHub repository itself is renamed.
-    const string UpdateManifestUrl = "https://github.com/syfy10/Boolean/releases/latest/download/update.json";
+    const string UpdateManifestUrl = "https://github.com/syfy10/Boollm/releases/latest/download/update.json";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     static extern uint GetClipboardSequenceNumber();

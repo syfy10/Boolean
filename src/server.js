@@ -703,7 +703,7 @@ function aboutPayload() {
     version: APP_VERSION,
     displayVersion: APP_DISPLAY_VERSION,
     channel: "Stable",
-    repository: "https://github.com/syfy10/Boolean",
+    repository: "https://github.com/syfy10/Boollm",
     branch: branch || "release",
     sourceAvailable: !!branch,
     commit: latest,
