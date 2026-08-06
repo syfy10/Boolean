@@ -77,6 +77,7 @@ import { manageAutomation, setAutomationActionHandler, startAutomationScheduler,
 import { appPath } from "./paths.js";
 import { EDITOR_ASSET_PREFIX, resolveEditorAsset } from "./editor-assets.js";
 import { detectLocalServers } from "./local-servers.js";
+import { marketsRoutes } from "./routes/markets.js";
 import { detectWebsiteTech } from "./tech-detector.js";
 import { gitCommit, gitCreateBranch, gitDiffFiles, gitFileContents, gitPushBranch, gitRestoreFiles, gitSourceStatus, gitStageFiles, githubCreatePullRequest } from "./git-review.js";
 import {
@@ -511,6 +512,16 @@ function loadAsset(name, devPath) {
 const IS_SEA = !!(sea.isSea && sea.isSea());
 const officialEducationById = new Map((officialEducationCatalog.exams || []).map((exam) => [exam.id, exam]));
 const officialEducationPdfCache = new Map();
+// Stand-in that ui.html ships with; the server swaps it for the launch token.
+const SESSION_TOKEN_PLACEHOLDER = "__SAZ_SESSION_TOKEN__";
+// Stand-in for the src/ui/ bundle (build/build-ui-logic.mjs). ui.html is one
+// huge inline script, so browser logic that wants a real unit test lives in
+// src/ui/ as an ES module and is inlined here on the way out.
+const UI_LOGIC_PLACEHOLDER = "/*__BOOLEAN_UI_LOGIC__*/";
+const loadUiLogic = () => {
+  if (IS_SEA) return loadAsset("ui-logic.js", "./assets/ui-logic.js").toString("utf8");
+  return fs.readFileSync(appPath("src", "assets", "ui-logic.js"), "utf8");
+};
 let devUiCache = { mtimeMs: -1, html: "" };
 let uiGzipCache = { html: "", gzip: null };
 const loadUiHtml = () => {
@@ -899,6 +910,39 @@ export function clearCodexThreadMapping(thread) {
   if (isMappedCodexOrchestration(thread.orchestration)) thread.orchestration = null;
   if (isMappedCodexOrchestration(thread.pendingTask?.orchestration)) thread.pendingTask.orchestration = null;
   return ids;
+}
+
+/**
+ * A task can outlive its streaming worker when an external coding CLI exits,
+ * its HTTP client disconnects, or the shell replaces the backend. Never leave
+ * that persisted checkpoint claiming to be live when no AbortController owns
+ * the turn anymore.
+ */
+export function interruptOrphanedPendingTask(thread, { now = Date.now(), graceMs = 15000 } = {}) {
+  const task = thread?.pendingTask;
+  if (!task || !["running", "interrupted"].includes(task.state)) return false;
+  const orphaned = task.state === "running" && !thread.abort && now - Number(task.updatedAt || 0) >= graceMs;
+  const splitBrain = task.state === "interrupted" && task.controller?.taskRun && !["completed", "failed", "paused"].includes(task.controller.taskRun.state);
+  if (!orphaned && !splitBrain) return false;
+  if (orphaned) { task.state = "interrupted"; task.updatedAt = now; }
+  const controller = task.controller;
+  if (controller && typeof controller === "object") {
+    if (!["completed", "failed"].includes(controller.phase)) controller.phase = "paused";
+    controller.updatedAt = now;
+    const run = controller.taskRun;
+    if (run && typeof run === "object" && !["completed", "failed", "paused"].includes(run.state)) {
+      run.state = "paused";
+      run.updatedAt = now;
+      run.sequence = Math.max(0, Number(run.sequence) || 0) + 1;
+      run.events = [...(Array.isArray(run.events) ? run.events : []), {
+        id: crypto.randomUUID(), sequence: run.sequence, type: "run.paused", status: "waiting",
+        title: "Task interrupted", detail: "The coding worker stopped responding. Continue the task to resume from this checkpoint.", at: now, details: {}
+      }].slice(-160);
+    }
+    if (controller.compaction && typeof controller.compaction === "object") controller.compaction.state = "paused";
+  }
+  thread.updatedAt = Math.max(Number(thread.updatedAt) || 0, now);
+  return true;
 }
 
 /** Describe the result without implying that Boolean owns Codex's storage. */
@@ -1554,6 +1598,11 @@ export function startServer(config, {
   port = 0,
   autoExit = false,
   emailOAuthClients = null,
+  // Secret the page must echo back on every state-changing call. A constant
+  // would let any other process running as this user drive the agent — run
+  // commands, read the project, send mail from a connected account. Random per
+  // launch, handed to the UI only by templating it into the served HTML.
+  sessionToken = crypto.randomBytes(24).toString("hex"),
   codexInstaller = installCodexStandaloneCli,
   codexPlatform = process.platform,
   codexClientFactory = createCodexAppServer,
@@ -1567,6 +1616,29 @@ export function startServer(config, {
   claudeTurnRunner = runClaudeCodeTurn
 } = {}) {
   const uiHtml = loadUiHtml();
+  // The page learns this launch's token by being served with it baked in.
+  // Cached against the source so dev reloads still pick up file edits.
+  const sessionHtmlCache = { source: "", logic: "", html: "" };
+  const uiHtmlForSession = () => {
+    const source = IS_SEA ? uiHtml : loadUiHtml();
+    const logic = loadUiLogic();
+    if (sessionHtmlCache.source !== source || sessionHtmlCache.logic !== logic) {
+      if (!source.includes(SESSION_TOKEN_PLACEHOLDER)) {
+        throw new Error(`ui.html is missing ${SESSION_TOKEN_PLACEHOLDER}; every API call would be rejected.`);
+      }
+      if (!source.includes(UI_LOGIC_PLACEHOLDER)) {
+        throw new Error(`ui.html is missing ${UI_LOGIC_PLACEHOLDER}; the src/ui/ bundle would never load.`);
+      }
+      sessionHtmlCache.source = source;
+      sessionHtmlCache.logic = logic;
+      sessionHtmlCache.html = source
+        .replace(SESSION_TOKEN_PLACEHOLDER, sessionToken)
+        // $-sequences are meaningful to String.replace; the bundle is code, not
+        // a replacement pattern, so hand it over as a function.
+        .replace(UI_LOGIC_PLACEHOLDER, () => logic);
+    }
+    return sessionHtmlCache.html;
+  };
   const managedEmailOAuthClients = emailOAuthClients || loadManagedEmailOAuthClients();
   const icon32 = loadAsset("icon-32.png", "../assets/saz-32.png");
   const icon256 = loadAsset("icon-256.png", "../assets/saz-256.png");
@@ -2459,6 +2531,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
   }
   function threadList() {
     cleanupBlankThreads();
+    let repairedOrphan = false;
+    for (const thread of threads.values()) repairedOrphan = interruptOrphanedPendingTask(thread) || repairedOrphan;
+    if (repairedOrphan) persist();
     return [...threads.values()]
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
       .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, pinned: !!t.pinned,
@@ -2750,9 +2825,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     if (!["127.0.0.1", "localhost", "[::1]"].includes(host)) {
       res.writeHead(403); res.end("forbidden"); return;
     }
-    // CSRF guard: state-changing API calls must carry the app's header.
-    // (Proxied web pages run in a sandboxed frame and can never add it.)
-    if (p.startsWith("/api/") && req.method === "POST" && p !== "/api/bye" && req.headers["x-saz"] !== "1") {
+    // CSRF guard: state-changing API calls must carry this launch's token.
+    // (Proxied web pages run in a sandboxed frame and can never add the header;
+    // the token additionally keeps other local processes out.)
+    if (p.startsWith("/api/") && req.method === "POST" && p !== "/api/bye" && req.headers["x-saz"] !== sessionToken) {
       res.writeHead(403); res.end("forbidden"); return;
     }
     try {
@@ -2772,7 +2848,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/" && !emailOAuthCallbackRequest) {
         // in dev (running from source) re-read the file each load, so editing
         // ui.html + refreshing the browser shows changes with no restart
-        const html = IS_SEA ? uiHtml : loadUiHtml();
+        const html = uiHtmlForSession();
         const acceptsGzip = /(?:^|,)\s*gzip\s*(?:,|$)/i.test(String(req.headers["accept-encoding"] || ""));
         if (acceptsGzip) {
           const body = compressedUiHtml(html);
@@ -3411,7 +3487,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         // The global CSRF guard only covers POST, and these routes create,
         // move, and delete real files in the user's project.
-        if (req.method !== "GET" && req.headers["x-saz"] !== "1") {
+        if (req.method !== "GET" && req.headers["x-saz"] !== sessionToken) {
           res.writeHead(403); res.end("forbidden"); return;
         }
         try {
@@ -4294,178 +4370,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
-      if (p.startsWith("/api/markets/") && !marketAccessAllowed(config)) {
-        json({ error: "Markets is available only to signed-in Boolean administrators." }, 403);
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/settings") {
-        const market = config.connectors?.marketData || {};
-        json({
-          provider: market.provider || "yahoo",
-          configured: !!market.apiKey,
-          selectedSymbol: market.selectedSymbol || "AAPL",
-          watchlist: Array.isArray(market.watchlist) ? market.watchlist : [],
-          optionsProvider: market.optionsProvider || "alpaca",
-          optionsFeed: market.optionsFeed === "opra" ? "opra" : "indicative",
-          alpacaConfigured: !!(market.alpacaKeyId && market.alpacaSecretKey),
-          massiveConfigured: !!market.massiveApiKey,
-          yahooExperimental: true
-        });
-        return;
-      }
-
-      if (req.method === "POST" && p === "/api/markets/settings") {
-        const body = await readBody(req);
-        const old = config.connectors?.marketData || {};
-        const provider = body.provider === "alphaVantage" ? "alphaVantage" : "yahoo";
-        const cleanSymbol = (value) => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g, "").slice(0, 24);
-        const watchlist = Array.isArray(body.watchlist)
-          ? [...new Set(body.watchlist.map(cleanSymbol).filter(Boolean))].slice(0, 20)
-          : (old.watchlist || []);
-        const apiKey = body.apiKey === "__keep__" ? (old.apiKey || "") : String(body.apiKey || "").trim().slice(0, 500);
-        const next = {
-          provider,
-          apiKey: provider === "alphaVantage" ? apiKey : "",
-          selectedSymbol: cleanSymbol(body.selectedSymbol) || old.selectedSymbol || "AAPL",
-          watchlist: watchlist.length ? watchlist : ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"],
-          optionsProvider: ["alpaca", "massive"].includes(body.optionsProvider) ? body.optionsProvider : (old.optionsProvider || "alpaca"),
-          optionsFeed: body.optionsFeed === "opra" ? "opra" : "indicative",
-          alpacaKeyId: body.alpacaKeyId === "__keep__" ? (old.alpacaKeyId || "") : String(body.alpacaKeyId || "").trim().slice(0, 500),
-          alpacaSecretKey: body.alpacaSecretKey === "__keep__" ? (old.alpacaSecretKey || "") : String(body.alpacaSecretKey || "").trim().slice(0, 500),
-          massiveApiKey: body.massiveApiKey === "__keep__" ? (old.massiveApiKey || "") : String(body.massiveApiKey || "").trim().slice(0, 500)
-        };
-        if (provider === "alphaVantage" && !next.apiKey) {
-          json({ error: "Alpha Vantage API key required." }, 400);
-          return;
-        }
-        if (body.test === true) {
-          try {
-            await testMarketSettings(next);
-            const testOptions = (next.optionsProvider === "alpaca" && next.alpacaKeyId && next.alpacaSecretKey)
-              || (next.optionsProvider === "massive" && next.massiveApiKey);
-            if (testOptions) await getOptionsChain(next, next.selectedSymbol);
-          }
-          catch (error) { json({ error: String(error?.message || error) }, 400); return; }
-        }
-        config.connectors = config.connectors || {};
-        config.connectors.marketData = next;
-        saveConfig(config, { preserveSecrets: false });
-        if (adminCloudVaultEnabled(config)) syncCloudVault(config, { merge: false }).catch(() => {});
-        json({
-          ok: true, provider, configured: !!next.apiKey, selectedSymbol: next.selectedSymbol, watchlist: next.watchlist,
-          optionsProvider: next.optionsProvider, optionsFeed: next.optionsFeed,
-          alpacaConfigured: !!(next.alpacaKeyId && next.alpacaSecretKey), massiveConfigured: !!next.massiveApiKey
-        });
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/snapshot") {
-        try {
-          const snapshot = await getMarketSnapshot(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL",
-            url.searchParams.get("range") || "6mo",
-            url.searchParams.get("interval") || ""
-          );
-          json({ ok: true, ...snapshot });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/quote") {
-        try {
-          const quote = await getMarketQuote(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL"
-          );
-          json({ ok: true, ...quote });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/dashboard") {
-        try {
-          const dashboard = await getMarketDashboard(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL"
-          );
-          json({ ok: true, ...dashboard });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/sectors") {
-        try {
-          json({ ok: true, ...await getSectorPerformance() });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/options") {
-        try {
-          const chain = await getOptionsChain(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL",
-            url.searchParams.get("expiration") || ""
-          );
-          json({ ok: true, ...chain });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/trade-ideas") {
-        try {
-          const ideas = await getTradeIdeas(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL"
-          );
-          json({ ok: true, ...ideas });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "POST" && p === "/api/markets/backtest") {
-        try {
-          const body = await readBody(req);
-          const symbol = String(body.symbol || "AAPL").slice(0, 16);
-          const range = ["6mo", "1y", "2y", "5y", "max"].includes(body.range) ? body.range : "5y";
-          const interval = String(body.interval || "").toLowerCase();
-          const validIntervals = new Set(["5m", "15m", "30m", "1h", "1d", "1wk", "1mo"]);
-          const snapshot = await getMarketSnapshot(
-            config.connectors?.marketData || {},
-            symbol,
-            range,
-            validIntervals.has(interval) ? interval : ""
-          );
-          json({ ok: true, ...runStrategyBacktest(snapshot, { ...body, symbol }) });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 400);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/cot") {
-        try {
-          const cot = await getCotSnapshot(url.searchParams.get("market") || "nasdaq");
-          json({ ok: true, ...cot });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
+      // /api/markets/* lives in src/routes/markets.js — see that file for the
+      // router contract the remaining groups should follow.
+      if (await marketsRoutes({ req, p, url, config, json, readBody, saveConfig, marketAccessAllowed })) return;
 
       if (req.method === "POST" && p === "/api/local-data/save") {
         saveConfig(config);

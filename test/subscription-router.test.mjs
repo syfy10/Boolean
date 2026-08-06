@@ -73,6 +73,7 @@ test("Auto tries the selected API first and escalates only its unverified coding
 
   const app = await startServer(config, {
     port: 0,
+    sessionToken: "1",
     claudeStatusReader() {
       return { ready: true, installed: true, signedIn: true, command: "claude", version: "test", account: { email: "test@example.com" }, error: "" };
     },

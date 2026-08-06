@@ -4,23 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeTradingStrategy } from "../src/server.js";
+import { emptyBreakoutRuntime, normalizeBreakoutConfig, stepBreakoutStrategy, strategyCandidatesForBars } from "../src/ui/breakout-strategy.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
 const server = fs.readFileSync(path.join(root, "src", "server.js"), "utf8").replace(/\r/g, "");
 
-function loadBreakoutEngine() {
-  const start = ui.indexOf("  function normalizeBreakoutConfig");
-  const end = ui.indexOf("\n\n  function buildTradingBrokerOptions", start);
-  assert.ok(start >= 0 && end > start, "breakout strategy engine not found");
-  const block = ui.slice(start, end)
-    .replace("  let breakoutConfig={...BREAKOUT_DEFAULTS};", "  let breakoutConfig={};")
-    .replace("  let breakoutRuntime=null;", "  let breakoutRuntime=null;");
-  return new Function("normalizeSymbolInput", "localStorage", `${block}\nreturn {emptyBreakoutRuntime,stepBreakoutStrategy,normalizeBreakoutConfig,strategyCandidatesForBars};`)(
-    (value) => String(value || "").trim().toUpperCase(),
-    { getItem: () => null, setItem: () => {} }
-  );
-}
 
 test("three-strategy settings are bounded and remain signal-only", () => {
   assert.deepEqual(normalizeTradingStrategy({
@@ -69,8 +58,7 @@ test("the ATR stop, regime gate, and outcome horizon are bounded too", () => {
 });
 
 test("20 completed five-minute bars produce one breakout setup with stop and target", () => {
-  const { emptyBreakoutRuntime, stepBreakoutStrategy } = loadBreakoutEngine();
-  const config = { enabled: true, mode: "breakout", timeframeMinutes: 5, lookbackBars: 20, riskReward: 2, maxSignalsPerDay: 4 };
+    const config = { enabled: true, mode: "breakout", timeframeMinutes: 5, lookbackBars: 20, riskReward: 2, maxSignalsPerDay: 4 };
   const span = 5 * 60_000;
   const base = Date.UTC(2026, 7, 3, 14, 0);
   let runtime = emptyBreakoutRuntime();
@@ -111,8 +99,7 @@ test("20 completed five-minute bars produce one breakout setup with stop and tar
 });
 
 test("atrStopMultiple 0 restores the candle-extreme stop", () => {
-  const { emptyBreakoutRuntime, stepBreakoutStrategy } = loadBreakoutEngine();
-  const config = { enabled: true, mode: "breakout", timeframeMinutes: 5, lookbackBars: 20, riskReward: 2, maxSignalsPerDay: 4, atrStopMultiple: 0 };
+    const config = { enabled: true, mode: "breakout", timeframeMinutes: 5, lookbackBars: 20, riskReward: 2, maxSignalsPerDay: 4, atrStopMultiple: 0 };
   const span = 5 * 60_000;
   const base = Date.UTC(2026, 7, 3, 14, 0);
   let runtime = emptyBreakoutRuntime();
@@ -129,8 +116,7 @@ test("atrStopMultiple 0 restores the candle-extreme stop", () => {
 });
 
 test("EMA crossover and range re-entry provide the two additional candidates", () => {
-  const { strategyCandidatesForBars } = loadBreakoutEngine();
-  const bar = (close) => ({ bucket: close * 1000, open: close, high: close + 0.1, low: close - 0.1, close });
+    const bar = (close) => ({ bucket: close * 1000, open: close, high: close + 0.1, low: close - 0.1, close });
   const falling = Array.from({ length: 30 }, (_, index) => bar(110 - index * 0.3));
   const ema = strategyCandidatesForBars([...falling, bar(200)], { mode: "ema", fastBars: 9, slowBars: 21 });
   assert.deepEqual(ema.candidates.filter(item => item.strategy === "ema").map(item => item.side), ["long"]);
@@ -142,8 +128,7 @@ test("EMA crossover and range re-entry provide the two additional candidates", (
 });
 
 test("symbol changes and missed candles reset strategy history", () => {
-  const { emptyBreakoutRuntime, stepBreakoutStrategy } = loadBreakoutEngine();
-  const config = { mode: "breakout", timeframeMinutes: 5, lookbackBars: 20, riskReward: 2, maxSignalsPerDay: 4 };
+    const config = { mode: "breakout", timeframeMinutes: 5, lookbackBars: 20, riskReward: 2, maxSignalsPerDay: 4 };
   const span = 5 * 60_000;
   const base = Date.UTC(2026, 7, 3, 14, 0);
   let result = stepBreakoutStrategy(emptyBreakoutRuntime(), { symbol: "AAPL", price: 200 }, config, base);

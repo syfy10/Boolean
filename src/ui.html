@@ -8086,6 +8086,10 @@ body:not(.composer-simple) main::after{
   </div>
 </div>
 
+<!-- Browser-side logic modules from src/ui/, bundled by build/build-ui-logic.mjs
+     and inlined here by the server. Defines window.BooleanTradingLogic. -->
+<script>/*__BOOLEAN_UI_LOGIC__*/</script>
+
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -8101,10 +8105,15 @@ body:not(.composer-simple) main::after{
     });
   });
   // all API calls carry a header the server requires (CSRF guard: sandboxed
-  // web pages in the browser panel can never send it)
+  // web pages in the browser panel can never send it). The server replaces the
+  // placeholder below with a random per-launch token as it serves this page, so
+  // other processes on the machine cannot call the API either. This wrapper is
+  // the single place the value is set — call sites may pass their own "x-saz"
+  // but it is always overwritten here.
+  const SAZ_TOKEN = "__SAZ_SESSION_TOKEN__";
   const _fetch = window.fetch.bind(window);
   const fetch = (u, o = {}) => _fetch(u, (typeof u === "string" && u.startsWith("/api"))
-    ? { ...o, headers: { ...(o.headers || {}), "x-saz": "1" } } : o);
+    ? { ...o, headers: { ...(o.headers || {}), "x-saz": SAZ_TOKEN } } : o);
   const perfStartedAt=performance.now();
   const perfTimings={};
   function renderPerfTimings(){
@@ -10046,56 +10055,9 @@ body:not(.composer-simple) main::after{
   let lastLegendDetails={};
   let lastPositionSyncIssue="";
   let tradingBrokerAutoOpened=false;
-  // Ticket state. `touched` records which fields the user has edited so the
-  // 5-second page refresh can keep prefilling the rest without ever
-  // overwriting something typed by hand mid-ticket.
-  // Mirrors ORDER_TYPES / TIME_IN_FORCE in trade-guard.js, which stays the
-  // authority — the guard rejects anything these two disagree with.
-  // `short` is what the bar shows; `label` is what gets matched against the
-  // broker's own option text when the order type is selected on the page. They
-  // differ because the widest label decides the dropdown's width, and a
-  // shortened one would no longer match "Trail Stop Limit" on the form.
-  const TICKET_ORDER_TYPES=Object.freeze({
-    "market":{short:"MKT",label:"Market",needs:[]},
-    "limit":{short:"LMT",label:"Limit",needs:["limit"]},
-    "stop":{short:"Stop",label:"Stop",needs:["trigger"]},
-    "stop-limit":{short:"Stop lmt",label:"Stop limit",needs:["trigger","limit"]},
-    "trail-stop":{short:"Trail",label:"Trail stop",needs:["trail"]},
-    "trail-stop-limit":{short:"Trail lmt",label:"Trail stop limit",needs:["trail","limit"]},
-    "moc":{short:"MOC",label:"MOC",needs:[]},
-    "loc":{short:"LOC",label:"LOC",needs:["limit"]}
-  });
-  const TICKET_TIF=Object.freeze({
-    "day":"Day","gtc":"GTC","ext":"EXT","gtc-ext":"GTC+EXT","am":"AM","pm":"PM"
-  });
-  // Broker tickets use different visible option names for the same canonical
-  // choice. Keep the compact bar labels above, but try the broker's common
-  // full names as well. The first value remains the preferred display label.
-  const TICKET_ORDER_TYPE_OPTIONS=Object.freeze({
-    "market":["Market","Market order"],
-    "limit":["Limit","Limit order"],
-    "stop":["Stop","Stop order","Stop market"],
-    "stop-limit":["Stop limit","Stop-limit","Stop limit order"],
-    "trail-stop":["Trail stop","Trailing stop","Trailing stop order"],
-    "trail-stop-limit":["Trail stop limit","Trailing stop limit","Trailing stop-limit"],
-    "moc":["MOC","Market on close","Market-on-close"],
-    "loc":["LOC","Limit on close","Limit-on-close"]
-  });
-  const TICKET_TIF_OPTIONS=Object.freeze({
-    "day":["Day","Good for day","Good for the day"],
-    "gtc":["GTC","Good till canceled","Good til canceled","Good until canceled"],
-    "ext":["EXT","Extended hours","Day + extended hours"],
-    "gtc-ext":["GTC+EXT","GTC + extended hours","Good till canceled + extended hours"],
-    "am":["AM","Morning","Market open"],
-    "pm":["PM","Evening","Market close"]
-  });
-  const emptyTicketState=()=>({
-    side:"",qty:"",type:"market",tif:"day",limit:"",trigger:"",trail:"",
-    stop:"",target:"",symbol:"",touched:{},
-    // Set once per account rather than per order, so they live behind More.
-    positionEffect:"auto",instruction:"",exchange:"",taxLot:"",accountName:"",
-    submitAt:"",submitOn:"",cancelAt:"",cancelOn:""
-  });
+  const {
+    TICKET_ORDER_TYPES, TICKET_TIF, TICKET_ORDER_TYPE_OPTIONS, TICKET_TIF_OPTIONS, emptyTicketState, correctSharePrice
+  } = window.BooleanTradingLogic;
   let ticketState=emptyTicketState();
   let ticketCheck=null;
   let ticketCheckTimer=0;
@@ -10112,58 +10074,17 @@ body:not(.composer-simple) main::after{
   let lastQuotePrice=0;
   const TRADING_STALE_MS=12000;
   const TRADING_ADAPTERS_TTL=30_000;
-  const BREAKOUT_HISTORY_YEARS=2;
-  const BREAKOUT_HISTORY_MIN_BARS=30;
-  const BREAKOUT_HISTORY_MAX_BARS=120;
+  const {
+    BREAKOUT_HISTORY_YEARS, BREAKOUT_HISTORY_MIN_BARS, BREAKOUT_HISTORY_MAX_BARS, BREAKOUT_DEFAULTS, normalizeBreakoutConfig, emptyBreakoutRuntime, cleanBreakoutBar, strategySeedRequest, historySpacingMinutes, breakoutDayKey, averageNumbers, emaForStrategy, atrForBars, efficiencyRatioForCloses, REGIME_STRATEGIES, regimeForEfficiency, strategyCandidatesForBars, strategyRequiredBars, advanceOpenSignals, stepBreakoutStrategy, buildBreakoutBarsFromHistory, seedIssue
+  } = window.BooleanTradingLogic;
   const BREAKOUT_STORAGE_KEY="boolean.breakout.strategy.v1";
-  const BREAKOUT_DEFAULTS=Object.freeze({enabled:false,key:"multi",mode:"all",timeframeMinutes:5,lookbackBars:20,fastBars:9,slowBars:21,meanBars:20,meanSigma:2,riskReward:2,maxSignalsPerDay:4,cooldownBars:2,atrBars:14,atrStopMultiple:1,regimeFilter:true,trendMinEfficiency:.35,rangeMaxEfficiency:.25,breakoutBufferAtr:.25,outcomeHorizonBars:20});
   const canonicalTradingAdapterId=(value)=>String(value||"").trim().toLowerCase().replace(/[\s_-]/g,"");
 
-  function normalizeBreakoutConfig(value={}){
-    const input=value&&typeof value==="object"?value:{};
-    const timeframe=[1,5,15].includes(Number(input.timeframeMinutes))?Number(input.timeframeMinutes):5;
-    const allowedModes=new Set(["breakout","ema","meanReversion","all"]);
-    const requested=String(input.mode||(input.key==="breakout"?"breakout":""));
-    const mode=allowedModes.has(requested)?requested:"all";
-    const fastBars=Math.min(50,Math.max(3,Math.round(Number(input.fastBars)||9)));
-    const slowBars=Math.min(100,Math.max(fastBars+2,Math.round(Number(input.slowBars)||21)));
-    return {
-      enabled:input.enabled===true,
-      key:mode==="all"?"multi":mode,
-      mode,
-      timeframeMinutes:timeframe,
-      lookbackBars:Math.min(100,Math.max(5,Math.round(Number(input.lookbackBars)||20))),
-      fastBars,
-      slowBars,
-      meanBars:Math.min(100,Math.max(10,Math.round(Number(input.meanBars)||20))),
-      meanSigma:Math.min(3,Math.max(1,Number(input.meanSigma)||2)),
-      riskReward:Math.min(5,Math.max(1,Number(input.riskReward)||2)),
-      maxSignalsPerDay:Math.min(10,Math.max(1,Math.round(Number(input.maxSignalsPerDay)||4))),
-      cooldownBars:Math.min(12,Math.max(1,Math.round(Number(input.cooldownBars)||2))),
-      // Kept in step with normalizeTradingStrategy() in server.js.
-      atrBars:Math.min(50,Math.max(5,Math.round(Number(input.atrBars)||14))),
-      atrStopMultiple:Math.min(3,Math.max(0,Number(input.atrStopMultiple??1))),
-      regimeFilter:input.regimeFilter!==false,
-      trendMinEfficiency:Math.min(1,Math.max(0,Number(input.trendMinEfficiency??.35))),
-      rangeMaxEfficiency:Math.min(1,Math.max(0,Number(input.rangeMaxEfficiency??.25))),
-      breakoutBufferAtr:Math.min(2,Math.max(0,Number(input.breakoutBufferAtr??.25))),
-      outcomeHorizonBars:Math.min(100,Math.max(5,Math.round(Number(input.outcomeHorizonBars)||20)))
-    };
-  }
   let breakoutConfig={...BREAKOUT_DEFAULTS};
   const breakoutHistoryBySymbol = new Map();
   const breakoutSeedRequest = new Map();
   // Why the last seed produced nothing, so "Warming up 3/22" can say whether it
   // is waiting on live candles by design or because the seed was refused.
-  let lastSeedIssue="";
-  function emptyBreakoutRuntime(){
-    return {symbol:"",dayKey:"",bars:[],current:null,signalsToday:0,lastSignal:null,lastSignalId:"",lastMetrics:null,lastConflictAt:0,openSignals:[]};
-  }
-  function cleanBreakoutBar(value){
-    if(!value||typeof value!=="object") return null;
-    const bar={bucket:Number(value.bucket),open:Number(value.open),high:Number(value.high),low:Number(value.low),close:Number(value.close)};
-    return Object.values(bar).every(Number.isFinite)&&bar.open>0&&bar.high>0&&bar.low>0&&bar.close>0?bar:null;
-  }
   function loadBreakoutRuntime(){
     try{
       const saved=JSON.parse(localStorage.getItem(BREAKOUT_STORAGE_KEY)||"null");
@@ -10190,59 +10111,6 @@ body:not(.composer-simple) main::after{
   // Yahoo's range→interval table decides the grain, so the seed has to ask for
   // the grain it wants explicitly. Anything coarser than the strategy's
   // timeframe cannot be turned into intraday candles by bucketing.
-  function strategySeedRequest(config={}){
-    const cfg=normalizeBreakoutConfig(config);
-    if(cfg.timeframeMinutes<=1) return {range:"5d",interval:"1m"};
-    if(cfg.timeframeMinutes<=5) return {range:"1mo",interval:"5m"};
-    return {range:"1mo",interval:"15m"};
-  }
-  // Median gap between points, in minutes. Median rather than mean so overnight
-  // and weekend gaps in an intraday series do not drag the estimate up.
-  function historySpacingMinutes(points){
-    const times=(Array.isArray(points)?points:[]).map((point)=>Number(point?.time))
-      .filter(Number.isFinite).sort((a,b)=>a-b);
-    if(times.length<3) return 0;
-    const gaps=times.slice(1).map((time,index)=>(time-times[index])/60_000).filter((gap)=>gap>0).sort((a,b)=>a-b);
-    if(!gaps.length) return 0;
-    return gaps[Math.floor(gaps.length/2)];
-  }
-  function buildBreakoutBarsFromHistory(points,config){
-    const cfg=normalizeBreakoutConfig(config);
-    const span=Math.max(1,cfg.timeframeMinutes*60_000);
-    const now=Date.now();
-    const cutoff=now-BREAKOUT_HISTORY_YEARS*365.25*24*60*60*1000;
-    // Aggregating finer bars into coarser ones is sound; the reverse is not.
-    // Weekly points bucketed into five-minute slots produce one "5m candle"
-    // per week — a 20-bar breakout range that is really 20 weeks wide, and an
-    // EMA crossover months out of date. Refuse the seed instead.
-    const spacing=historySpacingMinutes(points);
-    if(spacing>cfg.timeframeMinutes*1.5){
-      lastSeedIssue=`history came back in ~${Math.round(spacing)}-minute bars, too coarse for ${cfg.timeframeMinutes}-minute candles`;
-      return [];
-    }
-    lastSeedIssue="";
-    const ordered=(Array.isArray(points)?points:[]).map((point)=>{
-      const bucket=Math.floor(Number(point.time)/span)*span;
-      const open=Number(point.open);
-      const high=Number(point.high);
-      const low=Number(point.low);
-      const close=Number(point.close);
-      if(!Number.isFinite(bucket)||!Number.isFinite(open)||!Number.isFinite(high)||!Number.isFinite(low)||!Number.isFinite(close)) return null;
-      return {time:Number(point.time),bucket,open,high,low,close};
-    }).filter(Boolean).filter((point)=>point.time>=cutoff&&point.time<=now).sort((a,b)=>a.time-b.time);
-    const grouped=new Map();
-    for(const point of ordered){
-      const existing=grouped.get(point.bucket);
-      if(existing){
-        existing.high=Math.max(existing.high,point.high);
-        existing.low=Math.min(existing.low,point.low);
-        existing.close=point.close;
-      }else{
-        grouped.set(point.bucket,{bucket:point.bucket,open:point.open,high:point.high,low:point.low,close:point.close});
-      }
-    }
-    return [...grouped.values()].sort((a,b)=>a.bucket-b.bucket).slice(-BREAKOUT_HISTORY_MAX_BARS);
-  }
   async function seedBreakoutHistory(symbol,config={}){
     const cfg=normalizeBreakoutConfig(config);
     const normalized=normalizeSymbolInput(symbol||"");
@@ -10282,303 +10150,6 @@ body:not(.composer-simple) main::after{
       breakoutSeedRequest.set(key,task);
     }
     await (breakoutSeedRequest.get(key)||Promise.resolve());
-  }
-  function breakoutDayKey(at){
-    try{
-      return new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(at));
-    }catch{ return new Date(at).toISOString().slice(0,10); }
-  }
-  const averageNumbers=(values)=>values.reduce((sum,value)=>sum+value,0)/Math.max(1,values.length);
-  function emaForStrategy(values,period){
-    if(!Array.isArray(values)||values.length<period) return null;
-    const alpha=2/(period+1);
-    let ema=averageNumbers(values.slice(0,period));
-    for(let index=period;index<values.length;index+=1) ema=values[index]*alpha+ema*(1-alpha);
-    return ema;
-  }
-  // Average true range over the last `period` completed bars. Plain mean of the
-  // true ranges rather than Wilder's smoothing — one fewer piece of state, and
-  // it is only used to set a floor, not to trigger anything.
-  function atrForBars(list,period){
-    if(!Array.isArray(list)||list.length<period+1) return null;
-    const ranges=[];
-    for(let index=list.length-period;index<list.length;index+=1){
-      const bar=list[index], previous=list[index-1];
-      ranges.push(Math.max(bar.high-bar.low,Math.abs(bar.high-previous.close),Math.abs(bar.low-previous.close)));
-    }
-    const atr=averageNumbers(ranges);
-    return Number.isFinite(atr)&&atr>0?atr:null;
-  }
-  // Kaufman efficiency ratio: net movement divided by the path walked to get
-  // there, over the last `period` bars. 1 is a straight line, 0 is chop. It
-  // needs no threshold of its own and no extra parameters, which is why it is
-  // the regime measure here rather than something like ADX.
-  function efficiencyRatioForCloses(closes,period){
-    if(!Array.isArray(closes)||closes.length<period+1) return null;
-    const window=closes.slice(-(period+1));
-    const net=Math.abs(window.at(-1)-window[0]);
-    let path=0;
-    for(let index=1;index<window.length;index+=1) path+=Math.abs(window[index]-window[index-1]);
-    if(!(path>0)) return null;
-    return Math.min(1,net/path);
-  }
-  // Breakout is deliberately in neither list — it trades the transition, not a
-  // settled regime, so it is filtered by the ATR buffer instead.
-  const REGIME_STRATEGIES={trend:["ema"],range:["meanReversion"]};
-  function regimeForEfficiency(efficiency,cfg){
-    if(efficiency==null) return "unknown";
-    if(efficiency>=cfg.trendMinEfficiency) return "trend";
-    if(efficiency<=cfg.rangeMaxEfficiency) return "range";
-    return "mixed";
-  }
-  // Calculate all three candidates from one completed-candle history. The
-  // caller chooses the enabled strategy and rejects opposite simultaneous hits.
-  function strategyCandidatesForBars(bars,config={}){
-    const cfg=normalizeBreakoutConfig(config);
-    const list=(Array.isArray(bars)?bars:[]).map(cleanBreakoutBar).filter(Boolean);
-    const closes=list.map(bar=>bar.close);
-    const closed=list.at(-1)||null;
-    const candidates=[];
-    const metrics={};
-    const atr=atrForBars(list,cfg.atrBars);
-    // Measured on the bars BEFORE the signal candle. The regime is the context
-    // a signal fires into; including the signal's own bar lets one violent
-    // candle declare a trend and wave itself through.
-    const efficiency=efficiencyRatioForCloses(closes.slice(0,-1),cfg.lookbackBars);
-    const regimeBlocked=[];
-    if(closed&&list.length>=cfg.lookbackBars+1){
-      const prior=list.slice(-(cfg.lookbackBars+1),-1);
-      const high=Math.max(...prior.map(bar=>bar.high));
-      const low=Math.min(...prior.map(bar=>bar.low));
-      // A breakout is a regime *change*, so gating it on the prior regime is
-      // wrong in both directions: a quiet base breaking out is the setup this
-      // model wants, and chop and quiet look identical to an efficiency ratio.
-      // What separates a real break from a poke over the edge is size, so the
-      // close has to clear the range by a fraction of recent range.
-      const buffer=cfg.regimeFilter&&atr!=null?atr*cfg.breakoutBufferAtr:0;
-      metrics.breakout={high,low,buffer};
-      if(closed.close>high+buffer) candidates.push({strategy:"breakout",label:"Breakout",side:"long"});
-      else if(closed.close<low-buffer) candidates.push({strategy:"breakout",label:"Breakout",side:"short"});
-      else if(buffer>0&&(closed.close>high||closed.close<low)) regimeBlocked.push("breakout");
-    }
-    if(closed&&closes.length>=cfg.slowBars+1){
-      const previous=closes.slice(0,-1);
-      const fastBefore=emaForStrategy(previous,cfg.fastBars);
-      const slowBefore=emaForStrategy(previous,cfg.slowBars);
-      const fast=emaForStrategy(closes,cfg.fastBars);
-      const slow=emaForStrategy(closes,cfg.slowBars);
-      metrics.ema={fast,slow};
-      if(fastBefore!=null&&slowBefore!=null&&fast!=null&&slow!=null){
-        if(fastBefore<=slowBefore&&fast>slow) candidates.push({strategy:"ema",label:`EMA ${cfg.fastBars}/${cfg.slowBars}`,side:"long"});
-        else if(fastBefore>=slowBefore&&fast<slow) candidates.push({strategy:"ema",label:`EMA ${cfg.fastBars}/${cfg.slowBars}`,side:"short"});
-      }
-    }
-    if(closed&&closes.length>=cfg.meanBars+1){
-      const prior=closes.slice(-(cfg.meanBars+1),-1);
-      const mean=averageNumbers(prior);
-      const variance=averageNumbers(prior.map(value=>(value-mean)**2));
-      const deviation=Math.sqrt(variance);
-      const upper=mean+deviation*cfg.meanSigma;
-      const lower=mean-deviation*cfg.meanSigma;
-      const half=Math.max(1,Math.floor(prior.length/2));
-      const early=averageNumbers(prior.slice(0,half));
-      const late=averageNumbers(prior.slice(half));
-      const flatEnough=deviation>0&&Math.abs(late-early)<=deviation*.75;
-      metrics.meanReversion={mean,upper,lower,deviation,flatEnough};
-      const previousClose=prior.at(-1);
-      if(flatEnough&&previousClose<lower&&closed.close>=lower&&closed.close<mean){
-        candidates.push({strategy:"meanReversion",label:"Mean reversion",side:"long",target:mean});
-      }else if(flatEnough&&previousClose>upper&&closed.close<=upper&&closed.close>mean){
-        candidates.push({strategy:"meanReversion",label:"Mean reversion",side:"short",target:mean});
-      }
-    }
-    metrics.atr=atr;
-    metrics.efficiency=efficiency;
-    metrics.regime=regimeForEfficiency(efficiency,cfg);
-    metrics.regimeBlocked=regimeBlocked;
-    // The other two models are gated on the regime itself, each on the failure
-    // that actually costs them: an EMA cross in chop is the whipsaw, and mean
-    // reversion in a trend is standing in front of it. Breakout is handled
-    // above by its own buffer. When the tape cannot be measured the gate steps
-    // aside — this filters signal quality, it is not a safety rail.
-    if(cfg.regimeFilter&&efficiency!=null){
-      const fits=(strategy)=>REGIME_STRATEGIES.trend.includes(strategy)
-        ?efficiency>=cfg.trendMinEfficiency
-        :REGIME_STRATEGIES.range.includes(strategy)
-          ?efficiency<=cfg.rangeMaxEfficiency
-          :true;
-      const kept=[];
-      for(const candidate of candidates){
-        if(fits(candidate.strategy)) kept.push(candidate);
-        else regimeBlocked.push(candidate.strategy);
-      }
-      return {candidates:kept,metrics};
-    }
-    return {candidates,metrics};
-  }
-  function strategyRequiredBars(config={}){
-    const cfg=normalizeBreakoutConfig(config);
-    const needs={breakout:cfg.lookbackBars,ema:cfg.slowBars+1,meanReversion:cfg.meanBars+1};
-    return cfg.mode==="all"?Math.max(...Object.values(needs)):needs[cfg.mode]||cfg.lookbackBars;
-  }
-  // ── signal outcomes ────────────────────────────────────────────────────
-  // Every fired signal is followed forward so the strategies can be judged on
-  // what they actually did rather than on how they read. Two deliberate
-  // choices: the fill is the NEXT bar's open, because the signal bar's close
-  // is not a price anyone can get; and when a bar spans both the stop and the
-  // target, the stop wins, because assuming the good fill first is how a
-  // backtest flatters itself.
-  function advanceOpenSignals(runtime,closed,cfg,resolved){
-    const still=[];
-    for(const open of runtime.openSignals||[]){
-      if(!open||typeof open!=="object") continue;
-      // `fill` starts null and Number(null) is 0, not NaN — so this asks
-      // whether a real price has been recorded, not whether it parses.
-      if(!(Number(open.fill)>0)){
-        open.fill=closed.open;
-        open.risk=Math.abs(Number(open.fill)-Number(open.stop));
-        open.mfe=0;
-        open.mae=0;
-        open.barsSeen=0;
-        if(!(open.risk>0)){ continue; }
-      }
-      const long=open.side==="long";
-      const favourable=long?closed.high-open.fill:open.fill-closed.low;
-      const adverse=long?open.fill-closed.low:closed.high-open.fill;
-      open.mfe=Math.max(Number(open.mfe)||0,favourable/open.risk);
-      open.mae=Math.max(Number(open.mae)||0,adverse/open.risk);
-      open.barsSeen=(Number(open.barsSeen)||0)+1;
-      const stopHit=long?closed.low<=open.stop:closed.high>=open.stop;
-      const targetHit=long?closed.high>=open.target:closed.low<=open.target;
-      let outcome="";
-      let exit=0;
-      if(stopHit){ outcome="stop"; exit=open.stop; }
-      else if(targetHit){ outcome="target"; exit=open.target; }
-      else if(open.barsSeen>=cfg.outcomeHorizonBars){ outcome="timeout"; exit=closed.close; }
-      if(!outcome){ still.push(open); continue; }
-      const move=long?exit-open.fill:open.fill-exit;
-      resolved.push({
-        id:open.id,symbol:open.symbol,strategy:open.strategy,side:open.side,
-        regime:open.regime||"unknown",efficiency:Number(open.efficiency)||null,
-        timeframeMinutes:cfg.timeframeMinutes,
-        signalPrice:Number(open.signalPrice)||null,
-        fill:open.fill,stop:open.stop,target:open.target,
-        // Slippage against the price the signal was calculated at, which is
-        // the gap the entry-at-close assumption used to hide.
-        slippage:Number.isFinite(Number(open.signalPrice))
-          ?Math.round((long?open.fill-open.signalPrice:open.signalPrice-open.fill)*1e6)/1e6
-          :null,
-        outcome,
-        r:Math.round((move/open.risk)*1000)/1000,
-        mfe:Math.round(open.mfe*1000)/1000,
-        mae:Math.round(open.mae*1000)/1000,
-        bars:open.barsSeen,
-        at:open.at,resolvedAt:closed.bucket
-      });
-    }
-    runtime.openSignals=still.slice(-20);
-  }
-  // Build real completed candles from the quote visible in Boolean's browser.
-  // This engine emits display-only setups. It never clicks, stages, or submits.
-  function stepBreakoutStrategy(runtime,quote,config,at=Date.now()){
-    const next=runtime&&typeof runtime==="object"?runtime:emptyBreakoutRuntime();
-    const symbol=normalizeSymbolInput(quote?.symbol||"");
-    const price=Number(quote?.price);
-    const cfg=normalizeBreakoutConfig(config);
-    if(!symbol||!Number.isFinite(price)||price<=0) return {runtime:next,ready:false,reason:"no-quote"};
-    const dayKey=breakoutDayKey(at);
-    if(next.symbol!==symbol||next.dayKey!==dayKey){
-      Object.assign(next,emptyBreakoutRuntime(),{symbol,dayKey});
-    }
-    const span=cfg.timeframeMinutes*60_000;
-    const bucket=Math.floor(Number(at)/span)*span;
-    let signal=null;
-    let conflict=false;
-    let gapReset=false;
-    const resolvedOutcomes=[];
-    if(!next.current){
-      next.current={bucket,open:price,high:price,low:price,close:price};
-    }else if(bucket===next.current.bucket){
-      next.current.high=Math.max(next.current.high,price);
-      next.current.low=Math.min(next.current.low,price);
-      next.current.close=price;
-    }else if(bucket>next.current.bucket){
-      if(bucket>next.current.bucket+span){
-        Object.assign(next,emptyBreakoutRuntime(),{symbol,dayKey,current:{bucket,open:price,high:price,low:price,close:price}});
-        gapReset=true;
-      }else{
-        const closed={...next.current};
-        // Score the signals already in flight against this bar before looking
-        // for a new one, so a signal never grades itself on the bar it fired on.
-        advanceOpenSignals(next,closed,cfg,resolvedOutcomes);
-        const history=[...next.bars,closed].slice(-120);
-        const calculated=strategyCandidatesForBars(history,cfg);
-        next.lastMetrics=calculated.metrics;
-        const enabledOrder=cfg.mode==="all"?["breakout","ema","meanReversion"]:[cfg.mode];
-        const candidates=enabledOrder.flatMap(strategy=>calculated.candidates.filter(item=>item.strategy===strategy));
-        conflict=new Set(candidates.map(item=>item.side)).size>1;
-        if(conflict) next.lastConflictAt=closed.bucket+span;
-        const candidate=conflict?null:candidates[0]||null;
-        const cooldownActive=next.lastSignal&&closed.bucket+span-Number(next.lastSignal.at||0)<cfg.cooldownBars*span;
-        if(candidate&&!cooldownActive&&next.signalsToday<cfg.maxSignalsPerDay){
-          const entry=closed.close;
-          const meanMetric=calculated.metrics.meanReversion||{};
-          const candleStop=candidate.strategy==="meanReversion"
-            ?candidate.side==="long"
-              ?Math.min(closed.low,Number(meanMetric.lower)-Number(meanMetric.deviation||0)*.25)
-              :Math.max(closed.high,Number(meanMetric.upper)+Number(meanMetric.deviation||0)*.25)
-            :candidate.side==="long"?closed.low:closed.high;
-          // A signal candle can close a cent off its own low, which used to
-          // produce a one-tick stop that noise removes before the idea has a
-          // chance. Push the stop out to at least a fraction of recent range.
-          const atrFloor=(Number(calculated.metrics.atr)||0)*cfg.atrStopMultiple;
-          const stop=atrFloor>0
-            ?(candidate.side==="long"?Math.min(candleStop,entry-atrFloor):Math.max(candleStop,entry+atrFloor))
-            :candleStop;
-          const risk=Math.abs(entry-stop);
-          const target=Number.isFinite(Number(candidate.target))
-            ?Number(candidate.target)
-            :candidate.side==="long"?entry+risk*cfg.riskReward:entry-risk*cfg.riskReward;
-          const targetValid=candidate.side==="long"?target>entry:target<entry;
-          const id=`${symbol}:${closed.bucket}:${candidate.strategy}:${candidate.side}`;
-          if(risk>0&&targetValid&&id!==next.lastSignalId){
-            signal={id,side:candidate.side,strategy:candidate.strategy,strategyLabel:candidate.label,entry,stop,target,risk,at:closed.bucket+span,symbol,
-              regime:calculated.metrics.regime,efficiency:calculated.metrics.efficiency,atr:calculated.metrics.atr};
-            next.lastSignal=signal;
-            next.lastSignalId=id;
-            next.signalsToday+=1;
-            // Follow it from the next bar. `fill` stays null until that bar
-            // opens, which is the price this signal is actually graded on.
-            next.openSignals=[...(next.openSignals||[]),{
-              id,symbol,strategy:candidate.strategy,side:candidate.side,
-              signalPrice:entry,stop,target,fill:null,at:signal.at,
-              regime:calculated.metrics.regime,efficiency:calculated.metrics.efficiency
-            }].slice(-20);
-          }
-        }
-        next.bars=history;
-        next.current={bucket,open:price,high:price,low:price,close:price};
-      }
-    }
-    const recentSignal=signal||(
-      next.lastSignal&&Number(at)-Number(next.lastSignal.at||0)<span
-        ?next.lastSignal
-        :null
-    );
-    const required=strategyRequiredBars(cfg);
-    return {
-      runtime:next,
-      ready:next.bars.length>=required,
-      barsReady:Math.min(next.bars.length,required),
-      requiredBars:required,
-      metrics:next.lastMetrics,
-      signal:recentSignal,
-      conflict:conflict||(next.lastConflictAt&&Number(at)-next.lastConflictAt<span),
-      signalLimitReached:next.signalsToday>=cfg.maxSignalsPerDay,
-      gapReset,
-      resolvedOutcomes,
-      openSignals:(next.openSignals||[]).length
-    };
   }
 
   function buildTradingBrokerOptions(adapters=[]){
@@ -10669,11 +10240,11 @@ body:not(.composer-simple) main::after{
     }
   }
 
-  const normalizeSymbolInput=(value)=>{
-    const raw=String(value||"").trim().toUpperCase();
-    const future=raw.match(/^\/([A-Z0-9]{2,12})$/);
-    return future?`/${future[1]}`:raw.replace(/[^A-Z0-9.^=-]/g,"").slice(0,24);
-  };
+  // Pure trading text parsers now live in src/ui/trading-logic.js so the
+  // tests can import them instead of slicing them out of this file.
+  const {
+    normalizeSymbolInput, TICKER_STOPWORDS, tickerOk, symbolFromPageText, beforeQuoteHints, quoteFromPageText, legendNumber, legendSignedNumber, legendTradingDetailsFromPageText
+  } = window.BooleanTradingLogic;
   breakoutRuntime=loadBreakoutRuntime();
   // Some broker pages carry no ticker in the URL at all — a Robinhood Legend
   // layout is /legend/layout/<uuid>, so URL parsing always comes up empty and the
@@ -10681,38 +10252,6 @@ body:not(.composer-simple) main::after{
   // native pane is showing (page text first, then OCR of the rendered pixels).
   let lastPageSymbol="", lastPageSymbolAt=0;
   const PAGE_SYMBOL_TTL=4000;
-  // Words that look like tickers on a broker page but never are. Without this,
-  // OCR of "Alphabet Class A $375.25" reads the symbol as "A".
-  const TICKER_STOPWORDS=new Set(["A","I","B","S","O","H","L","C","P","THE","BUY","SELL","SHORT","LONG",
-    "HIGH","LOW","OPEN","CLOSE","VOL","VOLUME","USD","ETF","INC","CLASS","NEW","TAB","ADD","MKT","LMT",
-    "DAY","AM","PM","ET","EST","EDT","AI","US","IPO","CEO","CFO","RANGE","TODAY","NEWS","CHART","MARKET",
-    "HOURS","BID","ASK","AVG","MAX","MIN","OK","API","APP","PC","IT"]);
-  const tickerOk=(t)=>/^\/[A-Z0-9]{2,12}$/.test(String(t||""))||
-    (!!t&&t.length>=2&&t.length<=5&&!TICKER_STOPWORDS.has(t));
-  function symbolFromPageText(text){
-    const body=String(text||"");
-    if(!body) return "";
-    // Legend futures headers use a slash contract and often omit the dollar
-    // sign: "/MYMU26 53,418 \u25B2 84 (0.16%)".
-    // OCR may put toolbar labels or a line break between the contract and quote.
-    const future=body.match(/(?:^|\s)(\/[A-Z]{2,8}\d{1,2})\b/);
-    if(future) return normalizeSymbolInput(future[1]);
-    // "GOOGL $375.25" — a ticker immediately before a price is the strongest signal.
-    for(const m of body.matchAll(/\b([A-Z][A-Z.]{1,4})\b[\s ]*\$\s*[\d,]+\.\d\d/g)){
-      const t=normalizeSymbolInput(m[1]);
-      if(tickerOk(t)) return t;
-    }
-    const dollar=body.match(/\$([A-Z]{2,5})\b/);
-    if(dollar){
-      const t=normalizeSymbolInput(dollar[1]);
-      if(tickerOk(t)) return t;
-    }
-    for(const m of body.matchAll(/\b([A-Z]{2,5})\b/g)){
-      const t=normalizeSymbolInput(m[1]);
-      if(tickerOk(t)) return t;
-    }
-    return "";
-  }
   // ── the page IS the market data source ──────────────────────────
   // The broker page already shows the symbol, the price and the day change. Asking
   // a quote API for the same numbers means a second source that can disagree, lag,
@@ -10726,201 +10265,6 @@ body:not(.composer-simple) main::after{
       pageTextWaiters[id]=resolve;
       setTimeout(()=>{ if(pageTextWaiters[id]){ delete pageTextWaiters[id]; resolve(null); } },7000);
     });
-  }
-  // "GOOGL $371.99 ▲ $15.86 (4.45%)" → { symbol, price, changePercent, changeAbs }
-  // Everything the page rendered in document order, without the shell's
-  // unordered React-state hint block appended to the end of it.
-  const beforeQuoteHints=(text)=>String(text||"").split("DOM quote hints:")[0];
-  function quoteFromPageText(text){
-    const body=String(text||"").replace(/ /g," ");
-    if(!body) return null;
-    const symbol=symbolFromPageText(body);
-    if(!symbol) return null;
-    // The first price after the symbol is the quote; later prices are bid/ask/range.
-    const at=body.indexOf(symbol);
-    const after=at>=0?body.slice(at,at+400):body.slice(0,400);
-    const futureTail=symbol.startsWith("/")?after.slice(symbol.length):"";
-    // OCR often reads the headline before the contract line and turns the up
-    // triangle into "A". Prefer the price/change/(percent) headline over the
-    // chart's C value, which can be a historical candle under the mouse.
-    const futuresHeadline=symbol.startsWith("/")
-      ?body.match(/(?:^|\n)\s*(\d{2,3}(?:,\d{3})+(?:\.\d+)?)\s*[▲▼AV+-]?\s*[\d,]+(?:\.\d+)?\s*\(\s*[-+]?\d+(?:\.\d+)?\s*%\s*\)/m)
-      :null;
-    // The live quote is rendered as one string: symbol, price, absolute change,
-    // percent change, in that order. Matching the whole shape is what tells it
-    // apart from the OHLC strip ("O 40.05 H 40.05 L 40.01 C 40.01") and from a
-    // Positions row, both of which sit near the ticker and both of which the
-    // "first dollar amount after the symbol" rule happily mistook for a quote.
-    const escapedSymbol=symbol.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
-    const equityHeadline=symbol.startsWith("/")?null:body.match(new RegExp(
-      `\\b${escapedSymbol}\\b[^\\d$]{0,40}\\$?\\s*([\\d,]+\\.\\d{2})\\s*[\\u25B2\\u25BCAV+\\-]?\\s*\\$?\\s*[\\d,]+\\.\\d{2}\\s*\\(\\s*[-+]?\\d+(?:\\.\\d+)?\\s*%\\s*\\)`
-    ));
-    const priceMatch=futuresHeadline||equityHeadline||
-      after.match(/\$\s*([\d,]+\.\d{2})/)||
-      (symbol.startsWith("/")?futureTail.match(/^(?![^\d]{0,80}\b(?:O|H|L|C|V|VOLUME)\b)[^\d]{0,80}(\d{2,3}(?:,\d{3})+(?:\.\d+)?|\d{4,6}(?:\.\d+)?)/i):null)||
-      (symbol.startsWith("/")?body.match(/\bC\s*([\d,]{4,}(?:\.\d+)?)\b/i):null);
-    if(!priceMatch) return null;
-    const price=Number(priceMatch[1].replace(/,/g,""));
-    if(!Number.isFinite(price)) return null;
-    // Which rule produced this number. The loose scan is the one that can pick
-    // up a table cell or a candle value, so when a price looks wrong the bar
-    // can say what it matched instead of leaving you to guess.
-    const priceSource=futuresHeadline?"futures headline"
-      :equityHeadline?"quote headline"
-      :"nearest dollar amount after the ticker";
-    const pctMatch=(symbol.startsWith("/")?body.match(/\(\s*([-+]?\d+(?:\.\d+)?)\s*%\s*\)/):null)||after.match(/\(\s*([-+]?\d+(?:\.\d+)?)\s*%\s*\)/);
-    const absMatch=after.match(/([-+]?)\$\s*([\d,]+\.\d{2})\s*\(/);
-    const futuresAbs=symbol.startsWith("/")
-      ?after.slice(symbol.length).match(/^\s*[\d,]+(?:\.\d+)?\s*([\u25B2\u25BC+-]?)\s*([\d,]+(?:\.\d+)?)\s*\(/)
-      :null;
-    let changePercent=pctMatch?Number(pctMatch[1]):null;
-    let changeAbs=absMatch?Number(absMatch[2].replace(/,/g,"")):
-      futuresAbs?Number(futuresAbs[2].replace(/,/g,"")):null;
-    // Robinhood renders direction as ▲/▼ rather than a sign.
-    const down=/\u25BC/.test(after)||futuresAbs?.[1]==="-"||/-\s*\$/.test(after);
-    if(down){
-      if(changePercent!=null&&changePercent>0) changePercent=-changePercent;
-      if(changeAbs!=null&&changeAbs>0) changeAbs=-changeAbs;
-    }
-    return {symbol,price,changePercent,changeAbs,source:"page",priceSource};
-  }
-  const legendNumber=(value)=>{
-    const number=Number(String(value||"").replace(/[$,%\s,]/g,""));
-    return Number.isFinite(number)?number:null;
-  };
-  const legendSignedNumber=(marker,value)=>{
-    const number=legendNumber(value);
-    if(number==null) return null;
-    return /[▼-]/.test(String(marker||""))?-Math.abs(number):Math.abs(number);
-  };
-  // Parse the compact Legend panels shown beside/below the chart. These values
-  // are display-only context for the bar; order execution remains behind the
-  // existing trading guard and never uses this parser to click or submit.
-  function legendTradingDetailsFromPageText(text,symbolHint=""){
-    const body=String(text||"").replace(/ /g," ").replace(/\s+/g," ").trim();
-    if(!body) return {};
-    const symbol=normalizeSymbolInput(symbolHint)||symbolFromPageText(body);
-    const details={};
-    // Legend writes the top of book several ways depending on the widget and
-    // its width: "B $39.43 x 100 / A $39.44 x 80" in the compact strip, and
-    // "Bid 39.43 Ask 39.44" when there is room for words. Only the first was
-    // recognised, so layouts using the second reported "spread --" forever.
-    const bid=body.match(/\bB\s*\$?\s*([\d,]+\.\d{2,4})\s*x\s*([\d,]+)/i)
-      ||body.match(/\bBid\b[^\d$]{0,12}\$?\s*([\d,]+\.\d{2,4})/i);
-    const ask=body.match(/\bA\s*\$?\s*([\d,]+\.\d{2,4})\s*x\s*([\d,]+)/i)
-      ||body.match(/\bAsk\b[^\d$]{0,12}\$?\s*([\d,]+\.\d{2,4})/i);
-    if(bid) details.bid=legendNumber(bid[1]);
-    if(ask) details.ask=legendNumber(ask[1]);
-    if(bid?.[2]) details.bidSize=legendNumber(bid[2]);
-    if(ask?.[2]) details.askSize=legendNumber(ask[2]);
-    // "Bid Size: 80 / Ask Size: 80" is the other form brokers use.
-    const bidSize=body.match(/\bBid\s*Size\b[^\d]{0,6}([\d,]+)/i);
-    const askSize=body.match(/\bAsk\s*Size\b[^\d]{0,6}([\d,]+)/i);
-    if(bidSize) details.bidSize=legendNumber(bidSize[1]);
-    if(askSize) details.askSize=legendNumber(askSize[1]);
-    // Day range, labelled either as a High/Low pair or a Hi/Lo strip.
-    const dayHigh=body.match(/\bHigh\b[^\d$-]{0,10}\$?\s*([\d,]+\.\d{2,4})/i);
-    const dayLow=body.match(/\bLow\b[^\d$-]{0,10}\$?\s*([\d,]+\.\d{2,4})/i);
-    if(dayHigh) details.dayHigh=legendNumber(dayHigh[1]);
-    if(dayLow) details.dayLow=legendNumber(dayLow[1]);
-    if(details.bid!=null&&details.ask!=null&&details.ask>=details.bid){
-      details.spread=Number((details.ask-details.bid).toFixed(4));
-    }
-
-    // Every position row, not just the one matching the visible symbol — the
-    // bar's expandable panel shows the whole table, so the account can be read
-    // without leaving the chat.
-    if(/\bPositions\b/i.test(body)){
-      const positionsAt=body.search(/\bPositions\b/i);
-      const recentAfter=body.slice(positionsAt+1).search(/\bRecent orders\b/i);
-      const table=body.slice(positionsAt,recentAfter>=0?positionsAt+1+recentAfter:body.length);
-      const rowPattern=/(\/[A-Z0-9]{2,12}|\b[A-Z]{1,6}\b)\s+([+-]?[\d,]+)\s+\$([\d,]+\.\d{2})\s+\$([\d,]+\.\d{2})\s+\$([\d,]+\.\d{2})\s+\$([\d,]+\.\d{2})\s+([▲▼+-]?)\s*\$([\d,]+\.\d{2})\s+([▲▼+-]?)\s*([\d.]+)%\s+([▲▼+-]?)\s*\$([\d,]+\.\d{2})\s+([▲▼+-]?)\s*([\d.]+)%/g;
-      const positions=Array.from(table.matchAll(rowPattern)).map((row)=>({
-        symbol:normalizeSymbolInput(row[1]),
-        qty:legendNumber(row[2]),
-        marketValue:legendNumber(row[3]),
-        mark:legendNumber(row[4]),
-        avgPrice:legendNumber(row[5]),
-        last:legendNumber(row[6]),
-        dayPnl:legendSignedNumber(row[7],row[8]),
-        dayPnlPercent:legendSignedNumber(row[9],row[10]),
-        openPnl:legendSignedNumber(row[11],row[12]),
-        openPnlPercent:legendSignedNumber(row[13],row[14])
-      })).filter((row)=>row.symbol);
-      // Legend's current compact widget drops market value, last and the
-      // percentage columns. Its rows are: Symbol, Mark, Quantity, Avg price,
-      // 1D open P&L. Accept that shape too instead of interpreting a readable
-      // but narrower table as an empty account.
-      const compactPattern=/(\/[A-Z0-9]{2,12}|\b[A-Z]{1,6}\b)\s+\$([\d,]+\.\d{2,4})\s+([+-]?[\d,]+(?:\.\d+)?)\s+\$([\d,]+\.\d{2,4})(?:\s+([▲▼+-]?)\s*\$([\d,]+\.\d{2}))?/g;
-      for(const row of table.matchAll(compactPattern)){
-        const rowSymbol=normalizeSymbolInput(row[1]);
-        if(!rowSymbol||positions.some((item)=>item.symbol===rowSymbol)) continue;
-        const mark=legendNumber(row[2]), qty=legendNumber(row[3]);
-        positions.push({
-          symbol:rowSymbol, qty, mark, avgPrice:legendNumber(row[4]), last:mark,
-          marketValue:Number.isFinite(mark)&&Number.isFinite(qty)?mark*qty:null,
-          dayPnl:legendSignedNumber(row[5],row[6]),
-          openPnl:legendSignedNumber(row[5],row[6])
-        });
-      }
-      const explicitEmpty=/(?:you\s+don.t\s+have\s+any|no)\s+(?:open\s+)?positions/i.test(table);
-      if(positions.length){ details.positions=positions; details.positionSyncOk=true; }
-      else if(explicitEmpty){ details.positions=[]; details.positionSyncOk=true; }
-      else details.positionSyncFailed=true;
-      // The visible symbol's own row still drives the bar's summary line.
-      const mine=symbol?positions.find((row)=>row.symbol===normalizeSymbolInput(symbol)):null;
-      if(mine){
-        details.positionQty=mine.qty;
-        details.marketValue=mine.marketValue;
-        details.mark=mine.mark;
-        details.avgPrice=mine.avgPrice;
-        details.last=mine.last;
-        details.dayPnl=mine.dayPnl;
-        details.dayPnlPercent=mine.dayPnlPercent;
-        details.openPnl=mine.openPnl;
-        details.openPnlPercent=mine.openPnlPercent;
-      }
-    }
-
-    const ordersAt=body.search(/\bRecent orders\b/i);
-    if(ordersAt>=0){
-      const positionsOffset=body.slice(ordersAt+1).search(/\bPositions\b/i);
-      const end=positionsOffset>=0?ordersAt+1+positionsOffset:body.length;
-      const ordersText=body.slice(ordersAt,end);
-      if(/(?:you\s+don.t\s+have\s+any|no)\s+(?:recent\s+|open\s+)?orders|orders\s+from\s+the\s+last/i.test(ordersText)){
-        details.openOrders=0;
-        details.orders=[];
-      }else{
-        // The rows themselves, so the panel can show what each order was
-        // rather than only how many are still working.
-        const rowPattern=/(\/[A-Z0-9]{2,12}|\b[A-Z]{1,6}\b)\s+(Filled|Canceled|Cancelled|Open|Pending|Queued|Submitted|Working|New|Partially\s+filled|Rejected|Expired)\s+(Buy|Sell|Short|Cover)\s+(Market|Limit|Stop\s+limit|Stop|Trail\s+stop\s+limit|Trail\s+stop|MOC|LOC)\s+([\d,]+)([\s\S]{0,70}?)(?=(?:\/[A-Z0-9]{2,12}|\b[A-Z]{1,6}\b)\s+(?:Filled|Canceled|Cancelled|Open|Pending|Queued|Submitted|Working|New|Partially\s+filled|Rejected|Expired)\s|$)/gi;
-        const orders=Array.from(ordersText.matchAll(rowPattern)).map((row)=>{
-          const tail=String(row[6]||"");
-          const filled=tail.match(/\$([\d,]+\.\d{2})/);
-          const when=tail.match(/([A-Z][a-z]{2}\s+\d{1,2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/);
-          return {
-            symbol:normalizeSymbolInput(row[1]),
-            status:row[2].replace(/\s+/g," ").trim(),
-            side:row[3].trim(),
-            type:row[4].replace(/\s+/g," ").trim(),
-            qty:legendNumber(row[5]),
-            fill:filled?legendNumber(filled[1]):null,
-            at:when?when[1].replace(/\s+/g," ").trim():""
-          };
-        }).filter((row)=>row.symbol);
-        if(orders.length){
-          details.orders=orders.slice(0,20);
-          // Counted from the parsed rows. The previous loose scan looked for a
-          // ticker-ish word followed by a live status, and the table's own
-          // "Submitted" column header matched it — so a page showing nothing
-          // but cancelled orders still reported one working, and offered to
-          // cancel it. A status now has to belong to a row.
-          details.openOrders=orders.filter((row)=>/^(open|pending|queued|submitted|working|new|partially filled)$/i.test(row.status)).length;
-        }
-      }
-    }
-    if(symbol) details.symbol=symbol;
-    return details;
   }
   async function readQuoteFromVisiblePage(){
     let page=await requestPageText();
@@ -10992,18 +10336,6 @@ body:not(.composer-simple) main::after{
   // mis-parse can be corrected from the same page read. Only the two cases that
   // cannot be a real share price are corrected; an ordinary small disagreement
   // leaves the fresher headline alone.
-  function correctSharePrice(quote,details={}){
-    if(!quote) return quote;
-    const mark=Number(details.mark), price=Number(quote.price);
-    if(!Number.isFinite(mark)||mark<=0||!Number.isFinite(price)||price<=0) return quote;
-    const value=Number(details.marketValue);
-    const isMarketValue=Number.isFinite(value)&&Math.abs(price-value)<0.01&&Math.abs(value-mark)>=0.01;
-    const impossibleScale=price>mark*3||price<mark/3;
-    if(!isMarketValue&&!impossibleScale) return quote;
-    quote.price=mark;
-    quote.priceSource="Positions mark column";
-    return quote;
-  }
   async function symbolFromVisiblePage(){
     if(!SHELL) return "";
     if(lastPageSymbol&&Date.now()-lastPageSymbolAt<PAGE_SYMBOL_TTL) return lastPageSymbol;
@@ -11257,7 +10589,7 @@ body:not(.composer-simple) main::after{
       status.textContent=`Warming up ${result.barsReady||0}/${result.requiredBars||breakoutConfig.lookbackBars}`;
       // A refused seed is the difference between "a minute away" and "another
       // 100 minutes of live candles", so it should not be silent.
-      if(lastSeedIssue) status.title=`No seeded history: ${lastSeedIssue}. Building candles from the visible page instead.`;
+      if(seedIssue()) status.title=`No seeded history: ${seedIssue()}. Building candles from the visible page instead.`;
     }else if(result.signalLimitReached){
       status.textContent="Daily signal limit";
       status.classList.add("blocked");

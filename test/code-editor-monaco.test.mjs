@@ -64,7 +64,8 @@ test("the Monaco entry keeps workers same-origin and publishes the api", () => {
 
 test("the editor bundle is build output, wired into install and packaging", () => {
   assert.equal(pkg.scripts["build:editor"], "node build/build-editor.mjs");
-  assert.equal(pkg.scripts.postinstall, "node build/build-editor.mjs");
+  // postinstall builds every browser bundle; the editor is one of them.
+  assert.match(pkg.scripts.postinstall, /node build\/build-editor\.mjs/);
   assert.ok(pkg.devDependencies["monaco-editor"], "monaco-editor must stay a devDependency");
   assert.ok(!pkg.dependencies, "the runtime must stay dependency-free");
   assert.match(buildShell, /build-editor\.mjs/);

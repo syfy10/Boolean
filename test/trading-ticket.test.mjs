@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluateTradeGuard, normalizeTradeGuard, defaultTradeGuard, bracketRisk } from "../src/trade-guard.js";
 import { normalizeTicketFields, tradeClickPermission } from "../src/server.js";
+import { correctSharePrice } from "../src/ui/ticket.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
@@ -137,18 +138,12 @@ test("brackets stay optional — an order without one behaves as before", () => 
 
 // ── the per-share price read ───────────────────────────────────────────
 
-function loadPriceCorrector() {
-  const start = ui.indexOf("  function correctSharePrice(");
-  const end = ui.indexOf("\n  }", start);
-  assert.ok(start >= 0 && end > start, "correctSharePrice not found");
-  return new Function(`${ui.slice(start, end + 4)}\nreturn correctSharePrice;`)();
-}
 
 // The bug this exists for: a Positions table rendered above the quote puts the
 // market-value column first, so a 250-share position read as a $9,890 share
 // price — and every risk number downstream is then 250x wrong.
 test("the market-value column is not mistaken for a share price", () => {
-  const correct = loadPriceCorrector();
+  const correct = correctSharePrice;
   const quote = correct({ symbol: "ENPH", price: 9890 }, { positionQty: 250, marketValue: 9890, mark: 39.56 });
   assert.equal(quote.price, 39.56);
   // The tooltip names the rule that produced the number, so the next price
@@ -157,7 +152,7 @@ test("the market-value column is not mistaken for a share price", () => {
 });
 
 test("a plausible headline price is left alone", () => {
-  const correct = loadPriceCorrector();
+  const correct = correctSharePrice;
   // The chart headline ticks ahead of the Positions row all the time; a small
   // disagreement must not pin the bar to the slower number.
   const quote = correct({ symbol: "ENPH", price: 39.61 }, { positionQty: 250, marketValue: 9890, mark: 39.56 });
@@ -166,7 +161,7 @@ test("a plausible headline price is left alone", () => {
 });
 
 test("a price with no Positions row to check against is left alone", () => {
-  const correct = loadPriceCorrector();
+  const correct = correctSharePrice;
   assert.equal(correct({ symbol: "AAPL", price: 231.4 }, {}).price, 231.4);
   assert.equal(correct({ symbol: "AAPL", price: 231.4 }, { mark: 0 }).price, 231.4);
 });

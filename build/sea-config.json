@@ -5,6 +5,7 @@
   "useCodeCache": true,
   "assets": {
     "ui.html": "src/ui.html",
+    "ui-logic.js": "src/assets/ui-logic.js",
     "icon-32.png": "assets/saz-32.png",
     "icon-256.png": "assets/saz-256.png",
     "saz.ico": "assets/saz.ico"

@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluateTradeGuard, ORDER_TYPES, TIME_IN_FORCE, normalizeOrderType, normalizeTimeInForce } from "../src/trade-guard.js";
 import { normalizeTicketDefaults, normalizeTicketFields } from "../src/server.js";
+import { TICKET_ORDER_TYPE_OPTIONS, TICKET_ORDER_TYPES, TICKET_TIF, TICKET_TIF_OPTIONS } from "../src/ui/ticket.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
@@ -97,12 +98,6 @@ test("time in force is normalized and defaults to day", () => {
 // ── the ticket UI ──────────────────────────────────────────────────────
 
 test("the bar's order types match the guard's, exactly", () => {
-  const start = ui.indexOf("  const TICKET_ORDER_TYPES=");
-  const end = ui.indexOf("  const emptyTicketState=", start);
-  assert.ok(start >= 0 && end > start, "TICKET_ORDER_TYPES not found");
-  const block = ui.slice(start, end);
-  const { TICKET_ORDER_TYPES, TICKET_TIF, TICKET_ORDER_TYPE_OPTIONS, TICKET_TIF_OPTIONS } =
-    new Function(`${block}\nreturn {TICKET_ORDER_TYPES,TICKET_TIF,TICKET_ORDER_TYPE_OPTIONS,TICKET_TIF_OPTIONS};`)();
 
   assert.deepEqual(Object.keys(TICKET_ORDER_TYPES), Object.keys(ORDER_TYPES),
     "a type the bar offers and the guard rejects would be an unfixable ticket");

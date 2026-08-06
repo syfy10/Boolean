@@ -4,25 +4,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { beforeQuoteHints, quoteFromPageText, symbolFromPageText } from "../src/ui/trading-logic.js";
+
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
 const shell = fs.readFileSync(path.join(root, "shell", "Program.cs"), "utf8").replace(/\r/g, "");
 
 // The trading bar reads the ticker off the page the native browser pane is showing.
-// Pull the real implementation out of ui.html so these cases test shipped code.
-function loadSymbolReader() {
-  const script = ui.match(/<script>([\s\S]*?)<\/script>/)[1];
-  const start = script.indexOf("  // Words that look like tickers");
-  const end = script.indexOf("\n  }", script.indexOf("function symbolFromPageText"));
-  assert.ok(start >= 0 && end > start, "symbolFromPageText not found in ui.html");
-  const block = script.slice(start, end + 4);
-  return new Function("normalizeSymbolInput", `${block}\nreturn symbolFromPageText;`)(
-    (value) => String(value || "").toUpperCase().trim()
-  );
-}
+// The parsers are imported from src/ui/trading-logic.js above, so these cases run
+// the shipped code. ui.html is still read below for the assertions that are
+// genuinely about the page's markup and wiring.
 
 test("the ticker is read from the visible page, not the URL", () => {
-  const symbolFromPageText = loadSymbolReader();
   // A Robinhood Legend URL is /legend/layout/<uuid> — no ticker anywhere in it,
   // which is why the bar used to fall back to AAPL while GOOGL was on screen.
   assert.equal(
@@ -34,7 +27,6 @@ test("the ticker is read from the visible page, not the URL", () => {
 });
 
 test("OCR noise does not become the ticker", () => {
-  const symbolFromPageText = loadSymbolReader();
   // OCR of the quote card puts "Class A" directly before the price.
   assert.equal(
     symbolFromPageText("GOOGL\nAlphabet Class A\n$375.25\nA $19.12 (5.37%)\nB $375.22 x 35"),
@@ -84,7 +76,6 @@ test("market session uses New York timezone and labels pre/after as non-open", (
 });
 
 test("the quote is read from the broker page, not a second market feed", () => {
-  const quoteFromPageText = loadPageQuoteReader();
   // Exactly what Robinhood Legend renders while GOOGL is open.
   const legend = quoteFromPageText("GOOGL\n$371.99\n▲ $15.86 (4.45%)\nB $371.85 x 10\nA $371.98 x 80");
   assert.equal(legend.symbol, "GOOGL");
@@ -152,19 +143,6 @@ test("the fast page read includes only the live quote strip OCR", () => {
   assert.match(ui, /if\(!page\|\|!fastQuote\)\{\s*const visual=\(await requestShellContext\(10000\)\)/);
 });
 
-function loadPageQuoteReader() {
-  const script = ui.match(/<script>([\s\S]*?)<\/script>/)[1];
-  const symStart = script.indexOf("  // Words that look like tickers");
-  const symEnd = script.indexOf("\n  }", script.indexOf("function symbolFromPageText"));
-  const quoteStart = script.indexOf('  // "GOOGL $371.99');
-  const quoteEnd = script.indexOf("\n  }", script.indexOf("function quoteFromPageText"));
-  assert.ok(quoteStart >= 0 && quoteEnd > quoteStart, "quoteFromPageText not found in ui.html");
-  const block = `${script.slice(symStart, symEnd + 4)}\n${script.slice(quoteStart, quoteEnd + 4)}`;
-  return new Function("normalizeSymbolInput", `${block}\nreturn quoteFromPageText;`)(
-    (value) => String(value || "").toUpperCase().trim()
-  );
-}
-
 function loadMarketSessionNow() {
   const start = ui.indexOf("  // Market session, in New York time.");
   const end = ui.indexOf("\n  function renderTradingSession()", start);
@@ -193,7 +171,6 @@ test("an unread page does not fall back to a stale ticker", () => {
 // characters of the ticker" — which, once the shell's unordered hint block is
 // in the text, can be almost anything.
 test("the OHLC strip is not mistaken for the quote", () => {
-  const quoteFromPageText = loadPageQuoteReader();
   const page = "ENPH $40.01 ▲ $0.66 (1.69%) O 40.05 H 40.05 L 40.01 C 40.01 V 2899.00";
   const quote = quoteFromPageText(page);
   assert.equal(quote.symbol, "ENPH");
@@ -210,12 +187,22 @@ test("the unordered DOM hint block is not searched for a price first", () => {
   const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
   // The shell labels that block unordered on purpose; the quote reader has to
   // respect the label rather than treat it as more page text.
-  assert.match(ui, /const beforeQuoteHints=\(text\)=>String\(text\|\|""\)\.split\("DOM quote hints:"\)\[0\];/);
+  assert.equal(
+    beforeQuoteHints('GOOGL $371.99 ▲ $15.86 (4.45%)\nDOM quote hints: 99.99 1.00 2.00'),
+    "GOOGL $371.99 ▲ $15.86 (4.45%)\n"
+  );
+  // A page with no hint block is passed through untouched.
+  assert.equal(beforeQuoteHints("GOOGL $371.99"), "GOOGL $371.99");
+  // The price inside the hint block must never win over the ordered headline.
+  assert.equal(
+    quoteFromPageText(beforeQuoteHints('GOOGL\n$371.99\n▲ $15.86 (4.45%)\nDOM quote hints: GOOGL $99.99')).price,
+    371.99
+  );
+  // ui.html still has to actually call it before parsing.
   assert.match(ui, /const orderedText=beforeQuoteHints\(page\.text\);/);
 });
 
 test("the company name between ticker and price does not break the read", () => {
-  const quoteFromPageText = loadPageQuoteReader();
   // Legend renders "TSLA / Tesla / $322.93" — the ticker is not adjacent to the price.
   const tsla = quoteFromPageText("Futures chart Market hours Add widget Individual TSLA Tesla $322.93 ▲ $11.72 (3.77%) B $322.91 x 1 A $322.92 x 19 Buy Short");
   assert.equal(tsla.symbol, "TSLA");

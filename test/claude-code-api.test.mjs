@@ -26,6 +26,7 @@ test("Claude Code setup endpoints report status, install once, and launch sign-i
   const config = defaultConfig();
   const app = await startServer(config, {
     port: 0,
+    sessionToken: "1",
     claudeStatusReader(command) {
       return installed
         ? { ready: true, installed: true, signedIn: true, command, version: "2.1.0", account: { email: "person@example.com" }, error: "" }
@@ -73,6 +74,7 @@ test("an installed Claude CLI is not ready until account sign-in is verified", a
   config.codingEngine = "claude-code";
   const app = await startServer(config, {
     port: 0,
+    sessionToken: "1",
     claudeStatusReader(command) {
       return { ready: true, installed: true, signedIn: false, command, version: "2.1.220", account: null, error: "Claude Code is installed but not signed in." };
     }

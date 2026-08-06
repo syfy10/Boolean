@@ -5,6 +5,8 @@ dist/
 
 # Monaco bundle for the Code workspace — build output of build/build-editor.mjs
 /src/assets/monaco/
+# Browser logic bundle — build output of build/build-ui-logic.mjs (src/ui/)
+/src/assets/ui-logic.js
 
 # Local tooling and account state
 .claude/

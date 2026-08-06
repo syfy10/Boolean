@@ -101,7 +101,7 @@ test("entry routes are guarded and mapped to honest status codes", () => {
   assert.match(server, /req\.method === "PATCH" && p === "\/api\/workspace\/entry"/);
   assert.match(server, /req\.method === "DELETE" && p === "\/api\/workspace\/entry"/);
   // the global CSRF guard only covers POST, so these routes check the header
-  assert.match(server, /req\.method !== "GET" && req\.headers\["x-saz"\] !== "1"/);
+  assert.match(server, /req\.method !== "GET" && req\.headers\["x-saz"\] !== sessionToken/);
   assert.match(server, /WORKSPACE_ENTRY_EXISTS" \? 409/);
   assert.match(server, /WORKSPACE_ENTRY_MISSING" \? 404/);
   assert.match(server, /invalidateProjectStatus\(workspaceThread\.projectDir\);\s*\n\s*return json\(\{ ok: true, threadId: workspaceThread\.id, \.\.\.created \}\)/);

@@ -5,8 +5,34 @@ import test from "node:test";
 import {
   clearCodexThreadMapping,
   codexHistoryDisposition,
-  codexOrchestrationSnapshot
+  codexOrchestrationSnapshot,
+  interruptOrphanedPendingTask
 } from "../src/server.js";
+
+test("orphaned live tasks become resumable instead of displaying Working forever", () => {
+  const thread = { updatedAt: 1, abort: null, pendingTask: { state: "running", updatedAt: 1000, controller: { phase: "executing", taskRun: { state: "running", sequence: 2, events: [] }, compaction: { state: "running" } } } };
+  assert.equal(interruptOrphanedPendingTask(thread, { now: 20000, graceMs: 15000 }), true);
+  assert.equal(thread.pendingTask.state, "interrupted");
+  assert.equal(thread.pendingTask.controller.phase, "paused");
+  assert.equal(thread.pendingTask.controller.taskRun.state, "paused");
+  assert.equal(thread.pendingTask.controller.taskRun.events.at(-1).type, "run.paused");
+  assert.equal(thread.pendingTask.controller.compaction.state, "paused");
+});
+
+test("active and freshly-started tasks are never interrupted by reconciliation", () => {
+  const active = { abort: new AbortController(), pendingTask: { state: "running", updatedAt: 1 } };
+  const fresh = { abort: null, pendingTask: { state: "running", updatedAt: 19000 } };
+  assert.equal(interruptOrphanedPendingTask(active, { now: 20000 }), false);
+  assert.equal(interruptOrphanedPendingTask(fresh, { now: 20000 }), false);
+});
+
+test("an interrupted outer task repairs a nested timeline still claiming to run", () => {
+  const thread = { abort: null, pendingTask: { state: "interrupted", updatedAt: 1000, controller: { phase: "executing", taskRun: { state: "running", events: [] } } } };
+  assert.equal(interruptOrphanedPendingTask(thread, { now: 2000 }), true);
+  assert.equal(thread.pendingTask.state, "interrupted");
+  assert.equal(thread.pendingTask.controller.taskRun.state, "paused");
+  assert.equal(thread.pendingTask.controller.taskRun.events.at(-1).title, "Task interrupted");
+});
 
 test("Boolean history rewinds detach stale Codex thread state", () => {
   const thread = {

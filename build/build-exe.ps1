@@ -6,22 +6,26 @@ Set-Location $root
 
 New-Item -ItemType Directory -Force "$root\dist" | Out-Null
 
-Write-Host "[1/5] bundling source into one file..."
+Write-Host "[1/6] bundling browser logic modules (src/ui)..."
+& node build/build-ui-logic.mjs
+if ($LASTEXITCODE -ne 0) { throw "ui logic bundle failed" }
+
+Write-Host "[2/6] bundling source into one file..."
 & npx esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs
 if ($LASTEXITCODE -ne 0) { throw "esbuild failed" }
 
-Write-Host "[2/5] generating SEA blob..."
+Write-Host "[3/6] generating SEA blob..."
 & node --experimental-sea-config build/sea-config.json
 if ($LASTEXITCODE -ne 0) { throw "sea blob generation failed" }
 
-Write-Host "[3/5] copying node runtime..."
+Write-Host "[4/6] copying node runtime..."
 Copy-Item (Get-Command node).Source "$root\dist\saz.exe" -Force
 
-Write-Host "[4/5] setting icon & version info..."
+Write-Host "[5/6] setting icon & version info..."
 & node build/set-icon.cjs dist/saz.exe assets/saz.ico
 if ($LASTEXITCODE -ne 0) { throw "icon embedding failed" }
 
-Write-Host "[5/5] injecting app into executable..."
+Write-Host "[6/6] injecting app into executable..."
 & npx postject dist/saz.exe NODE_SEA_BLOB dist/sea-prep.blob --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2
 if ($LASTEXITCODE -ne 0) { throw "postject failed" }
 

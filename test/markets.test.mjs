@@ -185,7 +185,10 @@ test("CFTC rows become a compact weekly positioning snapshot", () => {
 
 test("Markets workspace connects data, browser, notes, and API-key setup", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
-  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  // Route text now lives in src/routes/*.js; read both so these assertions
+  // follow the code rather than the file it used to sit in.
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8")
+    + fs.readFileSync(new URL("../src/routes/markets.js", import.meta.url), "utf8");
   const navStart=ui.indexOf('<div class="workspace-tabs" id="workspaceTabs">');
   const navEnd=ui.indexOf("</div>",navStart);
   const mainNav=ui.slice(navStart,navEnd);
@@ -336,7 +339,10 @@ test("Markets retains the monitor, intelligence, and Research Desk feature set",
 
 test("Strategy Lab runs five local presets with benchmark metrics and saved reruns", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
-  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  // Route text now lives in src/routes/*.js; read both so these assertions
+  // follow the code rather than the file it used to sit in.
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8")
+    + fs.readFileSync(new URL("../src/routes/markets.js", import.meta.url), "utf8");
   assert.match(ui,/data-market-mode="strategy">Strategy Lab/);
   for(const id of ["marketStrategyPage","strategySymbol","strategyPreset","strategyRange","strategyCapital","strategyCost","strategyRun","strategyMetrics","strategyChart","strategySave","strategySavedList"]){
     assert.match(ui,new RegExp(`id="${id}"`));

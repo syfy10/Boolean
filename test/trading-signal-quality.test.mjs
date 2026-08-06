@@ -5,26 +5,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { recordSignalOutcomes, summarizeSignals, normalizeOutcome, loadSignalLog, MAX_RECORDS } from "../src/signal-log.js";
+import { advanceOpenSignals, atrForBars, buildBreakoutBarsFromHistory, efficiencyRatioForCloses, emptyBreakoutRuntime, historySpacingMinutes, stepBreakoutStrategy, strategyCandidatesForBars, strategySeedRequest } from "../src/ui/breakout-strategy.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
 const markets = fs.readFileSync(path.join(root, "src", "markets.js"), "utf8").replace(/\r/g, "");
 
-function loadBreakoutEngine() {
-  const start = ui.indexOf("  function normalizeBreakoutConfig");
-  const end = ui.indexOf("\n\n  function buildTradingBrokerOptions", start);
-  assert.ok(start >= 0 && end > start, "breakout strategy engine not found");
-  const block = ui.slice(start, end).replace("  let breakoutConfig={...BREAKOUT_DEFAULTS};", "  let breakoutConfig={};");
-  // The history constants are declared above the extracted block.
-  return new Function("normalizeSymbolInput", "localStorage",
-    "BREAKOUT_HISTORY_YEARS", "BREAKOUT_HISTORY_MIN_BARS", "BREAKOUT_HISTORY_MAX_BARS", `${block}
-    return {emptyBreakoutRuntime,stepBreakoutStrategy,strategyCandidatesForBars,buildBreakoutBarsFromHistory,
-      strategySeedRequest,historySpacingMinutes,atrForBars,efficiencyRatioForCloses,advanceOpenSignals};`)(
-    (value) => String(value || "").trim().toUpperCase(),
-    { getItem: () => null, setItem: () => {} },
-    2, 30, 120
-  );
-}
 
 const tempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "boolean-signals-"));
 
@@ -34,8 +20,7 @@ const tempDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "boolean-signals-"))
 // breakout range" that was really twenty weeks wide.
 
 test("the seed asks for the grain the strategy actually runs on", () => {
-  const { strategySeedRequest } = loadBreakoutEngine();
-  assert.deepEqual(strategySeedRequest({ timeframeMinutes: 1 }), { range: "5d", interval: "1m" });
+    assert.deepEqual(strategySeedRequest({ timeframeMinutes: 1 }), { range: "5d", interval: "1m" });
   assert.deepEqual(strategySeedRequest({ timeframeMinutes: 5 }), { range: "1mo", interval: "5m" });
   assert.deepEqual(strategySeedRequest({ timeframeMinutes: 15 }), { range: "1mo", interval: "15m" });
   // And the request has to survive markets.js, which only honours an interval
@@ -47,8 +32,7 @@ test("the seed asks for the grain the strategy actually runs on", () => {
 });
 
 test("history coarser than the timeframe is refused, not bucketed", () => {
-  const { buildBreakoutBarsFromHistory, historySpacingMinutes } = loadBreakoutEngine();
-  const series = (count, stepMinutes) => Array.from({ length: count }, (_, index) => ({
+    const series = (count, stepMinutes) => Array.from({ length: count }, (_, index) => ({
     time: Date.now() - (count - index) * stepMinutes * 60_000,
     open: 100, high: 101, low: 99, close: 100
   }));
@@ -63,8 +47,7 @@ test("history coarser than the timeframe is refused, not bucketed", () => {
 });
 
 test("matching or finer history is accepted and aggregated", () => {
-  const { buildBreakoutBarsFromHistory } = loadBreakoutEngine();
-  const fiveMinute = Array.from({ length: 40 }, (_, index) => ({
+    const fiveMinute = Array.from({ length: 40 }, (_, index) => ({
     time: Date.now() - (40 - index) * 5 * 60_000, open: 100, high: 101, low: 99, close: 100
   }));
   assert.equal(buildBreakoutBarsFromHistory(fiveMinute, { timeframeMinutes: 5 }).length, 40);
@@ -83,8 +66,7 @@ test("matching or finer history is accepted and aggregated", () => {
 // ── ATR and regime ─────────────────────────────────────────────────────
 
 test("ATR measures true range, including gaps between bars", () => {
-  const { atrForBars } = loadBreakoutEngine();
-  const flat = Array.from({ length: 20 }, () => ({ open: 100, high: 101, low: 99, close: 100 }));
+    const flat = Array.from({ length: 20 }, () => ({ open: 100, high: 101, low: 99, close: 100 }));
   assert.equal(atrForBars(flat, 14), 2);
   assert.equal(atrForBars(flat.slice(0, 3), 14), null, "not enough bars must report null, not a wrong number");
 
@@ -95,8 +77,7 @@ test("ATR measures true range, including gaps between bars", () => {
 });
 
 test("the efficiency ratio separates a trend from chop", () => {
-  const { efficiencyRatioForCloses } = loadBreakoutEngine();
-  const straight = Array.from({ length: 25 }, (_, index) => 100 + index);
+    const straight = Array.from({ length: 25 }, (_, index) => 100 + index);
   assert.equal(efficiencyRatioForCloses(straight, 20), 1);
 
   const chop = Array.from({ length: 25 }, (_, index) => (index % 2 ? 101 : 100));
@@ -109,8 +90,7 @@ test("the efficiency ratio separates a trend from chop", () => {
 // break rather than on the prior regime — an efficiency ratio cannot tell a
 // quiet base (the setup breakout wants) from chop (the setup that kills it).
 test("a poke past the range edge is not a breakout; a real break is", () => {
-  const { strategyCandidatesForBars } = loadBreakoutEngine();
-  const bar = (close, spread = 0.4) => ({ bucket: close * 1000, open: close, high: close + spread, low: close - spread, close });
+    const bar = (close, spread = 0.4) => ({ bucket: close * 1000, open: close, high: close + spread, low: close - spread, close });
   const base = Array.from({ length: 25 }, (_, index) => bar(index % 2 ? 100.2 : 100));
 
   // The range high is 100.6 with an ATR near 0.8, so a close at 100.7 clears
@@ -131,8 +111,7 @@ test("a poke past the range edge is not a breakout; a real break is", () => {
 });
 
 test("the regime gate holds back the model that does not fit the tape", () => {
-  const { strategyCandidatesForBars } = loadBreakoutEngine();
-  const bar = (close) => ({ bucket: close * 1000, open: close, high: close + 0.1, low: close - 0.1, close });
+    const bar = (close) => ({ bucket: close * 1000, open: close, high: close + 0.1, low: close - 0.1, close });
 
   // A clean falling tape that snaps up: the EMA crosses, and the bars before
   // it were a trend, so the cross is allowed.
@@ -160,8 +139,7 @@ test("the regime gate holds back the model that does not fit the tape", () => {
 // ── signal outcomes ────────────────────────────────────────────────────
 
 test("a signal fills at the next bar's open, not its own close", () => {
-  const { advanceOpenSignals } = loadBreakoutEngine();
-  const cfg = { outcomeHorizonBars: 20 };
+    const cfg = { outcomeHorizonBars: 20 };
   const runtime = { openSignals: [{ id: "a", symbol: "X", strategy: "breakout", side: "long",
     signalPrice: 100, stop: 98, target: 104, fill: null, at: 1 }] };
   const resolved = [];
@@ -184,8 +162,7 @@ test("a signal fills at the next bar's open, not its own close", () => {
 });
 
 test("a bar that spans both stop and target counts as a stop", () => {
-  const { advanceOpenSignals } = loadBreakoutEngine();
-  const runtime = { openSignals: [{ id: "b", symbol: "X", strategy: "ema", side: "long",
+    const runtime = { openSignals: [{ id: "b", symbol: "X", strategy: "ema", side: "long",
     signalPrice: 100, stop: 98, target: 104, fill: 100, risk: 2, mfe: 0, mae: 0, barsSeen: 0, at: 1 }] };
   const resolved = [];
   advanceOpenSignals(runtime, { bucket: 2, open: 100, high: 105, low: 97, close: 101 }, { outcomeHorizonBars: 20 }, resolved);
@@ -194,8 +171,7 @@ test("a bar that spans both stop and target counts as a stop", () => {
 });
 
 test("an unresolved signal times out at the horizon and reports its excursions", () => {
-  const { advanceOpenSignals } = loadBreakoutEngine();
-  const cfg = { outcomeHorizonBars: 3 };
+    const cfg = { outcomeHorizonBars: 3 };
   const runtime = { openSignals: [{ id: "c", symbol: "X", strategy: "meanReversion", side: "short",
     signalPrice: 100, stop: 102, target: 96, fill: 100, risk: 2, mfe: 0, mae: 0, barsSeen: 0, at: 1 }] };
   const resolved = [];

@@ -4,26 +4,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { legendTradingDetailsFromPageText } from "../src/ui/trading-logic.js";
+
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
 const shell = fs.readFileSync(path.join(root, "shell", "Program.cs"), "utf8").replace(/\r/g, "");
 
-function loadLegendReader() {
-  const script = ui.match(/<script>([\s\S]*?)<\/script>/)[1];
-  const symbolStart = script.indexOf("  // Words that look like tickers");
-  const symbolEnd = script.indexOf("\n  }", script.indexOf("function symbolFromPageText"));
-  const detailsStart = script.indexOf("  const legendNumber=");
-  const detailsEnd = script.indexOf("\n  }", script.indexOf("function legendTradingDetailsFromPageText"));
-  assert.ok(symbolStart >= 0 && symbolEnd > symbolStart, "symbol parser not found");
-  assert.ok(detailsStart >= 0 && detailsEnd > detailsStart, "Legend details parser not found");
-  const block = `${script.slice(symbolStart, symbolEnd + 4)}\n${script.slice(detailsStart, detailsEnd + 4)}`;
-  return new Function("normalizeSymbolInput", `${block}\nreturn legendTradingDetailsFromPageText;`)(
-    (value) => String(value || "").toUpperCase().trim()
-  );
-}
+// The Legend panel parser is imported from src/ui/trading-logic.js above, so
+// these cases run the shipped code rather than a re-evaluated copy of it.
 
 test("Legend Positions and Recent orders populate trading context", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read(`
     ENPH $39.44 ▲ $1.90 (5.06%) B $39.43 x 100 A $39.44 x 80
     Recent orders Symbol Status Side Type Qty Realized P&L
@@ -48,7 +39,7 @@ test("Legend Positions and Recent orders populate trading context", () => {
 });
 
 test("down P&L values keep their negative direction", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read("Positions TSLA 10 $3,900.00 $390.00 $400.00 $390.00 ▼ $100.00 ▼ 2.50% ▼ $100.00 ▼ 2.50%", "TSLA");
   assert.equal(details.dayPnl, -100);
   assert.equal(details.dayPnlPercent, -2.5);
@@ -57,7 +48,7 @@ test("down P&L values keep their negative direction", () => {
 });
 
 test("Legend futures positions and open orders keep the slash contract", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read(`
     /MYMU26 53,418 ▲ 84 (0.16%)
     Recent orders Symbol Status Side Type Qty
@@ -73,7 +64,7 @@ test("Legend futures positions and open orders keep the slash contract", () => {
 });
 
 test("Legend empty recent-orders state reports zero instead of a false open order", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read(`
     Recent orders Symbol Status Side Type Qty
     You don't have any orders from the last 24 hours. Trade /MYMU26
@@ -109,7 +100,7 @@ test("saved Trading access reopens Robinhood only from an empty native browser",
 });
 
 test("the top of book is read whether Legend abbreviates it or spells it out", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   // The compact strip, which was the only form recognised.
   const compact = read("ENPH $39.44 B $39.43 x 100 A $39.44 x 80", "ENPH");
   assert.equal(compact.bid, 39.43);
@@ -132,7 +123,7 @@ test("the top of book is read whether Legend abbreviates it or spells it out", (
 // The bar's expandable panel shows the account's own tables, so the parser has
 // to return every row rather than only the one matching the visible symbol.
 test("every position row is read, not just the visible symbol's", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read(`
     Positions Symbol Qty Mkt val Mark Avg price Last 1D open P&L 1D open P&L % Open P&L Open P&L %
     ENPH 250 $9,860.03 $39.44 $37.34 $39.44 ▲ $475.03 ▲ 5.06% ▲ $525.03 ▲ 5.62%
@@ -152,7 +143,7 @@ test("every position row is read, not just the visible symbol's", () => {
 });
 
 test("current compact Legend position rows sync automatically", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read(`
     Positions Symbol Mark Quantity Avg price 1D open P&L
     UPWK $9.68 1,000 $13.55 ▼ $3,870.00
@@ -173,7 +164,7 @@ test("current compact Legend position rows sync automatically", () => {
 });
 
 test("a visible but unreadable Positions widget is a retry, not an empty account", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const failed = read("Positions Symbol Mark Quantity Avg price 1D open P&L", "SPY");
   assert.equal(failed.positionSyncFailed, true);
   assert.equal(failed.positions, undefined);
@@ -183,7 +174,7 @@ test("a visible but unreadable Positions widget is a retry, not an empty account
 });
 
 test("recent orders are read as rows, not just counted", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read(`
     Recent orders Symbol Status Side Type Qty Realized P&L Avg fill price Submitted
     SPY Canceled Buy Limit 1 -- -- Aug 4 13:47:07
@@ -207,7 +198,7 @@ test("recent orders are read as rows, not just counted", () => {
 });
 
 test("column headers cannot be counted as working orders", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const header = "Recent orders Symbol Status Side Type Qty Realized P&L Avg fill price Submitted Total cost/credit";
   const details = read(`${header} SPY Canceled Buy Limit 1 -- -- Aug 4 13:47:07 -- SPY Canceled Buy Limit 1 -- -- Aug 4 13:32:04 --`, "SPY");
   assert.equal(details.orders.length, 2);
@@ -215,7 +206,7 @@ test("column headers cannot be counted as working orders", () => {
 });
 
 test("an empty orders panel reports empty rather than stale rows", () => {
-  const read = loadLegendReader();
+  const read = legendTradingDetailsFromPageText;
   const details = read("Recent orders You don't have any SPY orders from the last 24 hours.", "SPY");
   assert.equal(details.openOrders, 0);
   assert.deepEqual(details.orders, []);
