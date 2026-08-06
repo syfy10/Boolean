@@ -597,6 +597,8 @@ test("Explore docks the native browser into its Web tab when browser home is ena
   // Callers that already have somewhere to go must still reach the real browser.
   assert.match(ui, /id="webWorkspaceTab"[^>]*data-workspace-page="web"[^>]*aria-controls="webPanel"/);
   assert.match(ui, /id="webPanel" aria-label="Web browser"/);
+  assert.match(ui, /body\.web-open \.workspace-float,[^\n]*\{ display:flex; \}/);
+  assert.match(ui, /body\.web-open \.web-panel\{ display:block; \}/);
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"dock",rect:/);
   assert.match(ui, /hostPost\(\{type:"browser",cmd:"undock"\}/);
   assert.match(shell, /void DockBrowserInExplore\(JsonElement root\)/);
