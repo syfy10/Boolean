@@ -18010,15 +18010,10 @@ Optional bundled starter model:
       let text="";
       if(node.classList.contains("msg-user"))text="You: "+String(node._raw||node.textContent||"").trim();
       else if(node.classList.contains("msg-ai"))text=(node.dataset.aiLabel||shortAiName(node.dataset.provider,node.dataset.model))+": "+String(node._raw||node.textContent||"").trim();
-      else if(node.classList.contains("model-error"))text="Error: "+String(node._raw||node.textContent||"").trim();
-      else if(node.classList.contains("toolcard")){
-        const label=node.dataset.toolLabel||node.querySelector(".sum")?.textContent||"Tool";
-        const detail=node._toolDetails||node.querySelector(".toolout")?.textContent||"";
-        text="Tool - "+label+(detail?"\n"+detail:"");
-      }else{
+      else if(node.classList.contains("model-error")){
         const copy=node.cloneNode(true);
-        copy.querySelectorAll("button,.msg-actions,.model-error-actions,.caret,.tk,.spinner").forEach(control=>control.remove());
-        text=String(copy.innerText||copy.textContent||"").trim();
+        copy.querySelectorAll("button,.model-error-actions").forEach(control=>control.remove());
+        text="Error: "+String(node._raw||copy.innerText||copy.textContent||"").trim();
       }
       if(text.trim())out.push(text.trim());
     });

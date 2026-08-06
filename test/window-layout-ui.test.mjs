@@ -681,8 +681,12 @@ test("back to chat lives beside Local and Cloud while conversation actions remai
   assert.match(ui, /\$\("chatUtilityNew"\)\?\.addEventListener\("click",\(\)=>newChat\(\)\)/);
   assert.match(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*id="copyall" title="Copy whole conversation"[\s\S]*id="cmdFile" title="Open and read a file"/);
   assert.match(ui, /function wholeConversationText\(\)/);
-  assert.match(ui, /node\.classList\.contains\("model-error"\).*?"Error: "/s);
-  assert.match(ui, /node\.classList\.contains\("toolcard"\)/);
+  const copyConversation=ui.slice(ui.indexOf("function wholeConversationText()"),ui.indexOf('$("copyall").onclick'));
+  assert.match(copyConversation, /classList\.contains\("msg-user"\)/);
+  assert.match(copyConversation, /classList\.contains\("msg-ai"\)/);
+  assert.match(copyConversation, /classList\.contains\("model-error"\)/);
+  assert.doesNotMatch(copyConversation, /classList\.contains\("toolcard"\)|_toolDetails|querySelector\("\.toolout"\)/);
+  assert.match(copyConversation, /node\.classList\.contains\("model-error"\)[\s\S]*?"Error: "/);
   assert.match(ui, /Array\.from\(col\.children\)\.forEach/);
   assert.doesNotMatch(ui, /<div class="cmd-bar" id="cmdBar">[\s\S]*?id="chatHome"/);
   assert.doesNotMatch(ui, /data-rail="new-chat"/);
