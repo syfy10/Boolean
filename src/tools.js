@@ -400,13 +400,12 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "run_subagent",
       description:
-        "Delegate a focused sub-task to a sub-agent that has its own tools and works independently, then returns a concise result. " +
-        "Use to decompose a big job (e.g. 'research the API in these files', 'build the CSS while I do the JS'). " +
-        "Pass one task, or several tasks to run together. Sub-agents cannot spawn more sub-agents.",
+        "Delegate focused independent sub-tasks to sub-agents and run up to three together. In Team mode, choose non-overlapping assignments, use worktree isolation for editing, and set apply=true to integrate conflict-free commits sequentially after every worker finishes. Conflicts are aborted and returned for lead resolution; sub-agents cannot spawn more sub-agents.",
       parameters: { type: "object", properties: {
         task: { type: "string", description: "A single self-contained sub-task with enough context to act alone" },
         tasks: { type: "array", items: { type: "string" }, description: "Several independent sub-tasks to run together (max 3)" },
-        isolation: { type: "string", enum: ["shared", "worktree"], description: "worktree gives each sub-agent an isolated Git branch; shared uses the current project folder" }
+        isolation: { type: "string", enum: ["shared", "worktree"], description: "worktree gives each editing sub-agent an isolated Git branch; shared is for read-only collaboration" },
+        apply: { type: "boolean", description: "After all isolated workers finish, apply each conflict-free result to the current project in assignment order" }
       }, required: [] }
     }
   },
@@ -2360,6 +2359,19 @@ function snapshotBeforeWrite(target) {
   } catch { /* snapshots are best-effort */ }
 }
 // ── sub-agents (delegated task decomposition) ──
+async function mapAgentTasks(items, limit, handler) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(items.length, Number(limit) || 1)) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await handler(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 async function runSubagentTool(args, ctx) {
   if (typeof ctx.runSubagent !== "function") return "sub-agents aren't available in this session.";
   if (ctx.subagentDepth) return "a sub-agent cannot spawn more sub-agents — do the work directly.";
@@ -2367,22 +2379,84 @@ async function runSubagentTool(args, ctx) {
   tasks = tasks.map((t) => String(t || "").trim()).filter(Boolean).slice(0, 3);
   if (!tasks.length) return "error: provide 'task' or 'tasks'.";
   const isolation = args.isolation === "worktree" ? "worktree" : "shared";
-  const results = await Promise.all(tasks.map(async (task, i) => {
+  if (args.apply === true && isolation !== "worktree") return "error: apply=true requires worktree isolation.";
+  const teamwork = ctx.config?.ui?.codingAgent?.teamwork || {};
+  const connected = ["openai", "google", "anthropic", "claude", "xai", "deepseek", "qwen", "baidu", "bytedance", "glm", "zaiCoding", "kimi", "customApi"]
+    .filter((provider) => ctx.config?.[provider]?.apiKey && ctx.config?.[provider]?.model);
+  if (ctx.config?.provider === "local" && ctx.config?.local?.model) connected.unshift("local");
+  else if (ctx.config?.provider && !connected.includes(ctx.config.provider)) connected.push(ctx.config.provider);
+  const preferred = String(teamwork.workerProvider || "auto");
+  const targets = [
+    ...(preferred !== "auto" && connected.includes(preferred) ? [preferred] : []),
+    ...connected.filter((provider) => provider !== ctx.config?.provider),
+    ctx.config?.provider
+  ].filter((provider, index, all) => provider && all.indexOf(provider) === index);
+  const workerTarget = (index) => {
+    const provider = targets[index % Math.max(1, targets.length)] || ctx.config?.provider || "local";
+    return { provider, model: provider === "local" ? String(ctx.config?.local?.model || "") : String(ctx.config?.[provider]?.model || "") };
+  };
+  const workerEvent = (index, task, state, detail, run = null, attempt = 1, overrideTarget = null) => {
+    const role = `Agent ${index + 1}`;
+    const target = overrideTarget || workerTarget(index);
+    ctx.onStep?.({ name: "team_worker", args: {
+      role, state, attempt, provider: target.provider, model: target.model,
+      objective: task.slice(0, 500), workspace: run?.workspaceDir || ctx.projectDir || "", branch: run?.branch || "", runId: run?.id || ""
+    }, result: detail });
+  };
+  const results = await mapAgentTasks(tasks, Math.min(3, Number(teamwork.maxWorkers) || 3), async (task, i) => {
     let run = null;
     try {
+      workerEvent(i, task, "queued", "Waiting for an available parallel worker slot.");
       if (isolation === "worktree") {
         if (!ctx.projectDir) throw new Error("worktree isolation is available only inside a project chat");
         run = await createIsolatedAgentRun(ctx.projectDir, task, i);
       }
-      const answer = await ctx.runSubagent(task, run ? { workspaceDir: run.workspaceDir, runId: run.id } : {});
+      workerEvent(i, task, "working", `Working independently${run ? ` on ${run.branch}` : " in the shared read-only workspace"}.`, run);
+      const target = workerTarget(i);
+      const answer = await ctx.runSubagent(task, run ? { workspaceDir: run.workspaceDir, runId: run.id, role: `Agent ${i + 1}`, ...target } : { role: `Agent ${i + 1}`, ...target });
       if (run) run = await finalizeIsolatedAgentRun(run.id, answer);
-      return `--- Sub-agent ${i + 1} result${run ? ` (${run.id})` : ""} ---\n${String(answer || "(no result)").trim()}` +
-        (run ? `\n\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}` : "");
+      workerEvent(i, task, "done", run?.changeSummary || String(answer || "Completed."), run);
+      return { i, task, answer, run, target, attempt: 1, text: `--- Sub-agent ${i + 1} result${run ? ` (${run.id})` : ""} ---\n${String(answer || "(no result)").trim()}` +
+        (run ? `\n\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}` : "") };
     } catch (err) {
-      return `--- Sub-agent ${i + 1} failed ---\n${err?.message || err}`;
+      const firstError = String(err?.message || err);
+      const firstTarget = workerTarget(i);
+      const fallbackTarget = targets.length > 1 ? workerTarget(i + 1) : null;
+      if (run && fallbackTarget && fallbackTarget.provider !== firstTarget.provider && !ctx.signal?.aborted) {
+        try {
+          workerEvent(i, task, "retrying", `Retrying in the saved worktree after ${firstTarget.model || firstTarget.provider} failed: ${firstError}`, run, 2, fallbackTarget);
+          const answer = await ctx.runSubagent(task, { workspaceDir: run.workspaceDir, runId: run.id, role: `Agent ${i + 1}`, attempt: 2, ...fallbackTarget });
+          run = await finalizeIsolatedAgentRun(run.id, answer);
+          workerEvent(i, task, "done", run.changeSummary || String(answer || "Completed."), run, 2, fallbackTarget);
+          return { i, task, answer, run, target: fallbackTarget, attempt: 2, text: `--- Sub-agent ${i + 1} result (${run.id}) ---\n${String(answer || "(no result)").trim()}\n\nFallback: ${fallbackTarget.model || fallbackTarget.provider} completed attempt 2 after ${firstTarget.model || firstTarget.provider} failed.\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}` };
+        } catch (retryError) {
+          const detail = `${firstError}; fallback failed: ${retryError?.message || retryError}`;
+          workerEvent(i, task, "failed", detail, run, 2, fallbackTarget);
+          return { i, task, answer: "", run, text: `--- Sub-agent ${i + 1} failed ---\n${detail}` };
+        }
+      }
+      workerEvent(i, task, "failed", firstError, run);
+      return { i, task, answer: "", run, text: `--- Sub-agent ${i + 1} failed ---\n${firstError}` };
     }
-  }));
-  return truncate(results.join("\n\n"));
+  });
+  if (args.apply === true) {
+    const applicable = results.filter((item) => item.run?.commit);
+    if (applicable.length) {
+      const ok = await ctx.approve(`apply ${applicable.length} completed parallel agent result${applicable.length === 1 ? "" : "s"} to ${ctx.projectDir}`);
+      if (!ok) return truncate(results.map((item) => item.text).join("\n\n") + "\n\nIntegration paused: user declined applying the completed results.");
+      for (const item of applicable) {
+        try {
+          const applied = await applyAgentRun(item.run.id, ctx.projectDir);
+          item.text += `\nIntegration: applied ${applied.commit} successfully.`;
+          workerEvent(item.i, item.task, "done", "Changes verified and integrated into the lead workspace.", applied, item.attempt || 1, item.target || null);
+        } catch (error) {
+          item.text += `\nIntegration: NOT applied. ${error?.message || error}`;
+          workerEvent(item.i, item.task, "failed", `Integration conflict: ${error?.message || error}`, item.run);
+        }
+      }
+    }
+  }
+  return truncate(results.map((item) => item.text).join("\n\n"));
 }
 
 function undoLastEdit() {

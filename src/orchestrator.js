@@ -36,9 +36,9 @@ export async function isGitRepository(directory) {
 export async function createIsolatedAgentRun(projectDir, task, index = 0) {
   const root = path.resolve(String(projectDir || ""));
   if (!await isGitRepository(root)) throw new Error("isolated agents require a Git project; initialize Git or use shared isolation");
-  const status = await execGit(root, ["status", "--porcelain"]);
+  const status = await execGit(root, ["status", "--porcelain", "--untracked-files=no"]);
   if (status.code !== 0) throw new Error(status.output || "could not inspect the main project");
-  if (status.output.trim()) throw new Error("the main project has uncommitted changes; commit or stash them before starting isolated agents so every agent sees the current project");
+  if (status.output.trim()) throw new Error("the main project has tracked uncommitted changes; commit or stash them before starting isolated agents so every agent sees the current project");
   const id = `${Date.now().toString(36)}-${index + 1}-${crypto.randomBytes(3).toString("hex")}`;
   const branch = `boolean/agent/${id}-${safeSlug(task)}`;
   const workspaceDir = path.join(WORKTREES_DIR, id);
@@ -76,11 +76,16 @@ export async function applyAgentRun(id, targetDir) {
   if (!run.commit) throw new Error(`agent run '${id}' did not produce file changes`);
   const target = path.resolve(String(targetDir || run.projectDir));
   if (target !== path.resolve(run.projectDir)) throw new Error("agent result belongs to a different project");
-  const status = await execGit(target, ["status", "--porcelain"]);
+  const status = await execGit(target, ["status", "--porcelain", "--untracked-files=no"]);
   if (status.code !== 0) throw new Error(status.output || "could not inspect target project");
   if (status.output.trim()) throw new Error("the main project has uncommitted changes; commit or stash them before applying an agent result");
   const applied = await execGit(target, ["cherry-pick", run.commit], 120000);
   if (applied.code !== 0) { await execGit(target, ["cherry-pick", "--abort"]); throw new Error(`agent result conflicted and was not applied: ${applied.output}`); }
+  if (fs.existsSync(run.workspaceDir)) {
+    const removed = await execGit(run.projectDir, ["worktree", "remove", "--force", run.workspaceDir], 120000);
+    if (removed.code !== 0) throw new Error(`agent result applied, but its worktree could not be cleaned up: ${removed.output}`);
+  }
+  if (run.branch) await execGit(run.projectDir, ["branch", "-D", run.branch]);
   const updated = { ...run, state: "applied", appliedAt: Date.now(), updatedAt: Date.now() };
   saveRun(updated); return updated;
 }

@@ -256,7 +256,11 @@ function environmentBlock(projectsDir, fullAccess, connectors, config) {
 }
 
 function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned, config = null) {
-  return booleanAgentPolicy() + environmentBlock(projectsDir, fullAccess, connectors, config);
+  const teamwork = String(config?.ui?.codingAgent?.teamwork?.mode || "solo");
+  const teamContract = teamwork === "team" && projectsDir
+    ? "\n\nTEAM MODE\nYou are the lead. When the coding request has two or more genuinely independent parts, choose 2-3 non-overlapping assignments and call run_subagent once with tasks, isolation=worktree, and apply=true so they execute concurrently and integrate in assignment order. Give each assignment exact ownership, expected output, and checks. Keep coupled or overlapping work with the lead. After integration, inspect the combined diff, resolve any reported conflict yourself, and run final project-wide verification."
+    : "";
+  return booleanAgentPolicy() + environmentBlock(projectsDir, fullAccess, connectors, config) + teamContract;
 }
 
 export function systemPrompt(projectsDir = "", fullAccess = false, config = null) {
@@ -1733,6 +1737,7 @@ export async function runTurn(ctx, messages) {
 
   let bootstrapContext = "";
   const teamAssignments = !ctx.subagentDepth && artifactActionRequired && ctx.projectDir
+      && String(config?.ui?.codingAgent?.teamwork?.mode || "solo") === "assist"
     ? teamworkAssignments(config)
     : [];
   // Specialists are expensive and highly visible, so they no longer start on the
@@ -1749,7 +1754,11 @@ export async function runTurn(ctx, messages) {
       publishController();
       emitStep({ name: "team_worker", args: worker, result: detail });
     };
-    const fallbackFor = (assignment) => teamAssignments.find((candidate) =>
+    const fallbackPool = teamworkAssignments({
+      ...config,
+      ui: { ...(config?.ui || {}), codingAgent: { ...(config?.ui?.codingAgent || {}), teamwork: { ...(config?.ui?.codingAgent?.teamwork || {}), mode: "team" } } }
+    });
+    const fallbackFor = (assignment) => fallbackPool.find((candidate) =>
       candidate.provider !== assignment.provider && candidate.model
     ) || null;
     const maxParallel = Math.max(1, Math.min(teamAssignments.length, Number(config?.ui?.codingAgent?.teamwork?.maxWorkers) || 3, 3));

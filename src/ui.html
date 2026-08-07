@@ -7872,13 +7872,14 @@ body:not(.composer-simple) main::after{
           <div class="team-modes">
             <button class="team-mode" type="button" data-team-mode="solo" title="One model handles the task"><i></i><span><b>Solo</b><small>One model handles the task.</small></span></button>
             <button class="team-mode" type="button" data-team-mode="assist" title="Lead model plus one low-cost reviewer"><i></i><span><b>Assist</b><small>Lead model plus one low-cost reviewer.</small></span></button>
-            <button class="team-mode" type="button" data-team-mode="team" title="Mapper, test analyst, and reviewer work in parallel"><i></i><span><b>Team</b><small>Mapper, test analyst, and reviewer work in parallel.</small></span></button>
+            <button class="team-mode" type="button" data-team-mode="team" title="Lead assigns isolated agents to build independent parts in parallel"><i></i><span><b>Team</b><small>Isolated agents build independent parts in parallel.</small></span></button>
           </div>
           <div class="team-options" id="teamOptions">
             <label>Worker provider<select id="teamWorkerProvider"><option value="auto">Automatic (recommended)</option></select></label>
+            <label>Parallel agents<select id="teamMaxWorkers"><option value="1">1 agent</option><option value="2">2 agents</option><option value="3">3 agents</option></select></label>
             <label>Maximum task budget<input id="teamTaskBudget" type="number" min="0" max="100" step="0.10" value="0.50"></label>
             <div class="team-cost"><span>Estimated use</span><b id="teamEstimate">$0.05–$0.50</b></div>
-            <div class="team-note">Low-cost models assist; the selected model stays lead.</div>
+            <div class="team-note">The selected model stays lead. Editing agents use isolated branches; conflict-free results are integrated and verified.</div>
           </div>
         </div>
       </div>
@@ -14362,7 +14363,7 @@ body:not(.composer-simple) main::after{
     const labels={solo:"Solo",assist:"Assist",team:"Team"};
     button.innerHTML='<span class="team-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.4-3.2 2.2-5 5.5-5s5.1 1.8 5.5 5"/><circle cx="17" cy="9" r="2.2"/><path d="M15.5 14.5c2.9-.5 4.6 1 5 4"/></svg></span><span class="team-label">'+labels[team.mode]+'</span> <span class="chev">&#9660;</span>';
     button.classList.toggle("active",team.mode!=="solo");
-    button.title=team.mode==="solo"?"One model handles the task":team.mode==="assist"?"Lead model plus one reviewer":"Multiple specialists work with the lead model";
+    button.title=team.mode==="solo"?"One model handles the task":team.mode==="assist"?"Lead model plus one reviewer":"Lead assigns isolated agents to build independent parts in parallel";
     menu.querySelectorAll("[data-team-mode]").forEach(item=>item.classList.toggle("active",item.dataset.teamMode===team.mode));
     const options=$("teamOptions"); if(options)options.hidden=team.mode==="solo";
     const select=$("teamWorkerProvider");
@@ -14377,6 +14378,7 @@ body:not(.composer-simple) main::after{
       });
       select.value=[...select.options].some(option=>option.value===prior)?prior:"auto";
     }
+    if($("teamMaxWorkers"))$("teamMaxWorkers").value=String(team.maxWorkers);
     if($("teamTaskBudget"))$("teamTaskBudget").value=team.taskBudget.toFixed(2);
     if($("teamEstimate"))$("teamEstimate").textContent=team.mode==="team"?"$0.10–$"+team.taskBudget.toFixed(2):"$0.03–$"+team.taskBudget.toFixed(2);
   }
@@ -14410,9 +14412,10 @@ body:not(.composer-simple) main::after{
   document.querySelectorAll("[data-team-mode]").forEach(item=>item.onclick=async(event)=>{
     event.stopPropagation();
     await saveTeamwork({mode:item.dataset.teamMode});
-    tempToast(item.dataset.teamMode==="solo"?"Solo mode selected":item.dataset.teamMode==="assist"?"Assist will add one reviewer":"Team will run specialists in parallel");
+    tempToast(item.dataset.teamMode==="solo"?"Solo mode selected":item.dataset.teamMode==="assist"?"Assist will add one reviewer":"Team will build independent parts in isolated worktrees");
   });
   $("teamWorkerProvider").onchange=()=>saveTeamwork({workerProvider:$("teamWorkerProvider").value});
+  $("teamMaxWorkers").onchange=()=>saveTeamwork({maxWorkers:Math.max(1,Math.min(3,Number($("teamMaxWorkers").value)||3))});
   $("teamTaskBudget").onchange=()=>saveTeamwork({taskBudget:Math.max(0,Number($("teamTaskBudget").value)||0.5)});
   window.addEventListener("resize",positionTeamMenu);
   renderTeamMenu();

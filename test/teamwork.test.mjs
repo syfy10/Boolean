@@ -109,7 +109,7 @@ test("assist runs a specialist first and passes its report to the lead", async (
   assert.ok(usageEvents.some((usage) => !usage.teamWorker));
 });
 
-test("team retries one failed specialist on a different connected provider", async (t) => {
+test("assist retries one failed specialist on a different connected provider", async (t) => {
   let leadCalls = 0;
   const server = http.createServer(async (req, res) => {
     if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
@@ -121,7 +121,7 @@ test("team retries one failed specialist on a different connected provider", asy
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     const text = (body.messages || []).map((message) => String(message.content || "")).join("\n");
-    if (/Mapper supporting a lead coding agent/i.test(text) && req.url.startsWith("/v1/")) {
+    if (/Reviewer supporting a lead coding agent/i.test(text) && req.url.startsWith("/v1/")) {
       res.writeHead(401, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: { message: "bad worker key" } }));
       return;
@@ -143,18 +143,29 @@ test("team retries one failed specialist on a different connected provider", asy
   fs.writeFileSync(path.join(projectDir, "app.js"), "export const value = 1;\n");
   const steps = [];
   const answer = await runTurn({
-    config: teamConfig(server.address().port, "team"), projectDir,
+    config: teamConfig(server.address().port, "assist"), projectDir,
     approve: async () => true, onStatus() {}, onUsage() {}, onCheckpoint() {},
     onStep(step) { steps.push(step); }
   }, [
-    { role: "system", content: systemPrompt(projectDir, true, teamConfig(server.address().port, "team")) },
+    { role: "system", content: systemPrompt(projectDir, true, teamConfig(server.address().port, "assist")) },
     { role: "user", content: "Fix app.js and verify it." }
   ]);
   assert.equal(answer, "Lead completed the task.");
-  const mapper = steps.filter((step) => step.name === "team_worker" && step.args.role === "Mapper");
-  assert.deepEqual(mapper.map((step) => step.args.state), ["queued", "working", "retrying", "done"]);
-  assert.equal(mapper[2].args.provider, "google");
-  assert.equal(mapper[2].args.attempt, 2);
+  const reviewer = steps.filter((step) => step.name === "team_worker" && step.args.role === "Reviewer");
+  assert.deepEqual(reviewer.map((step) => step.args.state), ["queued", "working", "retrying", "done"]);
+  assert.equal(reviewer[2].args.provider, "google");
+  assert.equal(reviewer[2].args.attempt, 2);
+});
+
+test("Team mode gives the lead isolated parallel editing and integration control", () => {
+  const prompt = systemPrompt("C:\\demo\\project", true, teamConfig(1, "team"));
+  assert.match(prompt, /TEAM MODE/);
+  assert.match(prompt, /choose 2-3 non-overlapping assignments/);
+  assert.match(prompt, /isolation=worktree/);
+  assert.match(prompt, /apply=true/);
+  assert.match(prompt, /resolve any reported conflict yourself/);
+  const assistPrompt = systemPrompt("C:\\demo\\project", true, teamConfig(1, "assist"));
+  assert.doesNotMatch(assistPrompt, /TEAM MODE/);
 });
 
 test("specialists stay in the active project and cannot overwrite the lead controller", async (t) => {
@@ -238,7 +249,11 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.match(ui, /function positionTeamMenu\(\)[\s\S]*?availableWidth=Math\.max\(180,workspaceRect\.width-margin\*2\)[\s\S]*?menu\.style\.left=/);
   assert.match(ui, /data-team-mode="solo"[\s\S]*data-team-mode="assist"[\s\S]*data-team-mode="team"/);
   assert.match(ui, /id="teamWorkerProvider"/);
+  assert.match(ui, /id="teamMaxWorkers"/);
+  assert.match(ui, /saveTeamwork\(\{maxWorkers:/);
   assert.match(ui, /id="teamTaskBudget"/);
+  assert.match(ui, /Isolated agents build independent parts in parallel/);
+  assert.match(ui, /conflict-free results are integrated and verified/);
   assert.match(ui, /teamwork:\{mode:\["solo","assist","team"\]/);
   assert.match(ui, /team_worker:\(entry\?\.args\?\.state==="done"/);
   assert.match(ui, /function updateTeamWorker\(entry\)/);
