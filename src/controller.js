@@ -585,10 +585,13 @@ export class AgentController {
     // from the former unlimited default; using only that saved value made the
     // visible Normal (150k) budget a no-op.
     this.tokenBudget = Math.max(0, Number(options.tokenBudget ?? saved.tokenBudget) || 0);
-    this.tokensUsed = Number(saved.tokensUsed) || 0;
+    // A saved checkpoint may be resumed in a new model run. Its budget is
+    // deliberately per-run, so carry the work forward but not the exhausted
+    // token/time counters that caused the checkpoint.
+    this.tokensUsed = options.continuation === true ? 0 : (Number(saved.tokensUsed) || 0);
     this.timeBudgetMs = Math.max(0, Number(options.timeBudgetMs ?? saved.timeBudgetMs) || 0);
-    this.startedAt = Number(saved.startedAt) || Date.now();
-    this.cancelRequested = !!saved.cancelRequested;
+    this.startedAt = options.continuation === true ? Date.now() : (Number(saved.startedAt) || Date.now());
+    this.cancelRequested = options.continuation === true ? false : !!saved.cancelRequested;
     // Active-controller mode (autopilot): re-enables auto-continue, verification
     // nudge, and recovery prompts. Off by default so the neutral relay is unchanged.
     this.autopilot = options.autopilot === true;

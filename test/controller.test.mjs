@@ -885,6 +885,30 @@ test("runtime task budgets override legacy unlimited saved controllers", () => {
   assert.equal(controller.tokensUsed, 10);
 });
 
+test("resuming a saved task starts a fresh per-run budget without losing its work", () => {
+  const controller = new AgentController({
+    objective: "Finish the website",
+    projectDir: "C:\\demo",
+    continuation: true,
+    tokenBudget: 150000,
+    timeBudgetMs: 600000,
+    persisted: {
+      tokenBudget: 150000,
+      tokensUsed: 150000,
+      timeBudgetMs: 600000,
+      startedAt: Date.now() - 700000,
+      cancelRequested: true,
+      changedFiles: ["site/index.html"],
+      checks: ["npm test passed"]
+    }
+  });
+  assert.equal(controller.tokensUsed, 0);
+  assert.equal(controller.cancelRequested, false);
+  assert.equal(controller.checkBudget().budgeted, false);
+  assert.deepEqual(controller.snapshot().changedFiles, ["site/index.html"]);
+  assert.deepEqual(controller.snapshot().checks, ["npm test passed"]);
+});
+
 test("loop guard permits distinct bounded ranges in one large source file", () => {
   const controller = new AgentController({ objective: "Update the worker", artifactRequired: true, projectDir: "C:\\demo", loopStop: true });
   for (let index = 0; index < 6; index++) {

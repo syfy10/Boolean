@@ -6441,6 +6441,7 @@ ${exploreScript}
             if (!t.memoryDigest) return saved;
             return { ...(saved || {}), conversationDigest: t.memoryDigest };
           })(),
+          continuation: shouldResumeSavedTask,
           threadId: t.id,
           orchestrationState: options.inspectSavedTask ? null : t.orchestration || t.pendingTask?.orchestration || null,
           forceTurnMode: options.forceTurnMode || "",

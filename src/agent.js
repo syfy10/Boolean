@@ -1597,6 +1597,7 @@ export async function runTurn(ctx, messages) {
     loopStop: ctx.config?.ui?.codingAgent?.stopLoop === true,
     autopilot: ctx.config?.ui?.codingAgent?.autopilot === true,
     persisted: ctx.controllerState,
+    continuation: ctx.continuation === true,
     tokenBudget: perRunTokenBudget(config),
     timeBudgetMs: perRunTimeBudgetMs(config)
   });
