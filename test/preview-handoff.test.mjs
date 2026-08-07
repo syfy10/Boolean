@@ -41,3 +41,27 @@ test("Boollm verifies a localhost preview before handing it to the browser", asy
   const url = `http://127.0.0.1:${server.address().port}/`;
   assert.equal(await firstReachableLocalPreview(["not a URL", url]), url);
 });
+
+test("Boollm rejects local error pages and non-HTML endpoints", async (t) => {
+  const server = http.createServer((request, response) => {
+    if (request.url === "/missing") {
+      response.writeHead(404, { "content-type": "text/html" });
+      response.end("<title>Not found</title>");
+      return;
+    }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end("{}");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  assert.equal(await firstReachableLocalPreview([`${base}/missing`, `${base}/api`]), "");
+});
+
+test("preview handoff requires the real launcher, working directory, and page verification", () => {
+  const [{ content }] = withBoollmPreviewHandoff([{ role: "user", content: "Open the marketing site" }]);
+  assert.match(content, /directory that actually contains its existing launcher/);
+  assert.match(content, /reuse that launcher before inventing another server/);
+  assert.match(content, /HTTP 2xx\/3xx HTML/);
+  assert.match(content, /correct the directory, command, port, or project/);
+});

@@ -1985,7 +1985,11 @@ async function runProject(args, ctx, base) {
       if (child.exitCode !== null) return `✗ the project crashed on startup:\n${truncate(log)}`;
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(1000) });
-        if (res.status < 500) return `✓ ${meta.type} is running at http://localhost:${meta.port} (HTTP ${res.status}). It launched successfully.`;
+        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+        const healthyStatus = res.status >= 200 && res.status < 400;
+        const healthyContent = meta.type !== "website" || contentType.includes("text/html");
+        if (healthyStatus && healthyContent) return `✓ ${meta.type} is running at http://localhost:${meta.port} (HTTP ${res.status}). It launched successfully.`;
+        log += `\nPreview check returned HTTP ${res.status}${contentType ? ` (${contentType})` : ""}; expected ${meta.type === "website" ? "2xx/3xx HTML" : "2xx/3xx"}.`;
       } catch { /* not up yet */ }
     }
     return `✗ started but did not respond at ${url} within 8s. Check the code.\n${truncate(log)}`;

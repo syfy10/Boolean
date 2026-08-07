@@ -861,14 +861,15 @@ export async function firstReachableLocalPreview(values = [], { timeoutMs = 2500
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, { method: "GET", redirect: "follow", signal: controller.signal });
-      if (response.status < 500) return url;
+      const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+      if (response.status >= 200 && response.status < 400 && contentType.includes("text/html")) return url;
     } catch {}
     finally { clearTimeout(timer); }
   }
   return "";
 }
 
-const BOOLLM_PREVIEW_HANDOFF = "Boollm owns the built-in browser. Start and verify the local preview, but do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls. Include the exact localhost URL in your final answer; Boollm will open it in its own browser.";
+const BOOLLM_PREVIEW_HANDOFF = "Boollm owns the built-in browser. Start the requested project or subproject from the directory that actually contains its existing launcher (for example saz.project.json, package.json, or serve.js); inspect and reuse that launcher before inventing another server. Verify the exact localhost page returns HTTP 2xx/3xx HTML rather than a blank page or error such as 404. If verification fails, use the command output and response to correct the directory, command, port, or project, then verify again; do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls. Include only the verified localhost URL in your final answer; Boollm will open it in its own browser.";
 
 export function withBoollmPreviewHandoff(messages = []) {
   const copy = Array.isArray(messages) ? messages.map((message) => ({ ...message })) : [];

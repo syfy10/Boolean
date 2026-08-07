@@ -10,14 +10,16 @@ const types = new Map([
   [".css", "text/css; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".png", "image/png"],
-  [".ico", "image/x-icon"]
+  [".svg", "image/svg+xml"],
+  [".ico", "image/x-icon"],
+  [".jpg", "image/jpeg"]
 ]);
 
 http.createServer((req, res) => {
   const url = new URL(req.url || "/", `http://localhost:${port}`);
   const rel = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
   const file = path.resolve(root, rel);
-  if (!file.startsWith(root)) {
+  if (file !== root && !file.startsWith(root + path.sep)) {
     res.writeHead(403).end("Forbidden");
     return;
   }
@@ -26,7 +28,7 @@ http.createServer((req, res) => {
       res.writeHead(404).end("Not found");
       return;
     }
-    res.writeHead(200, { "content-type": types.get(path.extname(file)) || "application/octet-stream" });
+    res.writeHead(200, { "content-type": types.get(path.extname(file).toLowerCase()) || "application/octet-stream" });
     res.end(data);
   });
 }).listen(port, "127.0.0.1", () => {
