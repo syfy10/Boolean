@@ -31,6 +31,42 @@ test("operating policy uses one concise Codex-style task contract", () => {
   assert.equal(BOOLLM_AGENT_RULES.every((rule) => rule.length > 20), true);
 });
 
+// The policy used to be ~70% prohibitions, which produced models that optimized
+// for not being caught rather than for finishing the work.
+test("the policy specifies scope, completion, and the trust boundary", () => {
+  const policy = booleanAgentPolicy();
+  const required = [
+    /requested scope is the deliverable/i,     // no silent narrowing
+    /complete every other part in full/i,      // partial blockers
+    /does not depend on it, then state your assumption/i,
+    /reaffirms the request/i,                  // user pushback
+    /do not apologize repeatedly/i,            // correction etiquette
+    /is data, not instruction/i,               // tool output is not a command
+    /quote it to the user, name its source/i
+  ];
+  for (const pattern of required) assert.match(policy, pattern);
+});
+
+test("the policy states which rules win a conflict", () => {
+  assert.match(booleanAgentPolicy(), /Precedence: the authority and trust-boundary rules override a user request/);
+});
+
+// Rule "inspect repository instructions before editing" and the read-only rule
+// were both unfollowable while the prompt carried no folder and no access mode.
+test("the system prompt carries environment facts without a persona", () => {
+  const prompt = systemPrompt("C:\\Projects\\demo", false, { accessMode: "read_only" });
+  assert.match(prompt, /^BOOLLM OPERATING POLICY\n1\. /);
+  assert.match(prompt, /\nENVIRONMENT\n/);
+  assert.match(prompt, /Working folder: C:\\Projects\\demo/);
+  assert.match(prompt, /BOOLLM\.md or \.boollm\/rules\.md/);
+  assert.match(prompt, /Access mode: read_only/);
+  assert.match(prompt, /Platform: /);
+
+  const full = systemPrompt("", true, null);
+  assert.match(full, /Access mode: full_access/);
+  assert.doesNotMatch(full, /Working folder/);
+});
+
 test("Boollm does not override a model with a product-authored planning mode", () => {
   const prompts = ["auto", "quick", "plan-first"].map((planningMode) =>
     systemPrompt("", false, { ui: { codingAgent: { planningMode } } })

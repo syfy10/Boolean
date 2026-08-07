@@ -222,8 +222,41 @@ function connectorSummary(config) {
   return parts.join(" | ");
 }
 
+// Facts about the running system, not instructions about how to behave. Two
+// policy rules were unfollowable without this: "inspect repository instructions
+// before editing" (the model was never told the working folder or that a rules
+// file convention exists) and the read-only/authority rule (the model was never
+// told which access mode was active). Deliberately excludes anything resembling
+// a persona.
+const PROJECT_RULES_FILES = "BOOLLM.md or .boollm/rules.md";
+const ACCESS_MODE_NOTES = {
+  read_only: "read_only - inspection only. File writes, commands, and external actions are refused.",
+  ask: "ask - each write, command, or external action is presented to the user for approval.",
+  read_write: "read_write - project file edits proceed; commands and external actions still need approval.",
+  full_access: "full_access - approval is pre-granted, so the authority rules are yours alone to enforce."
+};
+
+function environmentBlock(projectsDir, fullAccess, connectors, config) {
+  const accessMode = currentAccessMode(config || { autoApprove: fullAccess === true });
+  const shell = process.platform === "win32" ? "PowerShell" : "sh";
+  const lines = [
+    "",
+    "",
+    "ENVIRONMENT",
+    `Date: ${new Date().toISOString().slice(0, 10)}`,
+    `Platform: ${process.platform} (${os.release()}); shell for run_command: ${shell}`,
+    `Access mode: ${ACCESS_MODE_NOTES[accessMode] || accessMode}`
+  ];
+  if (projectsDir) {
+    lines.push(`Working folder: ${projectsDir}`);
+    lines.push(`Project instructions, when present, live in ${PROJECT_RULES_FILES} at the folder root.`);
+  }
+  if (connectors) lines.push(connectors);
+  return lines.join("\n");
+}
+
 function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned, config = null) {
-  return booleanAgentPolicy();
+  return booleanAgentPolicy() + environmentBlock(projectsDir, fullAccess, connectors, config);
 }
 
 export function systemPrompt(projectsDir = "", fullAccess = false, config = null) {
@@ -338,10 +371,6 @@ const INSPECT_TOOL_NAMES = new Set([
   "windows_system_info", "remember"
 ]);
 const INSPECT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => INSPECT_TOOL_NAMES.has(tool.function.name));
-const COMPATIBILITY_INSPECT_TOOL_NAMES = new Set([
-  "list_dir", "read_file", "find_files", "search_files", "repository_map", "find_symbol",
-  "git_status", "git_diff", "remember"
-]);
 const ACTION_TOOL_NAMES = new Set(TOOL_DEFINITIONS
   .map((tool) => String(tool.function?.name || "").toLowerCase())
   .filter((name) => name && !RESEARCH_TOOL_NAMES.has(name)));
@@ -457,9 +486,13 @@ function patchModePrompt(reviewOnly = false) {
 function withCompatibilityProtocol(messages, definitions, options = {}) {
   const copy = messages.map((message) => ({ ...message }));
   const systemIndex = copy.findIndex((message) => message?.role === "system");
+  // Compact drops the parameter schemas and tells the model to guess "the
+  // obvious JSON arguments", while parseFallbackToolCall runs strict in this
+  // mode - a reliable source of malformed calls. Only pay that cost for the
+  // small local context windows that cannot hold the schemas.
   const protocol = [
     patchModePrompt(options.reviewOnly === true),
-    definitions.length ? fallbackToolPrompt(definitions, { compact: true }) : ""
+    definitions.length ? fallbackToolPrompt(definitions, { compact: options.compact === true }) : ""
   ].filter(Boolean).join("\n");
   if (systemIndex >= 0 && !/BOOLLM (?:COMPATIBILITY|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
     copy[systemIndex].content = `${copy[systemIndex].content}\n${protocol}`;
@@ -512,10 +545,6 @@ export function parseFallbackToolCall(text, options = {}) {
     }
   }
   return null;
-}
-
-function compatibilityToolDefinitions(definitions = []) {
-  return definitions.filter((tool) => COMPATIBILITY_INSPECT_TOOL_NAMES.has(String(tool.function?.name || "")));
 }
 
 function preflightBoollmPatch(edits) {
@@ -2078,7 +2107,8 @@ export async function runTurn(ctx, messages) {
       activeToolDefinitions = compatibilityMode ? compatibilityInspections : availableTools;
       if (compatibilityMode) {
         modelMessages = withCompatibilityProtocol(modelMessages, compatibilityInspections, {
-          reviewOnly: reviewOnlyCompatibility
+          reviewOnly: reviewOnlyCompatibility,
+          compact: localCompactTools
         });
       } else if (!useNativeTools && availableTools.length) {
         modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: compactToolProtocol });

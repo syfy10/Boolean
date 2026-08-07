@@ -21,13 +21,18 @@ test("Boollm sends a provider-neutral operating policy and no fabricated persona
   assert.match(prompt, /secrets/i);
   assert.match(prompt, /verification proportional to risk/i);
   assert.match(prompt, /stop inspecting and synthesize/i);
-  assert.match(prompt, /do not enter recovery loops/i);
+  assert.match(prompt, /tool failures as evidence/i);
   // Normal mode must finish an already-started task. Autopilot expands the
   // consecutive correction window, while real tool progress resets it.
   assert.match(agent, /const MAX_AUTO_CONTINUE = autopilot \? 6 : 3;/);
   assert.match(agent, /completionNudges = 0;/);
   assert.match(agent, /CURRENT TASK CONTRACT/);
-  assert.match(server, /function currentAppContext\([^)]*\) \{\s*return "";/);
+  // App context supplies facts (open folder, project rules, saved task state),
+  // never a persona or a prescribed workflow. It was previously stubbed to ""
+  // to guarantee neutrality, which also starved the model of the working
+  // folder. Assert the neutrality directly instead of asserting emptiness.
+  assert.match(server, /CURRENT APP CONTEXT/);
+  assert.doesNotMatch(server, /function currentAppContext\([^)]*\) \{\s*return "";/);
   for (const fabricatedPersona of [
     "You are Boollm",
     "Always agree with the user",

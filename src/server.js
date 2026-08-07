@@ -2648,9 +2648,12 @@ ${exploreScript}
   }
   let activeThreadId = null;
 
+  // Facts about the open thread, not behavior instructions. This was stubbed to
+  // "" to keep the relay provider-neutral, which also cut the project file map
+  // and BOOLLM.md project rules - leaving the policy's "inspect repository
+  // instructions before editing" rule with nothing to inspect. Restored; the
+  // memory sections stay behind their existing user settings.
   function currentAppContext(t, latestText = "", { inspectSavedTask = false } = {}) {
-    return "";
-    /*
     const parts = [];
     const taskPrompt = inspectSavedTask && t.pendingTask
       ? [
@@ -2682,7 +2685,6 @@ ${exploreScript}
     if (digest) parts.push(digest);
     if (memory) parts.push(memory);
     return parts.length ? `\n\nCURRENT APP CONTEXT:\n${parts.join("\n\n")}` : "";
-    */
   }
 
   // persist chats to disk (workspace recovery), unless privacy mode is on

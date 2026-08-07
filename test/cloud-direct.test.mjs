@@ -1131,8 +1131,12 @@ test("Z.AI prompt-parameter rejection retries through the compatibility tool bri
   assert.equal(requests[1].tools, undefined);
   assert.match(requests[1].messages[0].content, /BOOLLM COMPATIBILITY MODE/);
   assert.match(requests[1].messages[0].content, /COMPATIBILITY TOOL PROTOCOL/);
-  assert.match(requests[1].messages[0].content, /Available tools \(name: purpose\)/);
-  assert.doesNotMatch(requests[1].messages[0].content, /Available tools \(JSON schema\)/);
+  // A cloud model that fell back to the bridge gets the full parameter schemas.
+  // The compact name-only listing asks the model to guess "the obvious JSON
+  // arguments" while the parser runs strict, so it is reserved for small local
+  // context windows that cannot hold the schemas.
+  assert.match(requests[1].messages[0].content, /Available tools \(JSON schema\)/);
+  assert.doesNotMatch(requests[1].messages[0].content, /Available tools \(name: purpose\)/);
   assert.match(statuses.join("\n"), /rejected native tools.*compatibility tool bridge/i);
 });
 

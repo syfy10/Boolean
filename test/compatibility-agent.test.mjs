@@ -149,8 +149,13 @@ test("compatibility models own completion after repeated inspection", async (t) 
   assert.match(answer, /read_file/);
   assert.ok(mock.calls() >= 3);
   assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 1;\n");
-  assert.match(mock.requests[0].messages[0].content, /run_command:/);
-  assert.match(mock.requests[0].messages[0].content, /write_file:/);
+  // The compat catalog advertises the action tools, not just read-only ones.
+  // Matched without the "name: description" separator because cloud compat
+  // models now receive the full JSON schemas; only small local context windows
+  // fall back to the compact name-only listing.
+  assert.match(mock.requests[0].messages[0].content, /run_command/);
+  assert.match(mock.requests[0].messages[0].content, /write_file/);
+  assert.match(mock.requests[0].messages[0].content, /"parameters"/);
 });
 
 test("compatibility models never execute bare or trailing JSON mutations", async (t) => {
