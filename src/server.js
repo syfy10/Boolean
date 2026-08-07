@@ -6117,7 +6117,7 @@ ${exploreScript}
         savedTask.updatedAt = Date.now();
         t.updatedAt = Date.now();
         persist();
-        return streamRun(t, res);
+        return streamRun(t, res, { continuation: true });
       }
 
       // export a chat as plain text or markdown
@@ -6279,7 +6279,8 @@ ${exploreScript}
           disableCodex: body.sideChat === true || body.salesWorkflow === true || body.workflowRun === true,
           provider: sideProvider || requestedProvider,
           model: sideProvider ? sideModel : requestedModel,
-          inspectSavedTask
+          inspectSavedTask,
+          continuation: shouldResumeSavedTask
         });
       }
 
@@ -6441,7 +6442,7 @@ ${exploreScript}
             if (!t.memoryDigest) return saved;
             return { ...(saved || {}), conversationDigest: t.memoryDigest };
           })(),
-          continuation: shouldResumeSavedTask,
+          continuation: options.continuation === true,
           threadId: t.id,
           orchestrationState: options.inspectSavedTask ? null : t.orchestration || t.pendingTask?.orchestration || null,
           forceTurnMode: options.forceTurnMode || "",

@@ -909,6 +909,15 @@ test("resuming a saved task starts a fresh per-run budget without losing its wor
   assert.deepEqual(controller.snapshot().checks, ["npm test passed"]);
 });
 
+test("the chat route passes continuation state into streamRun without an out-of-scope reference", () => {
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  const liveRunner = server.slice(server.indexOf("async function streamRun"));
+  assert.match(server.slice(0, server.indexOf("async function streamRun")), /continuation:\s*shouldResumeSavedTask/);
+  assert.match(server, /p === "\/api\/continue"[\s\S]*?streamRun\(t, res, \{ continuation: true \}\)/);
+  assert.match(liveRunner, /continuation:\s*options\.continuation\s*===\s*true/);
+  assert.doesNotMatch(liveRunner, /continuation:\s*shouldResumeSavedTask/);
+});
+
 test("loop guard permits distinct bounded ranges in one large source file", () => {
   const controller = new AgentController({ objective: "Update the worker", artifactRequired: true, projectDir: "C:\\demo", loopStop: true });
   for (let index = 0; index < 6; index++) {
