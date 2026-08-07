@@ -873,7 +873,7 @@ test("edit churn survives a snapshot round-trip", () => {
   assert.match(restored.prompt(), /app\.css has been edited 4 times/, "churn is restored from the durable snapshot");
 });
 
-test("runtime task budgets override legacy unlimited saved controllers", () => {
+test("token and time accounting never terminates an unfinished task", () => {
   const controller = new AgentController({
     objective: "Finish the project without a runaway loop",
     persisted: { tokenBudget: 0, timeBudgetMs: 0, tokensUsed: 10 },
@@ -883,6 +883,9 @@ test("runtime task budgets override legacy unlimited saved controllers", () => {
   assert.equal(controller.tokenBudget, 150000);
   assert.equal(controller.timeBudgetMs, 600000);
   assert.equal(controller.tokensUsed, 10);
+  controller.tokensUsed = 500000;
+  controller.startedAt = Date.now() - 3600000;
+  assert.equal(controller.checkBudget().budgeted, false);
 });
 
 test("resuming a saved task starts a fresh per-run budget without losing its work", () => {

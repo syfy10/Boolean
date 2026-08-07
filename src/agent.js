@@ -191,23 +191,10 @@ async function chatCompletionWithFallback(config, primaryTarget, messages, tools
   }
 }
 
-// Map the UI budget preset ("small"|"normal"|"large") to per-run token and
-// time caps. 0 means unlimited — the coding-agent loop continues until done.
-const BUDGET_PRESETS = {
-  small:  { tokens: 50_000,  timeMs: 120_000 },
-  normal: { tokens: 150_000, timeMs: 600_000 },
-  // Long runs still need a hard ceiling. Checkpoint and continue instead of
-  // allowing a stuck paid-cloud loop to spend indefinitely.
-  large:  { tokens: 400_000, timeMs: 1_800_000 }
-};
-function perRunTokenBudget(config) {
-  const preset = config?.ui?.codingAgent?.budget || "normal";
-  return BUDGET_PRESETS[preset]?.tokens ?? 0;
-}
-function perRunTimeBudgetMs(config) {
-  const preset = config?.ui?.codingAgent?.budget || "normal";
-  return BUDGET_PRESETS[preset]?.timeMs ?? 0;
-}
+// Project work has no cumulative token or wall-clock ceiling. Context still
+// compacts to each model's window while the task continues toward completion.
+function perRunTokenBudget() { return 0; }
+function perRunTimeBudgetMs() { return 0; }
 
 function connectorSummary(config) {
   const c = config?.connectors || {};

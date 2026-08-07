@@ -1149,15 +1149,9 @@ export class AgentController {
     if (tokens > 0) this.tokensUsed += tokens;
   }
 
-  /** Returns {budgeted, reason} when a per-run token or time limit is exceeded. */
+  /** User cancellation is the only run-level stop. Token/time use is unlimited. */
   checkBudget() {
     if (this.cancelRequested) return { budgeted: true, reason: "The task was cancelled by the user." };
-    if (this.tokenBudget > 0 && this.tokensUsed >= this.tokenBudget) {
-      return { budgeted: true, reason: `Token budget of ${this.tokenBudget} has been reached for this task.` };
-    }
-    if (this.timeBudgetMs > 0 && (Date.now() - this.startedAt) >= this.timeBudgetMs) {
-      return { budgeted: true, reason: `Time budget of ${Math.round(this.timeBudgetMs / 1000)}s has been reached for this task.` };
-    }
     return { budgeted: false };
   }
 

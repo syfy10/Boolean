@@ -5855,7 +5855,7 @@ body:not(.composer-simple) main::after{
         </div>
 
           <div class="settings-card"><small>Current model</small><b id="settingsCurrentModel" title="Currently selected AI model (local or cloud)">Local</b><span class="badge" id="settingsModelBadge"><span class="tool-dot" id="modelDot"></span>Ready</span></div>
-          <div class="settings-card"><small>Token budget</small><b id="settingsTokenBudget" title="Per-task token budget and retry count">Per task</b><span class="badge">Visible</span></div>
+          <div class="settings-card"><small>Task limits</small><b id="settingsTokenBudget" title="Tasks continue until completed, cancelled, or concretely blocked">Unlimited</b><span class="badge">Finish</span></div>
           <div class="settings-card"><small>Connected tools</small><b id="settingsToolsStatus">Checking…</b><span class="badge" id="toolsStatusBadge"><span class="tool-dot" id="toolsDot"></span>Status</span></div>
           <div class="settings-card"><small>Project folder</small><b id="settingsProjectFolder" title="Active project folder for file operations">Projects</b><span class="badge">Local</span></div>
         </div>
@@ -5876,7 +5876,7 @@ body:not(.composer-simple) main::after{
         <div class="sechead">Overview <span class="caret">▶</span></div>
         <div class="secbody">
           <div class="setrow"><div>Current model/provider<div class="hint">Shows what Boollm will use for the next answer.</div></div><b id="overviewProvider">Local</b></div>
-          <div class="setrow"><div>Token/time budget<div class="hint">Keeps runs bounded so Boollm stops instead of wasting tokens.</div></div><b id="overviewBudget">Task controlled</b></div>
+          <div class="setrow"><div>Task completion<div class="hint">No token or time ceiling; work continues until completed, cancelled, or concretely blocked.</div></div><b id="overviewBudget">Unlimited</b></div>
           <div class="setrow"><div>Connected tools status<div class="hint">Connectors display Connected, Needs login, Disabled, or Permissions.</div></div><b id="overviewTools">Checking…</b></div>
           <div class="setrow"><div>Project folder<div class="hint">The folder Boollm reads, edits, tests, and remembers rules for.</div></div><b id="overviewProject">Projects</b></div>
           <div class="setrow"><div>Privacy mode<div class="hint">Local-only keeps model work on this PC; cloud AI requires your chosen provider/API.</div></div><b id="overviewPrivacy">Local first</b></div>
@@ -6089,12 +6089,11 @@ body:not(.composer-simple) main::after{
               <button class="agent-mode" type="button" data-planning-mode="plan-first"><b>Plan first</b><small>Show goal, assumptions, questions, files, and checks; wait once.</small></button>
             </div>
           </div>
-          <div class="agent-budget-card" id="agentBudgetSummary"><div><b>Task budget: Normal</b><small>Stops repeated inspections and checkpoints long work.</small></div><span class="badge">Visible</span></div>
+          <div class="agent-budget-card" id="agentBudgetSummary"><div><b>No token or time limit</b><small>Boollm continues toward the requested result until completed, cancelled, or concretely blocked.</small></div><span class="badge">Finish</span></div>
           <label class="setrow" style="cursor:pointer"><span>Auto-run tests/builds<div class="hint">Boollm looks for package scripts and verifies before saying done.</div></span><span class="switch"><input type="checkbox" id="agentAutoTest" title="Automatically run test/build commands after code changes" checked><span class="slider"></span></span></label>
           <label class="setrow" style="cursor:pointer"><span>Strict stop-loop protection<div class="hint">When enabled, Boollm pauses after repeated inspections instead of continuing with warnings.</div></span><span class="switch"><input type="checkbox" id="agentStopLoop" title="Pause when repeated inspections are detected"><span class="slider"></span></span></label>
           <div class="setrow"><div>Models without native tools<div class="hint">Auto uses Boollm's validated compatibility bridge for files, terminal, browser, tests, and deployment. Exact fenced patches remain supported; Review blocks all edits.</div></div><select id="agentCompatibilityMode"><option value="auto">Auto</option><option value="patch">Compatibility bridge</option><option value="review">Review only</option></select></div>
           <div class="setrow"><div>Max retries<div class="hint">Stops and asks when confidence is low.</div></div><select id="agentRetries"><option>1</option><option selected>2</option><option>3</option></select></div>
-          <div class="setrow"><div>Token/time budget<div class="hint">Visible cap per task; older context is compressed into project memory.</div></div><select id="agentBudget"><option>Small</option><option selected>Normal</option><option>Large</option></select></div>
           <label class="setrow" style="cursor:pointer"><span>Auto-commit option<div class="hint">When enabled, Boollm can save verified progress to git after approval.</div></span><span class="switch"><input type="checkbox" id="agentAutoCommit" title="Allow Boollm to commit verified changes to git"><span class="slider"></span></span></label>
           <label class="setrow" style="cursor:pointer"><span>Confirm before risky commands<div class="hint">Commands that delete, elevate, purchase, or submit sensitive forms require confirmation.</div></span><span class="switch"><input type="checkbox" checked disabled><span class="slider"></span></span></label>
           <div class="rules-card"><b>Project rules</b><div class="hint">Add <code>BOOLLM.md</code> or <code>.boollm/rules.md</code> so each project teaches Boollm style, commands, architecture, and “never do this” rules.</div></div>
@@ -9598,15 +9597,14 @@ body:not(.composer-simple) main::after{
     const githubConnected=githubDashboardStatus?.authenticated===true;
     const connectedToolCount=connectorCount+(githubConnected?1:0);
     const agent=(state.ui&&state.ui.codingAgent)||{};
-    const budget=({small:"Small",normal:"Normal",large:"Large"})[agent.budget||"normal"]||"Normal";
     const setText=(id,text)=>{ const el=$(id); if(el) el.textContent=text; };
     setText("settingsCurrentModel",model);
     setText("settingsModelBadge",ready?"Ready":"Needs setup");
-    setText("settingsTokenBudget",budget+" · "+(agent.maxRetries||2)+" retries");
+    setText("settingsTokenBudget","Unlimited");
     setText("settingsToolsStatus",connectedToolCount?connectedToolCount+" connected":"None connected");
     setText("settingsProjectFolder",project);
     setText("overviewProvider",label+(ready?" ready":" needs setup"));
-    setText("overviewBudget",budget+" budget · "+(agent.autoTest===false?"manual tests":"auto verify"));
+    setText("overviewBudget","Unlimited · "+(agent.autoTest===false?"manual tests":"auto verify"));
     setText("overviewTools",connectedToolCount?connectedToolCount+" connected tool"+(connectedToolCount===1?"":"s"):"No connected tools");
     setText("overviewProject",project);
     setText("overviewPrivacy",provider==="local"?"Local first":"Cloud provider selected");
@@ -18589,10 +18587,8 @@ Optional bundled starter model:
     $("agentStopLoop").checked=agent.stopLoop===true;
     $("agentCompatibilityMode").value=["auto","patch","review"].includes(agent.compatibilityMode)?agent.compatibilityMode:"auto";
     $("agentRetries").value=String(agent.maxRetries||2);
-    $("agentBudget").value=({small:"Small",normal:"Normal",large:"Large"})[agent.budget||"normal"]||"Normal";
     $("agentAutoCommit").checked=!!agent.autoCommit;
-    const budgetLabel=$("agentBudget").value;
-    $("agentBudgetSummary").innerHTML='<div><b>Task budget: '+esc(budgetLabel)+'</b><small>'+ (agent.stopLoop===true?'Strict loop guard can pause repeated inspections.':'Hard token/time cap and emergency loop guard remain active.') +'</small></div><span class="badge">'+(agent.autoTest===false?'Manual test':'Auto verify')+'</span>';
+    $("agentBudgetSummary").innerHTML='<div><b>No token or time limit</b><small>Boollm continues until completed, cancelled, or concretely blocked.</small></div><span class="badge">'+(agent.autoTest===false?'Manual test':'Auto verify')+'</span>';
     const bp=ui.browserPerms||{};
     $("permDownloads").checked=bp.downloads!==false;
     $("permCamera").checked=!!bp.camera;
@@ -18998,7 +18994,6 @@ Optional bundled starter model:
   $("agentCompatibilityMode").onchange=e=>updateCodingAgent({compatibilityMode:e.target.value});
   $("modelCapabilityTest").onclick=()=>runModelCapabilityProbe({force:true});
   $("agentRetries").onchange=e=>updateCodingAgent({maxRetries:Number(e.target.value)||2});
-  $("agentBudget").onchange=e=>updateCodingAgent({budget:String(e.target.value||"Normal").toLowerCase()});
   $("agentAutoCommit").onchange=e=>updateCodingAgent({autoCommit:e.target.checked});
   $("contextSeg").querySelectorAll("button").forEach(b=>b.onclick=async()=>{ await setUi({contextMode:b.dataset.val}); estimateContext(); });
   $("usageToggle").onclick=()=>{ const f=$("usageFold"); f.classList.toggle("open"); $("usageCaret").textContent=f.classList.contains("open")?"▾":"▸"; };
