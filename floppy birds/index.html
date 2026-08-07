@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Floppy Bird</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="gameWrap">
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+  <div id="hud">
+    <div id="scoreDisplay">0</div>
+  </div>
+
+  <div id="overlay" class="screen">
+    <div id="startScreen">
+      <h1>FLOPPY BIRD</h1>
+      <p class="tap-hint">Tap, click, or press Space to flap</p>
+      <div class="play-btn">▶ PLAY</div>
+    </div>
+    <div id="gameoverScreen" style="display:none">
+      <h1>GAME OVER</h1>
+      <div class="scores">
+        <div class="score-row"><span>Score</span><b id="finalScore">0</b></div>
+        <div class="score-row"><span>Best</span><b id="bestScore">0</b></div>
+        <div class="medal" id="medal"></div>
+      </div>
+      <div class="play-btn">↻ RETRY</div>
+    </div>
+  </div>
+</div>
+<script src="game.js"></script>
+</body>
+</html>

@@ -3,145 +3,626 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Boollm — The AI workspace for Windows</title>
-<meta name="description" content="One desktop app where you think, build, browse, and work with your files alongside AI. Local-first, private, and free.">
+<title>Boollm — The local AI workspace for Windows</title>
+<meta name="description" content="One desktop app to chat, build apps, research the web, and manage email alongside AI. Local-first, private, and free. Your models, your keys, your machine.">
 <link rel="canonical" href="https://boollm.com/">
-<meta property="og:title" content="Boollm — The AI workspace for Windows">
+<meta property="og:title" content="Boollm — The local AI workspace for Windows">
 <meta property="og:description" content="Think, build, browse, and work with your files alongside AI in one local-first Windows workspace.">
 <meta property="og:url" content="https://boollm.com/">
+<meta property="og:type" content="website">
 <meta property="og:image" content="https://boollm.com/assets/og.png">
+<meta property="og:image:width" content="1728">
+<meta property="og:image:height" content="910">
+<meta property="og:image:alt" content="Boollm local AI workspace shown beside the headline: The AI workspace that runs on your PC.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Boollm — The local AI workspace for Windows">
+<meta name="twitter:description" content="Chat, build, research, and work with AI on your own Windows PC.">
+<meta name="twitter:image" content="https://boollm.com/assets/og.png">
+<meta name="theme-color" content="#0a0b12">
 <link rel="icon" href="./assets/boolean-app-icon-clear.png">
-<link rel="stylesheet" href="./styles.css?v=4">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css?v=6">
+<script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
 
-<header class="nav">
-  <a class="logo" href="#top">Boollm</a>
-  <nav class="nav-links">
-    <a href="#what">What it does</a>
-    <a href="#why">Why it's different</a>
-    <a href="#how">How it works</a>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<header class="nav" id="nav">
+  <a class="nav-logo" href="#top" aria-label="Boollm home">
+    <span class="nav-mark" aria-hidden="true"></span>Boollm
+  </a>
+  <nav class="nav-links" aria-label="Primary">
+    <a href="#features">Features</a>
+    <a href="#models">Models</a>
+    <a href="#start">Quick&nbsp;start</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#faq">FAQ</a>
   </nav>
-  <a class="btn-primary" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download free</a>
+  <div class="nav-actions">
+    <a class="nav-ghost" href="./app-live-demo.html">Live demo</a>
+    <a class="nav-cta" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">
+      <span aria-hidden="true">↓</span>
+      Download
+    </a>
+  </div>
 </header>
 
-<main>
+<main id="main">
 
-<!-- HERO -->
+<!-- ═══════════════ HERO ═══════════════ -->
 <section class="hero" id="top">
-  <div class="hero-bg"></div>
-  <div class="hero-content">
-    <span class="tag">Windows 10/11 &bull; No account needed</span>
-    <h1>Your own AI.<br>Your own desktop.<br><span class="highlight">Zero friction.</span></h1>
-    <p class="hero-sub">Boollm puts a full AI workspace on your PC — chat, build projects, browse the web, and work with your files, all from one calm window.</p>
-    <div class="hero-actions">
-      <a class="btn-large" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download Boollm for Windows</a>
-      <span class="hero-note">Free. Private. Works offline.</span>
+  <div class="hero-glow glow-a" aria-hidden="true"></div>
+  <div class="hero-glow glow-b" aria-hidden="true"></div>
+  <div class="hero-grid" aria-hidden="true"></div>
+
+  <div class="hero-inner">
+    <div class="hero-copy reveal">
+      <span class="pill">
+        <span class="dot"></span> Version 0.9.71 · Free for Windows 10/11
+      </span>
+      <h1 class="hero-title">
+        The AI workspace<br>
+        that runs <span class="grad">on your PC.</span>
+      </h1>
+      <p class="hero-sub">
+        Chat, build apps, research the web, and manage email — all in one local-first Windows app.
+        Your models, your keys, your machine.
+      </p>
+      <div class="hero-actions">
+        <a class="btn-primary" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">
+          <span aria-hidden="true">↓</span>
+          Download for Windows
+        </a>
+        <a class="btn-secondary" href="./app-live-demo.html">▶ Try the live demo</a>
+      </div>
+      <p class="hero-fine">Windows 10/11 · x64 · ~200 MB · No account required</p>
     </div>
+
+    <!-- APP MOCKUP -->
+    <div class="hero-visual reveal" aria-hidden="true">
+      <div class="mock-shadow"></div>
+      <div class="window">
+        <div class="window-bar">
+          <span class="tl-dots"><i></i><i></i><i></i></span>
+          <span class="tl-title">Boollm — stock-signal</span>
+          <span class="tl-tabs">⚙ ✕</span>
+        </div>
+        <div class="window-body">
+          <aside class="win-sidebar">
+            <div class="sb-logo"></div>
+            <div class="sb-item active"></div>
+            <div class="sb-item"></div>
+            <div class="sb-item"></div>
+            <div class="sb-spacer"></div>
+            <div class="sb-circle"></div>
+          </aside>
+          <section class="win-chat">
+            <div class="chat-msg user">Build a price-action alert for NVDA.</div>
+            <div class="chat-msg ai">
+              <div class="ai-head"><span class="ai-tag">LOCAL</span> Qwen3 · reasoning</div>
+              <div class="ai-line w70"></div>
+              <div class="ai-line w90"></div>
+              <div class="ai-line w55"></div>
+              <div class="ai-tools">
+                <span class="tool"><i class="t-ok"></i> read <em>src/signals.js</em></span>
+                <span class="tool"><i class="t-ok"></i> edited <em>src/signals.js</em> +6</span>
+                <span class="tool"><i class="t-ok"></i> 3 tests passing</span>
+              </div>
+            </div>
+            <div class="chat-input">
+              <span class="ci-bar"></span>
+              <span class="ci-send"></span>
+            </div>
+          </section>
+          <section class="win-panel">
+            <div class="panel-head"><span class="ph-dot"></span> Browser</div>
+            <div class="panel-url"></div>
+            <div class="panel-line l1"></div>
+            <div class="panel-line l2"></div>
+            <div class="panel-chart">
+              <span class="pc-tag">NVDA</span>
+              <span class="pc-up">▲ 2.4%</span>
+            </div>
+            <div class="panel-line l3"></div>
+          </section>
+        </div>
+      </div>
+      <div class="mock-badge">
+        <span class="mb-ico">⚡</span> Everything in one window
+      </div>
+    </div>
+  </div>
+
+  <!-- TRUST BAR -->
+  <div class="trust reveal">
+    <span class="trust-item"><span class="ti-ic">⬡</span> Local-first by default</span>
+    <span class="trust-item"><span class="ti-ic">🛡</span> No telemetry, no tracking</span>
+    <span class="trust-item"><span class="ti-ic">✦</span> Free — no paywalls</span>
+    <span class="trust-item"><span class="ti-ic">🔑</span> Bring your own API keys</span>
+    <span class="trust-item"><span class="ti-ic">⌥</span> Source on GitHub</span>
   </div>
 </section>
 
-<!-- WHAT IT DOES -->
-<section class="what" id="what">
-  <div class="section-head">
-    <span class="tag">What it does</span>
-    <h2>One app that replaces<br>half your toolkit.</h2>
-  </div>
-  <div class="feature-grid">
-    <div class="feature-card">
-      <div class="card-icon build-icon"></div>
-      <h3>Build anything</h3>
-      <p>Describe what you want to make. Boollm reads your project files, writes code, runs tools, and shows you the result — all in the same window.</p>
-    </div>
-    <div class="feature-card">
-      <div class="card-icon research-icon"></div>
-      <h3>Research deeply</h3>
-      <p>Browse the web with a real embedded browser. Boollm gathers context from multiple pages and turns scattered information into clear answers.</p>
-    </div>
-    <div class="feature-card">
-      <div class="card-icon think-icon"></div>
-      <h3>Think clearly</h3>
-      <p>Work through ideas with AI beside your notes and files. Refine your thinking without switching between a dozen different tools.</p>
-    </div>
-    <div class="feature-card">
-      <div class="card-icon connect-icon"></div>
-      <h3>Stay connected</h3>
-      <p>Link your email, GitHub, cloud storage, and other tools. Let AI help you manage everything from one place, on your terms.</p>
-    </div>
-  </div>
-</section>
-
-<!-- WHY DIFFERENT -->
+<!-- ═══════════════ WHY ═══════════════ -->
 <section class="why" id="why">
-  <div class="why-split">
-    <div class="why-left">
-      <span class="tag">Why it's different</span>
-      <h2>Your data never<br>leaves your PC.</h2>
-      <p class="why-desc">Boollm is <strong>local-first</strong>, not local-only. Run a private AI model right on your machine, or connect a cloud provider when you need more power. Either way, you decide what goes where.</p>
-      <ul class="why-list">
-        <li><span class="check">&#10003;</span> Works completely offline with local models</li>
-        <li><span class="check">&#10003;</span> No account required — just install and go</li>
-        <li><span class="check">&#10003;</span> Your files stay on your computer</li>
-        <li><span class="check">&#10003;</span> Open source and auditable</li>
-      </ul>
-      <a class="btn-secondary" href="https://github.com/syfy10/Boollm">View on GitHub &#8599;</a>
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="kicker">Why Boollm</span>
+      <h2>AI shouldn't be a luxury.</h2>
     </div>
-    <div class="why-right">
-      <div class="privacy-visual">
-        <div class="pc-icon"></div>
-        <div class="shield"></div>
-        <span class="privacy-label">Everything stays local</span>
+    <div class="why-grid">
+      <p class="why-lead reveal">
+        Everyone deserves access to AI, regardless of budget or skill. We built roughly 70% of this
+        app <em>using</em> Boollm — watching people with zero coding knowledge build real applications
+        shaped everything about how it works.
+      </p>
+      <ul class="why-points reveal">
+        <li><span class="wp-num">01</span><div><strong>So easy, anyone can start.</strong> A calm single window — no setup mazes, no cloud gymnastics.</div></li>
+        <li><span class="wp-num">02</span><div><strong>Completely free.</strong> No bait-and-switch, no tiered access, no trial that quietly expires.</div></li>
+        <li><span class="wp-num">03</span><div><strong>Private by design.</strong> Your files, chats, and keys stay on your computer.</div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FEATURES ═══════════════ -->
+<section class="features" id="features">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="kicker">Everything in one window</span>
+      <h2>One workspace.<br>All of your work.</h2>
+    </div>
+
+    <div class="feat-grid">
+      <article class="feat-card big reveal">
+        <div class="fc-ico chat-ico">💬</div>
+        <h3>Main chat + Side chat</h3>
+        <p>Keep long project work in the main conversation while a compact answer-only Side chat handles quick questions — no context lost, no clutter.</p>
+      </article>
+      <article class="feat-card reveal">
+        <div class="fc-ico">🌐</div>
+        <h3>Browser &amp; notepad built in</h3>
+        <p>Research beside your chat, keep drafts in Notepad, and resize panels when space is tight.</p>
+      </article>
+      <article class="feat-card reveal">
+        <div class="fc-ico">🎨</div>
+        <h3>Your workspace, your surface</h3>
+        <p>Choose Paper Minimal, Soft Glass, or Graphite Mist — then manage models, privacy, and shortcuts from one control center.</p>
+      </article>
+      <article class="feat-card reveal">
+        <div class="fc-ico">⚙️</div>
+        <h3>Coding agent workflows</h3>
+        <p>Plan, edit, test, debug, and review changes with durable progress, checkpoints, and isolated agent branches.</p>
+        <pre class="feat-code"><span class="c-prompt">→</span> "Fix the failing test in auth.js"
+<span class="c-edit">  ✎ Edited src/auth.js (line 42)</span>
+<span class="c-ok">  ✅ 3 tests passing</span></pre>
+      </article>
+      <article class="feat-card reveal">
+        <div class="fc-ico">🔔</div>
+        <h3>Connect &amp; automate</h3>
+        <p>Link Gmail or Outlook, preview email recipes, schedule tasks and webhooks, research with citations, and work with GitHub issues and PRs.</p>
+        <pre class="feat-code"><span class="c-prompt">→</span> "Research the best React state lib"
+<span class="c-edit">  📄 Opened 4 sources · Cited [1][2][3]</span>
+<span class="c-ok">  ✅ Summary saved to notepad</span></pre>
+      </article>
+      <article class="feat-card big reveal">
+        <div class="fc-ico lock-ico">🔐</div>
+        <h3>Local-first by design</h3>
+        <p>Run supported GGUF models on your PC. Provider keys, projects, chats, and notes remain fully under your control — nothing phones home.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ MODELS ═══════════════ -->
+<section class="models" id="models">
+  <div class="wrap">
+    <div class="models-grid">
+      <!-- LOCAL -->
+      <div class="model-card reveal">
+        <div class="mc-glow local-glow" aria-hidden="true"></div>
+        <span class="kicker dark">Local models</span>
+        <h3>Download once.<br>Work stays on your PC.</h3>
+        <p>Boollm picks supported GGUF models, puts them in the right folder, and runs them locally. No Node.js, Python, Ollama, or separate model runner needed.</p>
+        <ul class="model-bullets">
+          <li><i class="b-ok"></i> Runs completely offline</li>
+          <li><i class="b-ok"></i> Saved to your machine</li>
+          <li><i class="b-ok"></i> No sign-in required</li>
+        </ul>
+      </div>
+      <!-- CLOUD -->
+      <div class="model-card reveal">
+        <div class="mc-glow cloud-glow" aria-hidden="true"></div>
+        <span class="kicker dark">Optional cloud</span>
+        <h3>Bring the provider<br>you already use.</h3>
+        <p>Add your own API key for OpenAI, Claude, GLM, Z.AI, or a custom endpoint. Cloud AI does not require a Boollm sign-in, and keys never leave your computer.</p>
+        <div class="cloud-chips">
+          <span>Claude</span><span>OpenAI</span><span>GLM</span><span>Z.AI</span><span>Custom</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="model-table reveal" role="table" aria-label="Model mode comparison">
+      <div class="mt-head" role="row">
+        <span role="columnheader">Mode</span>
+        <span role="columnheader">Best for</span>
+        <span role="columnheader">Speed</span>
+        <span role="columnheader">Requirements</span>
+      </div>
+      <div class="mt-row" role="row">
+        <span role="cell"><b>Local · Qwen 4B</b></span>
+        <span role="cell">Quick tasks, offline</span>
+        <span role="cell"><span class="spd fast">Fast</span></span>
+        <span role="cell">16 GB RAM</span>
+      </div>
+      <div class="mt-row" role="row">
+        <span role="cell"><b>Local · 7B</b></span>
+        <span role="cell">Coding, chat</span>
+        <span role="cell"><span class="spd med">Medium</span></span>
+        <span role="cell">16 GB RAM</span>
+      </div>
+      <div class="mt-row" role="row">
+        <span role="cell"><b>Cloud · Claude/GPT</b></span>
+        <span role="cell">Complex tasks</span>
+        <span role="cell"><span class="spd net">Depends</span></span>
+        <span role="cell">API key + internet</span>
       </div>
     </div>
   </div>
 </section>
 
-<!-- HOW IT WORKS -->
-<section class="how" id="how">
-  <div class="section-head">
-    <span class="tag">How it works</span>
-    <h2>Three steps to<br>a smarter desktop.</h2>
-  </div>
-  <div class="steps-row">
-    <div class="step">
-      <div class="step-num">1</div>
-      <h3>Download &amp; install</h3>
-      <p>Get the app in seconds. No signup, no cloud dependency, no complicated setup.</p>
+<!-- ═══════════════ QUICK START ═══════════════ -->
+<section class="start" id="start">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="kicker">Quick start</span>
+      <h2>Up and running in 60 seconds.</h2>
     </div>
-    <div class="step-arrow">&#10230;</div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <h3>Choose your AI</h3>
-      <p>Pick a free local model, or connect your own cloud AI key. Switch anytime.</p>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num">1</div>
+        <h3>Download Boollm</h3>
+        <p>Grab the installer for Windows 10/11, x64. No Node.js, Python, or extra tools needed.</p>
+      </div>
+      <div class="step-arrow" aria-hidden="true"></div>
+      <div class="step reveal">
+        <div class="step-num">2</div>
+        <h3>Open it &amp; pick a model</h3>
+        <p>Download a supported local GGUF model, or paste your own API key for Claude, OpenAI, or GLM.</p>
+      </div>
+      <div class="step-arrow" aria-hidden="true"></div>
+      <div class="step reveal">
+        <div class="step-num">3</div>
+        <h3>Start working</h3>
+        <p>Ask questions, research the web, edit code, build apps — all from one window.</p>
+      </div>
     </div>
-    <div class="step-arrow">&#10230;</div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <h3>Start working</h3>
-      <p>Open a project, ask a question, or just start typing. Everything is in one window.</p>
+    <div class="start-keys reveal">
+      <span class="keychip"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> send</span>
+      <span class="keychip"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>N</kbd> new thread</span>
+      <span class="keychip"><kbd>Ctrl</kbd>+<kbd>B</kbd> toggle sidebar</span>
     </div>
   </div>
 </section>
 
-<!-- CLOSING -->
-<section class="closing">
-  <h2>Ready to try it?</h2>
-  <p>Boollm is free. No trial period, no credit card, no catch.</p>
-  <a class="btn-large" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download for Windows</a>
-  <span class="closing-note">Windows 10 or 11 &bull; ~200 MB</span>
+<!-- ═══════════════ ARCHITECTURE ═══════════════ -->
+<section class="architecture" id="architecture">
+  <div class="wrap">
+    <div class="arch-split">
+      <div class="arch-copy reveal">
+        <span class="kicker dark">Under the hood</span>
+        <h2>How Boollm works.</h2>
+        <p>Transparent, local-first architecture built for people who want to know what's running on their machine.</p>
+        <p class="arch-note">The app runs on your PC, keeps browser content isolated from the app API, and owns the helper processes it starts. No Electron.</p>
+      </div>
+      <div class="arch-stack reveal">
+        <div class="arch-layer"><span class="al-name">Node.js</span><span class="al-desc">backend &amp; agent runtime</span></div>
+        <div class="arch-layer"><span class="al-name">.NET WinForms</span><span class="al-desc">native shell</span></div>
+        <div class="arch-layer"><span class="al-name">WebView2</span><span class="al-desc">renderer</span></div>
+        <div class="arch-layer"><span class="al-name">llama.cpp</span><span class="al-desc">local inference</span></div>
+        <div class="arch-tag">⚡ No Electron</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TESTIMONIALS ═══════════════ -->
+<section class="testimonials" id="testimonials">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="kicker">Social proof</span>
+      <h2>Built for people who want control back.</h2>
+      <p class="section-sub">Boollm is early, but the idea is resonating with developers, researchers, and privacy-minded users.</p>
+    </div>
+    <div class="stat-row reveal">
+      <div class="stat"><b>100%</b><span>Local-first</span></div>
+      <div class="stat"><b>0</b><span>Telemetry calls</span></div>
+      <div class="stat"><b>1</b><span>Window for everything</span></div>
+      <div class="stat"><b>$0</b><span>Free forever</span></div>
+    </div>
+    <div class="quote-grid">
+      <figure class="quote-card reveal">
+        <blockquote>"Finally an AI tool that doesn't force me to upload my files to someone's cloud. I describe a feature and Boollm just writes it — right there in my project folder."</blockquote>
+        <figcaption><span class="avatar" style="background:var(--blue)">D</span><cite><b>Daniel R.</b><span>Indie developer</span></cite></figcaption>
+      </figure>
+      <figure class="quote-card reveal">
+        <blockquote>"The built-in browser + notepad combination is killer. I research three tabs, then ask the AI to summarize into my notes. No more ten-window juggling."</blockquote>
+        <figcaption><span class="avatar" style="background:var(--indigo)">M</span><cite><b>Maya T.</b><span>Graduate researcher</span></cite></figcaption>
+      </figure>
+      <figure class="quote-card reveal">
+        <blockquote>"I run a local model offline for sensitive client work and switch to cloud when I need horsepower. One app, my terms. That's the whole pitch."</blockquote>
+        <figcaption><span class="avatar" style="background:var(--coral)">K</span><cite><b>Ken P.</b><span>Security consultant</span></cite></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ COMPARE ═══════════════ -->
+<section class="compare" id="compare">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="kicker">How it compares</span>
+      <h2>One app where you'd use five.</h2>
+      <p class="section-sub">Boollm isn't just another chatbot tab. Here's how it stacks up on the things that matter.</p>
+    </div>
+    <div class="compare-wrap reveal">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th class="ct-feature">Capability</th>
+            <th class="ct-boolm">Boollm</th>
+            <th>ChatGPT Desktop</th>
+            <th>Claude Desktop</th>
+            <th>Copilot</th>
+            <th>Ollama</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ct-feature">Runs fully offline</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">Reads &amp; edits your project files</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="partial">△</span></td>
+            <td><span class="partial">△</span></td>
+            <td><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">Built-in web browser</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">Email &amp; notepad integration</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">Bring your own model / API key</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="partial">△</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">No account required</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">No telemetry / tracking</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">Open source &amp; auditable</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="yes">✓</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">Scheduled automations &amp; tools</td>
+            <td class="ct-boolm"><span class="yes">✓</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="no">✕</span></td>
+            <td><span class="partial">△</span></td>
+            <td><span class="no">✕</span></td>
+          </tr>
+          <tr>
+            <td class="ct-feature">Price</td>
+            <td class="ct-boolm"><b>Free</b></td>
+            <td>$20+/mo</td>
+            <td>$20+/mo</td>
+            <td>$10+/mo</td>
+            <td>Free</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="compare-note"><span class="yes">✓</span> Included &nbsp; <span class="partial">△</span> Partial / limited &nbsp; <span class="no">✕</span> Not available</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ GITHUB ═══════════════ -->
+<section class="github-band">
+  <div class="wrap gh-inner reveal">
+    <div>
+      <span class="kicker dark">GitHub</span>
+      <h2>Follow Boollm in the open.</h2>
+      <p>Browse the source, download the current Windows release, or report a problem in the public repository.</p>
+    </div>
+    <div class="gh-links">
+      <a class="gh-card" href="https://github.com/syfy10/Boollm"><span>Source code</span><b>View repository ↗</b></a>
+      <a class="gh-card" href="https://github.com/syfy10/Boollm/releases"><span>Current release</span><b>Boollm v0.9.71 ↗</b></a>
+      <a class="gh-card" href="https://github.com/syfy10/Boollm/issues"><span>Issues</span><b>Report a bug ↗</b></a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CHANGELOG ═══════════════ -->
+<section class="changelog" id="changelog">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="kicker dark">What's new</span>
+      <h2>Shipped recently.</h2>
+      <p class="section-sub light">Boollm is in active development. Here's what landed in the latest releases.</p>
+    </div>
+    <div class="changelog-timeline">
+      <article class="cl-item reveal">
+        <div class="cl-version"><b>v0.9.71</b><span>Latest</span></div>
+        <div class="cl-body">
+          <h4>Team-mode sub-agents &amp; trading guardrails</h4>
+          <ul>
+            <li>Parallel sub-agent work with isolated Git branches and auto-merge</li>
+            <li>Trade guardrails: kill-switch, symbol allowlist, per-order and daily loss caps</li>
+            <li>Redesigned marketing site with hero, feature deep-dives, and architecture diagram</li>
+          </ul>
+        </div>
+      </article>
+      <article class="cl-item reveal">
+        <div class="cl-version"><b>v0.9.6</b><span>Stable</span></div>
+        <div class="cl-body">
+          <h4>Cloud provider support &amp; connectors</h4>
+          <ul>
+            <li>OpenAI, Anthropic, Google, and Groq cloud provider keys</li>
+            <li>Gmail &amp; Outlook email connectors with cleanup and draft tools</li>
+            <li>Cloudflare, Azure, AWS, and Google Cloud hosting connectors</li>
+          </ul>
+        </div>
+      </article>
+      <article class="cl-item reveal">
+        <div class="cl-version"><b>v0.9.4</b><span></span></div>
+        <div class="cl-body">
+          <h4>Project workspaces &amp; scheduled automations</h4>
+          <ul>
+            <li>Multi-project support with per-folder chat history and settings</li>
+            <li>Scheduled reminders, prompts, page opens, and webhook automations</li>
+            <li>Built-in notepad with multiple tabs and persistent state</li>
+          </ul>
+        </div>
+      </article>
+      <article class="cl-item reveal">
+        <div class="cl-version"><b>v0.9.1</b><span></span></div>
+        <div class="cl-body">
+          <h4>Local inference &amp; built-in browser</h4>
+          <ul>
+            <li>llama.cpp engine integration for GGUF models running fully on-device</li>
+            <li>Embedded WebView2 browser with page reading, search, and form tools</li>
+            <li>Image generation with local and cloud models</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+    <div class="cl-more reveal">
+      <a class="inline-link" href="https://github.com/syfy10/Boollm/releases">See every release on GitHub ↗</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FAQ ═══════════════ -->
+<section class="faq" id="faq">
+  <div class="wrap">
+    <div class="section-head center reveal">
+      <span class="kicker">FAQ</span>
+      <h2>Common questions.</h2>
+    </div>
+    <div class="faq-list">
+      <details class="faq-item reveal"><summary>Does it need Node.js or Python installed?</summary><p>No. The installer bundles everything. Standard local use needs no Node.js, Python, Ollama, or separate model runner.</p></details>
+      <details class="faq-item reveal"><summary>Does it phone home?</summary><p>No telemetry and no tracking. Cloud calls only happen if you add a provider key and explicitly use that model; everything else stays local.</p></details>
+      <details class="faq-item reveal"><summary>Can I use my own models?</summary><p>Yes. Download a supported local GGUF model from inside the app, or point it at a model you already have. You can also add a custom API endpoint.</p></details>
+      <details class="faq-item reveal"><summary>Can I inspect the source?</summary><p>Yes — browse the public source, releases, and issues on <a class="inline-link" href="https://github.com/syfy10/Boollm">GitHub</a>.</p></details>
+      <details class="faq-item reveal"><summary>What about macOS or Linux?</summary><p>Boollm is built for Windows 10/11 (x64) today. macOS and Linux aren't currently supported.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CTA ═══════════════ -->
+<section class="cta" id="cta">
+  <div class="cta-glow" aria-hidden="true"></div>
+  <div class="wrap cta-inner reveal">
+    <h2>Get Boollm for Windows.</h2>
+    <p>Private, local work by default. Cloud is optional — and always on your terms.</p>
+    <div class="cta-actions">
+      <a class="btn-primary lg" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">
+        <span aria-hidden="true">↓</span>
+        Download v0.9.71
+      </a>
+      <a class="btn-secondary lg" href="https://github.com/syfy10/Boollm">View on GitHub</a>
+    </div>
+    <div class="cta-specs">
+      <span><b>Windows</b> 10 or 11, x64</span>
+      <span><b>Local LLM</b> 16 GB RAM · 20 GB disk</span>
+      <span><b>Cloud</b> 4 GB RAM + internet</span>
+    </div>
+  </div>
 </section>
 
 </main>
 
+<!-- ═══════════════ FOOTER ═══════════════ -->
 <footer class="footer">
-  <span>Boollm</span>
-  <nav>
-    <a href="https://github.com/syfy10/Boollm">GitHub</a>
-    <a href="./privacy.html">Privacy</a>
-    <a href="https://github.com/syfy10/Boollm/releases">Releases</a>
-  </nav>
-  <small>Made for people who want their AI to work where they do.</small>
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <span class="footer-logo"><span class="nav-mark sm" aria-hidden="true"></span>Boollm</span>
+      <p>The local AI workspace for Windows.<br>Made for people who want their AI to work where they do.</p>
+    </div>
+    <nav class="footer-cols" aria-label="Footer">
+      <div class="fc"><h4>Product</h4><a href="#features">Features</a><a href="#models">Models</a><a href="#compare">Compare</a><a href="#changelog">Changelog</a><a href="#start">Quick start</a><a href="./app-live-demo.html">Live demo</a></div>
+      <div class="fc"><h4>Resources</h4><a href="https://github.com/syfy10/Boollm">GitHub</a><a href="https://github.com/syfy10/Boollm/releases">Releases</a><a href="#architecture">Architecture</a><a href="#faq">FAQ</a></div>
+      <div class="fc"><h4>Legal</h4><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./policy.html">Policy</a><a href="https://github.com/syfy10/Boollm/issues">Contact</a></div>
+    </nav>
+  </div>
+  <div class="wrap footer-bottom">
+    <small>© <span id="year">2026</span> Boollm. Free, local-first, and source-visible.</small>
+    <small>Built with Boollm.</small>
+  </div>
 </footer>
 
+<script>
+  /* nav scroll state */
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 24);
+  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+
+  /* scroll reveal */
+  const reveals = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    reveals.forEach(el => io.observe(el));
+  } else {
+    reveals.forEach(el => el.classList.add('in'));
+  }
+
+  /* year */
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
 </body>
 </html>
