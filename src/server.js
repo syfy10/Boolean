@@ -32,7 +32,7 @@ import {
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend, costOf } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
-import { clearCookies } from "./browse.js";
+import { handleBrowse, clearCookies } from "./browse.js";
 import { executeTool } from "./tools.js";
 import { simplePdf } from "./platform.js";
 import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences, recordResponseFeedback } from "./preferences.js";
@@ -1656,6 +1656,7 @@ export function startServer(config, {
   let browserUrl = ""; // the page currently open in the in-app browser
   let browserTitle = ""; // optional page title sent with the current browser URL
   let browserSnapshot = null; // last live page read pushed by the desktop shell UI
+  let browseBase = ""; // origin of the isolated browser-proxy server (set on listen)
   let serverPort = 0;  // this app's own port, hidden from local-server discovery
 
   // Why a scheduled monitor has no page to look at. A prompt-type task has no
@@ -3181,6 +3182,7 @@ ${exploreScript}
           codexPendingInputs: publicCodexInputs(),
           codexPendingApprovals: publicCodexApprovals(),
           cloudBackend: publicCloudBackend(config),
+          browseBase,
           vision: currentVision,
           ui: config.ui,
           eulaAccepted: !!config.eulaAccepted,
@@ -7060,6 +7062,23 @@ ${exploreScript}
   });
   server.on("close", () => { stopCodexClient().catch(() => {}); });
 
+  // Isolated browser-proxy server on its OWN port. Proxied web pages render
+  // from this origin (a different port = a different origin than the app), so
+  // they can safely get sandbox `allow-same-origin` — cookies/storage work and
+  // sites render normally — yet can never reach the app's /api (cross-origin +
+  // the x-saz CSRF guard). Only /browse is served here; nothing sensitive.
+  const proxyServer = http.createServer(async (req, res) => {
+    const u = new URL(req.url, "http://localhost");
+    const host = (req.headers.host || "").replace(/:\d+$/, "");
+    if (!["127.0.0.1", "localhost", "[::1]"].includes(host)) { res.writeHead(403); res.end("forbidden"); return; }
+    if (u.pathname === "/browse" && (req.method === "GET" || req.method === "POST")) {
+      try { await handleBrowse(req, res, u, config); }
+      catch (err) { res.writeHead(502); res.end(err.message); }
+      return;
+    }
+    res.writeHead(404); res.end("not found");
+  });
+
   // try the requested port; if taken, fall back to a random free one
   return new Promise((resolve) => {
     function listen(tryPort, allowFallback) {
@@ -7068,8 +7087,11 @@ ${exploreScript}
         else throw err;
       });
       server.listen(tryPort, "127.0.0.1", () => {
-        serverPort = server.address().port;
-        resolve({ server, port: serverPort });
+        proxyServer.listen(0, "127.0.0.1", () => {
+          browseBase = `http://127.0.0.1:${proxyServer.address().port}`;
+          serverPort = server.address().port;
+          resolve({ server, proxyServer, port: serverPort });
+        });
       });
     }
     listen(port, port !== 0);

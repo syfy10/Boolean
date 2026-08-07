@@ -856,7 +856,12 @@ test("Classic is Boollm's only surface foundation", () => {
   assert.match(ui, /document\.body\.style\.setProperty\("--cw",ui\.contextW\+"px"\)/);
   assert.match(config, /notepadW:\s*320/);
   assert.match(config, /contextW:\s*300/);
-  assert.doesNotMatch(ui, /body\.browser-on:not\(\.shell\) #browser/);
+  // Web mode has no native pane, so it gets a proxy-backed browser of its own.
+  // It is fixed-width and hidden under the shell, which keeps the WebView2 pane
+  // and its splitter as the only browser on the desktop.
+  assert.match(ui, /body\.browser-on:not\(\.shell\) #browser\{ display:flex; \}/);
+  assert.match(ui, /body\.shell #browser\{ display:none !important; \}/);
+  assert.doesNotMatch(ui, /id="bdrag"/);
   assert.match(ui, /body\.notes-on:not\(\.shell\) #notesPanel\{ width:var\(--nw,280px\); min-width:250px; flex-basis:var\(--nw,280px\); \}/);
   assert.match(ui, /#notesPanel\{ width:var\(--nw,clamp\(260px,32vw,360px\)\); flex:0 0 var\(--nw,clamp\(260px,32vw,360px\)\);/);
   assert.match(ui, /const chatXs=document\.body\.classList\.contains\("chat-xs"\);\s*document\.body\.classList\.toggle\("chat-xs",chatXs\?chatW<470:chatW<430\);/);

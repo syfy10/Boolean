@@ -724,6 +724,35 @@
   /* the ⤢ focus mode still expands it edge to edge */
   @keyframes browserRise{ from{ transform:translateY(16px) scale(.985); opacity:0; } to{ transform:none; opacity:1; } }
   @keyframes browserSink{ from{ transform:none; opacity:1; } to{ transform:translateY(16px) scale(.985); opacity:0; } }
+  /* In-app browser panel. The desktop shell has a real WebView2 pane, so this
+     one exists only for web mode, where there is otherwise no browser at all.
+     It renders sites through the /browse proxy on its own origin. */
+  #browser{ width:var(--bw,460px); flex-shrink:0; display:none; flex-direction:column; min-width:0;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-lg); overflow:hidden; }
+  body.browser-on:not(.shell) #browser{ display:flex; }
+  /* The shell has the native WebView2 pane and its own splitter; this one is
+     web-mode only and keeps a fixed width, so it needs no resize handle. */
+  body.shell #browser{ display:none !important; }
+  .browser-head{ display:flex; flex-direction:column; gap:0; border-bottom:1px solid var(--border);
+    background:var(--sidebar); }
+  .browser-toolbar{ display:flex; align-items:center; gap:6px; padding:6px 8px; min-width:0; }
+  .browser-toolbar .btool-group{ display:flex; align-items:center; gap:2px; flex:0 0 auto; }
+  .bbtn{ display:grid; place-items:center; width:26px; height:26px; padding:0; border:0;
+    border-radius:var(--radius-sm); background:transparent; color:var(--dim); cursor:pointer;
+    font-size:var(--fs-md); transition:background var(--t-fast),color var(--t-fast); }
+  .bbtn:hover:not(:disabled){ background:var(--hover); color:var(--text); }
+  .bbtn:disabled{ opacity:.35; cursor:default; }
+  .addr-wrap{ position:relative; display:flex; align-items:center; flex:1 1 auto; min-width:0; }
+  #bAddr{ width:100%; min-width:0; padding:5px 9px; border:1px solid var(--border);
+    border-radius:var(--radius-pill); background:var(--bg); color:var(--text);
+    font:var(--fs-sm)/1.4 var(--ui); outline:none; }
+  #bAddr:focus{ border-color:var(--green); }
+  #bFrameWrap{ position:relative; flex:1 1 auto; min-height:0; background:var(--bg); }
+  #bFrame{ width:100%; height:100%; border:0; display:block; background:#fff; }
+  #bEmpty{ position:absolute; inset:0; display:grid; place-items:center; padding:20px;
+    color:var(--dim); font:var(--fs-sm)/1.5 var(--ui); text-align:center; }
+  #browser.has-page #bEmpty{ display:none; }
   body.browser-on:not(.shell) main{ min-width:0; }
   @media (prefers-reduced-motion:reduce){ }
 
@@ -7909,6 +7938,28 @@ body:not(.composer-simple) main::after{
     </div>
   </div>
 </main>
+
+<section id="browser" aria-label="Web browser">
+  <div class="browser-head">
+    <div class="browser-toolbar">
+      <div class="btool-group">
+        <button class="bbtn" id="bBack" type="button" title="Back" aria-label="Back" disabled>&lsaquo;</button>
+        <button class="bbtn" id="bFwd" type="button" title="Forward" aria-label="Forward" disabled>&rsaquo;</button>
+        <button class="bbtn" id="bReload" type="button" title="Reload" aria-label="Reload">&#10227;</button>
+      </div>
+      <div class="addr-wrap">
+        <input id="bAddr" placeholder="Search or type a URL…" spellcheck="false" autocomplete="off" aria-label="Address">
+      </div>
+      <div class="btool-group">
+        <button class="bbtn" id="bClose" type="button" title="Close browser" aria-label="Close browser">&times;</button>
+      </div>
+    </div>
+  </div>
+  <div id="bFrameWrap">
+    <iframe id="bFrame" title="Web page" sandbox="allow-scripts allow-forms allow-same-origin allow-popups"></iframe>
+    <div id="bEmpty">Type a URL above to browse. Pages load through Boollm's proxy.</div>
+  </div>
+</section>
 
 <div id="floatPanels">
 <div id="ctxdrag" title="Drag to resize context" aria-label="Resize context panel"></div>
@@ -19463,9 +19514,65 @@ Optional bundled starter model:
   // workspace tab, a rail click. Callers that already have somewhere to go pass
   // forWeb:true so navigation, agent tools, and the Web button still reach the
   // real browser.
+  // ── Web-mode browser pane ────────────────────────────────────────────────
+  // The desktop shell drives a real WebView2 pane over CDP; everything below
+  // runs only when there is no shell, where the /browse proxy is the only way
+  // to render a site. Sites that need a real login still want the desktop app.
+  const webBrowser={ stack:[], at:-1 };
+  function webBrowserUrl(input){
+    const raw=String(input||"").trim();
+    if(!raw) return "";
+    if(/^[a-z]+:\/\//i.test(raw)) return raw;
+    if(/^[\w-]+(\.[\w-]+)+(\/|$|\?)/.test(raw)) return "https://"+raw;
+    return "https://duckduckgo.com/?q="+encodeURIComponent(raw);
+  }
+  function webBrowserSyncControls(){
+    const back=$("bBack"),fwd=$("bFwd");
+    if(back) back.disabled=webBrowser.at<=0;
+    if(fwd) fwd.disabled=webBrowser.at>=webBrowser.stack.length-1;
+  }
+  function webBrowserLoad(url,{push=true}={}){
+    const target=webBrowserUrl(url);
+    if(!target) return;
+    const base=String(state.browseBase||"");
+    if(!base){ tempToast("The page proxy is not ready yet."); return; }
+    const frame=$("bFrame"),addr=$("bAddr"),pane=$("browser");
+    if(!frame) return;
+    if(push){
+      webBrowser.stack=webBrowser.stack.slice(0,webBrowser.at+1);
+      webBrowser.stack.push(target);
+      webBrowser.at=webBrowser.stack.length-1;
+    }
+    if(addr&&document.activeElement!==addr) addr.value=target;
+    pane?.classList.add("has-page");
+    frame.src=base+"/browse?u="+encodeURIComponent(target);
+    webBrowserSyncControls();
+  }
+  function webBrowserGo(step){
+    const next=webBrowser.at+step;
+    if(next<0||next>=webBrowser.stack.length) return;
+    webBrowser.at=next;
+    webBrowserLoad(webBrowser.stack[next],{push:false});
+  }
+  function wireWebBrowser(){
+    if(SHELL) return;
+    $("bBack")?.addEventListener("click",()=>webBrowserGo(-1));
+    $("bFwd")?.addEventListener("click",()=>webBrowserGo(1));
+    $("bReload")?.addEventListener("click",()=>{ const cur=webBrowser.stack[webBrowser.at]; if(cur) webBrowserLoad(cur,{push:false}); });
+    $("bClose")?.addEventListener("click",()=>openBrowser(false));
+    $("bAddr")?.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ e.preventDefault(); webBrowserLoad(e.target.value); e.target.blur(); } });
+  }
   function openBrowser(on,{remember=false,forWeb=false}={}){
     if(on&&!forWeb&&!browserOpen()&&exploreHomeEnabled()){ openExploreWorkspace("web"); return; }
-    if(!SHELL){ if(on) tempToast(BROWSER_DESKTOP_ONLY); return; }
+    if(!SHELL){
+      // Web mode has no native pane; show the proxy-backed one instead of
+      // telling the user to go and install the desktop app.
+      if(remember) rememberCurrentView();
+      document.body.classList.toggle("browser-on",!!on);
+      if(!on) returnToChatAfterAuxiliaryClose("browser");
+      syncPanelButtons();
+      return;
+    }
     if(remember) rememberCurrentView();
     hostPost({type:"browser",cmd:on?"show":"hide"});
     document.body.classList.toggle("browser-on",!!on);
@@ -19474,7 +19581,7 @@ Optional bundled starter model:
   }
   function browserNavigate(url){
     if(!url) return;
-    if(!SHELL){ tempToast(BROWSER_DESKTOP_ONLY); return; }
+    if(!SHELL){ openBrowser(true,{forWeb:true}); webBrowserLoad(url); return; }
     if(exploreHomeEnabled()){
       openExploreWorkspace("web");
       requestAnimationFrame(()=>hostPost({type:"browser",cmd:"navigate",url}));
@@ -26852,6 +26959,8 @@ Optional bundled starter model:
     }
     $("input").focus();
   });
+
+  wireWebBrowser();
 
 })();
 </script>
