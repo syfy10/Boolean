@@ -233,7 +233,7 @@ const ACCESS_MODE_NOTES = {
   read_only: "read_only - inspection only. File writes, commands, and external actions are refused.",
   ask: "ask - each write, command, or external action is presented to the user for approval.",
   read_write: "read_write - project file edits proceed; commands and external actions still need approval.",
-  full_access: "full_access - approval is pre-granted, so the authority rules are yours alone to enforce."
+  full_access: "full_access - no approval prompt will appear, so nothing external stops a mistaken action. This removes the confirmation step; it does not authorize anything on its own. Deploys, pushes, commits, purchases, destructive operations, and sent messages still require that the user actually asked for them."
 };
 
 function environmentBlock(projectsDir, fullAccess, connectors, config) {
