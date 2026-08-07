@@ -40,7 +40,7 @@ test("local model progress streams from the engine to a visible staged bar", () 
   assert.match(ui, /class="load-progress" hidden/);
   assert.match(ui, /ev\.kind==="local-model-load"/);
   assert.match(ui, /classList\.toggle\("local-model-load",!!load\)/);
-  assert.match(ui, /load-fill"\)\.style\.width/);
+  assert.match(ui, /load-fill"\);\s*if\(fill&&fill\.style\.width!==width\) fill\.style\.width=width;/);
 });
 
 test("local generation reports evaluation and writing instead of claiming readiness early", () => {

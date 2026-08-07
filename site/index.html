@@ -1,344 +1,147 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Boollm - Local AI workspace for Windows</title>
-  <meta name="description" content="Boollm is a local-first Windows AI workspace with chat, coding agents, an embedded browser, notepad, Gmail and Outlook connections, local GGUF models, and optional cloud providers.">
-  <link rel="canonical" href="https://boollm.com/boolean/">
-  <meta property="og:title" content="Boollm - Local AI workspace for Windows">
-  <meta property="og:description" content="Chat, build, browse, and keep notes in one local-first Windows workspace.">
-  <meta property="og:image" content="https://boollm.com/boolean/assets/boolean-app-screen.png">
-  <link rel="icon" href="./assets/boolean-app-icon-clear.png">
-  <link rel="stylesheet" href="./styles.css?v=demo1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boollm — The AI workspace for Windows</title>
+<meta name="description" content="One desktop app where you think, build, browse, and work with your files alongside AI. Local-first, private, and free.">
+<link rel="canonical" href="https://boollm.com/">
+<meta property="og:title" content="Boollm — The AI workspace for Windows">
+<meta property="og:description" content="Think, build, browse, and work with your files alongside AI in one local-first Windows workspace.">
+<meta property="og:url" content="https://boollm.com/">
+<meta property="og:image" content="https://boollm.com/assets/og.png">
+<link rel="icon" href="./assets/boolean-app-icon-clear.png">
+<link rel="stylesheet" href="./styles.css?v=4">
 </head>
 <body>
-  <header class="sticky-nav" id="nav">
-    <div class="nav-inner">
-      <a href="#top" class="nav-brand">Boollm</a>
-      <nav class="nav-links" aria-label="Main navigation">
-        <a href="#quickstart">Get Started</a>
-        <a href="#features">Features</a>
-        <a href="#models">Models</a>
-        <a href="#how-it-works">How It Works</a>
-        <a href="#faq">FAQ</a>
-      </nav>
-      <a class="nav-download button primary" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download</a>
+
+<header class="nav">
+  <a class="logo" href="#top">Boollm</a>
+  <nav class="nav-links">
+    <a href="#what">What it does</a>
+    <a href="#why">Why it's different</a>
+    <a href="#how">How it works</a>
+  </nav>
+  <a class="btn-primary" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download free</a>
+</header>
+
+<main>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="hero-bg"></div>
+  <div class="hero-content">
+    <span class="tag">Windows 10/11 &bull; No account needed</span>
+    <h1>Your own AI.<br>Your own desktop.<br><span class="highlight">Zero friction.</span></h1>
+    <p class="hero-sub">Boollm puts a full AI workspace on your PC — chat, build projects, browse the web, and work with your files, all from one calm window.</p>
+    <div class="hero-actions">
+      <a class="btn-large" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download Boollm for Windows</a>
+      <span class="hero-note">Free. Private. Works offline.</span>
     </div>
-  </header>
+  </div>
+</section>
 
-  <main id="top">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Windows AI workspace <span class="release-label">v0.9.71</span></p>
-        <h1>The AI workspace that runs&nbsp;on your&nbsp;PC.</h1>
-        <p class="lead">Chat, build apps, research the web, and manage email &mdash; in one local-first Windows app. Your models, your keys, your machine.</p>
-        <div class="actions">
-          <a class="button primary" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download for Windows</a>
-          <a class="button ghost" href="https://github.com/syfy10/Boollm" target="_blank" rel="noopener noreferrer">View on GitHub</a>
-        </div>
-        <p class="release-note">Windows 10/11, x64 <span aria-hidden="true">&middot;</span> Local mode needs no account <span aria-hidden="true">&middot;</span> Free forever</p>
-      </div>
-
-      <div class="app-frame-wrap">
-        <p class="demo-hint"><span></span> The live app</p>
-        <button class="app-frame app-frame-button" id="demoOpen" type="button" aria-label="Open the interactive demo">
-          <img src="./assets/boolean-app-screen.png" alt="The Boollm workspace running on Windows" width="1200" height="760" loading="eager" decoding="async">
-          <span class="demo-play"><span class="demo-play-icon" aria-hidden="true">&#9654;</span> Try the live demo</span>
-        </button>
-        <p class="demo-caption">Click to try the real interface, right here &mdash; no download needed.</p>
-      </div>
-    </section>
-
-    <section class="trust-band" aria-label="Why people choose Boollm">
-      <span><b>Local-first</b> by default</span>
-      <span><b>No telemetry</b>, no tracking</span>
-      <span><b>Free</b> &mdash; no paywalls</span>
-      <span><b>Bring your own</b> API keys</span>
-      <span><b>Open</b> on GitHub</span>
-    </section>
-
-    <section class="mission" id="why-boolean">
-      <p class="eyebrow">Why Boollm?</p>
-      <h2>AI shouldn't be a luxury.</h2>
-      <p class="mission-body">We built Boollm because everyone should have access to AI, no matter their circumstances or skill level. In fact, we built roughly 70% of this very application using Boollm and GLM 5 models, learning from watching people with zero coding knowledge build real applications. That experience shaped everything about how we designed this tool: to be so easy and intuitive that anyone can use it to build apps or tackle any task from day one. Our goal is to keep it simple and completely free: no bait and switch, no paywalls, no tiered access, and no "free trial" that quietly expires. Everyone deserves the chance to learn, build, and explore with AI regardless of their budget.</p>
-    </section>
-
-    <section class="quickstart" id="quickstart">
-      <p class="eyebrow">Quick Start</p>
-      <h2>Up and running in 60 seconds.</h2>
-      <ol class="quickstart-steps">
-        <li>
-          <span class="step-num">1</span>
-          <div>
-            <strong>Download Boollm</strong>
-            <p>Grab the installer for Windows 10/11, x64. No Node.js, Python, or extra tools needed.</p>
-          </div>
-        </li>
-        <li>
-          <span class="step-num">2</span>
-          <div>
-            <strong>Open it and pick a model</strong>
-            <p>Download a supported local GGUF model or paste your own API key for Claude, OpenAI, or GLM.</p>
-          </div>
-        </li>
-        <li>
-          <span class="step-num">3</span>
-          <div>
-            <strong>Start chatting or point it at a project folder</strong>
-            <p>Ask questions, research the web, edit code, build apps &mdash; all from one window.</p>
-          </div>
-        </li>
-      </ol>
-      <div class="quickstart-shortcuts">
-        <code>Ctrl+Enter</code> send <code>Ctrl+Shift+N</code> new thread <code>Ctrl+B</code> toggle sidebar
-      </div>
-    </section>
-
-    <section class="local-cloud" id="models">
-      <article class="local-panel">
-        <div class="download-card">
-          <div class="download-card-head">
-            <h3>Qwen3.5-4B</h3>
-            <span>Downloading</span>
-          </div>
-          <p>Saved to <code>~/.saz/models</code></p>
-          <div class="progress"><span></span></div>
-          <small>Works offline after download</small>
-        </div>
-        <div class="local-copy">
-          <p class="eyebrow">Offline local</p>
-          <h2>Download once. Work stays on your PC.</h2>
-          <p>Boollm picks supported GGUF models, puts them in the right folder, and runs them locally. No Node.js, Python, Ollama, or separate model runner is needed for standard local use.</p>
-        </div>
-      </article>
-      <article class="cloud-panel">
-        <div class="cloud-flow" aria-hidden="true">
-          <div class="key-card">
-            <span class="key-dot"></span>
-            <strong>your key</strong>
-            <small>stored locally</small>
-          </div>
-          <div class="provider-stream">
-            <span>Claude</span>
-            <span>OpenAI</span>
-            <span>GLM</span>
-          </div>
-          <div class="flow-line"><i></i></div>
-          <div class="boolean-cloud">
-            <b>Boollm</b>
-            <small>online model ready</small>
-          </div>
-        </div>
-        <div class="cloud-copy">
-          <p class="eyebrow">Optional cloud</p>
-          <h2>Bring the provider you use.</h2>
-          <p>Add your own API key for OpenAI, GLM, Z.AI Coding Plan, or Claude. Cloud AI does not require Boollm sign-in, and keys stay on your computer.</p>
-        </div>
-    </article>
-    </section>
-
-    <section class="model-table-section" id="model-table">
-      <div class="model-table-wrap">
-        <table>
-          <thead>
-            <tr><th>Mode</th><th>Best for</th><th>Speed</th><th>Requirements</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><strong>Local (Qwen 4B)</strong></td><td>Quick tasks, offline</td><td>Fast</td><td>16 GB RAM</td></tr>
-            <tr><td><strong>Local (7B)</strong></td><td>Coding, chat</td><td>Medium</td><td>16 GB RAM</td></tr>
-            <tr><td><strong>Cloud (Claude/GPT)</strong></td><td>Complex tasks</td><td>Depends</td><td>API key + internet</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="features" id="features">
-      <div class="section-head">
-        <p class="eyebrow">Everything in one window</p>
-        <h2>One workspace. All of your work.</h2>
-      </div>
-      <div class="feature-grid">
-        <article>
-          <div class="feature-visual chat-visual" aria-hidden="true">
-            <span class="chat-card"><i></i></span>
-            <b class="code-mark">&lt;/&gt;</b>
-            <em class="mail-mark"></em>
-          </div>
-          <h3>Main chat plus Side chat</h3>
-          <p>Keep long project work in the main conversation while a compact answer-only Side chat handles quick questions.</p>
-        </article>
-        <article>
-          <div class="feature-visual notes-visual" aria-hidden="true">
-            <span></span><span></span><span></span><i></i>
-          </div>
-          <h3>Browser and notepad built in</h3>
-          <p>Research beside chat, keep drafts and snippets in Notepad, and let the responsive split workspace resize or hide panels when space gets tight.</p>
-        </article>
-        <article>
-          <div class="feature-visual local-visual" aria-hidden="true">
-            <span></span><b>1</b><b>0</b><i></i>
-          </div>
-          <h3>Local-first by design</h3>
-          <p>Run supported GGUF models on your PC. Provider keys, projects, chats, and notes remain under your control.</p>
-        </article>
-        <article>
-          <div class="feature-visual doc-visual" aria-hidden="true">
-            <b class="doc-icon">DOC</b>
-            <i></i>
-          </div>
-          <h3>Your workspace, your surface</h3>
-          <p>Choose Paper Minimal, Soft Glass, or Graphite Mist, then manage models, privacy, shortcuts, notifications, and updates from one control center.</p>
-        </article>
-        <article>
-          <div class="feature-visual agent-visual" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <h3>Coding agent workflows</h3>
-          <p>Plan, edit, test, debug, and review project changes with durable progress, recovery checkpoints, and isolated agent branches.</p>
-          <pre class="terminal-example"><code>&rarr; "Fix the failing test in auth.js"
-  &#9998; Edited src/auth.js (line 42)
-  &#9989; 3 tests passing</code></pre>
-        </article>
-        <article>
-          <div class="feature-visual auto-visual" aria-hidden="true">
-            <b class="clock-icon">&#9200;</b>
-            <i></i>
-          </div>
-          <h3>Connect and automate</h3>
-          <p>Connect Gmail or Outlook, preview email recipes safely, schedule tasks and webhooks, research with citations, and work with GitHub issues and PRs.</p>
-          <pre class="terminal-example"><code>&rarr; "Research the best React state library"
-  &#128196; Opened 4 sources &middot; Cited [1][2][3]
-  &#9989; Summary saved to notepad</code></pre>
-        </article>
-      </div>
-    </section>
-
-    <section class="github-section" id="github">
-      <div class="github-copy">
-        <p class="eyebrow">GitHub</p>
-        <h2>Follow Boollm in the open.</h2>
-        <p>Browse the source, download the current Windows release, or report a problem in the public repository.</p>
-      </div>
-      <nav class="github-links" aria-label="Boollm on GitHub">
-        <a href="https://github.com/syfy10/Boollm" target="_blank" rel="noopener noreferrer">
-          <strong>Source code</strong>
-          <span>View repository <b aria-hidden="true">&#8599;</b></span>
-        </a>
-        <a href="https://github.com/syfy10/Boollm/releases/tag/v0.9.71" target="_blank" rel="noopener noreferrer">
-          <strong>Current release</strong>
-          <span>Boollm v0.9.71 <b aria-hidden="true">&#8599;</b></span>
-        </a>
-        <a href="https://github.com/syfy10/Boollm/issues" target="_blank" rel="noopener noreferrer">
-          <strong>Issues</strong>
-          <span>Report a bug <b aria-hidden="true">&#8599;</b></span>
-        </a>
-      </nav>
-    </section>
-
-    <section class="how-it-works" id="how-it-works">
-      <p class="eyebrow">Under the Hood</p>
-      <h2>How Boollm works.</h2>
-      <p>Transparent, local-first architecture built for developers who want to know what's running on their machine.</p>
-      <div class="stack-pills">
-        <span class="pill"><strong>Node.js</strong> backend & agent runtime</span>
-        <span class="pill"><strong>.NET WinForms</strong> native shell</span>
-        <span class="pill"><strong>WebView2</strong> renderer</span>
-        <span class="pill"><strong>llama.cpp</strong> local inference</span>
-        <span class="pill"><strong>No Electron</strong></span>
-      </div>
-      <p class="stack-note">The app runs on your PC, keeps browser content isolated from the app API, and owns the helper processes it starts.</p>
-    </section>
-
-    <section class="faq-section" id="faq">
-      <p class="eyebrow">FAQ</p>
-      <h2>Common questions.</h2>
-      <div class="faq-list">
-        <details class="faq-item">
-          <summary>Does it need Node.js or Python installed?</summary>
-          <p>No. Boollm ships its own Node.js runtime. You don't need to install anything else.</p>
-        </details>
-        <details class="faq-item">
-          <summary>Does it phone home?</summary>
-          <p>No. Boollm is local-first. It only talks to the internet when you explicitly use a cloud provider or browse the web. No telemetry, no tracking.</p>
-        </details>
-        <details class="faq-item">
-          <summary>Can I use my own models?</summary>
-          <p>Yes. Boollm supports standard GGUF models. Download any compatible model or point it at your own file.</p>
-        </details>
-        <details class="faq-item">
-          <summary>Is it open source?</summary>
-          <p>The source is available on GitHub. Use and distribution are governed by Boollm's included license terms: <a href="https://github.com/syfy10/Boollm" target="_blank" rel="noopener noreferrer">Boollm on GitHub</a>.</p>
-        </details>
-        <details class="faq-item">
-          <summary>What about macOS or Linux?</summary>
-          <p>Boollm is built for Windows 10/11 (x64). The shell uses .NET WinForms and WebView2; there are no current plans for other platforms.</p>
-        </details>
-      </div>
-    </section>
-
-  </main>
-
-  <footer class="site-footer" id="download">
-    <div class="footer-download">
-      <div>
-        <h2>Get Boollm for Windows.</h2>
-        <p>Private local work by default. Cloud is optional.</p>
-        <div class="req-list" aria-label="Requirements">
-          <span><b>Windows</b> 10 or 11, x64</span>
-          <span><b>Local LLM</b> 16 GB RAM, 20 GB disk</span>
-          <span><b>Cloud</b> 4 GB RAM and internet</span>
-        </div>
-      </div>
-      <div class="footer-actions">
-        <a class="button primary" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download v0.9.71</a>
-        <nav aria-label="Footer">
-          <a href="https://github.com/syfy10/Boollm" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a href="mailto:saz3labs@gmail.com">Contact</a>
-          <a href="./privacy.html">Privacy</a>
-          <a href="./policy.html">Policy</a>
-        </nav>
-      </div>
+<!-- WHAT IT DOES -->
+<section class="what" id="what">
+  <div class="section-head">
+    <span class="tag">What it does</span>
+    <h2>One app that replaces<br>half your toolkit.</h2>
+  </div>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="card-icon build-icon"></div>
+      <h3>Build anything</h3>
+      <p>Describe what you want to make. Boollm reads your project files, writes code, runs tools, and shows you the result — all in the same window.</p>
     </div>
-  </footer>
+    <div class="feature-card">
+      <div class="card-icon research-icon"></div>
+      <h3>Research deeply</h3>
+      <p>Browse the web with a real embedded browser. Boollm gathers context from multiple pages and turns scattered information into clear answers.</p>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon think-icon"></div>
+      <h3>Think clearly</h3>
+      <p>Work through ideas with AI beside your notes and files. Refine your thinking without switching between a dozen different tools.</p>
+    </div>
+    <div class="feature-card">
+      <div class="card-icon connect-icon"></div>
+      <h3>Stay connected</h3>
+      <p>Link your email, GitHub, cloud storage, and other tools. Let AI help you manage everything from one place, on your terms.</p>
+    </div>
+  </div>
+</section>
 
-  <div class="demo-modal" id="demoModal" hidden>
-    <div class="demo-modal-backdrop" data-demo-close></div>
-    <div class="demo-modal-inner" role="dialog" aria-modal="true" aria-label="Boollm interactive demo">
-      <div class="demo-modal-bar">
-        <span class="demo-modal-title"><span class="dot"></span> Boollm &mdash; live interactive demo <em>(replies are scripted)</em></span>
-        <button class="demo-modal-close" type="button" data-demo-close aria-label="Close demo">&#10005;</button>
-      </div>
-      <div class="demo-modal-frame">
-        <iframe id="demoIframe" title="Boollm interactive demo" loading="lazy"></iframe>
+<!-- WHY DIFFERENT -->
+<section class="why" id="why">
+  <div class="why-split">
+    <div class="why-left">
+      <span class="tag">Why it's different</span>
+      <h2>Your data never<br>leaves your PC.</h2>
+      <p class="why-desc">Boollm is <strong>local-first</strong>, not local-only. Run a private AI model right on your machine, or connect a cloud provider when you need more power. Either way, you decide what goes where.</p>
+      <ul class="why-list">
+        <li><span class="check">&#10003;</span> Works completely offline with local models</li>
+        <li><span class="check">&#10003;</span> No account required — just install and go</li>
+        <li><span class="check">&#10003;</span> Your files stay on your computer</li>
+        <li><span class="check">&#10003;</span> Open source and auditable</li>
+      </ul>
+      <a class="btn-secondary" href="https://github.com/syfy10/Boollm">View on GitHub &#8599;</a>
+    </div>
+    <div class="why-right">
+      <div class="privacy-visual">
+        <div class="pc-icon"></div>
+        <div class="shield"></div>
+        <span class="privacy-label">Everything stays local</span>
       </div>
     </div>
   </div>
+</section>
 
-  <script>
-    // Load the heavy interactive demo only when the visitor asks for it.
-    (function(){
-      var modal=document.getElementById('demoModal');
-      var frame=document.getElementById('demoIframe');
-      var openBtn=document.getElementById('demoOpen');
-      if(!modal||!frame||!openBtn) return;
-      var loaded=false;
-      function open(){
-        if(!loaded){ frame.src='./app-live-demo.html?v=demo1'; loaded=true; }
-        modal.hidden=false;
-        document.body.style.overflow='hidden';
-        document.addEventListener('keydown', onKey);
-      }
-      function close(){
-        modal.hidden=true;
-        document.body.style.overflow='';
-        document.removeEventListener('keydown', onKey);
-      }
-      function onKey(e){ if(e.key==='Escape') close(); }
-      openBtn.addEventListener('click', open);
-      modal.addEventListener('click', function(e){ if(e.target.hasAttribute('data-demo-close')) close(); });
-    })();
-  </script>
+<!-- HOW IT WORKS -->
+<section class="how" id="how">
+  <div class="section-head">
+    <span class="tag">How it works</span>
+    <h2>Three steps to<br>a smarter desktop.</h2>
+  </div>
+  <div class="steps-row">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Download &amp; install</h3>
+      <p>Get the app in seconds. No signup, no cloud dependency, no complicated setup.</p>
+    </div>
+    <div class="step-arrow">&#10230;</div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Choose your AI</h3>
+      <p>Pick a free local model, or connect your own cloud AI key. Switch anytime.</p>
+    </div>
+    <div class="step-arrow">&#10230;</div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Start working</h3>
+      <p>Open a project, ask a question, or just start typing. Everything is in one window.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING -->
+<section class="closing">
+  <h2>Ready to try it?</h2>
+  <p>Boollm is free. No trial period, no credit card, no catch.</p>
+  <a class="btn-large" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">Download for Windows</a>
+  <span class="closing-note">Windows 10 or 11 &bull; ~200 MB</span>
+</section>
+
+</main>
+
+<footer class="footer">
+  <span>Boollm</span>
+  <nav>
+    <a href="https://github.com/syfy10/Boollm">GitHub</a>
+    <a href="./privacy.html">Privacy</a>
+    <a href="https://github.com/syfy10/Boollm/releases">Releases</a>
+  </nav>
+  <small>Made for people who want their AI to work where they do.</small>
+</footer>
 
 </body>
 </html>

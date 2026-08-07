@@ -8166,10 +8166,10 @@ body:not(.composer-simple) main::after{
   function renderPerfTimings(){
     const el=$("diagPerformance");
     if(!el) return;
-    const labels={appVisible:"visible",stateReady:"state",chatVisible:"chat",tabOpen:"tab",firstToken:"token"};
+    const labels={appVisible:"visible",stateReady:"state",chatVisible:"chat",tabOpen:"tab",firstToken:"token",streamPaint:"paint",activityPaint:"activity"};
     el.textContent=Object.entries(labels)
       .filter(([key])=>Number.isFinite(perfTimings[key]))
-      .map(([key,label])=>label+" "+Math.round(perfTimings[key])+"ms")
+      .map(([key,label])=>label+" "+Math.round(perfTimings[key]*10)/10+"ms")
       .join(" | ")||"Waiting...";
     el.title=el.textContent;
   }
@@ -8177,6 +8177,20 @@ body:not(.composer-simple) main::after{
     perfTimings[name]=Math.max(0,performance.now()-start);
     window.__booleanPerf={...perfTimings};
     renderPerfTimings();
+  }
+  // Repeating costs (stream paints, activity repaints) are sampled rather than
+  // marked: writing the diagnostics line on every paint would cost more than
+  // the paint it measures. Keep a rolling average and flush it once a second.
+  const perfSampleState={};
+  let perfSampleFlush=0;
+  function perfSample(name,start){
+    const elapsed=Math.max(0,performance.now()-start);
+    const prior=perfSampleState[name];
+    perfSampleState[name]=prior===undefined?elapsed:prior*0.8+elapsed*0.2;
+    perfTimings[name]=perfSampleState[name];
+    window.__booleanPerf={...perfTimings};
+    if(perfSampleFlush) return;
+    perfSampleFlush=setTimeout(()=>{ perfSampleFlush=0; renderPerfTimings(); },1000);
   }
   function whenIdle(fn,timeout=1800){
     if("requestIdleCallback" in window) return requestIdleCallback(fn,{timeout});
@@ -9006,19 +9020,37 @@ body:not(.composer-simple) main::after{
       .replace(/\b(sk-|GOCSPX-)[A-Za-z0-9_-]{12,}\b/g,"[masked credential]")
       .replace(/\b(api[_ -]?key|password|client[_ -]?secret|access[_ -]?token)(\s*[:=]\s*)([^\s,;]{8,})/gi,"$1$2[masked]");
   }
-  function md(s){
+  const MD_BLOCK_TAIL=/<\/(?:ul|ol|pre|h[1-6]|table|div)>$/;
+  // keepTail is for the streaming renderer, which commits a message in pieces.
+  // mdBlocks trims the break off the end of whatever it is given, so a piece
+  // ending in a text line has to get that break back or the next committed
+  // paragraph would run into it.
+  function md(s,keepTail=false){
     const parts=maskSensitiveDisplay(s).trim().split(/```(\w*)\n?([\s\S]*?)```/g);
     let html="";
     for(let i=0;i<parts.length;i+=3){
       html+=mdBlocks(parts[i]);
       if(i+2<parts.length) html+="<pre><code>"+esc(parts[i+2])+"</code></pre>";
     }
+    if(keepTail&&html&&!MD_BLOCK_TAIL.test(html)) html+="<br>";
     return html;
   }
+  // The scroll write is batched into a frame of its own. Callers fire this
+  // right after dirtying the DOM, and reading scrollHeight there forces a
+  // synchronous layout on every token.
+  let scrollDownFrame=0,scrollDownForced=false;
   function scrollDown(force=false){
-    if(!force && !chatPinnedToBottom) return;
-    chatPinnedToBottom=true;
-    chat.scrollTop=chat.scrollHeight;
+    if(force) scrollDownForced=true;
+    if(!scrollDownForced && !chatPinnedToBottom) return;
+    if(scrollDownFrame) return;
+    scrollDownFrame=requestAnimationFrame(()=>{
+      scrollDownFrame=0;
+      const wanted=scrollDownForced;
+      scrollDownForced=false;
+      if(!wanted && !chatPinnedToBottom) return;
+      chatPinnedToBottom=true;
+      chat.scrollTop=chat.scrollHeight;
+    });
   }
   function revealChatAction(node){
     if(!node?.isConnected) return;
@@ -15689,8 +15721,19 @@ body:not(.composer-simple) main::after{
     };
     return '<svg viewBox="0 0 16 16" aria-hidden="true">'+(paths[group]||paths.tools)+'</svg>';
   }
+  // Rows are capped at 48, so fingerprinting them is far cheaper than redoing
+  // the grouping. Most events leave the grouping identical - a repeated read is
+  // still "Reviewed the project files" - and those ticks now do no work at all.
+  function workingActivityRowSignature(rows,ref){
+    const unit=String.fromCharCode(1),field=String.fromCharCode(2);
+    let signature=(ref?.completedAt?"done":"live")+unit+(ref?.status||"");
+    for(const row of rows) signature+=unit+row.key+field+row.status+field+row.title+field+(row.detail||"")+field+(row.subject||"")+field+(row.changeStat?row.changeStat.additions+"/"+row.changeStat.deletions:"");
+    return signature;
+  }
   function workingActivitySummary(ref=run){
     const rows=workingActivityRows(ref);
+    const cacheKey=workingActivityRowSignature(rows,ref);
+    if(ref&&ref._activitySummary&&ref._activitySummaryKey===cacheKey) return ref._activitySummary;
     const visibleAttention=[...rows].reverse().find(item=>item.group!=="plan"&&["waiting","failed"].includes(workingEventTone(item.status)));
     const visibleActive=[...rows].reverse().find(item=>item.group!=="plan"&&workingEventTone(item.status)==="active"&&item.key!=="starting");
     const current=ref?.completedAt?null:(visibleAttention||visibleActive||{key:"current",title:compactActivityText(ref?.status||"Working"),detail:"",status:"active"});
@@ -15719,19 +15762,56 @@ body:not(.composer-simple) main::after{
         segment.items.push(item);
       }
     }
-    return {segments:segments.slice(-10).map(segment=>segment.kind==="activity"?{kind:"activity",group:segment.group,count:segment.items.length,items:segment.items.slice(-8)}:segment),current};
+    const summary={segments:segments.slice(-10).map(segment=>segment.kind==="activity"?{kind:"activity",group:segment.group,count:segment.items.length,items:segment.items.slice(-8)}:segment),current};
+    if(ref){ ref._activitySummaryKey=cacheKey; ref._activitySummary=summary; }
+    return summary;
+  }
+  function workingActivityGroupInner(item){
+    return '<summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+'</b>'+workingChangeStatHtml(item.items)+'<span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol>';
+  }
+  function workingCommentaryInner(item){
+    return esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'');
   }
   function renderWorkingCardActivity(ref=run){
     const card=ref?.statusEl;
     const list=card?.querySelector(".working-card-events");
     if(!list) return;
+    const started=performance.now();
     const summary=workingActivitySummary(ref);
-    list.innerHTML=summary.segments.map(item=>item.kind==="commentary"
-      ?'<p class="working-commentary" role="listitem">'+esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'')+'</p>'
-      :'<details class="working-activity-group" role="listitem" data-group="'+esc(item.group)+'"><summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+'</b>'+workingChangeStatHtml(item.items)+'<span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol></details>').join("");
+    const existing=[...list.children];
+    summary.segments.forEach((item,index)=>{
+      const commentary=item.kind==="commentary";
+      const inner=commentary?workingCommentaryInner(item):workingActivityGroupInner(item);
+      const signature=(commentary?"c:":"a:"+item.group+":")+inner;
+      let node=existing[index];
+      const reusable=node&&(commentary?node.tagName==="P":node.tagName==="DETAILS"&&node.dataset.group===item.group);
+      if(!reusable){
+        const next=document.createElement(commentary?"p":"details");
+        next.className=commentary?"working-commentary":"working-activity-group";
+        next.setAttribute("role","listitem");
+        if(!commentary) next.dataset.group=item.group;
+        if(node) list.replaceChild(next,node); else list.appendChild(next);
+        node=next;
+      }
+      // Rebuilding every row on each event threw away the disclosure state, so
+      // expanding a group mid-run collapsed again on the next event. Touch only
+      // the rows whose contents actually changed, and put the state back.
+      if(node._activitySignature===signature) return;
+      const open=node.open===true;
+      node.innerHTML=inner;
+      if(!commentary) node.open=open;
+      node._activitySignature=signature;
+    });
+    for(let index=list.children.length-1;index>=summary.segments.length;index--) list.children[index].remove();
     const current=summary.current;
     const status=card.querySelector(".stx");
-    if(current&&status){ status.textContent=current.title||"Working"; status.title=current.detail||current.title||"Working"; }
+    if(current&&status){
+      const title=current.title||"Working";
+      const detail=current.detail||current.title||"Working";
+      if(status.textContent!==title) status.textContent=title;
+      if(status.title!==detail) status.title=detail;
+    }
+    perfSample("activityPaint",started);
   }
   function syncWorkingCardControls(ref=run){
     const card=ref?.statusEl;
@@ -16096,32 +16176,42 @@ body:not(.composer-simple) main::after{
       // card until another event or Stop forces a final render.
       renderWorkingCardActivity(run);
     }
+    // Status events arrive far more often than the values they carry change.
+    // Every write below used to run on each one; comparing first keeps a
+    // no-op tick free instead of costing a dozen DOM mutations.
+    const setText=(node,value)=>{ if(node&&node.textContent!==value) node.textContent=value; };
+    const setTitle=(node,value)=>{ if(node&&node.title!==value) node.title=value; };
     const statusText=run.status||"thinking…";
     const statusNode=run.statusEl.querySelector(".stx");
-    statusNode.textContent=compactActivityText(statusText);
-    statusNode.title=statusText;
+    setText(statusNode,compactActivityText(statusText));
+    setTitle(statusNode,statusText);
     const load=run.localModelLoad;
     const waiting=/waiting|approval|your input/i.test(statusText);
     const phase=String(run.controller?.phase||"");
-    const stateLabel=run.statusEl.querySelector(".working-card-state b");
-    if(stateLabel) stateLabel.textContent=waiting?"Waiting":load?"Loading":phase==="planning"?"Planning":phase==="verifying"?"Verifying":"Working";
+    setText(run.statusEl.querySelector(".working-card-state b"),waiting?"Waiting":load?"Loading":phase==="planning"?"Planning":phase==="verifying"?"Verifying":"Working");
     const workerLabel=workingModelLabel(run.provider,run.model,run.aiLabel);
     const worker=run.statusEl.querySelector(".working-card-worker");
-    if(worker){ worker.textContent=workerLabel; worker.title="Currently working: "+workerLabel; }
+    setText(worker,workerLabel);
+    setTitle(worker,"Currently working: "+workerLabel);
     run.statusEl.classList.toggle("waiting",waiting);
     run.statusEl.classList.toggle("local-model-load",!!load);
     const progress=run.statusEl.querySelector(".load-progress");
     if(progress){
-      progress.hidden=!load;
+      if(progress.hidden===!!load) progress.hidden=!load;
       if(load){
-        progress.querySelector(".load-fill").style.width=Math.max(0,Math.min(100,Number(load.pct)||0))+"%";
-        progress.querySelector(".load-pct").textContent=(Number(load.pct)||0)+"%";
+        const width=Math.max(0,Math.min(100,Number(load.pct)||0))+"%";
+        const fill=progress.querySelector(".load-fill");
+        if(fill&&fill.style.width!==width) fill.style.width=width;
+        setText(progress.querySelector(".load-pct"),(Number(load.pct)||0)+"%");
       }
     }
     updateStatusMeta();
+    // A run in a background thread has no visible card to paint. Switching
+    // back rebuilds it from scratch (see the thread-open path), so skipping
+    // the repaint here loses nothing.
+    if(!viewingRun()) return;
     renderWorkingCardActivity(run);
     syncWorkingCardControls(run);
-    renderTeamRunProgress();
     scrollDown();
   }
   function updateTeamWorker(entry){
@@ -16132,17 +16222,67 @@ body:not(.composer-simple) main::after{
     run.teamWorkers[role]={role,provider:String(args.provider||""),model:String(args.model||args.provider||"model"),state,attempt:Math.max(1,Number(args.attempt)||1),detail:String(entry.result||"")};
     run.status=state==="failed"?role+" unavailable; the lead will continue":state==="done"?role+" finished":state==="retrying"?role+" is retrying with another model":role+" is working";
   }
-  function renderTeamRunProgress(){
-    run?.statusEl?.classList.remove("team-active");
+  const NOTE_SAVE_HTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>';
+  const STREAM_CARET_HTML='<span class="stream-caret" aria-hidden="true"></span>';
+  // How far into `pending` the text can be treated as finished. A blank line is
+  // a real block boundary only outside a code fence, so fence parity decides.
+  // The committed prefix always ends on even parity, which is why scanning only
+  // the pending tail with a fresh count is correct.
+  function stableCommitPoint(pending){
+    let fences=0,commit=0;
+    for(const match of String(pending).matchAll(/```|\n[ \t]*\n/g)){
+      if(match[0]==="```"){ fences++; continue; }
+      if(fences%2===0) commit=match.index+match[0].length;
+    }
+    return commit;
   }
-  function ensureLiveAI(){
+  function insertHtmlBefore(anchor,html){
+    if(!html||!anchor?.parentNode) return [];
+    const template=document.createElement("template");
+    template.innerHTML=html;
+    const nodes=[...template.content.childNodes];
+    anchor.parentNode.insertBefore(template.content,anchor);
+    return nodes;
+  }
+  // Streaming used to re-parse and re-serialize the whole message every frame,
+  // which is quadratic over a long answer. Finished blocks are committed to the
+  // DOM once and left alone; only the trailing unfinished block is re-rendered.
+  function renderLiveBody(el,raw,full=false){
+    const body=el?.querySelector(".body");
+    if(!body) return;
+    const started=performance.now();
+    const text=String(raw||"");
+    let caret=body.querySelector(".stream-caret");
+    if(full||!caret||typeof el._stableLen!=="number"||el._stableLen>text.length){
+      body.innerHTML=NOTE_SAVE_HTML+STREAM_CARET_HTML;
+      caret=body.querySelector(".stream-caret");
+      el._stableLen=0;
+      el._tailNodes=[];
+    }
+    (el._tailNodes||[]).forEach(node=>node.remove());
+    el._tailNodes=[];
+    const pending=text.slice(el._stableLen);
+    const commit=stableCommitPoint(pending);
+    // A few characters of lookahead are required before committing: md() drops
+    // the break that sits in front of a code fence, so a finished piece cannot
+    // decide whether to keep its own trailing break until it sees what follows.
+    // Any drift is corrected anyway - the finished message re-renders in full.
+    if(commit>0&&pending.length-commit>=3){
+      insertHtmlBefore(caret,md(pending.slice(0,commit),!/^\s*```/.test(pending.slice(commit))));
+      el._stableLen+=commit;
+    }
+    const rest=text.slice(el._stableLen);
+    if(rest) el._tailNodes=insertHtmlBefore(caret,md(rest));
+    perfSample("streamPaint",started);
+  }
+  function ensureLiveAI(full=false){
     if(!run) return;
     if(!String(run.raw||"").trim()) return;
-    if(!run.liveAI||!run.liveAI.isConnected){ run.liveAI=makeAI(run.raw||"",null,run.provider,run.model,run.aiLabel); run.liveAI.classList.add("streaming"); insertAbove(run.liveAI); }
+    if(!run.liveAI||!run.liveAI.isConnected){ run.liveAI=makeAI(run.raw||"",null,run.provider,run.model,run.aiLabel); run.liveAI.classList.add("streaming"); insertAbove(run.liveAI); full=true; }
     run.liveAI._raw=run.raw;
-    run.liveAI.querySelector(".body").innerHTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(run.raw)+'<span class="stream-caret" aria-hidden="true"></span>';
+    renderLiveBody(run.liveAI,run.raw,full);
   }
-  function ensureCompareAI(slot){
+  function ensureCompareAI(slot,full=false){
     if(!run?.compare) return;
     const item=run.slots[slot];
     if(!item||!String(item.raw||"").trim()) return;
@@ -16150,25 +16290,40 @@ body:not(.composer-simple) main::after{
       item.liveAI=makeAI(item.raw,null,item.provider,item.model,item.aiLabel);
       item.liveAI.classList.add("cloud");
       insertAbove(item.liveAI);
+      full=true;
     }
     item.liveAI._raw=item.raw;
     item.liveAI.classList.remove("compare-pending");
     item.liveAI.dataset.provider=item.provider||"";
     item.liveAI.dataset.model=item.model||"";
     item.liveAI.dataset.aiLabel=item.aiLabel||shortAiName(item.provider,item.model);
-    item.liveAI.querySelector(".body").innerHTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>'+md(item.raw)+'<span class="stream-caret" aria-hidden="true"></span>';
+    renderLiveBody(item.liveAI,item.raw,full);
   }
-  let streamPaintFrame=0;
+  // Tokens arrive far faster than anyone can read them. Painting every frame
+  // spends the budget on text that is replaced before it is seen, so the stream
+  // is capped at roughly 16fps and the last frame always lands.
+  const STREAM_PAINT_INTERVAL=60;
+  let streamPaintFrame=0,streamPaintTimer=0,streamPaintedAt=0;
   function paintPendingStream(){
     streamPaintFrame=0;
+    streamPaintedAt=performance.now();
     if(!run||!viewingRun()) return;
     if(run.compare) (run.slots||[]).forEach((_,slot)=>ensureCompareAI(slot));
     else ensureLiveAI();
     scrollDown();
   }
+  function cancelStreamPaint(){
+    if(streamPaintFrame){ cancelAnimationFrame(streamPaintFrame); streamPaintFrame=0; }
+    if(streamPaintTimer){ clearTimeout(streamPaintTimer); streamPaintTimer=0; }
+  }
   function scheduleStreamPaint(){
-    if(streamPaintFrame) return;
-    streamPaintFrame=requestAnimationFrame(paintPendingStream);
+    if(streamPaintFrame||streamPaintTimer) return;
+    const wait=STREAM_PAINT_INTERVAL-(performance.now()-streamPaintedAt);
+    if(wait<=0){ streamPaintFrame=requestAnimationFrame(paintPendingStream); return; }
+    streamPaintTimer=setTimeout(()=>{
+      streamPaintTimer=0;
+      streamPaintFrame=requestAnimationFrame(paintPendingStream);
+    },wait);
   }
 
   // pending follow-up messages per thread, sent automatically when the run ends
@@ -16788,7 +16943,7 @@ body:not(.composer-simple) main::after{
       if(run) run.workspaceChanges=Array.isArray(ev.changes)?ev.changes:[];
       refreshProjectDashboard({force:true});
     }
-    else if(ev.type==="answer"||ev.type==="paused"){ const finalText=String(ev.text||""); if(finalText.trim()||!String(run.raw||"").trim()) run.raw=finalText; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(ev.type==="paused"){run.outcome="paused";run.holdQueue=true;queuePaused[run.threadId]=true;} recordLocalModelPerformance(run); if(showing&&!workspaceBackground&&run.raw.trim()){ if(streamPaintFrame){ cancelAnimationFrame(streamPaintFrame); streamPaintFrame=0; } ensureLiveAI(); run.liveAI.classList.remove("streaming"); run.liveAI.querySelector(".stream-caret")?.remove(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
+    else if(ev.type==="answer"||ev.type==="paused"){ const finalText=String(ev.text||""); if(finalText.trim()||!String(run.raw||"").trim()) run.raw=finalText; run.provider=ev.provider||run.provider; run.model=ev.model||run.model||""; run.aiLabel=ev.aiLabel||shortAiName(run.provider,run.model); run.answered=true; if(ev.type==="paused"){run.outcome="paused";run.holdQueue=true;queuePaused[run.threadId]=true;} recordLocalModelPerformance(run); if(showing&&!workspaceBackground&&run.raw.trim()){ cancelStreamPaint(); ensureLiveAI(true); run.liveAI.classList.remove("streaming"); run.liveAI.querySelector(".stream-caret")?.remove(); run.liveAI.classList.toggle("cloud",run.provider!=="local"); run.liveAI.dataset.provider=run.provider||""; run.liveAI.dataset.model=run.model; run.liveAI.dataset.aiLabel=run.aiLabel; } }
     else if(ev.type==="compareStart"){
       const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
       Object.assign(item,{raw:"",provider:ev.provider,model:ev.model,aiLabel:ev.aiLabel});
@@ -16803,7 +16958,7 @@ body:not(.composer-simple) main::after{
     else if(ev.type==="compareAnswer"){
       const item=run.slots[ev.slot]||(run.slots[ev.slot]={});
       Object.assign(item,{raw:ev.text||item.raw||"",provider:ev.provider,model:ev.model,aiLabel:ev.aiLabel,answered:true});
-      if(showing){ ensureCompareAI(ev.slot); item.liveAI?.classList.remove("streaming"); item.liveAI?.querySelector(".stream-caret")?.remove(); }
+      if(showing){ ensureCompareAI(ev.slot,true); item.liveAI?.classList.remove("streaming"); item.liveAI?.querySelector(".stream-caret")?.remove(); }
     }
     else if(ev.type==="compareUsage"){
       const item=run.slots[ev.slot];
@@ -16817,7 +16972,7 @@ body:not(.composer-simple) main::after{
     else if(ev.type==="compareError"){
       const item=run.slots[ev.slot]||{};
       item.raw="Could not answer: "+ev.text;
-      if(showing) ensureCompareAI(ev.slot);
+      if(showing) ensureCompareAI(ev.slot,true);
     }
     else if(ev.type==="tokens"){ run.tokens={input:ev.input,output:ev.output,estimated:ev.estimated}; if(showing) updateStatusMeta(); }
     else if(ev.type==="optimized"){ run.opt=ev; }

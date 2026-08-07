@@ -36,15 +36,20 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /class="working-card-worker"/);
   assert.match(ui, /function workingModelLabel\(provider,model,aiLabel=""\)/);
   assert.match(ui, /const workerLabel=workingModelLabel\(run\.provider,run\.model,run\.aiLabel\)/);
-  assert.match(ui, /worker\.title="Currently working: "\+workerLabel/);
+  assert.match(ui, /setTitle\(worker,"Currently working: "\+workerLabel\)/);
   assert.match(ui, /worker\.textContent="Completed by "\+completedBy/);
   assert.match(ui, /sender\.textContent="Completed by "\+run\.aiLabel/);
   assert.match(ui, /run\.workerTrail\.join\(" → "\)/);
   assert.match(ui, /ev\.escalated\?"Handed work to ":"Working with "/);
   assert.match(ui, /<span class="msg-sender">Completed by /);
-  assert.match(ui, /<details class="working-activity-group" role="listitem"/);
+  // Rows are reconciled in place rather than rebuilt from an HTML string, so
+  // the element, class, and listitem role are asserted where they are set.
+  assert.match(ui, /document\.createElement\(commentary\?"p":"details"\)/);
+  assert.match(ui, /next\.className=commentary\?"working-commentary":"working-activity-group"/);
+  assert.match(ui, /next\.setAttribute\("role","listitem"\)/);
   assert.match(ui, /<summary><span class="working-activity-glyph"/);
-  assert.match(ui, /class="working-commentary" role="listitem"/);
+  // An expanded group must survive the next activity event.
+  assert.match(ui, /const open=node\.open===true;[\s\S]{0,120}if\(!commentary\) node\.open=open;/);
   assert.match(ui, /\.status\.working-card\{[^}]*width:min\(100%,640px\)[^}]*border:0;[^}]*background:transparent;[^}]*box-shadow:none;/s);
   assert.match(ui, /\.status\.working-card\{[^}]*align-items:stretch;/s);
   assert.match(ui, /\.working-card-header\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);
@@ -111,6 +116,7 @@ test("command and agent batches keep their true timeline order", () => {
     functionSource("workingEventTone"),
     functionSource("workingActivityRows"),
     functionSource("inferredWorkingActivityGroup"),
+    functionSource("workingActivityRowSignature"),
     functionSource("workingActivitySummary"),
   ].join("\n"), context);
   const activityItems = [
