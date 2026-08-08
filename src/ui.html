@@ -980,12 +980,11 @@
   body.chat-xxs .topbar{ padding:0 6px; justify-content:flex-start; }
   body.chat-xxs .topbar .netseg{ flex:0 0 92px; width:92px; min-width:92px; max-width:92px; }
   body.chat-xxs .topbar .netseg button{ width:auto; min-width:0; padding:0 2px; font-size:7px; }
-  body.chat-micro #appForward,body.chat-micro #ctxToggle{ display:none; }
+  body.chat-micro #appForward{ display:none; }
   /* Notepad and Browser stay reachable when either auxiliary pane narrows Chat. */
   body.chat-micro #notesToggle,body.chat-micro #exploreToggle,body.chat-micro #browserToggle{ display:grid; }
   body.notes-on.browser-on.chat-micro #notesToggle,
-  body.notes-on.browser-on.chat-micro #browserToggle,
-  body.notes-on.browser-on.chat-micro #ctxToggle{ display:grid!important; }
+  body.notes-on.browser-on.chat-micro #browserToggle{ display:grid!important; }
   body.chat-xxs .topbar .spacer{ display:none; }
   body.chat-xxs .winctl{ margin-left:auto; }
   /* window controls — only in the native shell, and only when the browser pane isn't covering the corner */
@@ -1170,10 +1169,6 @@
   .status{ font-size:12.5px; color:var(--dim); display:flex; align-items:center; gap:8px; font-family:var(--mono); }
   .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; align-items:stretch; width:min(100%,640px); min-width:0; margin:7px 0 4px;
     overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; font-family:var(--ui); }
-  .working-task-head{ display:grid; grid-template-columns:22px minmax(0,1fr) 24px; align-items:center; gap:9px; min-height:44px; margin:0 0 8px; padding:0 2px 8px; border-bottom:1px solid var(--border); color:var(--text); }
-  .working-task-head svg{ width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
-  .working-task-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:650 var(--chat-fs)/1.35 var(--ui); }
-  .working-task-more{ color:var(--dim); text-align:center; font-weight:700; letter-spacing:2px; }
   .working-card-header{ display:flex; align-items:center; gap:8px; width:100%; min-width:0; min-height:28px; padding:3px 2px; box-sizing:border-box; cursor:pointer; user-select:none; }
   .working-card-header:hover{ background:transparent; }
   .working-card-state{ display:inline-flex; align-items:center; gap:0; flex:0 0 auto; min-height:20px; color:var(--dim); }
@@ -3859,7 +3854,6 @@
   body.shell .topbar{ background:transparent; }
   .topbar .icon-btn{ border-radius:8px; }
   #railMenuToggle{ display:grid; }
-  .topbar #ctxToggle{ display:none; }
 
   #sideRail,body.collapsed #sideRail,body.collapsed.rail-expanded #sideRail{
     order:-2; display:flex; flex:0 0 37px; width:37px; min-width:37px; opacity:1; pointer-events:auto;
@@ -4377,8 +4371,6 @@ body:not(.composer-simple) main::after{
     .cmd-bar .cmd-btn.primary span{ display:inline; }
     #sideRail,body.collapsed #sideRail,body.collapsed.rail-expanded #sideRail{ display:none; width:0; min-width:0; flex-basis:0; }
     #railMenuToggle{ display:grid; }
-    .topbar #ctxToggle{ display:grid; }
-    body.rail-menu-open .topbar #ctxToggle{ display:none; }
     body.rail-menu-open #sideRail,
     body.collapsed.rail-menu-open #sideRail{
       display:flex !important; position:fixed; z-index:130; left:8px; top:42px;
@@ -4422,7 +4414,6 @@ body:not(.composer-simple) main::after{
       display:flex; flex-basis:30px; width:30px; min-width:30px;
       opacity:1; pointer-events:auto;
     }
-    .topbar #ctxToggle{ display:none; }
   }
   body.chat-xs #sideRail,
   body.collapsed.chat-xs #sideRail,
@@ -5159,7 +5150,7 @@ body:not(.composer-simple) main::after{
     border-radius:18px; background:var(--approved-card,var(--card));
     box-shadow:0 8px 28px rgba(0,0,0,.12); container-type:inline-size;
   }
-  body.web-open .workspace-float,body.education-open .workspace-float,body.markets-open .workspace-float,body.recipes-open .workspace-float,body.library-open .workspace-float,body.studio-open .workspace-float{ display:flex; }
+  body.web-open .workspace-float,body.light-open .workspace-float,body.education-open .workspace-float,body.markets-open .workspace-float,body.recipes-open .workspace-float,body.library-open .workspace-float,body.studio-open .workspace-float{ display:flex; }
   body.sales-open .workspace-float{ display:flex; }
   .workspace-float.maximized{ inset:78px 8px var(--approved-bottom-gap) 44px!important; width:auto!important; height:auto!important; max-width:none; max-height:none; }
   .workspace-float-bar{
@@ -5350,6 +5341,29 @@ body:not(.composer-simple) main::after{
     color:#e86f16;
     background:color-mix(in srgb,#e86f16 14%,var(--approved-card,var(--card)));
   }
+  /* Light is a dark-only terminal. Keep its controls inside the dark header. */
+  .workspace-float[data-workspace="light"] #workspaceFloatTheme{ display:none; }
+  .workspace-float[data-workspace="light"] .workspace-float-bar{
+    padding-right:0; background:#11181e; border-bottom:1px solid #26323a;
+  }
+  .workspace-float[data-workspace="light"] .workspace-float-actions{
+    align-self:stretch; gap:0; border-left:1px solid #26323a;
+  }
+  .workspace-float[data-workspace="light"] .workspace-float-actions button{
+    width:38px; height:100%; min-height:26px; border-left:1px solid #26323a;
+    border-radius:0; color:#9cabb5; background:#11181e;
+  }
+  .workspace-float[data-workspace="light"] .workspace-float-actions button:hover{
+    color:#f4f7f8; background:#1b2730;
+  }
+  .workspace-float[data-workspace="light"] #workspaceFloatClose:hover{ color:#fff; background:#8c2732; }
+  .workspace-float[data-workspace="light"] .workspace-float-actions svg{
+    width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.7;
+    stroke-linecap:round; stroke-linejoin:round;
+  }
+  #workspaceFloatExpand .workspace-restore-icon{ display:none; }
+  #workspaceFloatExpand[data-maximized="true"] .workspace-expand-icon{ display:none; }
+  #workspaceFloatExpand[data-maximized="true"] .workspace-restore-icon{ display:block; }
   .workspace-float .education-shell,.workspace-float .recipes-shell{
     width:100%; height:100%; min-height:0; margin:0; border:0; border-radius:0;
     background:var(--approved-card,var(--card)); box-shadow:none;
@@ -5634,11 +5648,68 @@ body:not(.composer-simple) main::after{
     .workspace-float .market-flat #marketRefresh{ width:28px; min-width:28px; justify-content:center; padding:0!important; }
     .workspace-float .market-flat #marketRefresh>span:last-child{ display:none; }
   }
-  body.education-open .workspace-float .education-panel,body.markets-open .workspace-float .markets-panel{ display:block; }
+  body.education-open .workspace-float .education-panel,body.markets-open .workspace-float .markets-panel,body.light-open .workspace-float .light-panel{ display:block; }
   body.recipes-open .workspace-float .recipes-panel{ display:flex; }
   body.sales-open .workspace-float .sales-panel{ display:flex; }
   body.library-open .workspace-float .library-panel{ display:flex; }
   body.studio-open .workspace-float .studio-panel{ display:block; }
+  .light-panel{ display:none; width:100%; height:100%; min-width:0; min-height:0; margin:0; padding:0; overflow:hidden; background:#090d11; color:#e6edf2; }
+  .workspace-float[data-workspace="light"] .workspace-float-tabs,.workspace-float[data-workspace="light"] .workspace-window-beta{ display:none; }
+  .workspace-float[data-workspace="light"] .workspace-float-actions{ margin-left:auto; }
+  .workspace-float[data-workspace="light"] .workspace-float-bar{ position:absolute; z-index:12; top:0; right:0; width:68px; height:34px; min-height:34px; padding:0; border:0; background:#11181e; color:#9cabb5; }
+  .workspace-float[data-workspace="light"] .workspace-float-actions{ position:static; width:68px; height:34px; display:grid; grid-template-columns:repeat(2,34px); }
+  .workspace-float[data-workspace="light"] .workspace-float-bar button{ width:34px; height:34px; color:#dce5ea; background:transparent; border:0; border-left:1px solid #303a43; border-radius:0; }
+  .workspace-float[data-workspace="light"] .workspace-float-bar button:hover{ background:#1b242b; }
+  .workspace-float[data-workspace="light"] .workspace-float-content{ padding-top:0; }
+  .light-shell{ --light-line:#27323b; --light-panel:#0b1015; --light-panel-2:#171e25; position:relative; width:100%; height:100%; min-width:760px; min-height:480px; display:grid; grid-template-rows:34px 34px minmax(0,1fr) 22px; background:#090d11; color:#e6edf2; font:9px var(--ui); }
+  .light-commandbar{ display:flex; align-items:center; gap:10px; padding:0 7px 0 10px; border-bottom:1px solid var(--light-line); background:#141a20; }
+  .light-brand{ font-size:15px; font-weight:800; letter-spacing:.12em; color:#fff; }
+  .light-brand span{ color:#35b8ff; }
+  .light-connection{ display:flex; align-items:center; gap:5px; color:#9eabb4; }
+  .light-connection-dot{ width:6px; height:6px; border-radius:50%; background:#ffb020; }
+  .light-connection.connected .light-connection-dot{ background:#33d17a; box-shadow:0 0 7px #33d17a88; }
+  .light-command-actions{ margin-left:auto; margin-right:102px; display:flex; align-items:stretch; height:100%; }
+  .light-command-actions button,.light-command-actions select{ height:100%; padding:0 10px; border:0; border-left:1px solid #303a43; border-radius:0; background:#1d252c; color:#dce5ea; font:8px var(--ui); }
+  .light-command-actions button{ cursor:pointer; }
+  .light-command-actions .light-trade{ background:#098a23; color:white; font-weight:800; }.light-command-actions .light-trade:disabled{ opacity:.65; cursor:not-allowed; }
+  .light-command-actions .light-sim{ color:#47e984; background:#1c252c; font-weight:800; }.light-header-account,.light-header-clock{ display:flex; flex-direction:column; justify-content:center; padding:0 10px; border-left:1px solid #303a43; color:#8d9ba5; text-align:right; text-transform:uppercase; }.light-header-account small,.light-header-clock small{ font-size:6px; }.light-header-account b,.light-header-clock b{ color:#dbe4e9; font-size:8px; font-weight:500; }.light-header-clock strong{ color:#edf3f6; font:15px/1 var(--ui); letter-spacing:.04em; }
+  .light-grid{ min-height:0; display:grid; grid-template-columns:minmax(230px,32%) minmax(470px,68%); grid-template-rows:42% 58%; gap:5px; padding:5px; }
+  .light-window{ min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; border:1px solid var(--light-line); background:var(--light-panel); }
+  .light-window.matrix{ grid-column:1; grid-row:1/3; }.light-window.quotes{ grid-column:2; grid-row:1; }.light-window.chart{ grid-column:2; grid-row:2; }
+  .light-ticket{ flex:0 0 auto; padding:5px 7px 6px; border-bottom:1px solid var(--light-line); background:#1a2128; }.light-ticket-grid{ display:grid; grid-template-columns:1.1fr .7fr .75fr 1fr; gap:5px; }.light-ticket-field{ min-width:0; color:#33bfff; text-transform:uppercase; font-size:7px; }.light-ticket-field input,.light-ticket-field select{ width:100%; height:22px; margin-top:2px; padding:0 5px; border:1px solid #3c4852; border-radius:2px; background:#303a44; color:#fff; font:9px var(--ui); box-sizing:border-box; }.light-ticket-actions{ display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:5px; }.light-ticket-actions button{ height:22px; border:0; border-radius:3px; color:#fff; font:800 8px var(--ui); }.light-ticket-actions .buy{ background:#087bb5; }.light-ticket-actions .close{ background:#07962c; }.light-ticket-actions .sell{ background:#ba2730; }.light-ticket-actions button:disabled{ opacity:.62; cursor:not-allowed; }.light-ticket-note{ margin-top:4px; color:#88959e; text-align:center; font-size:7px; }
+  .light-tabs{ flex:0 0 27px; display:flex; align-items:end; gap:2px; padding:0 5px; border-bottom:1px solid var(--light-line); background:#090d11; }
+  .light-tab{ height:25px; display:flex; align-items:center; gap:6px; padding:0 9px; border:1px solid transparent; border-bottom:0; background:transparent; color:#aab6bd; font-weight:700; }
+  .light-tab.active{ border-color:var(--light-line); background:var(--light-panel-2); color:#fff; }
+  .light-tab-close{ color:#6e7b84; }.light-tab-add{ color:#83919a; font-size:14px; }
+  .light-window-tools{ margin-left:auto; align-self:center; display:flex; gap:8px; color:#88969f; font-size:12px; }
+  .light-matrix-head{ flex:0 0 auto; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; padding:7px; border-bottom:1px solid var(--light-line); background:var(--light-panel-2); }
+  .light-metric small{ display:block; color:#84929c; font-size:7px; text-transform:uppercase; }.light-metric b{ display:block; margin-top:2px; font-size:11px; font-variant-numeric:tabular-nums; }
+  .light-signal{ color:#9ca8b0; }.light-signal.buy{ color:#29df7c; }.light-signal.sell{ color:#ff4d55; }
+  .light-matrix-columns,.light-depth-row{ display:grid; grid-template-columns:50px 1fr 68px 1fr 50px; align-items:center; font-variant-numeric:tabular-nums; }
+  .light-matrix-columns{ flex:0 0 22px; color:#82909a; border-bottom:1px solid var(--light-line); text-align:center; }
+  .light-depth{ min-height:0; flex:1; overflow:hidden; background:#05080b; }
+  .light-depth-row{ height:24px; border-bottom:1px solid #151c22; text-align:right; }
+  .light-depth-row .bid,.light-depth-row .ask{ position:relative; height:100%; display:flex; align-items:center; justify-content:flex-end; padding:0 5px; overflow:hidden; }
+  .light-depth-row .ask{ justify-content:flex-start; }.light-depth-row i{ position:absolute; inset-block:0; opacity:.28; }.light-depth-row .bid i{ right:0; background:#098fe0; }.light-depth-row .ask i{ left:0; background:#e33b43; }
+  .light-depth-row em{ position:relative; z-index:1; font-style:normal; }.light-depth-row .price{ height:100%; display:grid; place-items:center; background:#242c33; color:#fff; }
+  .light-depth-row.touch .price{ background:#d77500; }.light-depth-row .effective{ color:#7f8c95; text-align:center; font-size:7px; }
+  .light-quote-toolbar{ flex:0 0 31px; display:flex; align-items:center; gap:7px; padding:0 8px; border-bottom:1px solid var(--light-line); background:var(--light-panel-2); }
+  .light-symbol{ min-width:78px; padding:4px 7px; border:1px solid #36424c; background:#303a44; color:#fff; font-weight:700; }.light-mode-label{ color:#a2afb7; }.light-stream-title{ margin-left:auto; color:#e8eef1; font-weight:700; }
+  .light-quotes-table{ width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }.light-quotes-table th,.light-quotes-table td{ height:25px; padding:0 8px; border-right:1px solid #273039; border-bottom:1px solid #1e272e; text-align:right; white-space:nowrap; }.light-quotes-table th{ color:#8f9da7; background:#1c232a; font-size:7px; font-weight:500; }.light-quotes-table th:first-child,.light-quotes-table td:first-child{ text-align:left; }.light-quotes-table tbody tr{ background:#05080b; }.light-quotes-table tbody tr.selected{ background:#123958; }.light-positive{ color:#13e36c; }.light-negative{ color:#ff414a; }
+  .light-decision{ min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-top:1px solid var(--light-line); background:#0a0f13; }
+  .light-decision-head{ grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; padding:5px 8px; border-bottom:1px solid var(--light-line); color:#e6edf2; font-weight:800; }.light-decision-head small{ color:#7f8c95; font-weight:500; }
+  .light-check{ display:grid; grid-template-columns:8px minmax(0,1fr); gap:5px; align-items:center; min-height:25px; padding:3px 7px; border-right:1px solid #1d272e; border-bottom:1px solid #1d272e; }.light-check i{ width:6px; height:6px; border-radius:50%; background:#ffb020; }.light-check.pass i{ background:#26d978; }.light-check.block i{ background:#f04f57; }.light-check b,.light-check small{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.light-check b{ font-size:7px; }.light-check small{ color:#7f8c95; font-size:6px; }
+  .light-chart-meta{ flex:0 0 25px; display:flex; align-items:center; gap:10px; padding:0 8px; border-bottom:1px solid var(--light-line); color:#9ba8b0; font-variant-numeric:tabular-nums; }.light-chart-meta b{ color:#fff; }.light-chart-stage{ position:relative; flex:1; min-height:0; background:#030506; }.light-chart-stage svg{ width:100%; height:100%; display:block; }.light-chart-grid{ stroke:#222a31; stroke-width:1; }.light-candle-up{ fill:#17c967; stroke:#17c967; }.light-candle-down{ fill:#ef454d; stroke:#ef454d; }.light-indicator-ema{ fill:none; stroke:#35b8ff; stroke-width:1.5; vector-effect:non-scaling-stroke; }.light-indicator-vwap{ fill:none; stroke:#f1a33b; stroke-width:1.5; stroke-dasharray:5 3; vector-effect:non-scaling-stroke; }.light-level{ stroke:#8e99a1; stroke-width:1; stroke-dasharray:3 4; vector-effect:non-scaling-stroke; }.light-chart-empty{ position:absolute; inset:0; display:grid; place-items:center; color:#7f8b93; }
+  .light-outcomes{ flex:0 0 28px; display:flex; align-items:center; gap:12px; padding:0 8px; border-top:1px solid var(--light-line); background:#11171c; color:#89969f; font-size:7px; }.light-outcomes b{ color:#dce5ea; }.light-outcomes .good{ color:#2cdd7d; }.light-outcomes .warn{ color:#ffb020; }
+  .light-statusbar{ display:flex; align-items:center; gap:14px; padding:0 8px; border-top:1px solid var(--light-line); background:#11171c; color:#87949d; white-space:nowrap; overflow:hidden; }.light-statusbar .ok{ color:#28d777; }.light-statusbar .warning{ color:#ffb020; }
+  .light-enginebar{ min-height:34px; display:flex; align-items:center; gap:8px; padding:4px 8px; border-bottom:1px solid var(--light-line); background:#171e24; color:#9ba8b0; font-size:11px; }
+  .light-enginebar label{ display:flex; align-items:center; gap:5px; }.light-enginebar select{ min-width:190px; max-width:260px; height:25px; border:1px solid #39434c; border-radius:2px; background:#242d34; color:#e5edf2; font:inherit; }.light-enginebar button{ height:25px; padding:0 9px; border:1px solid #3a4650; border-radius:2px; background:#29333b; color:#dce5ea; font:inherit; cursor:pointer; }.light-enginebar button:hover{ background:#35424c; }.light-enginebar button:disabled{ opacity:.45; cursor:default; }.light-enginebar .danger{ border-color:#714044; color:#ff999f; }.light-engine-spacer{ flex:1; }.light-calibration-state{ padding:3px 7px; border:1px solid #7b5b22; background:#302713; color:#ffc85a; font-weight:700; letter-spacing:.04em; }.light-calibration-state.ready{ border-color:#276841; background:#142a1d; color:#62e494; }.light-engine-detail{ max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.light-entry-candidate{ padding:3px 8px; border:1px solid #48535c; background:#222a31; color:#c6d0d6; font-weight:800; letter-spacing:.05em; }.light-entry-candidate.buy{ border-color:#197345; background:#12351f; color:#49e58c; }.light-entry-candidate.sell{ border-color:#87353b; background:#3a171a; color:#ff737b; }.light-entry-detail{ color:#91a0a9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:270px; }
+  .light-calibration-output{ display:none; position:absolute; z-index:8; top:76px; right:8px; width:min(560px,calc(100% - 24px)); max-height:60%; overflow:auto; padding:12px; border:1px solid #46525c; background:#0d1216; color:#cbd6dc; box-shadow:0 12px 35px rgba(0,0,0,.55); white-space:pre-wrap; font:11px/1.55 Consolas,monospace; }.light-calibration-output.open{ display:block; }
+  .light-enginebar select{ min-width:130px; max-width:190px; }.light-enginebar .light-engine-detail{ max-width:150px; }.light-enginebar .light-entry-detail{ max-width:180px; }
+  .workspace-float[data-workspace-theme="light"] .light-panel{ filter:none; }
+  body.light-open #chat{ display:block!important; align-self:flex-start; width:var(--workspace-chat-width,360px); max-width:var(--workspace-chat-width,360px); padding-inline:min(12px,calc(var(--workspace-chat-width,360px) / 4)); border-right:1px solid color-mix(in srgb,var(--border) 72%,transparent); box-sizing:border-box; overflow-x:hidden; overflow-y:auto; }
+  body.light-open .composer-wrap,body.light-open .cmd-bar{ display:flex!important; width:var(--workspace-chat-width,360px); max-width:var(--workspace-chat-width,360px); }
+  @container(max-width:800px){ .light-grid{ grid-template-columns:280px 520px; overflow:auto; }.light-shell{ min-width:800px; } }
   body.web-open #chat,body.education-open #chat,body.markets-open #chat,body.recipes-open #chat{ display:block!important; }
   body.web-open .composer-wrap,body.education-open .composer-wrap,body.markets-open .composer-wrap,body.recipes-open .composer-wrap{ display:flex!important; }
   body.web-open .cmd-bar,body.education-open #cmdBar,body.markets-open .cmd-bar,body.recipes-open .cmd-bar{ display:flex!important; }
@@ -5761,6 +5832,7 @@ body:not(.composer-simple) main::after{
       <button class="sidebar-nav-item" type="button" data-sidebar-action="projects"><svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10H3z"/></svg><span>Projects</span><span></span></button>
       <button class="sidebar-nav-item" type="button" data-sidebar-workspace="code"><svg viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg><span>Code</span><span class="sidebar-nav-state"></span></button>
       <button class="sidebar-nav-item" type="button" data-sidebar-workspace="preview"><svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z"/><path d="m9 9 6 3-6 3z"/></svg><span>Preview</span><span class="sidebar-nav-state"></span></button>
+      <button class="sidebar-nav-item" type="button" data-sidebar-workspace="light"><svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-7z"/></svg><span>Light</span><span class="sidebar-nav-state"></span></button>
     </section>
     <section class="sidebar-nav-section">
       <div class="sidebar-nav-title">Tools</div>
@@ -6454,6 +6526,8 @@ body:not(.composer-simple) main::after{
             <div>Connection help<div class="hint" id="ghSetupHint">Boollm opens GitHub's secure browser sign-in. No command typing is required.</div></div>
             <button class="minibtn" id="ghRefresh" type="button">Refresh</button>
           </div>
+          <div class="hint" id="ghSetupProgress" style="display:none;margin-top:9px;padding:9px 10px;border:1px solid var(--border);border-radius:7px;background:var(--input)"></div>
+          <div class="hint" id="ghManualHelp" style="margin-top:9px">Nothing opened? <a href="https://cli.github.com/" target="_blank" rel="noopener">Download GitHub CLI manually</a>, install it, then press Refresh.</div>
           <div class="hint" style="margin-top:9px">GitHub changes follow your approval mode. Full access can approve them automatically.</div>
         </div>
       </div>
@@ -7054,9 +7128,6 @@ body:not(.composer-simple) main::after{
     <button class="icon-btn" id="browserToggle" title="Toggle browser" aria-label="Toggle browser">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"/></svg>
     </button>
-    <button class="icon-btn" id="ctxToggle" title="Toggle context panel" aria-label="Toggle context panel">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="15" y1="4" x2="15" y2="20"/></svg>
-    </button>
     <div class="winctl" id="winctl">
       <button class="win-btn" id="winMin" title="Minimize" aria-label="Minimize"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <button class="win-btn" id="winMax" title="Window layout" aria-label="Window layout" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
@@ -7073,6 +7144,7 @@ body:not(.composer-simple) main::after{
     <button class="ws-tab active" data-ws="chat" title="Chat workspace"><span class="ws-dot active"></span>Chat</button>
     <button class="ws-tab" data-ws="code" title="Code workspace"><span class="ws-dot"></span>Code</button>
     <button class="ws-tab" data-ws="preview" title="Preview workspace"><span class="ws-dot"></span><span class="ws-label">Preview</span></button>
+    <button class="ws-tab" data-ws="light" title="Light trading workspace"><span class="ws-dot"></span>Light</button>
     <button class="ws-tab" data-ws="automations" title="Automations workspace"><span class="ws-dot"></span>Automations</button>
   </div>
 
@@ -7242,12 +7314,59 @@ body:not(.composer-simple) main::after{
       <div class="workspace-float-actions">
         <button id="workspaceFloatWeb" type="button" title="Open the web browser" aria-label="Open the web browser" hidden aria-hidden="true">&#x1F310;</button>
         <button id="workspaceFloatTheme" type="button" title="Switch workspace to dark mode" aria-label="Switch workspace to dark mode" aria-pressed="false">&#x263E;</button>
-        <button id="workspaceFloatExpand" type="button" title="Expand workspace" aria-label="Expand workspace">&#x2197;</button>
-        <button id="workspaceFloatClose" type="button" title="Close workspace" aria-label="Close workspace">&times;</button>
+        <button id="workspaceFloatExpand" type="button" title="Expand workspace" aria-label="Expand workspace" data-maximized="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="workspace-expand-icon" d="M6 3h7v7M13 3 7 9"/><path class="workspace-restore-icon" d="M5 6h6v6H5zM8 3h5v5"/></svg></button>
+        <button id="workspaceFloatClose" type="button" title="Close workspace" aria-label="Close workspace"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"/></svg></button>
       </div>
     </header>
     <div class="workspace-float-content">
   <section class="web-panel" id="webPanel" aria-label="Web browser"></section>
+  <section class="light-panel" id="lightPanel" aria-label="Light trading workstation">
+    <div class="light-shell">
+      <header class="light-commandbar">
+        <div class="light-brand">Light</div>
+        <div class="light-connection" id="lightConnection"><span class="light-connection-dot"></span><span id="lightConnectionText">Connecting to order-flow monitor</span></div>
+        <div class="light-command-actions"><div class="light-header-account"><small>Welcome</small><b>Light user</b></div><div class="light-header-clock"><small>New York <span id="lightHeaderDate">--/--</span></small><strong id="lightHeaderClock">--:--:--</strong></div><button class="light-trade" type="button" disabled title="Order execution is not enabled">Trade</button><button type="button" title="Workspace layout">▦</button><button type="button" title="Help">?</button><button type="button" title="Light settings">Settings</button><button class="light-sim" type="button">SIM</button></div>
+      </header>
+      <div class="light-enginebar">
+        <span class="light-calibration-state" id="lightCalibrationState">UNCALIBRATED</span>
+        <span class="light-engine-detail" id="lightEngineDetail">Engine: localhost:8790</span>
+        <span class="light-entry-candidate" id="lightEntryCandidate">WAIT</span>
+        <span class="light-entry-detail" id="lightEntryDetail">Waiting for 5-minute structure and order-flow confirmation</span>
+        <span class="light-engine-spacer"></span>
+        <button id="lightCaptureStart" type="button">Start capture</button>
+        <button id="lightCaptureStop" type="button" disabled>Stop capture</button>
+        <label>Capture <select id="lightCaptureSelect" aria-label="Light capture"><option value="">No captures</option></select></label>
+        <button id="lightCalibrate" type="button">Run calibration</button>
+      </div>
+      <pre class="light-calibration-output" id="lightCalibrationOutput" aria-live="polite"></pre>
+      <div class="light-grid">
+        <section class="light-window matrix" aria-label="Light Matrix">
+          <div class="light-tabs"><div class="light-tab">NEWS <span class="light-tab-close">×</span></div><div class="light-tab active">MATRIX <span class="light-tab-close">×</span></div><div class="light-tab-add">+</div><div class="light-window-tools"><span>⚙</span><span>↗</span></div></div>
+          <div class="light-ticket" aria-label="Read-only order ticket preview">
+            <div class="light-ticket-grid"><label class="light-ticket-field">Symbol<input id="lightTicketSymbol" value="--" readonly></label><label class="light-ticket-field">Quantity<input value="1" inputmode="numeric" readonly></label><label class="light-ticket-field">Duration<select disabled><option>DAY</option></select></label><label class="light-ticket-field">Account<select disabled><option>SIM · READ ONLY</option></select></label></div>
+            <div class="light-ticket-grid" style="margin-top:4px"><label class="light-ticket-field">Order type<select disabled><option>Limit</option></select></label><label class="light-ticket-field">Limit price<input id="lightTicketPrice" value="--" readonly></label><label class="light-ticket-field">Increment<input value="0.25" readonly></label><label class="light-ticket-field">Route<select disabled><option>Intelligent</option></select></label></div>
+            <div class="light-ticket-actions"><button class="buy" type="button" disabled>Buy Mkt</button><button class="close" type="button" disabled>Close</button><button class="sell" type="button" disabled>Short Mkt</button></div><div class="light-ticket-note">Preview only · trading permission is intentionally disabled</div>
+          </div>
+          <div class="light-matrix-head"><div class="light-metric"><small>Symbol</small><b id="lightSymbol">Waiting</b></div><div class="light-metric"><small>Signal</small><b class="light-signal" id="lightSignal">NEUTRAL</b></div><div class="light-metric"><small>Score / raw</small><b id="lightScores">-- / --</b></div><div class="light-metric"><small>Confidence / spoof</small><b id="lightQuality">-- / --</b></div></div>
+          <div class="light-matrix-columns"><span>Raw</span><span>Bid size</span><span>Price</span><span>Ask size</span><span>Used</span></div>
+          <div class="light-depth" id="lightDepth"><div class="light-chart-empty">Waiting for localhost:8790</div></div>
+        </section>
+        <section class="light-window quotes" aria-label="Light Quotes">
+          <div class="light-tabs"><div class="light-tab active">QUOTES <span class="light-tab-close">×</span></div><div class="light-tab">ORDERS <span class="light-tab-close">×</span></div><div class="light-tab-add">+</div><div class="light-window-tools"><span>⚙</span><span>↗</span></div></div>
+          <div class="light-quote-toolbar"><span class="light-mode-label">SYMBOL</span><span class="light-symbol" id="lightQuoteSymbol">--</span><span class="light-stream-title" id="lightStreamTitle">Order-flow engine</span></div>
+          <table class="light-quotes-table"><thead><tr><th>SYMBOL</th><th>BEST BID</th><th>BEST ASK</th><th>SPREAD</th><th>SCORE</th><th>CONFIDENCE</th><th>CANCEL : TRADE</th></tr></thead><tbody><tr class="selected"><td id="lightQuoteRowSymbol">--</td><td id="lightBestBid">--</td><td id="lightBestAsk">--</td><td id="lightSpread">--</td><td id="lightQuoteScore">--</td><td id="lightQuoteConfidence">--</td><td id="lightCancelTrade">--</td></tr></tbody></table>
+          <div class="light-decision" id="lightDecisionChecks"><div class="light-decision-head"><span>ENTRY DECISION</span><small>Price setup → flow → safety</small></div></div>
+        </section>
+        <section class="light-window chart" aria-label="Light price chart">
+          <div class="light-tabs"><div class="light-tab active"><span id="lightChartTab">CHART</span> <span class="light-tab-close">×</span></div><div class="light-tab-add">+</div><div class="light-window-tools"><span>⚙</span><span>↗</span></div></div>
+          <div class="light-chart-meta"><b id="lightChartSymbol">--</b><span id="lightChartTimeframe">5-minute price setup</span><span><i style="color:#35b8ff">━</i> EMA9</span><span><i style="color:#f1a33b">┅</i> VWAP</span><span id="lightChartRange">Waiting for bars</span></div>
+          <div class="light-chart-stage"><svg id="lightChart" viewBox="0 0 800 300" preserveAspectRatio="none" role="img" aria-label="Five-minute candlestick price-setup chart"><path class="light-chart-grid" d="M0 50H800M0 100H800M0 150H800M0 200H800M0 250H800M100 0V300M200 0V300M300 0V300M400 0V300M500 0V300M600 0V300M700 0V300"/><g id="lightChartCandles"></g><g id="lightChartIndicators"></g></svg><div class="light-chart-empty" id="lightChartEmpty">Waiting for five-minute bars</div></div>
+          <div class="light-outcomes" id="lightOutcomes"><b>OUTCOMES</b><span>Resolved --</span><span>Pending --</span><span class="warn">Collecting control samples</span></div>
+        </section>
+      </div>
+      <footer class="light-statusbar"><span id="lightModeStatus" class="warning">● Monitor disconnected</span><span id="lightReason">Read-only analysis · no order execution</span><span id="lightFlowStatus">Flow --</span></footer>
+    </div>
+  </section>
   <section class="studio-panel" id="studioPanel" aria-label="Creation Studio">
     <div class="studio-shell">
       <header class="studio-head"><h2>Creation Studio</h2><p>Draft, work with documents, and design repeatable workflows without leaving Explore.</p></header>
@@ -11376,8 +11495,12 @@ body:not(.composer-simple) main::after{
       // Side first: most order forms only show the quantity and bracket fields
       // once a side is chosen, so filling them beforehand types into nothing.
       showStep(`selecting ${payload.side}…`);
-      const side=await attempt("click",payload.side==="buy"?fields.buy:fields.sell);
-      if(!side.label) throw new Error(`${await missing(`${payload.side} control`,side.tried)} Nothing was filled in.`);
+      // Exact-only broker action: never let "Buy" fuzzy-match Legend's
+      // immediate Buy MKT button and submit once here plus once below.
+      const sideResult=await runBrowserControl({action:"select_order_side",side:payload.side},25000);
+      const side={label:/selected order side/i.test(String(sideResult?.result||""))?payload.side:"",
+        tried:payload.side==="buy"?fields.buy:fields.sell};
+      if(!side.label) throw new Error(`${await missing(`safe non-executing ${payload.side} control`,side.tried)} Nothing was filled in.`);
       done.push(payload.side);
       // Order type before the price fields: a type's price inputs only exist
       // once the ticket is in that mode, so filling them first types nowhere.
@@ -12700,19 +12823,27 @@ body:not(.composer-simple) main::after{
   }
 
   let githubSetupPoll=0;
+  function showGithubSetupProgress(message,tone=""){
+    const progress=$("ghSetupProgress"); if(!progress)return;
+    progress.style.display="block"; progress.style.color=tone==="success"?"var(--green)":tone==="error"?"var(--red)":"var(--text)";
+    progress.textContent=message;
+  }
   async function githubSetupAction(action,extra={}){
     const response=await fetch("/api/github/setup",{method:"POST",headers:{"content-type":"application/json","x-saz":"1"},body:JSON.stringify({action,...extra})});
     const result=await response.json().catch(()=>({}));
     if(!response.ok) throw new Error(result.error||"GitHub setup failed.");
     return result;
   }
-  function pollGithubSetup(){
+  function pollGithubSetup(action="connect"){
     clearInterval(githubSetupPoll);
     let checks=0;
     githubSetupPoll=setInterval(async()=>{
       checks++;
       await loadGithubStatus();
-      if(githubDashboardStatus?.authenticated||checks>=120) clearInterval(githubSetupPoll);
+      const done=action==="install"?githubDashboardStatus?.installed:githubDashboardStatus?.authenticated;
+      if(done){ clearInterval(githubSetupPoll); showGithubSetupProgress(action==="install"?"GitHub CLI is installed. Press Connect GitHub to sign in.":"GitHub is connected.","success"); return; }
+      if(checks>=30){ clearInterval(githubSetupPoll); showGithubSetupProgress(action==="install"?"Boollm could not detect GitHub CLI yet. Finish the installer, then press Refresh. If no installer opened, use the manual download link below.":"Sign-in is not complete yet. Finish the GitHub browser steps, then press Refresh.","error"); return; }
+      showGithubSetupProgress(action==="install"?"GitHub CLI is installing in the background; Boollm is checking for it…":"GitHub sign-in opened in your browser. The one-time code is already copied; Boollm is checking the connection…");
     },2000);
   }
   let modelCapabilityProbeKey="";
@@ -13104,13 +13235,17 @@ body:not(.composer-simple) main::after{
     if(explore){ explore.hidden=!allowed; explore.setAttribute("aria-hidden",String(!allowed)); }
     const utilityExplore=$("chatUtilityExplore");
     if(utilityExplore){ utilityExplore.hidden=!allowed; utilityExplore.setAttribute("aria-hidden",String(!allowed)); }
+    document.querySelectorAll('[data-ws="light"],[data-sidebar-workspace="light"]').forEach(control=>{
+      control.hidden=!allowed;
+      control.setAttribute("aria-hidden",String(!allowed));
+    });
     syncExploreHomeControls();
     document.querySelectorAll('#modemenu [data-mode="trading_confirm"]').forEach(item=>{
       item.hidden=!allowed;
       item.setAttribute("aria-hidden",String(!allowed));
     });
     const current=activeWsTab;
-    if(!allowed&&EXPLORE_WORKSPACES.includes(current)){
+    if(!allowed&&(EXPLORE_WORKSPACES.includes(current)||current==="light")){
       closeWorkspaceTab(current);
       previousWsTab="chat";
       markWorkspaceTab("chat");
@@ -14527,24 +14662,14 @@ body:not(.composer-simple) main::after{
       el.appendChild(c);
     });
   }
-  // vision gating: images may only be attached when the model can process them
+  // Images are accepted by the composer before model selection. Auto routing
+  // can then move the turn from a text-only model to Codex or Claude.
   const TEXT_ONLY_MSG="This model is text-only. Select a vision-capable model and its matching .mmproj file.";
-  // The .mmproj readiness gate is only for Boollm's local llama.cpp model.
-  // Codex handles image inputs through its own selected model and must not
-  // inherit a stale local-model text-only warning.
-  const visionOk=()=>state.codex?.enabled===true || !state.vision || state.vision.supported!==false;
-  function visionBlockNote(){
-    const reason=state.vision&&state.vision.reason?state.vision.reason:TEXT_ONLY_MSG;
-    const d=addNode("status"); d.style.color="#e3a008"; d.textContent="⚠ "+reason+" (Settings → Models)";
-    setTimeout(()=>d.remove(),6000);
-  }
   function addImageFile(file){
-    if(!visionOk()){ visionBlockNote(); return; }
     const r=new FileReader(); r.onload=()=>addImageDataURL(r.result,file.name); r.readAsDataURL(file);
   }
   function addImageDataURL(dataURL,name="image.png"){
     if(!String(dataURL||"").startsWith("data:image/")) return false;
-    if(!visionOk()){ visionBlockNote(); return false; }
     attachments.push({kind:"image",name:name||"image.png",dataURL});
     renderChips();
     return true;
@@ -14553,7 +14678,7 @@ body:not(.composer-simple) main::after{
   $("fileImage").onchange=(e)=>{ [...e.target.files].forEach(addImageFile); e.target.value=""; };
   $("fileAny").onchange=(e)=>{ [...e.target.files].forEach(f=>{ if(f.type.startsWith("image/"))addImageFile(f); else addTextFile(f); }); e.target.value=""; };
   $("plusbtn").onclick=(e)=>{ e.stopPropagation(); $("modelmenu").classList.remove("open"); $("modemenu").classList.remove("open"); $("plusmenu").classList.toggle("open"); };
-  $("attImage").onclick=()=>{ $("plusmenu").classList.remove("open"); if(!visionOk()){ visionBlockNote(); return; } $("fileImage").click(); };
+  $("attImage").onclick=()=>{ $("plusmenu").classList.remove("open"); $("fileImage").click(); };
   $("attFile").onclick=()=>{ $("plusmenu").classList.remove("open"); $("fileAny").click(); };
   $("attSnip").onclick=()=>{ $("plusmenu").classList.remove("open"); startSnip("message"); };
   $("attFolder").onclick=()=>{ $("plusmenu").classList.remove("open"); fetch("/api/open-models",{method:"POST"}); };
@@ -14582,9 +14707,10 @@ body:not(.composer-simple) main::after{
     input.focus();
   });
   function applyVisionGate(){
-    const ok=visionOk();
-    $("attImage").classList.toggle("disabled",!ok);
-    $("attImage").title=ok?"":TEXT_ONLY_MSG;
+    $("attImage").classList.remove("disabled");
+    $("attImage").title=state.vision?.supported===false
+      ?"Attach an image. Auto will route it to a ready vision-capable model."
+      :"Attach an image";
   }
 
   // ── notepad ──
@@ -15208,7 +15334,6 @@ body:not(.composer-simple) main::after{
       openNotes(true);
       insertHtmlAtCursor(noteImageHtml(dataURL,"screen snip"));
     } else {
-      if(!visionOk()){ visionBlockNote(); return; }
       attachments.push({kind:"image",name:"screen snip.png",dataURL});
       renderChips(); input.focus();
     }
@@ -16331,8 +16456,7 @@ body:not(.composer-simple) main::after{
       run.statusEl.setAttribute("role","status");
       run.statusEl.setAttribute("aria-live","polite");
       run.statusEl.setAttribute("aria-label","Boollm task progress");
-      const taskTitle=String(run.request?.message||run.request?.prompt||run.request?.text||"Current task").replace(/\s+/g," ").trim();
-      run.statusEl.innerHTML='<div class="working-task-head"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h7l2 2h9v10H3z"/></svg><span class="working-task-title" title="'+esc(taskTitle)+'">'+esc(taskTitle)+'</span><span class="working-task-more" aria-hidden="true">&#8230;</span></div><div class="working-card-body"><div class="team-worker-panel" role="list" aria-label="Parallel agents" hidden></div><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div><div class="working-card-footer"><span class="working-live-changes" aria-live="polite" hidden></span></div>';
+      run.statusEl.innerHTML='<div class="working-card-body"><div class="team-worker-panel" role="list" aria-label="Parallel agents" hidden></div><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div><div class="working-card-footer"><span class="working-live-changes" aria-live="polite" hidden></span></div>';
       col.appendChild(run.statusEl);
       wireWorkingCard(run.statusEl,run);
       // Activity can arrive before the card exists (especially fast tool calls).
@@ -17368,7 +17492,10 @@ body:not(.composer-simple) main::after{
   // ── nav / panels / sidebar ──
   $("appBack").onclick=goBackInApp;
   $("appForward").onclick=goForwardInApp;
-  $("chatHome").onclick=returnToCurrentChat;
+  $("chatHome").onclick=()=>{
+    if(activeWsTab==="chat") newChat().catch(()=>tempToast("Could not start a fresh chat."));
+    else returnToCurrentChat();
+  };
   $("sidebarAccount").onclick=toggleAccountMenu;
   $("sidebarAccountSettings").onclick=(event)=>{ event.stopPropagation(); closeAccountMenu(); openSettings(null); };
   function closeSidebarFlyouts(){
@@ -17474,9 +17601,9 @@ body:not(.composer-simple) main::after{
     else if(action==="models"){ openSettings("model"); }
     else if(action==="plugins"){ openSettings("connectors"); }
     else if(action==="agents"){ openSettings("agent"); }
-    else if(action==="sources"){ $("ctxToggle")?.click(); }
+    else if(action==="sources"){ toggleCtxZone(); }
     else if(action==="browser"){ $("browserToggle")?.click(); }
-    else if(action==="context"){ $("ctxToggle")?.click(); }
+    else if(action==="context"){ toggleCtxZone(); }
     else if(action==="side-chat"){ setSideChatOpen(!$("sideChatPanel")?.classList.contains("open")); }
     else if(action==="git"){ setWorkspaceTab("git"); }
     else if(action==="recipes"){ setWorkspaceTab("recipes"); }
@@ -19388,11 +19515,13 @@ Optional bundled starter model:
     const button=$("ghConnect"),action=button.dataset.action||"connect";
     if(action==="install"&&!await appConfirm("Install GitHub CLI?","Boollm will use Windows Package Manager to install GitHub's official command-line tool. GitHub sign-in happens afterward.","Install")) return;
     button.disabled=true;
+    showGithubSetupProgress(action==="install"?"Installing GitHub CLI in the background…":"Opening GitHub's secure browser sign-in…");
     try{
-      await githubSetupAction(action);
-      tempToast(action==="install"?"GitHub CLI installation opened. Boollm will detect it automatically.":"GitHub sign-in opened. Finish in the secure browser window.",5000);
-      pollGithubSetup();
-    }catch(error){ tempToast(error.message||String(error),5000); }
+      const result=await githubSetupAction(action);
+      if(!result.started)throw new Error("GitHub setup did not start.");
+      tempToast(action==="install"?"GitHub CLI is installing. Boollm will detect it automatically.":"GitHub opened your browser and copied the one-time code. Finish sign-in there.",5000);
+      pollGithubSetup(action);
+    }catch(error){ showGithubSetupProgress((error.message||String(error))+" Use the manual download link below.","error"); tempToast(error.message||String(error),5000); }
     finally{ button.disabled=false; }
   };
   if($("ghSwitch")) $("ghSwitch").onclick=async()=>{
@@ -20203,7 +20332,7 @@ Optional bundled starter model:
     window.chrome.webview.addEventListener("message",(e)=>{
       const d=e.data||{};
       if(d.type==="attach"){
-        if(d.kind==="image"&&d.dataURL){ if(!visionOk()){ visionBlockNote(); return; } attachments.push({kind:"image",name:d.name||"image.png",dataURL:d.dataURL}); }
+        if(d.kind==="image"&&d.dataURL){ attachments.push({kind:"image",name:d.name||"image.png",dataURL:d.dataURL}); }
         else if(d.kind==="file"){ attachments.push({kind:"file",name:d.name||"page.txt",text:d.text||""}); }
         renderChips(); input.focus();
       } else if(d.type==="browserSelection"){ sendBrowserText(d.text,d.target); }
@@ -20356,7 +20485,7 @@ Optional bundled starter model:
   let activeWsTab = "chat";
   workspaceDockReady=true;
   let previousWsTab = "chat";
-  const EXPLORE_WORKSPACES=["web","markets","education","recipes","sales","library","studio"];
+  const EXPLORE_WORKSPACES=["web","light","markets","education","recipes","sales","library","studio"];
   let lastExploreWorkspace=EXPLORE_WORKSPACES.includes(savedAppFrame?.exploreWorkspace)
     ?savedAppFrame.exploreWorkspace:"markets";
   const WORKSPACE_FLOAT_KEY="booleanWorkspaceDockWidthV4";
@@ -20364,6 +20493,7 @@ Optional bundled starter model:
   const WORKSPACE_MINIMIZED_KEY="booleanWorkspaceMinimizedV1";
   const WORKSPACE_FLOAT_META={
     web:{label:"Web",icon:'<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2C6 4 6 12 8 14"/></svg>'},
+    light:{label:"Light",icon:'<svg viewBox="0 0 16 16"><path d="M8 1.8 3.5 8h3L5.8 14.2 12.5 7H9.3L8 1.8Z"/></svg>'},
     education:{label:"Education",icon:'<svg viewBox="0 0 16 16"><path d="m2 6 6-3 6 3-6 3-6-3Z"/><path d="M5 7.5V11c1.8 1.3 4.2 1.3 6 0V7.5M14 6v4"/></svg>'},
     markets:{label:"Markets",icon:'<svg viewBox="0 0 16 16"><path d="M5 6V4.8C5 3.8 5.8 3 6.8 3h2.4c1 0 1.8.8 1.8 1.8V6"/><rect x="2.5" y="6" width="11" height="7" rx="1"/><path d="M2.5 8.5h11M7 8h2v1.5H7z"/></svg>'},
     recipes:{label:"Recipes",icon:'<svg viewBox="0 0 16 16"><path d="M4 2v5M2.5 2v3.5C2.5 6.3 3.2 7 4 7s1.5-.7 1.5-1.5V2M4 7v7M11 2c-1.4 1.4-1.8 3.8-1 5.8l1 .2v6M11 2v6"/></svg>'},
@@ -20477,7 +20607,7 @@ Optional bundled starter model:
     if(maximized){
       frame.classList.remove("compact-strip");
     }
-    button.textContent=maximized?"↙":"↗";
+    button.dataset.maximized=String(maximized);
     button.title=maximized?"Restore workspace":"Expand workspace";
     button.setAttribute("aria-label",button.title);
     if(!maximized){
@@ -20506,8 +20636,18 @@ Optional bundled starter model:
       icon.dataset.workspaceIcon=ws;
       if(icon.innerHTML!==meta.icon)icon.innerHTML=meta.icon;
     }
-    const frame=$("workspaceFloat");
+    const frame=$("workspaceFloat"),theme=$("workspaceFloatTheme");
     if(frame)frame.dataset.workspace=ws;
+    if(theme){
+      const darkOnly=ws==="light";
+      theme.hidden=darkOnly;
+      theme.setAttribute("aria-hidden",String(darkOnly));
+      if(darkOnly)applyWorkspaceTheme("dark");
+      else{
+        let savedTheme="";try{savedTheme=localStorage.getItem(WORKSPACE_THEME_KEY)||"";}catch{}
+        applyWorkspaceTheme(savedTheme==="dark"?"dark":"light");
+      }
+    }
     frame?.setAttribute("aria-label",`Explore workspace · ${label}`);
     $("workspaceFloatTabs")?.querySelectorAll("[data-workspace-page]").forEach(tab=>{
       const active=tab.dataset.workspacePage===ws;
@@ -20738,7 +20878,7 @@ Optional bundled starter model:
   $("chatUtilityModel")?.addEventListener("click",()=>openModelSelector());
   $("chatUtilityAccess")?.addEventListener("click",()=>$("modebtn")?.click());
   $("chatUtilityAddSource")?.addEventListener("click",()=>$("cmdFile")?.click());
-  $("chatUtilityViewSources")?.addEventListener("click",()=>$("ctxToggle")?.click());
+  $("chatUtilityViewSources")?.addEventListener("click",()=>toggleCtxZone());
   $("chatUtilitySettings")?.addEventListener("click",()=>openSettings(null));
   if($("ctxChips")&&typeof MutationObserver!=="undefined"){
     new MutationObserver(()=>syncChatUtilityContent()).observe($("ctxChips"),{childList:true,subtree:true,characterData:true});
@@ -20748,6 +20888,7 @@ Optional bundled starter model:
     else if (ws === "notes") { openNotes(false,{remember:false,focus:false}); }
     else if (ws === "code") { toggleTerminal(false); }
     else if (ws === "web") { syncExploreWebDock(); }
+    else if (ws === "light") { stopLightStream();document.body.classList.remove("light-open");scheduleResponsiveClasses(); }
     else if (ws === "recipes") {
       document.body.classList.remove("recipes-open");
       recipesSidebarAutoClosed=false;
@@ -20780,6 +20921,7 @@ Optional bundled starter model:
     if(EXPLORE_WORKSPACES.includes(activeWsTab))lastExploreWorkspace=activeWsTab;
     document.body.classList.toggle("workspace-chat", activeWsTab === "chat");
     document.body.classList.toggle("code-open", activeWsTab === "code");
+    document.body.classList.toggle("light-open", activeWsTab === "light");
     document.body.classList.toggle("markets-open", activeWsTab === "markets");
     document.body.classList.toggle("education-open", activeWsTab === "education");
     document.body.classList.toggle("recipes-open", activeWsTab === "recipes");
@@ -21333,6 +21475,114 @@ Optional bundled starter model:
     else if(step==="options"){$("educationDetailColumn")?.scrollTo({top:0,behavior:"smooth"});$("educationCount")?.focus();}
   };
   $("educationSources").addEventListener("click",event=>{const link=event.target.closest("[data-url]");if(!link)return;event.preventDefault();openUrlInBrowser(link.dataset.url);});
+  let lightState={source:null,symbol:"",signal:null,bars:[],outcomes:null,lastOutcomeCounts:""};
+  let lightEventSource=null;
+  function lightNumber(value,digits=2){const number=Number(value);return Number.isFinite(number)?number.toLocaleString(undefined,{minimumFractionDigits:digits,maximumFractionDigits:digits}):"--";}
+  function lightReasonText(value,fallback){if(typeof value==="string")return value;if(value&&typeof value.text==="string")return value.text;if(value&&typeof value.reason==="string")return value.reason;return fallback;}
+  function renderLightDepth(book){
+    const bids=Array.isArray(book?.bids)?book.bids:[],asks=Array.isArray(book?.asks)?book.asks:[];
+    const levels=[...asks.slice(0,8).reverse().map(level=>({ask:level})),...bids.slice(0,8).map(level=>({bid:level}))];
+    if(!levels.length){$("lightDepth").innerHTML='<div class="light-chart-empty">Waiting for market depth</div>';return;}
+    const max=Math.max(1,...levels.map(row=>Number((row.bid||row.ask)?.size)||0));
+    $("lightDepth").innerHTML=levels.map((row,index)=>{
+      const level=row.bid||row.ask,isBid=!!row.bid,width=Math.max(2,Math.round(Number(level.size||0)/max*100));
+      return `<div class="light-depth-row ${index===asks.slice(0,8).length||index===asks.slice(0,8).length-1?"touch":""}"><span>${isBid?esc(lightNumber(level.size,0)):""}</span><span class="bid">${isBid?`<i style="width:${width}%"></i><em>${esc(lightNumber(level.size,0))}</em>`:""}</span><span class="price">${esc(lightNumber(level.price,2))}</span><span class="ask">${!isBid?`<i style="width:${width}%"></i><em>${esc(lightNumber(level.size,0))}</em>`:""}</span><span class="effective">${esc(lightNumber(level.effective,0))}</span></div>`;
+    }).join("");
+  }
+  function renderLightChart(){
+    const bars=lightState.bars.filter(bar=>[bar.open,bar.high,bar.low,bar.close].every(value=>Number.isFinite(Number(value)))).slice(-60);
+    $("lightChartEmpty").style.display=bars.length?"none":"grid";
+    if(!bars.length){$("lightChartCandles").innerHTML="";$("lightChartIndicators").innerHTML="";$("lightChartRange").textContent="Waiting for bars";return;}
+    const values=bars.flatMap(bar=>[Number(bar.high),Number(bar.low)]),metrics=lightState.source?.entry?.metrics||{};
+    for(const value of [metrics.ema9,metrics.vwap,metrics.priorHigh,metrics.priorLow])if(Number.isFinite(Number(value)))values.push(Number(value));
+    const min=Math.min(...values),max=Math.max(...values),span=Math.max(.0001,max-min),w=800,h=300,pad=16,step=w/bars.length,body=Math.max(2,Math.min(9,step*.55)),y=value=>pad+(max-Number(value))/span*(h-pad*2),x=index=>(index+.5)*step;
+    $("lightChartCandles").innerHTML=bars.map((bar,index)=>{const up=Number(bar.close)>=Number(bar.open),cx=x(index),yo=y(bar.open),yc=y(bar.close),top=Math.min(yo,yc),height=Math.max(1,Math.abs(yc-yo));return `<line class="${up?"light-candle-up":"light-candle-down"}" x1="${cx}" y1="${y(bar.high)}" x2="${cx}" y2="${y(bar.low)}"/><rect class="${up?"light-candle-up":"light-candle-down"}" x="${cx-body/2}" y="${top}" width="${body}" height="${height}"/>`;}).join("");
+    const emaValues=[],alpha=2/10;bars.forEach((bar,index)=>emaValues.push(index?Number(bar.close)*alpha+emaValues[index-1]*(1-alpha):Number(bar.close)));
+    let volume=0,vwapValue=0;const vwapValues=bars.map(bar=>{const amount=Math.max(0,Number(bar.volume)||0);volume+=amount;vwapValue+=((Number(bar.high)+Number(bar.low)+Number(bar.close))/3)*amount;return volume?vwapValue/volume:Number(bar.close);});
+    const line=(series,klass)=>`<path class="${klass}" d="${series.map((value,index)=>`${index?"L":"M"}${x(index).toFixed(1)} ${y(value).toFixed(1)}`).join(" ")}"/>`;
+    const levels=[[metrics.priorHigh,"Prior high"],[metrics.priorLow,"Prior low"]].filter(([value])=>Number.isFinite(Number(value))).map(([value,label])=>`<line class="light-level" x1="0" y1="${y(value)}" x2="800" y2="${y(value)}"/><text x="792" y="${y(value)-3}" text-anchor="end" fill="#8e99a1" font-size="8">${label}</text>`).join("");
+    $("lightChartIndicators").innerHTML=line(emaValues,"light-indicator-ema")+line(vwapValues,"light-indicator-vwap")+levels;
+    $("lightChartRange").textContent=`${lightNumber(min)} – ${lightNumber(max)} · ${bars.length} bars`;
+  }
+  function lightCheck(label,detail,state){return `<div class="light-check ${state}"><i></i><span><b>${esc(label)}</b><small>${esc(detail)}</small></span></div>`;}
+  function renderLightDecision(entry,signal,book){
+    const metrics=entry.metrics||{},checks=entry.checks||{},price=Number(metrics.price),side=entry.side==="sell"||Number(signal.score)<0?"sell":"buy",aligned=value=>Number.isFinite(price)&&Number.isFinite(Number(value))&&(side==="buy"?price>Number(value):price<Number(value));
+    const structure=Boolean(checks.buyStructure||checks.sellStructure),flow=Boolean(checks.buyFlow||checks.sellFlow),quality=Boolean(checks.quality),fresh=signal.quality?.freshness==null||Number(signal.quality.freshness)>=.5,spreadOk=Number(book.spreadTicks)<=2;
+    $("lightDecisionChecks").innerHTML='<div class="light-decision-head"><span>ENTRY DECISION</span><small>Price setup → flow → safety</small></div>'+[
+      lightCheck("5m range",Number.isFinite(Number(metrics.priorHigh))?`${lightNumber(metrics.priorLow)} – ${lightNumber(metrics.priorHigh)}`:"Need completed bars",structure?"pass":"wait"),
+      lightCheck("EMA9",Number.isFinite(Number(metrics.ema9))?`${lightNumber(price)} vs ${lightNumber(metrics.ema9)}`:"Unavailable",aligned(metrics.ema9)?"pass":"wait"),
+      lightCheck("VWAP",Number.isFinite(Number(metrics.vwap))?`${lightNumber(price)} vs ${lightNumber(metrics.vwap)}`:"Unavailable",aligned(metrics.vwap)?"pass":"wait"),
+      lightCheck("Order flow",`${signal.state||"neutral"} · score ${signal.score??"--"}`,flow?"pass":Number(signal.spoofRisk)>.35?"block":"wait"),
+      lightCheck("Data / spread",`${fresh?"fresh":"stale"} · ${book.spreadTicks??"--"} ticks`,fresh&&spreadOk?"pass":fresh?"wait":"block"),
+      lightCheck("Risk permission","SIM read-only · execution locked",quality?"wait":"block")
+    ].join("");
+  }
+  function renderLightOutcomes(summary){
+    lightState.outcomes=summary;const buckets=Object.values(summary?.byState||{}),directional=buckets.filter(bucket=>bucket.state!=="neutral"),samples=directional.reduce((total,bucket)=>total+(bucket.samples||0),0),oneMinute=directional.flatMap(bucket=>Object.entries(bucket.horizons||{}).filter(([ms])=>Number(ms)===60000).map(([,slot])=>slot)),hitSamples=oneMinute.reduce((total,slot)=>total+(slot.samples||0),0),hit=hitSamples?oneMinute.reduce((total,slot)=>total+(slot.hitRate||0)*(slot.samples||0),0)/hitSamples:null;
+    $("lightOutcomes").innerHTML=`<b>OUTCOMES</b><span>Resolved ${summary?.resolved??0}</span><span>Pending ${summary?.pending??0}</span><span>Signals ${samples}</span><span class="${summary?.comparable?"good":"warn"}">${summary?.comparable?`1m hit ${lightNumber(hit*100,0)}%`:"Collecting control samples"}</span>`;
+  }
+  async function refreshLightOutcomes(){try{renderLightOutcomes(await lightEngineRequest("/outcomes"));}catch{}}
+  function renderLightState(payload){
+    if(payload?.type!=="state")return;
+    const signal=payload.signal||{},book=payload.book||{},flow=payload.flow||{},symbol=payload.scenario?.name||"Order flow";
+    lightState.symbol=symbol;lightState.signal=signal;lightState.source=payload;
+    const state=String(signal.state||"neutral").toLowerCase(),signalEl=$("lightSignal");
+    signalEl.textContent=state.toUpperCase();signalEl.className=`light-signal ${state}`;
+    $("lightSymbol").textContent=symbol;$("lightQuoteSymbol").textContent=symbol;$("lightQuoteRowSymbol").textContent=symbol;$("lightChartSymbol").textContent=symbol;
+    if($("lightTicketSymbol"))$("lightTicketSymbol").value=symbol;
+    $("lightScores").textContent=`${signal.score??"--"} / ${signal.naiveScore??"--"}`;$("lightQuality").textContent=`${lightNumber(Number(signal.confidence)*100,0)}% / ${lightNumber(Number(signal.spoofRisk)*100,0)}%`;
+    $("lightBestBid").textContent=lightNumber(book.bestBid);$("lightBestAsk").textContent=lightNumber(book.bestAsk);$("lightSpread").textContent=`${book.spreadTicks??"--"} tick${book.spreadTicks===1?"":"s"}`;
+    if($("lightTicketPrice"))$("lightTicketPrice").value=Number.isFinite(Number(book.bestAsk))?lightNumber(book.bestAsk):"--";
+    $("lightQuoteScore").textContent=signal.score??"--";$("lightQuoteScore").className=Number(signal.score)>0?"light-positive":Number(signal.score)<0?"light-negative":"";$("lightQuoteConfidence").textContent=`${lightNumber(Number(signal.confidence)*100,0)}%`;$("lightCancelTrade").textContent=flow.cancelToTrade==null?"--":`${lightNumber(flow.cancelToTrade,1)}x`;
+    const entry=payload.entry||{},entrySide=String(entry.side||"wait").toLowerCase(),entryEl=$("lightEntryCandidate");entryEl.textContent=entrySide.toUpperCase();entryEl.className=`light-entry-candidate ${entrySide}`;
+    const metrics=entry.metrics||{},entryReason=lightReasonText(entry.reasons?.[0],"Waiting for price structure and order-flow confirmation");$("lightEntryDetail").textContent=`${entryReason}${Number.isFinite(Number(metrics.ema9))?` · EMA9 ${lightNumber(metrics.ema9)}`:""}${Number.isFinite(Number(metrics.vwap))?` · VWAP ${lightNumber(metrics.vwap)}`:""}`;
+    $("lightReason").textContent=lightReasonText(signal.reasons?.[0],"Read-only analysis · no order execution");$("lightFlowStatus").textContent=`Flow B ${lightNumber(flow.buyVolume,0)} / S ${lightNumber(flow.sellVolume,0)}`;$("lightStreamTitle").textContent=`${payload.mode||"stream"} · ${payload.scenario?.description||"order-flow engine"}`;
+    renderLightDepth(book);renderLightDecision(entry,signal,book);
+    lightState.bars=Array.isArray(payload.chart?.bars)?payload.chart.bars:[];$("lightChartTimeframe").textContent=`${payload.chart?.timeframe||"5m"} price setup`;$("lightChartTab").textContent=`${symbol} ${payload.chart?.timeframe||"5m"}`;renderLightChart();
+    const outcomeCounts=`${payload.outcomes?.resolved||0}:${payload.outcomes?.pending||0}`;if(outcomeCounts!==lightState.lastOutcomeCounts){lightState.lastOutcomeCounts=outcomeCounts;refreshLightOutcomes();}
+    renderActiveWorkspaceContext();
+  }
+  function stopLightStream(){if(lightEventSource){lightEventSource.close();lightEventSource=null;}$("lightConnection")?.classList.remove("connected");}
+  function updateLightHeaderClock(){
+    const now=new Date(),parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).formatToParts(now),value=type=>parts.find(part=>part.type===type)?.value||"--";
+    if($("lightHeaderClock"))$("lightHeaderClock").textContent=`${value("hour")}:${value("minute")}:${value("second")}`;
+    if($("lightHeaderDate"))$("lightHeaderDate").textContent=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",month:"numeric",day:"numeric"}).format(now);
+  }
+  async function lightEngineRequest(path,{method="GET"}={}){
+    const response=await fetch(`/api/light${path}`,{method,headers:{"x-saz":"1"}}),payload=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(payload.error||`Light engine returned ${response.status}.`);
+    return payload;
+  }
+  async function refreshLightEngine(){
+    const status=await lightEngineRequest("/engine/status"),engine=typeof status.engine==="object"?status.engine:status;
+    $("lightEngineDetail").textContent=`${engine.engine||"orderflow"} v${engine.protocol?.version||status.protocolVersion||1} · ${engine.mode||"unknown"} · ${status.upstream||"localhost"}`;
+    const calibrationState=$("lightCalibrationState");calibrationState.textContent=engine.calibrated?"CALIBRATED":"UNCALIBRATED";calibrationState.classList.toggle("ready",Boolean(engine.calibrated));
+    $("lightCaptureStart").disabled=engine.mode!=="live"||Boolean(engine.capture?.active);$("lightCaptureStop").disabled=!engine.capture?.active;
+    const captures=await lightEngineRequest("/captures"),select=$("lightCaptureSelect"),current=select.value;
+    select.innerHTML=(captures.captures||[]).map(item=>`<option value="${esc(item.name)}">${esc(item.name)} · ${Math.max(1,Math.round(item.bytes/1024))} KB</option>`).join("")||'<option value="">No captures</option>';
+    if(current&&[...select.options].some(option=>option.value===current))select.value=current;
+    return engine;
+  }
+  async function runLightEngineAction(path,button){button.disabled=true;try{return await lightEngineRequest(path,{method:"POST"});}finally{button.disabled=false;}}
+  function bindLightEngineControls(){
+    if($("lightCaptureStart")?.dataset.bound)return;$("lightCaptureStart").dataset.bound="1";
+    $("lightCaptureStart").onclick=async()=>{try{await runLightEngineAction("/capture/start",$("lightCaptureStart"));await refreshLightEngine();tempToast("Light capture started.");}catch(error){tempToast(error.message);}};
+    $("lightCaptureStop").onclick=async()=>{try{await runLightEngineAction("/capture/stop",$("lightCaptureStop"));await refreshLightEngine();tempToast("Light capture saved.");}catch(error){tempToast(error.message);}};
+    $("lightCalibrate").onclick=async()=>{const button=$("lightCalibrate"),file=$("lightCaptureSelect").value;if(!file){tempToast("Record or select a capture first.");return;}try{button.textContent="Calibrating…";const result=await runLightEngineAction(`/calibrate?file=${encodeURIComponent(file)}`,button);$("lightCalibrationOutput").textContent=result.output||"Calibration completed.";$("lightCalibrationOutput").classList.add("open");await refreshLightEngine();}catch(error){tempToast(error.message);}finally{button.textContent="Run calibration";}};
+    $("lightCalibrationOutput").onclick=()=>$("lightCalibrationOutput").classList.remove("open");
+  }
+  async function ensureLight(){
+    if(lightEventSource)return;
+    updateLightHeaderClock();if(!window.lightHeaderClockTimer)window.lightHeaderClockTimer=setInterval(updateLightHeaderClock,1000);
+    bindLightEngineControls();
+    try{const response=await fetch("/api/light/status"),status=await response.json();if(!response.ok)throw new Error(status.error||"Light is unavailable.");$("lightConnectionText").textContent=status.connected?"Order-flow monitor connected":`Waiting for ${status.upstream||"Light engine"}`;if(status.connected){await refreshLightEngine();await refreshLightOutcomes();}}
+    catch(error){$("lightConnectionText").textContent=String(error?.message||"Light is unavailable.");}
+    lightEventSource=new EventSource("/api/light/events");
+    lightEventSource.onopen=()=>{$("lightConnection").classList.add("connected");$("lightConnectionText").textContent="Order-flow monitor connected";$("lightModeStatus").className="ok";$("lightModeStatus").textContent="● Live stream connected";};
+    lightEventSource.onmessage=event=>{try{renderLightState(JSON.parse(event.data));}catch{}}
+    lightEventSource.addEventListener("light-error",event=>{try{$("lightConnectionText").textContent=JSON.parse(event.data).error||"Light monitor unavailable";}catch{}});
+    lightEventSource.onerror=()=>{$("lightConnection").classList.remove("connected");$("lightConnectionText").textContent="Waiting for localhost:8790";$("lightModeStatus").className="warning";$("lightModeStatus").textContent="● Monitor disconnected";};
+  }
   let marketState={provider:"yahoo",configured:false,selectedSymbol:"AAPL",watchlist:["AAPL","MSFT","NVDA","GOOGL","AMZN"],snapshot:null,dashboard:null,sectors:null,options:null,optionExpiration:"",moverMode:"gainers",range:"6mo",indicators:true,loaded:false,researchMode:"monitor",tradeIdeas:null,cot:null,ideaRange:"6mo",backtest:null};
   const marketMoney=(value,currency="USD")=>Number.isFinite(Number(value))?new Intl.NumberFormat(undefined,{style:"currency",currency,maximumFractionDigits:2}).format(Number(value)):"--";
   const marketNumber=(value)=>Number.isFinite(Number(value))?Number(value).toLocaleString(undefined,{maximumFractionDigits:2}):"--";
@@ -21960,6 +22210,11 @@ Optional bundled starter model:
   $("marketAiPrompt").onkeydown=event=>{if(event.key==="Enter")$("marketAsk").click();};
   function activateWorkspaceTab(ws) {
     if (!ws) return;
+    if(ws==="light"&&!adminFeatureAccessAllowed()){
+      syncAccountWorkspaceAccess();
+      tempToast("Light is available only to signed-in Boollm administrators.");
+      return;
+    }
     if(["education","markets"].includes(ws)&&!marketsAccessAllowed()){
       syncAccountWorkspaceAccess();
       tempToast(`Sign in to your Boollm account to use ${ws==="education"?"Education":"Markets"}.`);
@@ -21993,6 +22248,7 @@ Optional bundled starter model:
     else if (ws === "notes") { openNotes(true,{remember:true,focus:true}); }
     else if (ws === "code") { ensureCodeWorkspace(); }
     else if (ws === "web") { syncExploreWebDock(); }
+    else if (ws === "light") { ensureLight(); }
     else if (ws === "education") { ensureEducation(); }
     else if (ws === "markets") { ensureMarkets(); }
     else if (ws === "preview") { refreshProjectDashboard(); const ts = threadSummary(); if (ts && ts.kind === "project" && ts.projectDir) tempToast("Run tab: run or preview the active project."); else tempToast("Preview tab: run a project to see it here."); }
@@ -22031,6 +22287,11 @@ Optional bundled starter model:
   function setWorkspaceTab(ws,{remember=true,force=false}={}) {
     if (!ws) return;
     if(ws==="explore"){openExploreWorkspace();return;}
+    if(ws==="light"&&!adminFeatureAccessAllowed()){
+      syncAccountWorkspaceAccess();
+      tempToast("Light is available only to signed-in Boollm administrators.");
+      return;
+    }
     if(EXPLORE_WORKSPACES.includes(ws)&&!adminFeatureAccessAllowed()){
       syncAccountWorkspaceAccess();
       tempToast("Explore is available only to Boollm administrators.");
@@ -23623,6 +23884,7 @@ Optional bundled starter model:
       return `Education${exam?.name?` · ${exam.name}`:""}`;
     }
     if(activeWsTab==="markets")return `Markets · ${marketState?.selectedSymbol||"Market overview"}`;
+    if(activeWsTab==="light")return `Light · ${lightState?.symbol||"Order flow"}`;
     if(activeWsTab==="recipes")return `Workflows · ${currentRecipe()?.title||"Workflow"}`;
     return "";
   }
@@ -23659,6 +23921,10 @@ Optional bundled starter model:
       const change=Number(s.change),changePercent=Number(s.changePercent);
       const changeText=Number.isFinite(change)&&Number.isFinite(changePercent)?`${change>=0?"+":""}${change.toFixed(2)} (${changePercent>=0?"+":""}${changePercent.toFixed(2)}%)`:"Unavailable";
       return `<active_explore_context workspace="markets">\nSelected symbol: ${s.symbol||marketState.selectedSymbol}\nCompany: ${s.name||"Unavailable"}\nChart range: ${marketState.range||"Unavailable"}\nPrice: ${marketMoney(s.price,s.currency)}\nChange: ${changeText}\nPrevious close: ${marketMoney(s.previousClose,s.currency)}\nVolume: ${marketNumber(s.volume)}\nSource: ${s.source||"Unavailable"}${s.delayed?" (delayed/indicative)":""}\nVisible headlines:\n${headlines||"None available"}\nTreat market information as educational, identify delayed or uncertain data, and do not invent missing values.\n</active_explore_context>`;
+    }
+    if(activeWsTab==="light"){
+      const signal=lightState?.signal;
+      return `<active_explore_context workspace="light">\nSymbol: ${lightState?.symbol||"Unavailable"}\nSignal: ${signal?.state||"Unavailable"}\nScore: ${signal?.score??"Unavailable"}\nConfidence: ${signal?.confidence??"Unavailable"}\nSpoof risk: ${signal?.spoofRisk??"Unavailable"}\nReason: ${(signal?.reasons||[])[0]||"No live reason available"}\nLight is a read-only order-flow analysis surface. Treat its output as uncertain market information, not investment advice.\n</active_explore_context>`;
     }
     if(activeWsTab==="recipes"){
       const recipe=currentRecipe();
@@ -26177,7 +26443,6 @@ Optional bundled starter model:
     html += '</div>';
     body.innerHTML = html;
   }
-  if ($("ctxToggle")) $("ctxToggle").onclick = () => toggleCtxZone();
   if ($("ctxClose")) $("ctxClose").onclick = () => toggleCtxZone(false);
   if ($("ctxRefresh")) $("ctxRefresh").onclick = () => refreshCtxZone();
   // Restore saved state
@@ -26413,6 +26678,7 @@ Optional bundled starter model:
     if(surface==="chat")setWorkspaceTab("chat");
     else if(surface==="browser")openBrowserWorkspace();
     else if(surface==="notepad")openNotepad();
+    else if(surface==="light")setWorkspaceTab("light");
     else if(surface==="sales")openExploreWorkspace("sales");
     else if(surface==="markets")openExploreWorkspace("markets");
     else if(surface==="education")openExploreWorkspace("education");

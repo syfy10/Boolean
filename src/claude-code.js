@@ -339,6 +339,7 @@ function promptWithChanges(input, changes = []) {
 
 export async function runClaudeCodeTurn({
   command = "claude", input = "", projectDir = "", workspaceChanges = [], mapping = {}, model = "",
+  images = [], browserBridge = null,
   accessMode = "ask", maxTurns = 30, signal, onStatus = () => {}, onToken = () => {},
   onUsage = () => {}, onStep = () => {}, onMapping = () => {}, spawnImpl = spawn, spawnSyncImpl = spawnSync, env = process.env
 } = {}) {
@@ -347,15 +348,34 @@ export async function runClaudeCodeTurn({
   const cwd = path.resolve(String(projectDir || ""));
   if (!projectDir || !fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error("Claude Code needs a selected project folder before it can run.");
   const before = captureWorkspace(cwd);
-  const prompt = promptWithChanges(String(input || ""), workspaceChanges);
+  const imageDir = fs.mkdtempSync(path.join(os.tmpdir(), "boollm-claude-images-"));
+  const imagePaths = [];
+  for (const [index, source] of (Array.isArray(images) ? images : []).slice(0, 8).entries()) {
+    const match = /^data:image\/(png|jpeg|webp|gif);base64,([a-z0-9+/=]+)$/i.exec(String(source || ""));
+    if (!match) continue;
+    const extension = match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
+    const imagePath = path.join(imageDir, `attachment-${index + 1}.${extension}`);
+    fs.writeFileSync(imagePath, Buffer.from(match[2], "base64"));
+    imagePaths.push(imagePath);
+  }
+  const imageNote = imagePaths.length ? `\n\nAttached images (inspect these files with Claude's image-capable Read tool):\n${imagePaths.map((value) => `- ${value}`).join("\n")}` : "";
+  const prompt = promptWithChanges(String(input || "") + imageNote, workspaceChanges);
   const args = ["-p", prompt, "--verbose", "--output-format", "stream-json", "--include-partial-messages", "--max-turns", String(Math.max(1, Math.min(100, Number(maxTurns) || 30)))];
+  if (browserBridge?.url && browserBridge?.token) {
+    const mcpFile = path.join(imageDir, "mcp.json");
+    fs.writeFileSync(mcpFile, JSON.stringify({ mcpServers: { boollm: {
+      type: "http", url: String(browserBridge.url), headers: { "x-saz": String(browserBridge.token) }
+    } } }));
+    args.push("--mcp-config", mcpFile, "--strict-mcp-config");
+  }
   if (model) args.push("--model", safeProcessArg(model, 200));
   if (mapping?.sessionId) args.push("--resume", safeProcessArg(mapping.sessionId, 200));
   if (accessMode === "read_only") args.push("--permission-mode", "plan", "--disallowedTools", "Write", "Edit", "NotebookEdit", "Bash", "PowerShell");
   else if (accessMode === "full_access") args.push("--dangerously-skip-permissions");
-  else args.push("--permission-mode", "acceptEdits", "--allowedTools", ...SAFE_TOOLS);
+  else args.push("--permission-mode", "acceptEdits", "--allowedTools", ...SAFE_TOOLS, ...(browserBridge?.url ? ["mcp__boollm__browser_read", "mcp__boollm__browser_control"] : []));
 
   onStatus("Starting Claude Code...");
+  if (imagePaths.length) args.push("--add-dir", imageDir);
   const child = spawnImpl(launch.command, args, { cwd, env, windowsHide: true, shell: false, stdio: ["ignore", "pipe", "pipe"] });
   let stdout = "";
   let stderr = "";
@@ -398,7 +418,10 @@ export async function runClaudeCodeTurn({
   const code = await new Promise((resolve, reject) => {
     child.once("error", reject);
     child.once("close", resolve);
-  }).finally(() => signal?.removeEventListener("abort", abort));
+  }).finally(() => {
+    signal?.removeEventListener("abort", abort);
+    try { fs.rmSync(imageDir, { recursive: true, force: true }); } catch {}
+  });
   if (stdout.trim()) parseLine(stdout);
   if (signal?.aborted) throw Object.assign(new Error("Claude Code was stopped."), { code: "ABORT_ERR" });
   if (code !== 0) throw new Error(bounded(stderr || `Claude Code exited with code ${code}.`, 4000));

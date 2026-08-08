@@ -247,6 +247,32 @@ test("Codex can query Boollm's live non-Git Changes panel through a dynamic tool
   }
 });
 
+test("Codex receives attached images and can control Boollm's built-in browser", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-browser-image-"));
+  let browserResponse;
+  try {
+    const client = new FakeCodexClient({
+      async onTurn(instance) {
+        browserResponse = await instance.request("item/tool/call", {
+          threadId: instance.threadId, turnId: instance.turnId, callId: "browser_1",
+          tool: "boolean_browser_control", arguments: { action: "open", url: "https://example.com" }
+        });
+        successfulTurn(instance);
+      }
+    });
+    await runCodexTurn({
+      client, input: "Inspect this image and open the page.", projectDir: root,
+      images: ["data:image/png;base64,AAAA"],
+      onBrowserTool: async (command) => `opened ${command.url}`
+    });
+    assert.deepEqual(client.turnStarts[0].input[1], { type: "image", url: "data:image/png;base64,AAAA" });
+    assert.equal(client.threadStarts[0].dynamicTools.some((tool) => tool.name === "boolean_browser_read"), true);
+    assert.equal(client.threadStarts[0].dynamicTools.some((tool) => tool.name === "boolean_browser_control"), true);
+    assert.equal(browserResponse.success, true);
+    assert.equal(browserResponse.contentItems[0].text, "opened https://example.com");
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("a completed Codex edit is counted only after Boollm verifies its exact path and diff on disk", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-edit-"));
   try {

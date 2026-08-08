@@ -19,7 +19,9 @@
     "build:all": "npm run build:shell && npm run build:installer",
     "version:set": "node build/set-version.mjs",
     "version:check": "node build/set-version.mjs --check",
-    "test": "node --test \"test/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "orderflow": "node orderflow/src/cli.js",
+    "orderflow:monitor": "node orderflow/src/monitor-server.js"
   },
   "engines": {
     "node": ">=18"

@@ -67,8 +67,8 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /\.working-card-header\{[^}]*align-items:center;/s);
   assert.match(ui, /\.working-card-worker\{[^}]*flex:0 0 auto;[^}]*white-space:nowrap;/s);
   assert.match(ui, /\.working-card \.stx\{[^}]*min-width:120px;[^}]*flex:1 1 120px;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/s);
-  assert.match(ui, /class="working-task-head"/);
-  assert.match(ui, /class="working-task-title" title=/);
+  assert.doesNotMatch(ui, /class="working-task-head"/);
+  assert.doesNotMatch(ui, /class="working-task-title" title=/);
   assert.match(ui, /class="working-card-footer"><span class="working-live-changes"/);
   assert.match(ui, /\.working-card-actions\{[^}]*align-items:center;[^}]*min-height:24px;/s);
   assert.match(ui, /\.working-card-body\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);

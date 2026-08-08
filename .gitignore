@@ -20,6 +20,11 @@ dist/
 .dev.vars
 **/.dev.vars
 *.local.json
+# Order-flow: TradeStation credentials, OAuth tokens, and captured market data
+/orderflow/tradestation.local.json
+/orderflow/tradestation.tokens.local.json
+/orderflow/captures/
+/orderflow/outcomes/
 
 # .NET build output
 **/bin/

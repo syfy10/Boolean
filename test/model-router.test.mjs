@@ -92,6 +92,31 @@ test("Auto tries the selected Boollm API before any coding subscription", () => 
   assert.match(result.reason, /not.*ready|no approved/i);
 });
 
+test("Auto sends images directly to a ready subscription when the selected model is text-only", () => {
+  const cfg = config({ codingEngine: "auto" });
+  cfg.ui.modelRouting.subscriptionEngines = { explicit: true, codex: true, claudeCode: true, preferred: "codex" };
+  let result = selectExecutionEngine(cfg, [{ role: "user", content: [{ type: "image_url", image_url: { url: "data:image/png;base64,a" } }] }], {
+    hasImages: true, booleanVisionReady: false, codexReady: true, claudeReady: true
+  });
+  assert.equal(result.engine, "codex");
+  assert.equal(result.route, "vision");
+  assert.match(result.reason, /text-only.*Codex/i);
+
+  cfg.ui.modelRouting.subscriptionEngines.preferred = "claude-code";
+  result = selectExecutionEngine(cfg, [], { hasImages: true, booleanVisionReady: false, codexReady: false, claudeReady: true });
+  assert.equal(result.engine, "claude-code");
+
+  result = selectExecutionEngine(cfg, [], { hasImages: true, booleanVisionReady: true, codexReady: true, claudeReady: true });
+  assert.equal(result.engine, "boolean", "a selected vision-capable Boollm model keeps the normal first attempt");
+});
+
+test("the chat route no longer rejects Codex or Claude image attachments before their runners", () => {
+  assert.doesNotMatch(server, /integration does not accept pasted image data yet/);
+  assert.doesNotMatch(server, /Switch the orchestration engine to Boollm for this image turn/);
+  assert.match(server, /images: imagesOf\(t\.messages\.at\(-1\)\?\.content\)/);
+  assert.match(server, /images: imagesOf\(latestUser\?\.content\)/);
+});
+
 test("Auto enables every connected subscription by default and preserves explicit opt-outs", () => {
   const cfg = config({ codingEngine: "auto" });
   cfg.ui.modelRouting.subscriptionEngines = { codex: false, claudeCode: false, preferred: "codex" };

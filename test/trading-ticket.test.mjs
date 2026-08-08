@@ -225,8 +225,10 @@ test("a ticket send re-checks the guard against the server before it types", () 
   assert.match(send, /\/api\/trading\/ticket\/placed/);
   // Side before quantity: most order forms only reveal the quantity and
   // bracket fields once a side is chosen.
-  assert.ok(send.indexOf("const side=await attempt(") < send.indexOf('await fill("quantity"'),
+  assert.ok(send.indexOf('action:"select_order_side"') < send.indexOf('await fill("quantity"'),
     "the side must be chosen before any field is filled");
+  assert.doesNotMatch(send, /attempt\("click",payload\.side===\"buy\"\?fields\.buy:fields\.sell\)/,
+    "side selection must not fuzzy-match immediate market-order buttons");
 });
 
 // The bug: the guard was only re-asked when a ticket field was edited, so
@@ -424,6 +426,10 @@ test("Legend cancellation is scoped to the matching order row", () => {
   assert.match(shell, /TryCancelOrderAccessibilityAsync/);
   assert.match(shell, /string\.Equals\(AxRole\(list\[i\]\), "row"/);
   assert.match(shell, /ResolveAxControlAsync\(t, "Cancel"/);
+  assert.match(shell, /action == "select_order_side"/);
+  assert.match(shell, /ResolveAxExactControlAsync/);
+  assert.match(shell, /no safe non-executing/);
+  assert.match(shell, /await delay\(900\)/);
   assert.match(ui, /Cancel failed — couldn't locate the broker's cancel control/);
   assert.match(ui, /id="tbErrorDetails"/);
 });
@@ -454,7 +460,7 @@ test("a send reports what it actually did to the page", () => {
   assert.match(send, /Tried: \$\{tried\.join\(", "\)\}/);
   assert.match(send, /action:"controls"/);
   assert.match(send, /The page shows:/);
-  for (const call of ["missing(`${payload.side} control`,side.tried)",
+  for (const call of ["missing(`safe non-executing ${payload.side} control`,side.tried)",
     "missing(`${slot} field`,hit.tried)",
     'missing("place button",placed.tried)']) {
     assert.ok(send.includes(call), `${call} is not reported with the page's real controls`);
