@@ -76,8 +76,14 @@ function quoteFromPageText(text){
   const equityHeadline=symbol.startsWith("/")?null:body.match(new RegExp(
     `\\b${escapedSymbol}\\b[^\\d$]{0,40}\\$?\\s*([\\d,]+\\.\\d{2})\\s*[\\u25B2\\u25BCAV+\\-]?\\s*\\$?\\s*[\\d,]+\\.\\d{2}\\s*\\(\\s*[-+]?\\d+(?:\\.\\d+)?\\s*%\\s*\\)`
   ));
-  const priceMatch=futuresHeadline||equityHeadline||
-    after.match(/\$\s*([\d,]+\.\d{2})/)||
+  // The current Legend layout can show only the day's absolute change beside
+  // the ticker ("SPY ▲ $4.82 (0.63%)"). The actual quote lives in the chart's
+  // C field and price marker. Treating the first dollar amount as the quote
+  // turns $773.38 SPY into $4.82.
+  const equityChangeOnly=symbol.startsWith("/")?null:after.match(/[▲▼AV+\-]\s*\$\s*([\d,]+\.\d{2})\s*\(\s*[-+]?\d+(?:\.\d+)?\s*%\s*\)/);
+  const equityChartClose=equityChangeOnly?body.match(/\bC\s*\$?\s*([\d,]+\.\d{2,4})\b/i):null;
+  const priceMatch=futuresHeadline||equityHeadline||equityChartClose||
+    (!equityChangeOnly?after.match(/\$\s*([\d,]+\.\d{2})/):null)||
     (symbol.startsWith("/")?futureTail.match(/^(?![^\d]{0,80}\b(?:O|H|L|C|V|VOLUME)\b)[^\d]{0,80}(\d{2,3}(?:,\d{3})+(?:\.\d+)?|\d{4,6}(?:\.\d+)?)/i):null)||
     (symbol.startsWith("/")?body.match(/\bC\s*([\d,]{4,}(?:\.\d+)?)\b/i):null);
   if(!priceMatch) return null;
@@ -88,6 +94,7 @@ function quoteFromPageText(text){
   // can say what it matched instead of leaving you to guess.
   const priceSource=futuresHeadline?"futures headline"
     :equityHeadline?"quote headline"
+    :equityChartClose?"chart close"
     :"nearest dollar amount after the ticker";
   const pctMatch=(symbol.startsWith("/")?body.match(/\(\s*([-+]?\d+(?:\.\d+)?)\s*%\s*\)/):null)||after.match(/\(\s*([-+]?\d+(?:\.\d+)?)\s*%\s*\)/);
   const absMatch=after.match(/([-+]?)\$\s*([\d,]+\.\d{2})\s*\(/);
@@ -184,7 +191,7 @@ function legendTradingDetailsFromPageText(text,symbolHint=""){
         openPnl:legendSignedNumber(row[5],row[6])
       });
     }
-    const explicitEmpty=/(?:you\s+don.t\s+have\s+any|no)\s+(?:open\s+)?positions/i.test(table);
+    const explicitEmpty=/(?:you\s+don.t\s+have\s+any|no)\s+(?:[./A-Z0-9-]+\s+)?(?:open\s+)?positions/i.test(table);
     if(positions.length){ details.positions=positions; details.positionSyncOk=true; }
     else if(explicitEmpty){ details.positions=[]; details.positionSyncOk=true; }
     else details.positionSyncFailed=true;
@@ -208,7 +215,7 @@ function legendTradingDetailsFromPageText(text,symbolHint=""){
     const positionsOffset=body.slice(ordersAt+1).search(/\bPositions\b/i);
     const end=positionsOffset>=0?ordersAt+1+positionsOffset:body.length;
     const ordersText=body.slice(ordersAt,end);
-    if(/(?:you\s+don.t\s+have\s+any|no)\s+(?:recent\s+|open\s+)?orders|orders\s+from\s+the\s+last/i.test(ordersText)){
+    if(/(?:you\s+don.t\s+have\s+any|no)\s+(?:[./A-Z0-9-]+\s+)?(?:recent\s+|open\s+)?orders|orders\s+from\s+the\s+last/i.test(ordersText)){
       details.openOrders=0;
       details.orders=[];
     }else{
@@ -239,6 +246,10 @@ function legendTradingDetailsFromPageText(text,symbolHint=""){
         details.openOrders=orders.filter((row)=>/^(open|pending|queued|submitted|working|new|partially filled)$/i.test(row.status)).length;
       }
     }
+  }
+  if(details.openOrders==null){
+    const openOrders=body.match(/\b([\d,]+)\s+open\s+orders?\b/i);
+    if(openOrders) details.openOrders=legendNumber(openOrders[1]);
   }
   if(symbol) details.symbol=symbol;
   return details;

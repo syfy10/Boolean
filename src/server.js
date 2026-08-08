@@ -19,7 +19,7 @@ import { tradeConsentActive, armExpiresAt, armWindowMs, evaluateTradeGuard } fro
 import { currentTradeState, recordTradePlacement } from "./trade-ledger.js";
 import { recordSignalOutcomes, signalStats } from "./signal-log.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, currentTurnInstructionText, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
-import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
+import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache, providerImageSupport } from "./providers.js";
 import {
   capabilityProbeTool,
   capabilityProbeUnsupportedError,
@@ -78,6 +78,7 @@ import { appPath } from "./paths.js";
 import { EDITOR_ASSET_PREFIX, resolveEditorAsset } from "./editor-assets.js";
 import { detectLocalServers } from "./local-servers.js";
 import { marketsRoutes } from "./routes/markets.js";
+import { lightRoutes } from "./routes/light.js";
 import { detectWebsiteTech } from "./tech-detector.js";
 import { gitCommit, gitCreateBranch, gitDiffFiles, gitFileContents, gitPushBranch, gitRestoreFiles, gitSourceStatus, gitStageFiles, githubCreatePullRequest } from "./git-review.js";
 import {
@@ -1030,22 +1031,54 @@ function adminCloudVaultEnabled(config) {
   return !!cloud.sessionToken && (user.role === "admin" || user.is_admin === true);
 }
 
-function launchGithubGuide(action, projectDir) {
-  const intro = "$Host.UI.RawUI.WindowTitle='Boollm GitHub setup'; Write-Host 'Boollm GitHub setup' -ForegroundColor Green;";
-  let script;
+function serverGithubCliCommand() {
+  const candidates = process.platform === "win32" ? [
+    path.join(process.env.ProgramFiles || "C:\\Program Files", "GitHub CLI", "gh.exe"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "GitHub CLI", "gh.exe")
+  ] : [];
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || "gh";
+}
+
+function confirmedBackgroundSpawn(command, args, options) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let child;
+    try { child = spawn(command, args, { ...options, stdio: "ignore", windowsHide: true }); }
+    catch (error) { reject(error); return; }
+    const finish = (fn, value) => { if (settled) return; settled = true; fn(value); };
+    child.once("error", (error) => finish(reject, error));
+    child.once("spawn", () => {
+      child.unref();
+      finish(resolve, { pid: child.pid || null });
+    });
+  });
+}
+
+async function launchGithubGuide(action, projectDir) {
+  // Avoid a separate PowerShell console for onboarding. Some packaged Windows
+  // installs block that console before Node receives a PID. GitHub CLI opens
+  // its secure browser/device flow itself and copies the one-time code.
   if (action === "install") {
-    script = `${intro} Write-Host 'Installing the official GitHub CLI...'; winget install --id GitHub.cli --exact --accept-source-agreements --accept-package-agreements; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub CLI installed. Return to Boollm and press Connect GitHub.' -ForegroundColor Green } else { Write-Host 'Installation did not finish. You can retry from Boollm.' -ForegroundColor Red }; Read-Host 'Press Enter to close'`;
-  } else if (action === "connect") {
-    script = `${intro} Write-Host 'A secure GitHub sign-in page will open. Follow the browser instructions.'; gh auth login --hostname github.com --git-protocol https --web; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub connected. You can return to Boollm.' -ForegroundColor Green } else { Write-Host 'GitHub sign-in did not finish. You can retry from Boollm.' -ForegroundColor Red }; Start-Sleep -Seconds 4`;
-  } else if (action === "disconnect") {
-    script = `${intro} gh auth logout --hostname github.com; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 3`;
+    return confirmedBackgroundSpawn("winget.exe", ["install", "--id", "GitHub.cli", "--exact", "--accept-source-agreements", "--accept-package-agreements", "--silent"], { cwd: projectDir });
+  }
+  if (action === "connect") {
+    return confirmedBackgroundSpawn(serverGithubCliCommand(), ["auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web", "--clipboard"], { cwd: projectDir });
+  }
+  const intro = "$Host.UI.RawUI.WindowTitle='Boollm GitHub setup'; $env:Path=[Environment]::GetEnvironmentVariable('Path','Machine')+';'+[Environment]::GetEnvironmentVariable('Path','User'); Write-Host 'Boollm GitHub setup' -ForegroundColor Green;";
+  let script;
+  if (action === "disconnect") {
+    script = `${intro} gh auth logout --hostname github.com; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 3; exit`;
   } else if (action === "switch") {
-    script = `${intro} Write-Host 'Choose the current account to sign out, then sign in to the other account.'; gh auth logout --hostname github.com; gh auth login --hostname github.com --git-protocol https --web; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 4`;
+    script = `${intro} Write-Host 'Choose the current account to sign out, then sign in to the other account.'; gh auth logout --hostname github.com; gh auth login --hostname github.com --git-protocol https --web; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 4; exit`;
   } else throw new Error("Unsupported GitHub setup action.");
-  const child = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  const child = spawn("powershell.exe", ["-NoLogo", "-NoExit", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded], {
     cwd: projectDir, detached: true, stdio: "ignore", windowsHide: false
   });
+  child.on("error", () => {});
+  if (!child.pid) throw new Error("Windows could not open the GitHub setup window.");
   child.unref();
+  return { pid: child.pid || null };
 }
 
 function githubSetupCommand(command, args, cwd) {
@@ -1652,6 +1685,7 @@ export function startServer(config, {
   const pendingEmailOAuth = new Map(); // state -> short-lived mailbox OAuth transaction
   const pendingCloudflareOAuth = new Map(); // state -> short-lived Cloudflare PKCE transaction
   const pendingBrowserControls = new Map(); // id -> resolve(result)
+  const claudeBrowserControls = new Map(); // bridge id -> visible browser callback for concurrent Claude turns
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
   let browserTitle = ""; // optional page title sent with the current browser URL
@@ -3412,10 +3446,11 @@ ${exploreScript}
         try {
           const body = await readBody(req);
           const action = String(body.action || "");
-          const projectDir = path.resolve(config.projectsDir || process.cwd());
+          const configuredProjectDir = path.resolve(config.projectsDir || process.cwd());
+          const projectDir = fs.existsSync(configuredProjectDir) ? configuredProjectDir : process.cwd();
           if (["install", "connect", "disconnect", "switch"].includes(action)) {
-            launchGithubGuide(action, projectDir);
-            json({ ok: true, started: true, action });
+            const launched = await launchGithubGuide(action, projectDir);
+            json({ ok: true, started: true, action, pid: launched.pid });
             return;
           }
           if (action === "repo_create") {
@@ -4473,6 +4508,7 @@ ${exploreScript}
       // /api/markets/* lives in src/routes/markets.js — see that file for the
       // router contract the remaining groups should follow.
       if (await marketsRoutes({ req, p, url, config, json, readBody, saveConfig, marketAccessAllowed })) return;
+      if (await lightRoutes({ req, res, p, json, accessAllowed: () => marketAccessAllowed(config) })) return;
 
       if (req.method === "POST" && p === "/api/local-data/save") {
         saveConfig(config);
@@ -5777,6 +5813,33 @@ ${exploreScript}
         json({ ok: true });
         return;
       }
+      if (req.method === "POST" && p === "/api/claude/mcp") {
+        const control = claudeBrowserControls.get(String(url.searchParams.get("id") || ""));
+        if (typeof control !== "function") { json({ jsonrpc: "2.0", id: null, error: { code: -32001, message: "No Claude Code browser turn is active." } }, 409); return; }
+        const body = await readBody(req);
+        if (body.method === "initialize") {
+          json({ jsonrpc: "2.0", id: body.id, result: { protocolVersion: body.params?.protocolVersion || "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "boollm-browser", version: "1.0.0" } } });
+          return;
+        }
+        if (body.method === "notifications/initialized") { res.writeHead(202); res.end(); return; }
+        if (body.method === "tools/list") {
+          json({ jsonrpc: "2.0", id: body.id, result: { tools: [
+            { name: "browser_read", description: "Read the URL, title, and rendered contents of the page visible in Boollm's built-in browser.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
+            { name: "browser_control", description: "Control Boollm's built-in visible browser with actions such as open, click, type, scroll, back, forward, or refresh.", inputSchema: { type: "object", required: ["action"], properties: { action: { type: "string" }, url: { type: "string" }, selector: { type: "string" }, text: { type: "string" }, value: { type: "string" }, direction: { type: "string" }, amount: { type: "number" } }, additionalProperties: true } }
+          ] } });
+          return;
+        }
+        if (body.method === "tools/call") {
+          const name = String(body.params?.name || "");
+          const args = body.params?.arguments && typeof body.params.arguments === "object" ? body.params.arguments : {};
+          if (!['browser_read','browser_control'].includes(name)) { json({ jsonrpc: "2.0", id: body.id, error: { code: -32602, message: "Unknown Boollm browser tool." } }, 400); return; }
+          const result = await control(name === "browser_read" ? { action: "read" } : args);
+          json({ jsonrpc: "2.0", id: body.id, result: { content: [{ type: "text", text: String(result || "") }], isError: false } });
+          return;
+        }
+        json({ jsonrpc: "2.0", id: body.id ?? null, error: { code: -32601, message: `Unsupported MCP method ${body.method || ""}` } }, 404);
+        return;
+      }
       if (req.method === "POST" && p === "/api/notepad/control-result") {
         const body = await readBody(req);
         const id = typeof body.id === "string" ? body.id : "";
@@ -6192,14 +6255,6 @@ ${exploreScript}
         const externalEngineRequested = ["codex", "claude-code"].includes(selectedCodingEngine) && body.sideChat !== true && body.salesWorkflow !== true && body.workflowRun !== true;
         const effectiveProvider = externalEngineRequested ? selectedCodingEngine : (requestedProvider || config.provider);
 
-        if (externalEngineRequested && Array.isArray(body.images) && body.images.length) {
-          const send = openNdjsonStream(res);
-          send({ type: "error", text: `This ${selectedCodingEngine === "claude-code" ? "Claude Code" : "Codex"} integration does not accept pasted image data yet. Switch the orchestration engine to Boollm for this image turn.` });
-          send({ type: "done" });
-          res.end();
-          return;
-        }
-
         // block image sends when the local model has no vision projector
         if (Array.isArray(body.images) && body.images.length && effectiveProvider === "local"
             && !(config.ui?.autoRouteModels === true && !externalEngineRequested)) {
@@ -6342,13 +6397,37 @@ ${exploreScript}
           });
           const taskExecution = t.kind === "project" && !!t.pendingTask?.objective;
           autoRouteContext = { route, latestText, hasImages, taskExecution };
+          let booleanVisionReady = true;
+          let codexReady = false;
+          let claudeReady = false;
+          if (hasImages) {
+            if (runConfig.provider === "local") {
+              try { booleanVisionReady = engine.visionState(runConfig).supported === true; }
+              catch { booleanVisionReady = false; }
+            } else booleanVisionReady = providerImageSupport(runConfig) === true;
+            const subscriptions = config.ui?.modelRouting?.subscriptionEngines || {};
+            if (autoSubscriptionEnabled(subscriptions, "codex")) {
+              try {
+                await ensureCodexClient();
+                const status = publicCodexStatus();
+                codexReady = status.ready === true && status.account?.signedIn === true;
+              } catch { codexReady = false; }
+            }
+            if (autoSubscriptionEnabled(subscriptions, "claudeCode")) {
+              try { claudeReady = publicClaudeStatus({ refresh: true }).ready === true; }
+              catch { claudeReady = false; }
+            }
+          }
           executionRoute = selectExecutionEngine(config, t.messages, {
             route,
             latestText,
             hasImages,
             turnMode: options.forceTurnMode || "",
             disabled: options.disableCodex === true,
-            taskExecution
+            taskExecution,
+            booleanVisionReady,
+            codexReady,
+            claudeReady
           });
           selectedCodingEngine = executionRoute.engine;
         }
@@ -6759,6 +6838,7 @@ ${exploreScript}
             try {
               result = await runner.runCodexTurn({
               messages: previewRequested ? withBoollmPreviewHandoff(t.messages) : t.messages,
+              images: imagesOf(t.messages.at(-1)?.content),
               mapping: t.codex || {},
               model: config.codex?.model || "",
               effort: config.codex?.reasoningEffort || "medium",
@@ -6862,7 +6942,8 @@ ${exploreScript}
                   entry.resolve({});
                 }
                 if (approvalIds.length || inputIds.length) send({ type: "codexRequestResolved", approvalIds, inputIds });
-              }
+              },
+              onBrowserTool: (command) => ctx.visibleBrowser(command)
               });
             } catch (error) {
               const terminalStatus = abort.signal.aborted ? "interrupted" : "failed";
@@ -6876,11 +6957,16 @@ ${exploreScript}
             break;
           } else if (useClaudeCode) {
             const latestUser = [...t.messages].reverse().find((message) => message?.role === "user");
-            const result = await claudeTurnRunner({
+            const bridgeId = crypto.randomUUID();
+            claudeBrowserControls.set(bridgeId, (command) => ctx.visibleBrowser(command));
+            let result;
+            try { result = await claudeTurnRunner({
               command: config.claudeCode?.command || "claude",
               input: previewRequested
                 ? currentTurnInstructionText(withBoollmPreviewHandoff([latestUser || { role: "user", content: "" }]).at(-1) || "")
                 : currentTurnInstructionText(latestUser || ""),
+              images: imagesOf(latestUser?.content),
+              browserBridge: { url: `http://127.0.0.1:${serverPort}/api/claude/mcp?id=${encodeURIComponent(bridgeId)}`, token: sessionToken },
               projectDir: t.projectDir || config.projectsDir || "",
               workspaceChanges: booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
               mapping: t.claudeCode || {},
@@ -6896,7 +6982,7 @@ ${exploreScript}
                 t.updatedAt = Date.now();
                 persist();
               }
-            });
+            }); } finally { claudeBrowserControls.delete(bridgeId); }
             codexTurnStatus = result.status || "completed";
             answer = result.answer;
             break;

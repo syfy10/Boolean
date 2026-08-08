@@ -21,6 +21,14 @@ There is still no execution path. OAuth defaults are `MarketData`,
   payloads. Replay creates deterministic synthetic bars so the UI contract is
   exercised without brokerage access.
 - Light renders BUY/SELL/WAIT plus the first reason, EMA9, and VWAP.
+- Protocol v1 now includes the last 60 normalized five-minute OHLCV bars in
+  `chart.bars`. Light renders candlesticks, EMA9, session VWAP, and prior-range
+  overlays instead of labeling a midpoint line as a one-minute chart.
+- Light exposes six visible entry gates: five-minute structure, EMA9, VWAP,
+  order flow, data/spread, and risk permission. Risk permission remains locked.
+- `GET /api/outcomes` is proxied read-only into Light and its chart footer shows
+  resolved, pending, directional-signal, comparability, and one-minute hit-rate
+  state when sufficient samples exist.
 - `test/orderflow-entry-engine.test.mjs` covers buy, sell, spoof veto, streaming
   bar replacement, normalization, and the TradeStation URL.
 
@@ -45,12 +53,14 @@ order may be placed.
 
 ## Next safe work
 
-1. Confirm real barchart frame fields and initial-history warmup.
-2. Reset VWAP at the intended futures session boundary.
-3. Capture outcomes at 5s, 30s, 1m, and 5m plus favorable/adverse excursion.
-4. Calibrate thresholds per symbol and regular/overnight session.
-5. Add one-position, daily-loss, stale-data, spread, and volatility vetoes.
-6. Only after measured SIM results, design a separate staged-order service.
+1. Confirm real barchart frame fields with a live regular-session capture.
+2. Calibrate thresholds per symbol and regular/overnight session using multiple
+   representative captures.
+3. Add one-position, daily-loss, spread, volatility, order-rate, and dead-man
+   vetoes. The stale-depth veto already exists.
+4. Add one-minute bars only if the entry design needs them; the implemented
+   price-setup contract is five-minute.
+5. Only after measured SIM results, design a separate staged-order service.
 
 Do not add `Trade` scope or order endpoints as an incremental cleanup.
 
@@ -82,6 +92,7 @@ Expected services:
 - Boollm/Light: `http://127.0.0.1:8765/`
 - Light engine: `http://127.0.0.1:8790/`
 - Engine status: `http://127.0.0.1:8790/api/status`
+- Outcome summary: `http://127.0.0.1:8790/api/outcomes`
 - Engine SSE: `http://127.0.0.1:8790/events`
 
 Select the top-level **Light** tab and expand its floating workspace for the
@@ -115,6 +126,7 @@ The adapter must remain display/control plumbing. Calculations stay inside
 ## Engine local API
 
 - `GET /api/status`
+- `GET /api/outcomes`
 - `GET /api/captures`
 - `POST /api/capture/start`
 - `POST /api/capture/stop`
@@ -129,18 +141,29 @@ There is deliberately no order, account mutation, or trade endpoint.
 node --test test/light-workspace.test.mjs test/window-layout-ui.test.mjs test/library-ui.test.mjs test/markets.test.mjs test/orderflow-*.test.mjs
 ```
 
-Expected result: **212 passing, 0 failing**. Final top-bar coverage also passed
-128/128. `git diff --check` passes apart from ordinary Windows LF-to-CRLF
-notices. Rendered QA verified the maximized workspace, unified black header,
-window controls immediately after SIM, live New York clock, disabled ticket,
-zero overflow, and no browser warnings or errors.
+Latest focused verification passes 128/128 for Light and window layout, plus
+44/44 for the changed Light, entry-engine, outcomes, and streaming paths.
+`git diff --check` passes apart from ordinary Windows LF-to-CRLF notices.
+Rendered QA verified the decision gates, five-minute chart contract, outcomes
+strip, disabled ticket, zero overflow, and no browser warnings or errors.
 
 ## Working-tree warning
 
-The entire `orderflow/` project and its tests are currently untracked. The
-Light adapter files are also untracked, while `src/ui.html`, `src/server.js`,
-`src/actions.js`, `package.json`, `.gitignore`, and a Library test are modified.
+The standalone `orderflow/` baseline is committed at `c68fe75`; the chart-bar
+and handoff changes after that commit are modified but uncommitted. The Light
+adapter files remain untracked, while `src/ui.html`, `src/server.js`,
+`src/actions.js`, and related tests are modified.
 Other modified files (`src/platform.js`, GitHub onboarding tests, and layout
 work) may belong to concurrent work. Preserve them; do not reset, clean, or
 broadly commit the working tree. Stage only the Light/orderflow files the user
 explicitly wants included.
+
+## Robinhood visible-page compatibility
+
+Boollm's existing native-browser reader remains separate from the standalone
+engine, but its normalized values can be used by a future
+`RobinhoodVisibleSource`. The 2026-08-08 Legend layout shows `SPY ▲ $4.82
+(0.63%)` in the ticker header and the actual price as chart close `C 773.38`.
+`src/ui/trading-logic.js` now distinguishes those fields and understands
+symbol-filtered empty Positions/Recent orders messages. Do not bypass that
+normalized parser by reading the first dollar amount near the ticker.

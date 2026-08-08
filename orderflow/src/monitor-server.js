@@ -81,6 +81,7 @@ function createReplaySource(name, { onState, onLog }) {
   // moves forward, so each restart adds the scenario's duration as an offset.
   let loopOffset = 0;
   let scenarioDuration = 0;
+  const replayEpoch = Date.UTC(2026, 0, 2, 14, 30);
 
   const steps = [];
   for (const event of scenario.events) {
@@ -131,7 +132,7 @@ function createReplaySource(name, { onState, onLog }) {
       const signal = tracker.update(snapshot);
       if (index % 5 === 0 && snapshot.bestBid != null && snapshot.bestAsk != null) {
         const midpoint = (snapshot.bestBid + snapshot.bestAsk) / 2;
-        entryTracker.updateBar({ TimeStamp: `replay-${index}`, Open: midpoint, High: midpoint, Low: midpoint, Close: midpoint, TotalVolume: snapshot.volume.buy + snapshot.volume.sell || 1 });
+        entryTracker.updateBar({ TimeStamp: new Date(replayEpoch + clock).toISOString(), Open: midpoint, High: midpoint, Low: midpoint, Close: midpoint, TotalVolume: snapshot.volume.buy + snapshot.volume.sell || 1 });
       }
       const entry = entryTracker.evaluate(signal);
       if (signal.changed) {
@@ -140,7 +141,7 @@ function createReplaySource(name, { onState, onLog }) {
           text: `signal → ${signal.state.toUpperCase()} (score ${signal.score}, confidence ${signal.confidence})`
         });
       }
-      onState({ snapshot, signal, entry, scenario });
+      onState({ snapshot, signal, entry, bars: entryTracker.bars.slice(-60), scenario });
     }
 
     const next = steps[index];
@@ -171,16 +172,16 @@ function persistOutcome(observation) {
   outcomeStream.write(`${JSON.stringify(observation)}\n`);
 }
 
-function publish({ snapshot, signal, entry, mode, title, subtitle }) {
+function publish({ snapshot, signal, entry, bars, mode, title, subtitle }) {
   if (snapshot.mid != null) {
     outcomes.observe(snapshot.mid, snapshot.timestamp, persistOutcome);
     outcomes.record({ signal, entry, price: snapshot.mid, timestamp: snapshot.timestamp });
   }
-  latest = buildPayload({ snapshot, signal, entry, mode, title, subtitle });
+  latest = buildPayload({ snapshot, signal, entry, bars, mode, title, subtitle });
   broadcast(latest);
 }
 
-function buildPayload({ snapshot, signal, entry, mode, title, subtitle }) {
+function buildPayload({ snapshot, signal, entry, bars, mode, title, subtitle }) {
   return {
       protocol: { name: "light-engine", version: 1 },
       type: "state",
@@ -204,6 +205,7 @@ function buildPayload({ snapshot, signal, entry, mode, title, subtitle }) {
         }
       },
       entry: entry || null,
+      chart: { timeframe: "5m", bars: Array.isArray(bars) ? bars.slice(-60) : [] },
       outcomes: { resolved: outcomes.resolved.length, pending: outcomes.pending.length },
       book: {
         bestBid: snapshot.bestBid,
@@ -282,11 +284,12 @@ if (liveSymbol) {
     tokenProvider,
     onLog: log,
     onRaw: (kind, text, t) => capture?.write(kind, text, t),
-    onState({ snapshot, signal, entry, symbol }) {
+    onState({ snapshot, signal, entry, bars, symbol }) {
       publish({
         snapshot,
         signal,
         entry,
+        bars,
         mode: config.live ? "live" : "sim",
         title: symbol,
         subtitle: config.api
@@ -297,11 +300,12 @@ if (liveSymbol) {
 } else {
   source = createReplaySource(scenarioName, {
     onLog: log,
-    onState({ snapshot, signal, entry, scenario }) {
+    onState({ snapshot, signal, entry, bars, scenario }) {
       publish({
         snapshot,
         signal,
         entry,
+        bars,
         mode: "replay",
         title: scenario.name,
         subtitle: scenario.description

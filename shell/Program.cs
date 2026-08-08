@@ -3280,6 +3280,38 @@ try {
         return ("", bestName);
     }
 
+    // Side selection must be exact. Legend's "Buy MKT" and "Short MKT"
+    // buttons submit immediately, while plain "Buy"/"Short" only select a
+    // side. A fuzzy Buy match can therefore place two orders in one send.
+    async Task<(string objectId, string name)> ResolveAxExactControlAsync(TabItem t, string query, string[] roles)
+    {
+        using var doc = await AxTreeAsync(t);
+        if (doc == null || !doc.RootElement.TryGetProperty("nodes", out var nodes) || nodes.ValueKind != JsonValueKind.Array)
+            return ("", "");
+        long backend = 0;
+        var matchedName = "";
+        foreach (var node in nodes.EnumerateArray())
+        {
+            if (node.TryGetProperty("ignored", out var ignored) && ignored.ValueKind == JsonValueKind.True) continue;
+            if (roles.Length > 0 && Array.IndexOf(roles, AxRole(node)) < 0) continue;
+            var name = AxName(node);
+            if (!string.Equals(name, query.Trim(), StringComparison.OrdinalIgnoreCase)) continue;
+            if (node.TryGetProperty("backendDOMNodeId", out var bp) && bp.TryGetInt64(out backend)) matchedName = name;
+            if (backend != 0) break;
+        }
+        if (backend == 0) return ("", "");
+        try
+        {
+            var resolved = await t.View.CoreWebView2.CallDevToolsProtocolMethodAsync(
+                "DOM.resolveNode", "{\"backendNodeId\":" + backend + "}");
+            using var rdoc = JsonDocument.Parse(resolved);
+            if (rdoc.RootElement.TryGetProperty("object", out var obj) && obj.TryGetProperty("objectId", out var oid))
+                return (oid.GetString() ?? "", matchedName);
+        }
+        catch { }
+        return ("", matchedName);
+    }
+
     async Task<string> CallOnAxNodeAsync(TabItem t, string objectId, string function, string? argJson = null)
     {
         if (t.View.CoreWebView2 == null || string.IsNullOrEmpty(objectId)) return "";
@@ -3760,6 +3792,22 @@ try {
 
             var text = command.TryGetProperty("text", out var xp) ? xp.GetString() ?? "" : "";
             var target = command.TryGetProperty("target", out var tp) ? tp.GetString() ?? "" : "";
+            if (action == "select_order_side")
+            {
+                var side = command.TryGetProperty("side", out var sidep) ? sidep.GetString() ?? "" : "";
+                var choices = string.Equals(side, "buy", StringComparison.OrdinalIgnoreCase)
+                    ? new[] { "Buy" } : new[] { "Short", "Sell" };
+                foreach (var choice in choices)
+                {
+                    var (objectId, name) = await ResolveAxExactControlAsync(t, choice, ClickRoles);
+                    if (string.IsNullOrEmpty(objectId)) continue;
+                    if (string.IsNullOrEmpty(await CallOnAxNodeAsync(t, objectId, AxClickFunction))) continue;
+                    await WaitForNavOrDelayAsync(t, 500);
+                    PostToChat(new { type = "browserControlResult", id, ok = true, url = t.Url,
+                        result = "selected order side " + name });
+                    return;
+                }
+            }
             if (action == "cancel_order")
             {
                 var orderSymbol = command.TryGetProperty("symbol", out var symp) ? symp.GetString() ?? "" : "";
@@ -3858,13 +3906,23 @@ try {
                 // the smallest visible row-like ancestor containing both the
                 // requested symbol and a Cancel control, then click inside it.
                 var symbol = JsonSerializer.Serialize(command.TryGetProperty("symbol", out var domSymp) ? domSymp.GetString() ?? "" : "");
-                script = "(function(){var sym=" + symbol + ".toUpperCase().trim();" + DomProbeHelpers +
+                script = "(async function(){var sym=" + symbol + ".toUpperCase().trim();" + DomProbeHelpers +
                     "if(!sym)throw new Error('no order symbol supplied');" +
-                    "var controls=all('button,a,[role=button],[onclick],[tabindex]').filter(function(e){return shown(e)&&/^cancel(?:\\s+order)?$/i.test(tight(e))});" +
+                    "function delay(ms){return new Promise(function(r){setTimeout(r,ms)})}" +
+                    "var controls=all('button,a,[role=button],[onclick],[tabindex]').filter(function(e){return shown(e)&&/^cancel(?:\\s+(?:this\\s+)?order)?$/i.test(tight(e))});" +
                     "var hits=[];controls.forEach(function(c){var p=c;for(var depth=0;p&&depth<10;depth++,p=p.parentElement){var txt=String(p.innerText||p.textContent||'').replace(/\\s+/g,' ').toUpperCase();if(txt.indexOf(sym)>=0){hits.push({c:c,p:p,len:txt.length,depth:depth});break}}});" +
                     "hits.sort(function(a,b){return a.len-b.len||a.depth-b.depth});var hit=hits[0];" +
+                    "if(!hit){var live=/\\b(WORKING|PENDING|OPEN|SUBMITTED|QUEUED|NEW|PARTIALLY FILLED)\\b/;var nodes=all('[role=row],tr,[role=gridcell],button,a,[tabindex],div').filter(function(e){if(!shown(e))return false;var x=String(e.innerText||e.textContent||'').replace(/\\s+/g,' ').toUpperCase();return x.indexOf(sym)>=0&&live.test(x)});nodes.sort(function(a,b){return String(a.innerText||'').length-String(b.innerText||'').length});var row=nodes[0];if(row){row.scrollIntoView({block:'center',inline:'center'});row.click();await delay(900);controls=all('button,a,[role=button],[onclick],[tabindex]').filter(function(e){return shown(e)&&/^cancel(?:\\s+(?:this\\s+)?order)?$/i.test(tight(e))});if(controls.length===1)hit={c:controls[0]}}}" +
                     "if(!hit)throw new Error('no visible Cancel control in the '+sym+' order row');" +
                     "hit.c.scrollIntoView({block:'center',inline:'center'});hit.c.click();return 'clicked Cancel in '+sym+' order row';})()";
+            }
+            else if (action == "select_order_side")
+            {
+                var side = JsonSerializer.Serialize(command.TryGetProperty("side", out var domSidep) ? domSidep.GetString() ?? "" : "");
+                script = "(function(){var side=" + side + ".toLowerCase();" + DomProbeHelpers +
+                    "var names=side==='buy'?['buy']:['short','sell'];var controls=all('button,a,[role=button],[role=tab],[role=radio],[onclick],[tabindex]').filter(shown),hit=null;" +
+                    "for(var i=0;i<names.length&&!hit;i++){hit=controls.filter(function(e){return tight(e).toLowerCase()===names[i]})[0]||null}" +
+                    "if(!hit)throw new Error('no safe non-executing '+side+' side control');hit.scrollIntoView({block:'center',inline:'center'});hit.click();return 'selected order side '+tight(hit);})()";
             }
             else if (action == "type")
             {

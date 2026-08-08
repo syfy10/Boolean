@@ -2,6 +2,7 @@ const ACTIONS = [
   { id: "workspace.chat", label: "Open Chat", aliases: ["chat", "ask", "conversation"], capability: "chat", surface: "chat" },
   { id: "workspace.browser", label: "Open Browser", aliases: ["web", "browse", "page"], capability: "browser", surface: "browser" },
   { id: "workspace.notepad", label: "Open Notepad", aliases: ["notes", "scratchpad", "write note"], capability: "notes", surface: "notepad" },
+  { id: "workspace.light", label: "Open Light", aliases: ["trading desk", "order flow", "matrix"], capability: "light", surface: "light" },
   { id: "workspace.sales", label: "Open Sales", aliases: ["prospect", "outreach", "customers"], capability: "sales", surface: "sales" },
   { id: "workspace.markets", label: "Open Markets", aliases: ["stocks", "market monitor", "chart"], capability: "markets", surface: "markets" },
   { id: "workspace.education", label: "Open Education", aliases: ["practice", "exam", "learn"], capability: "education", surface: "education" },

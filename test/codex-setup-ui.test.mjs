@@ -66,6 +66,8 @@ test("Microsoft Store desktop paths never render in the executable field", () =>
   assert.match(uiSource, /command:codexDisplayCommand\(patch\.command\?\?previous\.command\)/);
 });
 
-test("Codex image inputs do not inherit the local mmproj text-only gate", () => {
-  assert.match(uiSource, /const visionOk=\(\)=>state\.codex\?\.enabled===true \|\| !state\.vision \|\| state\.vision\.supported!==false/);
+test("image inputs attach before Auto chooses a vision-capable model", () => {
+  assert.doesNotMatch(uiSource, /if\(!visionOk\(\)\)\{ visionBlockNote\(\); return/);
+  assert.match(uiSource, /Auto will route it to a ready vision-capable model/);
+  assert.match(uiSource, /function addImageDataURL\([\s\S]*?attachments\.push\(\{kind:"image"/);
 });

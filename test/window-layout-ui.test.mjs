@@ -682,7 +682,7 @@ test("hidden compact rail is available from a floating hamburger menu", () => {
 
 test("back to chat lives beside Local and Cloud while conversation actions remain in the command bar", () => {
   assert.match(ui, /<div class="netseg" id="netmode">[\s\S]*?<\/div>\s*<button class="icon-btn" id="chatHome" title="Back to chat" aria-label="Back to chat"/);
-  assert.match(ui, /\$\("chatHome"\)\.onclick=returnToCurrentChat/);
+  assert.match(ui, /\$\("chatHome"\)\.onclick=\(\)=>\{\s*if\(activeWsTab==="chat"\) newChat\(\)\.catch\(\(\)=>tempToast\("Could not start a fresh chat\."\)\);\s*else returnToCurrentChat\(\);\s*\};/);
   assert.match(ui, /function returnToCurrentChat\(\)\{[\s\S]*?closeConversationPanels\(\);[\s\S]*?markWorkspaceTab\("chat"\);[\s\S]*?saveAppFrameState\(\);/);
   assert.doesNotMatch(ui, /\$\("chatHome"\)\.onclick=newChat/);
   assert.match(ui, /\$\("chatUtilityNew"\)\?\.addEventListener\("click",\(\)=>newChat\(\)\)/);
@@ -710,9 +710,9 @@ test("the rail is grouped, context is wired, and the bottom gap is opaque", () =
   assert.match(ui, /data-rail="browser"[\s\S]*data-rail="context" title="Context panel"[\s\S]*data-rail="notes"/);
   assert.match(ui, /data-rail="notes"[\s\S]*class="rail-separator"[\s\S]*data-rail="git"[\s\S]*data-rail="recipes"[\s\S]*data-rail="automations"/);
   assert.match(ui, /#sideRail \.rail-separator\{ width:22px; height:1px;/);
-  assert.match(ui, /else if\(action==="context"\)\{ \$\("ctxToggle"\)\?\.click\(\); \}/);
+  assert.match(ui, /else if\(action==="context"\)\{ toggleCtxZone\(\); \}/);
   assert.match(ui, /\|\|\(rail==="context"&&document\.body\.classList\.contains\("zone-3"\)\)/);
-  assert.match(ui, /\.topbar #ctxToggle\{ display:none; \}/);
+  assert.doesNotMatch(ui, /id="ctxToggle"/);
   assert.match(ui, /body::after,body\.shell::after\{[\s\S]*?height:var\(--approved-bottom-gap\); background:var\(--approved-canvas\); pointer-events:none;/);
 });
 
@@ -723,7 +723,7 @@ test("narrow chat contains its header messages and composer without clipping", (
   assert.match(ui, /body\.chat-xxs \.winctl\{ margin-left:auto; \}/);
   assert.match(ui, /#appBack\{ display:grid; \}[\s\S]*?#appBack:disabled\{ opacity:\.42; cursor:default; \}/);
   assert.match(ui, /document\.body\.classList\.toggle\("chat-micro",chatW<360\);/);
-  assert.match(ui, /body\.chat-micro #appForward,[\s\S]*?body\.chat-micro #ctxToggle\{ display:none; \}/);
+  assert.doesNotMatch(ui, /\.topbar #ctxToggle/);
   assert.doesNotMatch(ui, /body\.browser-on\.chat-micro \.topbar #(?:newchat|copyall)/);
   assert.match(ui, /@media\(max-width:700px\)\{[\s\S]*?main,#chat,\.col\{ min-width:0; max-width:100%; overflow-x:hidden; box-sizing:border-box; \}/);
   assert.match(ui, /\.msg-user,\.msg-ai,body\.win-lg \.msg-user,body\.win-lg \.msg-ai\{[\s\S]*?max-width:min\(88%,calc\(100% - 12px\)\);/);
@@ -906,7 +906,7 @@ test("projects and chats respect manual close even when ample width returns", ()
   assert.doesNotMatch(ui, /sidebarWasAutoDockable/);
   assert.doesNotMatch(ui, /sidebarManualState=null;\s*document\.body\.classList\.remove\("sidebar-popover-open"\)/);
   assert.match(ui, /sidebarManualState=document\.body\.classList\.contains\("collapsed"\);/);
-  assert.match(ui, /body\.notes-on\.browser-on\.chat-micro #notesToggle,[\s\S]*?body\.notes-on\.browser-on\.chat-micro #ctxToggle\{ display:grid!important; \}/);
+  assert.doesNotMatch(ui, /body\.notes-on\.browser-on\.chat-micro #ctxToggle/);
   assert.match(ui, /\.topbar \.netseg\{ width:92px; min-width:92px; max-width:92px; height:24px;[\s\S]*?border:1px solid var\(--border\); border-radius:9px; background:var\(--bubble\); flex:0 0 92px;/);
   assert.match(ui, /\.topbar \.netseg button\{ width:auto; min-width:0; min-height:18px; height:18px;[\s\S]*?border-radius:7px;[\s\S]*?font:600 7px\/1\.1 var\(--ui\);/);
   assert.match(ui, /\.topbar \.netseg button\[data-net="online"\]\.on\{ background:var\(--bg\); color:var\(--online\); box-shadow:0 1px 5px rgba\(0,0,0,.10\); \}/);

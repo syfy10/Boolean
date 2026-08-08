@@ -68,7 +68,7 @@ export function createLiveSource(options) {
           text: `signal → ${signal.state.toUpperCase()} (score ${signal.score}, confidence ${signal.confidence})`
         });
       }
-      onState({ snapshot, signal, entry: entryTracker.evaluate(signal), symbol });
+      onState({ snapshot, signal, entry: entryTracker.evaluate(signal), bars: entryTracker.bars.slice(-60), symbol });
     }
   });
 

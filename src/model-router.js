@@ -197,6 +197,26 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
     "claude-code": autoSubscriptionEnabled(subscriptions, "claudeCode") && options.claudeReady === true
   };
 
+  // Images are different from ordinary first-attempt routing: sending pixels
+  // to a known text-only API cannot succeed. Prefer the user's configured,
+  // signed-in subscription engine immediately when Boollm's selected model has
+  // no image capability. Both subscription runners preserve the actual image.
+  if (!escalationRequired && route === "vision" && options.booleanVisionReady === false) {
+    const preferred = requested === "codex" || requested === "claude-code"
+      ? requested
+      : lower(subscriptions.preferred || "codex");
+    const order = preferred === "claude-code" ? ["claude-code", "codex"] : ["codex", "claude-code"];
+    const engine = order.find((candidate) => ready[candidate]) || "boolean";
+    return {
+      automatic: true,
+      engine,
+      route,
+      reason: engine === "boolean"
+        ? "The selected model is text-only and no approved image-capable subscription is ready."
+        : `The selected model is text-only; routing this image directly to the ready ${engine === "codex" ? "Codex" : "Claude Code"} subscription.`
+    };
+  }
+
   // Auto always gives the selected GLM, DeepSeek, local, or other connected
   // Boollm model the first attempt. Subscription engines are escalation-only
   // after a code/project task fails or cannot produce a verified completion.

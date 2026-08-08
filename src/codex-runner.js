@@ -20,7 +20,7 @@ const TOOL_ITEM_TYPES = new Set([
 ]);
 const BOOTSTRAP_MESSAGES = 10;
 const BOOTSTRAP_CHARS = 12000;
-const BOOLLM_DYNAMIC_TOOLS_VERSION = 1;
+const BOOLLM_DYNAMIC_TOOLS_VERSION = 2;
 const BOOLLM_PERMISSION_PROFILE = "boolean_workspace_only";
 const BOOLLM_CHANGES_TOOL = Object.freeze({
   type: "function",
@@ -32,6 +32,28 @@ const BOOLLM_CHANGES_TOOL = Object.freeze({
     additionalProperties: false
   }
 });
+const BOOLLM_BROWSER_TOOLS = Object.freeze([
+  {
+    type: "function",
+    name: "boolean_browser_read",
+    description: "Read the page currently visible in Boollm's built-in browser, including its URL, title, and rendered page text.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false }
+  },
+  {
+    type: "function",
+    name: "boolean_browser_control",
+    description: "Control Boollm's built-in visible browser. Use safe browser actions such as open, click, type, scroll, back, forward, or refresh. The result describes the rendered page after the action.",
+    inputSchema: {
+      type: "object",
+      required: ["action"],
+      properties: {
+        action: { type: "string" }, url: { type: "string" }, selector: { type: "string" },
+        text: { type: "string" }, value: { type: "string" }, direction: { type: "string" }, amount: { type: "number" }
+      },
+      additionalProperties: true
+    }
+  }
+]);
 
 function asText(value) {
   if (typeof value === "string") return value;
@@ -643,7 +665,8 @@ export class CodexRunner {
       onApproval = options.approve,
       onUserInput = options.requestUserInput,
       onPermissions,
-      onRequestResolved
+      onRequestResolved,
+      onBrowserTool
     } = options;
     if (signal?.aborted) throw abortError();
     callback(onStatus, "Starting Codex...");
@@ -689,7 +712,7 @@ export class CodexRunner {
       callback(onStatus, "Opening a new Codex task...");
       threadResult = await client.threadStart({
         ...commonThread,
-        dynamicTools: [BOOLLM_CHANGES_TOOL]
+        dynamicTools: [BOOLLM_CHANGES_TOOL, ...BOOLLM_BROWSER_TOOLS]
       });
       threadId = idFrom(threadResult, "thread");
     } else {
@@ -714,7 +737,7 @@ export class CodexRunner {
       turnId: "",
       model: model || mapping.model || "",
       isNewThread,
-      callbacks: { onStatus, onToken, onPlan, onItem, onStep, onApproval, onUserInput, onPermissions, onRequestResolved, getWorkspaceChanges },
+      callbacks: { onStatus, onToken, onPlan, onItem, onStep, onApproval, onUserInput, onPermissions, onRequestResolved, getWorkspaceChanges, onBrowserTool },
       policy,
       workspaceChanges,
       items: new Map(),
@@ -759,7 +782,11 @@ export class CodexRunner {
         ...(summary ? { summary } : {}),
         ...(personality ? { personality } : {})
       };
-      const turnResult = await client.turnStart(threadId, [{ type: "text", text: turnInput }], turnOptions);
+      const imageInputs = (Array.isArray(options.images) ? options.images : [])
+        .filter((url) => /^data:image\//i.test(String(url || "")))
+        .slice(0, 8)
+        .map((url) => ({ type: "image", url: String(url) }));
+      const turnResult = await client.turnStart(threadId, [{ type: "text", text: turnInput }, ...imageInputs], turnOptions);
       run.turnId = idFrom(turnResult, "turn") || run.turnId;
       if (!run.turnId) throw new Error("Codex app-server did not return a turn id");
       mapped = { ...mapped, turnId: run.turnId, lastTurnId: run.turnId, updatedAt: Date.now() };
@@ -1011,6 +1038,18 @@ export class CodexRunner {
             text: JSON.stringify({ source: "boolean", gitRequired: false, count: changes.length, changes })
           }]
         });
+        return;
+      }
+      if (method === "item/tool/call" && BOOLLM_BROWSER_TOOLS.some((tool) => tool.name === params.tool)) {
+        if (typeof run.callbacks.onBrowserTool !== "function") {
+          finish({ success: false, contentItems: [{ type: "inputText", text: "Boollm's built-in browser is unavailable on this run." }] });
+          return;
+        }
+        const command = params.tool === "boolean_browser_read"
+          ? { action: "read" }
+          : { ...(params.arguments && typeof params.arguments === "object" ? params.arguments : {}) };
+        const result = await run.callbacks.onBrowserTool(command);
+        finish({ success: true, contentItems: [{ type: "inputText", text: String(result || "") }] });
         return;
       }
       if (APPROVAL_METHODS.has(method)) {

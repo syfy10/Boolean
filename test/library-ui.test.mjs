@@ -11,7 +11,7 @@ test("Explore includes a local Research Library", () => {
   assert.match(ui, /Save current page/);
   assert.match(ui, /Save current note/);
   assert.match(ui, /Add PDF or image/);
-  assert.match(ui, /const EXPLORE_WORKSPACES=\["web","markets","education","recipes","sales","library","studio"\]/);
+  assert.match(ui, /const EXPLORE_WORKSPACES=\["web","light","markets","education","recipes","sales","library","studio"\]/);
   assert.match(ui, /document\.body\.classList\.toggle\("library-open", activeWsTab === "library"\)/);
 });
 

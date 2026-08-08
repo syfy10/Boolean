@@ -162,6 +162,50 @@ test("Claude Code strips null bytes from prompt and verified workspace changes",
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+test("Claude Code receives Boollm image attachments as readable temporary files", async () => {
+  const root = tempGitRepo();
+  try {
+    let launch = null;
+    let imageBytes = null;
+    await runClaudeCodeTurn({
+      command: "claude", input: "Describe the picture", projectDir: root,
+      images: ["data:image/png;base64,aGVsbG8="], spawnSyncImpl: versionSpawn,
+      spawnImpl: successfulClaudeSpawn({ capture: (value) => {
+        launch = value;
+        const imagePath = value.args[1].match(/- (.+attachment-1\.png)/)?.[1];
+        imageBytes = imagePath ? fs.readFileSync(imagePath, "utf8") : null;
+      } })
+    });
+    assert.match(launch.args[1], /Attached images/);
+    assert.ok(launch.args.includes("--add-dir"));
+    assert.equal(imageBytes, "hello");
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test("Claude Code receives a token-protected Boollm browser MCP bridge", async () => {
+  const root = tempGitRepo();
+  try {
+    let launch = null;
+    let mcp = null;
+    await runClaudeCodeTurn({
+      command: "claude", input: "Read the open browser page", projectDir: root,
+      browserBridge: { url: "http://127.0.0.1:8765/api/claude/mcp?id=test", token: "secret" },
+      spawnSyncImpl: versionSpawn,
+      spawnImpl: successfulClaudeSpawn({ capture: (value) => {
+        launch = value;
+        const configPath = value.args[value.args.indexOf("--mcp-config") + 1];
+        mcp = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      } })
+    });
+    assert.ok(launch.args.includes("--strict-mcp-config"));
+    assert.ok(launch.args.includes("mcp__boollm__browser_read"));
+    assert.ok(launch.args.includes("mcp__boollm__browser_control"));
+    assert.equal(mcp.mcpServers.boollm.type, "http");
+    assert.equal(mcp.mcpServers.boollm.url, "http://127.0.0.1:8765/api/claude/mcp?id=test");
+    assert.equal(mcp.mcpServers.boollm.headers["x-saz"], "secret");
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test("Claude Code cannot claim a change when no file content changed", async () => {
   const root = tempGitRepo();
   try {

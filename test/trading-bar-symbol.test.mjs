@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { beforeQuoteHints, quoteFromPageText, symbolFromPageText } from "../src/ui/trading-logic.js";
+import { beforeQuoteHints, legendTradingDetailsFromPageText, quoteFromPageText, symbolFromPageText } from "../src/ui/trading-logic.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const ui = fs.readFileSync(path.join(root, "src", "ui.html"), "utf8").replace(/\r/g, "");
@@ -110,6 +110,25 @@ test("the quote is read from the broker page, not a second market feed", () => {
   // A page with no quote must not invent one.
   assert.equal(quoteFromPageText("Robinhood Legend\nWatchlist"), null);
   assert.equal(quoteFromPageText(""), null);
+});
+
+test("the new Legend layout does not mistake the day change for SPY's price", () => {
+  const page = "Stock trading Futures trading Market closed Add widget Individual SPY ▲ $4.82 (0.63%) Buy Short O 773.26 C 773.38 Volume 3038.00 774.00 773.38 773.00 Range Interval: 5m";
+  const quote = quoteFromPageText(page);
+  assert.equal(quote.symbol, "SPY");
+  assert.equal(quote.price, 773.38);
+  assert.equal(quote.changeAbs, 4.82);
+  assert.equal(quote.changePercent, 0.63);
+  assert.equal(quote.priceSource, "chart close");
+});
+
+test("the new symbol-filtered empty panels wire positions and orders correctly", () => {
+  const page = "SPY ▲ $4.82 (0.63%) Open P&L -- Day P&L -- No position 0 open orders Positions Symbol 1D open P&L % You don’t have any SPY positions. Trade SPY Recent orders Symbol Status Side Type Qty Realized P&L Avg fill price Submitted Total cost/credit You don’t have any SPY orders from the last 24 hours.";
+  const details = legendTradingDetailsFromPageText(page, "SPY");
+  assert.deepEqual(details.positions, []);
+  assert.deepEqual(details.orders, []);
+  assert.equal(details.openOrders, 0);
+  assert.equal(details.positionSyncOk, true);
 });
 
 test("Open broker always opens the Robinhood Legend workspace", () => {

@@ -111,6 +111,15 @@ function projectDir(ctx) {
   return path.resolve(ctx.projectDir || ctx.config?.projectsDir || process.cwd());
 }
 
+function githubCliCommand() {
+  if (process.platform !== "win32") return "gh";
+  const candidates = [
+    path.join(process.env.ProgramFiles || "C:\\Program Files", "GitHub CLI", "gh.exe"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "GitHub CLI", "gh.exe")
+  ];
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || "gh";
+}
+
 async function githubWorkflow(args, ctx) {
   const operation = String(args.operation || "status");
   const cwd = projectDir(ctx);
@@ -136,28 +145,33 @@ async function githubWorkflow(args, ctx) {
   }
   if (!command) throw new Error(`unsupported GitHub operation '${operation}'`);
   if (mutating && !await ctx.approve(`GitHub ${operation.replace(/_/g, " ")}`)) return "user declined GitHub change";
-  const result = await runProcess("gh", command, { cwd });
+  const result = await runProcess(githubCliCommand(), command, { cwd });
   if (result.code !== 0) throw new Error(result.output || "GitHub CLI failed. Install gh and sign in with 'gh auth login'.");
   return result.output || "GitHub operation completed.";
 }
 
 export async function ghStatus(ctx) {
-  const cwd = projectDir(ctx);
-  const versionResult = await runProcess("gh", ["--version"], { cwd, timeoutMs: 5000 });
+  const requestedCwd = projectDir(ctx);
+  // A moved/deleted saved projects directory must not make an installed gh.exe
+  // look missing. Windows reports a nonexistent spawn cwd as ENOENT against the
+  // executable, so status checks use the current app directory as a safe base.
+  const cwd = fs.existsSync(requestedCwd) ? requestedCwd : process.cwd();
+  const gh = githubCliCommand();
+  const versionResult = await runProcess(gh, ["--version"], { cwd, timeoutMs: 5000 });
   const installed = versionResult.code === 0;
   if (!installed) return { installed: false, authenticated: false, user: null, repo: null, raw: versionResult.output || "GitHub CLI is not installed." };
-  const authResult = await runProcess("gh", ["auth", "status", "--show-token"], { cwd, timeoutMs: 10000 });
+  const authResult = await runProcess(gh, ["auth", "status", "--show-token"], { cwd, timeoutMs: 10000 });
   const authenticated = authResult.code === 0;
   let repo = null;
   if (authenticated) {
-    const repoResult = await runProcess("gh", ["repo", "view", "--json", "nameWithOwner,url,defaultBranchRef"], { cwd, timeoutMs: 10000 });
+    const repoResult = await runProcess(gh, ["repo", "view", "--json", "nameWithOwner,url,defaultBranchRef"], { cwd, timeoutMs: 10000 });
     if (repoResult.code === 0) {
       try { repo = JSON.parse(repoResult.output); } catch { /* not a repo */ }
     }
   }
   let user = null;
   if (authenticated) {
-    const userResult = await runProcess("gh", ["api", "user", "--jq", ".login"], { cwd, timeoutMs: 10000 });
+    const userResult = await runProcess(gh, ["api", "user", "--jq", ".login"], { cwd, timeoutMs: 10000 });
     if (userResult.code === 0) user = userResult.output.trim();
   }
   return { installed, authenticated, user, repo, raw: authenticated ? "" : authResult.output };
