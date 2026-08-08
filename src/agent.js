@@ -495,21 +495,80 @@ const KNOWN_TOOLS = new Set(TOOL_DEFINITIONS.map((t) => t.function.name));
 
 // Small models often emit tool calls as a fenced JSON block in plain text even
 // when native tool calling is available, so this is checked in both modes.
-export function parseFallbackToolCall(text, options = {}) {
-  const candidates = [];
+// Every model family writes a text tool call in its own dialect, and a bridge
+// that reads only one of them makes every other model look like it refuses to
+// work. DeepSeek fences special tokens with fullwidth pipes, Qwen and Hermes
+// use <tool_call>, Llama uses <function=name>, Anthropic-style models use
+// <invoke>/<parameter>. Normalize the delimiters, read every shape, and gate
+// them all through the same known-tool and allowed-tool checks.
+// The marker must be the tag name itself, optionally namespaced - never a word
+// inside an attribute, or ordinary HTML in a web task would read as a tool call.
+const TOOL_MARKUP_HINT = /<\/?[^>\s]{0,40}\b(?:invoke|tool_call|tool_use|function_call)\b|<\s*function\s*=/i;
+
+function normalizeToolMarkup(text) {
+  return String(text || "")
+    // These arrive as ordinary characters whenever the endpoint does not decode
+    // the model's special tokens, and are pure noise to every parser below.
+    .replace(/[｜│❘]/g, "|")
+    .replace(/[▁]/g, "_");
+}
+
+// A string parameter carries exact file content, so it is never trimmed; only
+// the single newline that conventionally follows the opening tag is removed.
+function coerceToolArgument(raw, attributes = "") {
+  const value = String(raw ?? "").replace(/^\r?\n/, "").replace(/\r?\n$/, "");
+  const explicit = /\bstring\s*=\s*["'](true|false)["']/i.exec(attributes);
+  if (explicit) {
+    if (explicit[1].toLowerCase() === "true") return value;
+    try { return JSON.parse(value.trim()); } catch { return value; }
+  }
+  const trimmed = value.trim();
+  if (/^(?:\{[\s\S]*\}|\[[\s\S]*\])$/.test(trimmed)) { try { return JSON.parse(trimmed); } catch {} }
+  if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  if (/^(?:true|false)$/i.test(trimmed)) return trimmed.toLowerCase() === "true";
+  return value;
+}
+
+function taggedToolCandidates(text) {
+  const found = [];
+  const invoke = /<[^>\s]*?\binvoke\s+name\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/[^>\s]*?\binvoke\s*>/gi;
+  for (const match of text.matchAll(invoke)) {
+    const args = {};
+    const parameter = /<[^>\s]*?\bparameter\s+name\s*=\s*["']([^"']+)["']([^>]*)>([\s\S]*?)<\/[^>\s]*?\bparameter\s*>/gi;
+    for (const field of String(match[2] || "").matchAll(parameter)) args[field[1]] = coerceToolArgument(field[3], field[2]);
+    found.push({ name: match[1], arguments: args, fenced: true });
+  }
+  const wrapped = /<[^>]*?\b(?:tool_call|tool_use|function_call)\b[^>]*>\s*([\s\S]*?)\s*<\/[^>]*?\b(?:tool_call|tool_use|function_call)\b[^>]*>/gi;
+  for (const match of text.matchAll(wrapped)) {
+    try {
+      const obj = JSON.parse(match[1]);
+      if (obj && typeof obj === "object") found.push({ name: obj.name, arguments: obj.arguments || obj.parameters || obj.input || {}, fenced: true });
+    } catch {}
+  }
+  const named = /<\s*function\s*=\s*["']?([A-Za-z0-9_.-]+)["']?\s*>\s*([\s\S]*?)\s*<\/\s*function\s*>/gi;
+  for (const match of text.matchAll(named)) {
+    try {
+      const obj = JSON.parse(match[2]);
+      if (obj && typeof obj === "object" && !Array.isArray(obj)) found.push({ name: match[1], arguments: obj, fenced: true });
+    } catch {}
+  }
+  return found;
+}
+
+function jsonToolCandidates(text) {
+  const raw = [];
   const fenced = text.match(/```(?:tool|json)?\s*\n?(\{[\s\S]*?\})\s*```/);
-  if (fenced) candidates.push({ text: fenced[1], fenced: true });
+  if (fenced) raw.push({ text: fenced[1], fenced: true });
   const trimmed = text.trim();
   // Some providers ignore the requested fence and return a plain tool object,
   // sometimes after one sentence of commentary. It is safe to accept that in
   // strict compatibility mode because both the global known-tool catalog and
-  // this turn's allowed-tool set are checked below before anything executes.
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) candidates.push({ text: trimmed, fenced: false });
+  // this turn's allowed-tool set are checked before anything executes.
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) raw.push({ text: trimmed, fenced: false });
   const trailing = trimmed.match(/(\{[\s\S]*"name"\s*:\s*"(?:[^"]+)"[\s\S]*\})\s*$/);
-  if (trailing) candidates.push({ text: trailing[1], fenced: false });
-  const allowed = options.allowedNames instanceof Set ? options.allowedNames : KNOWN_TOOLS;
-
-  for (const candidate of candidates) {
+  if (trailing) raw.push({ text: trailing[1], fenced: false });
+  const found = [];
+  for (const candidate of raw) {
     // Tolerate only surplus closing braces at the very end. This repairs the
     // common text-generation slip without attempting to reinterpret malformed
     // arguments or execute prose as a command.
@@ -517,17 +576,7 @@ export function parseFallbackToolCall(text, options = {}) {
     for (let surplus = 0; surplus <= 2; surplus++) {
       try {
         const obj = JSON.parse(repaired);
-        if (obj && KNOWN_TOOLS.has(obj.name) && allowed.has(obj.name)) {
-          // Compatibility-mode file mutations deliberately require the fenced
-          // protocol (or boolean_patch) so prose examples can never become an
-          // edit. Inspection/check commands may recover from a missing fence;
-          // their normal approval and workspace boundaries still apply.
-          if (options.strict && !candidate.fenced && ["write_file", "edit_file"].includes(obj.name)) break;
-          const args = obj.arguments || obj.parameters || {};
-          if (args && typeof args === "object" && !Array.isArray(args)) {
-            return { name: obj.name, arguments: args };
-          }
-        }
+        if (obj && typeof obj === "object") found.push({ name: obj.name, arguments: obj.arguments || obj.parameters || {}, fenced: candidate.fenced });
         break;
       } catch {
         if (!repaired.endsWith("}")) break;
@@ -535,7 +584,34 @@ export function parseFallbackToolCall(text, options = {}) {
       }
     }
   }
+  return found;
+}
+
+export function parseFallbackToolCall(text, options = {}) {
+  const allowed = options.allowedNames instanceof Set ? options.allowedNames : KNOWN_TOOLS;
+  const source = normalizeToolMarkup(text);
+  for (const candidate of [...taggedToolCandidates(source), ...jsonToolCandidates(source)]) {
+    const name = String(candidate.name || "");
+    if (!KNOWN_TOOLS.has(name) || !allowed.has(name)) continue;
+    // Compatibility-mode file mutations deliberately require an explicitly
+    // delimited call (or boolean_patch) so prose examples can never become an
+    // edit. Inspection/check commands may recover from a missing fence; their
+    // normal approval and workspace boundaries still apply.
+    if (options.strict && !candidate.fenced && ["write_file", "edit_file"].includes(name)) continue;
+    const args = candidate.arguments;
+    if (args && typeof args === "object" && !Array.isArray(args)) return { name, arguments: args };
+  }
   return null;
+}
+
+// Text that is plainly an attempted tool call but parsed to nothing must not be
+// promoted to a final answer: that turns a protocol mismatch into "the model
+// did nothing and talked instead", which is what it looked like from outside.
+export function looksLikeToolCall(text) {
+  const source = normalizeToolMarkup(text);
+  if (TOOL_MARKUP_HINT.test(source)) return true;
+  const named = source.match(/"name"\s*:\s*"([^"]+)"/);
+  return !!(named && KNOWN_TOOLS.has(named[1]));
 }
 
 function preflightBoollmPatch(edits) {
@@ -1986,6 +2062,7 @@ export async function runTurn(ctx, messages) {
   let actionNudgeActive = artifactActionRequired;
   let completedToolWork = false;
   let emptyResponseRetries = 0;
+  let unreadableToolCalls = 0;
   let textOnlyContentFallback = false;
   let autoContinues = 0;
   let completionNudges = 0;
@@ -2011,6 +2088,7 @@ export async function runTurn(ctx, messages) {
   const MAX_CONTROLLER_RECOVERIES = 4;
   const MAX_LOOP_RECOVERIES = 0;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
+  const MAX_UNREADABLE_TOOL_CALL_RETRIES = 2;
   const MAX_ANNOUNCE_NUDGES = 4;
   // Auto model handoff: when the primary model gives up on an unfinished, action-
   // required task while Auto orchestration (or Autopilot) is active, hand the SAME task (with its saved controller
@@ -2377,6 +2455,30 @@ export async function runTurn(ctx, messages) {
       flushPendingImages();
       checkpoint();
       continue;
+    }
+
+    // The model tried to call a tool in a dialect the bridge could not read.
+    // Falling through here used to make that text the final answer, so a
+    // protocol mismatch was indistinguishable from a model that refused to
+    // work - and the user saw raw markup. Ask for it again in one exact format.
+    if (activeToolDefinitions.length && assistantContent.trim() && looksLikeToolCall(assistantContent)) {
+      unreadableToolCalls++;
+      if (unreadableToolCalls <= MAX_UNREADABLE_TOOL_CALL_RETRIES) {
+        onStatus(`the model's tool call used an unrecognized format - asking for it again (${unreadableToolCalls}/${MAX_UNREADABLE_TOOL_CALL_RETRIES})...`);
+        messages.push({ role: "assistant", content: assistantContent });
+        messages.push({
+          role: "user",
+          content: [
+            "BOOLLM PROTOCOL ERROR: your last message contained a tool call Boollm could not execute, because it was written in a format this bridge does not read.",
+            "Nothing ran. Do not describe the call, and do not use your own markup or special tokens.",
+            "Return exactly one fenced JSON block and nothing else:",
+            "```json",
+            '{"name":"read_file","arguments":{"path":"src/file.js"}}',
+            "```"
+          ].join("\n")
+        });
+        continue;
+      }
     }
 
     // A small model may understand a build request yet answer with a tutorial

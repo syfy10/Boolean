@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Boollm — The local AI workspace for Windows</title>
-<meta name="description" content="One desktop app to chat, build apps, research the web, and manage email alongside AI. Local-first, private, and free. Your models, your keys, your machine.">
+<meta name="description" content="One desktop app to chat, build apps, research the web, and work with local AI. Local-first, private, and free. Your models, your keys, your machine.">
 <link rel="canonical" href="https://boollm.com/">
 <meta property="og:title" content="Boollm — The local AI workspace for Windows">
 <meta property="og:description" content="Think, build, browse, and work with your files alongside AI in one local-first Windows workspace.">
@@ -19,11 +19,12 @@
 <meta name="twitter:description" content="Chat, build, research, and work with AI on your own Windows PC.">
 <meta name="twitter:image" content="https://boollm.com/assets/og.png">
 <meta name="theme-color" content="#0a0b12">
-<link rel="icon" href="./assets/boolean-app-icon-clear.png">
+<link rel="icon" type="image/png" sizes="256x256" href="./assets/boollm-app-icon-v1.png">
+<link rel="apple-touch-icon" href="./assets/boollm-app-icon-v1.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=7">
+<link rel="stylesheet" href="./styles.css?v=8">
 <script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
@@ -35,18 +36,17 @@
 <!-- ═══════════════ NAV ═══════════════ -->
 <header class="nav" id="nav">
   <a class="nav-logo" href="#top" aria-label="Boollm home">
-    <span class="nav-mark" aria-hidden="true"></span>Boollm
+    <img class="nav-mark" src="./assets/boollm-app-icon-v1.png" width="24" height="24" alt="">Boollm
   </a>
   <nav class="nav-links" aria-label="Primary">
-    <a href="#features">Features</a>
+    <a href="#features">Products</a>
     <a href="#models">Models</a>
-    <a href="#start">Quick&nbsp;start</a>
-    <a href="#architecture">Architecture</a>
-    <a href="#faq">FAQ</a>
+    <a href="#architecture">Developers</a>
+    <a href="#start">Get started</a>
   </nav>
   <div class="nav-actions">
-    <a class="nav-ghost" href="./app-live-demo.html">Live demo</a>
-    <a class="nav-cta" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">
+    <a class="nav-ghost" href="https://github.com/syfy10/Boolean">GitHub</a>
+    <a class="nav-cta" href="https://github.com/syfy10/Boolean/releases/download/v0.9.71/Boolean-setup.exe">
       <span aria-hidden="true">↓</span>
       Download
     </a>
@@ -57,8 +57,7 @@
 
 <!-- ═══════════════ HERO ═══════════════ -->
 <section class="hero" id="top">
-  <div class="hero-glow glow-a" aria-hidden="true"></div>
-  <div class="hero-glow glow-b" aria-hidden="true"></div>
+  <div class="hero-mesh" aria-hidden="true"></div>
   <div class="hero-grid" aria-hidden="true"></div>
 
   <div class="hero-inner">
@@ -67,19 +66,19 @@
         <span class="dot"></span> Version 0.9.71 · Free for Windows 10/11
       </span>
       <h1 class="hero-title">
-        The AI workspace<br>
-        that runs <span class="grad">on your PC.</span>
+        AI infrastructure<br>
+        for <span class="grad">your whole computer.</span>
       </h1>
       <p class="hero-sub">
-        Chat, build apps, research the web, and manage email — all in one local-first Windows app.
-        Your models, your keys, your machine.
+        Build software, research the web, automate work, and run the models you choose from one
+        powerful Windows workspace. Local when you want it. Connected when you need it.
       </p>
       <div class="hero-actions">
-        <a class="btn-primary" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">
+        <a class="btn-primary" href="https://github.com/syfy10/Boolean/releases/download/v0.9.71/Boolean-setup.exe">
           <span aria-hidden="true">↓</span>
           Download for Windows
         </a>
-        <a class="btn-secondary" href="./app-live-demo.html">▶ Try the live demo</a>
+        <a class="btn-secondary" href="./app-live-demo.html">Explore the workspace <span aria-hidden="true">→</span></a>
       </div>
       <p class="hero-fine">Windows 10/11 · x64 · ~200 MB · No account required</p>
     </div>
@@ -155,23 +154,23 @@
     <span class="marquee-item"><span class="mi-ico">💬</span> Chat with local AI</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">⚡</span> Code generation</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🌐</span> Web research</span><span class="marquee-sep">·</span>
-    <span class="marquee-item"><span class="mi-ico">📧</span> Email automation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📂</span> Local project files</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">📝</span> Built-in notepad</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🔑</span> Bring your own keys</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🔒</span> Local-first privacy</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🎨</span> Image generation</span><span class="marquee-sep">·</span>
-    <span class="marquee-item"><span class="mi-ico">🐱</span> GitHub integration</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🛠</span> Project tools</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">📅</span> Scheduled tasks</span><span class="marquee-sep">·</span>
     <!-- duplicate for seamless loop -->
     <span class="marquee-item"><span class="mi-ico">💬</span> Chat with local AI</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">⚡</span> Code generation</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🌐</span> Web research</span><span class="marquee-sep">·</span>
-    <span class="marquee-item"><span class="mi-ico">📧</span> Email automation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📂</span> Local project files</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">📝</span> Built-in notepad</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🔑</span> Bring your own keys</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🔒</span> Local-first privacy</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">🎨</span> Image generation</span><span class="marquee-sep">·</span>
-    <span class="marquee-item"><span class="mi-ico">🐱</span> GitHub integration</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🛠</span> Project tools</span><span class="marquee-sep">·</span>
     <span class="marquee-item"><span class="mi-ico">📅</span> Scheduled tasks</span><span class="marquee-sep">·</span>
   </div>
 </div>
@@ -232,8 +231,8 @@
       </article>
       <article class="feat-card reveal">
         <div class="fc-ico">🔔</div>
-        <h3>Connect &amp; automate</h3>
-        <p>Link Gmail or Outlook, preview email recipes, schedule tasks and webhooks, research with citations, and work with GitHub issues and PRs.</p>
+        <h3>Research &amp; automate locally</h3>
+        <p>Schedule reminders and page opens, research with citations, and keep the results beside your project in the built-in notepad.</p>
         <pre class="feat-code"><span class="c-prompt">→</span> "Research the best React state lib"
 <span class="c-edit">  📄 Opened 4 sources · Cited [1][2][3]</span>
 <span class="c-ok">  ✅ Summary saved to notepad</span></pre>
@@ -359,33 +358,19 @@
   </div>
 </section>
 
-<!-- ═══════════════ TESTIMONIALS ═══════════════ -->
+<!-- ═══════════════ VERIFIED PRODUCT FACTS ═══════════════ -->
 <section class="testimonials" id="testimonials">
   <div class="wrap">
     <div class="section-head center reveal">
-      <span class="kicker">Social proof</span>
-      <h2>Built for people who want control back.</h2>
-      <p class="section-sub">Boollm is early, but the idea is resonating with developers, researchers, and privacy-minded users.</p>
+      <span class="kicker">Product facts</span>
+      <h2>One workspace. Clear choices.</h2>
+      <p class="section-sub">No invented testimonials or promises about the future—just what the current Windows release includes.</p>
     </div>
     <div class="stat-row reveal">
-      <div class="stat"><b>100%</b><span>Local-first</span></div>
-      <div class="stat"><b>0</b><span>Telemetry calls</span></div>
-      <div class="stat"><b>1</b><span>Window for everything</span></div>
-      <div class="stat"><b>$0</b><span>Free forever</span></div>
-    </div>
-    <div class="quote-grid">
-      <figure class="quote-card reveal">
-        <blockquote>"Finally an AI tool that doesn't force me to upload my files to someone's cloud. I describe a feature and Boollm just writes it — right there in my project folder."</blockquote>
-        <figcaption><span class="avatar" style="background:var(--blue)">D</span><cite><b>Daniel R.</b><span>Indie developer</span></cite></figcaption>
-      </figure>
-      <figure class="quote-card reveal">
-        <blockquote>"The built-in browser + notepad combination is killer. I research three tabs, then ask the AI to summarize into my notes. No more ten-window juggling."</blockquote>
-        <figcaption><span class="avatar" style="background:var(--indigo)">M</span><cite><b>Maya T.</b><span>Graduate researcher</span></cite></figcaption>
-      </figure>
-      <figure class="quote-card reveal">
-        <blockquote>"I run a local model offline for sensitive client work and switch to cloud when I need horsepower. One app, my terms. That's the whole pitch."</blockquote>
-        <figcaption><span class="avatar" style="background:var(--coral)">K</span><cite><b>Ken P.</b><span>Security consultant</span></cite></figcaption>
-      </figure>
+      <div class="stat"><b>10/11</b><span>Windows support</span></div>
+      <div class="stat"><b>Local</b><span>GGUF model runtime</span></div>
+      <div class="stat"><b>Cloud</b><span>Optional API providers</span></div>
+      <div class="stat"><b>Open</b><span>Public source &amp; issues</span></div>
     </div>
   </div>
 </section>
@@ -395,8 +380,8 @@
   <div class="wrap">
     <div class="section-head center reveal">
       <span class="kicker">How it compares</span>
-      <h2>One app where you'd use five.</h2>
-      <p class="section-sub">Boollm isn't just another chatbot tab. Here's how it stacks up on the things that matter.</p>
+      <h2>Different tools, compared carefully.</h2>
+      <p class="section-sub">A current feature comparison of the desktop products—not a claim that every product serves the same purpose.</p>
     </div>
     <div class="compare-wrap reveal">
       <table class="compare-table">
@@ -406,94 +391,96 @@
             <th class="ct-boolm">Boollm</th>
             <th>ChatGPT Desktop</th>
             <th>Claude Desktop</th>
-            <th>Copilot</th>
+            <th>GitHub Copilot</th>
             <th>Ollama</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="ct-feature">Runs fully offline</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="yes">✓</span></td>
+            <td class="ct-feature">Runs local models on-device</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Built-in</span></td>
+            <td><span class="cmp-tag no">No</span></td>
+            <td><span class="cmp-tag no">No</span></td>
+            <td><span class="cmp-tag no">No</span></td>
+            <td><span class="cmp-tag yes">Built-in</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">Reads &amp; edits your project files</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="partial">△</span></td>
-            <td><span class="partial">△</span></td>
-            <td><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
+            <td class="ct-feature">Local project coding agent</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Built-in</span></td>
+            <td><span class="cmp-tag yes">Codex</span></td>
+            <td><span class="cmp-tag yes">Code / Cowork</span></td>
+            <td><span class="cmp-tag yes">IDE / CLI</span></td>
+            <td><span class="cmp-tag no">Runtime only</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">Built-in web browser</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
+            <td class="ct-feature">Interactive browser inside the app</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Built-in</span></td>
+            <td><span class="cmp-tag yes">Built-in</span></td>
+            <td><span class="cmp-tag partial">Via Chrome</span></td>
+            <td><span class="cmp-tag no">No</span></td>
+            <td><span class="cmp-tag no">No</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">Email &amp; notepad integration</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
+            <td class="ct-feature">Local files &amp; desktop apps</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Built-in</span></td>
+            <td><span class="cmp-tag partial">Work / Codex</span></td>
+            <td><span class="cmp-tag yes">Cowork / Extensions</span></td>
+            <td><span class="cmp-tag partial">Code files</span></td>
+            <td><span class="cmp-tag no">No agent</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">Bring your own model / API key</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="partial">△</span></td>
-            <td><span class="yes">✓</span></td>
+            <td class="ct-feature">Local + cloud models in one app</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Multiple providers</span></td>
+            <td><span class="cmp-tag no">OpenAI cloud</span></td>
+            <td><span class="cmp-tag no">Anthropic cloud</span></td>
+            <td><span class="cmp-tag partial">Hosted catalog</span></td>
+            <td><span class="cmp-tag yes">Local + Ollama cloud</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">No account required</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="yes">✓</span></td>
+            <td class="ct-feature">No account required for local use</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Yes</span></td>
+            <td><span class="cmp-tag no">Account</span></td>
+            <td><span class="cmp-tag no">Account</span></td>
+            <td><span class="cmp-tag no">GitHub account</span></td>
+            <td><span class="cmp-tag yes">Yes, local</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">No telemetry / tracking</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="yes">✓</span></td>
+            <td class="ct-feature">Public source code</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Yes</span></td>
+            <td><span class="cmp-tag no">No</span></td>
+            <td><span class="cmp-tag no">No</span></td>
+            <td><span class="cmp-tag no">No</span></td>
+            <td><span class="cmp-tag yes">Yes</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">Open source &amp; auditable</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="yes">✓</span></td>
+            <td class="ct-feature">Built-in scheduled tasks</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Local schedules</span></td>
+            <td><span class="cmp-tag partial">Paid / remote</span></td>
+            <td><span class="cmp-tag partial">Paid Cowork</span></td>
+            <td><span class="cmp-tag yes">Copilot app</span></td>
+            <td><span class="cmp-tag no">No scheduler</span></td>
           </tr>
           <tr>
-            <td class="ct-feature">Scheduled automations &amp; tools</td>
-            <td class="ct-boolm"><span class="yes">✓</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="no">✕</span></td>
-            <td><span class="partial">△</span></td>
-            <td><span class="no">✕</span></td>
-          </tr>
-          <tr>
-            <td class="ct-feature">Price</td>
-            <td class="ct-boolm"><b>Free</b></td>
-            <td>$20+/mo</td>
-            <td>$20+/mo</td>
-            <td>$10+/mo</td>
-            <td>Free</td>
+            <td class="ct-feature">Free option available</td>
+            <td class="ct-boolm"><span class="cmp-tag yes">Free app</span></td>
+            <td><span class="cmp-tag yes">Free plan</span></td>
+            <td><span class="cmp-tag yes">Free plan</span></td>
+            <td><span class="cmp-tag yes">Free plan</span></td>
+            <td><span class="cmp-tag yes">Free app</span></td>
           </tr>
         </tbody>
       </table>
-      <p class="compare-note"><span class="yes">✓</span> Included &nbsp; <span class="partial">△</span> Partial / limited &nbsp; <span class="no">✕</span> Not available</p>
+      <p class="compare-note"><span class="cmp-tag yes">Direct</span> included in the named surface &nbsp; <span class="cmp-tag partial">Qualified</span> needs a plan, extension, IDE, or adjacent surface &nbsp; <span class="cmp-tag no">No</span> not built in</p>
+      <p class="compare-sources">Checked August 2026 against official product information:
+        <a href="https://help.openai.com/en/articles/20001277-using-the-built-in-browser-in-the-chatgpt-desktop-app">ChatGPT browser</a>,
+        <a href="https://help.openai.com/en/articles/20001275-chatgpt-work-and-codex">ChatGPT Work and Codex</a>,
+        <a href="https://support.claude.com/en/articles/11725091-when-to-use-desktop-and-web-connectors">Claude desktop extensions</a>,
+        <a href="https://support.claude.com/en/articles/14128542-let-claude-use-your-computer-in-cowork">Claude computer use</a>,
+        <a href="https://support.claude.com/en/articles/13854387-schedule-recurring-tasks-in-claude-cowork">Claude schedules</a>,
+        <a href="https://github.com/features/copilot/plans">GitHub Copilot plans</a>,
+        <a href="https://docs.github.com/en/copilot/how-tos/github-copilot-app/using-automations">GitHub Copilot automations</a>, and
+        <a href="https://docs.ollama.com/cloud">Ollama</a>. Features and plan limits can change.
+      </p>
     </div>
   </div>
 </section>
@@ -507,9 +494,9 @@
       <p>Browse the source, download the current Windows release, or report a problem in the public repository.</p>
     </div>
     <div class="gh-links">
-      <a class="gh-card" href="https://github.com/syfy10/Boollm"><span>Source code</span><b>View repository ↗</b></a>
-      <a class="gh-card" href="https://github.com/syfy10/Boollm/releases"><span>Current release</span><b>Boollm v0.9.71 ↗</b></a>
-      <a class="gh-card" href="https://github.com/syfy10/Boollm/issues"><span>Issues</span><b>Report a bug ↗</b></a>
+      <a class="gh-card" href="https://github.com/syfy10/Boolean"><span>Source code</span><b>View repository ↗</b></a>
+      <a class="gh-card" href="https://github.com/syfy10/Boolean/releases"><span>Current release</span><b>Boollm v0.9.71 ↗</b></a>
+      <a class="gh-card" href="https://github.com/syfy10/Boolean/issues"><span>Issues</span><b>Report a bug ↗</b></a>
     </div>
   </div>
 </section>
@@ -526,10 +513,10 @@
       <article class="cl-item reveal">
         <div class="cl-version"><b>v0.9.71</b><span>Latest</span></div>
         <div class="cl-body">
-          <h4>Team-mode sub-agents &amp; trading guardrails</h4>
+          <h4>Team-mode sub-agents &amp; agent reliability</h4>
           <ul>
             <li>Parallel sub-agent work with isolated Git branches and auto-merge</li>
-            <li>Trade guardrails: kill-switch, symbol allowlist, per-order and daily loss caps</li>
+            <li>Broader model tool-call compatibility and safer agent handoffs</li>
             <li>Redesigned marketing site with hero, feature deep-dives, and architecture diagram</li>
           </ul>
         </div>
@@ -537,11 +524,11 @@
       <article class="cl-item reveal">
         <div class="cl-version"><b>v0.9.6</b><span>Stable</span></div>
         <div class="cl-body">
-          <h4>Cloud provider support &amp; connectors</h4>
+          <h4>Optional cloud model support</h4>
           <ul>
             <li>OpenAI, Anthropic, Google, and Groq cloud provider keys</li>
-            <li>Gmail &amp; Outlook email connectors with cleanup and draft tools</li>
-            <li>Cloudflare, Azure, AWS, and Google Cloud hosting connectors</li>
+            <li>Bring-your-own provider keys stored in the local app profile</li>
+            <li>Side-by-side model comparison for answer-only requests</li>
           </ul>
         </div>
       </article>
@@ -569,7 +556,7 @@
       </article>
     </div>
     <div class="cl-more reveal">
-      <a class="inline-link" href="https://github.com/syfy10/Boollm/releases">See every release on GitHub ↗</a>
+      <a class="inline-link" href="https://github.com/syfy10/Boolean/releases">See every release on GitHub ↗</a>
     </div>
   </div>
 </section>
@@ -585,7 +572,7 @@
       <details class="faq-item reveal"><summary>Does it need Node.js or Python installed?</summary><p>No. The installer bundles everything. Standard local use needs no Node.js, Python, Ollama, or separate model runner.</p></details>
       <details class="faq-item reveal"><summary>Does it phone home?</summary><p>No telemetry and no tracking. Cloud calls only happen if you add a provider key and explicitly use that model; everything else stays local.</p></details>
       <details class="faq-item reveal"><summary>Can I use my own models?</summary><p>Yes. Download a supported local GGUF model from inside the app, or point it at a model you already have. You can also add a custom API endpoint.</p></details>
-      <details class="faq-item reveal"><summary>Can I inspect the source?</summary><p>Yes — browse the public source, releases, and issues on <a class="inline-link" href="https://github.com/syfy10/Boollm">GitHub</a>.</p></details>
+      <details class="faq-item reveal"><summary>Can I inspect the source?</summary><p>Yes — browse the public source, releases, and issues on <a class="inline-link" href="https://github.com/syfy10/Boolean">GitHub</a>.</p></details>
       <details class="faq-item reveal"><summary>What about macOS or Linux?</summary><p>Boollm is built for Windows 10/11 (x64) today. macOS and Linux aren't currently supported.</p></details>
     </div>
   </div>
@@ -598,11 +585,11 @@
     <h2>Get Boollm for Windows.</h2>
     <p>Private, local work by default. Cloud is optional — and always on your terms.</p>
     <div class="cta-actions">
-      <a class="btn-primary lg" href="https://github.com/syfy10/Boollm/releases/download/v0.9.71/Boollm-setup.exe">
+      <a class="btn-primary lg" href="https://github.com/syfy10/Boolean/releases/download/v0.9.71/Boolean-setup.exe">
         <span aria-hidden="true">↓</span>
         Download v0.9.71
       </a>
-      <a class="btn-secondary lg" href="https://github.com/syfy10/Boollm">View on GitHub</a>
+      <a class="btn-secondary lg" href="https://github.com/syfy10/Boolean">View on GitHub</a>
     </div>
     <div class="cta-specs">
       <span><b>Windows</b> 10 or 11, x64</span>
@@ -618,13 +605,13 @@
 <footer class="footer">
   <div class="wrap footer-inner">
     <div class="footer-brand">
-      <span class="footer-logo"><span class="nav-mark sm" aria-hidden="true"></span>Boollm</span>
+      <span class="footer-logo"><img class="nav-mark sm" src="./assets/boollm-app-icon-v1.png" width="20" height="20" alt="">Boollm</span>
       <p>The local AI workspace for Windows.<br>Made for people who want their AI to work where they do.</p>
     </div>
     <nav class="footer-cols" aria-label="Footer">
       <div class="fc"><h4>Product</h4><a href="#features">Features</a><a href="#models">Models</a><a href="#compare">Compare</a><a href="#changelog">Changelog</a><a href="#start">Quick start</a><a href="./app-live-demo.html">Live demo</a></div>
-      <div class="fc"><h4>Resources</h4><a href="https://github.com/syfy10/Boollm">GitHub</a><a href="https://github.com/syfy10/Boollm/releases">Releases</a><a href="#architecture">Architecture</a><a href="#faq">FAQ</a></div>
-      <div class="fc"><h4>Legal</h4><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./policy.html">Policy</a><a href="https://github.com/syfy10/Boollm/issues">Contact</a></div>
+      <div class="fc"><h4>Resources</h4><a href="https://github.com/syfy10/Boolean">GitHub</a><a href="https://github.com/syfy10/Boolean/releases">Releases</a><a href="#architecture">Architecture</a><a href="#faq">FAQ</a></div>
+      <div class="fc"><h4>Legal</h4><a href="./privacy.html">Privacy</a><a href="./terms.html">Terms</a><a href="./policy.html">Policy</a><a href="https://github.com/syfy10/Boolean/issues">Contact</a></div>
     </nav>
   </div>
   <div class="wrap footer-bottom">

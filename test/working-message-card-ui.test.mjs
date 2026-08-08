@@ -14,7 +14,18 @@ test("project plan output hiding never hides the live working card", () => {
 function functionSource(name) {
   const start = ui.indexOf(`function ${name}(`);
   assert.ok(start >= 0, `${name} is present`);
-  const body = ui.indexOf("{", start);
+  // Scan past the parameter list first: a default like options={} would
+  // otherwise be mistaken for the function body and truncate it immediately.
+  let params = 0;
+  let body = -1;
+  for (let index = ui.indexOf("(", start); index < ui.length; index += 1) {
+    if (ui[index] === "(") params += 1;
+    else if (ui[index] === ")") {
+      params -= 1;
+      if (params === 0) { body = ui.indexOf("{", index); break; }
+    }
+  }
+  assert.ok(body > 0, `${name} has a body`);
   let depth = 0;
   for (let index = body; index < ui.length; index += 1) {
     if (ui[index] === "{") depth += 1;
@@ -56,8 +67,9 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.match(ui, /\.working-card-header\{[^}]*align-items:center;/s);
   assert.match(ui, /\.working-card-worker\{[^}]*flex:0 0 auto;[^}]*white-space:nowrap;/s);
   assert.match(ui, /\.working-card \.stx\{[^}]*min-width:120px;[^}]*flex:1 1 120px;[^}]*text-overflow:ellipsis;[^}]*white-space:nowrap;/s);
-  assert.match(ui, /class="working-card-actions"><button class="working-card-action meta" type="button" data-working-action="steps"/);
-  assert.match(ui, /\.working-card \.meta\{[^}]*display:inline-flex;[^}]*align-items:center;[^}]*min-height:24px;/s);
+  assert.match(ui, /class="working-task-head"/);
+  assert.match(ui, /class="working-task-title" title=/);
+  assert.match(ui, /class="working-card-footer"><span class="working-live-changes"/);
   assert.match(ui, /\.working-card-actions\{[^}]*align-items:center;[^}]*min-height:24px;/s);
   assert.match(ui, /\.working-card-body\{[^}]*width:100%;[^}]*box-sizing:border-box;/s);
   assert.doesNotMatch(ui, /class="working-card-current /);
@@ -89,7 +101,10 @@ test("activity is grouped into compact chronological batches", () => {
   assert.match(ui, /changeStat:workingStepChangeStat\(ev\.entry\)/);
   assert.match(ui, /\.working-change-stat \.add\{ color:#16a05d; \}/);
   assert.match(ui, /\.working-change-stat \.del\{ color:#df3154; \}/);
-  assert.match(ui, /if\(segment\?\.kind!=="activity"\|\|segment\.group!==group\)/);
+  // Batching is per lane, not per group: the generic bucket gets a lane per
+  // action so unrelated tools no longer merge into "Completed N steps".
+  assert.match(ui, /if\(segment\?\.kind!=="activity"\|\|segment\.lane!==lane\)/);
+  assert.match(ui, /const lane=group==="tools"\?"tools:"\+String\(item\.title\|\|""\)/);
   assert.match(ui, /segments:segments\.slice\(-10\)/);
   assert.match(ui, /items:segment\.items\.slice\(-8\)/);
   assert.match(ui, /if\(segment\.identities\.has\(identity\)\)/);
@@ -143,7 +158,7 @@ test("grouped activity rows name what the work was actually done to", () => {
   ]);
   assert.match(html, /class="working-activity-subject">ui\.html, tools\.js \+1</);
   assert.equal(context.workingActivitySubjectHtml([{ title: "" }]), "");
-  assert.match(ui, /workingActivityGroupLabel\(item\.group,item\.count,item\.items\)\)\+workingActivitySubjectHtml\(item\.items\)/);
+  assert.match(ui, /esc\(label\)\+workingActivitySubjectHtml\(item\.items,label\)/);
   assert.match(ui, /\.working-activity-subject\{[^}]*font-style:normal;/);
 });
 
@@ -203,6 +218,52 @@ test("every provider's own narration reaches the card, not just Codex's", () => 
   assert.equal(row({}), "");
 
   assert.match(ui, /if\(narration\) addWorkingActivity\(narration,\{key:"commentary:"\+narration\.slice\(0,80\),group:"commentary"\}/);
+});
+
+test("the stream names the action instead of counting anonymous steps", () => {
+  const context = vm.createContext({ esc: value => String(value) });
+  vm.runInContext([
+    functionSource("workingActivityGroupLabel"),
+    functionSource("workingActivitySubjectText"),
+    functionSource("workingActivitySubjectHtml"),
+  ].join("\n"), context);
+  const label = (group, items) => context.workingActivityGroupLabel(group, items.length, items);
+
+  // The generic bucket carries the tool's own verb now.
+  assert.equal(label("tools", [{ title: "List folders" }]), "List folders");
+  assert.equal(label("tools", [{ title: "List folders" }, { title: "List folders" }]), "List folders ×2");
+  assert.equal(label("tools", [{ title: "Create artifact" }, { title: "Run project" }]), "Create artifact, Run project");
+  assert.equal(label("tools", [{ title: "A" }, { title: "B" }, { title: "C" }, { title: "D" }]), "A, B +2");
+  assert.equal(label("tools", [{}, {}]), "Completed 2 steps", "an untitled batch still reads sensibly");
+  // The specific groups keep their canned, unfakeable verbs.
+  assert.equal(label("searches", [{ title: "x" }]), "Researched the needed sources");
+  assert.equal(label("plan", [{ title: "x" }]), "Planned the work");
+
+  // A subject identical to the label is a stutter, so it is dropped.
+  assert.equal(context.workingActivitySubjectHtml([{ subject: "List folders" }], "List folders"), "");
+  assert.match(context.workingActivitySubjectHtml([{ subject: "src/ui.html" }], "Read files"), /ui\.html/);
+
+  // A phase label no longer overwrites a specific action the moment it arrives.
+  assert.match(ui, /const immediate=\["planning","verifying"\]\.includes\(phase\)/);
+  assert.match(ui, /if\(labels\[phase\]&&\(immediate\|\|!run\.statusUpdatedAt/);
+  // The live line names its target too.
+  assert.match(ui, /const title=subject&&subject\.toLowerCase\(\)!==base\.toLowerCase\(\)\?base\+" · "\+subject:base/);
+});
+
+test("a chat inside a project is not drawn as a folder", () => {
+  const context = vm.createContext({
+    CHAT_SVG: "CHAT", FOLDER_SVG: "FOLDER",
+    BROWSER_THREAD_SVG: "BROWSER", NOTE_THREAD_SVG: "NOTE", WORKFLOW_THREAD_SVG: "WORKFLOW",
+    CODE_THREAD_SVG: "CODE", PREVIEW_THREAD_SVG: "PREVIEW", SALES_THREAD_SVG: "SALES",
+  });
+  vm.runInContext(functionSource("threadTypeIcon"), context);
+  // Chats in a project carry kind "project" so they inherit its folder and
+  // permissions; only a thread with no parent is an actual project folder.
+  assert.equal(context.threadTypeIcon({ kind: "project", projectDir: "C:\\p" }), "FOLDER");
+  assert.equal(context.threadTypeIcon({ kind: "project", projectDir: "C:\\p", parentProjectId: "p1" }), "CHAT");
+  assert.equal(context.threadTypeIcon({ kind: "project" }, { projectChat: true }), "CHAT");
+  // The "Open project folder" action belongs to the folder, not to its chats.
+  assert.match(ui, /t\.kind==="project"&&t\.projectDir&&!t\.parentProjectId\?'<span class="folderbtn"/);
 });
 
 test("parallel workers are shown, not just tracked invisibly", () => {
@@ -301,6 +362,17 @@ test("file totals stay visible on their own row during and after work", () => {
   assert.doesNotMatch(ui, /foot\.insertAdjacentHTML\("afterbegin",changeSummaryHtml/);
 });
 
+test("live work names its current action and keeps change totals in the header", () => {
+  assert.match(ui, /function workingCurrentAction\(entry\)/);
+  assert.match(ui, /return "Updating "\+\(target\|\|"the project files"\)\+"\.\.\."/);
+  assert.match(ui, /addWorkingActivity\(currentAction,[^\n]+status:"active"/);
+  assert.match(ui, /run\.status=currentAction/);
+  assert.match(ui, /class="working-live-changes" aria-live="polite" hidden/);
+  assert.match(ui, /function workingLiveChangeStat\(ref=run\)/);
+  assert.match(ui, /updateWorkingLiveChanges\(run\)/);
+  assert.match(ui, /\.working-live-changes\{[^}]*white-space:nowrap;/s);
+});
+
 test("the same work card becomes a truthful completion summary", () => {
   assert.match(ui, /function finalizeWorkingCard\(ref\)/);
   assert.match(ui, /"Worked for "\+elapsed/);
@@ -331,7 +403,7 @@ test("compact activity stays usable in a narrow chat pane", () => {
 
 test("live tool activity is painted after the progress card exists", () => {
   const ensureIndex = ui.indexOf("Ensure the live card exists before adding the event");
-  const addIndex = ui.indexOf("addWorkingActivity(toolLabel", ensureIndex);
+  const addIndex = ui.indexOf("addWorkingActivity(currentAction", ensureIndex);
   assert.ok(ensureIndex >= 0, "the step handler creates the live progress card first");
   assert.ok(addIndex > ensureIndex, "the current tool activity is added after the card exists");
   assert.match(ui, /wireWorkingCard\(run\.statusEl,run\);[\s\S]{0,400}renderWorkingCardActivity\(run\);/);
@@ -360,7 +432,7 @@ test("completed research collapses to a clickable step summary", () => {
   assert.match(finalize, /ref\.workCardCollapsed=true/);
   assert.match(finalize, /col\.classList\.add\("run-output-hidden"\)/);
   assert.doesNotMatch(finalize, /remove\("run-output-hidden"\)/);
-  assert.match(ui, /data-working-action="steps"/);
+  assert.match(ui, /class="working-live-changes" aria-live="polite"/);
   assert.match(ui, /steps\.textContent=count\+" Step"/);
   assert.match(ui, /View research steps/);
   assert.match(ui, /card\.querySelectorAll\("\.working-activity-group"\)\.forEach\(item=>item\.open=true\)/);

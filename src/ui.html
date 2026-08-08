@@ -1170,6 +1170,10 @@
   .status{ font-size:12.5px; color:var(--dim); display:flex; align-items:center; gap:8px; font-family:var(--mono); }
   .status.working-card{ align-self:flex-start; display:flex; flex-direction:column; align-items:stretch; width:min(100%,640px); min-width:0; margin:7px 0 4px;
     overflow:visible; border:0; border-radius:0; background:transparent; box-shadow:none; font-family:var(--ui); }
+  .working-task-head{ display:grid; grid-template-columns:22px minmax(0,1fr) 24px; align-items:center; gap:9px; min-height:44px; margin:0 0 8px; padding:0 2px 8px; border-bottom:1px solid var(--border); color:var(--text); }
+  .working-task-head svg{ width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+  .working-task-title{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:650 var(--chat-fs)/1.35 var(--ui); }
+  .working-task-more{ color:var(--dim); text-align:center; font-weight:700; letter-spacing:2px; }
   .working-card-header{ display:flex; align-items:center; gap:8px; width:100%; min-width:0; min-height:28px; padding:3px 2px; box-sizing:border-box; cursor:pointer; user-select:none; }
   .working-card-header:hover{ background:transparent; }
   .working-card-state{ display:inline-flex; align-items:center; gap:0; flex:0 0 auto; min-height:20px; color:var(--dim); }
@@ -1177,6 +1181,10 @@
   .working-card-state .working-card-mark{ display:none; width:14px; height:14px; align-items:center; justify-content:center; border-radius:50%; font-size:10px; font-weight:750; }
   .working-card-worker{ flex:0 0 auto; min-width:0; color:var(--dim); white-space:nowrap; }
   .working-card .stx{ min-width:120px; flex:1 1 120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); font:400 var(--chat-fs)/1.45 var(--ui); }
+  .working-live-changes{ display:inline-flex; align-items:center; gap:5px; flex:0 0 auto; min-height:34px; padding:0 13px; border:1px solid var(--border); border-radius:18px; background:var(--panel); color:var(--dim); white-space:nowrap; font:550 var(--fs-xs)/1 var(--mono); }
+  .working-live-changes[hidden]{ display:none; }
+  .working-live-changes .add{ color:#16a05d; }
+  .working-live-changes .del{ color:#df3154; }
   .working-card .meta{ display:inline-flex; align-items:center; min-height:24px; flex:0 0 auto; color:var(--dim); font:var(--fs-xxs)/1 var(--mono); white-space:nowrap; }
   .working-card-actions{ display:flex; align-items:center; min-height:24px; gap:2px; margin-left:auto; flex:0 0 auto; }
   .working-card-action{ border:0; border-radius:5px; background:transparent; color:var(--dim); padding:5px 6px; cursor:pointer; font:550 var(--fs-xxs)/1 var(--ui); white-space:nowrap; }
@@ -1184,7 +1192,8 @@
   .working-card-action.danger:hover{ color:var(--danger); }
   .working-card-toggle{ width:24px; padding-inline:4px; font-size:10px; transition:transform var(--t); }
   .working-card:not(.collapsed) .working-card-toggle{ transform:rotate(180deg); }
-  .working-card-body{ order:-1; width:100%; padding:0 2px; box-sizing:border-box; border:0; }
+  .working-card-body{ width:100%; padding:0 2px; box-sizing:border-box; border:0; }
+  .working-card-footer{ display:flex; align-items:center; gap:8px; width:100%; margin-top:9px; padding:5px 2px; box-sizing:border-box; }
   .working-card.collapsed .working-card-body{ display:none; }
   .working-card-events{ display:grid; gap:1px; min-width:0; margin:0; padding:0; }
   .team-worker-panel{ display:grid; gap:1px; min-width:0; margin:2px 0 9px; padding:0 0 7px; border-bottom:1px solid var(--border); }
@@ -5709,9 +5718,9 @@ body:not(.composer-simple) main::after{
   <nav class="sidebar-primary" id="sidebarPrimary" aria-label="Primary navigation">
     <button class="sidebar-primary-item" type="button" data-sidebar-action="new-chat"><svg viewBox="0 0 24 24"><path d="M5 4h12a2 2 0 0 1 2 2v12H7a2 2 0 0 1-2-2z"/><path d="m14 3 4 4M12 9l6-6"/></svg><span>New chat</span><span class="sidebar-primary-state"></span></button>
     <button class="sidebar-primary-item" type="button" data-sidebar-action="git"><svg viewBox="0 0 24 24"><circle cx="7" cy="5" r="2"/><circle cx="17" cy="19" r="2"/><circle cx="17" cy="5" r="2"/><path d="M7 7v7a5 5 0 0 0 5 5h3M9 7l6-2M17 7v5"/></svg><span>GitHub</span><span class="sidebar-primary-state"></span></button>
-    <button class="sidebar-primary-item" type="button" data-sidebar-workspace="preview"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 17h6M17 14v6"/></svg><span>Workflows</span><span class="sidebar-primary-state"></span></button>
+    <button class="sidebar-primary-item" type="button" data-sidebar-workspace="recipes"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 17h6M17 14v6"/></svg><span>Workflows</span><span class="sidebar-primary-state"></span></button>
     <button class="sidebar-primary-item" type="button" data-sidebar-workspace="automations"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l-3 2"/></svg><span>Scheduled</span><span class="sidebar-primary-state"></span></button>
-    <button class="sidebar-primary-item" type="button" data-sidebar-action="plugins"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 9a4 4 0 0 1 6 0l1 1M15 15a4 4 0 0 1-6 0l-1-1M8 12h8"/></svg><span>Agents</span><span class="sidebar-primary-state"></span></button>
+    <button class="sidebar-primary-item" type="button" data-sidebar-action="agents"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 9a4 4 0 0 1 6 0l1 1M15 15a4 4 0 0 1-6 0l-1-1M8 12h8"/></svg><span>Agents</span><span class="sidebar-primary-state"></span></button>
   </nav>
   <div class="sidebar-shortcuts" id="sidebarShortcuts" aria-label="Boollm shortcuts" hidden>
     <button class="sidebar-shortcut" type="button" data-sidebar-action="tasks" title="Tasks">
@@ -7154,6 +7163,13 @@ body:not(.composer-simple) main::after{
 
   <section class="chat-utility-panel" id="chatUtilityPanel" aria-label="Chat workspace details">
     <div class="chat-utility-head"><span>Workspace</span><button class="chat-utility-new" id="chatUtilityNew" type="button" title="New chat" aria-label="New chat">+</button></div>
+    <div class="chat-utility-section chat-utility-current">
+      <div class="chat-utility-section-head"><span>Current work</span></div>
+      <button class="chat-utility-row" id="chatUtilityCurrentWork" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+        <span class="chat-utility-row-label" id="chatUtilityCurrentWorkLabel">No active task</span><span class="chat-utility-arrow">&#8594;</span>
+      </button>
+    </div>
     <div class="chat-utility-section chat-utility-environment">
       <div class="chat-utility-section-head"><span>Environment</span></div>
       <button class="chat-utility-row" id="chatUtilityChanges" type="button">
@@ -7177,7 +7193,7 @@ body:not(.composer-simple) main::after{
         <span class="chat-utility-row-label">Compare branch</span><span class="chat-utility-arrow">↗</span>
       </button>
     </div>
-    <div class="chat-utility-section">
+    <div class="chat-utility-section" hidden>
       <div class="chat-utility-section-head"><span>Background processes</span></div>
       <div id="chatUtilityProcesses"><div class="chat-utility-empty">No processes running</div></div>
       <button class="chat-utility-row" id="chatUtilityTasks" type="button" hidden>
@@ -7185,14 +7201,14 @@ body:not(.composer-simple) main::after{
       </button>
       <span id="chatUtilityRecentValue" hidden>0 items</span>
     </div>
-    <div class="chat-utility-section">
+    <div class="chat-utility-section" hidden>
       <div class="chat-utility-section-head"><span>Browser</span></div>
       <button class="chat-utility-row" id="chatUtilityBrowser" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18"/><path d="M7 6h.01"/></svg>
         <span class="chat-utility-row-label" id="chatUtilityBrowserName">No local preview</span><span class="chat-utility-row-value" id="chatUtilityBrowserUrl">—</span>
       </button>
     </div>
-    <div class="chat-utility-section chat-utility-source">
+    <div class="chat-utility-section chat-utility-source" hidden>
       <div class="chat-utility-section-head"><span>Sources</span><button class="chat-utility-new" id="chatUtilityAddSource" type="button" title="Add a source" aria-label="Add a source">+</button></div>
       <div class="chat-utility-source-list" id="chatUtilitySources"><div class="chat-utility-empty">No sources in this chat</div></div>
       <button class="chat-utility-row" id="chatUtilityViewSources" type="button">
@@ -7201,7 +7217,7 @@ body:not(.composer-simple) main::after{
       </button>
     </div>
     <div hidden><button id="chatUtilityNotepad" type="button">Notepad</button><button id="chatUtilityExplore" type="button">Explore</button><button id="chatUtilityRecent" type="button">Recent</button><button id="chatUtilityModel" type="button">Model</button><button id="chatUtilityAccess" type="button">Access</button><span id="chatUtilityModelValue">—</span><span id="chatUtilityAccessValue">Read &amp; write</span><span>Tools</span><span>Activity</span></div>
-    <div class="chat-utility-settings">
+    <div class="chat-utility-settings" hidden>
       <button class="chat-utility-row" id="chatUtilitySettings" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
         <span class="chat-utility-row-label">Settings</span><span class="chat-utility-arrow">›</span>
@@ -9376,6 +9392,18 @@ body:not(.composer-simple) main::after{
     if(name==="run_command"||name==="run_background") return toolCommandText(entry);
     if(name==="apply_patch") return workingStepFiles(entry).join(", ");
     return String(args.path||args.file||args.target||args.url||"");
+  }
+  function workingCurrentAction(entry){
+    const name=String(entry?.name||"");
+    const subject=workingToolActivitySubject(entry);
+    const files=workingStepFiles(entry).map(path=>path.split(/[\\/]/).filter(Boolean).pop()||path);
+    const target=files.slice(0,2).join(", ")+(files.length>2?" +"+(files.length-2):"");
+    if(["write_file","edit_file","apply_patch"].includes(name)) return "Updating "+(target||"the project files")+"...";
+    if(["read_file","list_dir","find_files","search_files","repository_map","find_symbol"].includes(name)) return "Reviewing "+(subject||"the relevant project code")+"...";
+    if(name==="web_search") return "Researching "+(subject||"the needed sources")+"...";
+    if(["read_page","visible_browser_read","screenshot_page","inspect_page_layout"].includes(name)) return "Checking "+(subject||"the page in the browser")+"...";
+    if(name==="run_command"||name==="run_background"||name==="run_project") return "Running "+(subject||"the project checks")+"...";
+    return toolDisplayLabel(entry)+(subject?" · "+subject:"");
   }
   function toolDisplayLabel(entry){
     const name=entry?.name||"tool";
@@ -13213,7 +13241,11 @@ body:not(.composer-simple) main::after{
   const PREVIEW_THREAD_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 5h18v14H3zM9 9l6 3-6 3z"/></svg>';
   const SALES_THREAD_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7h16v12H4zM8 7V4h8v3M4 12h16"/></svg>';
   function threadTypeIcon(t,options={}){
-    if(options.projectChat) return CHAT_SVG;
+    // Chats inside a project are stored with kind "project" so they inherit its
+    // folder and permissions, so kind alone cannot tell a folder from a
+    // conversation - every chat in a project drew a folder icon. Only a thread
+    // with no parent project is an actual project folder.
+    if(options.projectChat||t.parentProjectId) return CHAT_SVG;
     if(t.kind==="project") return FOLDER_SVG;
     const label=String(t.workspace||t.type||t.title||"").toLowerCase();
     if(label.includes("browser")||label.includes("web")) return BROWSER_THREAD_SVG;
@@ -13250,7 +13282,7 @@ body:not(.composer-simple) main::after{
       '<span class="ttl">'+esc(options.label||t.title)+'</span>'+
       (isRun?'<span class="runmark" aria-label="'+esc(runLabel())+'"><span class="run-dot"></span></span>'
             :(when?'<span class="twhen">'+when+'</span>':''))+
-      '<span class="acts">'+(t.kind==="project"&&t.projectDir?'<span class="folderbtn" title="Open project folder">'+FOLDER_SVG+'</span>':'')+
+      '<span class="acts">'+(t.kind==="project"&&t.projectDir&&!t.parentProjectId?'<span class="folderbtn" title="Open project folder">'+FOLDER_SVG+'</span>':'')+
       '<span class="pinbtn" title="'+(t.pinned?"Unpin":"Pin")+'">'+PIN_SVG+'</span>'+
       '<span class="renbtn" title="Rename">✎</span><span class="del" title="Delete">✕</span></span>';
     d.querySelector(".ttl").onclick=()=>openThread(t.id);
@@ -15738,6 +15770,21 @@ body:not(.composer-simple) main::after{
     stat.files=files.size;
     return stat.files?stat:null;
   }
+  function workingLiveChangeStat(ref=run){
+    const files=new Set([...(ref?.changedFiles||[]),...(Array.isArray(ref?.controller?.changedFiles)?ref.controller.changedFiles:[])].map(path=>String(path).toLowerCase()).filter(Boolean));
+    const stats=(ref?.activityItems||[]).map(item=>item?.changeStat).filter(Boolean);
+    return {files:files.size,additions:stats.reduce((sum,stat)=>sum+Number(stat.additions||0),0),deletions:stats.reduce((sum,stat)=>sum+Number(stat.deletions||0),0)};
+  }
+  function updateWorkingLiveChanges(ref=run){
+    const node=ref?.statusEl?.querySelector(".working-live-changes");
+    if(!node) return;
+    const stat=workingLiveChangeStat(ref);
+    node.hidden=!stat.files;
+    if(!stat.files) return;
+    const label=stat.files+" file"+(stat.files===1?"":"s")+" changed";
+    node.innerHTML='<b>'+label+'</b>'+(stat.additions||stat.deletions?'<span class="add">+'+stat.additions+'</span><span class="del">-'+stat.deletions+'</span>':'');
+    node.setAttribute("aria-label",label+", "+stat.additions+" lines added, "+stat.deletions+" lines removed");
+  }
   function workingChangeStatHtml(items=[]){
     const stats=items.map(item=>item?.changeStat).filter(Boolean);
     if(!stats.length) return "";
@@ -15784,6 +15831,11 @@ body:not(.composer-simple) main::after{
     if(group==="agents") return count===1?"Asked another model for help":"Asked other models for help";
     if(group==="inspections") return /browser|page/.test(titles)?"Checked the page":"Reviewed the project files";
     if(group==="plan") return "Planned the work";
+    // "Completed 5 steps" was the most common row on screen and the least
+    // informative. The tools already carry their own verb - use it.
+    const names=[...new Set(items.map(item=>String(item?.title||"").trim()).filter(Boolean))];
+    if(names.length===1) return count===1?names[0]:names[0]+" ×"+count;
+    if(names.length>1) return names.slice(0,2).join(", ")+(names.length>2?" +"+(names.length-2):"");
     return count===1?"Completed a step":"Completed "+count+" steps";
   }
   function workingActivityIcon(group){
@@ -15827,9 +15879,13 @@ body:not(.composer-simple) main::after{
         continue;
       }
       if(group==="files"&&namedFiles&&!item.subject) continue;
+      // Everything that matched no specific group shared one lane, so a browse,
+      // an artifact, and a deploy collapsed into "Completed 3 steps". Give the
+      // generic bucket a lane per action so distinct work stays distinct.
+      const lane=group==="tools"?"tools:"+String(item.title||"").trim().toLowerCase():group;
       let segment=segments[segments.length-1];
-      if(segment?.kind!=="activity"||segment.group!==group){
-        segment={kind:"activity",group,items:[],identities:new Map()};
+      if(segment?.kind!=="activity"||segment.lane!==lane){
+        segment={kind:"activity",group,lane,items:[],identities:new Map()};
         segments.push(segment);
       }
       const identity=group==="agents"?String(item.subject||item.title||"").toLowerCase():group==="files"?String(item.subject||item.detail||item.title||"").toLowerCase():String(item.key||item.title||"").toLowerCase();
@@ -15853,10 +15909,14 @@ body:not(.composer-simple) main::after{
     const text=/[\\/]/.test(first)&&!/\s/.test(first)?(first.split(/[\\/]/).filter(Boolean).pop()||first):first;
     return text.length>32?text.slice(0,31)+"…":text;
   }
-  function workingActivitySubjectHtml(items=[]){
+  function workingActivitySubjectHtml(items=[],label=""){
     const names=[];
+    const heading=String(label||"").trim().toLowerCase();
     for(const item of items){
       const text=workingActivitySubjectText(item);
+      // The label already names the action; repeating it as its own subject
+      // reads as a stutter ("List folders · List folders").
+      if(text&&heading&&text.toLowerCase()===heading) continue;
       if(text&&!names.some(name=>name.toLowerCase()===text.toLowerCase())) names.push(text);
       if(names.length===2) break;
     }
@@ -15865,7 +15925,8 @@ body:not(.composer-simple) main::after{
     return '<i class="working-activity-subject">'+esc(names.join(", ")+(rest>0?" +"+rest:""))+'</i>';
   }
   function workingActivityGroupInner(item){
-    return '<summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+workingActivitySubjectHtml(item.items)+'</b>'+workingChangeStatHtml(item.items)+'<span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol>';
+    const label=workingActivityGroupLabel(item.group,item.count,item.items);
+    return '<summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(label)+workingActivitySubjectHtml(item.items,label)+'</b>'+workingChangeStatHtml(item.items)+'<span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol>';
   }
   function workingCommentaryInner(item){
     return esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'');
@@ -15904,7 +15965,11 @@ body:not(.composer-simple) main::after{
     const current=summary.current;
     const status=card.querySelector(".stx");
     if(current&&status){
-      const title=current.title||"Working";
+      // "Read files" leaves the watcher guessing which; the row below already
+      // knows the answer, so the live line says it too.
+      const base=current.title||"Working";
+      const subject=workingActivitySubjectText(current);
+      const title=subject&&subject.toLowerCase()!==base.toLowerCase()?base+" · "+subject:base;
       const detail=current.detail||current.title||"Working";
       if(status.textContent!==title) status.textContent=title;
       if(status.title!==detail) status.title=detail;
@@ -16266,7 +16331,8 @@ body:not(.composer-simple) main::after{
       run.statusEl.setAttribute("role","status");
       run.statusEl.setAttribute("aria-live","polite");
       run.statusEl.setAttribute("aria-label","Boollm task progress");
-      run.statusEl.innerHTML='<div class="working-card-body"><div class="team-worker-panel" role="list" aria-label="Parallel agents" hidden></div><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><button class="working-card-action meta" type="button" data-working-action="steps" aria-expanded="true">0 Steps</button><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
+      const taskTitle=String(run.request?.message||run.request?.prompt||run.request?.text||"Current task").replace(/\s+/g," ").trim();
+      run.statusEl.innerHTML='<div class="working-task-head"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h7l2 2h9v10H3z"/></svg><span class="working-task-title" title="'+esc(taskTitle)+'">'+esc(taskTitle)+'</span><span class="working-task-more" aria-hidden="true">&#8230;</span></div><div class="working-card-body"><div class="team-worker-panel" role="list" aria-label="Parallel agents" hidden></div><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div><div class="working-card-footer"><span class="working-live-changes" aria-live="polite" hidden></span></div>';
       col.appendChild(run.statusEl);
       wireWorkingCard(run.statusEl,run);
       // Activity can arrive before the card exists (especially fast tool calls).
@@ -16304,6 +16370,7 @@ body:not(.composer-simple) main::after{
       }
     }
     updateStatusMeta();
+    updateWorkingLiveChanges(run);
     // A run in a background thread has no visible card to paint. Switching
     // back rebuilds it from scratch (see the thread-open path), so skipping
     // the repaint here loses nothing.
@@ -17044,9 +17111,12 @@ body:not(.composer-simple) main::after{
       const phase=run.controller?.phase;
       if(phase){
         const labels={planning:"Planning the best way to do this...",executing:"Working on the next step...",verifying:"Checking that everything works...",recovering:"Fixing a problem and trying again..."};
-        if(labels[phase]&&(phase!=="executing"||!run.statusUpdatedAt||Date.now()-run.statusUpdatedAt>1800)){
-          // The second place specific text dies: a phase label replaces whatever
-          // the model just said. Counted so the tap shows both losses, not one.
+        // "Working on the next step..." told the watcher nothing while a real
+        // action was already on screen. Only planning and verifying announce
+        // themselves immediately - they are phases with no tool of their own.
+        // Every other label now waits for the specific status to go stale.
+        const immediate=["planning","verifying"].includes(phase);
+        if(labels[phase]&&(immediate||!run.statusUpdatedAt||Date.now()-run.statusUpdatedAt>1800)){
           if(run.status&&run.status!==labels[phase]) narrationTap.phaseOverwrites=(narrationTap.phaseOverwrites||0)+1;
           run.status=labels[phase];
         }
@@ -17067,6 +17137,7 @@ body:not(.composer-simple) main::after{
       updateTeamWorker(ev.entry);
       trackWorkingFiles(ev.entry);
       const toolLabel=toolDisplayLabel(ev.entry);
+      const currentAction=workingCurrentAction(ev.entry);
       const toolDetail=compactActivityText(ev.entry?.summary||"");
       const activityGroup=workingToolActivityGroup(ev.entry);
       run.activitySequence=(run.activitySequence||0)+1;
@@ -17075,7 +17146,7 @@ body:not(.composer-simple) main::after{
         // step is visible during the run, not only after the task is stopped.
         ensureStatusEl();
       }
-      addWorkingActivity(toolLabel,{detail:toolDetail&&toolDetail!==toolLabel?toolDetail:"",status:"done",key:"tool:"+activityGroup+":"+run.activitySequence,group:activityGroup,subject:workingToolActivitySubject(ev.entry),changeStat:workingStepChangeStat(ev.entry)});
+      addWorkingActivity(currentAction,{detail:toolDetail&&toolDetail!==toolLabel?toolDetail:"",status:"active",key:"tool:"+activityGroup+":"+run.activitySequence,group:activityGroup,subject:workingToolActivitySubject(ev.entry),changeStat:workingStepChangeStat(ev.entry)});
       if(showing&&!workspaceBackground){
         insertToolAbove(ev.entry);
         updateFileChip(ev.entry);
@@ -17086,7 +17157,7 @@ body:not(.composer-simple) main::after{
           if(SHELL)hostPost({type:"browser",cmd:"navigate",url:run.previewUrl});
           else navigate(run.previewUrl);
         }
-        if(ev.entry?.name!=="team_worker")run.status="working…";
+        if(ev.entry?.name!=="team_worker")run.status=currentAction;
         ensureStatusEl();
       }
     }
@@ -17402,6 +17473,7 @@ body:not(.composer-simple) main::after{
     else if(action==="changes"){ setWorkspaceTab("git"); }
     else if(action==="models"){ openSettings("model"); }
     else if(action==="plugins"){ openSettings("connectors"); }
+    else if(action==="agents"){ openSettings("agent"); }
     else if(action==="sources"){ $("ctxToggle")?.click(); }
     else if(action==="browser"){ $("browserToggle")?.click(); }
     else if(action==="context"){ $("ctxToggle")?.click(); }
@@ -20584,6 +20656,12 @@ Optional bundled starter model:
     if(mode)mode.textContent=state.provider==="local"?"Local":"Cloud";
     if(model){model.textContent=chatUtilityModelLabel();model.title=model.textContent;}
     if(access)access.textContent=accessModeLabel(tradingModeEnabled()?"trading_confirm":currentAccessMode());
+    const currentWork=$(`chatUtilityCurrentWorkLabel`);
+    if(currentWork){
+      const task=(run?.request?.message||run?.request?.prompt||run?.request?.text||run?.status||"").replace(/\s+/g," ").trim();
+      currentWork.textContent=task||"No active task";
+      currentWork.title=currentWork.textContent;
+    }
     const tasks=$("chatUtilityTasksValue");
     if(tasks){
       const active=run?1:0;
@@ -20632,6 +20710,12 @@ Optional bundled starter model:
     button.addEventListener("click",()=>setWorkspaceTab(button.dataset.chatUtilityWorkspace));
   });
   $("chatUtilityNew")?.addEventListener("click",()=>newChat());
+  $("chatUtilityCurrentWork")?.addEventListener("click",()=>{
+    setWorkspaceTab("chat");
+    document.body.classList.remove("zone-3");
+    const target=run?.statusEl||col.querySelector(".working-card:last-of-type");
+    target?.scrollIntoView({behavior:"smooth",block:"center"});
+  });
   $("chatUtilityBrowser")?.addEventListener("click",()=>setWorkspaceTab("browser"));
   $("chatUtilityNotepad")?.addEventListener("click",()=>setWorkspaceTab("notes"));
   $("chatUtilityExplore")?.addEventListener("click",()=>openExploreWorkspace());

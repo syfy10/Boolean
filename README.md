@@ -34,24 +34,6 @@ saved API models and send one prompt to both. Replies stream
 into separate labeled bubbles; one provider can fail without cancelling the
 other. Compare is answer-only and never duplicates tools or computer actions.
 
-### Email accounts
-
-Settings > Email connects Gmail and Microsoft 365/Outlook.com with desktop
-OAuth and PKCE. Email Recipes can summarize mail, prepare drafts, find tasks,
-and run preview-first cleanup. Mailbox tokens stay in the local Boollm profile;
-sending always requires confirmation, and cleanup moves reviewed messages to
-Trash so the user can undo it.
-
-Release builds should include product-owned public OAuth client IDs in
-`assets/oauth-clients.json`, or set `BOOLLM_GOOGLE_OAUTH_CLIENT_ID` and
-`BOOLLM_MICROSOFT_OAUTH_CLIENT_ID` while running `build/build-shell.ps1`.
-These IDs are public application identifiers, not client secrets. Google builds
-must enable the Gmail API and complete any verification required for the
-restricted `gmail.modify` scope. Microsoft builds must enable public client
-flows and delegated `User.Read`, `Mail.ReadWrite`, and `Mail.Send` permissions.
-Source builds without packaged IDs keep manual client-ID setup under Settings >
-Email > Advanced OAuth setup.
-
 It can control **PowerShell, cmd, winget, git, npm, and dotnet**, inspect and
 edit project files, search a project, maintain a task plan, capture a running
 project preview, and use the embedded browser and notepad. With a compatible
@@ -72,29 +54,6 @@ the next time Boollm starts.
 Boollm can install curated models or a public GGUF from a direct Hugging Face
 URL into its managed model folder. It validates the GGUF before use. Vision
 models require a compatible matching `.mmproj` projector.
-
-### Windows System Actions
-
-Boollm provides typed, allowlisted Windows tools for common PC work:
-
-- inspect Windows, display, network, and installed-app information
-- open exact Windows Settings pages
-- search Microsoft Store and WinGet packages by name and exact package ID
-- install an exact selected package after confirmation
-- prepare a trusted home PC for network discovery and file sharing
-
-Boollm does not run permanently as administrator. Read-only inspection and
-Settings navigation run as the signed-in user. App installs always require
-confirmation and may invoke the package installer's own elevation flow. Network
-changes always require confirmation and a Windows UAC prompt, even when Full
-access is enabled. Those actions are limited to Private network profiles and
-local-subnet firewall rules, and are recorded locally in
-`~/.saz/system-actions.jsonl`.
-
-Microsoft Store ratings are not exposed by WinGet, so Boollm must use current
-web sources when a user explicitly asks to compare ratings. Boollm does not
-automatically create broad folder shares, change passwords, disable security,
-or bypass Windows consent prompts.
 
 ## Install it (like a normal Windows app)
 
@@ -163,23 +122,6 @@ If we bundle the smallest practical starter LLM, the installer would likely add
 about 94 MB raw and land around 155-170 MB compressed, with installed size around
 350 MB. That starter should be treated as a basic prompt model; Qwen2.5-3B or
 larger is still recommended for serious chat, coding, browser control, and tools.
-
-## Account backend
-
-Boollm's local app stays usable offline. Optional account features live in the
-separate Cloudflare Worker backend under `backend/`:
-
-- Google Sign-In
-- user sessions
-- account administration and ban management
-- legacy token/billing schema retained for migration compatibility
-
-Secrets such as Google client secrets belong only in the backend. User-supplied
-AI provider keys are saved locally by the desktop app.
-
-Optional Boollm account sign-in is separate from AI access. Local mode remains
-offline. Cloud AI uses the third-party provider API key selected by the user;
-provider terms, billing, quotas, and privacy policies apply independently.
 
 ### Building the installer from source
 

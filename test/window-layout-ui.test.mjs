@@ -9,6 +9,13 @@ const agent = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8
 const browse = fs.readFileSync(new URL("../src/browse.js", import.meta.url), "utf8");
 const config = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
 const website = fs.readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+
+test("the website uses the packaged Boollm app icon everywhere", () => {
+  assert.match(website, /rel="icon"[^>]+boollm-app-icon-v1\.png/);
+  assert.match(website, /rel="apple-touch-icon"[^>]+boollm-app-icon-v1\.png/);
+  assert.equal((website.match(/src="\.\/assets\/boollm-app-icon-v1\.png"/g)||[]).length,2);
+  assert.doesNotMatch(website, /boolean-app-icon-clear\.png/);
+});
 const installer = fs.readFileSync(new URL("../build/installer.iss", import.meta.url), "utf8");
 
 test("product branding is Boollm while the website remains boollm.com", () => {
@@ -1792,9 +1799,12 @@ test("wide Chat shows a Codex-inspired Boollm workspace rail", () => {
   assert.match(ui,/body\.chat-utility-room\.workspace-chat #chat\{ padding-right:calc\(var\(--content-x\) \+ 272px\); \}/);
   assert.match(ui,/document\.body\.classList\.contains\("workspace-chat"\)&&!utilityBlocked&&mainW>=900/);
   assert.match(ui,/function syncChatUtilityContent\(\)/);
-  for(const section of ["Environment","Background processes","Browser","Sources"]){
+  for(const section of ["Current work","Environment"]){
     assert.match(ui,new RegExp(`<span>${section}<\\/span>`));
   }
+  assert.match(ui,/id="chatUtilityCurrentWork"/);
+  assert.match(ui,/id="chatUtilityCurrentWorkLabel">No active task/);
+  assert.match(ui,/\$\("chatUtilityCurrentWork"\)\?\.addEventListener\("click"/);
   for(const id of ["chatUtilityChanges","chatUtilityMode","chatUtilityBranch","chatUtilityCommit","chatUtilityCompare","chatUtilityProcesses","chatUtilityBrowser","chatUtilitySources","chatUtilitySettings"]){
     assert.match(ui,new RegExp(`id="${id}"`));
   }
