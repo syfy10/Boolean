@@ -92,6 +92,7 @@ test("the trading broker endpoint reports connector + active masked account", as
   t.after(() => closeServer(mcpServer));
 
   const config = defaultConfig();
+  config.cloudBackend = { sessionToken: "admin-session", user: { email: "admin@example.com", role: "admin" } };
   config.connectors = {
     ...config.connectors,
     mcp: [{
@@ -130,6 +131,7 @@ test("the trading broker endpoint reports connector + active masked account", as
 
 test("trading broker endpoint reports failure without a configured connector", async (t) => {
   const config = defaultConfig();
+  config.cloudBackend = { sessionToken: "admin-session", user: { email: "admin@example.com", is_admin: true } };
   config.connectors = { ...config.connectors, mcp: [], trading: {} };
   const app = await startServer(config, { port: 0 });
   t.after(async () => {
@@ -141,4 +143,17 @@ test("trading broker endpoint reports failure without a configured connector", a
   assert.equal(response.status, 200);
   assert.equal(body.ok, false);
   assert.match(body.error, /No broker connector is configured/);
+});
+
+test("trading broker endpoints reject non-admin users", async (t) => {
+  const config = defaultConfig();
+  config.cloudBackend = { sessionToken: "user-session", user: { email: "user@example.com", role: "user" } };
+  const app = await startServer(config, { port: 0 });
+  t.after(async () => {
+    await closeServer(app.server);
+    await closeServer(app.proxyServer);
+  });
+  const response = await fetch(`http://127.0.0.1:${app.port}/api/trading/state`);
+  assert.equal(response.status, 403);
+  assert.match((await response.json()).error, /only to Boollm administrators/i);
 });

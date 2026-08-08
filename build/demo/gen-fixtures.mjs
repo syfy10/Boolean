@@ -58,7 +58,7 @@ if (state.imageGeneration) state.imageGeneration = { ...state.imageGeneration, p
 if (state.vision) state.vision = { ...state.vision, candidates: [] };
 state.ui = { ...(stateCap.ui || {}), onboarded: true, showOnboarding: false, browserOpen: false, notepadOpen: false, browserHistory: [], browserBookmarks: [], browserTabs: [] };
 // Provide sane fallbacks if capture was empty.
-state.appName ??= "Boolean";
+state.appName ??= "Boollm";
 state.version ??= "0.9.71";
 state.displayVersion ??= "v0.9.71";
 state.providers ??= ["local", "openai", "claude", "google", "glm"];
@@ -88,7 +88,7 @@ const status = {
 };
 
 // ---- about (public repo info; safe to keep, but strip any local paths) ----
-const about = readCap("about.json", { appName: "Boolean", version: "0.9.71", displayVersion: "v0.9.71", channel: "Stable", repository: "https://github.com/syfy10/Boolean", sourceAvailable: true });
+const about = readCap("about.json", { appName: "Boollm", version: "0.9.71", displayVersion: "v0.9.71", channel: "Stable", repository: "https://github.com/syfy10/Boollm", sourceAvailable: true });
 
 const fixtures = {
   "/api/state": state,

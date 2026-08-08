@@ -63,7 +63,7 @@ test("controller loop stops render as a compact user-facing pause", () => {
   assert.doesNotMatch(answer, /controller|loop guard|checkpointed|Do not inspect/i);
 });
 
-test("third-party provider 401 responses do not affect Boolean account sign-in", async (t) => {
+test("third-party provider 401 responses do not affect Boollm account sign-in", async (t) => {
   const server = http.createServer(async (req, res) => {
     for await (const _chunk of req) { /* consume request */ }
     res.writeHead(401, { "content-type": "application/json" });
@@ -420,7 +420,7 @@ test("the model receives topic changes without deterministic routing", async (t)
   assert.equal(requestBody.messages.at(-1).content, "stock news");
   assert.ok(requestBody.tools.some((tool) => tool.function.name === "research_web"));
   assert.ok(requestBody.tools.some((tool) => tool.function.name === "mcp_list_tools"), "research turns should retain the open catalog");
-  assert.doesNotMatch(requestBody.messages[0].content, /TOOL DEFINITIONS|Boolean includes local GGUF models|mcp_list_tools/i, "research turns should not carry the full agent controller prompt");
+  assert.doesNotMatch(requestBody.messages[0].content, /TOOL DEFINITIONS|Boollm includes local GGUF models|mcp_list_tools/i, "research turns should not carry the full agent controller prompt");
   assert.deepEqual(steps, [], "the app must not force a tool before the model requests one");
   assert.equal(messages.at(-1).content, answer);
 });
@@ -442,7 +442,7 @@ test("ordinary main-chat turns receive non-project tools without an implicit wor
   const config = {
     provider: "openai",
     openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "chat-test", apiKey: "test" },
-    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
+    projectsDir: "C:\\Users\\S10\\Documents\\Boollm",
     autoApprove: true,
     ui: { contextMode: "balanced", learnedMemory: false },
     connectors: { mcp: [{ name: "Robinhood", enabled: true }], agents: [] }
@@ -467,7 +467,7 @@ test("ordinary main-chat turns receive non-project tools without an implicit wor
   assert.ok(!requestBody.tools.some((tool) => tool.function.name === "create_project"));
   assert.ok(!requestBody.tools.some((tool) => tool.function.name === "read_file"));
   assert.ok(!requestBody.tools.some((tool) => tool.function.name === "write_file"));
-  assert.match(requestBody.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.match(requestBody.messages[0].content, /BOOLLM OPERATING POLICY/);
   assert.match(requestBody.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(requestBody.messages[0].content, /Available tools|mcp_list_tools|create_project|github_workflow/i);
 });
@@ -487,7 +487,7 @@ test("side chat stays answer-only even when its wording resembles an action", as
   const config = {
     provider: "openai",
     openai: { baseUrl: `http://127.0.0.1:${server.address().port}`, model: "side-chat-test", apiKey: "test" },
-    projectsDir: "C:\\Users\\S10\\Documents\\Boolean",
+    projectsDir: "C:\\Users\\S10\\Documents\\Boollm",
     autoApprove: true,
     ui: { contextMode: "balanced", learnedMemory: false }
   };
@@ -582,7 +582,7 @@ test("streaming DeepSeek tool calls retain reasoning_content for the next reques
 
 test("trimmed local context keeps one leading system message for strict Qwen templates", () => {
   const fitted = fitToContext([
-    { role: "system", content: "You are Boolean." },
+    { role: "system", content: "You are Boollm." },
     { role: "user", content: "Earlier decision: use the compact layout. " + "detail ".repeat(5000) },
     { role: "assistant", content: "I will preserve that decision. " + "result ".repeat(5000) },
     { role: "user", content: "Continue with the same layout." }
@@ -858,7 +858,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
     remaining: 240
   });
   assert.equal(classifyTurnMode(secondConfirmation), "connector");
-  assert.match(systemPrompt("", true), /BOOLEAN OPERATING POLICY/);
+  assert.match(systemPrompt("", true), /BOOLLM OPERATING POLICY/);
 
   assert.equal(emailCleanupContinuationAction([
     { role: "system", content: "system" },
@@ -870,7 +870,7 @@ test("email cleanup confirmations retain the saved plan across every batch", () 
 
 test("explicit no-change project questions do not require artifact edits", () => {
   const messages = [
-    { role: "system", content: systemPrompt("C:\\Users\\S10\\Documents\\Boolean", true, { ui: { learnedMemory: false } }) },
+    { role: "system", content: systemPrompt("C:\\Users\\S10\\Documents\\Boollm", true, { ui: { learnedMemory: false } }) },
     { role: "user", content: "dont make any changes just tell me about this project" }
   ];
 
@@ -878,7 +878,7 @@ test("explicit no-change project questions do not require artifact edits", () =>
   assert.equal(classifyTurnMode(messages, {
     latestText: "dont make any changes just tell me about this project",
     artifactActionRequired: requiresArtifactAction(messages),
-    projectDir: "C:\\Users\\S10\\Documents\\Boolean"
+    projectDir: "C:\\Users\\S10\\Documents\\Boollm"
   }), "inspect", "project overview uses read-only tools without action completion gates");
 });
 
@@ -964,7 +964,7 @@ test("agent tasks continue past the legacy tool-turn limit", async (t) => {
   assert.equal(checkpoints, 16, "every tool result and final answer should be checkpointed");
 });
 
-test("clear artifact requests keep working until files are changed and checked", async (t) => {
+test("clear artifact requests respect the selected model's workflow", async (t) => {
   let calls = 0;
   let nudgedRequest = null;
   let protocolRequest = null;
@@ -1018,13 +1018,13 @@ test("clear artifact requests keep working until files are changed and checked",
     onCheckpoint() {}
   }, messages);
 
-  assert.equal(answer, "Built and verified the requested game.");
-  assert.equal(calls, 5);
-  assert.deepEqual(steps, ["list_dir", "write_file", "run_command"]);
-  assert.match(nudgedRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.equal(answer, "Here are the steps you can follow to make the game yourself.");
+  assert.equal(calls, 1);
+  assert.deepEqual(steps, []);
+  assert.match(nudgedRequest.messages[0].content, /BOOLLM OPERATING POLICY/);
   assert.match(nudgedRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.equal(nudgedRequest.tool_choice, undefined);
-  assert.ok(protocolRequest);
+  assert.equal(protocolRequest, null);
   assert.match(messages.map((message) => message.content || "").join("\n"), /steps you can follow/);
 });
 
@@ -1129,10 +1129,14 @@ test("Z.AI prompt-parameter rejection retries through the compatibility tool bri
   assert.equal(calls, 2);
   assert.equal(requests[0].tools.length > 0, true);
   assert.equal(requests[1].tools, undefined);
-  assert.match(requests[1].messages[0].content, /BOOLEAN COMPATIBILITY MODE/);
+  assert.match(requests[1].messages[0].content, /BOOLLM COMPATIBILITY MODE/);
   assert.match(requests[1].messages[0].content, /COMPATIBILITY TOOL PROTOCOL/);
-  assert.match(requests[1].messages[0].content, /Available tools \(name: purpose\)/);
-  assert.doesNotMatch(requests[1].messages[0].content, /Available tools \(JSON schema\)/);
+  // A cloud model that fell back to the bridge gets the full parameter schemas.
+  // The compact name-only listing asks the model to guess "the obvious JSON
+  // arguments" while the parser runs strict, so it is reserved for small local
+  // context windows that cannot hold the schemas.
+  assert.match(requests[1].messages[0].content, /Available tools \(JSON schema\)/);
+  assert.doesNotMatch(requests[1].messages[0].content, /Available tools \(name: purpose\)/);
   assert.match(statuses.join("\n"), /rejected native tools.*compatibility tool bridge/i);
 });
 
@@ -1238,7 +1242,7 @@ test("an empty response after tool work continues instead of silently stopping",
   assert.equal(calls, 7);
   assert.deepEqual(steps, ["list_dir"]);
   assert.match(statuses.join("\n"), /paused before finishing.*continuing/i);
-  assert.match(continuationRequest.messages[0].content, /BOOLEAN OPERATING POLICY/);
+  assert.match(continuationRequest.messages[0].content, /BOOLLM OPERATING POLICY/);
   assert.match(continuationRequest.messages[0].content, /CURRENT TASK CONTRACT/);
   assert.doesNotMatch(continuationRequest.messages.map((message) => message.content || "").join("\n"), /CONTINUE REQUIRED|Do not wait for me to press Continue/i);
 });
@@ -1264,7 +1268,7 @@ test("repeated project inspection transitions to a concise answer instead of rec
       };
     } else {
       synthesisRequest = body;
-      message = { role: "assistant", content: "Boolean is a local AI workspace. Improve it by simplifying the agent loop and making completion evidence explicit." };
+      message = { role: "assistant", content: "Boollm is a local AI workspace. Improve it by simplifying the agent loop and making completion evidence explicit." };
     }
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ choices: [{ message }] }));

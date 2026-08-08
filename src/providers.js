@@ -9,7 +9,7 @@ export function providerBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "").replace(/\/chat\/completions$/i, "");
 }
 
-// Return true/false only when Boolean knows the endpoint's image capability.
+// Return true/false only when Boollm knows the endpoint's image capability.
 // null keeps custom OpenAI-compatible endpoints permissive because their model
 // names and capabilities are not standardized.
 export function providerImageSupport(config) {
@@ -140,7 +140,7 @@ function localProviderError(status, body) {
   } catch { detail = String(body || ""); }
   const templateOrder = /system message must be at the beginning|unable to generate parser for this template|jinja exception/i.test(detail);
   const message = templateOrder
-    ? "The local model rejected the conversation format. Boolean repaired the message order; please retry this message."
+    ? "The local model rejected the conversation format. Boollm repaired the message order; please retry this message."
     : `The local model could not process this request (${status}). Retry it, or switch to another installed model.`;
   const err = new Error(message);
   err.code = templateOrder ? "local_template_order" : "local_provider_error";
@@ -206,7 +206,7 @@ function cloudProviderError(target, status, body, retryAfter) {
 function localConnectionError(interrupted = false, cause) {
   const err = new Error(interrupted
     ? "The Local model connection stopped during its response. Your task was checkpointed; Continue can resume it."
-    : "The Local model connection stopped before it answered. Boolean will restart the local engine and retry once.");
+    : "The Local model connection stopped before it answered. Boollm will restart the local engine and retry once.");
   err.code = "local_transport_error";
   err.partial = interrupted;
   err.cause = cause;
@@ -418,9 +418,6 @@ export function clearProviderModelCache(provider = "") {
 
 function usableProviderModels(provider, ids, selected = "") {
   let models = [...new Set(ids.map((id) => String(id || "").trim()).filter(Boolean))];
-  if (provider === "zaiCoding") {
-    models = models.filter((id) => /^glm-/i.test(id));
-  }
   if (provider === "openai") {
     const incompatible = /(?:audio|realtime|transcrib|tts|whisper|image|dall-e|embedding|moderation|sora|search-preview|search-api|deep-research)/i;
     models = models.filter((id) => /^(?:gpt-|o[1345](?:-|$)|chat-latest$)/i.test(id) && !incompatible.test(id));

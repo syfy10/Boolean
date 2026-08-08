@@ -30,7 +30,7 @@ test("run_command refuses dev servers that should be backgrounded", async () => 
     }
   };
 
-  const result = await executeTool("run_command", { command: "cd Boolean && npm run dev" }, ctx);
+  const result = await executeTool("run_command", { command: "cd Boollm && npm run dev" }, ctx);
 
   assert.equal(approved, false);
   assert.match(result, /long-running dev server/i);
@@ -67,7 +67,7 @@ test("existing WPF folders are inferred as runnable desktop projects", (t) => {
   });
 });
 
-test("run_command cannot kill Boolean or another unmanaged process", async () => {
+test("run_command cannot kill Boollm or another unmanaged process", async () => {
   assert.equal(isUnmanagedProcessTerminationCommand("Stop-Process -Id 14992 -Force"), true);
   assert.equal(isUnmanagedProcessTerminationCommand("taskkill /PID 14992 /F"), true);
   assert.equal(isUnmanagedProcessTerminationCommand("node --version"), false);

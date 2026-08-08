@@ -23,6 +23,7 @@ test("Codex install endpoint is Windows-only and never invokes the installer els
   let calls = 0;
   const app = await startServer(defaultConfig(), {
     port: 0,
+    sessionToken: "1",
     codexPlatform: "linux",
     codexInstaller() { calls++; throw new Error("must not run"); }
   });
@@ -48,6 +49,7 @@ test("Codex install endpoint rejects concurrent setup and returns bounded helper
   let calls = 0;
   const app = await startServer(defaultConfig(), {
     port: 0,
+    sessionToken: "1",
     codexPlatform: "win32",
     codexInstaller() {
       calls++;
@@ -112,6 +114,7 @@ test("Codex sign-in locks before app-server startup and blocks a racing setup", 
   };
   const app = await startServer(defaultConfig(), {
     port: 0,
+    sessionToken: "1",
     codexPlatform: "win32",
     codexClientFactory() { return client; },
     codexInstaller() { throw new Error("installer must not run during sign-in"); }
@@ -155,6 +158,7 @@ test("Codex refresh clears stale account and model state after app-server reject
   };
   const app = await startServer(defaultConfig(), {
     port: 0,
+    sessionToken: "1",
     codexClientFactory() { return client; }
   });
   t.after(async () => {
@@ -199,6 +203,7 @@ test("Codex sign-in accepts only trusted ChatGPT URLs and permits one pending lo
   };
   const app = await startServer(defaultConfig(), {
     port: 0,
+    sessionToken: "1",
     codexNow: () => now,
     codexLoginTtlMs: 5 * 60 * 1000,
     codexClientFactory(options) { clientOptions = options; return client; }

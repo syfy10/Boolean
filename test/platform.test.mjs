@@ -6,7 +6,7 @@ import test from "node:test";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-platform-"));
 const state = path.join(root, "state");
-process.env.BOOLEAN_PLATFORM_HOME = state;
+process.env.BOOLLM_PLATFORM_HOME = state;
 const { executePlatformTool, nextRunFor, runDueAutomations, setAutomationActionHandler } = await import(`../src/platform.js?test=${Date.now()}`);
 
 const project = path.join(root, "project");
@@ -23,13 +23,13 @@ test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 test("creates structurally valid document artifacts", async () => {
   const cases = [
     ["docx", "PK", "Hello\nWorld"],
-    ["xlsx", "PK", "Name\tValue\nBoolean\t1"],
+    ["xlsx", "PK", "Name\tValue\nBoollm\t1"],
     ["pptx", "PK", "First slide\n---\nSecond slide"],
     ["pdf", "%PDF-", "A verified PDF"]
   ];
   for (const [type, signature, content] of cases) {
     const output = path.join(project, `sample.${type}`);
-    const result = await executePlatformTool("create_artifact", { type, path: output, title: "Boolean", content }, ctx);
+    const result = await executePlatformTool("create_artifact", { type, path: output, title: "Boollm", content }, ctx);
     assert.match(result, /Created and verified/);
     assert.equal(fs.readFileSync(output).subarray(0, signature.length).toString(), signature);
   }
@@ -91,7 +91,7 @@ test("generates images through the selected saved API connection", async () => {
   };
   const images = [];
   try {
-    const result = await executePlatformTool("generate_image", { prompt: "A flat Boolean app icon", path: output }, {
+    const result = await executePlatformTool("generate_image", { prompt: "A flat Boollm app icon", path: output }, {
       ...ctx,
       config: {
         imageGeneration: { provider: "image-api", model: "image-model", size: "512x512" },
@@ -101,7 +101,7 @@ test("generates images through the selected saved API connection", async () => {
     });
     assert.match(result, /Generated image/);
     assert.equal(request.url, "https://images.example/v1/images/generations");
-    assert.deepEqual(JSON.parse(request.options.body), { model: "image-model", prompt: "A flat Boolean app icon", size: "512x512", response_format: "b64_json" });
+    assert.deepEqual(JSON.parse(request.options.body), { model: "image-model", prompt: "A flat Boollm app icon", size: "512x512", response_format: "b64_json" });
     assert.equal(fs.readFileSync(output, "utf8"), "image-bytes");
     assert.equal(images.length, 1);
   } finally {

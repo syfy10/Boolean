@@ -42,9 +42,12 @@ import { PLATFORM_TOOL_DEFINITIONS, PLATFORM_TOOL_NAMES, executePlatformTool, gh
 import { appPath } from "./paths.js";
 import {
   applyAgentRun,
+  applyAgentRuns,
   createIsolatedAgentRun,
   discardAgentRun,
   finalizeIsolatedAgentRun,
+  gcAgentWorktrees,
+  verifyAgentRun,
   listAgentRuns
 } from "./orchestrator.js";
 
@@ -244,7 +247,7 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "record_debug_evidence",
       description:
-        "Record one grounded checkpoint in Boolean's required bug-fix workflow. " +
+        "Record one grounded checkpoint in Boollm's required bug-fix workflow. " +
         "Use reproduced only after a real pre-edit command/page/preview check shows the reported failure; " +
         "root_cause only after inspecting the responsible code; verified only after repeating the original check following the latest edit.",
       parameters: {
@@ -400,13 +403,12 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "run_subagent",
       description:
-        "Delegate a focused sub-task to a sub-agent that has its own tools and works independently, then returns a concise result. " +
-        "Use to decompose a big job (e.g. 'research the API in these files', 'build the CSS while I do the JS'). " +
-        "Pass one task, or several tasks to run together. Sub-agents cannot spawn more sub-agents.",
+        "Delegate focused independent sub-tasks to sub-agents and run up to three together. In Team mode, choose non-overlapping assignments, use worktree isolation for editing, and set apply=true to integrate conflict-free commits sequentially after every worker finishes. Conflicts are aborted and returned for lead resolution; sub-agents cannot spawn more sub-agents.",
       parameters: { type: "object", properties: {
         task: { type: "string", description: "A single self-contained sub-task with enough context to act alone" },
         tasks: { type: "array", items: { type: "string" }, description: "Several independent sub-tasks to run together (max 3)" },
-        isolation: { type: "string", enum: ["shared", "worktree"], description: "worktree gives each sub-agent an isolated Git branch; shared uses the current project folder" }
+        isolation: { type: "string", enum: ["shared", "worktree"], description: "worktree gives each editing sub-agent an isolated Git branch; shared is for read-only collaboration" },
+        apply: { type: "boolean", description: "After all isolated workers finish, apply each conflict-free result to the current project in assignment order" }
       }, required: [] }
     }
   },
@@ -457,7 +459,7 @@ export const TOOL_DEFINITIONS = [
       description:
         "Capture a visual screenshot of a rendered web page (a URL, or the page already open in the browser) and review it visually. " +
         "Use this after building or changing a website/app UI to SEE how it actually looks, then refine the design. " +
-        "For a local dev server, pass its URL (e.g. http://localhost:3210). Needs the Boolean desktop app and a vision-capable model.",
+        "For a local dev server, pass its URL (e.g. http://localhost:3210). Needs the Boollm desktop app and a vision-capable model.",
       parameters: {
         type: "object",
         properties: { url: { type: "string", description: "Optional URL to open and capture; defaults to the page already open in the browser" } },
@@ -559,7 +561,7 @@ export const TOOL_DEFINITIONS = [
       name: "visible_browser_trade",
       description:
         "Prepare one live broker-site Buy or Sell click in the visible signed-in browser and ask the user for final confirmation. " +
-        "Use only when the user explicitly asked Boolean to place that exact trade and Settings > Browser > Confirmed trade clicks is on. " +
+        "Use only when the user explicitly asked Boollm to place that exact trade and Settings > Browser > Confirmed trade clicks is on. " +
         "This always confirms contract, side, quantity, order type, price, and broker immediately before clicking; Full access cannot bypass confirmation. Never use it from scheduled work.",
       parameters: {
         type: "object",
@@ -596,7 +598,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "notepad_read",
-      description: "Read the active in-app notepad tab so you can use the user's notes as context. Use proactively when Full access is on.",
+      description: "Read the active in-app notepad tab. Use it only when the user refers to their notes or the answer depends on them — never as background context for an unrelated question, which drags a stale note into an answer that had nothing to do with it.",
       parameters: { type: "object", properties: {}, required: [] }
     }
   },
@@ -604,7 +606,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "notepad_write",
-      description: "Write text into the active in-app notepad tab. Use append by default; replace only when the user asks. Use proactively when Full access is on to save useful notes.",
+      description: "Write text into the active in-app notepad tab. Use append by default; replace only when the user asks. Write when the user asks for something to be saved, not on your own initiative.",
       parameters: {
         type: "object",
         properties: {
@@ -713,7 +715,7 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "download_local_model",
       description:
-        "Download and select a public/free local GGUF model from Boolean's curated model library. " +
+        "Download and select a public/free local GGUF model from Boollm's curated model library. " +
         "Use this when the user asks to get, download, install, use, or switch to a local LLM/model. " +
         "Only downloads known public catalog models into the local models folder; never invent model URLs.",
       parameters: {
@@ -735,9 +737,9 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "install_public_local_model",
       description:
-        "Install and select a public GGUF that is not in Boolean's curated library. " +
+        "Install and select a public GGUF that is not in Boollm's curated library. " +
         "Use source_url for a direct huggingface.co .gguf link, or local_path when the GGUF already exists on this PC. " +
-        "Boolean validates the file and places it in its own models folder; do not use browser_download, curl, Ollama, or another model app.",
+        "Boollm validates the file and places it in its own models folder; do not use browser_download, curl, Ollama, or another model app.",
       parameters: {
         type: "object",
         properties: {
@@ -911,7 +913,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "email_send_draft",
-      description: "Send an existing Gmail or Outlook draft. Boolean always shows a confirmation prompt first, even in Auto-approve mode. Unavailable while Draft-only is on.",
+      description: "Send an existing Gmail or Outlook draft. Boollm always shows a confirmation prompt first, even in Auto-approve mode. Unavailable while Draft-only is on.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
         account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
@@ -954,7 +956,7 @@ export const TOOL_DEFINITIONS = [
     type: "function",
     function: {
       name: "email_cleanup_undo",
-      description: "Undo a Boolean cleanup run by moving its messages out of Trash. Requires the run id returned by email_cleanup_trash.",
+      description: "Undo a Boollm cleanup run by moving its messages out of Trash. Requires the run id returned by email_cleanup_trash.",
       parameters: { type: "object", properties: {
         provider: { type: "string", enum: ["gmail", "outlook"] },
         account_id: { type: "string", description: "Exact connected account id. Required when more than one account uses this provider." },
@@ -1070,7 +1072,7 @@ function summarizeLargeRead(target, content) {
   const previewLines = lines.slice(0, DEFAULT_LARGE_FILE_PREVIEW_LINES).join("\n");
   const map = [
     `Large file preview: ${path.basename(target)} (${lines.length} lines, ${content.length.toLocaleString()} chars${ext ? `, ${ext}` : ""}${likelyGenerated ? ", generated/build path" : ""}).`,
-    "Boolean did not return the full file to avoid wasting tokens or causing repeated truncated reads.",
+    "Boollm did not return the full file to avoid wasting tokens or causing repeated truncated reads.",
     "Next step: use search_files/find_symbol, or call read_file with offset and limit for the exact lines needed.",
     headings.length ? `Headings:\n${headings.join("\n")}` : "",
     defs.length ? `Definitions/anchors:\n${defs.slice(0, 20).join("\n")}` : "",
@@ -1083,7 +1085,7 @@ export function windowsCommandShim(command, shell = "powershell") {
   const value = String(command || "");
   if (process.platform !== "win32" || shell !== "powershell") return value;
   // PowerShell resolves npm/npx to the signed-script-policy-sensitive .ps1
-  // wrappers before the Windows .cmd launchers. Boolean runs non-interactively,
+  // wrappers before the Windows .cmd launchers. Boollm runs non-interactively,
   // so use the official .cmd shims automatically at command boundaries.
   return value.replace(/(^|(?:&&|\|\||;|\r?\n)\s*)(npm|npx)(?=\s|$)/gi,
     (_match, boundary, tool) => `${boundary}${tool}.cmd`);
@@ -1312,7 +1314,7 @@ const BROWSER_OFF_MSG = "AI browser access is disabled in Settings.";
 async function screenshotPage(args, ctx) {
   if (browserDisabled(ctx)) return BROWSER_OFF_MSG;
   if (typeof ctx.captureScreenshot !== "function") {
-    return "Screenshots need the Boolean desktop app (the embedded browser). Not available in this session — use read_page for the page text instead.";
+    return "Screenshots need the Boollm desktop app (the embedded browser). Not available in this session — use read_page for the page text instead.";
   }
   const body = await ctx.captureScreenshot(args.url ? { url: String(args.url) } : {});
   if (!body || body.ok === false || !body.image) {
@@ -1333,7 +1335,7 @@ async function screenshotPage(args, ctx) {
       (info ? `\n\nPage text/OCR:\n${info}` : "");
   }
   const endpoint = ctx.config?.provider === "zaiCoding" ? "Z.AI Coding Plan model" : "selected model";
-  return `Screenshot captured and shown to the user, but the ${endpoint} is text-only, so Boolean did not send it unsupported image data. ` +
+  return `Screenshot captured and shown to the user, but the ${endpoint} is text-only, so Boollm did not send it unsupported image data. ` +
     "Use inspect_page_layout for sticky, overflow, sizing, and scroll behavior; use read_page for page text; or switch to a vision-capable model. " +
     (info ? `\n\nPage text/OCR:\n${info}` : "");
 }
@@ -1366,12 +1368,12 @@ async function visibleBrowserTrade(args, ctx) {
     return "blocked: live trades cannot run from scheduled or unattended work.";
   }
   if (ctx.config?.ui?.browserPerms?.tradeClicks !== true) {
-    return "blocked: Confirmed trade clicks is off in Settings > Browser. Boolean can still watch prices and stage an order for review.";
+    return "blocked: Confirmed trade clicks is off in Settings > Browser. Boollm can still watch prices and stage an order for review.";
   }
   const signedInUser = String(ctx.config?.cloudBackend?.user?.email || ctx.config?.cloudBackend?.user?.id || "").trim().toLowerCase();
   const consentUser = String(ctx.config?.ui?.browserPerms?.tradeConsentUser || "").trim().toLowerCase();
   if (!ctx.config?.cloudBackend?.sessionToken || !signedInUser || consentUser !== signedInUser) {
-    return "blocked: trading access requires a signed-in Boolean account whose risk agreement matches the current user.";
+    return "blocked: trading access requires a signed-in Boollm account whose risk agreement matches the current user.";
   }
   // Arming expires. Consent given hours ago is not consent now. Checked after the
   // identity gate so a wrong-user mismatch still reports the specific reason.
@@ -1408,7 +1410,7 @@ async function visibleBrowserTrade(args, ctx) {
   const summary = `${side.toUpperCase()} ${quantity} ${contract} · ${orderType.toUpperCase()}${priceText} · ${broker}`;
   const approve = typeof ctx.approveAlways === "function" ? ctx.approveAlways : ctx.approve;
   const ok = await approve(summary, { kind: "trade", trade: { contract, side, quantity, orderType, price, broker } });
-  if (!ok) return "Trade cancelled. Boolean did not click the final order button.";
+  if (!ok) return "Trade cancelled. Boollm did not click the final order button.";
   const clickResult = await visibleBrowser("click", { text: finalButton, confirmedTrade: { contract, side, quantity, orderType, price, broker } }, ctx);
   // Count the placed order toward maxOrdersPerDay. Only when a daily order cap is
   // configured (so cap-free setups do no file IO) and the caller isn't injecting
@@ -1506,7 +1508,7 @@ async function callCloudflareApi(args, ctx) {
     );
     if (!ok) return "user declined the Cloudflare account change";
   }
-  const payload = await cloudflareRequest(connection.token, requestPath, {
+  const payload = await cloudflareRequest(connection, requestPath, {
     method,
     body: method === "GET" || method === "DELETE" ? undefined : (args.body || {})
   });
@@ -1544,10 +1546,10 @@ async function stageTrade(args, ctx) {
   const notional = o.notionalUsd ? ` | est. notional $${o.notionalUsd}` : "";
   const rationale = String(args.rationale || "").trim();
   return [
-    "STAGED ORDER — NOT SUBMITTED. Boolean did not place anything.",
+    "STAGED ORDER — NOT SUBMITTED. Boollm did not place anything.",
     `${o.side.toUpperCase()} ${o.quantity} ${o.symbol} · ${price}${notional}`,
     rationale ? `Signal: ${rationale}` : "",
-    "This is a proposal only. To execute, confirm the exact order and place it yourself through the broker connector or app. Boolean will not auto-submit it."
+    "This is a proposal only. To execute, confirm the exact order and place it yourself through the broker connector or app. Boollm will not auto-submit it."
   ].filter(Boolean).join("\n");
 }
 
@@ -1696,7 +1698,7 @@ async function executeEmailTool(name, args, ctx) {
     const alreadyProcessed = new Set(plan.processedIds || []);
     const pending = plan.candidates.filter((item) => !alreadyProcessed.has(item.id)).slice(0, batchSize);
     if (!pending.length) return `Cleanup plan ${plan.id} has no remaining candidates. Nothing was changed.`;
-    const ok = await ctx.approve(`Move up to ${pending.length} reviewed messages from ${plan.account || (provider === "gmail" ? "Gmail" : "Outlook")} to Trash now? This does not permanently delete them and Boolean will create an Undo record.`);
+    const ok = await ctx.approve(`Move up to ${pending.length} reviewed messages from ${plan.account || (provider === "gmail" ? "Gmail" : "Outlook")} to Trash now? This does not permanently delete them and Boollm will create an Undo record.`);
     if (!ok) return "No email was moved because the user declined confirmation.";
 
     const labels = await listEmailLabels(provider, connection, save);
@@ -1906,13 +1908,13 @@ async function installPublicLocalModel(args, ctx) {
     last = `${pct}%`;
     if (pct >= lastReported + 10 || pct === 100) {
       lastReported = pct;
-      ctx.onStatus?.(`Installing ${name} in Boolean: ${pct}%`);
+      ctx.onStatus?.(`Installing ${name} in Boollm: ${pct}%`);
     }
   };
   if (localPath) {
     if (!path.isAbsolute(localPath)) return "error: local_path must be an absolute .gguf path";
     const name = path.basename(localPath);
-    const ok = await ctx.approve(`Install ${name} in Boolean`);
+    const ok = await ctx.approve(`Install ${name} in Boollm`);
     if (!ok) return "user declined installing the model";
     file = await engine.importModel(localPath, (pct) => progress(name, pct));
     if (args.move_source && path.resolve(localPath).toLowerCase() !== path.resolve(engine.MODELS_DIR, file).toLowerCase()) {
@@ -1921,7 +1923,7 @@ async function installPublicLocalModel(args, ctx) {
   } else {
     let name = "public GGUF model";
     try { name = decodeURIComponent(new URL(sourceUrl).pathname.split("/").pop() || name); } catch { /* engine gives exact error */ }
-    const ok = await ctx.approve(`Install ${name} in Boolean`);
+    const ok = await ctx.approve(`Install ${name} in Boollm`);
     if (!ok) return "user declined installing the model";
     file = await engine.downloadPublicModel(sourceUrl, (pct) => progress(name, pct));
   }
@@ -1931,7 +1933,7 @@ async function installPublicLocalModel(args, ctx) {
   ctx.config.local.model = file;
   saveConfig(ctx.config);
   try { engine.stopEngine(); } catch { /* reload next request */ }
-  return `Installed and selected ${file} in Boolean.` + (last ? ` (${last})` : "");
+  return `Installed and selected ${file} in Boollm.` + (last ? ` (${last})` : "");
 }
 
 export function explicitModelInstallRequest(input) {
@@ -1985,7 +1987,11 @@ async function runProject(args, ctx, base) {
       if (child.exitCode !== null) return `✗ the project crashed on startup:\n${truncate(log)}`;
       try {
         const res = await fetch(url, { signal: AbortSignal.timeout(1000) });
-        if (res.status < 500) return `✓ ${meta.type} is running at http://localhost:${meta.port} (HTTP ${res.status}). It launched successfully.`;
+        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+        const healthyStatus = res.status >= 200 && res.status < 400;
+        const healthyContent = meta.type !== "website" || contentType.includes("text/html");
+        if (healthyStatus && healthyContent) return `✓ ${meta.type} is running at http://localhost:${meta.port} (HTTP ${res.status}). It launched successfully.`;
+        log += `\nPreview check returned HTTP ${res.status}${contentType ? ` (${contentType})` : ""}; expected ${meta.type === "website" ? "2xx/3xx HTML" : "2xx/3xx"}.`;
       } catch { /* not up yet */ }
     }
     return `✗ started but did not respond at ${url} within 8s. Check the code.\n${truncate(log)}`;
@@ -2356,6 +2362,19 @@ function snapshotBeforeWrite(target) {
   } catch { /* snapshots are best-effort */ }
 }
 // ── sub-agents (delegated task decomposition) ──
+async function mapAgentTasks(items, limit, handler) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(items.length, Number(limit) || 1)) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await handler(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 async function runSubagentTool(args, ctx) {
   if (typeof ctx.runSubagent !== "function") return "sub-agents aren't available in this session.";
   if (ctx.subagentDepth) return "a sub-agent cannot spawn more sub-agents — do the work directly.";
@@ -2363,22 +2382,116 @@ async function runSubagentTool(args, ctx) {
   tasks = tasks.map((t) => String(t || "").trim()).filter(Boolean).slice(0, 3);
   if (!tasks.length) return "error: provide 'task' or 'tasks'.";
   const isolation = args.isolation === "worktree" ? "worktree" : "shared";
-  const results = await Promise.all(tasks.map(async (task, i) => {
+  if (args.apply === true && isolation !== "worktree") return "error: apply=true requires worktree isolation.";
+  const teamwork = ctx.config?.ui?.codingAgent?.teamwork || {};
+  const connected = ["openai", "google", "anthropic", "claude", "xai", "deepseek", "qwen", "baidu", "bytedance", "glm", "zaiCoding", "kimi", "customApi"]
+    .filter((provider) => ctx.config?.[provider]?.apiKey && ctx.config?.[provider]?.model);
+  if (ctx.config?.provider === "local" && ctx.config?.local?.model) connected.unshift("local");
+  else if (ctx.config?.provider && !connected.includes(ctx.config.provider)) connected.push(ctx.config.provider);
+  const preferred = String(teamwork.workerProvider || "auto");
+  const targets = [
+    ...(preferred !== "auto" && connected.includes(preferred) ? [preferred] : []),
+    ...connected.filter((provider) => provider !== ctx.config?.provider),
+    ctx.config?.provider
+  ].filter((provider, index, all) => provider && all.indexOf(provider) === index);
+  const workerTarget = (index) => {
+    const provider = targets[index % Math.max(1, targets.length)] || ctx.config?.provider || "local";
+    return { provider, model: provider === "local" ? String(ctx.config?.local?.model || "") : String(ctx.config?.[provider]?.model || "") };
+  };
+  const workerEvent = (index, task, state, detail, run = null, attempt = 1, overrideTarget = null) => {
+    const role = `Agent ${index + 1}`;
+    const target = overrideTarget || workerTarget(index);
+    ctx.onStep?.({ name: "team_worker", args: {
+      role, state, attempt, provider: target.provider, model: target.model,
+      objective: task.slice(0, 500), workspace: run?.workspaceDir || ctx.projectDir || "", branch: run?.branch || "", runId: run?.id || ""
+    }, result: detail });
+  };
+  // A worker's own checks run in its worktree before anything is merged, so a
+  // result that happens not to conflict still cannot land broken.
+  const verifyRun = async (run, i, task, target, attempt) => {
+    if (!run?.commit) return run;
+    workerEvent(i, task, "working", "Running the project's checks inside the isolated worktree.", run, attempt, target);
+    try { return await verifyAgentRun(run.id); }
+    catch (error) { return { ...run, verification: { ran: false, ok: true, label: `check could not run: ${error?.message || error}`, at: Date.now() } }; }
+  };
+  const verdictText = (run) => {
+    const check = run?.verification;
+    if (!check) return "";
+    if (!check.ran) return `\nChecks: not verified (${check.label}).`;
+    return check.ok ? `\nChecks: passed (${check.label}).` : `\nChecks: FAILED (${check.label}) — this result will not be merged.\n${String(check.output || "").slice(-1200)}`;
+  };
+  const brokeChecks = (run) => run?.verification?.ran === true && run.verification.ok === false;
+  // Assist means the lead plus one worker; team opens it up to maxWorkers. The
+  // cap ignored the mode entirely before, so Assist ran as wide as Team.
+  const parallelLimit = String(teamwork.mode || "team") === "assist" ? 1 : Math.min(3, Number(teamwork.maxWorkers) || 3);
+  const results = await mapAgentTasks(tasks, parallelLimit, async (task, i) => {
     let run = null;
     try {
+      workerEvent(i, task, "queued", "Waiting for an available parallel worker slot.");
       if (isolation === "worktree") {
         if (!ctx.projectDir) throw new Error("worktree isolation is available only inside a project chat");
         run = await createIsolatedAgentRun(ctx.projectDir, task, i);
       }
-      const answer = await ctx.runSubagent(task, run ? { workspaceDir: run.workspaceDir, runId: run.id } : {});
-      if (run) run = await finalizeIsolatedAgentRun(run.id, answer);
-      return `--- Sub-agent ${i + 1} result${run ? ` (${run.id})` : ""} ---\n${String(answer || "(no result)").trim()}` +
-        (run ? `\n\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}` : "");
+      workerEvent(i, task, "working", `Working independently${run ? ` on ${run.branch}` : " in the shared read-only workspace"}.`, run);
+      const target = workerTarget(i);
+      const answer = await ctx.runSubagent(task, run ? { workspaceDir: run.workspaceDir, runId: run.id, role: `Agent ${i + 1}`, ...target } : { role: `Agent ${i + 1}`, ...target });
+      if (run) {
+        run = await finalizeIsolatedAgentRun(run.id, answer);
+        run = await verifyRun(run, i, task, target, 1);
+      }
+      workerEvent(i, task, brokeChecks(run) ? "failed" : "done", brokeChecks(run) ? `Its own ${run.verification.label} failed; the result was kept on ${run.branch} but not merged.` : (run?.changeSummary || String(answer || "Completed.")), run);
+      return { i, task, answer, run, target, attempt: 1, text: `--- Sub-agent ${i + 1} result${run ? ` (${run.id})` : ""} ---\n${String(answer || "(no result)").trim()}` +
+        (run ? `\n\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}${verdictText(run)}` : "") };
     } catch (err) {
-      return `--- Sub-agent ${i + 1} failed ---\n${err?.message || err}`;
+      const firstError = String(err?.message || err);
+      const firstTarget = workerTarget(i);
+      const fallbackTarget = targets.length > 1 ? workerTarget(i + 1) : null;
+      if (run && fallbackTarget && fallbackTarget.provider !== firstTarget.provider && !ctx.signal?.aborted) {
+        try {
+          workerEvent(i, task, "retrying", `Retrying in the saved worktree after ${firstTarget.model || firstTarget.provider} failed: ${firstError}`, run, 2, fallbackTarget);
+          const answer = await ctx.runSubagent(task, { workspaceDir: run.workspaceDir, runId: run.id, role: `Agent ${i + 1}`, attempt: 2, ...fallbackTarget });
+          run = await finalizeIsolatedAgentRun(run.id, answer);
+          run = await verifyRun(run, i, task, fallbackTarget, 2);
+          workerEvent(i, task, brokeChecks(run) ? "failed" : "done", brokeChecks(run) ? `Its own ${run.verification.label} failed; the result was kept on ${run.branch} but not merged.` : (run.changeSummary || String(answer || "Completed.")), run, 2, fallbackTarget);
+          return { i, task, answer, run, target: fallbackTarget, attempt: 2, text: `--- Sub-agent ${i + 1} result (${run.id}) ---\n${String(answer || "(no result)").trim()}\n\nFallback: ${fallbackTarget.model || fallbackTarget.provider} completed attempt 2 after ${firstTarget.model || firstTarget.provider} failed.\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}${verdictText(run)}` };
+        } catch (retryError) {
+          const detail = `${firstError}; fallback failed: ${retryError?.message || retryError}`;
+          workerEvent(i, task, "failed", detail, run, 2, fallbackTarget);
+          return { i, task, answer: "", run, text: `--- Sub-agent ${i + 1} failed ---\n${detail}` };
+        }
+      }
+      workerEvent(i, task, "failed", firstError, run);
+      return { i, task, answer: "", run, text: `--- Sub-agent ${i + 1} failed ---\n${firstError}` };
     }
-  }));
-  return truncate(results.join("\n\n"));
+  });
+  if (args.apply === true) {
+    const blocked = results.filter((item) => brokeChecks(item.run));
+    const applicable = results.filter((item) => item.run?.commit && !brokeChecks(item.run));
+    for (const item of blocked) item.text += `\nIntegration: NOT applied — the result failed its own ${item.run.verification.label}. Its branch ${item.run.branch} is kept for the lead to fix.`;
+    if (applicable.length) {
+      const ok = await ctx.approve(`apply ${applicable.length} completed parallel agent result${applicable.length === 1 ? "" : "s"} to ${ctx.projectDir}`);
+      if (!ok) return truncate(results.map((item) => item.text).join("\n\n") + "\n\nIntegration paused: user declined applying the completed results.");
+      // All-or-nothing: a conflict on the last result must not leave the earlier
+      // ones merged, so applyAgentRuns resets the project to its recorded HEAD.
+      try {
+        const applied = await applyAgentRuns(applicable.map((item) => item.run.id), ctx.projectDir);
+        const byId = new Map(applied.map((run) => [run.id, run]));
+        for (const item of applicable) {
+          const run = byId.get(item.run.id);
+          item.text += `\nIntegration: applied ${run?.commit || item.run.commit} successfully.`;
+          workerEvent(item.i, item.task, "done", "Checked in isolation and integrated into the lead workspace.", run || item.run, item.attempt || 1, item.target || null);
+        }
+      } catch (error) {
+        const detail = String(error?.message || error);
+        for (const item of applicable) {
+          item.text += `\nIntegration: NOT applied. ${detail}`;
+          workerEvent(item.i, item.task, "failed", `Integration rolled back: ${detail}`, item.run, item.attempt || 1, item.target || null);
+        }
+      }
+    }
+  }
+  try { await gcAgentWorktrees(ctx.projectDir || ""); } catch {}
+  return truncate(results.map((item) => item.text).join("\n\n"));
 }
 
 function undoLastEdit() {
@@ -2412,7 +2525,7 @@ export async function executeTool(name, args, ctx) {
   const base = ctx.projectDir || ctx.config?.projectsDir || process.cwd();
   // An explicitly-selected project folder that does not exist is almost always a
   // wrong or model-fabricated path. run_command must refuse it loudly BEFORE the
-  // base directory is auto-created below — otherwise Boolean silently materializes
+  // base directory is auto-created below — otherwise Boollm silently materializes
   // an empty phantom folder, runs the command there, and the tool surfaces a
   // cryptic downstream error (e.g. esbuild "Access is denied" walking up "../../..")
   // instead of the real cause. Checked before mkdir so it also survives retries.
@@ -2420,7 +2533,7 @@ export async function executeTool(name, args, ctx) {
     && !(fs.existsSync(ctx.projectDir) && fs.statSync(ctx.projectDir).isDirectory());
   if (name === "run_command" && projectDirMissing) {
     return `error: the selected project folder does not exist on this PC:\n${ctx.projectDir}\n`
-      + "Boolean did not run the command and did not create this path. Open the correct "
+      + "Boollm did not run the command and did not create this path. Open the correct "
       + "project folder (or fix the path) and try again — do not retry the same command.";
   }
   fs.mkdirSync(base, { recursive: true });
@@ -2433,21 +2546,21 @@ export async function executeTool(name, args, ctx) {
         if (/^gh(?:\.exe)?\s+auth\s+login(?:\s|$)/i.test(normalizedCommand)) {
           const status = await ghStatus(ctx);
           if (status.authenticated) return `GitHub CLI is already authenticated${status.user ? ` as ${status.user}` : ""}. No login is needed.`;
-          return "GitHub login needs an interactive browser or terminal. Open GitHub settings and start the visible sign-in flow; Boolean will not run this command hidden.";
+          return "GitHub login needs an interactive browser or terminal. Open GitHub settings and start the visible sign-in flow; Boollm will not run this command hidden.";
         }
         if (isLikelyLongRunningCommand(normalizedCommand)) {
-          return "This looks like a long-running dev server or watcher. Do not run it with run_command because it keeps the chat in Stop/running mode. Use run_background for this command, then read_process to check status, or run_project for Boolean project previews.";
+          return "This looks like a long-running dev server or watcher. Do not run it with run_command because it keeps the chat in Stop/running mode. Use run_background for this command, then read_process to check status, or run_project for Boollm project previews.";
         }
         if (isLikelyForegroundDesktopCommand(normalizedCommand, base)) {
           return "This launches a desktop GUI in the foreground and would keep the task stuck until the window closes. Use run_project for the open project, or run_background when you need to keep a custom desktop launch alive.";
         }
         if (isUnmanagedProcessTerminationCommand(normalizedCommand)) {
-          return "blocked: Boolean will not terminate an arbitrary system process through run_command because it may stop Boolean itself or another app. Use stop_process with the name of a process started by run_background. If a port is occupied by an unknown process, choose a free preview port instead.";
+          return "blocked: Boollm will not terminate an arbitrary system process through run_command because it may stop Boollm itself or another app. Use stop_process with the name of a process started by run_background. If a port is occupied by an unknown process, choose a free preview port instead.";
         }
         const shell = args.shell === "cmd" ? "cmd" : "powershell";
         // Approval is scoped to this exact command and this one agent run. Some
         // compatibility models can repeat an identical fenced tool call after
-        // Boolean returns its result. Keep the approved result so a duplicate
+        // Boollm returns its result. Keep the approved result so a duplicate
         // call neither asks again nor executes the command twice.
         const approvalKey = `${shell}\n${String(args.command).trim()}`;
         const approvals = ctx.commandApprovalState instanceof Map
@@ -2588,7 +2701,7 @@ export async function executeTool(name, args, ctx) {
       case "visible_browser_click":
         if (!args.text) return "error: missing 'text' argument";
         if (TRADE_CLICK_WORDS.test(String(args.text).trim())) {
-          return "blocked: a possible live-trade control cannot use the ordinary click tool. Use visible_browser_trade so Boolean shows the exact order and requires final confirmation.";
+          return "blocked: a possible live-trade control cannot use the ordinary click tool. Use visible_browser_trade so Boollm shows the exact order and requires final confirmation.";
         }
         return await visibleBrowser("click", args, ctx);
       case "visible_browser_trade":

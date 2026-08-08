@@ -293,6 +293,17 @@ function fileArgument(args = {}) {
   return args.path || args.file || firstChange?.absolutePath || firstChange?.path || firstChange?.file || args.cwd || "";
 }
 
+// Connector routes can begin with a slash but are API identifiers, not local
+// filesystem paths. Only tools whose arguments actually name workspace files
+// participate in the allowed-root guard.
+function toolHasWorkspacePath(name) {
+  return new Set([
+    "read_file", "write_file", "edit_file", "apply_patch", "delete_file",
+    "list_directory", "search_files", "find_files", "run_command",
+    "run_background", "git_commit", "import_model"
+  ]).has(String(name || ""));
+}
+
 function fileArguments(args = {}) {
   const values = [args.path, args.file];
   if (Array.isArray(args.changes)) {
@@ -316,7 +327,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     if (/\b(?:clean|cleanup|trash|spam|old mail|old email)\b/.test(task)) {
       return [
         { step: "Verify the connected mailbox", status: "in_progress" },
-        { step: "Open the mailbox in Boolean browser", status: "pending" },
+        { step: "Open the mailbox in Boollm browser", status: "pending" },
         { step: "Apply protection rules", status: "pending" },
         { step: "Scan and group cleanup candidates", status: "pending" },
         { step: "Review the read-only cleanup plan", status: "pending" },
@@ -326,7 +337,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
     }
     return [
       { step: "Verify the connected mailbox", status: "in_progress" },
-      { step: "Open the relevant email in Boolean browser", status: "pending" },
+      { step: "Open the relevant email in Boollm browser", status: "pending" },
       { step: "Read the requested conversation or messages", status: "pending" },
       { step: "Prepare the requested email result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
@@ -338,7 +349,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
       { step: "Create the implementation plan", status: "pending" },
       { step: "Build the requested experience", status: "pending" },
       { step: "Run the project locally", status: "pending" },
-      { step: "Open the result in Boolean browser", status: "pending" },
+      { step: "Open the result in Boollm browser", status: "pending" },
       { step: "Run checks and inspect the result", status: "pending" },
       { step: "Report the verified outcome", status: "pending" }
     ];
@@ -356,7 +367,7 @@ function defaultPlan(projectBound, debugRequired = false, objective = "") {
   if (/\b(?:browser|web page|page|site|research|search the web|look up)\b/.test(task)) {
     return [
       { step: "Confirm the requested page or research target", status: "in_progress" },
-      { step: "Open the target in Boolean browser", status: "pending" },
+      { step: "Open the target in Boollm browser", status: "pending" },
       { step: "Inspect the relevant content", status: "pending" },
       { step: "Complete the requested browser task", status: "pending" },
       { step: "Report the verified result", status: "pending" }
@@ -531,10 +542,10 @@ export class AgentController {
       ...(Array.isArray(saved.constraints) ? saved.constraints.map((item) => cleanText(item, 260)) : []),
       ...extractConstraints(this.taskContext)
     ])].filter((item) => item && !permissionRestrictionSuperseded(item, permissionAuthority)).slice(-10);
-    this.phase = saved.phase || (this.artifactRequired ? "planning" : "executing");
-    this.plan = (this.artifactRequired || this.actionRequired)
-      ? normalizePlan(saved.plan, this.projectBound, this.debugRequired, this.objective)
-      : [];
+    this.phase = saved.phase === "planning" ? "executing" : (saved.phase || "executing");
+    // Models own their working method. Boollm tracks actual activity and safety
+    // state, but no longer invents or restores a product-authored task checklist.
+    this.plan = [];
     this.toolCount = Number(saved.toolCount) || 0;
     this.preparationCount = Number(saved.preparationCount) || 0;
     this.inspectionCount = Number(saved.inspectionCount) || 0;
@@ -585,10 +596,13 @@ export class AgentController {
     // from the former unlimited default; using only that saved value made the
     // visible Normal (150k) budget a no-op.
     this.tokenBudget = Math.max(0, Number(options.tokenBudget ?? saved.tokenBudget) || 0);
-    this.tokensUsed = Number(saved.tokensUsed) || 0;
+    // A saved checkpoint may be resumed in a new model run. Its budget is
+    // deliberately per-run, so carry the work forward but not the exhausted
+    // token/time counters that caused the checkpoint.
+    this.tokensUsed = options.continuation === true ? 0 : (Number(saved.tokensUsed) || 0);
     this.timeBudgetMs = Math.max(0, Number(options.timeBudgetMs ?? saved.timeBudgetMs) || 0);
-    this.startedAt = Number(saved.startedAt) || Date.now();
-    this.cancelRequested = !!saved.cancelRequested;
+    this.startedAt = options.continuation === true ? Date.now() : (Number(saved.startedAt) || Date.now());
+    this.cancelRequested = options.continuation === true ? false : !!saved.cancelRequested;
     // Active-controller mode (autopilot): re-enables auto-continue, verification
     // nudge, and recovery prompts. Off by default so the neutral relay is unchanged.
     this.autopilot = options.autopilot === true;
@@ -642,7 +656,7 @@ export class AgentController {
       debugRequired: this.debugRequired,
       actionRequired: this.actionRequired,
       projectBound: this.projectBound,
-      showPlan: this.artifactRequired,
+      showPlan: false,
       phase: this.phase,
       plan: this.plan.map((item) => ({ ...item })),
       toolCount: this.toolCount,
@@ -770,7 +784,7 @@ export class AgentController {
     const next = this.plan.find((item) => item.status === "in_progress")?.step ||
       this.plan.find((item) => item.status === "pending")?.step || "Answer or report the completed result.";
     const lines = [
-      "BOOLEAN WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
+      "BOOLLM WORKING MEMORY (persistent; follow this even when older chat is trimmed):",
       `Objective: ${cleanText(this.objective || "Complete the latest request.", 700)}`,
       `Mode: ${this.contract.mode}; access: ${this.contract.accessMode}; file changes: ${this.contract.writeAllowed ? "allowed" : "blocked"}; browser: ${this.contract.browserPolicy}; deploy: ${this.contract.deployAllowed ? "allowed" : "blocked unless explicitly requested"}.`,
       this.contract.allowedRoots.length ? `Allowed workspace roots: ${this.contract.allowedRoots.join(" | ")}` : "",
@@ -816,7 +830,7 @@ export class AgentController {
   prompt() {
     const lines = [
       this.workingMemory(),
-      "BOOLEAN TASK CONTROLLER:",
+      "BOOLLM TASK CONTROLLER:",
       `Phase: ${this.phase}.`
     ];
     if (this.plan.length) {
@@ -882,7 +896,7 @@ export class AgentController {
         return { allowed: false, reason: `Use the project source-of-truth deploy command: ${this.sourceOfTruth.deployCommand}` };
       }
     }
-    const requestedPath = fileArgument(args);
+    const requestedPath = toolHasWorkspacePath(name) ? fileArgument(args) : "";
     if (requestedPath && path.isAbsolute(String(requestedPath)) && this.contract.allowedRoots.length &&
         !this.contract.allowedRoots.some((root) => isWithin(root, requestedPath))) {
       return { allowed: false, reason: `Path is outside the task's allowed workspace: ${cleanText(requestedPath, 260)}` };
@@ -1146,15 +1160,9 @@ export class AgentController {
     if (tokens > 0) this.tokensUsed += tokens;
   }
 
-  /** Returns {budgeted, reason} when a per-run token or time limit is exceeded. */
+  /** User cancellation is the only run-level stop. Token/time use is unlimited. */
   checkBudget() {
     if (this.cancelRequested) return { budgeted: true, reason: "The task was cancelled by the user." };
-    if (this.tokenBudget > 0 && this.tokensUsed >= this.tokenBudget) {
-      return { budgeted: true, reason: `Token budget of ${this.tokenBudget} has been reached for this task.` };
-    }
-    if (this.timeBudgetMs > 0 && (Date.now() - this.startedAt) >= this.timeBudgetMs) {
-      return { budgeted: true, reason: `Time budget of ${Math.round(this.timeBudgetMs / 1000)}s has been reached for this task.` };
-    }
     return { budgeted: false };
   }
 
@@ -1166,7 +1174,7 @@ export class AgentController {
     return this.snapshot();
   }
 
-  // The model decides when a task is finished. Boolean no longer refuses a final
+  // The model decides when a task is finished. Boollm no longer refuses a final
   // answer for missing evidence — the only hard requirement is that an answer exists.
   // A still-running background process is the one soft nudge worth keeping, because
   // leaving one behind makes a finished task look stuck.
@@ -1177,43 +1185,11 @@ export class AgentController {
       syncTaskRunFromController(this.taskRun, this);
       return { complete: false, reason: `The task is paused after a blocked action: ${cleanText(this.lastFailure, 300)}` };
     }
-    if (this.openProcesses.length) {
-      const visualVerified = this.taskRun.visual?.state === "verified";
-      const blockingProcesses = this.openProcesses.filter((name) => {
-        const command = this.openProcessCommands[name] || "";
-        const looksLikePreview = /(?:preview|server|serve|dev|watch)/i.test(`${name} ${command}`);
-        return !(visualVerified && looksLikePreview);
-      });
-      if (blockingProcesses.length) {
-        return { complete: false, reason: `Temporary process still running: ${blockingProcesses.join(", ")}. Stop it with stop_process before finishing so the task does not look stuck.` };
-      }
-    }
-    if (this.projectBound && this.artifactRequired && this.mutationCount === 0) {
-      this.phase = "executing";
-      this.updatedAt = Date.now();
-      return {
-        complete: false,
-        reason: "This project task has not changed any project file. Use the available project tools to implement the requested work instead of only describing a timeline or tutorial."
-      };
-    }
+    // Tool/process activity remains visible in the task timeline, but it is
+    // evidence for the model rather than a Boollm-authored completion gate.
     // Verification nudge (autopilot only): a build/fix task that changed files but
     // ran no build/test/check should confirm before finishing — once, so it can
     // never loop. Neutral relay keeps its current "accept the answer" behavior.
-    if (this.projectBound && this.artifactRequired && this.mutationCount > 0
-        && this.lastVerification < this.lastMutation && !this.postFixEvidence) {
-      this.verificationNudged = true;
-      this.phase = "verifying";
-      this.updatedAt = Date.now();
-      return { complete: false, reason: "Files changed, but no successful build/test/check has verified the current edits. Run the project's relevant check after the last change. If verification is unavailable or fails, report the exact blocker instead of claiming completion." };
-    }
-    if (this.autopilot && !this.visualVerificationNudged && this.taskRun.visual?.enabled
-        && this.taskRun.visual.previewUrl && this.taskRun.visual.state !== "verified") {
-      this.visualVerificationNudged = true;
-      this.phase = "verifying";
-      this.updatedAt = Date.now();
-      updateTaskRunVisual(this.taskRun, { state: "inspecting" });
-      return { complete: false, reason: "The local preview is open but the latest screen has not been visually checked. Capture or inspect the rendered page once, fix any visible issue, and then finish with the verified outcome." };
-    }
     this.phase = "completed";
     for (const item of this.plan) item.status = "done";
     this.updatedAt = Date.now();

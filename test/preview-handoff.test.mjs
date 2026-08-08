@@ -6,7 +6,7 @@ import {
   firstReachableLocalPreview,
   localPreviewUrls,
   requestsLocalPreview,
-  withBooleanPreviewHandoff
+  withBoollmPreviewHandoff
 } from "../src/server.js";
 
 test("preview intent is limited to explicit run/open/browser requests", () => {
@@ -22,16 +22,16 @@ test("local preview URLs are normalized and public URLs are ignored", () => {
   ), ["http://127.0.0.1:4173/app", "http://localhost:3000/"]);
 });
 
-test("Boolean preview handoff preserves text and image user messages", () => {
+test("Boollm preview handoff preserves text and image user messages", () => {
   const source = [{ role: "user", content: [{ type: "text", text: "Run it" }, { type: "image_url", image_url: { url: "data:image/png;base64,x" } }] }];
-  const augmented = withBooleanPreviewHandoff(source);
+  const augmented = withBoollmPreviewHandoff(source);
   assert.equal(source[0].content.length, 2);
   assert.equal(augmented[0].content.length, 3);
-  assert.match(augmented[0].content.at(-1).text, /Boolean owns the built-in browser/);
+  assert.match(augmented[0].content.at(-1).text, /Boollm owns the built-in browser/);
   assert.match(augmented[0].content.at(-1).text, /do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls/);
 });
 
-test("Boolean verifies a localhost preview before handing it to the browser", async (t) => {
+test("Boollm verifies a localhost preview before handing it to the browser", async (t) => {
   const server = http.createServer((_request, response) => {
     response.writeHead(200, { "content-type": "text/html" });
     response.end("<title>Preview</title>");
@@ -40,4 +40,28 @@ test("Boolean verifies a localhost preview before handing it to the browser", as
   t.after(() => server.close());
   const url = `http://127.0.0.1:${server.address().port}/`;
   assert.equal(await firstReachableLocalPreview(["not a URL", url]), url);
+});
+
+test("Boollm rejects local error pages and non-HTML endpoints", async (t) => {
+  const server = http.createServer((request, response) => {
+    if (request.url === "/missing") {
+      response.writeHead(404, { "content-type": "text/html" });
+      response.end("<title>Not found</title>");
+      return;
+    }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end("{}");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  assert.equal(await firstReachableLocalPreview([`${base}/missing`, `${base}/api`]), "");
+});
+
+test("preview handoff requires the real launcher, working directory, and page verification", () => {
+  const [{ content }] = withBoollmPreviewHandoff([{ role: "user", content: "Open the marketing site" }]);
+  assert.match(content, /directory that actually contains its existing launcher/);
+  assert.match(content, /reuse that launcher before inventing another server/);
+  assert.match(content, /HTTP 2xx\/3xx HTML/);
+  assert.match(content, /correct the directory, command, port, or project/);
 });

@@ -185,7 +185,10 @@ test("CFTC rows become a compact weekly positioning snapshot", () => {
 
 test("Markets workspace connects data, browser, notes, and API-key setup", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
-  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  // Route text now lives in src/routes/*.js; read both so these assertions
+  // follow the code rather than the file it used to sit in.
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8")
+    + fs.readFileSync(new URL("../src/routes/markets.js", import.meta.url), "utf8");
   const navStart=ui.indexOf('<div class="workspace-tabs" id="workspaceTabs">');
   const navEnd=ui.indexOf("</div>",navStart);
   const mainNav=ui.slice(navStart,navEnd);
@@ -193,7 +196,7 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   assert.match(ui, /id="exploreToggle"[^>]*aria-label="Toggle Explore"/);
   assert.doesNotMatch(mainNav, /data-ws="markets"|id="marketsWorkspaceTab"/);
   assert.match(ui, /function marketsAccessAllowed\(\)/);
-  assert.match(ui, /\["education","markets"\]\.includes\(ws\)&&!marketsAccessAllowed\(\)/);
+  assert.match(ui, /EXPLORE_WORKSPACES\.includes\(ws\)&&!adminFeatureAccessAllowed\(\)/);
   assert.match(ui, /Save snapshot to Notepad/);
   assert.match(ui, /Major market indexes|Major market indexes/i);
   assert.match(ui, /id="marketSectors"[^>]*Sector year-to-date and month-to-date performance/);
@@ -251,7 +254,8 @@ test("Markets workspace connects data, browser, notes, and API-key setup", () =>
   assert.match(server, /\/api\/markets\/trade-ideas/);
   assert.match(server, /\/api\/markets\/cot/);
   assert.match(server, /p\.startsWith\("\/api\/markets\/"\) && !marketAccessAllowed\(config\)/);
-  assert.match(server, /Sign in to your Boolean account to use Markets\./);
+  assert.match(server, /Markets is available only to signed-in Boollm administrators\./);
+  assert.match(server, /return !!cloud\.sessionToken && \(user\.role === "admin" \|\| user\.is_admin === true\)/);
 });
 
 test("Markets uses the selected flat floating-workspace layout", () => {
@@ -264,7 +268,7 @@ test("Markets uses the selected flat floating-workspace layout", () => {
   const headerEnd=ui.indexOf("</header>",headerStart);
   const header=ui.slice(headerStart,headerEnd);
   assert.ok(headerStart>=0&&headerEnd>headerStart,"Markets should retain its flat page header");
-  assert.doesNotMatch(header,/<h2>|Boolean Markets/);
+  assert.doesNotMatch(header,/<h2>|Boollm Markets/);
   assert.doesNotMatch(header,/id="marketCommand"/);
   assert.doesNotMatch(header,/id="marketSource"|market-source-wrap|market-source-info/);
   assert.match(ui,/\.workspace-float \.market-flat \.market-index\{[^}]*height:26px;[^}]*min-height:26px;[^}]*padding:1px 10px;/s);
@@ -335,7 +339,10 @@ test("Markets retains the monitor, intelligence, and Research Desk feature set",
 
 test("Strategy Lab runs five local presets with benchmark metrics and saved reruns", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
-  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  // Route text now lives in src/routes/*.js; read both so these assertions
+  // follow the code rather than the file it used to sit in.
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8")
+    + fs.readFileSync(new URL("../src/routes/markets.js", import.meta.url), "utf8");
   assert.match(ui,/data-market-mode="strategy">Strategy Lab/);
   for(const id of ["marketStrategyPage","strategySymbol","strategyPreset","strategyRange","strategyCapital","strategyCost","strategyRun","strategyMetrics","strategyChart","strategySave","strategySavedList"]){
     assert.match(ui,new RegExp(`id="${id}"`));
@@ -369,12 +376,12 @@ test("Markets keeps the bottom ticker after both page bodies and in the final gr
 test("Markets shows a transparent local composite instead of an options card", () => {
   const ui = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
   assert.match(ui, /\.workspace-float \.market-flat \.market-chart-sentiment\{[^}]*grid-template-columns:1fr;/);
-  assert.match(ui, /Boolean Sentiment/);
+  assert.match(ui, /Boollm Sentiment/);
   assert.match(ui, /Sentiment &amp; Sources/);
   assert.match(ui, /function marketCompositeSentiment\(\)/);
   assert.match(ui, /Price action/);
   assert.match(ui, /Price \+ volume/);
-  assert.match(ui, /Boolean news tone/);
+  assert.match(ui, /Boollm news tone/);
   assert.match(ui, /Filing fundamentals/);
   assert.match(ui, /Missing inputs are excluded and remaining weights are normalized/);
   assert.match(ui, /No social or crowd data/);

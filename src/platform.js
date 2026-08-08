@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { SAZ_DIR } from "./config.js";
 
-const PLATFORM_HOME = process.env.BOOLEAN_PLATFORM_HOME ? path.resolve(process.env.BOOLEAN_PLATFORM_HOME) : SAZ_DIR;
+const PLATFORM_HOME = process.env.BOOLLM_PLATFORM_HOME ? path.resolve(process.env.BOOLLM_PLATFORM_HOME) : SAZ_DIR;
 const SKILLS_DIR = path.join(PLATFORM_HOME, "skills");
 const AUTOMATIONS_FILE = path.join(PLATFORM_HOME, "automations.json");
 const AUTOMATION_LOG = path.join(PLATFORM_HOME, "automation-runs.json");
@@ -25,7 +25,7 @@ export const PLATFORM_TOOL_DEFINITIONS = [
     scope: enumProp(["changes", "repository"]),
     profile: enumProp(["standard", "security"])
   }),
-  tool("manage_skill", "List, inspect, install, or remove reusable Boolean skills. Skill installs are local folders containing skill.json and require approval.", {
+  tool("manage_skill", "List, inspect, install, or remove reusable Boollm skills. Skill installs are local folders containing skill.json and require approval.", {
     operation: enumProp(["list", "inspect", "install", "remove", "use", "run_hook"]),
     id: strProp("Skill id"),
     source: strProp("Absolute local skill folder to install"),
@@ -49,7 +49,7 @@ export const PLATFORM_TOOL_DEFINITIONS = [
     body: strProp("Optional webhook body"),
     cwd: strProp("Optional command working directory")
   }, ["operation"]),
-  tool("create_artifact", "Create a real DOCX, XLSX, PPTX, or PDF file locally using Boolean's dependency-free artifact writer.", {
+  tool("create_artifact", "Create a real DOCX, XLSX, PPTX, or PDF file locally using Boollm's dependency-free artifact writer.", {
     type: enumProp(["docx", "xlsx", "pptx", "pdf"]),
     path: strProp("Output file path"),
     title: strProp("Artifact title"),
@@ -612,7 +612,7 @@ async function runGuarded(args, ctx) {
   fs.mkdirSync(workspace, { recursive: true });
   const source = path.resolve(String(args.source || ctx.projectDir || ""));
   if (source && fs.existsSync(source) && fs.statSync(source).isDirectory()) copyGuardedSource(source, workspace);
-  const env = { SystemRoot: process.env.SystemRoot || "C:\\Windows", WINDIR: process.env.WINDIR || "C:\\Windows", TEMP: path.join(workspace, ".tmp"), TMP: path.join(workspace, ".tmp"), USERPROFILE: workspace, BOOLEAN_GUARDED: "1", PATH: process.env.PATH || "" };
+  const env = { SystemRoot: process.env.SystemRoot || "C:\\Windows", WINDIR: process.env.WINDIR || "C:\\Windows", TEMP: path.join(workspace, ".tmp"), TMP: path.join(workspace, ".tmp"), USERPROFILE: workspace, BOOLLM_GUARDED: "1", PATH: process.env.PATH || "" };
   fs.mkdirSync(env.TEMP, { recursive: true });
   const timeoutMs = Math.max(1, Math.min(600, Number(args.timeoutSeconds || 120))) * 1000;
   const result = await runProcess("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", command], { cwd: workspace, timeoutMs, env });

@@ -240,7 +240,7 @@ test("resolves an npm-installed codex.cmd shim to its JavaScript entry without a
     const launch = resolveCodexLaunch(shim, ["app-server", "--stdio"], {
       platform: "win32",
       env: { PATH: `${npmDir};${nodeDir}`, PATHEXT: ".EXE;.CMD" },
-      execPath: path.join(root, "Boolean-core.exe")
+      execPath: path.join(root, "Boollm-core.exe")
     });
     assert.equal(launch.kind, "npm-shim");
     assert.equal(path.resolve(launch.command), path.resolve(node));
@@ -310,7 +310,7 @@ test("prefers the runnable npm CLI when the Microsoft Store desktop binary is fi
     const launch = resolveCodexLaunch("codex", ["app-server"], {
       platform: "win32",
       env: { PATH: `${storeDir};${npmDir};${nodeDir}`, PATHEXT: ".EXE;.CMD" },
-      execPath: path.join(root, "Boolean-core.exe")
+      execPath: path.join(root, "Boollm-core.exe")
     });
     assert.equal(launch.kind, "npm-shim");
     assert.equal(path.resolve(launch.command), path.resolve(node));
@@ -332,7 +332,7 @@ test("recovers an invalid saved Microsoft Store command with the standalone CLI"
     const launch = resolveCodexLaunch(storeBinary, ["app-server", "--stdio"], {
       platform: "win32",
       env: { LOCALAPPDATA: root, PATH: path.dirname(storeBinary), PATHEXT: ".EXE;.CMD" },
-      execPath: path.join(root, "Boolean-core.exe")
+      execPath: path.join(root, "Boollm-core.exe")
     });
     assert.equal(path.resolve(launch.command), path.resolve(standalone));
     assert.equal(launch.kind, "standalone");
@@ -352,7 +352,7 @@ test("finds the documented standalone CLI when a plain codex command is not on P
     const launch = resolveCodexLaunch("codex", ["app-server", "--stdio"], {
       platform: "win32",
       env: { LOCALAPPDATA: root, PATH: "", PATHEXT: ".EXE;.CMD" },
-      execPath: path.join(root, "Boolean-core.exe")
+      execPath: path.join(root, "Boollm-core.exe")
     });
     assert.equal(path.resolve(launch.command), path.resolve(standalone));
     assert.equal(launch.kind, "standalone");
@@ -374,7 +374,7 @@ test("recovers an invalid saved Microsoft Store command with a runnable CLI on P
     const launch = resolveCodexLaunch(storeBinary, ["app-server"], {
       platform: "win32",
       env: { LOCALAPPDATA: path.join(root, "missing-local"), PATH: `${path.dirname(storeBinary)};${path.dirname(cli)}`, PATHEXT: ".EXE;.CMD" },
-      execPath: path.join(root, "Boolean-core.exe")
+      execPath: path.join(root, "Boollm-core.exe")
     });
     assert.equal(path.resolve(launch.command), path.resolve(cli));
     assert.equal(launch.kind, "direct");
@@ -390,7 +390,7 @@ test("never returns an invalid Microsoft Store command as a direct executable", 
   const launch = resolveCodexLaunch(storeBinary, ["app-server"], {
     platform: "win32",
     env: { LOCALAPPDATA: localAppData, PATH: "", PATHEXT: ".EXE;.CMD" },
-    execPath: "C:\\Boolean\\Boolean-core.exe",
+    execPath: "C:\\Boollm\\Boollm-core.exe",
     existsSync: () => false
   });
   assert.equal(launch.kind, "standalone-missing");
@@ -405,7 +405,7 @@ test("runs the fixed official standalone installer with bounded output", async (
   const sandboxHelper = path.join(path.dirname(path.dirname(installed)), "codex-resources", "codex-windows-sandbox-setup.exe");
   const result = await installCodexStandaloneCli({
     platform: "win32",
-    env: { LOCALAPPDATA: localAppData, PATH: "", SystemRoot: "C:\\Windows", OS: "Windows_NT", BOOLEAN_SECRET: "do-not-inherit" },
+    env: { LOCALAPPDATA: localAppData, PATH: "", SystemRoot: "C:\\Windows", OS: "Windows_NT", BOOLLM_SECRET: "do-not-inherit" },
     maxOutputBytes: 1000,
     existsSync: (candidate) => candidate === installed || candidate === sandboxHelper,
     spawn(command, args, options) {
@@ -432,7 +432,7 @@ test("runs the fixed official standalone installer with bounded output", async (
   assert.equal(calls[0].options.env.CODEX_NON_INTERACTIVE, "1");
   assert.equal(calls[0].options.env.CODEX_INSTALL_DIR, path.dirname(installed));
   assert.equal(calls[0].options.env.OS, "Windows_NT");
-  assert.equal(calls[0].options.env.BOOLEAN_SECRET, undefined);
+  assert.equal(calls[0].options.env.BOOLLM_SECRET, undefined);
   assert.equal(calls[1].command, installed);
   assert.deepEqual(calls[1].args, ["--version"]);
   assert.equal(result.ok, true);

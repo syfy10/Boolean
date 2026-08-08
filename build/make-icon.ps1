@@ -1,4 +1,4 @@
-# Generates the Boolean app icon while keeping the existing asset filenames
+# Generates the Boollm app icon while keeping the existing asset filenames
 # used by the build pipeline: assets\saz.ico, assets\saz-256.png, assets\saz-32.png.
 # Mark: a bold terminal tile designed to stay legible at Windows' 16px taskbar size.
 # The >_ shape uses simple geometry rather than text so antialiasing cannot make
@@ -121,12 +121,12 @@ foreach ($sz in $sizes) {
 }
 
 $storeSizes = @{
-  "Boolean-AppIcon1024.png" = @(1024, 1024)
-  "Boolean-Square310x310Logo.png" = @(310, 310)
-  "Boolean-Square150x150Logo.png" = @(150, 150)
-  "Boolean-Square71x71Logo.png" = @(71, 71)
-  "Boolean-Square44x44Logo.png" = @(44, 44)
-  "Boolean-StoreLogo50x50.png" = @(50, 50)
+  "Boollm-AppIcon1024.png" = @(1024, 1024)
+  "Boollm-Square310x310Logo.png" = @(310, 310)
+  "Boollm-Square150x150Logo.png" = @(150, 150)
+  "Boollm-Square71x71Logo.png" = @(71, 71)
+  "Boollm-Square44x44Logo.png" = @(44, 44)
+  "Boollm-StoreLogo50x50.png" = @(50, 50)
 }
 foreach ($name in $storeSizes.Keys) {
   $dims = $storeSizes[$name]
@@ -135,7 +135,7 @@ foreach ($name in $storeSizes.Keys) {
   $bmp.Dispose()
 }
 $wide = Render-Wide 310 150
-$wide.Save("$store\Boolean-Wide310x150Logo.png", [System.Drawing.Imaging.ImageFormat]::Png)
+$wide.Save("$store\Boollm-Wide310x150Logo.png", [System.Drawing.Imaging.ImageFormat]::Png)
 $wide.Dispose()
 
 $fs = [System.IO.File]::Create("$assets\saz.ico")

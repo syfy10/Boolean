@@ -15,7 +15,7 @@ test("managed email OAuth clients load paired credentials with environment overr
   try {
     const clients = loadManagedEmailOAuthClients({
       filePaths: [file],
-      env: { BOOLEAN_GOOGLE_OAUTH_CLIENT_ID: "env-google", BOOLEAN_GOOGLE_OAUTH_CLIENT_SECRET: "env-google-secret" }
+      env: { BOOLLM_GOOGLE_OAUTH_CLIENT_ID: "env-google", BOOLLM_GOOGLE_OAUTH_CLIENT_SECRET: "env-google-secret" }
     });
     assert.deepEqual(clients, {
       gmail: { clientId: "env-google", clientSecret: "env-google-secret" },

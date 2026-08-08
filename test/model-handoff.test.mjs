@@ -7,6 +7,17 @@ import path from "node:path";
 import { parseAutoVerificationVerdict, runTurn, systemPrompt } from "../src/agent.js";
 import { resetAutoModelHealth } from "../src/model-router.js";
 
+test("controller safety stops enter the model handoff path", () => {
+  const source = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
+  const start = source.indexOf("const handleControllerStop = async");
+  const end = source.indexOf("agentLoop: for", start);
+  const handler = source.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(handler, /handoffCandidates\(config, autoModelRoute\.route\)/);
+  assert.match(handler, /Handed off after .* hit a safety stop/);
+  assert.equal((source.match(/await handleControllerStop\(result\)/g) || []).length, 2);
+});
+
 async function mockServer(handler) {
   const requests = [];
   let calls = 0;
@@ -32,7 +43,7 @@ test("Auto verification accepts only an explicit structured verdict", () => {
   assert.equal(parseAutoVerificationVerdict('{"verified":false,"reason":"No test evidence."}').verified, false);
 });
 
-test("autopilot hands an unfinished task to another connected model when the first gives up", async (t) => {
+test("autopilot does not override one model's completion with a forced handoff", async (t) => {
   resetAutoModelHealth();
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-handoff-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
@@ -65,15 +76,10 @@ test("autopilot hands an unfinished task to another connected model when the fir
     { role: "user", content: "Update app.js so the exported value is 2." }
   ]);
 
-  assert.ok(primary.requests.length >= 2, "the primary model is nudged before it is given up on");
-  assert.ok(secondary.requests.length >= 1, "the unfinished task is handed to the second connected model");
-  assert.ok(
-    routes.some((d) => d.model === "deepseek-chat" && /stopped without finishing/i.test(d.reason || "")),
-    "the handoff is reported as a model route to the takeover model"
-  );
-  const handoffMsg = secondary.requests[0].messages.at(-1).content;
-  assert.match(String(handoffMsg), /taking over the SAME task/i, "the takeover model is told to continue, not restart");
-  assert.equal(typeof answer, "string");
+  assert.equal(primary.requests.length, 1);
+  assert.equal(secondary.requests.length, 0);
+  assert.equal(routes.some((d) => d.model === "deepseek-chat"), false);
+  assert.equal(answer, "I've updated app.js as requested.");
 });
 
 test("handoff does not fire when autoHandoff is disabled", async (t) => {
@@ -107,10 +113,10 @@ test("handoff does not fire when autoHandoff is disabled", async (t) => {
   ]);
 
   assert.equal(secondary.requests.length, 0, "no handoff happens when the setting is off");
-  assert.match(answer, /^\(paused:/, "it pauses instead");
+  assert.equal(answer, "I've updated app.js as requested.");
 });
 
-test("a Boolean budget checkpoint is reported as failed so Auto can escalate", async (t) => {
+test("legacy saved token usage never hard-stops a Boollm run", async (t) => {
   resetAutoModelHealth();
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-budget-handoff-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
@@ -133,7 +139,7 @@ test("a Boolean budget checkpoint is reported as failed so Auto can escalate", a
     { role: "system", content: systemPrompt(projectDir, true, cfg) },
     { role: "user", content: "Finish updating app.js." }
   ]);
-  assert.equal(primary.requests.length, 0);
-  assert.match(answer, /^\(stopped:/);
-  assert.equal(orchestration?.thread?.turns?.at(-1)?.status, "failed");
+  assert.equal(primary.requests.length, 1);
+  assert.equal(answer, "This should not be called.");
+  assert.notEqual(orchestration?.thread?.turns?.at(-1)?.status, "failed");
 });

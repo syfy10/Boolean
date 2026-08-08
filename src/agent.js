@@ -7,7 +7,7 @@ import { CLOUD, currentAccessMode } from "./config.js";
 import {
   modelCapabilityProfile,
   nativeToolSupport,
-  parseBooleanPatch,
+  parseBoollmPatch,
   recordNativeToolSupport
 } from "./model-capabilities.js";
 import { summarizeLearnedPreferences } from "./preferences.js";
@@ -72,7 +72,7 @@ async function verifyAutoCompletion(config, route, workerTarget, objective, answ
     const review = await chatCompletion(reviewerTarget, [
       {
         role: "system",
-        content: "You are Boolean's independent completion verifier. Review the claimed result against the concrete controller evidence. Do not propose edits and do not trust the worker's claim by itself. Return only compact JSON: {\"verified\":true|false,\"reason\":\"specific evidence-based reason\"}. Mark verified false if work, testing, or requested deliverables are missing, failed, merely described, or cannot be established from the evidence."
+        content: "You are Boollm's independent completion verifier. Review the claimed result against the concrete controller evidence. Do not propose edits and do not trust the worker's claim by itself. Return only compact JSON: {\"verified\":true|false,\"reason\":\"specific evidence-based reason\"}. Mark verified false if work, testing, or requested deliverables are missing, failed, merely described, or cannot be established from the evidence."
       },
       {
         role: "user",
@@ -95,6 +95,43 @@ async function verifyAutoCompletion(config, route, workerTarget, objective, answ
       reason: `Accepted without independent verification — the reviewer could not complete: ${String(error?.message || error).slice(0, 200)}`,
       reviewer: reviewerTarget
     };
+  }
+}
+
+const ARTIFACT_INTENT_TIMEOUT_MS = 12000;
+
+// Keyword lists cannot separate "1 thing we can change" from "change this thing",
+// so the narrow overlap where the build words fire but the sentence reads as a
+// question gets one cheap model call instead of another regex. Every failure path
+// keeps the safe answer (advice): wrongly starting work is the expensive mistake,
+// and a wrongly conversational turn costs only a follow-up message.
+async function resolveArtifactIntent(config, text, signal) {
+  const request = String(text || "").trim();
+  if (!request) return { action: false, reason: "empty request" };
+  const candidate = handoffCandidates(config, "fast")[0];
+  if (!candidate) return { action: false, reason: "no connected model was available to classify intent" };
+  const aborter = new AbortController();
+  const abort = () => aborter.abort();
+  signal?.addEventListener?.("abort", abort);
+  const timer = setTimeout(abort, ARTIFACT_INTENT_TIMEOUT_MS);
+  try {
+    const resolved = await resolveProviderTarget(config, candidate.provider);
+    const target = candidate.model ? { ...resolved, model: candidate.model } : resolved;
+    const reply = await chatCompletion(target, [
+      {
+        role: "system",
+        content: "Classify one message sent to a coding assistant. Answer with only compact JSON: {\"intent\":\"action\"} when the user is telling the assistant to change, build, fix, or run something now. {\"intent\":\"advice\"} when the user is asking a question, or asking for ideas, opinions, options, or an explanation. A question that merely mentions a possible change is advice, not action."
+      },
+      { role: "user", content: request.slice(0, 1200) }
+    ], undefined, aborter.signal);
+    const intent = String(reply?.content || "").match(/"intent"\s*:\s*"(action|advice)"/i)?.[1]?.toLowerCase();
+    if (!intent) return { action: false, reason: "the intent check returned no verdict; treated as a question", target };
+    return { action: intent === "action", reason: `intent check: ${intent}`, target };
+  } catch (error) {
+    return { action: false, reason: `intent check unavailable (${String(error?.message || error).slice(0, 120)}); treated as a question` };
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener?.("abort", abort);
   }
 }
 
@@ -154,23 +191,10 @@ async function chatCompletionWithFallback(config, primaryTarget, messages, tools
   }
 }
 
-// Map the UI budget preset ("small"|"normal"|"large") to per-run token and
-// time caps. 0 means unlimited — the coding-agent loop continues until done.
-const BUDGET_PRESETS = {
-  small:  { tokens: 50_000,  timeMs: 120_000 },
-  normal: { tokens: 150_000, timeMs: 600_000 },
-  // Long runs still need a hard ceiling. Checkpoint and continue instead of
-  // allowing a stuck paid-cloud loop to spend indefinitely.
-  large:  { tokens: 400_000, timeMs: 1_800_000 }
-};
-function perRunTokenBudget(config) {
-  const preset = config?.ui?.codingAgent?.budget || "normal";
-  return BUDGET_PRESETS[preset]?.tokens ?? 0;
-}
-function perRunTimeBudgetMs(config) {
-  const preset = config?.ui?.codingAgent?.budget || "normal";
-  return BUDGET_PRESETS[preset]?.timeMs ?? 0;
-}
+// Project work has no cumulative token or wall-clock ceiling. Context still
+// compacts to each model's window while the task continues toward completion.
+function perRunTokenBudget() { return 0; }
+function perRunTimeBudgetMs() { return 0; }
 
 function connectorSummary(config) {
   const c = config?.connectors || {};
@@ -185,24 +209,52 @@ function connectorSummary(config) {
   return parts.join(" | ");
 }
 
-function planningModePolicy(config = null) {
-  const saved = String(config?.ui?.codingAgent?.planningMode || "auto").toLowerCase();
-  const mode = ["auto", "quick", "plan-first"].includes(saved) ? saved : "auto";
-  const shared = "Inspect relevant project files and existing conventions before asking discoverable questions. Ask only questions whose wrong answer would cause discarded work. A plan is working state, not a reason to delay an answer or a safe implementation.";
-  if (mode === "quick") return `PLANNING MODE: QUICK\n${shared} For small, clear, low-risk changes, implement and verify immediately without stopping for a plan approval.`;
-  if (mode === "plan-first") return `PLANNING MODE: PLAN FIRST\n${shared} Before the first write or external action, present a compact Goal, Blocking questions (0-3, each with a recommended default), Assumptions, and Plan with files and verification. Then stop and wait for one user approval. After approval, execute that plan without requesting the same approval again. If implementation disproves a material assumption, stop and explain the changed evidence before changing direction.`;
-  return `PLANNING MODE: AUTO\n${shared} Work directly on clear requests. For complex work, keep a concise internal checklist and communicate progress, but pause only for a genuinely blocking choice, missing authority, or a risky external action that requires approval.`;
+// Facts about the running system, not instructions about how to behave. Two
+// policy rules were unfollowable without this: "inspect repository instructions
+// before editing" (the model was never told the working folder or that a rules
+// file convention exists) and the read-only/authority rule (the model was never
+// told which access mode was active). Deliberately excludes anything resembling
+// a persona.
+const PROJECT_RULES_FILES = "BOOLLM.md or .boollm/rules.md";
+const ACCESS_MODE_NOTES = {
+  read_only: "read_only - inspection only. File writes, commands, and external actions are refused.",
+  ask: "ask - each write, command, or external action is presented to the user for approval.",
+  read_write: "read_write - project file edits proceed; commands and external actions still need approval.",
+  full_access: "full_access - no approval prompt will appear, so nothing external stops a mistaken action. This removes the confirmation step; it does not authorize anything on its own. Deploys, pushes, commits, purchases, destructive operations, and sent messages still require that the user actually asked for them."
+};
+
+function environmentBlock(projectsDir, fullAccess, connectors, config) {
+  const accessMode = currentAccessMode(config || { autoApprove: fullAccess === true });
+  const shell = process.platform === "win32" ? "PowerShell" : "sh";
+  const lines = [
+    "",
+    "",
+    "ENVIRONMENT",
+    `Date: ${new Date().toISOString().slice(0, 10)}`,
+    `Platform: ${process.platform} (${os.release()}); shell for run_command: ${shell}`,
+    `Access mode: ${ACCESS_MODE_NOTES[accessMode] || accessMode}`
+  ];
+  if (projectsDir) {
+    lines.push(`Working folder: ${projectsDir}`);
+    lines.push(`Project instructions, when present, live in ${PROJECT_RULES_FILES} at the folder root.`);
+  }
+  if (connectors) lines.push(connectors);
+  return lines.join("\n");
 }
 
 function cleanSystemPrompt(projectsDir, fullAccess, connectors, learned, config = null) {
-  return `${booleanAgentPolicy()}\n\n${planningModePolicy(config)}`;
+  const teamwork = String(config?.ui?.codingAgent?.teamwork?.mode || "solo");
+  const teamContract = teamwork === "team" && projectsDir
+    ? "\n\nTEAM MODE\nYou are the lead. When the coding request has two or more genuinely independent parts, choose 2-3 non-overlapping assignments and call run_subagent once with tasks, isolation=worktree, and apply=true so they execute concurrently and integrate in assignment order. Give each assignment exact ownership, expected output, and checks. Keep coupled or overlapping work with the lead. After integration, inspect the combined diff, resolve any reported conflict yourself, and run final project-wide verification."
+    : "";
+  return booleanAgentPolicy() + environmentBlock(projectsDir, fullAccess, connectors, config) + teamContract;
 }
 
 export function systemPrompt(projectsDir = "", fullAccess = false, config = null) {
   return cleanSystemPrompt(projectsDir, fullAccess, connectorSummary(config), "", config);
 }
 
-// Prefer Boolean project rules, while retaining the two legacy Boollm paths
+// Prefer Boollm project rules, while retaining the two legacy Boolean paths
 // so existing projects continue to work after the product rename.
 // These files teach the project's coding style, commands, architecture, and constraints
 // so it doesn't need to re-discover them every turn. Capped to 4 KB.
@@ -211,10 +263,10 @@ export function loadProjectRules(projectDir) {
   try {
     if (!projectDir || !fs.existsSync(projectDir)) return "";
     const candidates = [
-      path.join(projectDir, "BOOLEAN.md"),
-      path.join(projectDir, ".boolean", "rules.md"),
       path.join(projectDir, "BOOLLM.md"),
-      path.join(projectDir, ".boollm", "rules.md")
+      path.join(projectDir, ".boollm", "rules.md"),
+      path.join(projectDir, "BOOLEAN.md"),
+      path.join(projectDir, ".boolean", "rules.md")
     ];
     for (const candidate of candidates) {
       if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
@@ -224,7 +276,7 @@ export function loadProjectRules(projectDir) {
         text = text.replace(/^#\s+.+\r?\n?/, "").trim();
         if (text.length > MAX_RULES_BYTES) text = text.slice(0, MAX_RULES_BYTES) + "\n…(rules truncated)";
         const relative = path.relative(projectDir, candidate).replaceAll("\\", "/");
-        const label = relative === "BOOLLM.md" || relative === ".boollm/rules.md"
+        const label = relative === "BOOLEAN.md" || relative === ".boolean/rules.md"
           ? `${relative} (legacy)`
           : relative;
         return `PROJECT RULES (from ${label}):\n${text}`;
@@ -268,9 +320,8 @@ export function projectBrief(projectDir) {
       "",
       "",
       `PROJECT: This chat is bound to the folder ${projectDir}.`,
-      "Work on the files in THIS folder. For multi-file tasks, use repository_map to rank the relevant files,",
-      "then inspect exact symbols or line ranges, prefer edit_file for targeted changes, and verify with run_command before claiming success.",
-      "LIVE PROJECT PREVIEW: For every browser-previewable website or web app build/change task, call run_project as soon as the existing project can start, before lengthy implementation. Keep that localhost preview running while you edit, and call run_project again after meaningful changes so Boolean refreshes the built-in browser. Never use a file:// URL or open an unrelated localhost service. Desktop/native projects open their real app window instead."
+      "Work only on files in THIS folder. Choose the tools, order of work, level of inspection, and verification that fit the request.",
+      "Use the project rules below when present. Boollm does not require a particular planning, preview, editing, or testing sequence."
     ];
     const rules = loadProjectRules(projectDir);
     if (rules) header.push(rules);
@@ -311,10 +362,6 @@ const INSPECT_TOOL_NAMES = new Set([
   "windows_system_info", "remember"
 ]);
 const INSPECT_TOOL_DEFINITIONS = TOOL_DEFINITIONS.filter((tool) => INSPECT_TOOL_NAMES.has(tool.function.name));
-const COMPATIBILITY_INSPECT_TOOL_NAMES = new Set([
-  "list_dir", "read_file", "find_files", "search_files", "repository_map", "find_symbol",
-  "git_status", "git_diff", "remember"
-]);
 const ACTION_TOOL_NAMES = new Set(TOOL_DEFINITIONS
   .map((tool) => String(tool.function?.name || "").toLowerCase())
   .filter((name) => name && !RESEARCH_TOOL_NAMES.has(name)));
@@ -365,7 +412,7 @@ function withTurnModeSystem(messages, mode, config) {
   const systemIndex = copy.findIndex((message) => message?.role === "system");
   if (systemIndex >= 0) {
     const existing = String(copy[systemIndex].content || "").trim();
-    if (!existing.includes("BOOLEAN OPERATING POLICY")) {
+    if (!existing.includes("BOOLLM OPERATING POLICY")) {
       copy[systemIndex].content = existing ? `${existing}\n\n${policy}` : policy;
     }
   } else {
@@ -385,12 +432,12 @@ function fallbackToolPrompt(definitions = TOOL_DEFINITIONS, options = {}) {
       }));
   return [
     "",
-    "COMPATIBILITY TOOL PROTOCOL: To use a Boolean tool, reply with ONLY one fenced block like this:",
+    "COMPATIBILITY TOOL PROTOCOL: To use a Boollm tool, reply with ONLY one fenced block like this:",
     "```tool",
     '{"name": "run_command", "arguments": {"command": "Get-Date"}}',
     "```",
     "Bare JSON, trailing JSON, prose instructions, and mutation commands are not executed.",
-    "Continue using the available tools as needed to complete and verify the requested outcome. Boolean's shared loop guard pauses repeated calls that stop making progress.",
+    "Continue using the available tools as needed to complete and verify the requested outcome. Boollm's shared loop guard pauses repeated calls that stop making progress.",
     compact ? "Available tools (name: purpose). Use the obvious JSON arguments for the selected tool:" : "Available tools (JSON schema):",
     compact ? tools.map((line) => `- ${line}`).join("\n") : JSON.stringify(tools, null, 2)
   ].join("\n");
@@ -409,13 +456,13 @@ function patchModePrompt(reviewOnly = false) {
   if (reviewOnly) {
     return [
       "",
-      "BOOLEAN REVIEW MODE: This model has no native tool access. Review the available evidence and answer plainly.",
+      "BOOLLM REVIEW MODE: This model has no native tool access. Review the available evidence and answer plainly.",
       "Do not claim to edit files, run commands, browse, test, or deploy."
     ].join("\n");
   }
   return [
     "",
-    "BOOLEAN COMPATIBILITY MODE: This model uses Boolean's validated text tool bridge instead of native function calls.",
+    "BOOLLM COMPATIBILITY MODE: This model uses Boollm's validated text tool bridge instead of native function calls.",
     "Use the provided fenced tool-call protocol to inspect files, edit, run terminal commands, browse, test, and deploy when the task and approval policy allow it.",
     "To change files, return exactly ONE fenced boolean_patch block and no vague editing instructions:",
     "```boolean_patch",
@@ -423,18 +470,22 @@ function patchModePrompt(reviewOnly = false) {
     "```",
     "For a new file use {\"path\":\"relative/path\",\"content\":\"complete file content\"}.",
     "Paths must be relative to the open project. Existing-file old text must match exactly and uniquely.",
-    "Boolean validates the complete patch before applying any edit. After editing, use the provided tools to test and verify the result."
+    "Boollm validates the complete patch before applying any edit. After editing, use the provided tools to test and verify the result."
   ].join("\n");
 }
 
 function withCompatibilityProtocol(messages, definitions, options = {}) {
   const copy = messages.map((message) => ({ ...message }));
   const systemIndex = copy.findIndex((message) => message?.role === "system");
+  // Compact drops the parameter schemas and tells the model to guess "the
+  // obvious JSON arguments", while parseFallbackToolCall runs strict in this
+  // mode - a reliable source of malformed calls. Only pay that cost for the
+  // small local context windows that cannot hold the schemas.
   const protocol = [
     patchModePrompt(options.reviewOnly === true),
-    definitions.length ? fallbackToolPrompt(definitions, { compact: true }) : ""
+    definitions.length ? fallbackToolPrompt(definitions, { compact: options.compact === true }) : ""
   ].filter(Boolean).join("\n");
-  if (systemIndex >= 0 && !/BOOLEAN (?:COMPATIBILITY|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
+  if (systemIndex >= 0 && !/BOOLLM (?:COMPATIBILITY|REVIEW) MODE/.test(String(copy[systemIndex].content || ""))) {
     copy[systemIndex].content = `${copy[systemIndex].content}\n${protocol}`;
   }
   return copy;
@@ -444,21 +495,80 @@ const KNOWN_TOOLS = new Set(TOOL_DEFINITIONS.map((t) => t.function.name));
 
 // Small models often emit tool calls as a fenced JSON block in plain text even
 // when native tool calling is available, so this is checked in both modes.
-export function parseFallbackToolCall(text, options = {}) {
-  const candidates = [];
+// Every model family writes a text tool call in its own dialect, and a bridge
+// that reads only one of them makes every other model look like it refuses to
+// work. DeepSeek fences special tokens with fullwidth pipes, Qwen and Hermes
+// use <tool_call>, Llama uses <function=name>, Anthropic-style models use
+// <invoke>/<parameter>. Normalize the delimiters, read every shape, and gate
+// them all through the same known-tool and allowed-tool checks.
+// The marker must be the tag name itself, optionally namespaced - never a word
+// inside an attribute, or ordinary HTML in a web task would read as a tool call.
+const TOOL_MARKUP_HINT = /<\/?[^>\s]{0,40}\b(?:invoke|tool_call|tool_use|function_call)\b|<\s*function\s*=/i;
+
+function normalizeToolMarkup(text) {
+  return String(text || "")
+    // These arrive as ordinary characters whenever the endpoint does not decode
+    // the model's special tokens, and are pure noise to every parser below.
+    .replace(/[｜│❘]/g, "|")
+    .replace(/[▁]/g, "_");
+}
+
+// A string parameter carries exact file content, so it is never trimmed; only
+// the single newline that conventionally follows the opening tag is removed.
+function coerceToolArgument(raw, attributes = "") {
+  const value = String(raw ?? "").replace(/^\r?\n/, "").replace(/\r?\n$/, "");
+  const explicit = /\bstring\s*=\s*["'](true|false)["']/i.exec(attributes);
+  if (explicit) {
+    if (explicit[1].toLowerCase() === "true") return value;
+    try { return JSON.parse(value.trim()); } catch { return value; }
+  }
+  const trimmed = value.trim();
+  if (/^(?:\{[\s\S]*\}|\[[\s\S]*\])$/.test(trimmed)) { try { return JSON.parse(trimmed); } catch {} }
+  if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) return Number(trimmed);
+  if (/^(?:true|false)$/i.test(trimmed)) return trimmed.toLowerCase() === "true";
+  return value;
+}
+
+function taggedToolCandidates(text) {
+  const found = [];
+  const invoke = /<[^>\s]*?\binvoke\s+name\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/[^>\s]*?\binvoke\s*>/gi;
+  for (const match of text.matchAll(invoke)) {
+    const args = {};
+    const parameter = /<[^>\s]*?\bparameter\s+name\s*=\s*["']([^"']+)["']([^>]*)>([\s\S]*?)<\/[^>\s]*?\bparameter\s*>/gi;
+    for (const field of String(match[2] || "").matchAll(parameter)) args[field[1]] = coerceToolArgument(field[3], field[2]);
+    found.push({ name: match[1], arguments: args, fenced: true });
+  }
+  const wrapped = /<[^>]*?\b(?:tool_call|tool_use|function_call)\b[^>]*>\s*([\s\S]*?)\s*<\/[^>]*?\b(?:tool_call|tool_use|function_call)\b[^>]*>/gi;
+  for (const match of text.matchAll(wrapped)) {
+    try {
+      const obj = JSON.parse(match[1]);
+      if (obj && typeof obj === "object") found.push({ name: obj.name, arguments: obj.arguments || obj.parameters || obj.input || {}, fenced: true });
+    } catch {}
+  }
+  const named = /<\s*function\s*=\s*["']?([A-Za-z0-9_.-]+)["']?\s*>\s*([\s\S]*?)\s*<\/\s*function\s*>/gi;
+  for (const match of text.matchAll(named)) {
+    try {
+      const obj = JSON.parse(match[2]);
+      if (obj && typeof obj === "object" && !Array.isArray(obj)) found.push({ name: match[1], arguments: obj, fenced: true });
+    } catch {}
+  }
+  return found;
+}
+
+function jsonToolCandidates(text) {
+  const raw = [];
   const fenced = text.match(/```(?:tool|json)?\s*\n?(\{[\s\S]*?\})\s*```/);
-  if (fenced) candidates.push({ text: fenced[1], fenced: true });
+  if (fenced) raw.push({ text: fenced[1], fenced: true });
   const trimmed = text.trim();
   // Some providers ignore the requested fence and return a plain tool object,
   // sometimes after one sentence of commentary. It is safe to accept that in
   // strict compatibility mode because both the global known-tool catalog and
-  // this turn's allowed-tool set are checked below before anything executes.
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) candidates.push({ text: trimmed, fenced: false });
+  // this turn's allowed-tool set are checked before anything executes.
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) raw.push({ text: trimmed, fenced: false });
   const trailing = trimmed.match(/(\{[\s\S]*"name"\s*:\s*"(?:[^"]+)"[\s\S]*\})\s*$/);
-  if (trailing) candidates.push({ text: trailing[1], fenced: false });
-  const allowed = options.allowedNames instanceof Set ? options.allowedNames : KNOWN_TOOLS;
-
-  for (const candidate of candidates) {
+  if (trailing) raw.push({ text: trailing[1], fenced: false });
+  const found = [];
+  for (const candidate of raw) {
     // Tolerate only surplus closing braces at the very end. This repairs the
     // common text-generation slip without attempting to reinterpret malformed
     // arguments or execute prose as a command.
@@ -466,17 +576,7 @@ export function parseFallbackToolCall(text, options = {}) {
     for (let surplus = 0; surplus <= 2; surplus++) {
       try {
         const obj = JSON.parse(repaired);
-        if (obj && KNOWN_TOOLS.has(obj.name) && allowed.has(obj.name)) {
-          // Compatibility-mode file mutations deliberately require the fenced
-          // protocol (or boolean_patch) so prose examples can never become an
-          // edit. Inspection/check commands may recover from a missing fence;
-          // their normal approval and workspace boundaries still apply.
-          if (options.strict && !candidate.fenced && ["write_file", "edit_file"].includes(obj.name)) break;
-          const args = obj.arguments || obj.parameters || {};
-          if (args && typeof args === "object" && !Array.isArray(args)) {
-            return { name: obj.name, arguments: args };
-          }
-        }
+        if (obj && typeof obj === "object") found.push({ name: obj.name, arguments: obj.arguments || obj.parameters || {}, fenced: candidate.fenced });
         break;
       } catch {
         if (!repaired.endsWith("}")) break;
@@ -484,14 +584,37 @@ export function parseFallbackToolCall(text, options = {}) {
       }
     }
   }
+  return found;
+}
+
+export function parseFallbackToolCall(text, options = {}) {
+  const allowed = options.allowedNames instanceof Set ? options.allowedNames : KNOWN_TOOLS;
+  const source = normalizeToolMarkup(text);
+  for (const candidate of [...taggedToolCandidates(source), ...jsonToolCandidates(source)]) {
+    const name = String(candidate.name || "");
+    if (!KNOWN_TOOLS.has(name) || !allowed.has(name)) continue;
+    // Compatibility-mode file mutations deliberately require an explicitly
+    // delimited call (or boolean_patch) so prose examples can never become an
+    // edit. Inspection/check commands may recover from a missing fence; their
+    // normal approval and workspace boundaries still apply.
+    if (options.strict && !candidate.fenced && ["write_file", "edit_file"].includes(name)) continue;
+    const args = candidate.arguments;
+    if (args && typeof args === "object" && !Array.isArray(args)) return { name, arguments: args };
+  }
   return null;
 }
 
-function compatibilityToolDefinitions(definitions = []) {
-  return definitions.filter((tool) => COMPATIBILITY_INSPECT_TOOL_NAMES.has(String(tool.function?.name || "")));
+// Text that is plainly an attempted tool call but parsed to nothing must not be
+// promoted to a final answer: that turns a protocol mismatch into "the model
+// did nothing and talked instead", which is what it looked like from outside.
+export function looksLikeToolCall(text) {
+  const source = normalizeToolMarkup(text);
+  if (TOOL_MARKUP_HINT.test(source)) return true;
+  const named = source.match(/"name"\s*:\s*"([^"]+)"/);
+  return !!(named && KNOWN_TOOLS.has(named[1]));
 }
 
-function preflightBooleanPatch(edits) {
+function preflightBoollmPatch(edits) {
   for (const edit of edits) {
     if (edit.kind === "create") {
       if (fs.existsSync(edit.absolute)) throw new Error(`Patch refused: '${edit.path}' already exists.`);
@@ -669,7 +792,7 @@ function plainMessageText(message) {
 // File attachments are appended to the user's visible instruction so the
 // provider can read them. They are evidence, not authority for the current
 // turn: a pasted report that says "read only" or "replace the logo" must not
-// silently change how Boolean routes the instruction above it.
+// silently change how Boollm routes the instruction above it.
 const ATTACHED_FILE_BLOCK = /\r?\n\s*\r?\nAttached file [^\r\n]+:\s*\r?\n```[\s\S]*$/i;
 
 export function currentTurnInstructionText(messageOrText) {
@@ -685,6 +808,48 @@ const ARTIFACT_TARGET = /\b(game|app|application|website|web ?site|web page|api|
 const ACTION_ONLY_FOLLOWUP = /\b(?:make|build|create|implement|finish|do|replace|swap|apply|use|put|switch|rebrand|restyle|regenerate)\s+(?:it|this|that|those|them|all that|all of (?:it|that|those|them))(?:\s+for me)?\b/i;
 const ANSWER_ONLY_ARTIFACT = /\b(?:ideas?|examples?|recommendations?|suggestions?|list of|which|whether|why|what (?:game|app|website)|how (?:can|could|would|do|does|to)|should (?:we|i|you)|would it)\b/i;
 const ANSWER_ONLY_REQUEST = /\b(?:do\s*not|don't|dont|no)\s+(?:make\s+)?(?:changes?|edits?|updates?|modify|write|touch|code)\b|\b(?:just|only)\s+(?:tell|explain|describe|summari[sz]e|review|show|list|answer)\b|\b(?:tell|explain|describe|summari[sz]e|review|show|list)\s+(?:me\s+)?(?:about|what|where|how|everything|the current|this project)\b/i;
+// A question ABOUT a change is not an instruction to make it. The verb lists
+// above cannot tell them apart — "1 thing we can change" and "change this thing"
+// share every keyword — so this reads sentence FORM instead, which is far more
+// stable than vocabulary. "Can you add X" is a question only in punctuation, so
+// polite commands are excluded before the advisory shapes are tested.
+const POLITE_COMMAND = /^\s*(?:so\s+|ok(?:ay)?[,\s]+|now\s+)?(?:please\s+)?(?:can|could|would|will)\s+(?:you|u|we)\b|\bplease\s+(?:add|build|change|create|edit|fix|implement|make|update|write|remove|delete|move|rename|replace|run|deploy|do)\b|\bgo\s+ahead\b|\bdo\s+it\b/i;
+const ADVISORY_REQUEST = new RegExp([
+  // opens with an interrogative or an opinion word
+  "^\\s*(?:what|why|which|who|when|where|how|should|is|are|was|were|do|does|did|any|thoughts?|opinion)\\b",
+  // asks for a quantity of ideas: "give 1 thing", "list a few improvements"
+  "\\b(?:give|list|name|show|suggest|recommend|share)\\s+(?:me\\s+)?(?:\\d+|a|an|one|two|three|some|a few|the top|your)?\\s*(?:thing|things|idea|ideas|change|changes|improvement|improvements|suggestion|suggestions|option|options|recommendation|recommendations|way|ways|thought|thoughts)\\b",
+  // "what would you change", "where should we start"
+  "\\b(?:what|which|where|how)\\s+(?:would|should|could|do|can)\\s+(?:you|we|i)\\b",
+  // "your thoughts", "any advice"
+  "\\b(?:your|any)\\s+(?:thoughts?|opinion|advice|recommendations?|suggestions?)\\b",
+  // "worth doing?", "is it worth changing"
+  "\\bworth\\s+(?:doing|changing|adding|fixing|building)\\b",
+  // trailing question mark on a sentence that is not a polite command
+  "\\?\\s*$"
+].join("|"), "i");
+
+/** True when the message asks for an opinion or idea rather than ordering work. */
+export function looksLikeAdviceRequest(text) {
+  const value = String(text || "").replace(/\s+/g, " ").trim();
+  if (!value) return false;
+  if (POLITE_COMMAND.test(value)) return false;
+  return ADVISORY_REQUEST.test(value);
+}
+
+/**
+ * The build keywords fired, but the sentence reads like a question. These are the
+ * only turns worth spending a model call on — everything else is already decided
+ * confidently by form plus keywords.
+ */
+export function artifactIntentAmbiguous(messages) {
+  const latest = currentTurnInstructionText(
+    [...(Array.isArray(messages) ? messages : [])].reverse().find((message) => message?.role === "user")
+  );
+  if (!latest || ANSWER_ONLY_REQUEST.test(latest)) return false;
+  if (!ARTIFACT_ACTION.test(latest) || !ARTIFACT_TARGET.test(latest)) return false;
+  return looksLikeAdviceRequest(latest) || ANSWER_ONLY_ARTIFACT.test(latest);
+}
 const INSPECT_REQUEST = /\b(?:project|repo(?:sitory)?|codebase|files?|folder|git|diff|changes?|status|progress|roadmap|implementation|what (?:was|is|has been) (?:changed|done|built|implemented)|where (?:are we|is the project)|last (?:deploy|build|update))\b/i;
 const CONTEXTUAL_INSPECTION_REQUEST = /\b(?:review|inspect|analy[sz]e|assess|audit|evaluate|improve|improvements?|recommend(?:ation)?s?|suggest(?:ion)?s?)\b[\s\S]{0,100}\b(?:this|the|it|current|local|running)?\s*(?:app|application|site|website|project|code|ui|layout|version)\b|\bhow (?:can|could|would|should|do)\s+(?:you\s+)?improve\b/i;
 const LOCAL_PROJECT_CONTEXT = /(?:[a-z]:\\[^\r\n`]+|(?:^|[\s`])(?:\.{0,2}[\\/])?(?:src|app|public|outputs?|projects?|build|dist)[\\/][^\s`]+|https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?|(?:project|source|local-ready copy|production build)\s*:)/i;
@@ -810,7 +975,9 @@ export function classifyTurnMode(messages, options = {}) {
   if (options.directAction || artifactActionRequired) return "action";
   if (RESEARCH_REQUEST.test(latest)) return "research";
   if (INSPECT_REQUEST.test(latest) && /\b(?:status|progress|review|inspect|check|show|list|tell|explain|summari[sz]e|what|where)\b/i.test(latest)) return "inspect";
-  if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return "action";
+  // AGENT_REQUEST is deliberately broad (it matches "task", "project", "file"),
+  // so a question that merely mentions one of those words must not become an action.
+  if (AGENT_REQUEST.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest) && !looksLikeAdviceRequest(latest)) return "action";
   return "chat";
 }
 
@@ -822,7 +989,7 @@ export function isLightweightLocalChat(text) {
 
 export function toolDefinitionsForTurnMode(mode, artifactActionRequired = false, completedToolWork = false, projectBound = false) {
   // Keep the full catalog visible on every normal main-chat turn. The model
-  // should decide whether a tool is useful; Boolean's controller, approvals,
+  // should decide whether a tool is useful; Boollm's controller, approvals,
   // and tool implementations remain the authority for whether a requested
   // action may execute. Project filesystem tools are the one deliberate
   // boundary: the user must first create or open a project from the UI.
@@ -838,7 +1005,7 @@ function isRealUserRequest(message) {
   const text = plainMessageText(message).trim();
   return !!text
     && !/^SYSTEM PREFLIGHT:/i.test(text)
-    && !/^BOOLEAN CONTINUATION:/i.test(text)
+    && !/^BOOLLM CONTINUATION:/i.test(text)
     && !/^TOOL RESULT for /i.test(text)
     && !/^Screenshot captured by the requested tool\./i.test(text);
 }
@@ -925,7 +1092,7 @@ function withRecentTaskStatusMemory(focused, fullMessages) {
 }
 
 // Keep the model in charge of implementation details, but recognize the narrow
-// case where a user clearly asked Boolean to produce a software/file artifact.
+// case where a user clearly asked Boollm to produce a software/file artifact.
 // This is used only to retry a model that answered with a tutorial and made no
 // tool call; it does not route or execute an action itself.
 export function requiresArtifactAction(messages) {
@@ -936,7 +1103,8 @@ export function requiresArtifactAction(messages) {
   const latestUser = [...(Array.isArray(messages) ? messages : [])].reverse().find((message) => message?.role === "user");
   const latest = currentTurnInstructionText(latestUser);
   if (ANSWER_ONLY_REQUEST.test(latest)) return false;
-  if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest) && !ANSWER_ONLY_ARTIFACT.test(latest)) return true;
+  if (ARTIFACT_ACTION.test(latest) && ARTIFACT_TARGET.test(latest)
+      && !ANSWER_ONLY_ARTIFACT.test(latest) && !looksLikeAdviceRequest(latest)) return true;
   if (!ACTION_ONLY_FOLLOWUP.test(latest)) return false;
   return users.slice(-4, -1).some((text) => ARTIFACT_TARGET.test(text));
 }
@@ -1318,7 +1486,7 @@ export function teamworkAssignments(config = {}) {
   });
 }
 
-// Questions about a stopped or paused run must be answered before Boolean
+// Questions about a stopped or paused run must be answered before Boollm
 // resumes it. This intentionally wins over continuation wording in mixed
 // messages such as "so do it, why did you stop?".
 export function isTaskStatusQuestion(text) {
@@ -1332,7 +1500,7 @@ export function taskStopAnswer(task) {
   const rawReason = String(controller.lastFailure || "").trim();
   let reason = rawReason;
   if (/loop guard|repeated the same kind of inspection|repeated inspection/i.test(rawReason)) {
-    reason = "Boolean's loop guard detected repeated inspections without a progress step, so it paused to prevent an endless loop.";
+    reason = "Boollm's loop guard detected repeated inspections without a progress step, so it paused to prevent an endless loop.";
   } else if (/tool budget/i.test(rawReason)) {
     reason = "the run reached its tool budget and paused instead of continuing indefinitely.";
   } else if (!reason && controller.phase === "blocked") {
@@ -1340,7 +1508,7 @@ export function taskStopAnswer(task) {
   } else if (!reason) {
     reason = "the previous run ended or was interrupted before it saved a specific failure reason.";
   }
-  return `It stopped because ${reason}\n\nI did not restart it. Say **Resume** when you want Boolean to continue from the saved checkpoint.`;
+  return `It stopped because ${reason}\n\nI did not restart it. Say **Resume** when you want Boollm to continue from the saved checkpoint.`;
 }
 
 export async function runBoundedWorkers(items, limit, handler) {
@@ -1365,7 +1533,7 @@ function compactTeamReport(value, maxChars = 2400) {
   if (text.length <= maxChars) return text;
   const head = text.slice(0, Math.max(600, maxChars - 220));
   const cut = Math.max(head.lastIndexOf("\n"), head.lastIndexOf(". "));
-  return `${head.slice(0, cut > 500 ? cut + 1 : head.length).trim()}\n\n[Worker report compacted by Boolean; the lead retains the workspace and saved evidence.]`;
+  return `${head.slice(0, cut > 500 ? cut + 1 : head.length).trim()}\n\n[Worker report compacted by Boollm; the lead retains the workspace and saved evidence.]`;
 }
 
 /**
@@ -1377,7 +1545,7 @@ function compactTeamReport(value, maxChars = 2400) {
  * @returns {Promise<string>} the model's final answer
  */
 export async function runTurn(ctx, messages) {
-  // The provider still owns the answer and tool choices. Boolean supplies the
+  // The provider still owns the answer and tool choices. Boollm supplies the
   // operating policy and enforces hard permission boundaries, but does not
   // replace a model's substantive response with an opinionated workflow.
   const { config, onStatus, onToken: rawOnToken, onStep, onUsage, signal } = ctx;
@@ -1437,7 +1605,20 @@ export async function runTurn(ctx, messages) {
   wrapApproval("approve");
   wrapApproval("approveAlways");
   const forceChat = ctx.forceTurnMode === "chat";
-  const artifactActionRequired = forceChat || ctx.forceNoArtifact === true ? false : requiresArtifactAction(messages);
+  let artifactActionRequired = forceChat || ctx.forceNoArtifact === true ? false : requiresArtifactAction(messages);
+  // The keywords and the sentence form disagree on this turn. Sub-agents inherit
+  // the lead's decision, so only a top-level turn spends the classification call.
+  if (!artifactActionRequired && !forceChat && ctx.forceNoArtifact !== true
+      && !ctx.subagentDepth && artifactIntentAmbiguous(messages)) {
+    const intent = await resolveArtifactIntent(config, ctx.latestUserText, signal);
+    artifactActionRequired = intent.action === true;
+    emitStep({
+      name: "intent_check",
+      args: { provider: intent.target?.provider || "", model: intent.target?.model || "" },
+      result: `${intent.reason} — treating this turn as ${artifactActionRequired ? "a request to make the change" : "a question to answer"}.`
+    });
+    if (artifactActionRequired) onStatus("reading that as a request to make the change...");
+  }
   const connectorActionRequired = forceChat ? false : requiresConnectorContinuationAction(messages);
   const connectorToolResultRequired = forceChat ? false : requiresConnectorToolResult(messages);
   const explicitActionToolResultRequired = forceChat ? false : requiresExplicitActionToolResult(messages);
@@ -1479,6 +1660,7 @@ export async function runTurn(ctx, messages) {
     loopStop: ctx.config?.ui?.codingAgent?.stopLoop === true,
     autopilot: ctx.config?.ui?.codingAgent?.autopilot === true,
     persisted: ctx.controllerState,
+    continuation: ctx.continuation === true,
     tokenBudget: perRunTokenBudget(config),
     timeBudgetMs: perRunTimeBudgetMs(config)
   });
@@ -1538,7 +1720,7 @@ export async function runTurn(ctx, messages) {
       const blocked = controller.noteBlockedTool(name, args, gate.reason);
       publishController();
       if (blocked.stop) {
-        const result = `blocked: ${gate.reason}\nBoolean has blocked repeated attempts. Stop now and explain this blocker plainly instead of trying another equivalent action.`;
+        const result = `blocked: ${gate.reason}\nBoollm has blocked repeated attempts. Stop now and explain this blocker plainly instead of trying another equivalent action.`;
         orchestration.failItem(toolItem.id, gate.reason);
         return result;
       }
@@ -1619,9 +1801,16 @@ export async function runTurn(ctx, messages) {
 
   let bootstrapContext = "";
   const teamAssignments = !ctx.subagentDepth && artifactActionRequired && ctx.projectDir
+      && String(config?.ui?.codingAgent?.teamwork?.mode || "solo") === "assist"
     ? teamworkAssignments(config)
     : [];
-  if (teamAssignments.length) {
+  // Specialists are expensive and highly visible, so they no longer start on the
+  // classification alone. The handoff runs once the turn has actually changed
+  // something, which means a misread question costs nothing instead of three
+  // model calls and a row of worker chips the user never asked for.
+  let teamHandoffPending = teamAssignments.length > 0;
+  const runTeamHandoff = async () => {
+    teamHandoffPending = false;
     const teamMode = String(config?.ui?.codingAgent?.teamwork?.mode || "assist");
     const recordTeamWorker = (assignment, state, detail, attempt = 1, meta = {}) => {
       const worker = { role: assignment.role, provider: assignment.provider, model: assignment.model, state, attempt, ...meta };
@@ -1629,7 +1818,11 @@ export async function runTurn(ctx, messages) {
       publishController();
       emitStep({ name: "team_worker", args: worker, result: detail });
     };
-    const fallbackFor = (assignment) => teamAssignments.find((candidate) =>
+    const fallbackPool = teamworkAssignments({
+      ...config,
+      ui: { ...(config?.ui || {}), codingAgent: { ...(config?.ui?.codingAgent || {}), teamwork: { ...(config?.ui?.codingAgent?.teamwork || {}), mode: "team" } } }
+    });
+    const fallbackFor = (assignment) => fallbackPool.find((candidate) =>
       candidate.provider !== assignment.provider && candidate.model
     ) || null;
     const maxParallel = Math.max(1, Math.min(teamAssignments.length, Number(config?.ui?.codingAgent?.teamwork?.maxWorkers) || 3, 3));
@@ -1696,13 +1889,13 @@ export async function runTurn(ctx, messages) {
     messages.push({
       role: "user",
       content: [
-        "BOOLEAN TEAM HANDOFF",
+        "BOOLLM TEAM HANDOFF",
         "These specialists worked in parallel. Use their evidence, resolve disagreements yourself, make the implementation, and run final verification. Do not merely repeat their reports.",
         ...reports
       ].join("\n\n")
     });
     onStatus("specialist reports ready - lead model is integrating them...");
-  }
+  };
   let target = autoModelRoute.enabled
     ? await resolveProviderTarget(config, autoModelRoute.target.provider, onStatus)
     : await resolveTarget(config, onStatus);
@@ -1761,10 +1954,10 @@ export async function runTurn(ctx, messages) {
   if (compatibilityMode && artifactActionRequired) {
     onStatus(reviewOnlyCompatibility
       ? `${target.model || "This model"} is in review/chat-only mode`
-      : `${target.model || "This model"} is using Boolean's compatibility tool bridge`);
+      : `${target.model || "This model"} is using Boollm's compatibility tool bridge`);
   }
   if (reviewOnlyCompatibility && (artifactActionRequired || explicitActionToolResultRequired)) {
-    const answer = `${target.model || "The selected model"} is in Review/chat-only mode and cannot use Boolean's terminal, file-edit, browser, or deployment tools. The requested command was not run. Switch to a Full coding or Compatible coding model, then retry the same task; Boolean will not substitute unrelated cloud or connector inspections.`;
+    const answer = `${target.model || "The selected model"} is in Review/chat-only mode and cannot use Boollm's terminal, file-edit, browser, or deployment tools. The requested command was not run. Switch to a Full coding or Compatible coding model, then retry the same task; Boollm will not substitute unrelated cloud or connector inspections.`;
     messages.push({ role: "assistant", content: answer });
     return finishOrchestration(answer, "failed");
   }
@@ -1869,6 +2062,7 @@ export async function runTurn(ctx, messages) {
   let actionNudgeActive = artifactActionRequired;
   let completedToolWork = false;
   let emptyResponseRetries = 0;
+  let unreadableToolCalls = 0;
   let textOnlyContentFallback = false;
   let autoContinues = 0;
   let completionNudges = 0;
@@ -1894,6 +2088,7 @@ export async function runTurn(ctx, messages) {
   const MAX_CONTROLLER_RECOVERIES = 4;
   const MAX_LOOP_RECOVERIES = 0;
   const MAX_EMPTY_RESPONSE_RETRIES = 8;
+  const MAX_UNREADABLE_TOOL_CALL_RETRIES = 2;
   const MAX_ANNOUNCE_NUDGES = 4;
   // Auto model handoff: when the primary model gives up on an unfinished, action-
   // required task while Auto orchestration (or Autopilot) is active, hand the SAME task (with its saved controller
@@ -1920,7 +2115,7 @@ export async function runTurn(ctx, messages) {
     completionNudges = 0;
     controllerRecoveries = 0;
   };
-  const handleControllerStop = (result) => {
+  const handleControllerStop = async (result) => {
     const stoppedByController = controllerStopAnswer(result);
     if (!stoppedByController) return "";
     const reason = controllerStopReason(result);
@@ -1933,12 +2128,54 @@ export async function runTurn(ctx, messages) {
       onStatus("continuing from saved evidence...");
       return "__continue__";
     }
+    // A controller safety stop is an unfinished model outcome. Previously this
+    // returned before the normal completion path, so Auto never got a chance to
+    // hand the saved task to another capable connected model.
+    const handoffEnabled = (autopilot || config?.codingEngine === "auto")
+      && config?.ui?.codingAgent?.autoHandoff !== false
+      && controller.actionRequired
+      && !signal?.aborted
+      && modelHandoffs < MAX_MODEL_HANDOFFS;
+    const nextModel = handoffEnabled
+      ? handoffCandidates(config, autoModelRoute.route).find((candidate) => !triedModelKeys.has(modelKey(candidate)))
+      : null;
+    if (nextModel) {
+      modelHandoffs++;
+      const previousLabel = target.model || target.provider;
+      const resolved = await resolveProviderTarget(config, nextModel.provider, onStatus);
+      target = nextModel.model ? { ...resolved, model: nextModel.model } : resolved;
+      triedModelKeys.add(modelKey(target));
+      localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
+      capabilityProfile = modelCapabilityProfile(config, target);
+      compatibilityMode = localCompactTools || capabilityProfile.mode === "patch" || capabilityProfile.mode === "review";
+      reviewOnlyCompatibility = capabilityProfile.mode === "review";
+      useNativeTools = !compatibilityMode;
+      compactToolProtocol = localCompactTools;
+      resetStallCounters();
+      forceToolCallNext = true;
+      const detail = {
+        route: autoModelRoute.route, provider: target.provider, model: target.model,
+        reason: `Handed off after ${previousLabel} hit a safety stop: ${reason}`
+      };
+      onStatus(`${previousLabel} could not complete this step - handing the task to ${target.model || target.provider}...`, { autoRoute: detail });
+      emitStep({ name: "model_route", args: detail, result: detail.reason });
+      ctx.onRoute?.(detail);
+      messages.push({ role: "user", content:
+        "The previous model hit a blocked action before finishing. Take over this SAME saved task, avoid repeating that blocked action, and complete it using another valid approach. "
+        + controller.continuationPrompt(reason) });
+      publishController();
+      return "__continue__";
+    }
     messages.push({ role: "assistant", content: stoppedByController });
     return stoppedByController;
   };
   agentLoop: for (;;) {
     turn++;
     if (signal?.aborted) return stopped();
+    // The turn has changed a file, so this really is build work: bring the
+    // specialists in now, between clean turns, where appending their handoff
+    // cannot break an assistant/tool message pair.
+    if (teamHandoffPending && controller.snapshot().mutationCount > 0) await runTeamHandoff();
     // Check per-run token/time budget and user cancellation
     const budget = controller.checkBudget();
     if (budget.budgeted) {
@@ -1983,7 +2220,8 @@ export async function runTurn(ctx, messages) {
       activeToolDefinitions = compatibilityMode ? compatibilityInspections : availableTools;
       if (compatibilityMode) {
         modelMessages = withCompatibilityProtocol(modelMessages, compatibilityInspections, {
-          reviewOnly: reviewOnlyCompatibility
+          reviewOnly: reviewOnlyCompatibility,
+          compact: localCompactTools
         });
       } else if (!useNativeTools && availableTools.length) {
         modelMessages = withFallbackToolProtocol(modelMessages, availableTools, { compact: compactToolProtocol });
@@ -2118,7 +2356,7 @@ export async function runTurn(ctx, messages) {
           tool_call_id: call.id || `call_${turn}`,
           content: toolContent
         });
-        const stoppedByController = handleControllerStop(result);
+        const stoppedByController = await handleControllerStop(result);
         if (stoppedByController === "__continue__") {
           checkpoint();
           continue agentLoop;
@@ -2134,9 +2372,9 @@ export async function runTurn(ctx, messages) {
 
     if (compatibilityMode && !reviewOnlyCompatibility) {
       try {
-        const edits = parseBooleanPatch(assistantContent, ctx.projectDir);
+        const edits = parseBoollmPatch(assistantContent, ctx.projectDir);
         if (edits) {
-          preflightBooleanPatch(edits);
+          preflightBoollmPatch(edits);
           messages.push({ role: "assistant", content: assistantContent });
           const results = [];
           for (const edit of edits) {
@@ -2158,7 +2396,7 @@ export async function runTurn(ctx, messages) {
           resetStallCounters();
           messages.push({
             role: "user",
-            content: `BOOLEAN PATCH RESULT:\n${results.join("\n")}\nContinue the task. Use the compatibility tools to run the requested tests and verification before summarizing.`
+            content: `BOOLLM PATCH RESULT:\n${results.join("\n")}\nContinue the task. Use the compatibility tools to run the requested tests and verification before summarizing.`
           });
           checkpoint();
           continue;
@@ -2170,7 +2408,7 @@ export async function runTurn(ctx, messages) {
           messages.push({ role: "assistant", content: assistantContent });
           messages.push({
             role: "user",
-            content: `BOOLEAN PATCH REJECTED (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES}): ${reason}\nUse the saved evidence to return one corrected fenced boolean_patch block, or use read_file/edit_file through the compatibility tool protocol if the exact target changed.`
+            content: `BOOLLM PATCH REJECTED (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES}): ${reason}\nUse the saved evidence to return one corrected fenced boolean_patch block, or use read_file/edit_file through the compatibility tool protocol if the exact target changed.`
           });
           onStatus(`the proposed patch did not match the project - recovering (${compatibilityPatchErrors}/${MAX_COMPATIBILITY_PATCH_RETRIES})...`);
           continue;
@@ -2179,7 +2417,7 @@ export async function runTurn(ctx, messages) {
         messages.push({ role: "assistant", content: assistantContent });
         messages.push({
           role: "user",
-          content: `BOOLEAN PATCH RECOVERY: ${reason}\nThe bulk patch path was exhausted, but the task is still active. Use repository_map, read_file, and edit_file through the compatibility tool protocol to make smaller grounded edits, then run verification. Do not repeat the rejected patch.`
+          content: `BOOLLM PATCH RECOVERY: ${reason}\nThe bulk patch path was exhausted, but the task is still active. Use repository_map, read_file, and edit_file through the compatibility tool protocol to make smaller grounded edits, then run verification. Do not repeat the rejected patch.`
         });
         onStatus("switching from the rejected bulk patch to smaller grounded edits...");
         checkpoint();
@@ -2207,7 +2445,7 @@ export async function runTurn(ctx, messages) {
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
       });
-      const stoppedByController = handleControllerStop(result);
+      const stoppedByController = await handleControllerStop(result);
       if (stoppedByController === "__continue__") {
         flushPendingImages();
         checkpoint();
@@ -2217,6 +2455,30 @@ export async function runTurn(ctx, messages) {
       flushPendingImages();
       checkpoint();
       continue;
+    }
+
+    // The model tried to call a tool in a dialect the bridge could not read.
+    // Falling through here used to make that text the final answer, so a
+    // protocol mismatch was indistinguishable from a model that refused to
+    // work - and the user saw raw markup. Ask for it again in one exact format.
+    if (activeToolDefinitions.length && assistantContent.trim() && looksLikeToolCall(assistantContent)) {
+      unreadableToolCalls++;
+      if (unreadableToolCalls <= MAX_UNREADABLE_TOOL_CALL_RETRIES) {
+        onStatus(`the model's tool call used an unrecognized format - asking for it again (${unreadableToolCalls}/${MAX_UNREADABLE_TOOL_CALL_RETRIES})...`);
+        messages.push({ role: "assistant", content: assistantContent });
+        messages.push({
+          role: "user",
+          content: [
+            "BOOLLM PROTOCOL ERROR: your last message contained a tool call Boollm could not execute, because it was written in a format this bridge does not read.",
+            "Nothing ran. Do not describe the call, and do not use your own markup or special tokens.",
+            "Return exactly one fenced JSON block and nothing else:",
+            "```json",
+            '{"name":"read_file","arguments":{"path":"src/file.js"}}',
+            "```"
+          ].join("\n")
+        });
+        continue;
+      }
     }
 
     // A small model may understand a build request yet answer with a tutorial
@@ -2231,7 +2493,7 @@ export async function runTurn(ctx, messages) {
           : "the model returned no answer - retrying...");
         continue;
       }
-      throw new Error("The model returned an empty response repeatedly after Boolean retried automatically. The task remains checkpointed.");
+      throw new Error("The model returned an empty response repeatedly after Boollm retried automatically. The task remains checkpointed.");
     }
 
     // The model announced an inspection or action ("let me read the files now")
@@ -2249,8 +2511,8 @@ export async function runTurn(ctx, messages) {
       messages.push({
         role: "user",
         content: compatibilityMode
-          ? "BOOLEAN CONTINUATION:\nTake the announced step now. Return exactly one fenced tool call using the BOOLEAN TOOL PROTOCOL already provided. Do not describe what you will do - call the tool in this turn."
-          : "BOOLEAN CONTINUATION:\nTake the announced step now by calling the tool directly. Do not describe what you will do - do it in this turn."
+          ? "BOOLLM CONTINUATION:\nTake the announced step now. Return exactly one fenced tool call using the BOOLLM TOOL PROTOCOL already provided. Do not describe what you will do - call the tool in this turn."
+          : "BOOLLM CONTINUATION:\nTake the announced step now by calling the tool directly. Do not describe what you will do - do it in this turn."
       });
       onStatus("taking the announced step...");
       continue;

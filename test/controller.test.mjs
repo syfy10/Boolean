@@ -7,7 +7,21 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-test("project completion requires a real change and post-change verification", () => {
+test("Cloudflare API routes are not mistaken for workspace file paths", () => {
+  const controller = new AgentController({
+    objective: "Deploy the site to Cloudflare",
+    projectDir: "C:\\demo",
+    accessMode: "full"
+  });
+  const decision = controller.allowTool("cloudflare_api_request", {
+    method: "GET",
+    path: "/accounts/{connected_account_id}/pages/projects?per_page=50"
+  });
+  assert.equal(decision.allowed, true);
+  assert.equal(controller.allowTool("read_file", { path: "C:\\outside\\secret.txt" }).allowed, false);
+});
+
+test("project completion is model-owned while activity remains recorded", () => {
   const controller = new AgentController({
     objective: "Update the app layout",
     artifactRequired: true,
@@ -15,7 +29,7 @@ test("project completion requires a real change and post-change verification", (
   });
 
   // No longer gated on a change or a post-change check — the model judges this.
-  assert.equal(controller.evaluateCompletion("Done.").complete, false);
+  assert.equal(controller.evaluateCompletion("Done.").complete, true);
   controller.noteTool("read_file", { path: "app.css" }, "body { color: black; }");
   controller.noteTool("edit_file", { path: "app.css" }, "edited app.css");
   controller.noteTool("run_command", { command: "npm test" }, "tests passed");
@@ -68,7 +82,7 @@ test("controller persists its objective, plan, evidence, and recovery state", ()
 test("action requests are detected but no longer gate the final answer", () => {
   const controller = new AgentController({ objective: "Please send the saved email draft" });
   assert.equal(controller.actionRequired, true, "still classified as an action task");
-  // Boolean used to refuse this answer; the model now decides.
+  // Boollm used to refuse this answer; the model now decides.
   assert.equal(controller.evaluateCompletion("The draft was sent.").complete, true);
 
   controller.noteTool("email_send_draft", { id: "draft-1" }, "sent draft draft-1");
@@ -82,9 +96,9 @@ test("explicit controller action requirement no longer blocks a status answer", 
 });
 
 test("ordinary questions do not require tools", () => {
-  const controller = new AgentController({ objective: "What is a Boolean value?" });
+  const controller = new AgentController({ objective: "What is a Boollm value?" });
   assert.equal(controller.actionRequired, false);
-  assert.equal(controller.evaluateCompletion("A Boolean is true or false.").complete, true);
+  assert.equal(controller.evaluateCompletion("A Boollm is true or false.").complete, true);
 });
 
 test("debug tasks are detected but edits are never blocked", () => {
@@ -184,21 +198,19 @@ test("the visible browser is never gated — the model decides when to open it",
 
   const email = new AgentController({ objective: "Clean up old Gmail promotions", actionRequired: true });
   assert.equal(email.allowTool("visible_browser_open", { url: "https://mail.google.com/" }).allowed, true);
-  assert.match(email.snapshot().plan[0].step, /mailbox/i);
+  assert.deepEqual(email.snapshot().plan, []);
 });
 
-test("task-specific plans advance from email and preview tools", () => {
+test("task activity does not create or display a Boollm-authored checklist", () => {
   const email = new AgentController({ objective: "Clean up old Outlook email", actionRequired: true });
   email.noteTool("email_cleanup_preview", { provider: "outlook" }, "Plan ready with 20 candidates");
   assert.equal(email.snapshot().showPlan, false);
-  assert.equal(email.snapshot().plan.find((item) => /cleanup plan/i.test(item.step)).status, "done");
-  assert.equal(email.snapshot().plan.find((item) => /confirmation/i.test(item.step)).status, "in_progress");
+  assert.deepEqual(email.snapshot().plan, []);
 
   const app = new AgentController({ objective: "Build a small website", artifactRequired: true });
   app.noteTool("run_project", {}, "Preview ready at http://localhost:3210");
-  assert.equal(app.snapshot().showPlan, true);
-  assert.equal(app.snapshot().plan.find((item) => /run the project locally/i.test(item.step)).status, "done");
-  assert.equal(app.snapshot().plan.find((item) => /open the result/i.test(item.step)).status, "in_progress");
+  assert.equal(app.snapshot().showPlan, false);
+  assert.deepEqual(app.snapshot().plan, []);
 });
 
 test("task contract discovers an explicit sandbox root from continued chat context", () => {
@@ -675,7 +687,7 @@ test("optional visual inspection failure after successful verification does not 
 
   controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
   controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
-  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boollm page loaded");
   controller.noteTool("inspect_page_layout", { selector: "#browser" }, "visible browser error: The JSON value could not be converted to System.String.");
 
   const result = controller.evaluateCompletion("Updated and checked.");
@@ -683,7 +695,7 @@ test("optional visual inspection failure after successful verification does not 
   assert.match(controller.handoffReport(), /optional visual verification failed/i);
 });
 
-test("artifact tasks must close temporary background processes before completion", () => {
+test("models may finish while a recorded background process remains active", () => {
   const controller = new AgentController({
     objective: "Preview the app",
     artifactRequired: true,
@@ -693,20 +705,20 @@ test("artifact tasks must close temporary background processes before completion
   controller.noteTool("read_file", { path: "C:\\demo\\src\\ui.html" }, "current source");
   controller.noteTool("edit_file", { path: "C:\\demo\\src\\ui.html" }, "edited ui.html");
   controller.noteTool("run_background", { name: "preview", command: "npm run dev" }, "Started background process 'preview' - running (pid 42).");
-  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boolean page loaded");
+  controller.noteTool("read_page", { url: "http://127.0.0.1:3210" }, "HTTP 200 Boollm page loaded");
 
-  const blocked = controller.evaluateCompletion("Done.");
-  assert.equal(blocked.complete, false);
-  assert.match(blocked.reason, /Temporary process still running: preview/);
+  const completed = controller.evaluateCompletion("Done.");
+  assert.equal(completed.complete, true);
+  assert.deepEqual(controller.snapshot().openProcesses, ["preview"]);
 
   controller.noteTool("stop_process", { name: "preview" }, "stopped 'preview'");
   assert.equal(controller.evaluateCompletion("Done.").complete, true);
 });
 
-test("project rules load from BOOLEAN.md and inject into project brief", () => {
+test("project rules load from BOOLLM.md and inject into project brief", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-rules-"));
   try {
-    fs.writeFileSync(path.join(dir, "BOOLEAN.md"), "# My Project\n\nBuild with foo --bar\nNever deploy.");
+    fs.writeFileSync(path.join(dir, "BOOLLM.md"), "# My Project\n\nBuild with foo --bar\nNever deploy.");
     const rules = loadProjectRules(dir);
     assert.match(rules, /PROJECT RULES/);
     assert.match(rules, /Build with foo --bar/);
@@ -754,33 +766,30 @@ test("remember records model findings into working memory and survives a snapsho
   assert.match(restored.workingMemory(), /DPI mismatch/, "notes persist across snapshot");
 });
 
-test("project rules prefer Boolean paths and preserve Boollm legacy fallback", () => {
+test("project rules prefer Boollm paths and preserve Boolean legacy fallback", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boollm-rules-"));
   try {
     fs.mkdirSync(path.join(dir, ".boollm"), { recursive: true });
     fs.writeFileSync(path.join(dir, ".boollm", "rules.md"), "Style: use spaces.");
-    fs.writeFileSync(path.join(dir, "BOOLEAN.md"), "Boolean rules win.");
+    fs.writeFileSync(path.join(dir, "BOOLLM.md"), "Boollm rules win.");
     const rules = loadProjectRules(dir);
-    assert.match(rules, /from BOOLEAN\.md/);
-    assert.match(rules, /Boolean rules win/);
+    assert.match(rules, /from BOOLLM\.md/);
+    assert.match(rules, /Boollm rules win/);
 
-    fs.rmSync(path.join(dir, "BOOLEAN.md"));
-    const legacyRules = loadProjectRules(dir);
-    assert.match(legacyRules, /from \.boollm\/rules\.md \(legacy\)/);
-    assert.match(legacyRules, /use spaces/);
+    fs.rmSync(path.join(dir, "BOOLLM.md"));
+    const boollmRules = loadProjectRules(dir);
+    assert.match(boollmRules, /from \.boollm\/rules\.md/);
+    assert.match(boollmRules, /use spaces/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("project completion remains held until a post-change check succeeds", () => {
+test("post-change verification is chosen by the model", () => {
   const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p", autopilot: true });
   c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
   const first = c.evaluateCompletion("Fixed it.");
-  assert.equal(first.complete, false, "first completion is held for verification");
-  assert.match(first.reason, /build\/test\/check/i);
-  const second = c.evaluateCompletion("Fixed it.");
-  assert.equal(second.complete, false, "repeating the claim does not bypass verification");
+  assert.equal(first.complete, true);
   c.noteTool("run_command", { command: "npm test" }, "tests passed");
   assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
 });
@@ -807,15 +816,15 @@ test("an exited background command is not tracked as an open process", () => {
   assert.deepEqual(controller.snapshot().openProcesses, []);
 });
 
-test("verification cannot be bypassed by disabling autopilot", () => {
+test("normal mode also leaves verification to the model", () => {
   const c = new AgentController({ objective: "Fix the layout bug", artifactRequired: true, projectDir: "C:\p" });
   c.noteTool("edit_file", { path: "app.css" }, "edited app.css");
-  assert.equal(c.evaluateCompletion("Fixed it.").complete, false);
+  assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
   c.noteTool("run_command", { command: "npm test" }, "tests passed");
   assert.equal(c.evaluateCompletion("Fixed it.").complete, true);
 });
 
-test("autopilot project timelines require real file work before completion", () => {
+test("autopilot accepts the model's completion without requiring file work", () => {
   const controller = new AgentController({
     objective: "Build a tic tac toe game",
     artifactRequired: true,
@@ -823,9 +832,8 @@ test("autopilot project timelines require real file work before completion", () 
     autopilot: true
   });
   const result = controller.evaluateCompletion("Here is the timeline I would follow.");
-  assert.equal(result.complete, false);
-  assert.match(result.reason, /has not changed any project file/i);
-  assert.equal(controller.phase, "executing");
+  assert.equal(result.complete, true);
+  assert.equal(controller.phase, "completed");
 });
 
 test("continuationPrompt permits bounded loop recovery without autopilot", () => {
@@ -879,7 +887,7 @@ test("edit churn survives a snapshot round-trip", () => {
   assert.match(restored.prompt(), /app\.css has been edited 4 times/, "churn is restored from the durable snapshot");
 });
 
-test("runtime task budgets override legacy unlimited saved controllers", () => {
+test("token and time accounting never terminates an unfinished task", () => {
   const controller = new AgentController({
     objective: "Finish the project without a runaway loop",
     persisted: { tokenBudget: 0, timeBudgetMs: 0, tokensUsed: 10 },
@@ -889,6 +897,42 @@ test("runtime task budgets override legacy unlimited saved controllers", () => {
   assert.equal(controller.tokenBudget, 150000);
   assert.equal(controller.timeBudgetMs, 600000);
   assert.equal(controller.tokensUsed, 10);
+  controller.tokensUsed = 500000;
+  controller.startedAt = Date.now() - 3600000;
+  assert.equal(controller.checkBudget().budgeted, false);
+});
+
+test("resuming a saved task starts a fresh per-run budget without losing its work", () => {
+  const controller = new AgentController({
+    objective: "Finish the website",
+    projectDir: "C:\\demo",
+    continuation: true,
+    tokenBudget: 150000,
+    timeBudgetMs: 600000,
+    persisted: {
+      tokenBudget: 150000,
+      tokensUsed: 150000,
+      timeBudgetMs: 600000,
+      startedAt: Date.now() - 700000,
+      cancelRequested: true,
+      changedFiles: ["site/index.html"],
+      checks: ["npm test passed"]
+    }
+  });
+  assert.equal(controller.tokensUsed, 0);
+  assert.equal(controller.cancelRequested, false);
+  assert.equal(controller.checkBudget().budgeted, false);
+  assert.deepEqual(controller.snapshot().changedFiles, ["site/index.html"]);
+  assert.deepEqual(controller.snapshot().checks, ["npm test passed"]);
+});
+
+test("the chat route passes continuation state into streamRun without an out-of-scope reference", () => {
+  const server = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+  const liveRunner = server.slice(server.indexOf("async function streamRun"));
+  assert.match(server.slice(0, server.indexOf("async function streamRun")), /continuation:\s*shouldResumeSavedTask/);
+  assert.match(server, /p === "\/api\/continue"[\s\S]*?streamRun\(t, res, \{ continuation: true \}\)/);
+  assert.match(liveRunner, /continuation:\s*options\.continuation\s*===\s*true/);
+  assert.doesNotMatch(liveRunner, /continuation:\s*shouldResumeSavedTask/);
 });
 
 test("loop guard permits distinct bounded ranges in one large source file", () => {
@@ -932,7 +976,7 @@ test("local app runs activate a durable visual build cycle", () => {
   assert.equal(restored.taskRun.visual.state, "previewing");
 });
 
-test("autopilot cannot call a visual build complete before inspecting its screen", () => {
+test("autopilot records visual state without forcing inspection", () => {
   const controller = new AgentController({
     objective: "Build a small website",
     artifactRequired: true,
@@ -941,10 +985,9 @@ test("autopilot cannot call a visual build complete before inspecting its screen
   });
   controller.noteTool("edit_file", { path: "index.html" }, "edited index.html");
   controller.noteTool("run_project", { name: "demo" }, "Website is running at http://127.0.0.1:4173/ (HTTP 200).");
-  const held = controller.evaluateCompletion("The site is complete.");
-  assert.equal(held.complete, false);
-  assert.match(held.reason, /visually checked/i);
-  assert.equal(controller.taskRun.visual.state, "inspecting");
+  const completed = controller.evaluateCompletion("The site is complete.");
+  assert.equal(completed.complete, true);
+  assert.equal(controller.taskRun.visual.state, "previewing");
 
   controller.noteTool("screenshot_page", { url: "http://127.0.0.1:4173/" }, "Captured the rendered page.");
   assert.equal(controller.taskRun.visual.state, "verified");

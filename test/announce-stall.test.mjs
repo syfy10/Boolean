@@ -181,7 +181,7 @@ test("a compatibility model cannot finish after promising another tool step", as
   assert.equal(steps.filter((step) => step.name === "read_file").length, 2);
 });
 
-test("normal mode continues an unfinished build without requiring Autopilot", async (t) => {
+test("normal mode respects the model's chosen stopping point", async (t) => {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-normal-persist-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
   fs.writeFileSync(path.join(projectDir, "app.js"), "const value = 1;\n");
@@ -223,10 +223,10 @@ test("normal mode continues an unfinished build without requiring Autopilot", as
     { role: "user", content: "Change app.js from value 1 to value 2 and verify it." }
   ]);
 
-  assert.equal(answer, "Updated app.js and verified it successfully.");
-  assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 2;\n");
-  assert.deepEqual(steps, ["edit_file", "run_command"]);
-  assert.equal(mock.requests.length, 4);
+  assert.equal(answer, "I will make the requested change next.");
+  assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 1;\n");
+  assert.deepEqual(steps, []);
+  assert.equal(mock.requests.length, 1);
 });
 
 test("catches bare next-step announcements with no deliverable", () => {

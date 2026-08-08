@@ -134,7 +134,7 @@ test("live browser trades are opt-in, never unattended, and always use explicit 
   assert.equal(clicks, 1);
 });
 
-test("live browser trading requires consent from the current signed-in Boolean user", async () => {
+test("live browser trading requires consent from the current signed-in Boollm user", async () => {
   const trade = { contract: "/MNQU26", side: "sell", quantity: 1, orderType: "market", broker: "Robinhood Legend", finalButton: "Place order" };
   const base = {
     ui: { aiBrowser: true, browserPerms: { tradeClicks: true, tradeConsentUser: "first@example.com" } },

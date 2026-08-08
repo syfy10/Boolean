@@ -3,15 +3,21 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import {
+  canonicalCapabilityModelId,
   capabilityProbeTool,
   capabilityProbeUnsupportedError,
   evaluateCapabilityProbeReply,
   modelCapabilityKey,
   modelCapabilityProfile,
   nativeToolSupport,
-  parseBooleanPatch,
+  parseBoollmPatch,
   recordNativeToolSupport
 } from "../src/model-capabilities.js";
+
+test("capability metadata exposes a stable canonical provider/model id", () => {
+  const cfg = { provider: "openai", openai: { baseUrl: "https://api.openai.com/v1", model: "gpt-5.1" } };
+  assert.equal(canonicalCapabilityModelId(cfg, {}), "openai/gpt-5.1");
+});
 
 function config(overrides = {}) {
   return {
@@ -26,19 +32,19 @@ function config(overrides = {}) {
   };
 }
 
-test("GLM-5-Turbo on the Z.AI Coding Plan uses the compatibility tool bridge", () => {
+test("an untested GLM model starts by checking its native tool capability", () => {
   const cfg = config();
   const target = { provider: "zaiCoding", base: cfg.zaiCoding.baseUrl, model: cfg.zaiCoding.model };
   const profile = modelCapabilityProfile(cfg, target, { vision: false });
-  assert.equal(nativeToolSupport(cfg, target), false);
-  assert.equal(profile.mode, "patch");
-  assert.equal(profile.label, "Compatible coding");
+  assert.equal(nativeToolSupport(cfg, target), null);
+  assert.equal(profile.mode, "checking");
+  assert.equal(profile.label, "Checking tool support");
   assert.equal(profile.capabilities.fileEdit, true);
   assert.equal(profile.capabilities.terminal, true);
   assert.equal(profile.capabilities.browser, true);
   assert.equal(profile.capabilities.deploy, true);
   assert.equal(profile.capabilities.vision, false);
-  assert.match(profile.warning, /validated compatibility bridge/i);
+  assert.equal(profile.warning, "");
 });
 
 test("capability records are scoped to provider endpoint and model and override inference", () => {
@@ -92,9 +98,9 @@ test("only explicit provider tool-support errors become a limited capability res
   }), false);
 });
 
-test("Boolean patches require one explicit fenced block with exact bounded edits", () => {
+test("Boollm patches require one explicit fenced block with exact bounded edits", () => {
   const root = path.join(os.tmpdir(), "boolean-patch-root");
-  const parsed = parseBooleanPatch([
+  const parsed = parseBoollmPatch([
     "```boolean_patch",
     JSON.stringify({ edits: [{ path: "src/app.js", old: "const old = 1;", new: "const next = 2;" }] }),
     "```"
@@ -102,12 +108,12 @@ test("Boolean patches require one explicit fenced block with exact bounded edits
   assert.equal(parsed.length, 1);
   assert.equal(parsed[0].kind, "replace");
   assert.equal(parsed[0].path, "src/app.js");
-  assert.equal(parseBooleanPatch('{"edits":[]}', root), null, "bare JSON is never translated into an edit");
-  assert.throws(() => parseBooleanPatch([
+  assert.equal(parseBoollmPatch('{"edits":[]}', root), null, "bare JSON is never translated into an edit");
+  assert.throws(() => parseBoollmPatch([
     "```boolean_patch", '{"edits":[]}', "```",
     "```boolean_patch", '{"edits":[]}', "```"
   ].join("\n"), root), /exactly one/i);
-  assert.throws(() => parseBooleanPatch([
+  assert.throws(() => parseBoollmPatch([
     "```boolean_patch",
     JSON.stringify({ edits: [{ path: "../outside.js", content: "unsafe" }] }),
     "```"

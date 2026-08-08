@@ -7,11 +7,12 @@ import { SAZ_DIR } from "./config.js";
 
 const RUNS_FILE = path.join(SAZ_DIR, "agent-runs.json");
 const WORKTREES_DIR = path.join(SAZ_DIR, "agent-worktrees");
+const ORPHAN_GRACE_MS = 10 * 60 * 1000;
 
-function execGit(cwd, args, timeoutMs = 60000) {
+function execIn(cwd, command, args, timeoutMs = 60000) {
   return new Promise((resolve) => {
     let child;
-    try { child = spawn("git", args, { cwd, windowsHide: true }); }
+    try { child = spawn(command, args, { cwd, windowsHide: true }); }
     catch (error) { resolve({ code: -1, output: error.message }); return; }
     let output = "";
     child.stdout.on("data", (data) => { output += data.toString(); });
@@ -22,9 +23,23 @@ function execGit(cwd, args, timeoutMs = 60000) {
   });
 }
 
+function execGit(cwd, args, timeoutMs = 60000) { return execIn(cwd, "git", args, timeoutMs); }
+
 function readRuns() { try { const parsed = JSON.parse(fs.readFileSync(RUNS_FILE, "utf8")); return Array.isArray(parsed.runs) ? parsed.runs : []; } catch { return []; } }
 function writeRuns(runs) { fs.mkdirSync(SAZ_DIR, { recursive: true }); const temp = RUNS_FILE + ".tmp"; fs.writeFileSync(temp, JSON.stringify({ version: 1, runs }, null, 2)); fs.renameSync(temp, RUNS_FILE); }
-function saveRun(run) { const runs = readRuns().filter((item) => item.id !== run.id); runs.unshift(run); writeRuns(runs.slice(0, 100)); return run; }
+// Trimming purely by age orphaned worktrees: the record fell out of the file
+// while its directory stayed on disk, and discard/gc look runs up by id, so
+// nothing could ever remove it again. Never drop a run that still owns a
+// directory; age out only the finished ones.
+function saveRun(run) {
+  const runs = readRuns().filter((item) => item.id !== run.id);
+  runs.unshift(run);
+  const owned = new Set(runs.filter((item) => item.workspaceDir && fs.existsSync(item.workspaceDir)).map((item) => item.id));
+  const trimmed = [];
+  for (const item of runs) if (owned.has(item.id) || trimmed.length < 100) trimmed.push(item);
+  writeRuns(trimmed);
+  return run;
+}
 function safeSlug(value, fallback = "task") { return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 42) || fallback; }
 
 export async function isGitRepository(directory) {
@@ -36,9 +51,10 @@ export async function isGitRepository(directory) {
 export async function createIsolatedAgentRun(projectDir, task, index = 0) {
   const root = path.resolve(String(projectDir || ""));
   if (!await isGitRepository(root)) throw new Error("isolated agents require a Git project; initialize Git or use shared isolation");
-  const status = await execGit(root, ["status", "--porcelain"]);
-  if (status.code !== 0) throw new Error(status.output || "could not inspect the main project");
-  if (status.output.trim()) throw new Error("the main project has uncommitted changes; commit or stash them before starting isolated agents so every agent sees the current project");
+  // A worktree branches from HEAD and is isolated from the main working tree by
+  // construction, so uncommitted work there cannot reach an agent. Demanding a
+  // clean tree here made parallel agents refuse to start during ordinary work.
+  // The requirement is real only at apply time, where cherry-pick needs it.
   const id = `${Date.now().toString(36)}-${index + 1}-${crypto.randomBytes(3).toString("hex")}`;
   const branch = `boolean/agent/${id}-${safeSlug(task)}`;
   const workspaceDir = path.join(WORKTREES_DIR, id);
@@ -58,7 +74,7 @@ export async function finalizeIsolatedAgentRun(id, summary = "") {
   if (status.output.trim()) {
     const add = await execGit(run.workspaceDir, ["add", "-A"]);
     if (add.code !== 0) throw new Error(add.output || "could not stage agent changes");
-    const committed = await execGit(run.workspaceDir, ["commit", "-m", `Boolean agent: ${safeSlug(run.task).replace(/-/g, " ")}`], 120000);
+    const committed = await execGit(run.workspaceDir, ["commit", "-m", `Boollm agent: ${safeSlug(run.task).replace(/-/g, " ")}`], 120000);
     if (committed.code !== 0) throw new Error(committed.output || "could not commit agent changes");
     const head = await execGit(run.workspaceDir, ["rev-parse", "HEAD"]);
     if (head.code !== 0) throw new Error(head.output || "could not read agent commit");
@@ -70,19 +86,121 @@ export async function finalizeIsolatedAgentRun(id, summary = "") {
 
 export function listAgentRuns(projectDir = "") { const root = projectDir ? path.resolve(projectDir) : ""; return readRuns().filter((run) => !root || path.resolve(run.projectDir) === root); }
 
-export async function applyAgentRun(id, targetDir) {
+// The worktree is already checked out and isolated, which makes it the cheapest
+// possible place to find out whether a worker's work is any good - before it is
+// merged rather than after. A fresh worktree has no node_modules (untracked, so
+// never copied), so a dependency-based check is reported as unverifiable rather
+// than failed; claiming a false failure would be worse than admitting the gap.
+export function detectVerifyCommand(dir) {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+    const script = String(pkg?.scripts?.test || "").trim();
+    if (script && !/no test specified/i.test(script)) {
+      return { command: process.platform === "win32" ? "npm.cmd" : "npm", args: ["test", "--silent"], label: "npm test", needsModules: true };
+    }
+  } catch {}
+  return null;
+}
+
+export async function verifyAgentRun(id, options = {}) {
   const run = readRuns().find((item) => item.id === id);
   if (!run) throw new Error(`unknown isolated agent run '${id}'`);
-  if (!run.commit) throw new Error(`agent run '${id}' did not produce file changes`);
-  const target = path.resolve(String(targetDir || run.projectDir));
-  if (target !== path.resolve(run.projectDir)) throw new Error("agent result belongs to a different project");
-  const status = await execGit(target, ["status", "--porcelain"]);
+  if (!fs.existsSync(run.workspaceDir)) throw new Error(`worktree for '${id}' no longer exists`);
+  const skip = (label) => saveRun({ ...run, verification: { ran: false, ok: true, label, at: Date.now() }, updatedAt: Date.now() });
+  if (!run.commit) return skip("no file changes to check");
+  const check = options.check === undefined ? detectVerifyCommand(run.workspaceDir) : options.check;
+  if (!check) return skip("no project check found");
+  if (check.needsModules && !fs.existsSync(path.join(run.workspaceDir, "node_modules"))) return skip(`${check.label} skipped: dependencies are not installed in the worktree`);
+  const result = await execIn(run.workspaceDir, check.command, check.args, Number(options.timeoutMs) || 300000);
+  const verification = { ran: true, ok: result.code === 0, label: check.label, code: result.code, output: String(result.output || "").slice(-4000), at: Date.now() };
+  return saveRun({ ...run, verification, updatedAt: Date.now() });
+}
+
+// Applying one commit at a time left a half-merged project whenever a later
+// result conflicted, and reported it only as text. Record HEAD first and reset
+// to it on any failure, so integration is all-or-nothing.
+export async function applyAgentRuns(ids, targetDir, { requireVerified = true } = {}) {
+  const all = readRuns();
+  const runs = (Array.isArray(ids) ? ids : [ids]).map((id) => {
+    const run = all.find((item) => item.id === id);
+    if (!run) throw new Error(`unknown isolated agent run '${id}'`);
+    return run;
+  });
+  const changed = runs.filter((run) => run.commit);
+  if (!changed.length) throw new Error(`agent run '${runs[0].id}' did not produce file changes`);
+  const target = path.resolve(String(targetDir || changed[0].projectDir));
+  for (const run of changed) {
+    if (path.resolve(run.projectDir) !== target) throw new Error("agent result belongs to a different project");
+  }
+  if (requireVerified) {
+    const failed = changed.filter((run) => run.verification?.ran && run.verification.ok === false);
+    if (failed.length) throw new Error(`not applied: ${failed.map((run) => `${run.id} failed its own ${run.verification.label}`).join("; ")}`);
+  }
+  const status = await execGit(target, ["status", "--porcelain", "--untracked-files=no"]);
   if (status.code !== 0) throw new Error(status.output || "could not inspect target project");
   if (status.output.trim()) throw new Error("the main project has uncommitted changes; commit or stash them before applying an agent result");
-  const applied = await execGit(target, ["cherry-pick", run.commit], 120000);
-  if (applied.code !== 0) { await execGit(target, ["cherry-pick", "--abort"]); throw new Error(`agent result conflicted and was not applied: ${applied.output}`); }
-  const updated = { ...run, state: "applied", appliedAt: Date.now(), updatedAt: Date.now() };
-  saveRun(updated); return updated;
+  const head = await execGit(target, ["rev-parse", "HEAD"]);
+  if (head.code !== 0) throw new Error(head.output || "could not read the project HEAD");
+  const baseline = head.output.trim();
+  for (const run of changed) {
+    const applied = await execGit(target, ["cherry-pick", run.commit], 120000);
+    if (applied.code !== 0) {
+      await execGit(target, ["cherry-pick", "--abort"]);
+      await execGit(target, ["reset", "--hard", baseline], 120000);
+      throw new Error(`agent result '${run.id}' conflicted; rolled back to ${baseline.slice(0, 8)} and applied nothing: ${applied.output}`);
+    }
+  }
+  const updated = [];
+  for (const run of changed) {
+    // Cleanup failure must not undo a merge that already succeeded, so it is
+    // recorded on the run rather than thrown.
+    let cleanup = "";
+    if (fs.existsSync(run.workspaceDir)) {
+      const removed = await execGit(run.projectDir, ["worktree", "remove", "--force", run.workspaceDir], 120000);
+      if (removed.code !== 0) cleanup = removed.output;
+    }
+    if (run.branch) await execGit(run.projectDir, ["branch", "-D", run.branch]);
+    await execGit(run.projectDir, ["worktree", "prune"]);
+    updated.push(saveRun({ ...run, state: "applied", appliedAt: Date.now(), updatedAt: Date.now(), ...(cleanup ? { cleanupWarning: cleanup } : {}) }));
+  }
+  return updated;
+}
+
+export async function applyAgentRun(id, targetDir, options) {
+  const [run] = await applyAgentRuns([id], targetDir, options);
+  return run;
+}
+
+// A worktree whose run is applied, or whose run record is gone entirely, is
+// dead weight on disk. Sweep both.
+export async function gcAgentWorktrees(projectDir = "") {
+  let entries = [];
+  try { entries = fs.readdirSync(WORKTREES_DIR, { withFileTypes: true }).filter((item) => item.isDirectory()).map((item) => item.name); }
+  catch { return { removed: [], kept: 0 }; }
+  const runs = new Map(readRuns().map((run) => [run.id, run]));
+  const removed = [];
+  for (const id of entries) {
+    const run = runs.get(id);
+    if (run && run.state !== "applied") continue;
+    // Another session may have just created this worktree and not yet written
+    // its record, so a directory with no record is only swept once it is old.
+    if (!run) {
+      let age = Infinity;
+      try { age = Date.now() - fs.statSync(path.join(WORKTREES_DIR, id)).mtimeMs; } catch {}
+      if (age < ORPHAN_GRACE_MS) continue;
+    }
+    const dir = path.join(WORKTREES_DIR, id);
+    const root = run?.projectDir || String(projectDir || "");
+    const tracked = root && await isGitRepository(root);
+    if (tracked) {
+      await execGit(root, ["worktree", "remove", "--force", dir], 120000);
+      if (run?.branch) await execGit(root, ["branch", "-D", run.branch]);
+    }
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+    if (tracked) await execGit(root, ["worktree", "prune"]);
+    removed.push(id);
+  }
+  return { removed, kept: entries.length - removed.length };
 }
 
 export async function discardAgentRun(id) {

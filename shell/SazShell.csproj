@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>Boolean</AssemblyName>
+    <AssemblyName>Boollm</AssemblyName>
     <RootNamespace>SazShell</RootNamespace>
     <Version>0.9.71</Version>
     <FileVersion>0.9.71.0</FileVersion>

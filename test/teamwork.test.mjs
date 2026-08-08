@@ -97,7 +97,7 @@ test("assist runs a specialist first and passes its report to the lead", async (
 
   assert.equal(answer, "Lead integrated the reviewer report and completed the task.");
   assert.ok(requests.length >= 2);
-  assert.ok(requests.some((body) => (body.messages || []).some((message) => /BOOLEAN TEAM HANDOFF/.test(String(message.content || "")))));
+  assert.ok(requests.some((body) => (body.messages || []).some((message) => /BOOLLM TEAM HANDOFF/.test(String(message.content || "")))));
   assert.deepEqual(steps.filter((step) => step.name === "team_worker").map((step) => step.args.state), ["queued", "working", "done"]);
   assert.equal(controllers.at(-1)?.teamWorkers?.Reviewer?.state, "done");
   assert.equal(controllers.at(-1)?.teamWorkers?.Reviewer?.workspace, projectDir);
@@ -109,7 +109,7 @@ test("assist runs a specialist first and passes its report to the lead", async (
   assert.ok(usageEvents.some((usage) => !usage.teamWorker));
 });
 
-test("team retries one failed specialist on a different connected provider", async (t) => {
+test("assist retries one failed specialist on a different connected provider", async (t) => {
   let leadCalls = 0;
   const server = http.createServer(async (req, res) => {
     if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
@@ -121,7 +121,7 @@ test("team retries one failed specialist on a different connected provider", asy
     for await (const chunk of req) raw += chunk;
     const body = JSON.parse(raw);
     const text = (body.messages || []).map((message) => String(message.content || "")).join("\n");
-    if (/Mapper supporting a lead coding agent/i.test(text) && req.url.startsWith("/v1/")) {
+    if (/Reviewer supporting a lead coding agent/i.test(text) && req.url.startsWith("/v1/")) {
       res.writeHead(401, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: { message: "bad worker key" } }));
       return;
@@ -143,18 +143,29 @@ test("team retries one failed specialist on a different connected provider", asy
   fs.writeFileSync(path.join(projectDir, "app.js"), "export const value = 1;\n");
   const steps = [];
   const answer = await runTurn({
-    config: teamConfig(server.address().port, "team"), projectDir,
+    config: teamConfig(server.address().port, "assist"), projectDir,
     approve: async () => true, onStatus() {}, onUsage() {}, onCheckpoint() {},
     onStep(step) { steps.push(step); }
   }, [
-    { role: "system", content: systemPrompt(projectDir, true, teamConfig(server.address().port, "team")) },
+    { role: "system", content: systemPrompt(projectDir, true, teamConfig(server.address().port, "assist")) },
     { role: "user", content: "Fix app.js and verify it." }
   ]);
   assert.equal(answer, "Lead completed the task.");
-  const mapper = steps.filter((step) => step.name === "team_worker" && step.args.role === "Mapper");
-  assert.deepEqual(mapper.map((step) => step.args.state), ["queued", "working", "retrying", "done"]);
-  assert.equal(mapper[2].args.provider, "google");
-  assert.equal(mapper[2].args.attempt, 2);
+  const reviewer = steps.filter((step) => step.name === "team_worker" && step.args.role === "Reviewer");
+  assert.deepEqual(reviewer.map((step) => step.args.state), ["queued", "working", "retrying", "done"]);
+  assert.equal(reviewer[2].args.provider, "google");
+  assert.equal(reviewer[2].args.attempt, 2);
+});
+
+test("Team mode gives the lead isolated parallel editing and integration control", () => {
+  const prompt = systemPrompt("C:\\demo\\project", true, teamConfig(1, "team"));
+  assert.match(prompt, /TEAM MODE/);
+  assert.match(prompt, /choose 2-3 non-overlapping assignments/);
+  assert.match(prompt, /isolation=worktree/);
+  assert.match(prompt, /apply=true/);
+  assert.match(prompt, /resolve any reported conflict yourself/);
+  const assistPrompt = systemPrompt("C:\\demo\\project", true, teamConfig(1, "assist"));
+  assert.doesNotMatch(assistPrompt, /TEAM MODE/);
 });
 
 test("specialists stay in the active project and cannot overwrite the lead controller", async (t) => {
@@ -238,13 +249,19 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.match(ui, /function positionTeamMenu\(\)[\s\S]*?availableWidth=Math\.max\(180,workspaceRect\.width-margin\*2\)[\s\S]*?menu\.style\.left=/);
   assert.match(ui, /data-team-mode="solo"[\s\S]*data-team-mode="assist"[\s\S]*data-team-mode="team"/);
   assert.match(ui, /id="teamWorkerProvider"/);
+  assert.match(ui, /id="teamMaxWorkers"/);
+  assert.match(ui, /saveTeamwork\(\{maxWorkers:/);
   assert.match(ui, /id="teamTaskBudget"/);
+  assert.match(ui, /Isolated agents build independent parts in parallel/);
+  assert.match(ui, /conflict-free results are integrated and verified/);
   assert.match(ui, /teamwork:\{mode:\["solo","assist","team"\]/);
   assert.match(ui, /team_worker:\(entry\?\.args\?\.state==="done"/);
   assert.match(ui, /function updateTeamWorker\(entry\)/);
   assert.match(ui, /function workingToolActivitySubject\(entry\)/);
   assert.match(ui, /if\(group==="agents"\) return count===1\?"Asked another model for help":"Asked other models for help"/);
-  assert.match(ui, /run\?\.statusEl\?\.classList\.remove\("team-active"\)/);
+  // A team run shares the one working card; it gets no separate layout, so
+  // neither the old progress strip nor a team-only card state exists.
+  assert.doesNotMatch(ui, /team-active/);
   assert.doesNotMatch(ui, /class="team-run-progress"/);
   assert.match(ui, /Stopping safely/);
   assert.match(ui, /run\.controller\?\.teamWorkers/);
@@ -259,4 +276,61 @@ test("teamwork controls are compact, persisted, and shown beside the model selec
   assert.ok(liveRunner.indexOf("const runUsageByWorker = new Map();") < liveRunner.indexOf("runUsageByWorker.get(usageKey)"));
   assert.doesNotMatch(ui, /â|Ã|Â|ð/);
   assert.match(ui, /id="teambtn"[^>]*>Solo <span class="chev">&#9660;<\/span>/);
+});
+
+// Specialists used to spawn from the classification alone, so a question Boollm
+// misread as a build burned three worker calls and left worker chips in the UI
+// before the lead had touched anything. The handoff now waits for a real change.
+test("specialists do not spawn until the lead actually changes something", async (t) => {
+  const requests = [];
+  const server = http.createServer(async (req, res) => {
+    if (req.method !== "POST" || !req.url?.endsWith("/chat/completions")) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    requests.push(body);
+    // The lead answers the question outright and never edits a file.
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({
+      choices: [{ message: { role: "assistant", content: "The one change I would make is caching the repository map." } }],
+      usage: { prompt_tokens: 90, completion_tokens: 20 }
+    }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-team-idle-"));
+  t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
+  const cfg = teamConfig(server.address().port, "team");
+  const steps = [];
+  const controllers = [];
+  const answer = await runTurn({
+    config: cfg,
+    projectDir,
+    forceNoArtifact: true,
+    approve: async () => true,
+    onStatus() {},
+    onStep(step) { steps.push(step); },
+    onController(controller) { controllers.push(controller); },
+    onUsage() {},
+    onCheckpoint() {}
+  }, [
+    { role: "system", content: systemPrompt(projectDir, true, cfg) },
+    { role: "user", content: "give 1 thing we can change to make this application better" }
+  ]);
+
+  assert.match(answer, /caching the repository map/);
+  assert.equal(steps.filter((step) => step.name === "team_worker").length, 0, "no specialist may run for a turn that changed nothing");
+  assert.ok(
+    !requests.some((body) => (body.messages || []).some((message) => /supporting a lead coding agent/i.test(String(message.content || "")))),
+    "no worker prompt may reach a model"
+  );
+  assert.ok(
+    !requests.some((body) => (body.messages || []).some((message) => /BOOLLM TEAM HANDOFF/.test(String(message.content || "")))),
+    "no team handoff may be injected"
+  );
+  assert.notEqual(controllers.at(-1)?.showPlan, true, "a turn that ran no tool must not raise a step plan");
 });

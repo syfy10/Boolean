@@ -49,6 +49,12 @@ function healthKey(provider, model) {
   return `${lower(provider)}|${lower(model)}`;
 }
 
+export function canonicalModelId(target = {}) {
+  const provider = lower(target.provider || "unknown") || "unknown";
+  const model = clean(target.model || "default").replace(/^\/+|\/+$/g, "") || "default";
+  return `${provider}/${model}`;
+}
+
 export function noteAutoModelOutcome(target = {}, outcome = {}) {
   const provider = clean(target.provider);
   const model = clean(target.model);
@@ -76,9 +82,25 @@ export function resetAutoModelHealth() {
   providerHealth.clear();
 }
 
+export function autoModelHealthSnapshot() {
+  const now = Date.now();
+  return [...providerHealth.entries()].map(([key, value]) => ({
+    id: key.replace("|", "/"),
+    successes: Number(value.successes || 0),
+    failures: Number(value.failures || 0),
+    latencyMs: Number(value.latencyMs || 0),
+    state: Number(value.cooldownUntil || 0) > now ? "cooldown" : "ready",
+    cooldownMs: Math.max(0, Number(value.cooldownUntil || 0) - now),
+    lastError: clean(value.lastError).slice(0, 160)
+  }));
+}
+
 function connectedCandidates(config = {}) {
   const providers = [];
-  if (config?.local?.model) providers.push("local");
+  // Local and Cloud are hard routing boundaries. A configured local model may
+  // only participate in Auto while Local is the selected network mode; Cloud
+  // retries, handoffs, and verification must remain on connected cloud APIs.
+  if (clean(config?.provider || "local") === "local" && config?.local?.model) providers.push("local");
   for (const provider of Object.keys(CLOUD)) {
     if (config?.[provider]?.apiKey && config?.[provider]?.model) providers.push(provider);
   }
@@ -96,7 +118,7 @@ function costRank(candidate) {
 function qualityRank(candidate) {
   const model = lower(candidate.model);
   let score = 2;
-  if (/\b(?:pro|opus|max|ultra|reason|thinking|gpt-5|glm-5|sonnet)\b/.test(model)) score += 3;
+  if (/\b(?:pro|opus|max|ultra|reason|thinking|gpt-5|sonnet)\b/.test(model)) score += 3;
   if (/\b(?:mini|lite|flash|turbo|fast|air|nano)\b/.test(model)) score -= 1;
   if (/\b(?:code|coder|codex|devstral)\b/.test(model)) score += 1;
   return score;
@@ -157,11 +179,11 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
       automatic: false,
       engine: configured,
       route,
-      reason: configured === "boolean" ? "Boolean was selected manually." : `${configured === "codex" ? "Codex" : "Claude Code"} was selected manually.`
+      reason: configured === "boolean" ? "Boollm was selected manually." : `${configured === "codex" ? "Codex" : "Claude Code"} was selected manually.`
     };
   }
   if (configured !== "auto" || options.disabled === true) {
-    return { automatic: configured === "auto", engine: "boolean", route, reason: options.disabled === true ? "Automatic subscription routing is unavailable for this turn." : "Boolean was selected manually." };
+    return { automatic: configured === "auto", engine: "boolean", route, reason: options.disabled === true ? "Automatic subscription routing is unavailable for this turn." : "Boollm was selected manually." };
   }
 
   const routing = config?.ui?.modelRouting || {};
@@ -176,20 +198,20 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
   };
 
   // Auto always gives the selected GLM, DeepSeek, local, or other connected
-  // Boolean model the first attempt. Subscription engines are escalation-only
+  // Boollm model the first attempt. Subscription engines are escalation-only
   // after a code/project task fails or cannot produce a verified completion.
   if (!escalationRequired) {
-    return { automatic: true, engine: "boolean", route, reason: "The selected Boolean API gets the first attempt." };
+    return { automatic: true, engine: "boolean", route, reason: "The selected Boollm API gets the first attempt." };
   }
   if ((route !== "coding" && !taskExecution) || route === "vision" || route === "research") {
     return { automatic: true, engine: "boolean", route, reason: "Subscription escalation is limited to code and project tasks." };
   }
   if (requested === "boolean") {
-    return { automatic: true, engine: "boolean", route, reason: `${route} is assigned to Boolean with no subscription fallback.` };
+    return { automatic: true, engine: "boolean", route, reason: `${route} is assigned to Boollm with no subscription fallback.` };
   }
   if (["codex", "claude-code"].includes(requested)) {
     if (ready[requested]) {
-      return { automatic: true, engine: requested, route, reason: `Boolean could not verify this task; escalating to the approved ${requested === "codex" ? "Codex" : "Claude"} subscription.` };
+      return { automatic: true, engine: requested, route, reason: `Boollm could not verify this task; escalating to the approved ${requested === "codex" ? "Codex" : "Claude"} subscription.` };
     }
     return { automatic: true, engine: "boolean", route, reason: `${requested === "codex" ? "Codex" : "Claude Code"} is the configured fallback but is not signed in and ready.` };
   }
@@ -205,8 +227,8 @@ export function selectExecutionEngine(config = {}, messages = [], options = {}) 
     engine,
     route,
     reason: engine === "boolean"
-      ? "No approved subscription engine is signed in and ready; keeping the task in Boolean."
-      : `Boolean could not complete or verify this task; escalating to the approved ${engine === "codex" ? "Codex" : "Claude"} subscription.`
+      ? "No approved subscription engine is signed in and ready; keeping the task in Boollm."
+      : `Boollm could not complete or verify this task; escalating to the approved ${engine === "codex" ? "Codex" : "Claude"} subscription.`
   };
 }
 
@@ -215,7 +237,7 @@ function preferenceScore(candidate, route, preference) {
   const cost = costRank(candidate);
   let score = preference === "quality" ? quality * 8 - cost : preference === "cost" ? -cost * 8 + quality : quality * 4 - cost * 3;
   const model = lower(candidate.model);
-  if (route === "coding" && /\b(?:code|coder|codex|devstral|glm-5|gpt-5|sonnet)\b/.test(model)) score += 8;
+  if (route === "coding" && /\b(?:code|coder|codex|devstral|gpt-5|sonnet)\b/.test(model)) score += 8;
   if (route === "research" && /\b(?:gemini|gpt|claude|sonnet|grok)\b/.test(model)) score += 5;
   if (route === "fast" && /\b(?:flash|turbo|fast|mini|lite|air|nano)\b/.test(model)) score += 9;
   if (route === "chat" && candidate.provider === "local") score += 3;
@@ -246,7 +268,25 @@ export function selectAutoModelRoute(config = {}, messages = [], options = {}) {
     return { enabled: true, route, target: selected, alternates: [], preference, reason: `No connected ${route} model is available; keeping the selected model.` };
   }
 
-  if (requestedProvider && requestedProvider !== "auto" && requestedProvider !== "selected") {
+  const orderedTargets=Array.isArray(profile.targets)?profile.targets.map((item)=>{
+    if(typeof item==="string"){
+      const slash=item.indexOf("/");
+      return slash>0?{provider:item.slice(0,slash),model:item.slice(slash+1)}:null;
+    }
+    return item&&typeof item==="object"?{provider:clean(item.provider),model:clean(item.model)}:null;
+  }).filter(Boolean):[];
+  if(orderedTargets.length){
+    const rank=(candidate)=>{
+      const index=orderedTargets.findIndex((item)=>lower(item.provider)===lower(candidate.provider)&&(!item.model||lower(item.model)===lower(candidate.model)));
+      return index<0?Number.MAX_SAFE_INTEGER:index;
+    };
+    candidates.sort((a,b)=>{
+      const coolingA=Number(autoModelHealth(a).cooldownUntil||0)>Date.now()?1:0;
+      const coolingB=Number(autoModelHealth(b).cooldownUntil||0)>Date.now()?1:0;
+      if(coolingA!==coolingB)return coolingA-coolingB;
+      return rank(a)-rank(b)||preferenceScore(b,route,preference)-preferenceScore(a,route,preference);
+    });
+  } else if (requestedProvider && requestedProvider !== "auto" && requestedProvider !== "selected") {
     const configured = candidates.find((candidate) => candidate.provider === requestedProvider
       && (!requestedModel || candidate.model === requestedModel));
     if (configured) {
@@ -266,6 +306,8 @@ export function selectAutoModelRoute(config = {}, messages = [], options = {}) {
   const target = candidates[0];
   const source = locked
     ? "project lock"
+    : orderedTargets.length
+      ? `ordered ${route} profile`
     : requestedProvider && requestedProvider !== "auto" && target.provider !== requestedProvider
       ? `healthy fallback for the ${route} profile`
       : requestedProvider && requestedProvider !== "auto"

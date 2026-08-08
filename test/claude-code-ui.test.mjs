@@ -4,7 +4,7 @@ import test from "node:test";
 
 const uiSource = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
 
-test("Coding Agent settings offer Claude Code beside Boolean and Codex", () => {
+test("Coding Agent settings offer Claude Code beside Boollm and Codex", () => {
   assert.match(uiSource, /id="orchestrationSeg"[\s\S]*data-runtime="auto"[\s\S]*data-runtime="boolean"[\s\S]*data-runtime="codex"[\s\S]*data-runtime="claude-code"/);
   assert.match(uiSource, /<b>Claude Code engine<\/b>/);
   assert.match(uiSource, /data-claude-step="install"[\s\S]*Install Claude Code/);
@@ -50,7 +50,7 @@ test("Claude Code cannot render active before verified sign-in", () => {
 });
 
 test("the selected orchestration engine is explicit and accessible", () => {
-  assert.match(uiSource, /id="orchestrationSelected">Selected: <b>Boolean<\/b>/);
+  assert.match(uiSource, /id="orchestrationSelected">Selected: <b>Boollm<\/b>/);
   assert.match(uiSource, /button\.setAttribute\("aria-pressed",String\(selected\)\)/);
   assert.match(uiSource, /#orchestrationSeg button\.on::before\{ content:"✓"/);
 });
@@ -64,14 +64,14 @@ test("Codex and Claude engine choices show connected or disconnected dots", () =
   assert.match(uiSource, /class="engine-ready '\+\(ready\[runtime\]\?"":"down"\)/);
 });
 
-test("the compact model picker can select Auto Boolean Codex or Claude", () => {
+test("the compact model picker can select Auto Boollm Codex or Claude", () => {
   assert.match(uiSource, /id="modelEnginePicker"[\s\S]*data-picker-runtime="auto"[\s\S]*data-picker-runtime="boolean"[\s\S]*data-picker-runtime="codex"[\s\S]*data-picker-runtime="claude-code"/);
-  assert.match(uiSource, /Auto starts with Boolean and uses an approved Codex or Claude fallback when needed/);
+  assert.match(uiSource, /Auto starts with Boollm and uses an approved Codex or Claude fallback when needed/);
   assert.match(uiSource, /selectCodingRuntime\(button\.dataset\.pickerRuntime,\{fromPicker:true\}\)/);
   assert.match(uiSource, /const prefix=engine==="auto"\?"Auto · ":engine==="codex"\?"Codex · ":engine==="claude-code"\?"Claude · ":""/);
 });
 
-test("switching to Local selects the local Boolean runtime and labels it Local", () => {
+test("switching to Local selects the local Boollm runtime and labels it Local", () => {
   assert.match(uiSource, /if\(net==="local"\)\{[\s\S]*state\.codingEngine="boolean";[\s\S]*JSON\.stringify\(\{provider:"local",codingEngine:"boolean"\}\)/);
   assert.match(uiSource, /const localMode=\(modelPickerNet\|\|\(state\.provider==="local"\?"local":"online"\)\)==="local"/);
   assert.match(uiSource, /runtime==="boolean"&&localMode\?"Local"/);

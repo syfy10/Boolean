@@ -110,7 +110,7 @@ function successfulTurn(client) {
   });
 }
 
-test("new Boolean chats lazily start Codex, bootstrap bounded history, and stream mapped lifecycle events", async () => {
+test("new Boollm chats lazily start Codex, bootstrap bounded history, and stream mapped lifecycle events", async () => {
   const client = new FakeCodexClient({ onTurn: successfulTurn });
   const statuses = [];
   const tokens = [];
@@ -121,7 +121,7 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   const result = await runCodexTurn({
     client,
     messages: [
-      { role: "system", content: "Do not include this Boolean-only system rule." },
+      { role: "system", content: "Do not include this Boollm-only system rule." },
       { role: "user", content: "We were fixing the parser." },
       { role: "assistant", content: "I found the failing branch." },
       { role: "user", content: "Finish it and run the test." }
@@ -167,12 +167,12 @@ test("new Boolean chats lazily start Codex, bootstrap bounded history, and strea
   assert.equal(client.threadStarts[0].dynamicTools[0].name, "boolean_changes");
   assert.match(client.turnStarts[0].input[0].text, /We were fixing the parser/);
   assert.match(client.turnStarts[0].input[0].text, /Current request:\nFinish it and run the test/);
-  assert.match(client.turnStarts[0].input[0].text, /Boolean Changes panel before this turn/);
+  assert.match(client.turnStarts[0].input[0].text, /Boollm Changes panel before this turn/);
   assert.match(client.turnStarts[0].input[0].text, /1 changed file/);
   assert.match(client.turnStarts[0].input[0].text, /authoritative.*independent of Git/);
   assert.match(client.turnStarts[0].input[0].text, /C:\/work\/src\/parser\.js/);
   assert.match(client.turnStarts[0].input[0].text, /\+new/);
-  assert.doesNotMatch(client.turnStarts[0].input[0].text, /Boolean-only system rule/);
+  assert.doesNotMatch(client.turnStarts[0].input[0].text, /Boollm-only system rule/);
   assert.equal(result.status, "completed");
   assert.equal(result.content, "Done.");
   assert.equal(result.threadId, "thr_new");
@@ -199,15 +199,15 @@ test("Codex receives an authoritative zero Changes count without Git", async () 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-zero-changes-"));
   try {
     const client = new FakeCodexClient({ onTurn: successfulTurn });
-    await runCodexTurn({ client, input: "Report Boolean Changes.", projectDir: root, workspaceChanges: [] });
-    assert.match(client.turnStarts[0].input[0].text, /Boolean Changes panel before this turn: 0 changed files/);
+    await runCodexTurn({ client, input: "Report Boollm Changes.", projectDir: root, workspaceChanges: [] });
+    assert.match(client.turnStarts[0].input[0].text, /Boollm Changes panel before this turn: 0 changed files/);
     assert.match(client.turnStarts[0].input[0].text, /Do not use Git to calculate it/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("Codex can query Boolean's live non-Git Changes panel through a dynamic tool", async () => {
+test("Codex can query Boollm's live non-Git Changes panel through a dynamic tool", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-live-changes-"));
   let toolResponse = null;
   try {
@@ -225,7 +225,7 @@ test("Codex can query Boolean's live non-Git Changes panel through a dynamic too
     });
     await runCodexTurn({
       client,
-      input: "Read Boolean Changes.",
+      input: "Read Boollm Changes.",
       projectDir: root,
       getWorkspaceChanges: () => [{
         path: "created.txt",
@@ -247,7 +247,7 @@ test("Codex can query Boolean's live non-Git Changes panel through a dynamic too
   }
 });
 
-test("a completed Codex edit is counted only after Boolean verifies its exact path and diff on disk", async () => {
+test("a completed Codex edit is counted only after Boollm verifies its exact path and diff on disk", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-codex-edit-"));
   try {
     const filename = "codex-edit-test.txt";
@@ -407,7 +407,7 @@ test("resumed Codex threads receive only the latest user input and failed comple
   });
   assert.equal(client.threadStarts.length, 0);
   assert.equal(client.threadResumes[0].threadId, "thr_saved");
-  assert.match(client.turnStarts[0].input[0].text, /^Try the test again\n\nBoolean Changes panel before this turn: 0 changed files\./);
+  assert.match(client.turnStarts[0].input[0].text, /^Try the test again\n\nBoollm Changes panel before this turn: 0 changed files\./);
   assert.doesNotMatch(client.turnStarts[0].input[0].text, /Old request|Old answer/);
   assert.equal(tokens.length, 0, "commentary must not be rendered as the final answer");
   assert.equal(result.status, "failed");
@@ -462,7 +462,7 @@ test("command and file approvals plus requestUserInput are routed through async 
   ]);
 });
 
-test("server-resolved requests clear Boolean prompts without sending a stale response", async () => {
+test("server-resolved requests clear Boollm prompts without sending a stale response", async () => {
   let releaseApproval;
   const resolved = [];
   const client = new FakeCodexClient({

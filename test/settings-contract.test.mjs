@@ -41,7 +41,7 @@ test("MCP approval copy distinguishes reads from account-changing actions", () =
   assert.match(uiSource, /Read-only MCP calls follow your approval mode/);
   assert.match(uiSource, /Trades, orders, transfers, deletes/);
   assert.match(toolsSource, /mcpToolRequiresExplicitApproval/);
-  assert.doesNotMatch(toolsSource, /Boolean always asks the user to confirm MCP actions/);
+  assert.doesNotMatch(toolsSource, /Boollm always asks the user to confirm MCP actions/);
 });
 
 test("Coding Agent exposes persisted Auto Quick and Plan first planning modes", () => {
@@ -102,7 +102,7 @@ test("settings UI does not expose unsupported voice, telemetry, or encryption sw
 test("reset and destructive delete are separate guarded operations", () => {
   assert.match(serverSource, /p === "\/api\/settings\/reset"/);
   assert.match(serverSource, /p === "\/api\/delete-all-data"/);
-  assert.match(serverSource, /DELETE ALL BOOLEAN DATA/);
+  assert.match(serverSource, /DELETE ALL BOOLLM DATA/);
   assert.match(uiSource, /Accounts, API keys, email connections, chats, and projects are preserved/);
   assert.match(uiSource, /permanently removes chats, learned behavior, preferences, API keys, OAuth accounts, and connector credentials/);
 });
@@ -119,7 +119,7 @@ test("overview exposes local save, private backup, account, and guarded clear co
   assert.match(uiSource, /Email and connector accounts/);
   assert.match(uiSource, /Chats, notes, and memory/);
   assert.match(uiSource, /including credentials and connection records/);
-  assert.match(uiSource, /clearLocalData"\)\.onclick=deleteAllBooleanData/);
+  assert.match(uiSource, /clearLocalData"\)\.onclick=deleteAllBoollmData/);
 });
 
 test("manual local checkpoints persist config and chats and keep sensitive backups on this PC", () => {
@@ -139,7 +139,7 @@ test("Notepad and Memory is a searchable, editable local control center", () => 
   assert.match(uiSource, /id="learningStatus"/);
   assert.match(uiSource, /id="memoryRuleCount"/);
   assert.match(uiSource, /id="memorySearch"[^>]*placeholder="Search saved preferences"/);
-  assert.match(uiSource, /Review exactly what Boolean will reuse\. Edit or forget any item\./);
+  assert.match(uiSource, /Review exactly what Boollm will reuse\. Edit or forget any item\./);
   assert.match(uiSource, /data-action="edit"/);
   assert.match(uiSource, /data-action="forget"/);
   assert.match(uiSource, /View saved example/);

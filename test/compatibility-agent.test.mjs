@@ -82,7 +82,7 @@ test("compatibility models can patch files and continue through terminal verific
   assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 2;\n");
   assert.ok(mock.calls() >= 3);
   assert.equal(mock.requests[0].tools, undefined);
-  assert.match(mock.requests[0].messages[0].content, /BOOLEAN COMPATIBILITY MODE/);
+  assert.match(mock.requests[0].messages[0].content, /BOOLLM COMPATIBILITY MODE/);
   assert.ok(steps.some((step) => step.name === "boolean_patch"));
   assert.ok(steps.some((step) => step.name === "run_command"));
 });
@@ -122,7 +122,7 @@ test("Read only access lets a harmless version check reach one command approval"
   assert.match(JSON.stringify(mock.requests[1]), /v\d+\.\d+/i);
 });
 
-test("compatibility models stop repeated inspection and report the unmet change", async (t) => {
+test("compatibility models own completion after repeated inspection", async (t) => {
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-patch-loop-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
   fs.writeFileSync(path.join(projectDir, "app.js"), "const value = 1;\n");
@@ -146,11 +146,16 @@ test("compatibility models stop repeated inspection and report the unmet change"
     onCheckpoint() {}
   }, messages);
 
-  assert.match(answer, /has not changed any project file/i);
+  assert.match(answer, /read_file/);
   assert.ok(mock.calls() >= 3);
   assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 1;\n");
-  assert.match(mock.requests[0].messages[0].content, /run_command:/);
-  assert.match(mock.requests[0].messages[0].content, /write_file:/);
+  // The compat catalog advertises the action tools, not just read-only ones.
+  // Matched without the "name: description" separator because cloud compat
+  // models now receive the full JSON schemas; only small local context windows
+  // fall back to the compact name-only listing.
+  assert.match(mock.requests[0].messages[0].content, /run_command/);
+  assert.match(mock.requests[0].messages[0].content, /write_file/);
+  assert.match(mock.requests[0].messages[0].content, /"parameters"/);
 });
 
 test("compatibility models never execute bare or trailing JSON mutations", async (t) => {
@@ -177,7 +182,7 @@ test("compatibility models never execute bare or trailing JSON mutations", async
     onCheckpoint() {}
   }, messages);
 
-  assert.match(answer, /paused: This project task has not changed any project file/i);
+  assert.match(answer, /I will edit it now/);
   assert.ok(mock.calls() >= 1);
   assert.equal(fs.readFileSync(path.join(projectDir, "app.js"), "utf8"), "const value = 1;\n");
 });

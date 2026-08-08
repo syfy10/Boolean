@@ -86,7 +86,7 @@ export function codexWindowsSandboxStatus(command, {
     ready: !candidates.length || !!helper,
     helper,
     error: candidates.length && !helper
-      ? `Codex is missing ${WINDOWS_SANDBOX_HELPER}. Reinstall Codex from Boolean Settings before running project commands.`
+      ? `Codex is missing ${WINDOWS_SANDBOX_HELPER}. Reinstall Codex from Boollm Settings before running project commands.`
       : ""
   };
 }
@@ -431,7 +431,7 @@ export function installCodexStandaloneCli({
         finish({
           ok: false,
           error: "install_not_found",
-          message: "Codex setup finished, but Boolean could not find the standalone CLI."
+          message: "Codex setup finished, but Boollm could not find the standalone CLI."
         });
         return;
       }
@@ -521,7 +521,7 @@ export class CodexAppServer extends EventEmitter {
     args = ["app-server", "--stdio"],
     cwd,
     env,
-    clientInfo = { name: "boolean", title: "Boolean", version: "0.1.0" },
+    clientInfo = { name: "boolean", title: "Boollm", version: "0.1.0" },
     capabilities = {},
     requestTimeoutMs = 30000,
     stopTimeoutMs = 2000,
@@ -604,7 +604,7 @@ export class CodexAppServer extends EventEmitter {
     if (this.stopPromise) await this.stopPromise;
     if (this.launchPlatform === "win32" && this.launchDetails.sandboxReady === false) {
       const message = this.launchDetails.sandboxError
-        || `Codex is missing ${WINDOWS_SANDBOX_HELPER}. Reinstall Codex from Boolean Settings before running project commands.`;
+        || `Codex is missing ${WINDOWS_SANDBOX_HELPER}. Reinstall Codex from Boollm Settings before running project commands.`;
       this.state = "error";
       this.lastError = message;
       this.#statusChanged();

@@ -73,6 +73,7 @@ test("Auto tries the selected API first and escalates only its unverified coding
 
   const app = await startServer(config, {
     port: 0,
+    sessionToken: "1",
     claudeStatusReader() {
       return { ready: true, installed: true, signedIn: true, command: "claude", version: "test", account: { email: "test@example.com" }, error: "" };
     },
@@ -97,7 +98,7 @@ test("Auto tries the selected API first and escalates only its unverified coding
   const events = await readNdjson(response);
 
   assert.ok(modelCalls >= 1, "the selected API must receive the first attempt");
-  assert.equal(claudeCalls, 1, "Claude should run once after Boolean cannot verify the task");
+  assert.equal(claudeCalls, 1, "Claude should run once after Boollm cannot verify the task");
   assert.ok(events.some((event) => event.type === "route" && event.engine === "claude-code" && event.escalated === true));
   assert.ok(events.some((event) => event.type === "answer" && /Claude completed/.test(event.text)));
 });

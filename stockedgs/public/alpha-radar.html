@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlphaEdge Radar | Advanced Market Scanner</title>
+    <style>
+        :root {
+            --bg-body: #0f1115;
+            --bg-panel: #161b22;
+            --bg-header: #0d1117;
+            --border-color: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-blue: #2f81f7;
+            --accent-green: #238636;
+            --accent-red: #da3633;
+            --accent-gold: #d29922;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        * { box-sizing: border-box; outline: none; }
+        
+        body {
+            margin: 0;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- Header --- */
+        header {
+            background-color: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 20px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-weight: 700;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+        }
+
+        .logo svg { fill: var(--accent-blue); height: 24px; width: 24px; }
+
+        .market-ticker {
+            display: flex;
+            gap: 20px;
+            font-size: 0.85rem;
+        }
+
+        .ticker-item {
+            display: flex;
+            gap: 6px;
+        }
+
+        .ticker-val { font-family: 'Roboto Mono', monospace; }
+        .val-up { color: var(--accent-green); }
+        .val-down { color: var(--accent-red); }
+
+        /* --- Main Layout --- */
+        main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* --- Sidebar / Controls --- */
+        aside {
+            width: 260px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 24px;
+            flex-shrink: 0;
+        }
+
+        .control-group h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin: 0 0 12px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-btn {
+            display: block;
+            width: 100%;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 10px;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover { background-color: #21262d; border-color: var(--text-secondary); }
+        .filter-btn.active { background-color: var(--accent-blue); border-color: var(--accent-blue); color: white; }
+
+        /* --- Content Area --- */
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        /* --- Top Chart Section --- */
+        .chart-container {
+            height: 350px;
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .asset-info h2 { margin: 0; font-size: 1.5rem; }
+        .asset-info span { color: var(--text-secondary); font-size: 0.9rem; }
+        
+        .price-display { font-size: 1.5rem; font-weight: bold; font-family: 'Roboto Mono', monospace; }
+
+        canvas#mainChart {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        .chart-tooltip {
+            position: absolute;
+            background: rgba(13, 17, 23, 0.9);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-size: 0.8rem;
+            display: none;
+            z-index: 10;
+        }
+
+        /* --- Bottom Table Section --- */
+        .radar-grid-container {
+            flex: 1;
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .grid-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-wrapper {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-header);
+            z-index: 1;
+        }
+
+        th {
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th:hover { color: var(--text-primary); }
+
+        td {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tr:hover { background-color: #21262d; cursor: pointer; }
+        tr.selected { background-color: rgba(47, 129, 247, 0.15); border-left: 3px solid var(--accent-blue); }
+
+        .signal-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .signal-high { background: rgba(218, 54, 51, 0.2); color: #ff7b72; }
+        .signal-med { background: rgba(210, 153, 34, 0.2); color: #e3b341; }
+        .signal-low { background: rgba(35, 134, 54, 0.2); color: #3fb950; }
+
+        /* --- Utilities --- */
+        .flash-green { animation: flashGreen 1s ease; }
+        .flash-red { animation: flashRed 1s ease; }
+
+        @keyframes flashGreen { 0% { color: var(--accent-green); text-shadow: 0 0 10px var(--accent-green); } 100% { color: inherit; } }
+        @keyframes flashRed { 0% { color: var(--accent-red); text-shadow: 0 0 10px var(--accent-red); } 100% { color: inherit; } }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-body); }
+        ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+        @media (max-width: 900px) {
+            aside { display: none; } /* Hide sidebar on mobile for simplicity */
+            .chart-container { height: 250px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 19h20L12 2zm0 3.8l6.8 11.2H5.2L12 5.8zM11 16h2v2h-2v-2zm0-7h2v5h-2V9z"/></svg>
+        AlphaEdge Radar
+    </div>
+    <div class="market-ticker">
+        <div class="ticker-item">SPY <span class="ticker-val val-up" id="tick-spy">445.20 (+0.4%)</span></div>
+        <div class="ticker-item">QQQ <span class="ticker-val val-down" id="tick-qqq">378.50 (-0.1%)</span></div>
+        <div class="ticker-item">VIX <span class="ticker-val val-up" id="tick-vix">14.20 (+1.2%)</span></div>
+    </div>
+</header>
+
+<main>
+    <aside>
+        <div class="control-group">
+            <h3>Sectors</h3>
+            <button class="filter-btn active" onclick="filterSector('all')">All Markets</button>
+            <button class="filter-btn" onclick="filterSector('Technology')">Technology</button>
+            <button class="filter-btn" onclick="filterSector('Finance')">Finance</button>
+            <button class="filter-btn" onclick="filterSector('Energy')">Energy</button>
+            <button class="filter-btn" onclick="filterSector('Healthcare')">Healthcare</button>
+        </div>
+
+        <div class="control-group">
+            <h3>Scanner Type</h3>
+            <button class="filter-btn active" onclick="filterType('all')">All Signals</button>
+            <button class="filter-btn" onclick="filterType('High Vol')">High Volume</button>
+            <button class="filter-btn" onclick="filterType('Gap Up')">Gap Up</button>
+            <button class="filter-btn" onclick="filterType('Momentum')">Momentum</button>
+        </div>
+        
+        <div class="control-group">
+            <h3>Status</h3>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top:5px;">
+                Market: <span style="color:var(--accent-green)">Open</span><br>
+                Scan Rate: <span id="scan-rate">1200ms</span>
+            </div>
+        </div>
+    </aside>
+
+    <div class="content">
+        <!-- 2D Interactive Tool: Canvas Chart -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <div class="asset-info">
+                    <h2 id="chart-symbol">AAPL</h2>
+                    <span id="chart-name">Apple Inc.</span> &bull; <span id="chart-sector">Technology</span>
+                </div>
+                <div class="price-display" id="chart-price">178.35</div>
+            </div>
+            <div style="flex:1; position: relative; overflow: hidden;">
+                <canvas id="mainChart"></canvas>
+                <div id="chartTooltip" class="chart-tooltip"></div>
+            </div>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="radar-grid-container">
+            <div class="grid-header">
+                <span>Live Radar Feed</span>
+                <span style="font-size:0.8rem; color:var(--text-secondary)">Auto-updating...</span>
+            </div>
+            <div class="table-wrapper">
+                <table id="stockTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('symbol')">Symbol</th>
+                            <th onclick="sortTable('name')">Name</th>
+                            <th onclick="sortTable('price')">Price</th>
+                            <th onclick="sortTable('change')">% Chg</th>
+                            <th onclick="sortTable('volume')">Vol</th>
+                            <th onclick="sortTable('signal')">Signal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Rows injected by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    // --- Data Model & Initialization ---
+
+    const sectors = ['Technology', 'Finance', 'Energy', 'Healthcare', 'Consumer', 'Industrial'];
+    const signals = ['Gap Up', 'High Vol', 'Momentum', 'Breakout', 'Reversal'];
+    const prefixes = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'JPM', 'V', 'JNJ', 'XOM', 'CVX', 'UNH', 'HD', 'PG', 'MA'];
+    
+    let stocks = [];
+    let selectedStock = null;
+    let currentSort = { col: 'change', asc: false };
+    let currentFilters = { sector: 'all', type: 'all' };
+
+    // Generate Mock Data
+    function initStocks() {
+        stocks = prefixes.map((sym, i) => {
+            const price = Math.random() * 200 + 50;
+            return {
+                symbol: sym,
+                name: generateName(sym),
+                sector: sectors[Math.floor(Math.random() * sectors.length)],
+                price: price,
+                change: (Math.random() * 4) - 2, // -2% to +2%
+                volume: Math.floor(Math.random() * 5000000) + 100000,
+                signal: signals[Math.floor(Math.random() * signals.length)],
+                history: generateHistory(price) // Array of prices for chart
+            };
+        });
+        selectedStock = stocks[0];
+        renderTable();
+        updateChart();
+    }
+
+    function generateName(sym) {
+        const suffixes = ['Corp', 'Inc', 'Group', 'Ltd', 'Holdings', 'Tech', 'Energy'];
+        return sym + " " + suffixes[Math.floor(Math.random() * suffixes.length)];
+    }
+
+    function generateHistory(basePrice) {
+        let history = [];
+        let current = basePrice;
+        for(let i=0; i<60; i++) {
+            history.push(current);
+            current = current * (1 + ((Math.random() * 0.02) - 0.01));
+        }
+        return history;
+    }
+
+    // --- Core Logic: Simulation ---
+
+    function updateMarket() {
+        stocks.forEach(stock => {
+            // Random walk
+            const move = (Math.random() * 0.4) - 0.2; 
+            const oldPrice = stock.price;
+            stock.price = Math.max(1, stock.price + move);
+            stock.change = ((stock.price - (stock.price / (1 + (stock.change/100)))) / (stock.price / (1 + (stock.change/100)))) * 100;
+            
+            // Update history
+            stock.history.push(stock.price);
+            if(stock.history.length > 60) stock.history.shift();
+
+            // Occasional volume spike
+            if(Math.random() > 0.95) stock.volume += Math.floor(Math.random() * 50000);
+        });
+        
+        // Update Header Tickers (Mock)
+        const spy = document.getElementById('tick-spy');
+        spy.innerText = (445.0 + Math.random()).toFixed(2) + (Math.random() > 0.5 ? " (+0.1%)" : " (-0.1%)");
+        
+        renderTable(false); // false = don't full redraw, just update values if possible (optimization)
+        if(selectedStock) {
+            updateChartDOM(); // Update chart without full redraw
+        }
+    }
+
+    // --- Rendering ---
+
+    function renderTable(fullRedraw = true) {
+        const tbody = document.getElementById('tableBody');
+        const filtered = stocks.filter(s => {
+            const sMatch = currentFilters.sector === 'all' || s.sector === currentFilters.sector;
+            const tMatch = currentFilters.type === 'all' || s.signal === currentFilters.type;
+            return sMatch && tMatch;
+        });
+
+        // Sorting
+        filtered.sort((a, b) => {
+            let valA = a[currentSort.col];
+            let valB = b[currentSort.col];
+            if(typeof valA === 'string') valA = valA.toLowerCase();
+            if(typeof valB === 'string') valB = valB.toLowerCase();
+            
+            if(valA < valB) return currentSort.asc ? -1 : 1;
+            if(valA > valB) return currentSort.asc ? 1 : -1;
+            return 0;
+        });
+
+        if(fullRedraw) {
+            tbody.innerHTML = '';
+            filtered.forEach(stock => {
+                const tr = document.createElement('tr');
+                tr.id = `row-${stock.symbol}`;
+                tr.onclick = () => selectStock(stock);
+                tr.className = selectedStock && selectedStock.symbol === stock.symbol ? 'selected' : '';
+                
+                const signalClass = getSignalClass(stock.signal);
+
+                tr.innerHTML = `
+                    <td style="font-weight:bold; color:var(--accent-blue)">${stock.symbol}</td>
+                    <td>${stock.name}</td>
+                    <td class="price-cell">${stock.price.toFixed(2)}</td>
+                    <td class="${stock.change >= 0 ? 'val-up' : 'val-down'}">${stock.change.toFixed(2)}%</td>
+                    <td>${(stock.volume/1000000).toFixed(2)}M</td>
+                    <td><span class="signal-badge ${signalClass}">${stock.signal}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            // Optimization: Update text content only
+            filtered.forEach(stock => {
+                const tr = document.getElementById(`row-${stock.symbol}`);
+                if(tr) {
+                    const priceCell = tr.querySelector('.price-cell');
+                    const prevPrice = parseFloat(priceCell.innerText);
+                    priceCell.innerText = stock.price.toFixed(2);
+                    
+                    // Flash effect
+                    if(stock.price > prevPrice) {
+                        priceCell.classList.remove('flash-red');
+                        priceCell.classList.add('flash-green');
+                        setTimeout(()=> priceCell.classList.remove('flash-green'), 1000);
+                    } else if (stock.price < prevPrice) {
+                        priceCell.classList.remove('flash-green');
+                        priceCell.classList.add('flash-red');
+                        setTimeout(()=> priceCell.classList.remove('flash-red'), 1000);
+                    }
+
+                    // Update change color
+                    const changeCell = tr.children[3];
+                    changeCell.className = stock.change >= 0 ? 'val-up' : 'val-down';
+                    changeCell.innerText = stock.change.toFixed(2) + '%';
+                }
+            });
+        }
+    }
+
+    function getSignalClass(signal) {
+        if(signal === 'High Vol' || signal === 'Breakout') return 'signal-high';
+        if(signal === 'Gap Up' || signal === 'Momentum') return 'signal-med';
+        return 'signal-low';
+    }
+
+    function selectStock(stock) {
+        selectedStock = stock;
+        document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+        const row = document.getElementById(`row-${stock.symbol}`);
+        if(row) row.classList.add('selected');
+        
+        updateChartDOM(); // Update Header Info
+        drawChart();      // Redraw Chart
+    }
+
+    function updateChartDOM() {
+        document.getElementById('chart-symbol').innerText = selectedStock.symbol;
+        document.getElementById('chart-name').innerText = selectedStock.name;
+        document.getElementById('chart-sector').innerText = selectedStock.sector;
+        const pEl = document.getElementById('chart-price');
+        pEl.innerText = selectedStock.price.toFixed(2);
+        pEl.style.color = selectedStock.change >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+    }
+
+    // --- 2D Interactive Charting (Canvas) ---
+    
+    const canvas = document.getElementById('mainChart');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('chartTooltip');
+    let chartPoints = [];
+
+    function resizeCanvas() {
+        const parent = canvas.parentElement;
+        canvas.width = parent.clientWidth;
+        canvas.height = parent.clientHeight;
+        drawChart();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function drawChart() {
+        if(!selectedStock) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+        const data = selectedStock.history;
+        
+        ctx.clearRect(0, 0, w, h);
+
+        // Find min/max for scaling
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const range = max - min;
+        const padding = 20;
+
+        // Calculate points
+        chartPoints = data.map((val, i) => {
+            const x = (i / (data.length - 1)) * w;
+            const y = h - ((val - min) / range) * (h - padding * 2) - padding;
+            return {x, y, val};
+        });
+
+        // Draw Grid
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for(let i=1; i<5; i++) {
+            const y = (h/5) * i;
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+        }
+        ctx.stroke();
+
+        // Draw Area (Gradient)
+        const gradient = ctx.createLinearGradient(0, 0, 0, h);
+        const color = selectedStock.change >= 0 ? '35, 134, 54' : '218, 54, 51';
+        gradient.addColorStop(0, `rgba(${color}, 0.2)`);
+        gradient.addColorStop(1, `rgba(${color}, 0)`);
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        chartPoints.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(w, h);
+        ctx.fill();
+
+        // Draw Line
+        ctx.strokeStyle = selectedStock.change >= 0 ? '#238636' : '#da3633';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        chartPoints.forEach((p, i) => {
+            if(i===0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+    }
+
+    // Interaction: Crosshair
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        
+        // Find closest point
+        const w = canvas.width;
+        const index = Math.min(Math.max(Math.round((mouseX / w) * (chartPoints.length - 1)), 0), chartPoints.length - 1);
+        const p = chartPoints[index];
+
+        if(p) {
+            drawChart(); // Redraw to clear previous crosshair
+            
+            // Draw Crosshair Line
+            ctx.strokeStyle = '#8b949e';
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(p.x, 0);
+            ctx.lineTo(p.x, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw Dot
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tooltip
+            tooltip.style.display = 'block';
+            tooltip.style.left = (p.x + 10) + 'px';
+            tooltip.style.top = (p.y - 30) + 'px';
+            tooltip.innerHTML = `Price: ${p.val.toFixed(2)}`;
+        }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+        drawChart();
+    });
+
+    // --- Filtering & Sorting ---
+
+    function filterSector(sector) {
+        currentFilters.sector = sector;
+        updateActiveButtons('sector', sector);
+        renderTable(true);
+    }
+
+    function filterType(type) {
+        currentFilters.type = type;
+        updateActiveButtons('type', type);
+        renderTable(true);
+    }
+
+    function updateActiveButtons(group, val) {
+        const btns = document.querySelectorAll(`.control-group:nth-child(${group === 'sector' ? 1 : 2}) .filter-btn`);
+        btns.forEach(b => {
+            b.classList.remove('active');
+            if(b.innerText.includes(val) || (val === 'all' && b.innerText.includes('All'))) {
+                b.classList.add('active');
+            }
+        });
+    }
+
+    function sortTable(col) {
+        if(currentSort.col === col) {
+            currentSort.asc = !currentSort.asc;
+        } else {
+            currentSort.col = col;
+            currentSort.asc = true;
+        }
+        renderTable(true);
+    }
+
+    // --- Start App ---
+    initStocks();
+    resizeCanvas();
+    setInterval(updateMarket, 2000); // Pulse every 2 seconds
+
+</script>
+</body>
+</html>

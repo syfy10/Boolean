@@ -24,6 +24,15 @@ function bounded(value, max = MAX_OUTPUT) {
   return text.length > max ? text.slice(-max) : text;
 }
 
+// Node process arguments cannot contain NUL. Keep this at the launch boundary
+// even though workspace collection also rejects binary content: saved change
+// records, user input, or a future prompt source must never be able to crash a
+// turn before the child process starts.
+function safeProcessArg(value, max = Infinity) {
+  const text = String(value ?? "").replace(/\0/g, "");
+  return Number.isFinite(max) ? text.slice(0, max) : text;
+}
+
 function commandCandidates(command = "claude", { env = process.env, platform = process.platform } = {}) {
   const saved = String(command || "claude").trim() || "claude";
   const rows = [saved];
@@ -183,7 +192,7 @@ export function startClaudeCodeLogin(command = "claude", { spawnImpl = spawn, sp
   try {
     if (platform === "win32") {
       const escaped = launch.command.replace(/'/g, "''");
-      const script = `Write-Host 'Opening Claude account verification in your browser...' -ForegroundColor Cyan; & '${escaped}' auth login --claudeai; if ($LASTEXITCODE -eq 0) { Write-Host 'Claude Code sign-in complete. Return to Boolean and press Check connection.' -ForegroundColor Green } else { Write-Host 'Claude Code sign-in did not finish. Keep this window open and try again.' -ForegroundColor Yellow }`;
+      const script = `Write-Host 'Opening Claude account verification in your browser...' -ForegroundColor Cyan; & '${escaped}' auth login --claudeai; if ($LASTEXITCODE -eq 0) { Write-Host 'Claude Code sign-in complete. Return to Boollm and press Check connection.' -ForegroundColor Green } else { Write-Host 'Claude Code sign-in did not finish. Keep this window open and try again.' -ForegroundColor Yellow }`;
       // Launch the authentication terminal directly. A nested Start-Process
       // rebuilds the Windows environment as a case-insensitive dictionary and
       // can fail silently when Path and PATH are both present. detached:true
@@ -321,9 +330,11 @@ function actualChangeDelta(before = [], after = []) {
 }
 
 function promptWithChanges(input, changes = []) {
-  if (!changes.length) return input;
-  const rows = changes.slice(0, 12).map((row) => `- ${row.status}: ${row.absolutePath || row.path}\n${String(row.diff || "").slice(0, 3000)}`);
-  return `${input}\n\n<verified_workspace_changes>\nThese are the exact current changes verified by Boolean. You may inspect them before continuing.\n${rows.join("\n")}\n</verified_workspace_changes>`;
+  const cleanInput = safeProcessArg(input);
+  if (!changes.length) return cleanInput;
+  const rows = changes.slice(0, 12).map((row) =>
+    `- ${safeProcessArg(row.status)}: ${safeProcessArg(row.absolutePath || row.path)}\n${safeProcessArg(row.diff, 3000)}`);
+  return `${cleanInput}\n\n<verified_workspace_changes>\nThese are the exact current changes verified by Boollm. You may inspect them before continuing.\n${rows.join("\n")}\n</verified_workspace_changes>`;
 }
 
 export async function runClaudeCodeTurn({
@@ -338,8 +349,8 @@ export async function runClaudeCodeTurn({
   const before = captureWorkspace(cwd);
   const prompt = promptWithChanges(String(input || ""), workspaceChanges);
   const args = ["-p", prompt, "--verbose", "--output-format", "stream-json", "--include-partial-messages", "--max-turns", String(Math.max(1, Math.min(100, Number(maxTurns) || 30)))];
-  if (model) args.push("--model", String(model).slice(0, 200));
-  if (mapping?.sessionId) args.push("--resume", String(mapping.sessionId).slice(0, 200));
+  if (model) args.push("--model", safeProcessArg(model, 200));
+  if (mapping?.sessionId) args.push("--resume", safeProcessArg(mapping.sessionId, 200));
   if (accessMode === "read_only") args.push("--permission-mode", "plan", "--disallowedTools", "Write", "Edit", "NotebookEdit", "Bash", "PowerShell");
   else if (accessMode === "full_access") args.push("--dangerously-skip-permissions");
   else args.push("--permission-mode", "acceptEdits", "--allowedTools", ...SAFE_TOOLS);

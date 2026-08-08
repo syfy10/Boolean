@@ -147,7 +147,7 @@ test("denying temporary project write access returns without a model call", asyn
   config.autoApprove = false;
   config.ui = { ...config.ui, autoSave: false, learnedMemory: false };
 
-  const app = await startServer(config, { port: 0 });
+  const app = await startServer(config, { port: 0, sessionToken: "1" });
   t.after(async () => {
     await closeServer(app.server);
     await closeServer(app.proxyServer);
@@ -231,7 +231,7 @@ test("allow once enables this turn, then normal tool approvals still guard the w
     codingAgent: { ...(config.ui?.codingAgent || {}), compatibilityMode: "patch", teamwork: { mode: "solo" } }
   };
 
-  const app = await startServer(config, { port: 0 });
+  const app = await startServer(config, { port: 0, sessionToken: "1" });
   const base = `http://127.0.0.1:${app.port}`;
   let adopted = null;
   let nextEvent = null;

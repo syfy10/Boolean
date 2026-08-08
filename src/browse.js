@@ -463,3 +463,186 @@ export async function aiDownload(url, filename, ctx) {
   await new Promise((r) => out.end(r));
   return `✓ downloaded ${Math.round(bytes / 1024)} KB to ${dest}`;
 }
+
+
+// ── /browse proxy for the UI browser panel ──────────────────────────────
+// External sites refuse to load in iframes (X-Frame-Options / CSP), so the
+// panel loads them through this proxy. Pages get a <base> tag (assets load
+// directly from the real site) plus a small script that keeps navigation,
+// forms, and fetch/XHR inside the proxy and bridges to the app via
+// postMessage. The frame is sandboxed WITHOUT allow-same-origin, so page
+// scripts can never touch the saz3 app or its API.
+
+const escAttr = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+function injectedScript(realUrl) {
+  return `<base href="${escAttr(realUrl)}"><script>(function(){
+var BASE=${JSON.stringify(realUrl)};
+var q=function(u){return "/browse?u="+encodeURIComponent(u)};
+function abs(h){try{return new URL(h,BASE).href}catch(e){return null}}
+function nav(){try{parent.postMessage({saz3:"nav",url:BASE,title:document.title},"*")}catch(e){}}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",nav);else nav();
+setTimeout(nav,800);
+function go(u,nt){if(!u||!/^https?:/i.test(u))return;if(nt)parent.postMessage({saz3:"newtab",url:u},"*");else location.href=q(u);}
+document.addEventListener("click",function(e){var t=e.target;var a=t&&t.closest?t.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h.charAt(0)==="#"||/^(javascript|mailto|tel|data|blob):/i.test(h))return;e.preventDefault();e.stopPropagation();go(abs(h),e.ctrlKey||e.metaKey||a.target==="_blank");},true);
+document.addEventListener("auxclick",function(e){if(e.button!==1)return;var a=e.target&&e.target.closest?e.target.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href");if(!h||h.charAt(0)==="#")return;e.preventDefault();go(abs(h),true);},true);
+document.addEventListener("contextmenu",function(e){var text="";try{text=String(window.getSelection?window.getSelection():"").trim();}catch(err){}if(!text)return;e.preventDefault();parent.postMessage({saz3:"selectionMenu",text:text.slice(0,200000),x:e.clientX,y:e.clientY,url:BASE,title:document.title},"*");},true);
+window.open=function(u){if(u)go(abs(u),true);return null;};
+document.addEventListener("submit",function(e){var f=e.target;try{var act=abs(f.getAttribute("action")||BASE)||BASE;var m=(f.getAttribute("method")||"get").toLowerCase();if(m!=="post"){e.preventDefault();var qs=new URLSearchParams(new FormData(f)).toString();var sep=act.indexOf("?")>=0?"&":"?";location.href=q(act+sep+qs);}else{f.action=q(act);}}catch(err){}},true);
+var RF=window.fetch;window.fetch=function(u,o){try{var a=abs(typeof u==="string"?u:(u&&u.url));if(a&&/^https?:/i.test(a))return RF(q(a)+"&r=1",o);}catch(e){}return RF(u,o);};
+var XO=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){try{var a=abs(u);if(a&&/^https?:/i.test(a))arguments[1]=q(a)+"&r=1";}catch(e){}return XO.apply(this,arguments);};
+window.addEventListener("message",function(e){var d=e.data||{};
+if(d.cmd==="zoom"){try{document.documentElement.style.zoom=d.z;}catch(err){}}
+else if(d.cmd==="fitZoom"){try{var de=document.documentElement,b=document.body||de,prev=de.style.zoom||1;de.style.zoom=1;var pageW=Math.max(de.scrollWidth,b.scrollWidth,de.offsetWidth,b.offsetWidth,1),viewW=Math.max(window.innerWidth||de.clientWidth,1);var z=Math.max(.3,Math.min(1.5,Math.floor((viewW/pageW)*100)/100));de.style.zoom=z;parent.postMessage({saz3:"zoomFit",z:z},"*");}catch(err){}}
+else if(d.cmd==="find"){try{window.find(d.q,false,!!d.back,true);}catch(err){}}
+else if(d.cmd==="getText"){var t="";try{t=d.what==="selection"?String(window.getSelection?window.getSelection():""):(document.body?document.body.innerText:"");}catch(err){}
+parent.postMessage({saz3:"text",what:d.what,text:t.slice(0,200000),url:BASE,title:document.title},"*");}
+else if(d.cmd==="safeClickAllow"){try{if(window.__sazAllowSafeClick)window.__sazAllowSafeClick();}catch(err){}}else if(d.cmd==="control"){var out={saz3:"controlResult",id:d.id,ok:true,url:BASE,title:document.title};try{var q=String(d.text||d.target||"").toLowerCase().trim();
+function shown(el){var r=el.getBoundingClientRect();var s=getComputedStyle(el);return r.width>0&&r.height>0&&s.visibility!=="hidden"&&s.display!=="none";}
+function label(el){return [el.innerText,el.value,el.getAttribute("aria-label"),el.getAttribute("title"),el.getAttribute("placeholder"),el.name,el.id].filter(Boolean).join(" ").toLowerCase();}
+function findEl(sel){if(!sel)return null;if(/^[.#\\[]/.test(sel)){try{var e=document.querySelector(sel);if(e&&shown(e))return e;}catch(err){}}var all=[].slice.call(document.querySelectorAll("button,a,input,textarea,select,[role=button],[onclick],[tabindex]"));return all.find(function(e){return shown(e)&&label(e).indexOf(sel)>=0;})||null;}
+if(d.action==="click"){var el=findEl(q);if(!el)throw new Error("no visible element matching: "+(d.text||""));el.scrollIntoView({block:"center",inline:"center"});el.click();out.result="clicked "+(d.text||q);}
+else if(d.action==="type"){var el=findEl(q)||document.activeElement;if(!el)throw new Error("no active input");el.focus();var text=String(d.value||"");if("value" in el){el.value=text;el.dispatchEvent(new Event("input",{bubbles:true}));el.dispatchEvent(new Event("change",{bubbles:true}));}else{document.execCommand("insertText",false,text);}if(d.enter){el.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));el.dispatchEvent(new KeyboardEvent("keyup",{key:"Enter",bubbles:true}));}out.result="typed "+text.length+" chars";}
+else if(d.action==="read"){out.text=(document.body?document.body.innerText:"").slice(0,200000);out.result="URL: "+BASE+"\\nTITLE: "+document.title+"\\n\\n"+out.text;}
+else throw new Error("unknown action: "+d.action);}catch(err){out.ok=false;out.error=err.message||String(err);}parent.postMessage(out,"*");}});
+var lt=document.title;setInterval(function(){if(document.title!==lt){lt=document.title;nav();}},1500);
+})();</` + `script>`;
+}
+
+// Injected when safe-click is enabled: intercepts user clicks on sensitive
+// form buttons (submit/login/payment/delete) and asks for confirmation via
+// a postMessage to the parent app. The parent shows a native dialog and
+// replies with allow/block.
+function safeClickScript() {
+  return `<script>(function(){
+var SENS=/\b(submit|sign[\s]*in|log[\s]*in|log[\s]*out|sign[\s]*up|register|checkout|pay|payment|buy|purchase|delete|remove|confirm|approve|authorize|send|transfer|deposit|withdraw|subscribe|unsubscribe|place[\s]*order|complete[\s]*order)\b/i;
+var pending=null,allowing=false;
+function btnLabel(el){return [el.innerText,el.value,el.getAttribute("aria-label"),el.getAttribute("title"),el.name,el.id].filter(Boolean).join(" ");}
+function isFormButton(el){
+  if(!el||!el.closest)return false;
+  var tag=el.tagName.toLowerCase();
+  if(tag==="button"&&el.type&&/submit/i.test(el.type))return true;
+  if(tag==="input"&&el.type&&/submit|image/i.test(el.type))return true;
+  var role=el.getAttribute("role");
+  if(role==="button"&&el.closest("form"))return true;
+  var lbl=btnLabel(el);
+  if(SENS.test(lbl)&&el.closest("form"))return true;
+  if(SENS.test(lbl)&&(tag==="button"||tag==="a"||role==="button"))return true;
+  return false;
+}
+document.addEventListener("click",function(e){
+  var el=e.target;
+  if(allowing)return;
+  if(!isFormButton(el))return;
+  var lbl=btnLabel(el).slice(0,100);
+  e.preventDefault();e.stopPropagation();
+  pending=el;
+  parent.postMessage({saz3:"safeClick",text:lbl,url:location.href,title:document.title},"*");
+},true);
+window.__sazAllowSafeClick=function(){
+  if(!pending)return;
+  var el=pending;pending=null;allowing=true;
+  try{el.click();}finally{allowing=false;}
+};
+})();</` + `script>`;
+}
+
+function rewriteHtml(html, realUrl, opts = {}) {
+  // remove CSP metas (we serve the page ourselves) and reroute meta-refresh
+  html = html.replace(/<meta[^>]+http-equiv\s*=\s*["']?content-security-policy[^>]*>/gi, "");
+  html = html.replace(/(<meta[^>]+http-equiv\s*=\s*["']?refresh[^>]*content\s*=\s*["'][^"';]*;\s*url=)([^"']+)/gi,
+    (m, pre, u) => { try { return pre + "/browse?u=" + encodeURIComponent(new URL(u.trim(), realUrl).href); } catch { return m; } });
+  let inject = injectedScript(realUrl);
+  if (opts.dark) inject = darkPageCSS + inject;
+  if (opts.safeClick) inject = safeClickScript() + inject;
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => m + inject);
+  if (/<html[^>]*>/i.test(html)) return html.replace(/<html[^>]*>/i, (m) => m + "<head>" + inject + "</head>");
+  return inject + html;
+}
+
+// CSS injected for forced dark mode on proxied pages
+const darkPageCSS = `<style data-saz3-dark>
+*,*::before,*::after{border-color:#3a3a3a !important;}
+html{color-scheme:dark !important;}
+body{background:#1e1e1e !important;color:#e0e0e0 !important;background-image:none !important;}
+a{color:#7ab8ff !important;}
+input,textarea,select{background:#2a2a2a !important;color:#e0e0e0 !important;border-color:#444 !important;}
+table,th,td{border-color:#444 !important;}
+img,video,canvas,svg{opacity:1 !important;}
+div,section,article,header,footer,nav,aside{background-color:transparent !important;background-image:none !important;}
+[style*="background: #fff"],[style*="background:#fff"],[style*="background: white"],[style*="background:white"]{background:#1e1e1e !important;}
+[style*="color: #000"],[style*="color:#000"],[style*="color: black"],[style*="color:black"]{color:#e0e0e0 !important;}
+</style>`;
+
+const errPage = (msg) =>
+  `<!doctype html><meta charset="utf-8"><body style="font:14px system-ui;color:#888;background:#fff;display:grid;place-items:center;height:95vh"><div style="max-width:420px;text-align:center"><b style="color:#444">Page failed to load</b><br><br>${escAttr(msg)}</div></body>`;
+
+async function readReqBody(req) {
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  return chunks.length ? Buffer.concat(chunks) : undefined;
+}
+
+/** HTTP handler for GET/POST /browse?u=<url>[&r=1][&dl=1] */
+export async function handleBrowse(req, res, urlObj, config) {
+  const target = urlObj.searchParams.get("u") || "";
+  const raw = urlObj.searchParams.get("r") === "1";
+  const forceDl = urlObj.searchParams.get("dl") === "1";
+  const darkMode = urlObj.searchParams.get("dark") === "1";
+  const readerMode = urlObj.searchParams.get("reader") === "1";
+  const safeClick = urlObj.searchParams.get("safeclick") === "1";
+  const cors = { "access-control-allow-origin": "*", "cache-control": "no-store" };
+  if (!/^https?:\/\//i.test(target)) {
+    res.writeHead(400, { "content-type": "text/html; charset=utf-8", ...cors });
+    res.end(errPage("invalid or missing url"));
+    return;
+  }
+  try {
+    const opts = { method: req.method, signal: AbortSignal.timeout(30000) };
+    if (req.method === "POST") {
+      opts.body = await readReqBody(req);
+      opts.headers = { "content-type": req.headers["content-type"] || "application/x-www-form-urlencoded" };
+    }
+    const { res: up, finalUrl } = await fetchRaw(target, opts);
+    const ct = up.headers.get("content-type") || "application/octet-stream";
+    const cd = up.headers.get("content-disposition") || "";
+    const isHtml = /text\/html|application\/xhtml/i.test(ct);
+    const isDownload = forceDl || /attachment/i.test(cd);
+
+    if (isDownload) {
+      const perms = config?.ui?.browserPerms || {};
+      if (perms.downloads === false) {
+        try { up.body?.cancel?.(); } catch { /* ignore */ }
+        res.writeHead(403, { "content-type": "text/html; charset=utf-8", ...cors });
+        res.end(errPage("Downloads are disabled — enable them in Settings → Browser."));
+        return;
+      }
+      const name = path.basename(new URL(finalUrl).pathname) || "download";
+      res.writeHead(up.status, {
+        "content-type": ct, ...cors,
+        "content-disposition": cd || `attachment; filename="${name.replace(/"/g, "")}"`
+      });
+      for await (const chunk of up.body) res.write(chunk);
+      res.end();
+      return;
+    }
+
+    if (isHtml && !raw) {
+      const buf = Buffer.from(await up.arrayBuffer());
+      const charset = (/charset=([\w-]+)/i.exec(ct) || [])[1] || "utf-8";
+      let html;
+      try { html = new TextDecoder(charset).decode(buf); } catch { html = buf.toString("utf8"); }
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", ...cors });
+      res.end(rewriteHtml(html, finalUrl, { dark: darkMode, reader: readerMode, safeClick }));
+      return;
+    }
+
+    // raw passthrough (subresources, JSON, images, pdf, …)
+    res.writeHead(up.status, { "content-type": ct, ...cors });
+    if (up.body) for await (const chunk of up.body) res.write(chunk);
+    res.end();
+  } catch (err) {
+    res.writeHead(502, { "content-type": "text/html; charset=utf-8", ...cors });
+    res.end(errPage(err.message || "network error"));
+  }
+}

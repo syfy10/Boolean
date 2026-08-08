@@ -4,7 +4,7 @@ import os from "node:os";
 
 export const APP_VERSION = "0.9.71";
 export const APP_DISPLAY_VERSION = "v0.9.71";
-export const APP_NAME = "Boolean";
+export const APP_NAME = "Boollm";
 export const APP_TAGLINE = "local AI workspace.";
 export const CLOUD_BACKEND_URL = "https://boolean-cloud.saz3labs.workers.dev";
 export const AI_BEHAVIOR_VERSION = 2;
@@ -46,7 +46,7 @@ const DEFAULTS = {
     model: ""
   },
   // Optional native orchestration through OpenAI's public Codex app-server.
-  // Authentication remains owned by the Codex CLI; Boolean never stores its
+  // Authentication remains owned by the Codex CLI; Boollm never stores its
   // access tokens. The existing local/cloud provider loop remains the default.
   codex: {
     enabled: false,
@@ -55,14 +55,14 @@ const DEFAULTS = {
     reasoningEffort: "medium"
   },
   // Optional native Claude Code orchestration. Claude owns authentication;
-  // Boolean stores only the executable path and selected model.
+  // Boollm stores only the executable path and selected model.
   codingEngine: "boolean", // boolean | auto | codex | claude-code
   claudeCode: {
     enabled: false,
     command: "claude",
     model: "sonnet"
   },
-  // Per provider + endpoint + model capability probes. Boolean records native
+  // Per provider + endpoint + model capability probes. Boollm records native
   // function support after a real request succeeds or is rejected so a model
   // is not repeatedly placed into an agent mode it cannot reliably use.
   modelCapabilities: {},
@@ -154,7 +154,7 @@ const DEFAULTS = {
   // EULA version the user accepted ("" = not yet accepted)
   eulaAccepted: "",
   // where generated projects are saved (user can change)
-  projectsDir: path.join(os.homedir(), "Documents", "Boolean"),
+  projectsDir: path.join(os.homedir(), "Documents", "Boollm"),
   // reference model for the "estimated savings" figure
   referenceModel: "gpt-5.1",
   // monthly cloud spending budget in USD. 0 = no limit. UI warns at 80%+.
@@ -187,7 +187,7 @@ const DEFAULTS = {
       optionsProvider: "alpaca", optionsFeed: "indicative",
       alpacaKeyId: "", alpacaSecretKey: "", massiveApiKey: ""
     },
-    // Price-action "signal + stage" guardrails. Boolean can watch price action and
+    // Price-action "signal + stage" guardrails. Boollm can watch price action and
     // STAGE a pre-filled order for your review, but never auto-executes: enabled is
     // off by default and killSwitch halts staging instantly. Execution stays a
     // separate, human-confirmed step through the broker connector.
@@ -198,6 +198,22 @@ const DEFAULTS = {
       maxNotionalUsd: 0,
       maxOrdersPerDay: 0,
       dailyLossCapUsd: 0,
+      // Local, page-fed signal helper. It builds completed candles from the
+      // quote visible in Boollm's browser and never submits an order itself.
+      strategy: {
+        enabled: false,
+        key: "multi",
+        mode: "all",
+        timeframeMinutes: 5,
+        lookbackBars: 20,
+        fastBars: 9,
+        slowBars: 21,
+        meanBars: 20,
+        meanSigma: 2,
+        riskReward: 2,
+        maxSignalsPerDay: 4,
+        cooldownBars: 2
+      },
       // Optional auto P&L sync for the daily loss cap. Point at the broker
       // connector's realized-P&L field; sync_trade_pnl reads the number at `path`.
       // Fail-closed: if it can't read a reliable number the cap is left unchanged.
@@ -224,6 +240,7 @@ const DEFAULTS = {
   // UI/behavior preferences (surfaced in the organized Settings page)
   ui: {
     theme: "system",          // system | light | dark
+    appZoom: 100,             // whole Boollm interface, 75-150 percent
     colorTheme: "classic",
     composerStyle: "pill",    // pill | simple
     fontSize: "medium",       // small | medium | large
@@ -240,7 +257,7 @@ const DEFAULTS = {
     referenceChatMemory: true, // compact memory of the open chat for follow-ups
     learnedMemory: true,      // saved safe user preferences/behaviors
     notifications: false,
-    desktopPet: false,       // optional native always-on-top Boolean activity companion
+    desktopPet: false,       // optional native always-on-top Boollm activity companion
     autoRouteModels: false,   // automatically select an approved connected model for each task type
     modelRouting: {
       selected: "chat",
@@ -255,11 +272,11 @@ const DEFAULTS = {
         preferred: "codex" // codex | claude-code | first-ready
       },
       profiles: {
-        chat: { engine: "auto", provider: "auto", model: "" },
-        coding: { engine: "auto", provider: "auto", model: "" },
-        vision: { engine: "auto", provider: "auto", model: "" },
-        research: { engine: "auto", provider: "auto", model: "" },
-        fast: { engine: "auto", provider: "auto", model: "" }
+        chat: { engine: "auto", provider: "auto", model: "", targets: [] },
+        coding: { engine: "auto", provider: "auto", model: "", targets: [] },
+        vision: { engine: "auto", provider: "auto", model: "", targets: [] },
+        research: { engine: "auto", provider: "auto", model: "", targets: [] },
+        fast: { engine: "auto", provider: "auto", model: "", targets: [] }
       },
       projects: {}
     },
@@ -291,11 +308,13 @@ const DEFAULTS = {
     contextW: 300,            // context panel width (px)
     browserTabs: [],          // [{url,title}] restored on launch
     aiBrowser: true,          // allow the AI to browse the web (search/open/click/forms)
+    browserExploreHome: false, // Browser button and new tabs land on Explore (Market/Education/Sales)
     systemActions: true,      // typed Windows inspection/settings/package actions
     searchEngine: "google",   // google | bing | duckduckgo - address-bar searches
     researchPolicy: "authoritative",
     browserPerms: { downloads: true, camera: false, mic: false, geo: false, tradeClicks: false, tradeConsentUser: "", tradeConsentAt: 0 },
     browserHistory: [],       // [{url,title,at}] capped at 100
+    browserBookmarks: [],     // [{url,title,at}] saved pages, newest first
     expandedSections: ["model"], // which Settings sections are open
     // ── Keyboard Shortcuts ──
     shortcuts: {
@@ -414,6 +433,21 @@ function hasSavedCloudflareCredential(connection) {
     || connection?.connected === true;
 }
 
+function hasSavedCloudSession(connection) {
+  return nonEmptyString(connection?.sessionToken) && !!(
+    nonEmptyString(connection?.user?.email) || nonEmptyString(connection?.user?.id)
+  );
+}
+
+function restoreCloudBackend(nextCloud = {}, previousCloud = {}) {
+  if (!hasSavedCloudSession(previousCloud)) return;
+  if (!nonEmptyString(nextCloud?.url)) nextCloud.url = previousCloud.url || "";
+  if (hasSavedCloudSession(nextCloud) || nonEmptyString(nextCloud.tokens)) return;
+  nextCloud.sessionToken = previousCloud.sessionToken;
+  nextCloud.user = previousCloud.user || null;
+  nextCloud.tokens = previousCloud.tokens || null;
+}
+
 function restoreEmailConnection(nextEmail, prevEmail) {
   if (!nextEmail || !prevEmail || !hasSavedEmailCredential(prevEmail)) return;
   const nextHasCredential = hasSavedEmailCredential(nextEmail);
@@ -435,6 +469,8 @@ function restoreEmailConnection(nextEmail, prevEmail) {
 
 export function preserveSavedApiKeys(next, previous) {
   if (!next || !previous) return next;
+  next.cloudBackend = next.cloudBackend || {};
+  restoreCloudBackend(next.cloudBackend, previous.cloudBackend);
   for (const provider of [...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"]) {
     preserveApiKey(next, previous, provider);
   }
@@ -560,6 +596,7 @@ export function hasAnySavedCredential(cfg) {
   const email = c.email || {};
   if (["gmail", "outlook"].some((p) => hasSavedEmailCredential(email[p]))) return true;
   if (hasSavedCloudflareCredential(c.cloudflare)) return true;
+  if (hasSavedCloudSession(cfg?.cloudBackend || {})) return true;
   if ([...FIRST_PARTY_CLOUD_PROVIDERS, "customApi"].some((p) => nonEmptyString(cfg?.[p]?.apiKey))) return true;
   if (nonEmptyString(c.azure?.clientSecret)) return true;
   if (nonEmptyString(c.aws?.secretAccessKey) || nonEmptyString(c.aws?.sessionToken)) return true;
@@ -568,19 +605,58 @@ export function hasAnySavedCredential(cfg) {
   return false;
 }
 
+function hasSavedUserState(cfg) {
+  if (!cfg) return false;
+  if (hasAnySavedCredential(cfg)) return true;
+  if (cfg.provider && cfg.provider !== DEFAULTS.provider) return true;
+  if (cfg.codingEngine && cfg.codingEngine !== DEFAULTS.codingEngine) return true;
+  if (cfg.referenceModel && cfg.referenceModel !== DEFAULTS.referenceModel) return true;
+  if (JSON.stringify(cfg.cloudFallback || {}) !== JSON.stringify(DEFAULTS.cloudFallback || {})) return true;
+  // Local models and provider/model preferences are user setup even when they
+  // do not require a credential. A reset upgrade must not discard them merely
+  // because the active provider happens to still be Local.
+  for (const provider of PROVIDERS) {
+    const saved = cfg[provider] || {}, defaults = DEFAULTS[provider] || {};
+    for (const key of ["model", "baseUrl", "ctx", "autoTune", "warmStart", "approvedUse"]) {
+      if (saved[key] !== undefined && JSON.stringify(saved[key]) !== JSON.stringify(defaults[key])) return true;
+    }
+  }
+  if (cfg.accessMode && cfg.accessMode !== DEFAULTS.accessMode) return true;
+  if (cfg.projectsDir && cfg.projectsDir !== DEFAULTS.projectsDir) return true;
+  // Legal acceptance and onboarding markers are install metadata, not user
+  // preferences. Treating them as meaningful saved state lets an otherwise
+  // reset post-install config block restoration of the richer backup.
+  try {
+    const ui = { ...(cfg.ui || {}) }, defaults = { ...(DEFAULTS.ui || {}) };
+    delete ui.onboarded; delete ui.showOnboarding;
+    delete defaults.onboarded; delete defaults.showOnboarding;
+    return JSON.stringify(ui) !== JSON.stringify(defaults);
+  }
+  catch { return false; }
+}
+
 // If the primary config came back with no credentials at all but a backup still
 // has them, the primary was reset (e.g. wiped during an app update). Restore the
 // saved connections/keys from the backup. Only fires on a total wipe, so it never
 // resurrects a single credential the user deliberately removed.
-function recoverCredentialsFromBackup(cfg) {
-  if (hasAnySavedCredential(cfg)) return false;
+export function restoreResetConfig(cfg, backup) {
+  if (hasSavedUserState(cfg) || !hasSavedUserState(backup)) return false;
+  const restored = deepMerge(DEFAULTS, backup);
+  for (const key of Object.keys(cfg)) delete cfg[key];
+  Object.assign(cfg, restored);
+  return true;
+}
+
+function recoverConfigFromBackup(cfg) {
+  if (hasSavedUserState(cfg)) return false;
   for (const backupFile of [CONFIG_BACKUP_FILE, LEGACY_CONFIG_FILE]) {
     try {
       const backup = readJsonFile(backupFile);
-      if (!hasAnySavedCredential(backup)) continue;
-      cfg.connectors = deepMerge(cfg.connectors || {}, backup.connectors || {});
-      preserveSavedApiKeys(cfg, backup);
-      return true;
+      if (!hasSavedUserState(backup)) continue;
+      // A reset primary file is not only a credential loss. Restore the entire
+      // last-known-good user configuration so provider/model choices, UI
+      // preferences, permissions, and the signed-in session survive an update.
+      if (restoreResetConfig(cfg, backup)) return true;
     } catch {
       /* try next backup */
     }
@@ -595,10 +671,13 @@ export function loadConfig() {
       const cfg = deepMerge(DEFAULTS, raw);
       // Recover connections/keys wiped from the primary config by an update.
       let recovered = false;
-      if (file === CONFIG_FILE) recovered = recoverCredentialsFromBackup(cfg);
+      if (file === CONFIG_FILE) recovered = recoverConfigFromBackup(cfg);
       // Coding Plan traffic must always use Z.AI's dedicated endpoint.
       cfg.zaiCoding.baseUrl = DEFAULTS.zaiCoding.baseUrl;
-      if (!["GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"].includes(cfg.zaiCoding.model)) cfg.zaiCoding.model = "GLM-4.7";
+      // Model IDs come from the provider and may change case or gain new
+      // versions. Preserve every non-empty saved ID instead of silently
+      // replacing a valid user choice with an older built-in fallback.
+      if (!nonEmptyString(cfg.zaiCoding.model)) cfg.zaiCoding.model = DEFAULTS.zaiCoding.model;
       // Ollama support was removed - fall back to the built-in local engine
       if (!PROVIDERS.includes(cfg.provider)) cfg.provider = "local";
       // Missing legacy values use the practical first-load default.
@@ -606,7 +685,7 @@ export function loadConfig() {
       let migrated = recovered;
       // This marker lives beside user data, outside the replaceable install
       // folder. Once setup is complete, an upgrade cannot accidentally make
-      // Boolean look like a first install. The explicit Settings switch still
+      // Boollm look like a first install. The explicit Settings switch still
       // wins when a user intentionally asks to see setup again.
       if (fs.existsSync(ONBOARDING_COMPLETE_FILE) && raw.ui?.showOnboarding !== true) {
         if (cfg.ui.onboarded !== true || cfg.ui.showOnboarding !== false) migrated = true;
@@ -641,8 +720,9 @@ export function loadConfig() {
       const oldProjects = path.join(os.homedir(), "Documents", "SAZ3 Projects");
       const loxaProjects = path.join(os.homedir(), "Documents", "Loxa Projects");
       const booleanProjects = path.join(os.homedir(), "Documents", "Boolean Projects");
-      const newProjects = path.join(os.homedir(), "Documents", "Boolean");
-      if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects) { cfg.projectsDir = newProjects; migrated = true; }
+      const boollmProjects = path.join(os.homedir(), "Documents", "Boollm Projects");
+      const newProjects = path.join(os.homedir(), "Documents", "Boollm");
+      if (cfg.projectsDir === oldProjects || cfg.projectsDir === loxaProjects || cfg.projectsDir === booleanProjects || cfg.projectsDir === boollmProjects) { cfg.projectsDir = newProjects; migrated = true; }
       if (raw.aiBehaviorVersion !== AI_BEHAVIOR_VERSION) {
         cfg.aiBehaviorVersion = AI_BEHAVIOR_VERSION;
         cfg.ui.contextMode = "balanced";

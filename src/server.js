@@ -1,4 +1,4 @@
-// Local HTTP server hosting the Boolean UI and bridging it to the agent loop.
+// Local HTTP server hosting the Boollm UI and bridging it to the agent loop.
 // NDJSON streaming for chat; approvals round-trip to the browser as events.
 // Multi-thread conversation store, per-thread stop/abort, image attachments.
 import http from "node:http";
@@ -9,13 +9,15 @@ import crypto from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { spawn, spawnSync } from "node:child_process";
 import * as sea from "node:sea";
+import { listCodeExtensions, discoverLanguageServices } from "./code-extensions.js";
 import {
   saveConfig, currentModel, setCurrentModel, PROVIDERS, CLOUD,
   APP_VERSION, APP_DISPLAY_VERSION, APP_NAME, APP_TAGLINE, CLOUD_BACKEND_URL,
   ACCESS_MODES, currentAccessMode, defaultConfig, defaultUiSettings, SAZ_DIR
 } from "./config.js";
-import { tradeConsentActive, armExpiresAt, armWindowMs } from "./trade-guard.js";
-import { currentTradeState } from "./trade-ledger.js";
+import { tradeConsentActive, armExpiresAt, armWindowMs, evaluateTradeGuard } from "./trade-guard.js";
+import { currentTradeState, recordTradePlacement } from "./trade-ledger.js";
+import { recordSignalOutcomes, signalStats } from "./signal-log.js";
 import { systemPrompt, projectBrief, runTurn, runSubagent, estimateContext, classifyTurnMode, currentTurnInstructionText, requiresArtifactAction, requiresConnectorContinuationAction, isExplicitTaskContinuation, isTaskRefinement, isTaskStatusQuestion, taskStopAnswer } from "./agent.js";
 import { resolveTarget, chatCompletion, listProviderModels, backendUp, clearProviderModelCache } from "./providers.js";
 import {
@@ -30,7 +32,7 @@ import {
 import * as engine from "./engine.js";
 import { recordUsage, resetUsage, summarizeUsage, checkBudget, monthSpend, costOf } from "./usage.js";
 import { saveThreads, loadThreads, clearThreads, buildLocalChatMemory } from "./store.js";
-import { clearCookies } from "./browse.js";
+import { handleBrowse, clearCookies } from "./browse.js";
 import { executeTool } from "./tools.js";
 import { simplePdf } from "./platform.js";
 import { learnFromUserText, publicPreferences, deletePreference, updatePreference, clearPreferences, recordResponseFeedback } from "./preferences.js";
@@ -73,9 +75,11 @@ import {
 import { emailOAuthRedirectUri, loadManagedEmailOAuthClients, managedEmailOAuthCredential } from "./email-oauth-config.js";
 import { manageAutomation, setAutomationActionHandler, startAutomationScheduler, manageSkill, installedSkills, ghStatus } from "./platform.js";
 import { appPath } from "./paths.js";
+import { EDITOR_ASSET_PREFIX, resolveEditorAsset } from "./editor-assets.js";
 import { detectLocalServers } from "./local-servers.js";
+import { marketsRoutes } from "./routes/markets.js";
 import { detectWebsiteTech } from "./tech-detector.js";
-import { gitDiffFiles, gitRestoreFiles } from "./git-review.js";
+import { gitCommit, gitCreateBranch, gitDiffFiles, gitFileContents, gitPushBranch, gitRestoreFiles, gitSourceStatus, gitStageFiles, githubCreatePullRequest } from "./git-review.js";
 import {
   combineWorkspaceChanges,
   mergeWorkspaceChanges,
@@ -85,7 +89,7 @@ import {
   workspaceChangesReview
 } from "./workspace-changes.js";
 import { applyAgentRun, discardAgentRun, listAgentRuns } from "./orchestrator.js";
-import { autoSubscriptionEnabled, routeForTurn, selectExecutionEngine } from "./model-router.js";
+import { autoModelHealthSnapshot, autoSubscriptionEnabled, canonicalModelId, routeForTurn, selectExecutionEngine } from "./model-router.js";
 import { createCodexAppServer, installCodexStandaloneCli } from "./codex-app-server.js";
 import { codexToolEnvironment, createCodexRunner } from "./codex-runner.js";
 import {
@@ -94,8 +98,137 @@ import {
 } from "./claude-code.js";
 import officialEducationCatalog from "./education-official.json" with { type: "json" };
 import { listActions, searchActions } from "./actions.js";
+import {
+  listWorkspaceTree, readWorkspaceFile, writeWorkspaceFile,
+  createWorkspaceEntry, renameWorkspaceEntry, deleteWorkspaceEntry,
+  findWorkspaceFiles, findWorkspaceSymbols, searchWorkspaceText
+} from "./workspace-files.js";
 
 const studioVideoOperations = new Map();
+
+async function detectOpenCodex() {
+  const endpoint = "http://127.0.0.1:10100";
+  try {
+    const response = await fetch(`${endpoint}/v1/models`, { signal: AbortSignal.timeout(1200) });
+    if (!response.ok) return { detected: false, endpoint, status: response.status };
+    const payload = await response.json().catch(() => ({}));
+    const models = Array.isArray(payload?.data) ? payload.data.map((item) => String(item?.id || "")).filter(Boolean) : [];
+    return { detected: true, endpoint, apiBase: `${endpoint}/v1`, models: models.slice(0, 50), modelCount: models.length };
+  } catch {
+    return { detected: false, endpoint };
+  }
+}
+
+// Labels the trading bar looks for on the broker's own order form when it
+// types a ticket. Values are matched against a control's visible text, label,
+// placeholder, name, or id, so "quantity" finds a Quantity field. Nothing here
+// places an order on its own — it only says where each number goes.
+// Values may contain {symbol} and {Side}, expanded per ticket by the bar — a
+// broker's final button is usually named after the order ("Buy SPY"), so a
+// fixed label could never match it.
+const TICKET_FIELD_KEYS = ["quantity", "orderType", "timeInForce", "limit", "trigger", "trail",
+  "stop", "target", "positionEffect", "buy", "sell", "place", "cancel"];
+// Order settings that belong to the account rather than to one order, so the
+// bar can keep them out of the four lines and still send them every time.
+const TICKET_DEFAULT_KEYS = ["positionEffect", "instruction", "exchange", "taxLot", "accountName",
+  "submitAt", "submitOn", "cancelAt", "cancelOn", "tif"];
+export function normalizeTicketDefaults(raw = {}) {
+  const out = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const key of TICKET_DEFAULT_KEYS) {
+    const value = String(raw[key] || "").trim().slice(0, 60);
+    if (value) out[key] = value;
+  }
+  return out;
+}
+
+export function normalizeTicketFields(raw = {}) {
+  const out = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const key of TICKET_FIELD_KEYS) {
+    // A slot may hold one label or several to try in order — brokers name the
+    // same control differently, and a page that answers to none of the
+    // built-in guesses needs somewhere to put the one that works.
+    const values = (Array.isArray(raw[key]) ? raw[key] : [raw[key]])
+      .map((value) => String(value || "").trim().slice(0, 120))
+      .filter(Boolean)
+      .slice(0, 6);
+    if (values.length) out[key] = values;
+  }
+  return out;
+}
+
+// Whether Boollm may click trade controls on the broker page at all. Shared by
+// the ticket and by cancelling, because they need the same consent: the
+// permission switch, a signed-in user whose risk agreement matches, and an arm
+// window that has not lapsed.
+export function tradeClickPermission(config = {}) {
+  const perms = config.ui?.browserPerms || {};
+  const user = String(config.cloudBackend?.user?.email || config.cloudBackend?.user?.id || "").trim().toLowerCase();
+  const consentUser = String(perms.tradeConsentUser || "").trim().toLowerCase();
+  const tradeClicks = perms.tradeClicks === true;
+  const cloudUser = config.cloudBackend?.user || {};
+  const admin = cloudUser.role === "admin" || cloudUser.is_admin === true;
+  const identityOk = admin && !!config.cloudBackend?.sessionToken && !!user && consentUser === user;
+  const armed = tradeConsentActive(config);
+  return {
+    tradeClicks,
+    identityOk,
+    armed,
+    canClick: tradeClicks && identityOk && armed,
+    reason: !tradeClicks
+      ? "Confirmed trade clicks is off in Settings > Browser."
+      : !identityOk
+        ? "Trading is available only to a signed-in Boollm administrator whose risk agreement matches the current user."
+        : !armed
+          ? "Trade clicks have auto-disarmed. Press Arm to re-arm."
+          : ""
+  };
+}
+
+export function normalizeTradingStrategy(value = {}) {
+  const input = value && typeof value === "object" ? value : {};
+  const timeframe = [1, 5, 15].includes(Number(input.timeframeMinutes))
+    ? Number(input.timeframeMinutes)
+    : 5;
+  const modes = new Set(["breakout", "ema", "meanReversion", "all"]);
+  const requestedMode = String(input.mode || (input.key === "breakout" ? "breakout" : ""));
+  const mode = modes.has(requestedMode) ? requestedMode : "all";
+  const fastBars = Math.min(50, Math.max(3, Math.round(Number(input.fastBars) || 9)));
+  const slowBars = Math.min(100, Math.max(fastBars + 2, Math.round(Number(input.slowBars) || 21)));
+  return {
+    enabled: input.enabled === true,
+    key: mode === "all" ? "multi" : mode,
+    mode,
+    timeframeMinutes: timeframe,
+    lookbackBars: Math.min(100, Math.max(5, Math.round(Number(input.lookbackBars) || 20))),
+    fastBars,
+    slowBars,
+    meanBars: Math.min(100, Math.max(10, Math.round(Number(input.meanBars) || 20))),
+    meanSigma: Math.min(3, Math.max(1, Number(input.meanSigma) || 2)),
+    riskReward: Math.min(5, Math.max(1, Number(input.riskReward) || 2)),
+    maxSignalsPerDay: Math.min(10, Math.max(1, Math.round(Number(input.maxSignalsPerDay) || 4))),
+    cooldownBars: Math.min(12, Math.max(1, Math.round(Number(input.cooldownBars) || 2))),
+    // Stops used to be the signal candle's own low/high, which on a thin bar
+    // sits cents from the entry. The stop is now floored at this many ATRs.
+    // 0 restores the old candle-extreme behaviour.
+    atrBars: Math.min(50, Math.max(5, Math.round(Number(input.atrBars) || 14))),
+    atrStopMultiple: Math.min(3, Math.max(0, Number(input.atrStopMultiple ?? 1))),
+    // Regime gate. Breakout and EMA want a trending tape; mean reversion wants
+    // a still one. These thresholds are starting assumptions — the signal log
+    // records the regime with every signal so they can be checked against real
+    // outcomes rather than left as guesses.
+    regimeFilter: input.regimeFilter !== false,
+    trendMinEfficiency: Math.min(1, Math.max(0, Number(input.trendMinEfficiency ?? 0.35))),
+    rangeMaxEfficiency: Math.min(1, Math.max(0, Number(input.rangeMaxEfficiency ?? 0.25))),
+    // How far past the range edge a breakout close must land, in ATRs, before
+    // it counts as a break rather than a poke.
+    breakoutBufferAtr: Math.min(2, Math.max(0, Number(input.breakoutBufferAtr ?? 0.25))),
+    // How many completed bars a fired signal is followed for before it is
+    // recorded as unresolved.
+    outcomeHorizonBars: Math.min(100, Math.max(5, Math.round(Number(input.outcomeHorizonBars) || 20)))
+  };
+}
 
 function decodeHtmlText(value = "") {
   return String(value)
@@ -322,7 +455,7 @@ function websiteInternalLinks(html, baseUrl, limit = 8) {
 async function fetchSmallDataUrl(url) {
   if (!url) return "";
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Boolean Ad Studio" } });
+    const response = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Boollm Ad Studio" } });
     const type = response.headers.get("content-type") || "";
     const size = Number(response.headers.get("content-length") || 0);
     if (!response.ok || !type.startsWith("image/") || type.includes("svg") || size > 3_000_000) return "";
@@ -379,6 +512,16 @@ function loadAsset(name, devPath) {
 const IS_SEA = !!(sea.isSea && sea.isSea());
 const officialEducationById = new Map((officialEducationCatalog.exams || []).map((exam) => [exam.id, exam]));
 const officialEducationPdfCache = new Map();
+// Stand-in that ui.html ships with; the server swaps it for the launch token.
+const SESSION_TOKEN_PLACEHOLDER = "__SAZ_SESSION_TOKEN__";
+// Stand-in for the src/ui/ bundle (build/build-ui-logic.mjs). ui.html is one
+// huge inline script, so browser logic that wants a real unit test lives in
+// src/ui/ as an ES module and is inlined here on the way out.
+const UI_LOGIC_PLACEHOLDER = "/*__BOOLLM_UI_LOGIC__*/";
+const loadUiLogic = () => {
+  if (IS_SEA) return loadAsset("ui-logic.js", "./assets/ui-logic.js").toString("utf8");
+  return fs.readFileSync(appPath("src", "assets", "ui-logic.js"), "utf8");
+};
 let devUiCache = { mtimeMs: -1, html: "" };
 let uiGzipCache = { html: "", gzip: null };
 const loadUiHtml = () => {
@@ -396,6 +539,34 @@ function compressedUiHtml(html) {
   }
   return uiGzipCache.gzip;
 }
+// Monaco bundle for the Code workspace (see editor-assets.js).
+function serveEditorAsset(urlPath, req, res) {
+  const asset = resolveEditorAsset(urlPath);
+  let stat = null;
+  try {
+    stat = asset ? fs.statSync(asset.file) : null;
+  } catch {
+    stat = null;
+  }
+  if (!stat || !stat.isFile()) { res.writeHead(404); res.end("not found"); return; }
+  // Rebuilding the bundle keeps the same file names, so the browser must
+  // revalidate rather than serve a stale editor for an hour.
+  const etag = `W/"${stat.size.toString(16)}-${Math.round(stat.mtimeMs).toString(16)}"`;
+  if (req.headers["if-none-match"] === etag) {
+    res.writeHead(304, { etag, "cache-control": "no-cache" });
+    res.end();
+    return;
+  }
+  const body = fs.readFileSync(asset.file);
+  res.writeHead(200, {
+    "content-type": asset.type,
+    "content-length": body.length,
+    "cache-control": "no-cache",
+    etag
+  });
+  res.end(body);
+}
+
 function loadLegalText(file) {
   if (IS_SEA) return fs.readFileSync(path.join(path.dirname(process.execPath), file), "utf8");
   return fs.readFileSync(appPath("assets", file), "utf8");
@@ -417,7 +588,7 @@ const ABOUT_RELEASES = [
     date: "2026-08-01",
     title: "Reliable Codex and Claude Code engines",
     details: [
-      "Adds guided Claude Code installation and sign-in with Sonnet, Opus, and Haiku orchestration beside Boolean and Codex.",
+      "Adds guided Claude Code installation and sign-in with Sonnet, Opus, and Haiku orchestration beside Boollm and Codex.",
       "Maps Read only, Read & write, and Full access to native coding-engine permissions and preserves the selected project boundary.",
       "Verifies every claimed Codex or Claude file change against the exact path and diff on disk before it appears in Changes."
     ]
@@ -449,7 +620,7 @@ const ABOUT_RELEASES = [
     details: [
       "Refined the native split workspace so Projects, Chat, Notepad, and Browser resize and hide cleanly across compact and maximized windows.",
       "Added Paper Minimal, Soft Glass, and Graphite Mist surface styles with consistent light and dark panel colors.",
-      "Simplified Boolean identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
+      "Simplified Boollm identity, connection marks, composer controls, and service branding across Settings, About, Gmail, and Outlook."
     ]
   },
   {
@@ -532,7 +703,7 @@ function aboutPayload() {
     version: APP_VERSION,
     displayVersion: APP_DISPLAY_VERSION,
     channel: "Stable",
-    repository: "https://github.com/syfy10/Boolean",
+    repository: "https://github.com/syfy10/Boollm",
     branch: branch || "release",
     sourceAvailable: !!branch,
     commit: latest,
@@ -598,7 +769,7 @@ async function cloudRequest(config, endpoint, options = {}) {
     if (res.status === 401 && options.auth !== false) {
       config.cloudBackend = { ...(config.cloudBackend || {}), sessionToken: "", user: null, tokens: null };
       saveConfig(config);
-      const err = new Error("Your Boolean account session expired. Sign in again to continue.");
+      const err = new Error("Your Boollm account session expired. Sign in again to continue.");
       err.status = 401;
       err.code = "cloud_auth_required";
       throw err;
@@ -690,22 +861,23 @@ export async function firstReachableLocalPreview(values = [], { timeoutMs = 2500
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, { method: "GET", redirect: "follow", signal: controller.signal });
-      if (response.status < 500) return url;
+      const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+      if (response.status >= 200 && response.status < 400 && contentType.includes("text/html")) return url;
     } catch {}
     finally { clearTimeout(timer); }
   }
   return "";
 }
 
-const BOOLEAN_PREVIEW_HANDOFF = "Boolean owns the built-in browser. Start and verify the local preview, but do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls. Include the exact localhost URL in your final answer; Boolean will open it in its own browser.";
+const BOOLLM_PREVIEW_HANDOFF = "Boollm owns the built-in browser. Start the requested project or subproject from the directory that actually contains its existing launcher (for example saz.project.json, package.json, or serve.js); inspect and reuse that launcher before inventing another server. Verify the exact localhost page returns HTTP 2xx/3xx HTML rather than a blank page or error such as 404. If verification fails, use the command output and response to correct the directory, command, port, or project, then verify again; do not use ChatGPT, Codex, Claude, MCP, or plugin browser controls. Include only the verified localhost URL in your final answer; Boollm will open it in its own browser.";
 
-export function withBooleanPreviewHandoff(messages = []) {
+export function withBoollmPreviewHandoff(messages = []) {
   const copy = Array.isArray(messages) ? messages.map((message) => ({ ...message })) : [];
   const index = copy.findLastIndex((message) => message?.role === "user");
   if (index < 0) return copy;
   const content = copy[index].content;
-  if (Array.isArray(content)) copy[index].content = [...content, { type: "text", text: `\n\n<boolean_preview_handoff>\n${BOOLEAN_PREVIEW_HANDOFF}\n</boolean_preview_handoff>` }];
-  else copy[index].content = `${String(content || "")}\n\n<boolean_preview_handoff>\n${BOOLEAN_PREVIEW_HANDOFF}\n</boolean_preview_handoff>`;
+  if (Array.isArray(content)) copy[index].content = [...content, { type: "text", text: `\n\n<boolean_preview_handoff>\n${BOOLLM_PREVIEW_HANDOFF}\n</boolean_preview_handoff>` }];
+  else copy[index].content = `${String(content || "")}\n\n<boolean_preview_handoff>\n${BOOLLM_PREVIEW_HANDOFF}\n</boolean_preview_handoff>`;
   return copy;
 }
 
@@ -721,9 +893,9 @@ function codexThreadIds(threads = []) {
 }
 
 /**
- * Boolean and Codex keep separate conversation histories. Any Boolean-side
+ * Boollm and Codex keep separate conversation histories. Any Boollm-side
  * rewind must detach the public app-server thread mapping so the next turn is
- * bootstrapped from the newly truncated Boolean transcript instead of
+ * bootstrapped from the newly truncated Boollm transcript instead of
  * appending to stale Codex context.
  */
 export function clearCodexThreadMapping(thread) {
@@ -741,12 +913,45 @@ export function clearCodexThreadMapping(thread) {
   return ids;
 }
 
-/** Describe the result without implying that Boolean owns Codex's storage. */
+/**
+ * A task can outlive its streaming worker when an external coding CLI exits,
+ * its HTTP client disconnects, or the shell replaces the backend. Never leave
+ * that persisted checkpoint claiming to be live when no AbortController owns
+ * the turn anymore.
+ */
+export function interruptOrphanedPendingTask(thread, { now = Date.now(), graceMs = 15000 } = {}) {
+  const task = thread?.pendingTask;
+  if (!task || !["running", "interrupted"].includes(task.state)) return false;
+  const orphaned = task.state === "running" && !thread.abort && now - Number(task.updatedAt || 0) >= graceMs;
+  const splitBrain = task.state === "interrupted" && task.controller?.taskRun && !["completed", "failed", "paused"].includes(task.controller.taskRun.state);
+  if (!orphaned && !splitBrain) return false;
+  if (orphaned) { task.state = "interrupted"; task.updatedAt = now; }
+  const controller = task.controller;
+  if (controller && typeof controller === "object") {
+    if (!["completed", "failed"].includes(controller.phase)) controller.phase = "paused";
+    controller.updatedAt = now;
+    const run = controller.taskRun;
+    if (run && typeof run === "object" && !["completed", "failed", "paused"].includes(run.state)) {
+      run.state = "paused";
+      run.updatedAt = now;
+      run.sequence = Math.max(0, Number(run.sequence) || 0) + 1;
+      run.events = [...(Array.isArray(run.events) ? run.events : []), {
+        id: crypto.randomUUID(), sequence: run.sequence, type: "run.paused", status: "waiting",
+        title: "Task interrupted", detail: "The coding worker stopped responding. Continue the task to resume from this checkpoint.", at: now, details: {}
+      }].slice(-160);
+    }
+    if (controller.compaction && typeof controller.compaction === "object") controller.compaction.state = "paused";
+  }
+  thread.updatedAt = Math.max(Number(thread.updatedAt) || 0, now);
+  return true;
+}
+
+/** Describe the result without implying that Boollm owns Codex's storage. */
 export function codexHistoryDisposition(threadIds = [], archivedThreadIds = []) {
   const linked = [...new Set((threadIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
   const archived = [...new Set((archivedThreadIds || []).map((id) => String(id || "").trim()).filter((id) => linked.includes(id)))];
   const archiveNote = archived.length
-    ? `Boolean also archived ${archived.length} linked Codex task${archived.length === 1 ? "" : "s"}. `
+    ? `Boollm also archived ${archived.length} linked Codex task${archived.length === 1 ? "" : "s"}. `
     : "";
   return {
     managedBy: "codex",
@@ -754,8 +959,8 @@ export function codexHistoryDisposition(threadIds = [], archivedThreadIds = []) 
     archivedThreads: archived.length,
     retainedExternally: linked.length > 0,
     notice: linked.length
-      ? `Boolean deleted its local chat copy. ${archiveNote}Codex manages its task history separately and it may remain until removed from Codex.`
-      : "Boolean deleted its local chat history. No linked Codex task history was found."
+      ? `Boollm deleted its local chat copy. ${archiveNote}Codex manages its task history separately and it may remain until removed from Codex.`
+      : "Boollm deleted its local chat history. No linked Codex task history was found."
   };
 }
 
@@ -826,16 +1031,16 @@ function adminCloudVaultEnabled(config) {
 }
 
 function launchGithubGuide(action, projectDir) {
-  const intro = "$Host.UI.RawUI.WindowTitle='Boolean GitHub setup'; Write-Host 'Boolean GitHub setup' -ForegroundColor Green;";
+  const intro = "$Host.UI.RawUI.WindowTitle='Boollm GitHub setup'; Write-Host 'Boollm GitHub setup' -ForegroundColor Green;";
   let script;
   if (action === "install") {
-    script = `${intro} Write-Host 'Installing the official GitHub CLI...'; winget install --id GitHub.cli --exact --accept-source-agreements --accept-package-agreements; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub CLI installed. Return to Boolean and press Connect GitHub.' -ForegroundColor Green } else { Write-Host 'Installation did not finish. You can retry from Boolean.' -ForegroundColor Red }; Read-Host 'Press Enter to close'`;
+    script = `${intro} Write-Host 'Installing the official GitHub CLI...'; winget install --id GitHub.cli --exact --accept-source-agreements --accept-package-agreements; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub CLI installed. Return to Boollm and press Connect GitHub.' -ForegroundColor Green } else { Write-Host 'Installation did not finish. You can retry from Boollm.' -ForegroundColor Red }; Read-Host 'Press Enter to close'`;
   } else if (action === "connect") {
-    script = `${intro} Write-Host 'A secure GitHub sign-in page will open. Follow the browser instructions.'; gh auth login --hostname github.com --git-protocol https --web; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub connected. You can return to Boolean.' -ForegroundColor Green } else { Write-Host 'GitHub sign-in did not finish. You can retry from Boolean.' -ForegroundColor Red }; Start-Sleep -Seconds 4`;
+    script = `${intro} Write-Host 'A secure GitHub sign-in page will open. Follow the browser instructions.'; gh auth login --hostname github.com --git-protocol https --web; if ($LASTEXITCODE -eq 0) { Write-Host 'GitHub connected. You can return to Boollm.' -ForegroundColor Green } else { Write-Host 'GitHub sign-in did not finish. You can retry from Boollm.' -ForegroundColor Red }; Start-Sleep -Seconds 4`;
   } else if (action === "disconnect") {
-    script = `${intro} gh auth logout --hostname github.com; Write-Host 'Return to Boolean when finished.'; Start-Sleep -Seconds 3`;
+    script = `${intro} gh auth logout --hostname github.com; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 3`;
   } else if (action === "switch") {
-    script = `${intro} Write-Host 'Choose the current account to sign out, then sign in to the other account.'; gh auth logout --hostname github.com; gh auth login --hostname github.com --git-protocol https --web; Write-Host 'Return to Boolean when finished.'; Start-Sleep -Seconds 4`;
+    script = `${intro} Write-Host 'Choose the current account to sign out, then sign in to the other account.'; gh auth logout --hostname github.com; gh auth login --hostname github.com --git-protocol https --web; Write-Host 'Return to Boollm when finished.'; Start-Sleep -Seconds 4`;
   } else throw new Error("Unsupported GitHub setup action.");
   const child = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
     cwd: projectDir, detached: true, stdio: "ignore", windowsHide: false
@@ -1055,8 +1260,14 @@ async function probeCurrentModelCapability(config, { force = false } = {}) {
   return pending;
 }
 
+function adminFeatureAccessAllowed(config) {
+  const cloud = config.cloudBackend || {};
+  const user = cloud.user || {};
+  return !!cloud.sessionToken && (user.role === "admin" || user.is_admin === true);
+}
+
 function marketAccessAllowed(config) {
-  return !!config.cloudBackend?.sessionToken;
+  return adminFeatureAccessAllowed(config);
 }
 
 function publicImageGeneration(config) {
@@ -1388,6 +1599,11 @@ export function startServer(config, {
   port = 0,
   autoExit = false,
   emailOAuthClients = null,
+  // Secret the page must echo back on every state-changing call. A constant
+  // would let any other process running as this user drive the agent — run
+  // commands, read the project, send mail from a connected account. Random per
+  // launch, handed to the UI only by templating it into the served HTML.
+  sessionToken = crypto.randomBytes(24).toString("hex"),
   codexInstaller = installCodexStandaloneCli,
   codexPlatform = process.platform,
   codexClientFactory = createCodexAppServer,
@@ -1401,6 +1617,29 @@ export function startServer(config, {
   claudeTurnRunner = runClaudeCodeTurn
 } = {}) {
   const uiHtml = loadUiHtml();
+  // The page learns this launch's token by being served with it baked in.
+  // Cached against the source so dev reloads still pick up file edits.
+  const sessionHtmlCache = { source: "", logic: "", html: "" };
+  const uiHtmlForSession = () => {
+    const source = IS_SEA ? uiHtml : loadUiHtml();
+    const logic = loadUiLogic();
+    if (sessionHtmlCache.source !== source || sessionHtmlCache.logic !== logic) {
+      if (!source.includes(SESSION_TOKEN_PLACEHOLDER)) {
+        throw new Error(`ui.html is missing ${SESSION_TOKEN_PLACEHOLDER}; every API call would be rejected.`);
+      }
+      if (!source.includes(UI_LOGIC_PLACEHOLDER)) {
+        throw new Error(`ui.html is missing ${UI_LOGIC_PLACEHOLDER}; the src/ui/ bundle would never load.`);
+      }
+      sessionHtmlCache.source = source;
+      sessionHtmlCache.logic = logic;
+      sessionHtmlCache.html = source
+        .replace(SESSION_TOKEN_PLACEHOLDER, sessionToken)
+        // $-sequences are meaningful to String.replace; the bundle is code, not
+        // a replacement pattern, so hand it over as a function.
+        .replace(UI_LOGIC_PLACEHOLDER, () => logic);
+    }
+    return sessionHtmlCache.html;
+  };
   const managedEmailOAuthClients = emailOAuthClients || loadManagedEmailOAuthClients();
   const icon32 = loadAsset("icon-32.png", "../assets/saz-32.png");
   const icon256 = loadAsset("icon-256.png", "../assets/saz-256.png");
@@ -1416,7 +1655,38 @@ export function startServer(config, {
   const pendingNotepadControls = new Map(); // id -> resolve(result)
   let browserUrl = ""; // the page currently open in the in-app browser
   let browserTitle = ""; // optional page title sent with the current browser URL
+  let browserSnapshot = null; // last live page read pushed by the desktop shell UI
+  let browseBase = ""; // origin of the isolated browser-proxy server (set on listen)
   let serverPort = 0;  // this app's own port, hidden from local-server discovery
+
+  // Why a scheduled monitor has no page to look at. A prompt-type task has no
+  // tools, so the snapshot is its only eyes; when it is missing the task must
+  // be told plainly, because a model asked to "read the visible page" with no
+  // page attached will otherwise report numbers it invented.
+  const browserSnapshotGap = () => {
+    if (!browserSnapshot) return "no page has been read from Boollm's built-in browser yet";
+    const ageSeconds = Math.round(Math.max(0, Date.now() - Number(browserSnapshot.at || 0)) / 1000);
+    if (ageSeconds > 120) return `the last page read is ${ageSeconds} seconds old (stale beyond the 120-second limit)`;
+    return "";
+  };
+
+  const browserSnapshotText = () => {
+    if (!browserSnapshot) return "";
+    const ageMs = Math.max(0, Date.now() - Number(browserSnapshot.at || 0));
+    if (ageMs > 120000) return "";
+    const domText = String(browserSnapshot.text || "").trim();
+    const ocrText = String(browserSnapshot.ocr || "").trim();
+    const pageText = [domText, ocrText && ocrText !== domText ? `Rendered-page OCR:\n${ocrText}` : ""]
+      .filter(Boolean)
+      .join("\n\n");
+    return [
+      "CURRENT VISIBLE BROWSER SNAPSHOT (live from Boollm's built-in browser):",
+      `URL: ${browserSnapshot.url || "(none)"}`,
+      `Title: ${browserSnapshot.title || "(none)"}`,
+      `Page status: ${browserSnapshot.open === false ? "closed" : "open"}`,
+      pageText ? `Visible page text:\n${pageText}` : "Visible page text: (no readable text)"
+    ].join("\n");
+  };
 
   // ── broker snapshot for the trading bar ──────────────────────────
   // Which account the agent would actually act on, whether that account is
@@ -1424,8 +1694,79 @@ export function startServer(config, {
   // agentic_allowed=false silently rejects every order, so the bar has to be able
   // to say so BEFORE a trade is attempted. Cached: these are slow MCP round-trips
   // and the bar polls.
-  let brokerSnapshot = { at: 0, payload: null, inFlight: null };
+  let brokerSnapshot = { at: 0, payload: null, inFlight: null, connector: "" };
   const BROKER_SNAPSHOT_TTL = 30_000;
+
+  const BROKER_CONNECTOR_HINTS = [
+    { id: "robinhood", label: "Robinhood", aliases: ["robinhood", "robinhoodlegend", "rh"], hosts: ["robinhood.com"] },
+    { id: "schwab", label: "Schwab", aliases: ["schwab", "fidelityschwab", "charlesschwab"], hosts: ["schwab.com"] },
+    { id: "alpaca", label: "Alpaca", aliases: ["alpaca"], hosts: ["alpaca.markets"] },
+    { id: "ibkr", label: "IBKR", aliases: ["ibkr", "interactivebrokers", "ibkr"], hosts: ["interactivebrokers.com"] },
+    { id: "tradier", label: "Tradier", aliases: ["tradier"], hosts: ["tradier.com"] },
+    { id: "trade", label: "Broker", aliases: ["trading", "broker"], hosts: [] }
+  ];
+
+  const normalizeTradingAdapterId = (value = "") => String(value || "")
+    .toLowerCase()
+    .replace(/(^https?:\/\/|\/.*$)/g, "")
+    .replace(/[^\w]/g, "");
+
+  const normalizeTradingHost = (value = "") => {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      return normalizeTradingAdapterId(new URL(raw).hostname || "");
+    } catch {
+      return normalizeTradingAdapterId(raw);
+    }
+  };
+
+  const tradingAdapterForConnector = (connector = {}) => {
+    const candidates = [
+      normalizeTradingAdapterId(connector?.id),
+      normalizeTradingAdapterId(connector?.name),
+      normalizeTradingHost(connector?.url),
+      normalizeTradingAdapterId(connector?.url)
+    ].filter(Boolean);
+    const flat = candidates.join(" ");
+    for (const hint of BROKER_CONNECTOR_HINTS) {
+      const aliases = new Set((hint.aliases || []).map((value) => normalizeTradingAdapterId(value)));
+      const hosts = new Set((hint.hosts || []).map((value) => normalizeTradingAdapterId(value)));
+      if (candidates.some((candidate) => aliases.has(candidate) || hosts.has(candidate))) return hint.id;
+      if (flat.includes(hint.id)) return hint.id;
+    }
+    return "";
+  };
+
+  const tradingConnectorMatchesConnector = (connector, requestedAdapter = "", fallbackName = "") => {
+    const requested = normalizeTradingAdapterId(requestedAdapter);
+    const fallback = normalizeTradingAdapterId(fallbackName);
+    if (!requested && !fallback) return false;
+    const normalized = [
+      normalizeTradingAdapterId(connector?.id),
+      normalizeTradingAdapterId(connector?.name),
+      normalizeTradingHost(connector?.url),
+      normalizeTradingAdapterId(connector?.url),
+      tradingAdapterForConnector(connector)
+    ].filter(Boolean);
+    return normalized.some((candidate) => candidate === requested || candidate === fallback);
+  };
+
+  const tradingAdapterCatalog = (nextConfig = config) => {
+    const list = Array.isArray(nextConfig?.connectors?.mcp) ? nextConfig.connectors.mcp : [];
+    const enabled = list.filter((item) => item && item.enabled !== false && item.url);
+    return enabled.map((item) => ({
+      id: String(item.id || ""),
+      name: String(item.name || item.id || ""),
+      url: String(item.url || ""),
+      adapter: tradingAdapterForConnector(item),
+      label: BROKER_CONNECTOR_HINTS.find((hint) => hint.id === tradingAdapterForConnector(item))?.label || ""
+    }));
+  };
+
+  const tradingAdapterSummary = (nextConfig = config) => (
+    tradingAdapterCatalog(nextConfig).map((item) => item.adapter || item.name || item.id).filter(Boolean)
+  );
 
   const maskAccount = (value = "") => {
     const raw = String(value || "").trim();
@@ -1433,20 +1774,36 @@ export function startServer(config, {
     return raw.length <= 4 ? raw : `••••${raw.slice(-4)}`;
   };
 
-  function brokerConnector() {
-    const list = Array.isArray(config.connectors?.mcp) ? config.connectors.mcp : [];
+  const brokerConnector = (nextConfig = config, requestedConnector = "") => {
+    const list = Array.isArray(nextConfig?.connectors?.mcp) ? nextConfig.connectors.mcp : [];
     const enabled = list.filter((item) => item && item.enabled !== false && item.url);
-    const configured = String(config.connectors?.trading?.broker
-      || config.connectors?.trading?.pnl?.connector || "").trim().toLowerCase();
-    if (configured) {
-      const match = enabled.find((item) =>
-        String(item.name || "").trim().toLowerCase() === configured ||
-        String(item.id || "").trim().toLowerCase() === configured);
-      if (match) return match;
+    const requested = normalizeTradingAdapterId(requestedConnector);
+    if (requested) {
+      const direct = enabled.find((item) => tradingConnectorMatchesConnector(item, requested, ""));
+      if (direct) return direct;
     }
+    const configured = String(nextConfig?.connectors?.trading?.broker
+      || nextConfig?.connectors?.trading?.pnl?.connector || "").trim();
+    if (configured) {
+      const configuredMatch = enabled.find((item) => tradingConnectorMatchesConnector(
+        item,
+        configured,
+        String(nextConfig?.connectors?.trading?.pnl?.connector || "")
+      ));
+      if (configuredMatch) return configuredMatch;
+    }
+    const pnlConnector = String(nextConfig?.connectors?.trading?.pnl?.connector || "").trim();
+    if (pnlConnector) {
+      const pnlMatch = enabled.find((item) => tradingConnectorMatchesConnector(item, pnlConnector, ""));
+      if (pnlMatch) return pnlMatch;
+    }
+    const robinhood = enabled.find((item) => tradingAdapterForConnector(item) === "robinhood");
+    if (robinhood) return robinhood;
+    const brokerHint = enabled.find((item) => BROKER_CONNECTOR_HINTS.some((hint) => tradingAdapterForConnector(item) === hint.id));
+    if (brokerHint) return brokerHint;
     return enabled.find((item) => /robinhood|broker|trading|schwab|alpaca|ibkr|tradier/i
       .test(`${item.name || ""} ${item.url || ""}`)) || null;
-  }
+  };
 
   function mcpStructured(result) {
     if (result?.structuredContent) return result.structuredContent;
@@ -1455,8 +1812,8 @@ export function startServer(config, {
     try { return JSON.parse(text); } catch { return null; }
   }
 
-  async function loadBrokerSnapshot() {
-    const connector = brokerConnector();
+  async function loadBrokerSnapshot(nextConfig = config, requestedConnector = "") {
+    const connector = brokerConnector(nextConfig, requestedConnector);
     if (!connector) return { ok: false, error: "No broker connector is configured." };
     const accountsResult = await mcpCallTool(connector, "get_accounts", {});
     const accounts = mcpStructured(accountsResult)?.data?.accounts;
@@ -1497,18 +1854,23 @@ export function startServer(config, {
     };
   }
 
-  async function brokerSnapshotCached({ refresh = false } = {}) {
-    const fresh = !refresh && brokerSnapshot.payload && Date.now() - brokerSnapshot.at < BROKER_SNAPSHOT_TTL;
+  async function brokerSnapshotCached({
+    refresh = false,
+    connector: requestedConnector = ""
+  } = {}) {
+    const connectorKey = normalizeTradingAdapterId(requestedConnector || config?.connectors?.trading?.broker || config?.connectors?.trading?.pnl?.connector || "");
+    const fresh = !refresh && brokerSnapshot.payload && brokerSnapshot.connector === connectorKey
+      && Date.now() - brokerSnapshot.at < BROKER_SNAPSHOT_TTL;
     if (fresh) return brokerSnapshot.payload;
     if (brokerSnapshot.inFlight) return brokerSnapshot.inFlight;
     brokerSnapshot.inFlight = (async () => {
       try {
-        const payload = await loadBrokerSnapshot();
-        brokerSnapshot = { at: Date.now(), payload, inFlight: null };
+        const payload = await loadBrokerSnapshot(config, requestedConnector);
+        brokerSnapshot = { at: Date.now(), payload, inFlight: null, connector: connectorKey };
         return payload;
       } catch (err) {
         const payload = { ok: false, error: String(err?.message || err).slice(0, 200) };
-        brokerSnapshot = { at: Date.now(), payload, inFlight: null };
+        brokerSnapshot = { at: Date.now(), payload, inFlight: null, connector: connectorKey };
         return payload;
       }
     })();
@@ -1530,7 +1892,7 @@ export function startServer(config, {
   let claudeCheckedAt = 0;
   let claudeStatus = null;
   const codexLoginLeaseMs = Math.max(1000, Number(codexLoginTtlMs) || 10 * 60 * 1000);
-  // Keep npx/Wrangler scratch writes in a small Boolean-owned temp subtree.
+  // Keep npx/Wrangler scratch writes in a small Boollm-owned temp subtree.
   // The same environment is passed to the app-server and its sandbox policy.
   const codexProcessEnvironment = codexToolEnvironment(process.env);
 
@@ -1570,7 +1932,7 @@ export function startServer(config, {
   const codexErrorMessage = (error) => {
     const raw = String(error?.message || error || "Codex app-server is unavailable.");
     if (/access is denied|eperm|eacces/i.test(raw)) {
-      return "Windows blocked that Codex executable. Install the public Codex CLI, or choose its executable in Settings. The Microsoft Store desktop bundle cannot be launched as a CLI by Boolean.";
+      return "Windows blocked that Codex executable. Install the public Codex CLI, or choose its executable in Settings. The Microsoft Store desktop bundle cannot be launched as a CLI by Boollm.";
     }
     if (/enoent|not recognized|cannot find|could not start/i.test(raw)) {
       return "Codex CLI was not found. Use Set up Codex in Settings to install the official standalone CLI.";
@@ -1657,7 +2019,7 @@ export function startServer(config, {
         command,
         args: ["app-server", "--stdio"],
         env: codexProcessEnvironment,
-        clientInfo: { name: "boolean", title: "Boolean", version: APP_VERSION },
+        clientInfo: { name: "boolean", title: "Boollm", version: APP_VERSION },
         capabilities: { experimentalApi: true },
         onStatus: () => { codexCheckedAt = Date.now(); },
         onEvent: (message) => {
@@ -1702,7 +2064,7 @@ export function startServer(config, {
   const archiveLinkedCodexThreads = async (threadIds = []) => {
     const linked = [...new Set(threadIds.map((id) => String(id || "").trim()).filter(Boolean))];
     const archived = [];
-    // Deleting a Boolean chat must remain reliable even when Codex is not
+    // Deleting a Boollm chat must remain reliable even when Codex is not
     // running. If the public app-server is already available, archive its
     // linked task; either way the response explicitly says Codex retains and
     // manages its own history.
@@ -1719,9 +2081,34 @@ export function startServer(config, {
 
   // Entry page for the built-in browser. Kept deliberately small and dependency
   // free: local servers first (the thing you almost always want), then links.
-  const browserStartPage = (servers) => {
+  const browserStartPage = (servers, { explore = false, bookmarks = [] } = {}) => {
     const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    // With "Explore as browser home" on, every new tab leads with the three
+    // Explore surfaces. They are app UI, not web pages, so the cards ask the
+    // shell (which owns both this pane and the chat WebView) to open them.
+    const exploreCards = [
+      ["markets", "Market", "Quotes, movers, screeners and research"],
+      ["education", "Education", "Practice exams and study sessions"],
+      ["sales", "Sales", "Research a company and build an outreach plan"]
+    ].map(([id, label, desc]) => `<button class="exp" data-surface="${id}">
+          <span class="nm">${label}</span>
+          <span class="ds">${desc}</span>
+          <span class="go">▷</span>
+        </button>`).join("");
+    const exploreBlock = explore
+      ? `<h1>Explore</h1><div class="list">${exploreCards}</div>`
+      : "";
+    const exploreScript = explore
+      ? `<script>
+document.querySelectorAll(".exp").forEach(function(b){
+  b.addEventListener("click",function(){
+    try{ window.chrome.webview.postMessage({type:"exploreSurface",surface:b.dataset.surface}); }
+    catch(e){ b.classList.add("off"); }
+  });
+});
+</script>`
+      : "";
     const cards = servers.length
       ? servers.map((s) => `<a class="srv" href="${esc(s.url)}">
           <span class="ico">▤</span>
@@ -1736,6 +2123,12 @@ export function startServer(config, {
       ["https://stackoverflow.com", "Stack Overflow"],
       ["https://developer.mozilla.org", "MDN"]
     ].map(([u, l]) => `<a class="lnk" href="${u}">${l}</a>`).join("");
+    const saved = bookmarks
+      .filter((b) => b && typeof b.url === "string" && /^https?:\/\//i.test(b.url))
+      .slice(0, 24)
+      .map((b) => `<a class="lnk" href="${esc(b.url)}" title="${esc(b.url)}">${esc(b.title || b.url)}</a>`)
+      .join("");
+    const savedBlock = saved ? `<h1>Bookmarks</h1><div class="links">${saved}</div>` : "";
     return `<!doctype html><html><head><meta charset="utf-8"><title>New tab</title><style>
 :root{color-scheme:light dark}
 *{box-sizing:border-box}
@@ -1759,10 +2152,20 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 .lnk{padding:6px 13px;border:1px solid #e2e2df;border-radius:999px;color:inherit;text-decoration:none;font-size:13px;opacity:.8}
 .lnk:hover{opacity:1}
 @media(prefers-color-scheme:dark){.lnk{border-color:#3a3a3a}}
+.exp{display:flex;align-items:center;gap:12px;width:100%;padding:13px 15px;border:1px solid #e2e2df;border-radius:11px;
+  background:#fff;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,transform .08s}
+.exp:hover{border-color:#9a9a95}
+.exp:active{transform:translateY(1px)}
+.exp .ds{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.55}
+.exp.off{opacity:.5;cursor:default}
+@media(prefers-color-scheme:dark){.exp{background:#242424;border-color:#3a3a3a}.exp:hover{border-color:#5a5a5a}}
 </style></head><body>
+${exploreBlock}
 <h1>Running locally</h1>
 <div class="list">${cards}</div>
+${savedBlock}
 <div class="links">${links}</div>
+${exploreScript}
 </body></html>`;
   };
 
@@ -1844,6 +2247,16 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     width:100%;text-align:left;color:var(--text);font-size:12.5px}
   .mi:hover{background:var(--hover)}
   .sep{height:1px;margin:5px 6px;background:var(--border)}
+  /* bookmarks list inside the overflow menu */
+  .bms{max-height:210px;overflow-y:auto;scrollbar-color:var(--dim) transparent}
+  .bms:empty{display:none}
+  .bm{display:flex;align-items:center;gap:6px;height:28px;padding:0 6px 0 10px;border-radius:8px;color:var(--text)}
+  .bm:hover{background:var(--hover)}
+  .bm .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;text-align:left}
+  .bm .x{display:grid;place-items:center;width:18px;height:18px;border-radius:6px;font-size:13px;color:var(--dim);flex:none;opacity:0}
+  .bm:hover .x{opacity:1}
+  .bm .x:hover{background:color-mix(in srgb,var(--text) 12%,transparent);color:var(--text)}
+  .bmnone{padding:4px 10px 6px;color:var(--dim);font-size:11.5px}
   .devw{display:none;align-items:center;height:26px;padding:0 8px;border-radius:7px;background:var(--card);
     color:var(--dim);font:11px/1 ui-monospace,Consolas,monospace;white-space:nowrap}
   .devw.on{display:flex}
@@ -1873,6 +2286,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       <span class="devw" id="devw" title="Preview width — drag the preview's right edge to change it"></span>
       <button class="ico" id="run" title="Run current project">&#x25B6;</button>
       <button class="ico" id="darkPage" title="Dark mode for websites" aria-pressed="false">&#x263E;</button>
+      <button class="ico" id="star" title="Bookmark this page" aria-pressed="false">&#x2606;</button>
       <div class="addr">
         <input id="url" placeholder="Search or enter a URL" spellcheck="false" autocomplete="off">
         <button class="clr" id="clr" title="Clear">&times;</button>
@@ -1885,6 +2299,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     <button class="mi" data-a="newTab">New tab</button>
     <button class="mi" data-a="closeTab">Close current tab</button>
     <button class="mi" data-a="closeOthers">Close other tabs</button>
+    <div class="sep"></div>
+    <button class="mi" data-a="bookmark">Bookmark this page</button>
+    <div class="bms" id="bms"></div>
     <div class="sep"></div>
     <button class="mi" data-a="sendPageAI">Send page to AI</button>
     <button class="mi" data-a="sendSelMsg">Send selection to message</button>
@@ -1917,6 +2334,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     $("device").onclick = function(){ act("device"); };
     $("run").onclick    = function(){ act("run"); };
     $("darkPage").onclick = function(){ act("darkPage"); };
+    $("star").onclick   = function(){ act("bookmark"); };
     $("add").onclick    = function(){ act("newTab"); };
     $("full").onclick   = function(){ act("hideChat"); };
     $("browserClose").onclick = function(){ act("hideBrowser"); };
@@ -1982,6 +2400,29 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         host.appendChild(b);
       });
     }
+    // Saved pages, newest first. Opening one takes a new tab; the × removes it
+    // without closing the menu, so several can be cleaned up in one pass.
+    function renderBookmarks(list){
+      var host = $("bms"); host.innerHTML="";
+      if(!list || !list.length){
+        var none = document.createElement("div");
+        none.className="bmnone"; none.textContent="No bookmarks yet";
+        host.appendChild(none);
+        return;
+      }
+      list.forEach(function(b){
+        var row = document.createElement("div");
+        row.className="bm"; row.title=b.url;
+        var t = document.createElement("span"); t.className="t"; t.textContent=b.title||b.url; row.appendChild(t);
+        var x = document.createElement("span"); x.className="x"; x.innerHTML="&times;"; x.title="Remove bookmark"; row.appendChild(x);
+        row.addEventListener("click", function(e){
+          if(e.target===x){ e.stopPropagation(); act("bookmarkRemove",{url:b.url}); return; }
+          act("bookmarkOpen",{url:b.url});
+          setMenu(false);
+        });
+        host.appendChild(row);
+      });
+    }
     function applyTheme(dark, surface){
       var r = document.documentElement;
       r.style.colorScheme = dark ? "dark" : "light";
@@ -2004,6 +2445,15 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       $("darkPage").classList.toggle("on", !!s.darkPage);
       $("darkPage").setAttribute("aria-pressed", s.darkPage ? "true" : "false");
       $("darkPage").title = s.darkPage ? "Turn off website dark mode" : "Dark mode for websites";
+      renderBookmarks(s.bookmarks);
+      var star = $("star");
+      star.innerHTML = s.bookmarked ? "\\u2605" : "\\u2606";
+      star.classList.toggle("on", !!s.bookmarked);
+      star.setAttribute("aria-pressed", s.bookmarked ? "true" : "false");
+      star.title = s.bookmarked ? "Remove bookmark" : "Bookmark this page";
+      star.disabled = !s.url;
+      var bmItem = dd.querySelector('[data-a="bookmark"]');
+      if(bmItem) bmItem.textContent = s.bookmarked ? "Remove bookmark" : "Bookmark this page";
       $("zpct").textContent = (s.zoom||100) + "%";
       var wm = $("wmax"); wm.innerHTML = s.maxed ? "\\uE923" : "\\uE922"; wm.title = s.maxed ? "Restore" : "Maximize";
     }
@@ -2136,7 +2586,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       objective: String(controller.objective || "").slice(0, 500),
       phase: String(controller.phase || ""),
       artifactRequired: controller.artifactRequired === true,
-      showPlan: controller.showPlan === true || controller.artifactRequired === true,
+      // The controller decides this once real work starts; artifactRequired alone
+      // is only a classification and must not raise a plan on its own.
+      showPlan: controller.showPlan === true,
       plan: controller.plan.slice(0, 40).map((step) => ({
         step: String(step?.step || "").slice(0, 300),
         status: ["pending", "in_progress", "done"].includes(step?.status) ? step.status : "pending"
@@ -2171,6 +2623,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
   }
   function threadList() {
     cleanupBlankThreads();
+    let repairedOrphan = false;
+    for (const thread of threads.values()) repairedOrphan = interruptOrphanedPendingTask(thread) || repairedOrphan;
+    if (repairedOrphan) persist();
     return [...threads.values()]
       .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updatedAt - a.updatedAt)
       .map((t) => ({ id: t.id, title: t.title, updatedAt: t.updatedAt, pinned: !!t.pinned,
@@ -2195,9 +2650,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
   }
   let activeThreadId = null;
 
+  // Facts about the open thread, not behavior instructions. This was stubbed to
+  // "" to keep the relay provider-neutral, which also cut the project file map
+  // and BOOLLM.md project rules - leaving the policy's "inspect repository
+  // instructions before editing" rule with nothing to inspect. Restored; the
+  // memory sections stay behind their existing user settings.
   function currentAppContext(t, latestText = "", { inspectSavedTask = false } = {}) {
-    return "";
-    /*
     const parts = [];
     const taskPrompt = inspectSavedTask && t.pendingTask
       ? [
@@ -2229,7 +2687,6 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     if (digest) parts.push(digest);
     if (memory) parts.push(memory);
     return parts.length ? `\n\nCURRENT APP CONTEXT:\n${parts.join("\n\n")}` : "";
-    */
   }
 
   // persist chats to disk (workspace recovery), unless privacy mode is on
@@ -2277,9 +2734,31 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     if (!["prompt", "agent"].includes(item.actionType)) return { code: 1, output: `Unsupported scheduled action: ${item.actionType}` };
 
     const t = threads.get(item.threadId) || reuseOrNewThread();
+    // Keep every scheduled monitor in its own continuing chat. runDueAutomations
+    // persists this runtime field with the rest of the item after the first run,
+    // so its previous same-symbol reading becomes the next run's baseline.
+    if (!item.threadId) item.threadId = t.id;
     const text = String(item.text || "").trim();
     if (!text) return { code: 1, output: "The scheduled AI prompt is empty.", threadId: t.id };
-    const content = `Scheduled task: ${text}`;
+    const needsVisiblePage = /\b(browser|visible page|current page|robinhood|legend|broker page)\b/i.test(text);
+    const liveBrowserContext = needsVisiblePage ? browserSnapshotText() : "";
+    // A task that asks to read a page, with no page attached and (for prompt
+    // tasks) no tools to fetch one, is the shape that produced invented prices
+    // and alerts about moves that never happened. Name the gap and forbid the
+    // guess rather than leaving a blank the model will fill.
+    const missingPage = needsVisiblePage && !liveBrowserContext ? browserSnapshotGap() : "";
+    const content = `Scheduled task: ${text}`
+      + (liveBrowserContext
+        ? `\n\n${liveBrowserContext}\n\nTreat the symbol or contract visible in this snapshot as the monitored instrument. If it differs from an older symbol, reset the comparison baseline for the newly visible instrument and do not ask to reopen the old one.`
+        : "")
+      + (missingPage
+        ? `\n\nNO PAGE SNAPSHOT IS AVAILABLE — ${missingPage}.`
+          + (item.actionType === "agent"
+            ? " Read the page with visible_browser_read before answering. If that fails, report that you could not read it."
+            : " This task type has no tools, so there is no way to read the page on this run.")
+          + " Do NOT estimate, assume, or repeat earlier values as if they were current, and do NOT raise an alert."
+          + " Reply with one line saying the page could not be read and why."
+        : "");
     const provider = item.provider && config[item.provider] ? item.provider : config.provider;
     const runConfig = {
       ...config,
@@ -2332,7 +2811,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             saveConfig(config);
           },
           onBrowse: () => {},
-          visibleBrowser: async () => "The visible browser is unavailable during an unattended scheduled task. Use background web tools instead.",
+          visibleBrowser: async (command = {}) => {
+            if (!["read", "inspect_layout"].includes(String(command.action || ""))) {
+              return "Scheduled tasks may read the cached visible browser page but cannot interact with it unattended.";
+            }
+            return browserSnapshotText() || "The visible browser has not supplied a recent page snapshot. Keep Boollm open with the broker page visible, then try again.";
+          },
           captureScreenshot: async () => ({ ok: false, error: "Visible screenshots are unavailable during an unattended scheduled task." }),
           notepad: async () => "The visible notepad is unavailable during an unattended scheduled task."
         };
@@ -2387,7 +2871,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
   let lastPing = Date.now();
   let activeChats = 0;
   let byeTimer = null;
-  const syncWarmEnv = () => { process.env.BOOLEAN_KEEP_ENGINE_WARM = config.ui?.keepLocalWarm !== false ? "1" : ""; };
+  const syncWarmEnv = () => { process.env.BOOLLM_KEEP_ENGINE_WARM = config.ui?.keepLocalWarm !== false ? "1" : ""; };
   syncWarmEnv();
   const saveMcpConnector = (connector) => {
     config.connectors = config.connectors || { mcp: [], agents: [] };
@@ -2435,9 +2919,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
     if (!["127.0.0.1", "localhost", "[::1]"].includes(host)) {
       res.writeHead(403); res.end("forbidden"); return;
     }
-    // CSRF guard: state-changing API calls must carry the app's header.
-    // (Proxied web pages run in a sandboxed frame and can never add it.)
-    if (p.startsWith("/api/") && req.method === "POST" && p !== "/api/bye" && req.headers["x-saz"] !== "1") {
+    // CSRF guard: state-changing API calls must carry this launch's token.
+    // (Proxied web pages run in a sandboxed frame and can never add the header;
+    // the token additionally keeps other local processes out.)
+    if (p.startsWith("/api/") && req.method === "POST" && p !== "/api/bye" && req.headers["x-saz"] !== sessionToken) {
       res.writeHead(403); res.end("forbidden"); return;
     }
     try {
@@ -2457,7 +2942,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/" && !emailOAuthCallbackRequest) {
         // in dev (running from source) re-read the file each load, so editing
         // ui.html + refreshing the browser shows changes with no restart
-        const html = IS_SEA ? uiHtml : loadUiHtml();
+        const html = uiHtmlForSession();
         const acceptsGzip = /(?:^|,)\s*gzip\s*(?:,|$)/i.test(String(req.headers["accept-encoding"] || ""));
         if (acceptsGzip) {
           const body = compressedUiHtml(html);
@@ -2475,6 +2960,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
         return;
       }
+      if (req.method === "GET" && p.startsWith(EDITOR_ASSET_PREFIX)) {
+        serveEditorAsset(p, req, res);
+        return;
+      }
       if (req.method === "GET" && p === "/favicon.ico") {
         res.writeHead(200, { "content-type": "image/x-icon" });
         res.end(favicon);
@@ -2487,7 +2976,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
       if (req.method === "GET" && p === "/api/education/official") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boolean account to use Education." }, 401);
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
           return;
         }
         json(officialEducationCatalog);
@@ -2495,7 +2984,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
       if (req.method === "GET" && p === "/api/education/card") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boolean account to use Education." }, 401);
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
           return;
         }
         const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
@@ -2521,7 +3010,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
       if (req.method === "GET" && p === "/api/education/pdf") {
         if (!marketAccessAllowed(config)) {
-          json({ error: "Sign in to your Boolean account to use Education." }, 401);
+          json({ error: "Sign in to your Boollm account to use Education." }, 401);
           return;
         }
         const exam = officialEducationById.get(String(url.searchParams.get("id") || ""));
@@ -2571,7 +3060,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "GET" && p === "/manifest.json") {
         res.writeHead(200, { "content-type": "application/manifest+json" });
         res.end(JSON.stringify({
-          name: APP_NAME, short_name: "Boolean", description: APP_TAGLINE,
+          name: APP_NAME, short_name: "Boollm", description: APP_TAGLINE,
           start_url: "/", display: "standalone",
           background_color: "#17181a", theme_color: "#17181a",
           icons: [
@@ -2614,7 +3103,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         let servers = [];
         try { servers = await detectLocalServers({ excludePort: serverPort }); } catch { /* best effort */ }
         res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-        res.end(browserStartPage(servers));
+        res.end(browserStartPage(servers, {
+          explore: config.ui?.browserExploreHome === true,
+          bookmarks: Array.isArray(config.ui?.browserBookmarks) ? config.ui.browserBookmarks : []
+        }));
         return;
       }
 
@@ -2690,6 +3182,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           codexPendingInputs: publicCodexInputs(),
           codexPendingApprovals: publicCodexApprovals(),
           cloudBackend: publicCloudBackend(config),
+          browseBase,
           vision: currentVision,
           ui: config.ui,
           eulaAccepted: !!config.eulaAccepted,
@@ -2730,6 +3223,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           claudeCode: publicClaudeStatus(),
           codexPendingInputs: publicCodexInputs(),
           codexPendingApprovals: publicCodexApprovals(),
+          tradingAdapters: tradingAdapterSummary(config),
           threads: threadList(),
           activeThreadId
         });
@@ -2768,7 +3262,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         } catch (err) {
           json({
             error: "capability_probe_failed",
-            message: "Boolean could not complete the safe capability check. No tools were executed.",
+            message: "Boollm could not complete the safe capability check. No tools were executed.",
             detail: String(err?.message || err)
           }, 502);
         }
@@ -2989,7 +3483,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       if (req.method === "GET" && p === "/api/top-prompts") {
-        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLEAN CONTROLLER)/i;
+        const internal = /^(TOOL RESULT|RESUME INTERRUPTED TASK|CURRENT APP CONTEXT|CURRENT THREAD MEMORY|APPROVAL RESULT|SCHEDULED TASK|SYSTEM PREFLIGHT|BOOLLM CONTROLLER)/i;
         const counts = new Map();
         for (const t of threads.values()) {
           for (const m of t.messages || []) {
@@ -3083,6 +3577,65 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       // ── Semantic actions and capability search ──
+      if (p.startsWith("/api/workspace/")) {
+        const requestedThreadId = String(url.searchParams.get("threadId") || activeThreadId || "");
+        const workspaceThread = threads.get(requestedThreadId);
+        if (!workspaceThread || workspaceThread.kind !== "project" || !workspaceThread.projectDir) {
+          return json({ error: "Open a project task before using Code." }, 400);
+        }
+        // The global CSRF guard only covers POST, and these routes create,
+        // move, and delete real files in the user's project.
+        if (req.method !== "GET" && req.headers["x-saz"] !== sessionToken) {
+          res.writeHead(403); res.end("forbidden"); return;
+        }
+        try {
+          if (req.method === "POST" && p === "/api/workspace/entry") {
+            const body = await readBody(req);
+            const created = createWorkspaceEntry(workspaceThread.projectDir, body.path, { type: body.type, content: body.content });
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...created });
+          }
+          if (req.method === "PATCH" && p === "/api/workspace/entry") {
+            const body = await readBody(req);
+            const moved = renameWorkspaceEntry(workspaceThread.projectDir, body.from, body.to);
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...moved });
+          }
+          if (req.method === "DELETE" && p === "/api/workspace/entry") {
+            const removed = deleteWorkspaceEntry(workspaceThread.projectDir, url.searchParams.get("path") || "");
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...removed });
+          }
+          if (req.method === "GET" && p === "/api/workspace/tree") {
+            return json({ threadId: workspaceThread.id, ...listWorkspaceTree(workspaceThread.projectDir) });
+          }
+          if (req.method === "GET" && p === "/api/workspace/search") {
+            const query = url.searchParams.get("q") || "";
+            const mode = url.searchParams.get("mode");
+            const found = mode === "text"
+              ? searchWorkspaceText(workspaceThread.projectDir, query, { caseSensitive: url.searchParams.get("case") === "1" })
+              : mode === "symbols" ? findWorkspaceSymbols(workspaceThread.projectDir, query)
+              : findWorkspaceFiles(workspaceThread.projectDir, query);
+            return json({ threadId: workspaceThread.id, ...found });
+          }
+          if (req.method === "GET" && p === "/api/workspace/file") {
+            const file = readWorkspaceFile(workspaceThread.projectDir, url.searchParams.get("path") || "");
+            return json({ threadId: workspaceThread.id, root: path.resolve(workspaceThread.projectDir), ...file });
+          }
+          if (req.method === "PUT" && p === "/api/workspace/file") {
+            const body = await readBody(req);
+            const saved = writeWorkspaceFile(workspaceThread.projectDir, body.path, body.content, { expectedMtimeMs: body.expectedMtimeMs, expectedHash: body.expectedHash });
+            invalidateProjectStatus(workspaceThread.projectDir);
+            return json({ ok: true, threadId: workspaceThread.id, ...saved });
+          }
+        } catch (err) {
+          const status = err?.code === "WORKSPACE_FILE_CONFLICT" || err?.code === "WORKSPACE_ENTRY_EXISTS" ? 409
+            : err?.code === "WORKSPACE_UNAVAILABLE" || err?.code === "WORKSPACE_ENTRY_MISSING" ? 404
+              : err?.code?.startsWith("WORKSPACE_") ? 400 : 500;
+          return json({ error: err.message, code: err.code || "WORKSPACE_ERROR" }, status);
+        }
+      }
+
       if (req.method === "GET" && p === "/api/actions") {
         const query = url.searchParams.get("q") || "";
         json({ ok: true, actions: query ? searchActions(query) : listActions() });
@@ -3102,8 +3655,19 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       }
 
       // ── Diagnostics ──
+      if (req.method === "GET" && p === "/api/opencodex/status") {
+        json(await detectOpenCodex());
+        return;
+      }
       if (req.method === "GET" && p === "/api/diagnostics/export") {
         const active = threads.get(activeThreadId);
+        const activeProvider = String(config.provider || "local");
+        const activeModel = String(currentModel(config) || "").slice(0, 160);
+        const capability = modelCapabilityProfile(config, {
+          provider: activeProvider,
+          model: activeModel,
+          base: config?.[activeProvider]?.baseUrl || ""
+        });
         const report = {
           format: "boolean-diagnostics",
           version: 1,
@@ -3111,11 +3675,21 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           app: { name: APP_NAME, version: APP_VERSION, packaged: IS_SEA, platform: process.platform, arch: process.arch },
           runtime: { node: process.version, uptimeSeconds: Math.round(process.uptime()), activeChats },
           model: {
-            provider: String(config.provider || "local"),
-            model: String(currentModel(config) || "").slice(0, 160),
+            id: canonicalModelId({ provider: activeProvider, model: activeModel }),
+            provider: activeProvider,
+            model: activeModel,
             accessMode: currentAccessMode(config),
-            autoApprove: config.autoApprove === true
+            autoApprove: config.autoApprove === true,
+            capabilities: capability.capabilities,
+            capabilityMode: capability.mode
           },
+          routing: {
+            enabled: config.ui?.autoRouteModels === true,
+            preference: config.ui?.modelRouting?.preference || "balanced",
+            profiles: config.ui?.modelRouting?.profiles || {},
+            health: autoModelHealthSnapshot()
+          },
+          openCodex: await detectOpenCodex(),
           task: publicPendingTask(active?.pendingTask),
           capabilities: listActions().map((action) => action.capability)
         };
@@ -3140,6 +3714,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         // Provider/backend
         const provider = config.provider || "local";
         results.provider = { status: "ok", label: provider === "local" ? "Local engine" : provider, detail: config.backendUp === false ? "needs setup" : "ready" };
+        const openCodex = await detectOpenCodex();
+        results.openCodex = {
+          status: openCodex.detected ? "ok" : "warn",
+          label: openCodex.detected ? `OpenCodex · ${openCodex.modelCount} models` : "OpenCodex not running",
+          detail: openCodex.detected ? `${openCodex.apiBase} · optional gateway available` : "Optional · start it on localhost:10100 to make it discoverable"
+        };
 
         // Local model
         const modelFile = config.model || "";
@@ -3236,6 +3816,81 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
+      if (req.method === "GET" && p === "/api/git/source-status") {
+        try {
+          json({ ok: true, ...gitSourceStatus(activeProjectDir(threads, activeThreadId)) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not read Git status." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/code/extensions") {
+        try {
+          const projectDir = activeProjectDir(threads, activeThreadId);
+          json({ ok: true, ...listCodeExtensions(projectDir), services: discoverLanguageServices({ probe: url.searchParams.get("probe") !== "0" }) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not inspect Code extensions." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "GET" && p === "/api/git/file-diff") {
+        try {
+          json({ ok: true, ...gitFileContents(activeProjectDir(threads, activeThreadId), url.searchParams.get("path"), { staged: url.searchParams.get("staged") === "1" }) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not open the file diff." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/stage") {
+        const body = await readBody(req);
+        try {
+          const projectDir = activeProjectDir(threads, activeThreadId);
+          const result = gitStageFiles(projectDir, body.files, { unstage: body.unstage === true });
+          invalidateProjectStatus(projectDir);
+          json({ ok: true, ...result, status: gitSourceStatus(projectDir) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not update the Git index." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/commit") {
+        const body = await readBody(req);
+        try {
+          const projectDir = activeProjectDir(threads, activeThreadId);
+          const result = gitCommit(projectDir, body.message);
+          invalidateProjectStatus(projectDir);
+          json({ ok: true, ...result, status: gitSourceStatus(projectDir) });
+        } catch (error) {
+          json({ ok: false, error: error?.message || "Could not create the commit." }, 400);
+        }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/branch") {
+        const body = await readBody(req);
+        try { const projectDir = activeProjectDir(threads, activeThreadId); json({ ok: true, ...gitCreateBranch(projectDir, body.name), status: gitSourceStatus(projectDir) }); }
+        catch (error) { json({ ok: false, error: error?.message || "Could not create branch." }, 400); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/git/push") {
+        const body = await readBody(req);
+        try { json({ ok: true, ...gitPushBranch(activeProjectDir(threads, activeThreadId), body) }); }
+        catch (error) { json({ ok: false, error: error?.message || "Could not push branch." }, 400); }
+        return;
+      }
+
+      if (req.method === "POST" && p === "/api/github/pull-request") {
+        const body = await readBody(req);
+        try { json({ ok: true, ...githubCreatePullRequest(activeProjectDir(threads, activeThreadId), body) }); }
+        catch (error) { json({ ok: false, error: error?.message || "Could not create pull request." }, 400); }
+        return;
+      }
+
       if (req.method === "POST" && p === "/api/git/unpush-last") {
         const body = await readBody(req);
         if (body.confirm !== "undo last push") {
@@ -3269,7 +3924,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         try {
           json({ ok: true, ...gitRestoreFiles(activeProjectDir(threads, activeThreadId), body.files) });
         } catch {
-          // Boolean can review verified changes in a non-Git folder, but it
+          // Boollm can review verified changes in a non-Git folder, but it
           // never guesses how to restore them without a repository baseline.
           json({ ok: true, restored: [], skipped: Array.isArray(body.files) ? body.files : [], message: "Non-Git changes were left on disk." });
         }
@@ -3294,7 +3949,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
       if (req.method === "POST" && p === "/api/agent-runs/apply") {
         const body = await readBody(req);
-        const run = await applyAgentRun(String(body.id || ""), activeProjectDir(threads, activeThreadId));
+        // A result that failed its own checks is refused unless the user says
+        // to apply it anyway; the decision is theirs, not silent either way.
+        const run = await applyAgentRun(String(body.id || ""), activeProjectDir(threads, activeThreadId), { requireVerified: body.force !== true });
         json({ ok: true, run });
         return;
       }
@@ -3401,7 +4058,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
-      // Delete Boolean's saved copy. Codex owns a separate local history, so
+      // Delete Boollm's saved copy. Codex owns a separate local history, so
       // archive linked app-server tasks when possible and always disclose that
       // the underlying Codex history is managed separately.
       if (req.method === "POST" && p === "/api/clear-history") {
@@ -3813,170 +4470,9 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         return;
       }
 
-      if (p.startsWith("/api/markets/") && !marketAccessAllowed(config)) {
-        json({ error: "Sign in to your Boolean account to use Markets." }, 401);
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/settings") {
-        const market = config.connectors?.marketData || {};
-        json({
-          provider: market.provider || "yahoo",
-          configured: !!market.apiKey,
-          selectedSymbol: market.selectedSymbol || "AAPL",
-          watchlist: Array.isArray(market.watchlist) ? market.watchlist : [],
-          optionsProvider: market.optionsProvider || "alpaca",
-          optionsFeed: market.optionsFeed === "opra" ? "opra" : "indicative",
-          alpacaConfigured: !!(market.alpacaKeyId && market.alpacaSecretKey),
-          massiveConfigured: !!market.massiveApiKey,
-          yahooExperimental: true
-        });
-        return;
-      }
-
-      if (req.method === "POST" && p === "/api/markets/settings") {
-        const body = await readBody(req);
-        const old = config.connectors?.marketData || {};
-        const provider = body.provider === "alphaVantage" ? "alphaVantage" : "yahoo";
-        const cleanSymbol = (value) => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9.^=-]/g, "").slice(0, 24);
-        const watchlist = Array.isArray(body.watchlist)
-          ? [...new Set(body.watchlist.map(cleanSymbol).filter(Boolean))].slice(0, 20)
-          : (old.watchlist || []);
-        const apiKey = body.apiKey === "__keep__" ? (old.apiKey || "") : String(body.apiKey || "").trim().slice(0, 500);
-        const next = {
-          provider,
-          apiKey: provider === "alphaVantage" ? apiKey : "",
-          selectedSymbol: cleanSymbol(body.selectedSymbol) || old.selectedSymbol || "AAPL",
-          watchlist: watchlist.length ? watchlist : ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"],
-          optionsProvider: ["alpaca", "massive"].includes(body.optionsProvider) ? body.optionsProvider : (old.optionsProvider || "alpaca"),
-          optionsFeed: body.optionsFeed === "opra" ? "opra" : "indicative",
-          alpacaKeyId: body.alpacaKeyId === "__keep__" ? (old.alpacaKeyId || "") : String(body.alpacaKeyId || "").trim().slice(0, 500),
-          alpacaSecretKey: body.alpacaSecretKey === "__keep__" ? (old.alpacaSecretKey || "") : String(body.alpacaSecretKey || "").trim().slice(0, 500),
-          massiveApiKey: body.massiveApiKey === "__keep__" ? (old.massiveApiKey || "") : String(body.massiveApiKey || "").trim().slice(0, 500)
-        };
-        if (provider === "alphaVantage" && !next.apiKey) {
-          json({ error: "Alpha Vantage API key required." }, 400);
-          return;
-        }
-        if (body.test === true) {
-          try {
-            await testMarketSettings(next);
-            const testOptions = (next.optionsProvider === "alpaca" && next.alpacaKeyId && next.alpacaSecretKey)
-              || (next.optionsProvider === "massive" && next.massiveApiKey);
-            if (testOptions) await getOptionsChain(next, next.selectedSymbol);
-          }
-          catch (error) { json({ error: String(error?.message || error) }, 400); return; }
-        }
-        config.connectors = config.connectors || {};
-        config.connectors.marketData = next;
-        saveConfig(config, { preserveSecrets: false });
-        if (adminCloudVaultEnabled(config)) syncCloudVault(config, { merge: false }).catch(() => {});
-        json({
-          ok: true, provider, configured: !!next.apiKey, selectedSymbol: next.selectedSymbol, watchlist: next.watchlist,
-          optionsProvider: next.optionsProvider, optionsFeed: next.optionsFeed,
-          alpacaConfigured: !!(next.alpacaKeyId && next.alpacaSecretKey), massiveConfigured: !!next.massiveApiKey
-        });
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/snapshot") {
-        try {
-          const snapshot = await getMarketSnapshot(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL",
-            url.searchParams.get("range") || "6mo"
-          );
-          json({ ok: true, ...snapshot });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/quote") {
-        try {
-          const quote = await getMarketQuote(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL"
-          );
-          json({ ok: true, ...quote });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/dashboard") {
-        try {
-          const dashboard = await getMarketDashboard(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL"
-          );
-          json({ ok: true, ...dashboard });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/sectors") {
-        try {
-          json({ ok: true, ...await getSectorPerformance() });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/options") {
-        try {
-          const chain = await getOptionsChain(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL",
-            url.searchParams.get("expiration") || ""
-          );
-          json({ ok: true, ...chain });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/trade-ideas") {
-        try {
-          const ideas = await getTradeIdeas(
-            config.connectors?.marketData || {},
-            url.searchParams.get("symbol") || "AAPL"
-          );
-          json({ ok: true, ...ideas });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
-
-      if (req.method === "POST" && p === "/api/markets/backtest") {
-        try {
-          const body = await readBody(req);
-          const symbol = String(body.symbol || "AAPL").slice(0, 16);
-          const range = ["6mo", "1y", "5y", "max"].includes(body.range) ? body.range : "5y";
-          const snapshot = await getMarketSnapshot(config.connectors?.marketData || {}, symbol, range);
-          json({ ok: true, ...runStrategyBacktest(snapshot, { ...body, symbol }) });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 400);
-        }
-        return;
-      }
-
-      if (req.method === "GET" && p === "/api/markets/cot") {
-        try {
-          const cot = await getCotSnapshot(url.searchParams.get("market") || "nasdaq");
-          json({ ok: true, ...cot });
-        } catch (error) {
-          json({ error: String(error?.message || error) }, 502);
-        }
-        return;
-      }
+      // /api/markets/* lives in src/routes/markets.js — see that file for the
+      // router contract the remaining groups should follow.
+      if (await marketsRoutes({ req, p, url, config, json, readBody, saveConfig, marketAccessAllowed })) return;
 
       if (req.method === "POST" && p === "/api/local-data/save") {
         saveConfig(config);
@@ -4027,8 +4523,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
       if (req.method === "POST" && p === "/api/delete-all-data") {
         const body = await readBody(req);
-        if (body.confirm !== "DELETE ALL BOOLEAN DATA") {
-          json({ ok: false, error: "Type DELETE ALL BOOLEAN DATA to confirm." }, 400);
+        if (body.confirm !== "DELETE ALL BOOLLM DATA") {
+          json({ ok: false, error: "Type DELETE ALL BOOLLM DATA to confirm." }, 400);
           return;
         }
         for (const thread of threads.values()) {
@@ -4166,16 +4662,31 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const token = String(body.token || "").trim() === "__keep__"
           ? String(saved.token || "")
           : String(body.token || "").trim();
-        if (!token) return json({ ok: false, error: "Paste a Cloudflare API token." }, 400);
+        // A Global API Key is account-wide and authenticates with the account
+        // email, so it needs both fields and a different verify path.
+        const globalKey = String(body.authType || "").trim() === "global"
+          || (!!String(body.email || "").trim() && !body.authType);
+        const email = String(body.email || "").trim() === "__keep__"
+          ? String(saved.email || "")
+          : String(body.email || "").trim();
+        if (!token) {
+          return json({ ok: false, error: globalKey ? "Paste your Cloudflare Global API Key." : "Paste a Cloudflare API token." }, 400);
+        }
+        if (globalKey && !email) {
+          return json({ ok: false, error: "Enter the Cloudflare account email that owns this Global API Key." }, 400);
+        }
         try {
-          const verified = await verifyCloudflareToken(token);
+          const verified = globalKey
+            ? await verifyCloudflareGlobalKey(email, token)
+            : await verifyCloudflareToken(token);
           const requestedAccountId = String(body.accountId || "").trim();
           const selected = verified.accounts.find((account) => account.id === requestedAccountId)
             || (verified.accounts.length === 1 ? verified.accounts[0] : null);
           config.connectors = config.connectors || {};
           config.connectors.cloudflare = {
             token,
-            authType: "token",
+            email: globalKey ? email : "",
+            authType: globalKey ? "global" : "token",
             fullAccess: saved.fullAccess === true,
             oauthClientId: saved.oauthClientId || "",
             oauthRedirectUri: saved.oauthRedirectUri || "https://boollm.com/oauth/cloudflare/callback",
@@ -4202,6 +4713,10 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         }
       }
 
+      if (p.startsWith("/api/trading/") && !adminFeatureAccessAllowed(config)) {
+        return json({ ok: false, error: "Trading is available only to Boollm administrators." }, 403);
+      }
+
       if (req.method === "GET" && p === "/api/trading/state") {
         const g = config.connectors?.trading || {};
         const bp = config.ui?.browserPerms || {};
@@ -4220,7 +4735,14 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           maxOrdersPerDay: Number(g.maxOrdersPerDay) || 0,
           dailyLossCapUsd: Number(g.dailyLossCapUsd) || 0,
           maxNotionalUsd: Number(g.maxNotionalUsd) || 0,
+          maxRiskPerTradeUsd: Number(g.maxRiskPerTradeUsd) || 0,
           symbolAllowlist: Array.isArray(g.symbolAllowlist) ? g.symbolAllowlist : [],
+          strategy: normalizeTradingStrategy(g.strategy),
+          // Which control on the broker's own order form each ticket value goes
+          // into. Broker forms differ, so this is configurable; the bar falls
+          // back to sensible labels when a key is unset.
+          ticketFields: normalizeTicketFields(g.ticketFields),
+          ticketDefaults: normalizeTicketDefaults(g.ticketDefaults),
           browserSymbol: extractTradingSymbolFromUrl(browserUrl, browserTitle),
           ordersToday: ledger.ordersToday,
           realizedLossUsd: ledger.realizedLossUsd,
@@ -4230,26 +4752,130 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
       if (req.method === "GET" && p === "/api/trading/broker") {
         const refresh = url.searchParams.get("refresh") === "1";
-        return json(await brokerSnapshotCached({ refresh }));
+        const connector = String(url.searchParams.get("connector") || "").trim();
+        return json(await brokerSnapshotCached({ refresh, connector }));
+      }
+
+      if (req.method === "GET" && p === "/api/trading/adapters") {
+        return json({
+          ok: true,
+          selected: String(config.connectors?.trading?.broker || config.connectors?.trading?.pnl?.connector || ""),
+          adapters: tradingAdapterCatalog(config)
+        });
       }
 
       if (req.method === "POST" && p === "/api/trading/settings") {
         const body = await readBody(req);
         config.connectors = config.connectors || {};
         const g = { ...(config.connectors.trading || {}) };
+        if ("broker" in body) g.broker = String(body.broker || "").trim();
         if ("killSwitch" in body) g.killSwitch = body.killSwitch === true;
         if ("enabled" in body) g.enabled = body.enabled === true;
         if ("maxOrdersPerDay" in body) g.maxOrdersPerDay = Math.max(0, Number(body.maxOrdersPerDay) || 0);
-        if ("dailyLossCapUsd" in body) g.dailyLossCapUsd = Math.max(0, Number(body.dailyLossCapUsd) || 0);
+        if ("dailyLossCapUsd" in body) g.dailyLossCapUsd = Math.min(100_000_000, Math.max(0, Math.round((Number(body.dailyLossCapUsd) || 0) * 100) / 100));
         if ("maxNotionalUsd" in body) g.maxNotionalUsd = Math.max(0, Number(body.maxNotionalUsd) || 0);
+        if ("maxRiskPerTradeUsd" in body) g.maxRiskPerTradeUsd = Math.min(100_000_000, Math.max(0, Math.round((Number(body.maxRiskPerTradeUsd) || 0) * 100) / 100));
         if ("armWindowMinutes" in body) g.armWindowMinutes = Math.max(0, Number(body.armWindowMinutes) || 0);
         if (Array.isArray(body.symbolAllowlist)) g.symbolAllowlist = body.symbolAllowlist.map((s) => String(s || "").trim().toUpperCase()).filter(Boolean);
+        if (body.strategy && typeof body.strategy === "object") {
+          g.strategy = normalizeTradingStrategy({ ...(g.strategy || {}), ...body.strategy });
+        }
+        if (body.ticketFields && typeof body.ticketFields === "object") {
+          g.ticketFields = normalizeTicketFields({ ...(g.ticketFields || {}), ...body.ticketFields });
+        }
+        if (body.ticketDefaults && typeof body.ticketDefaults === "object") {
+          g.ticketDefaults = normalizeTicketDefaults({ ...(g.ticketDefaults || {}), ...body.ticketDefaults });
+        }
         config.connectors.trading = g;
         saveConfig(config);
         const ledger = currentTradeState(SAZ_DIR);
         return json({ ok: true, killSwitch: g.killSwitch === true, enabled: g.enabled === true,
           maxOrdersPerDay: g.maxOrdersPerDay || 0, dailyLossCapUsd: g.dailyLossCapUsd || 0,
+          maxRiskPerTradeUsd: g.maxRiskPerTradeUsd || 0,
+          strategy: normalizeTradingStrategy(g.strategy),
           ordersToday: ledger.ordersToday, realizedLossUsd: ledger.realizedLossUsd });
+      }
+
+      // What the strategies actually did. Read-only history of resolved
+      // signals; none of these were auto-traded, so this measures the ideas,
+      // not the account.
+      if (req.method === "GET" && p === "/api/trading/signals") {
+        return json({ ok: true, stats: signalStats(SAZ_DIR) });
+      }
+
+      if (req.method === "POST" && p === "/api/trading/signals") {
+        const body = await readBody(req);
+        const result = recordSignalOutcomes(SAZ_DIR, Array.isArray(body.outcomes) ? body.outcomes : []);
+        return json({ ok: true, ...result });
+      }
+
+      // Price a trading-bar ticket against the guard. Read-only: it evaluates
+      // and reports, and never types, clicks, or places anything. The bar calls
+      // it as the ticket is edited so a blocked order says why before the user
+      // reaches for Send.
+      if (req.method === "POST" && p === "/api/trading/ticket/check") {
+        const body = await readBody(req);
+        const g = config.connectors?.trading || {};
+        // The ticket rides the confirmed-click permission, which has its own
+        // on/off switch, so the guard's master `enabled` gate is skipped here
+        // exactly as it is for visible_browser_trade. Caps and kill-switch stay.
+        const verdict = evaluateTradeGuard(g, {
+          symbol: body.symbol,
+          side: body.side,
+          quantity: body.quantity,
+          // The guard owns which order types exist and which prices each needs,
+          // so the ticket's choice is passed through rather than flattened.
+          orderType: body.orderType,
+          timeInForce: body.timeInForce,
+          limitPrice: Number(body.limitPrice) || 0,
+          triggerPrice: Number(body.triggerPrice) || 0,
+          trailAmount: Number(body.trailAmount) || 0,
+          referencePrice: Number(body.referencePrice) || 0,
+          stopPrice: Number(body.stopPrice) || 0,
+          targetPrice: Number(body.targetPrice) || 0,
+          reducesPosition: body.reducesPosition === true
+        }, currentTradeState(SAZ_DIR), { skipEnabled: true });
+        const clicks = tradeClickPermission(config);
+        return json({
+          ok: true,
+          allowed: verdict.allowed,
+          reason: verdict.reason,
+          order: verdict.order,
+          armed: clicks.armed,
+          identityOk: clicks.identityOk,
+          tradeClicks: clicks.tradeClicks,
+          canSend: verdict.allowed && clicks.canClick,
+          sendBlockedReason: clicks.reason
+        });
+      }
+
+      // Whether a working order may be cancelled from the bar.
+      //
+      // Deliberately NOT gated on the kill-switch or the risk caps. Those exist
+      // to stop new exposure, and a resting order is exposure — refusing to
+      // cancel while halted would trap the user in the very thing the halt was
+      // meant to escape. The click consent still applies: this drives the
+      // broker page, so it needs the same permission every other click does.
+      if (req.method === "GET" && p === "/api/trading/cancel/check") {
+        const clicks = tradeClickPermission(config);
+        return json({ ok: true, ...clicks, canCancel: clicks.canClick, blockedReason: clicks.reason });
+      }
+
+      // Count an order the user actually sent from the ticket, so the daily
+      // order cap sees bar-placed orders the same way it sees agent-placed
+      // ones. Mirrors the tools.js rule: only touch the ledger when a cap is
+      // configured, so cap-free setups do no file IO.
+      if (req.method === "POST" && p === "/api/trading/ticket/placed") {
+        const body = await readBody(req);
+        const g = config.connectors?.trading || {};
+        if ((Number(g.maxOrdersPerDay) || 0) > 0) {
+          recordTradePlacement(SAZ_DIR, {
+            symbol: String(body.symbol || "").trim().toUpperCase(),
+            side: String(body.side || "").trim().toLowerCase()
+          });
+        }
+        const ledger = currentTradeState(SAZ_DIR);
+        return json({ ok: true, ordersToday: ledger.ordersToday, realizedLossUsd: ledger.realizedLossUsd });
       }
 
       if (req.method === "POST" && p === "/api/cloudflare/full-access") {
@@ -4325,7 +4951,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingCloudflareOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect Cloudflare again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect Cloudflare again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -4361,8 +4987,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.accounts = verified.accounts;
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
           res.end(oauthResultPage("Cloudflare connected", selected
-            ? `${selected.name} is ready in Boolean. This window will close.`
-            : "Cloudflare approved access. Return to Boolean and choose an account.", true));
+            ? `${selected.name} is ready in Boollm. This window will close.`
+            : "Cloudflare approved access. Return to Boollm and choose an account.", true));
         } catch (error) {
           transaction.status = "error";
           transaction.error = error.message || "Cloudflare authorization failed.";
@@ -4503,7 +5129,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingMcpOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and try connecting again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and try connecting again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -4517,7 +5143,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boolean.", false));
+          res.end(oauthResultPage("Authorization canceled", "No changes were made. You can return to Boollm.", false));
           return;
         }
         try {
@@ -4553,7 +5179,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.toolCount = result.toolCount;
           transaction.tools = result.tools.map((tool) => tool.name).filter(Boolean);
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boolean. This window will close.`, true));
+          res.end(oauthResultPage("Connected", `${connector.name} is ready in Boollm. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
@@ -4565,7 +5191,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             needsReconnect: true
           });
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect", "Return to Boolean and try again.", false));
+          res.end(oauthResultPage("Could not connect", "Return to Boollm and try again.", false));
         }
         return;
       }
@@ -4592,7 +5218,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           const label = provider === "gmail" ? "Google" : "Microsoft";
           return json({
             error: mode === "managed"
-              ? `${label} sign-in is not provisioned in this Boolean build. Open Advanced setup to add a public client ID.`
+              ? `${label} sign-in is not provisioned in this Boollm build. Open Advanced setup to add a public client ID.`
               : `Enter the ${label} OAuth public client ID first.`,
             code: "email_oauth_setup_required",
             provider,
@@ -4650,7 +5276,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         const transaction = pendingEmailOAuth.get(state);
         if (!transaction || Date.now() - transaction.createdAt > 10 * 60 * 1000) {
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Authorization expired", "Return to Boolean and connect the email account again.", false));
+          res.end(oauthResultPage("Authorization expired", "Return to Boollm and connect the email account again.", false));
           return;
         }
         if (oauthError || !code) {
@@ -4707,12 +5333,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           transaction.status = "complete";
           transaction.account = connection.account;
           res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boolean. This window will close.`, true));
+          res.end(oauthResultPage("Email connected", `${connection.account} is ready in Boollm. This window will close.`, true));
         } catch (err) {
           transaction.status = "error";
           transaction.error = err.message || "authorization failed";
           res.writeHead(400, { "content-type": "text/html; charset=utf-8" });
-          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boolean and check the OAuth client settings.`, false));
+          res.end(oauthResultPage("Could not connect email", `${transaction.error}. Return to Boollm and check the OAuth client settings.`, false));
         }
         return;
       }
@@ -5100,6 +5726,21 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         json({ ok: true });
         return;
       }
+      if (req.method === "POST" && p === "/api/browser/context-snapshot") {
+        const body = await readBody(req);
+        browserUrl = typeof body.url === "string" ? body.url.slice(0, 4096) : browserUrl;
+        browserTitle = typeof body.title === "string" ? body.title.slice(0, 1000) : browserTitle;
+        browserSnapshot = {
+          at: Date.now(),
+          open: body.open !== false,
+          url: browserUrl,
+          title: browserTitle,
+          text: String(body.text || "").slice(0, 120000),
+          ocr: String(body.ocr || "").slice(0, 120000)
+        };
+        json({ ok: true, at: browserSnapshot.at });
+        return;
+      }
       if (req.method === "POST" && p === "/api/browser/detect-tech") {
         const body = await readBody(req);
         let html = String(body.html || "");
@@ -5113,7 +5754,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           try {
             const response = await fetch(parsed.toString(), {
               signal: controller.signal,
-              headers: { "user-agent": "Boolean Website Tech Detector" }
+              headers: { "user-agent": "Boollm Website Tech Detector" }
             });
             finalUrl = response.url || finalUrl;
             headers = Object.fromEntries(response.headers.entries());
@@ -5168,11 +5809,11 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
       if (req.method === "POST" && p === "/api/pick-folder") {
         const psScript = "Add-Type -AssemblyName System.Windows.Forms; " +
           "$d = New-Object System.Windows.Forms.FolderBrowserDialog; " +
-          "$initial = $env:BOOLEAN_PICK_FOLDER; if ($initial -and (Test-Path -LiteralPath $initial)) { $d.SelectedPath = $initial }; " +
+          "$initial = $env:BOOLLM_PICK_FOLDER; if ($initial -and (Test-Path -LiteralPath $initial)) { $d.SelectedPath = $initial }; " +
           "if ($d.ShowDialog() -eq 'OK') { [Console]::Out.Write($d.SelectedPath) }";
         const ps = spawn("powershell", ["-NoProfile", "-STA", "-Command", psScript], {
           windowsHide: true,
-          env: { ...process.env, BOOLEAN_PICK_FOLDER: config.projectsDir }
+          env: { ...process.env, BOOLLM_PICK_FOLDER: config.projectsDir }
         });
         let out = "";
         ps.stdout.on("data", (d) => (out += d.toString()));
@@ -5221,7 +5862,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         if (!/^https?:$/.test(parsed.protocol) || /^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|\[?::1)/i.test(parsed.hostname)) {
           throw new Error("Enter a public http or https website.");
         }
-        const response = await fetch(parsed.toString(), { redirect: "follow", signal: AbortSignal.timeout(10000), headers: { "user-agent": "Mozilla/5.0 Boolean Ad Studio" } });
+        const response = await fetch(parsed.toString(), { redirect: "follow", signal: AbortSignal.timeout(10000), headers: { "user-agent": "Mozilla/5.0 Boollm Ad Studio" } });
         if (!response.ok) throw new Error(`Website returned ${response.status}.`);
         const html = (await response.text()).slice(0, 2_000_000);
         const finalUrl = response.url || parsed.toString();
@@ -5232,7 +5873,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         if (visualUrls.length < requestedLimit * 2) {
           const pages = await Promise.all(pageUrls.map(async pageUrl => {
             try {
-              const page = await fetch(pageUrl, { redirect: "follow", signal: AbortSignal.timeout(7000), headers: { "user-agent": "Mozilla/5.0 Boolean Ad Studio" } });
+              const page = await fetch(pageUrl, { redirect: "follow", signal: AbortSignal.timeout(7000), headers: { "user-agent": "Mozilla/5.0 Boollm Ad Studio" } });
               if (!page.ok || !(page.headers.get("content-type") || "").includes("text/html")) return null;
               const pageFinalUrl = page.url || pageUrl;
               if (new URL(pageFinalUrl).origin !== new URL(finalUrl).origin) return null;
@@ -5478,7 +6119,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         savedTask.updatedAt = Date.now();
         t.updatedAt = Date.now();
         persist();
-        return streamRun(t, res);
+        return streamRun(t, res, { continuation: true });
       }
 
       // export a chat as plain text or markdown
@@ -5553,7 +6194,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
 
         if (externalEngineRequested && Array.isArray(body.images) && body.images.length) {
           const send = openNdjsonStream(res);
-          send({ type: "error", text: `This ${selectedCodingEngine === "claude-code" ? "Claude Code" : "Codex"} integration does not accept pasted image data yet. Switch the orchestration engine to Boolean for this image turn.` });
+          send({ type: "error", text: `This ${selectedCodingEngine === "claude-code" ? "Claude Code" : "Codex"} integration does not accept pasted image data yet. Switch the orchestration engine to Boollm for this image turn.` });
           send({ type: "done" });
           res.end();
           return;
@@ -5640,7 +6281,8 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           disableCodex: body.sideChat === true || body.salesWorkflow === true || body.workflowRun === true,
           provider: sideProvider || requestedProvider,
           model: sideProvider ? sideModel : requestedModel,
-          inspectSavedTask
+          inspectSavedTask,
+          continuation: shouldResumeSavedTask
         });
       }
 
@@ -5802,6 +6444,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             if (!t.memoryDigest) return saved;
             return { ...(saved || {}), conversationDigest: t.memoryDigest };
           })(),
+          continuation: options.continuation === true,
           threadId: t.id,
           orchestrationState: options.inspectSavedTask ? null : t.orchestration || t.pendingTask?.orchestration || null,
           forceTurnMode: options.forceTurnMode || "",
@@ -5852,7 +6495,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
                 changes: normalizeWorkspaceChanges(t.workspaceChanges, changeRoot)
               });
             }
-            const entry = { t: "tool", name: step.name, args: step.args || {}, summary: stepSummary(step.name, step.args), result: step.result };
+            const entry = { t: "tool", name: step.name, args: step.args || {}, summary: stepSummary(step.name, step.args), result: step.result, verified: step.verified === true };
             t.log.push(entry);
             send({ type: "step", entry, ...((options.salesWorkflow === true || options.workflowRun === true) ? { stepArgs: step.args || {} } : {}) });
             if (step.name === "read_page") send({ type: "browser", action: "read", url: step.args?.url || browserUrl });
@@ -6041,7 +6684,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             engine: selectedCodingEngine,
             escalated: true
           });
-          send({ type: "status", text: `Boolean could not finish or verify this task. Continuing with ${useCodex ? "Codex" : "Claude Code"}...` });
+          send({ type: "status", text: `Boollm could not finish or verify this task. Continuing with ${useCodex ? "Codex" : "Claude Code"}...` });
           return true;
         };
 
@@ -6115,11 +6758,11 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             let result;
             try {
               result = await runner.runCodexTurn({
-              messages: previewRequested ? withBooleanPreviewHandoff(t.messages) : t.messages,
+              messages: previewRequested ? withBoollmPreviewHandoff(t.messages) : t.messages,
               mapping: t.codex || {},
               model: config.codex?.model || "",
               effort: config.codex?.reasoningEffort || "medium",
-              // Match Boolean's native behavior: project chats work in their
+              // Match Boollm's native behavior: project chats work in their
               // own folder, while an ordinary New chat can create a project
               // beneath the configured projects workspace instead of being
               // silently downgraded to read-only.
@@ -6236,7 +6879,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             const result = await claudeTurnRunner({
               command: config.claudeCode?.command || "claude",
               input: previewRequested
-                ? currentTurnInstructionText(withBooleanPreviewHandoff([latestUser || { role: "user", content: "" }]).at(-1) || "")
+                ? currentTurnInstructionText(withBoollmPreviewHandoff([latestUser || { role: "user", content: "" }]).at(-1) || "")
                 : currentTurnInstructionText(latestUser || ""),
               projectDir: t.projectDir || config.projectsDir || "",
               workspaceChanges: booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads),
@@ -6261,12 +6904,12 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
             try {
               answer = await runTurn(ctx, t.messages);
             } catch (error) {
-              if (await activateAutoSubscriptionEscalation(`Boolean error: ${error?.message || error}`)) continue;
+              if (await activateAutoSubscriptionEscalation(`Boollm error: ${error?.message || error}`)) continue;
               throw error;
             }
             const booleanTurnStatus = ctx.orchestrationResult?.thread?.turns?.at(-1)?.status || "completed";
             if (booleanTurnStatus !== "completed"
-                && await activateAutoSubscriptionEscalation(`Boolean ended with ${booleanTurnStatus}.`)) continue;
+                && await activateAutoSubscriptionEscalation(`Boollm ended with ${booleanTurnStatus}.`)) continue;
             break;
           }
           }
@@ -6279,7 +6922,7 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
           }
           if (verifiedWorkspaceChangeThisTurn) {
             const report = workspaceChangesReport(booleanWorkspaceChanges(t, t.projectDir || config.projectsDir || "", threads));
-            if (!String(answer || "").includes("Boolean Changes:")) answer = `${String(answer || "").trim()}\n\n${report}`.trim();
+            if (!String(answer || "").includes("Boollm Changes:")) answer = `${String(answer || "").trim()}\n\n${report}`.trim();
           }
           if (String(answer || "").trim()) {
             if (useExternalEngine) t.messages.push({ role: "assistant", content: answer });
@@ -6423,6 +7066,23 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
   });
   server.on("close", () => { stopCodexClient().catch(() => {}); });
 
+  // Isolated browser-proxy server on its OWN port. Proxied web pages render
+  // from this origin (a different port = a different origin than the app), so
+  // they can safely get sandbox `allow-same-origin` — cookies/storage work and
+  // sites render normally — yet can never reach the app's /api (cross-origin +
+  // the x-saz CSRF guard). Only /browse is served here; nothing sensitive.
+  const proxyServer = http.createServer(async (req, res) => {
+    const u = new URL(req.url, "http://localhost");
+    const host = (req.headers.host || "").replace(/:\d+$/, "");
+    if (!["127.0.0.1", "localhost", "[::1]"].includes(host)) { res.writeHead(403); res.end("forbidden"); return; }
+    if (u.pathname === "/browse" && (req.method === "GET" || req.method === "POST")) {
+      try { await handleBrowse(req, res, u, config); }
+      catch (err) { res.writeHead(502); res.end(err.message); }
+      return;
+    }
+    res.writeHead(404); res.end("not found");
+  });
+
   // try the requested port; if taken, fall back to a random free one
   return new Promise((resolve) => {
     function listen(tryPort, allowFallback) {
@@ -6431,8 +7091,11 @@ h1{margin:0;font-size:15px;font-weight:600;opacity:.55;letter-spacing:.02em}
         else throw err;
       });
       server.listen(tryPort, "127.0.0.1", () => {
-        serverPort = server.address().port;
-        resolve({ server, port: serverPort });
+        proxyServer.listen(0, "127.0.0.1", () => {
+          browseBase = `http://127.0.0.1:${proxyServer.address().port}`;
+          serverPort = server.address().port;
+          resolve({ server, proxyServer, port: serverPort });
+        });
       });
     }
     listen(port, port !== 0);
@@ -6457,7 +7120,7 @@ export function openAppWindow(url) {
     const dir = path.dirname(process.execPath);
     script = path.join(dir, "set-window-icon.ps1");
     icon = path.join(dir, "saz.ico");
-    if (!fs.existsSync(icon)) icon = path.join(dir, "Boolean.exe"); // fall back to exe icon
+    if (!fs.existsSync(icon)) icon = path.join(dir, "Boollm.exe"); // fall back to exe icon
   } else {
     script = appPath("assets", "set-window-icon.ps1");
     icon = appPath("assets", "saz.ico");

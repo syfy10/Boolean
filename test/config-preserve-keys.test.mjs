@@ -1,9 +1,23 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { defaultConfig, hasAnySavedCredential, preserveSavedApiKeys, preserveSavedConnections, setCurrentModel } from "../src/config.js";
+import { defaultConfig, hasAnySavedCredential, preserveSavedApiKeys, preserveSavedConnections, restoreResetConfig, setCurrentModel } from "../src/config.js";
 
 const configSource = fs.readFileSync(new URL("../src/config.js", import.meta.url), "utf8");
+
+test("ordinary config saves preserve a signed-in Boollm account", () => {
+  const previous = {
+    cloudBackend: {
+      url: "https://api.boollm.com",
+      sessionToken: "saved-session",
+      user: { email: "admin@example.com", role: "admin" },
+      tokens: { plan: "pro" }
+    }
+  };
+  const next = { cloudBackend: {} };
+  preserveSavedApiKeys(next, previous);
+  assert.deepEqual(next.cloudBackend, previous.cloudBackend);
+});
 
 test("config saves preserve existing API keys when new payload has blanks", () => {
   const previous = {
@@ -269,6 +283,70 @@ test("blank upgrade defaults restore the complete saved Cloudflare connection", 
 
 test("a successful atomic config save refreshes the latest recovery backup", () => {
   assert.match(configSource, /fs\.renameSync\(tmp, file\);[\s\S]*fs\.copyFileSync\(file, backup\);/);
+});
+
+test("upgrade recovery restores session, API, provider, and UI settings together", () => {
+  const reset = defaultConfig();
+  const saved = defaultConfig();
+  saved.provider = "openai";
+  saved.openai.apiKey = "sk-saved";
+  saved.openai.model = "gpt-saved";
+  saved.cloudBackend = { sessionToken: "session-saved", user: { email: "admin@example.com", role: "admin" } };
+  saved.ui.theme = "dark";
+  saved.ui.compact = true;
+
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.provider, "openai");
+  assert.equal(reset.openai.apiKey, "sk-saved");
+  assert.equal(reset.openai.model, "gpt-saved");
+  assert.equal(reset.cloudBackend.sessionToken, "session-saved");
+  assert.equal(reset.cloudBackend.user.role, "admin");
+  assert.equal(reset.ui.theme, "dark");
+  assert.equal(reset.ui.compact, true);
+});
+
+test("upgrade recovery also restores UI-only customization", () => {
+  const reset = defaultConfig();
+  const saved = defaultConfig();
+  saved.ui.theme = "dark";
+  saved.ui.compact = true;
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.ui.theme, "dark");
+  assert.equal(reset.ui.compact, true);
+});
+
+test("upgrade recovery treats local model and AI runtime choices as saved setup", () => {
+  const reset = defaultConfig();
+  const saved = defaultConfig();
+  saved.local.model = "my-local-model.gguf";
+  saved.local.ctx = 32768;
+  saved.codingEngine = "auto";
+  saved.zaiCoding.model = "glm-5.1";
+
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.local.model, "my-local-model.gguf");
+  assert.equal(reset.local.ctx, 32768);
+  assert.equal(reset.codingEngine, "auto");
+  assert.equal(reset.zaiCoding.model, "glm-5.1");
+});
+
+test("Coding Plan startup preserves provider model IDs instead of whitelisting versions", () => {
+  assert.match(configSource, /if \(!nonEmptyString\(cfg\.zaiCoding\.model\)\) cfg\.zaiCoding\.model = DEFAULTS\.zaiCoding\.model/);
+  assert.doesNotMatch(configSource, /\["GLM-5\.1", "GLM-5-Turbo", "GLM-4\.7", "GLM-4\.5-Air"\]\.includes/);
+});
+
+test("legal and onboarding markers do not block recovery of richer user settings", () => {
+  const reset = defaultConfig();
+  reset.eulaAccepted = "1.0";
+  reset.ui.onboarded = true;
+  reset.ui.showOnboarding = false;
+  const saved = defaultConfig();
+  saved.provider = "deepseek";
+  saved.deepseek.apiKey = "saved-key";
+  saved.accessMode = "full_access";
+  assert.equal(restoreResetConfig(reset, saved), true);
+  assert.equal(reset.provider, "deepseek");
+  assert.equal(reset.accessMode, "full_access");
 });
 
 test("setCurrentModel can target explicit providers and keeps active provider stable", () => {

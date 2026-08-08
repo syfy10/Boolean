@@ -12,14 +12,14 @@ import {
 } from "../src/workspace-changes.js";
 import { booleanWorkspaceChanges } from "../src/server.js";
 
-test("Boolean Changes tracks a Codex create and delete cycle without Git", () => {
+test("Boollm Changes tracks a Codex create and delete cycle without Git", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-non-git-changes-"));
   try {
     assert.equal(fs.existsSync(path.join(root, ".git")), false);
     const filename = "codex-final-test.txt";
     const absolutePath = path.join(root, filename);
-    const createDiff = `--- /dev/null\n+++ b/${filename}\n@@ -0,0 +1 @@\n+Boolean verified this non-git file.\n`;
-    fs.writeFileSync(absolutePath, "Boolean verified this non-git file.\n");
+    const createDiff = `--- /dev/null\n+++ b/${filename}\n@@ -0,0 +1 @@\n+Boollm verified this non-git file.\n`;
+    fs.writeFileSync(absolutePath, "Boollm verified this non-git file.\n");
 
     let changes = mergeWorkspaceChanges([], [{
       path: filename,
@@ -37,29 +37,29 @@ test("Boolean Changes tracks a Codex create and delete cycle without Git", () =>
     const review = workspaceChangesReview(changes);
     assert.equal(review.files.length, 1);
     assert.equal(review.files[0].status, "created");
-    assert.equal(review.files[0].lines.some((line) => line.type === "add" && line.text === "Boolean verified this non-git file."), true);
-    assert.match(workspaceChangesReport(changes), /Boolean Changes: 1 file/);
+    assert.equal(review.files[0].lines.some((line) => line.type === "add" && line.text === "Boollm verified this non-git file."), true);
+    assert.match(workspaceChangesReport(changes), /Boollm Changes: 1 file/);
     assert.match(workspaceChangesReport(changes), /created: .*codex-final-test\.txt/);
-    assert.match(workspaceChangesReport(changes), /\+Boolean verified this non-git file\./);
+    assert.match(workspaceChangesReport(changes), /\+Boollm verified this non-git file\./);
 
     fs.rmSync(absolutePath);
     changes = mergeWorkspaceChanges(changes, [{
       path: filename,
       absolutePath,
       status: "deleted",
-      diff: `--- a/${filename}\n+++ /dev/null\n@@ -1 +0,0 @@\n-Boolean verified this non-git file.\n`
+      diff: `--- a/${filename}\n+++ /dev/null\n@@ -1 +0,0 @@\n-Boollm verified this non-git file.\n`
     }], root);
 
     assert.equal(changes.length, 0);
     assert.deepEqual(workspaceChangeStats(changes), { files: 0, additions: 0, deletions: 0 });
     assert.equal(workspaceChangesReview(changes).files.length, 0);
-    assert.equal(workspaceChangesReport(changes), "Boolean Changes: 0 files.");
+    assert.equal(workspaceChangesReport(changes), "Boollm Changes: 0 files.");
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("Boolean rejects Changes paths outside the selected workspace", () => {
+test("Boollm rejects Changes paths outside the selected workspace", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-change-boundary-"));
   try {
     const changes = mergeWorkspaceChanges([], [{
@@ -97,7 +97,7 @@ test("project Changes aggregate across chats and a later delete clears an earlie
   }
 });
 
-test("the server, store, and UI keep the Boolean Changes bridge wired independently of Git", () => {
+test("the server, store, and UI keep the Boollm Changes bridge wired independently of Git", () => {
   const serverSource = fs.readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
   const storeSource = fs.readFileSync(new URL("../src/store.js", import.meta.url), "utf8");
   const uiSource = fs.readFileSync(new URL("../src/ui.html", import.meta.url), "utf8");
