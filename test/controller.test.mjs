@@ -7,6 +7,20 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
+test("Cloudflare API routes are not mistaken for workspace file paths", () => {
+  const controller = new AgentController({
+    objective: "Deploy the site to Cloudflare",
+    projectDir: "C:\\demo",
+    accessMode: "full"
+  });
+  const decision = controller.allowTool("cloudflare_api_request", {
+    method: "GET",
+    path: "/accounts/{connected_account_id}/pages/projects?per_page=50"
+  });
+  assert.equal(decision.allowed, true);
+  assert.equal(controller.allowTool("read_file", { path: "C:\\outside\\secret.txt" }).allowed, false);
+});
+
 test("project completion is model-owned while activity remains recorded", () => {
   const controller = new AgentController({
     objective: "Update the app layout",

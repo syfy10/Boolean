@@ -23,12 +23,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=6">
+<link rel="stylesheet" href="./styles.css?v=7">
 <script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
 
 <a class="skip-link" href="#main">Skip to content</a>
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+<button class="to-top" id="toTop" aria-label="Back to top">↑</button>
 
 <!-- ═══════════════ NAV ═══════════════ -->
 <header class="nav" id="nav">
@@ -146,6 +148,33 @@
     <span class="trust-item"><span class="ti-ic">⌥</span> Source on GitHub</span>
   </div>
 </section>
+
+<!-- ═══════════════ MARQUEE ═══════════════ -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span class="marquee-item"><span class="mi-ico">💬</span> Chat with local AI</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">⚡</span> Code generation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🌐</span> Web research</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📧</span> Email automation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📝</span> Built-in notepad</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🔑</span> Bring your own keys</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🔒</span> Local-first privacy</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🎨</span> Image generation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🐱</span> GitHub integration</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📅</span> Scheduled tasks</span><span class="marquee-sep">·</span>
+    <!-- duplicate for seamless loop -->
+    <span class="marquee-item"><span class="mi-ico">💬</span> Chat with local AI</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">⚡</span> Code generation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🌐</span> Web research</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📧</span> Email automation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📝</span> Built-in notepad</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🔑</span> Bring your own keys</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🔒</span> Local-first privacy</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🎨</span> Image generation</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">🐱</span> GitHub integration</span><span class="marquee-sep">·</span>
+    <span class="marquee-item"><span class="mi-ico">📅</span> Scheduled tasks</span><span class="marquee-sep">·</span>
+  </div>
+</div>
 
 <!-- ═══════════════ WHY ═══════════════ -->
 <section class="why" id="why">
@@ -607,8 +636,20 @@
 <script>
   /* nav scroll state */
   const nav = document.getElementById('nav');
-  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 24);
+  const scrollProgress = document.getElementById('scrollProgress');
+  const toTop = document.getElementById('toTop');
+
+  const onScroll = () => {
+    const sy = window.scrollY;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    nav.classList.toggle('scrolled', sy > 24);
+    scrollProgress.style.width = (max > 0 ? Math.min(100, sy / max * 100) : 0) + '%';
+    toTop.classList.toggle('show', sy > 600);
+  };
   onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+
+  /* back to top */
+  toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
   /* scroll reveal */
   const reveals = document.querySelectorAll('.reveal');
@@ -620,6 +661,42 @@
   } else {
     reveals.forEach(el => el.classList.add('in'));
   }
+
+  /* animated counters */
+  function animateCount(el) {
+    const text = el.textContent.trim();
+    const parts = text.match(/^([^\d]*)([\d.]+)(.*)$/);
+    if (!parts) return;
+    const [, prefix, numeric, suffix] = parts;
+    const target = Number(numeric);
+    if (!Number.isFinite(target)) return;
+    const dur = 1400;
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const val = Math.round(target * eased);
+      el.textContent = prefix + val + suffix;
+      if (t < 1) requestAnimationFrame(tick);
+      else el.textContent = text;
+    }
+    requestAnimationFrame(tick);
+  }
+  if ('IntersectionObserver' in window) {
+    const statObs = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) { animateCount(e.target); statObs.unobserve(e.target); } });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('.stat b').forEach(el => statObs.observe(el));
+  }
+
+  /* card glow follows mouse */
+  document.querySelectorAll('.feat-card').forEach(card => {
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  });
 
   /* year */
   document.getElementById('year').textContent = new Date().getFullYear();

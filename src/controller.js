@@ -293,6 +293,17 @@ function fileArgument(args = {}) {
   return args.path || args.file || firstChange?.absolutePath || firstChange?.path || firstChange?.file || args.cwd || "";
 }
 
+// Connector routes can begin with a slash but are API identifiers, not local
+// filesystem paths. Only tools whose arguments actually name workspace files
+// participate in the allowed-root guard.
+function toolHasWorkspacePath(name) {
+  return new Set([
+    "read_file", "write_file", "edit_file", "apply_patch", "delete_file",
+    "list_directory", "search_files", "find_files", "run_command",
+    "run_background", "git_commit", "import_model"
+  ]).has(String(name || ""));
+}
+
 function fileArguments(args = {}) {
   const values = [args.path, args.file];
   if (Array.isArray(args.changes)) {
@@ -885,7 +896,7 @@ export class AgentController {
         return { allowed: false, reason: `Use the project source-of-truth deploy command: ${this.sourceOfTruth.deployCommand}` };
       }
     }
-    const requestedPath = fileArgument(args);
+    const requestedPath = toolHasWorkspacePath(name) ? fileArgument(args) : "";
     if (requestedPath && path.isAbsolute(String(requestedPath)) && this.contract.allowedRoots.length &&
         !this.contract.allowedRoots.some((root) => isWithin(root, requestedPath))) {
       return { allowed: false, reason: `Path is outside the task's allowed workspace: ${cleanText(requestedPath, 260)}` };

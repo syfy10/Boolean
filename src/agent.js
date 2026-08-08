@@ -2037,7 +2037,7 @@ export async function runTurn(ctx, messages) {
     completionNudges = 0;
     controllerRecoveries = 0;
   };
-  const handleControllerStop = (result) => {
+  const handleControllerStop = async (result) => {
     const stoppedByController = controllerStopAnswer(result);
     if (!stoppedByController) return "";
     const reason = controllerStopReason(result);
@@ -2048,6 +2048,44 @@ export async function runTurn(ctx, messages) {
         " Continue inside this same run. Do not ask the user to type continue. Do not repeat the blocked inspection; use saved evidence and take the next progress action." });
       publishController();
       onStatus("continuing from saved evidence...");
+      return "__continue__";
+    }
+    // A controller safety stop is an unfinished model outcome. Previously this
+    // returned before the normal completion path, so Auto never got a chance to
+    // hand the saved task to another capable connected model.
+    const handoffEnabled = (autopilot || config?.codingEngine === "auto")
+      && config?.ui?.codingAgent?.autoHandoff !== false
+      && controller.actionRequired
+      && !signal?.aborted
+      && modelHandoffs < MAX_MODEL_HANDOFFS;
+    const nextModel = handoffEnabled
+      ? handoffCandidates(config, autoModelRoute.route).find((candidate) => !triedModelKeys.has(modelKey(candidate)))
+      : null;
+    if (nextModel) {
+      modelHandoffs++;
+      const previousLabel = target.model || target.provider;
+      const resolved = await resolveProviderTarget(config, nextModel.provider, onStatus);
+      target = nextModel.model ? { ...resolved, model: nextModel.model } : resolved;
+      triedModelKeys.add(modelKey(target));
+      localCompactTools = target?.provider === "local" && localContextWindow(config, target) <= 8192;
+      capabilityProfile = modelCapabilityProfile(config, target);
+      compatibilityMode = localCompactTools || capabilityProfile.mode === "patch" || capabilityProfile.mode === "review";
+      reviewOnlyCompatibility = capabilityProfile.mode === "review";
+      useNativeTools = !compatibilityMode;
+      compactToolProtocol = localCompactTools;
+      resetStallCounters();
+      forceToolCallNext = true;
+      const detail = {
+        route: autoModelRoute.route, provider: target.provider, model: target.model,
+        reason: `Handed off after ${previousLabel} hit a safety stop: ${reason}`
+      };
+      onStatus(`${previousLabel} could not complete this step - handing the task to ${target.model || target.provider}...`, { autoRoute: detail });
+      emitStep({ name: "model_route", args: detail, result: detail.reason });
+      ctx.onRoute?.(detail);
+      messages.push({ role: "user", content:
+        "The previous model hit a blocked action before finishing. Take over this SAME saved task, avoid repeating that blocked action, and complete it using another valid approach. "
+        + controller.continuationPrompt(reason) });
+      publishController();
       return "__continue__";
     }
     messages.push({ role: "assistant", content: stoppedByController });
@@ -2240,7 +2278,7 @@ export async function runTurn(ctx, messages) {
           tool_call_id: call.id || `call_${turn}`,
           content: toolContent
         });
-        const stoppedByController = handleControllerStop(result);
+        const stoppedByController = await handleControllerStop(result);
         if (stoppedByController === "__continue__") {
           checkpoint();
           continue agentLoop;
@@ -2329,7 +2367,7 @@ export async function runTurn(ctx, messages) {
         role: "user",
         content: `TOOL RESULT for ${call.name}:\n${toolResultContent}`
       });
-      const stoppedByController = handleControllerStop(result);
+      const stoppedByController = await handleControllerStop(result);
       if (stoppedByController === "__continue__") {
         flushPendingImages();
         checkpoint();

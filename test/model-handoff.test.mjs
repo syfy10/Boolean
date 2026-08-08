@@ -7,6 +7,17 @@ import path from "node:path";
 import { parseAutoVerificationVerdict, runTurn, systemPrompt } from "../src/agent.js";
 import { resetAutoModelHealth } from "../src/model-router.js";
 
+test("controller safety stops enter the model handoff path", () => {
+  const source = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
+  const start = source.indexOf("const handleControllerStop = async");
+  const end = source.indexOf("agentLoop: for", start);
+  const handler = source.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(handler, /handoffCandidates\(config, autoModelRoute\.route\)/);
+  assert.match(handler, /Handed off after .* hit a safety stop/);
+  assert.equal((source.match(/await handleControllerStop\(result\)/g) || []).length, 2);
+});
+
 async function mockServer(handler) {
   const requests = [];
   let calls = 0;
@@ -105,7 +116,7 @@ test("handoff does not fire when autoHandoff is disabled", async (t) => {
   assert.equal(answer, "I've updated app.js as requested.");
 });
 
-test("a Boollm budget checkpoint is reported as failed so Auto can escalate", async (t) => {
+test("legacy saved token usage never hard-stops a Boollm run", async (t) => {
   resetAutoModelHealth();
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "boolean-budget-handoff-"));
   t.after(() => fs.rmSync(projectDir, { recursive: true, force: true }));
@@ -128,7 +139,7 @@ test("a Boollm budget checkpoint is reported as failed so Auto can escalate", as
     { role: "system", content: systemPrompt(projectDir, true, cfg) },
     { role: "user", content: "Finish updating app.js." }
   ]);
-  assert.equal(primary.requests.length, 0);
-  assert.match(answer, /^\(stopped:/);
-  assert.equal(orchestration?.thread?.turns?.at(-1)?.status, "failed");
+  assert.equal(primary.requests.length, 1);
+  assert.equal(answer, "This should not be called.");
+  assert.notEqual(orchestration?.thread?.turns?.at(-1)?.status, "failed");
 });

@@ -3949,7 +3949,9 @@ ${exploreScript}
 
       if (req.method === "POST" && p === "/api/agent-runs/apply") {
         const body = await readBody(req);
-        const run = await applyAgentRun(String(body.id || ""), activeProjectDir(threads, activeThreadId));
+        // A result that failed its own checks is refused unless the user says
+        // to apply it anyway; the decision is theirs, not silent either way.
+        const run = await applyAgentRun(String(body.id || ""), activeProjectDir(threads, activeThreadId), { requireVerified: body.force !== true });
         json({ ok: true, run });
         return;
       }

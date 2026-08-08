@@ -64,8 +64,18 @@ test("active work uses one accessible inline activity timeline", () => {
   assert.doesNotMatch(ui, /class="team-run-progress"/);
 });
 
+test("Codex and Claude work labels identify the API and exact model", () => {
+  const context = vm.createContext({
+    friendlyModelName: value => String(value || ""),
+    shortAiName: (_provider, model) => model || "AI"
+  });
+  vm.runInContext(functionSource("workingModelLabel"), context);
+  assert.equal(context.workingModelLabel("codex", "gpt-5.6"), "Codex · gpt-5.6 · OpenAI API");
+  assert.equal(context.workingModelLabel("claude-code", "opus"), "Claude Code · opus · Anthropic API");
+});
+
 test("activity is grouped into compact chronological batches", () => {
-  assert.match(ui, /ev\.kind==="commentary"\) addWorkingActivity/);
+  assert.match(ui, /if\(narration\) addWorkingActivity\(narration,/);
   assert.match(ui, /trackWorkingFiles\(ev\.entry\)/);
   assert.match(ui, /function workingToolActivityGroup\(entry\)/);
   assert.match(ui, /key:"tool:"\+activityGroup\+":"\+run\.activitySequence,group:activityGroup/);
@@ -104,6 +114,137 @@ test("verified file edits show exact added and removed line counts", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(stat)), { files: 2, additions: 3, deletions: 2 });
   assert.match(context.workingChangeStatHtml([{ changeStat: stat }]), />\+3<.*>-2</);
   assert.match(server, /result: step\.result, verified: step\.verified === true/);
+});
+
+test("grouped activity rows name what the work was actually done to", () => {
+  const context = vm.createContext({ esc: value => String(value) });
+  vm.runInContext([
+    functionSource("toolCommandText"),
+    functionSource("workingStepFiles"),
+    functionSource("workingToolActivitySubject"),
+    functionSource("workingActivitySubjectText"),
+    functionSource("workingActivitySubjectHtml"),
+  ].join("\n"), context);
+
+  assert.equal(context.workingToolActivitySubject({ name: "read_file", args: { path: "C:\\proj\\src\\ui.html" } }), "C:\\proj\\src\\ui.html");
+  assert.equal(context.workingToolActivitySubject({ name: "web_search", args: { query: "cloudflare pages deploy" } }), "cloudflare pages deploy");
+  assert.equal(context.workingToolActivitySubject({ name: "find_symbol", args: { symbol: "runTurn" } }), "runTurn");
+  assert.equal(context.workingToolActivitySubject({ name: "run_command", args: { command: "npm test" } }), "npm test");
+  assert.equal(context.workingToolActivitySubject({ name: "team_worker", args: { role: "Reviewer" } }), "reviewer");
+
+  // A path is worth showing only as its tail; a sentence keeps its head.
+  assert.equal(context.workingActivitySubjectText({ subject: "C:\\proj\\src\\ui.html" }), "ui.html");
+  assert.equal(context.workingActivitySubjectText({ subject: "", detail: "Searched web: pages deploy" }), "Searched web: pages deploy");
+  assert.equal(context.workingActivitySubjectText({ subject: "x".repeat(40) }), "x".repeat(31) + "\u2026");
+  assert.equal(context.workingActivitySubjectText({}), "");
+
+  const html = context.workingActivitySubjectHtml([
+    { subject: "src/ui.html" }, { subject: "src/tools.js" }, { subject: "src/agent.js" },
+  ]);
+  assert.match(html, /class="working-activity-subject">ui\.html, tools\.js \+1</);
+  assert.equal(context.workingActivitySubjectHtml([{ title: "" }]), "");
+  assert.match(ui, /workingActivityGroupLabel\(item\.group,item\.count,item\.items\)\)\+workingActivitySubjectHtml\(item\.items\)/);
+  assert.match(ui, /\.working-activity-subject\{[^}]*font-style:normal;/);
+});
+
+test("model narration is instrumented so the empty commentary lane is measurable", () => {
+  const codexRunner = fs.readFileSync(new URL("../src/codex-runner.js", import.meta.url), "utf8");
+  const agent = fs.readFileSync(new URL("../src/agent.js", import.meta.url), "utf8");
+
+  // Only Codex tags narration as commentary; the generic loop never does. The
+  // transport spreads detail onto the event, so the kind tag survives to the UI
+  // and a zero count means the model stayed silent, not that we dropped it.
+  assert.match(codexRunner, /callback\(run\.callbacks\.onStatus, text, \{ kind: "commentary" \}\)/);
+  assert.doesNotMatch(agent, /kind: "commentary"/);
+  assert.match(server, /onStatus: \(text, detail\) => send\(\{ type: "status", text, \.\.\.\(detail \|\| \{\}\) \}\)/);
+  assert.match(ui, /tapNarration\(ev,flattened,!!narration\)/);
+  assert.match(ui, /narrationTap\.phaseOverwrites=\(narrationTap\.phaseOverwrites\|\|0\)\+1/);
+
+  const context = vm.createContext({
+    window: {},
+    run: { provider: "zai", model: "glm-5.1" },
+    narrationTap: { total: 0, commentary: 0, rendered: 0, flattened: 0, byKind: {}, byProvider: {}, recent: [] },
+  });
+  vm.runInContext(functionSource("tapNarration"), context);
+  context.tapNarration({ text: "running edit_file..." }, "Updating the project files...", false);
+  context.tapNarration({ text: "Starting with the config.", kind: "commentary" }, "Starting with the config.", true);
+
+  const tap = context.window.__booleanNarration;
+  assert.equal(tap.total, 2);
+  assert.equal(tap.commentary, 1);
+  assert.equal(tap.rendered, 1);
+  assert.equal(tap.flattened, 1, "plainWorkingStatus rewrote one of the two");
+  assert.deepEqual(tap.byKind, { plain: 1, commentary: 1 });
+  assert.deepEqual(tap.byProvider, { "zai/glm-5.1": 2 });
+  assert.equal(tap.recent[0].raw, "running edit_file...");
+  assert.equal(tap.recent[0].shown, "Updating the project files...");
+});
+
+test("every provider's own narration reaches the card, not just Codex's", () => {
+  const context = vm.createContext({});
+  const echo = ui.match(/const narrationEcho=\/.+?\/i;/);
+  assert.ok(echo, "narrationEcho is present");
+  vm.runInContext([echo[0], functionSource("narrationRowText")].join("\n"), context);
+  const row = ev => context.narrationRowText(ev);
+
+  // Explanations the generic loop already writes now earn a row of their own.
+  assert.equal(row({ text: "applying compatibility edit to index.html..." }), "applying compatibility edit to index.html...");
+  assert.equal(row({ text: "the model's native tool call was malformed - switching to the compatibility tool bridge..." }),
+    "the model's native tool call was malformed - switching to the compatibility tool bridge...");
+  assert.equal(row({ text: "Verified by glm-5.1." }), "Verified by glm-5.1.");
+  assert.equal(row({ text: "Codex said this", kind: "commentary" }), "Codex said this");
+
+  // Tool echoes already have a row; engine progress has its own UI.
+  assert.equal(row({ text: "running edit_file..." }), "");
+  assert.equal(row({ text: "Writing your answer..." }), "");
+  assert.equal(row({ text: "auto-approved: edit index.html" }), "");
+  assert.equal(row({ text: "glm-5.1 is ready.", kind: "local-model-load" }), "");
+  assert.equal(row({ text: "Done." }), "", "too short to be an explanation");
+  assert.equal(row({}), "");
+
+  assert.match(ui, /if\(narration\) addWorkingActivity\(narration,\{key:"commentary:"\+narration\.slice\(0,80\),group:"commentary"\}/);
+});
+
+test("parallel workers are shown, not just tracked invisibly", () => {
+  const tone = ui.match(/const TEAM_WORKER_TONE=\{[^}]*\};/);
+  const active = ui.match(/const TEAM_WORKER_ACTIVE=\[[^\]]*\];/);
+  assert.ok(tone && active, "the worker state tables are present");
+
+  const context = vm.createContext({
+    esc: value => String(value),
+    fmtWorkedTime: ms => `${Math.round(ms / 1000)}s`,
+    compactActivityText: value => String(value || ""),
+  });
+  vm.runInContext([tone[0], functionSource("teamWorkerRowHtml")].join("\n"), context);
+  const now = Date.now();
+  const live = context.teamWorkerRowHtml({ role: "Agent 1", provider: "zai", model: "glm-5.1", state: "working", attempt: 1, objective: "Editing browser preview", branch: "boolean/agent/x", startedAt: now - 42000, endedAt: 0 });
+  assert.match(live, /data-tone="active"/);
+  assert.match(live, /glm-5\.1/);
+  assert.match(live, /Editing browser preview/);
+  assert.match(live, /42s/, "a running worker's clock is still moving");
+  const done = context.teamWorkerRowHtml({ role: "Agent 2", model: "claude", state: "done", attempt: 2, objective: "Adding preview tests", startedAt: now - 10000, endedAt: now - 4000 });
+  assert.match(done, /data-tone="done"/);
+  assert.match(done, /done ·2/, "a retried worker shows its attempt");
+  assert.match(done, /6s/, "a finished worker's clock is frozen at its end");
+
+  // The record carried no timestamps, so elapsed needed a start and a stop.
+  const runtime = vm.createContext({ run: {}, renderTeamWorkers() {} });
+  vm.runInContext([active[0], functionSource("updateTeamWorker")].join("\n"), runtime);
+  runtime.updateTeamWorker({ name: "team_worker", args: { role: "Agent 1", state: "working", provider: "zai", model: "glm-5.1", objective: "Edit preview", branch: "b1" }, result: "" });
+  const first = runtime.run.teamWorkers["Agent 1"];
+  assert.ok(first.startedAt > 0);
+  assert.equal(first.endedAt, 0);
+  runtime.updateTeamWorker({ name: "team_worker", args: { role: "Agent 1", state: "done" }, result: "1 file changed" });
+  const second = runtime.run.teamWorkers["Agent 1"];
+  assert.equal(second.startedAt, first.startedAt, "the clock keeps its original start");
+  assert.ok(second.endedAt > 0, "the clock stops when the worker finishes");
+  assert.equal(second.objective, "Edit preview", "the objective carries across events");
+  assert.equal(second.branch, "b1");
+
+  assert.match(ui, /<div class="team-worker-panel" role="list" aria-label="Parallel agents" hidden><\/div>/);
+  assert.match(ui, /renderTeamWorkers\(run\);\s+renderWorkingCardActivity\(run\)/);
+  assert.match(ui, /m\.textContent=" · "\+parts\.join\(" · "\);[\s\S]{0,120}renderTeamWorkers\(run\)/, "the elapsed clock ticks with the existing one-second timer");
+  assert.match(ui, /\.team-worker\{[^}]*display:grid;/);
 });
 
 test("command and agent batches keep their true timeline order", () => {
@@ -149,6 +290,15 @@ test("approvals, input requests, errors, and changed files remain visible", () =
   assert.match(ui, /const card=insertAbove\(makeApprovalCard\(ev\)\)/);
   assert.match(ui, /insertAbove\(makeErr\(ev\)\)/);
   assert.match(ui, /!node\.classList\?\.contains\("model-error"\)/);
+});
+
+test("file totals stay visible on their own row during and after work", () => {
+  assert.match(ui, /\.change-summary-row\{[^}]*display:flex;[^}]*opacity:1; visibility:visible;/s);
+  assert.match(ui, /last\.querySelector\(":scope > \.change-summary-row"\)/);
+  assert.match(ui, /last\.insertBefore\(row,foot\)/);
+  assert.match(ui, /row\.innerHTML=changeSummaryHtml\(stat\)/);
+  assert.match(ui, /if\(completionSummary && completionSummary\.text!==lastCompletionDiffText\) renderLatestChangeFooter/);
+  assert.doesNotMatch(ui, /foot\.insertAdjacentHTML\("afterbegin",changeSummaryHtml/);
 });
 
 test("the same work card becomes a truthful completion summary", () => {

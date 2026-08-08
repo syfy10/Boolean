@@ -42,9 +42,12 @@ import { PLATFORM_TOOL_DEFINITIONS, PLATFORM_TOOL_NAMES, executePlatformTool, gh
 import { appPath } from "./paths.js";
 import {
   applyAgentRun,
+  applyAgentRuns,
   createIsolatedAgentRun,
   discardAgentRun,
   finalizeIsolatedAgentRun,
+  gcAgentWorktrees,
+  verifyAgentRun,
   listAgentRuns
 } from "./orchestrator.js";
 
@@ -2403,7 +2406,25 @@ async function runSubagentTool(args, ctx) {
       objective: task.slice(0, 500), workspace: run?.workspaceDir || ctx.projectDir || "", branch: run?.branch || "", runId: run?.id || ""
     }, result: detail });
   };
-  const results = await mapAgentTasks(tasks, Math.min(3, Number(teamwork.maxWorkers) || 3), async (task, i) => {
+  // A worker's own checks run in its worktree before anything is merged, so a
+  // result that happens not to conflict still cannot land broken.
+  const verifyRun = async (run, i, task, target, attempt) => {
+    if (!run?.commit) return run;
+    workerEvent(i, task, "working", "Running the project's checks inside the isolated worktree.", run, attempt, target);
+    try { return await verifyAgentRun(run.id); }
+    catch (error) { return { ...run, verification: { ran: false, ok: true, label: `check could not run: ${error?.message || error}`, at: Date.now() } }; }
+  };
+  const verdictText = (run) => {
+    const check = run?.verification;
+    if (!check) return "";
+    if (!check.ran) return `\nChecks: not verified (${check.label}).`;
+    return check.ok ? `\nChecks: passed (${check.label}).` : `\nChecks: FAILED (${check.label}) — this result will not be merged.\n${String(check.output || "").slice(-1200)}`;
+  };
+  const brokeChecks = (run) => run?.verification?.ran === true && run.verification.ok === false;
+  // Assist means the lead plus one worker; team opens it up to maxWorkers. The
+  // cap ignored the mode entirely before, so Assist ran as wide as Team.
+  const parallelLimit = String(teamwork.mode || "team") === "assist" ? 1 : Math.min(3, Number(teamwork.maxWorkers) || 3);
+  const results = await mapAgentTasks(tasks, parallelLimit, async (task, i) => {
     let run = null;
     try {
       workerEvent(i, task, "queued", "Waiting for an available parallel worker slot.");
@@ -2414,10 +2435,13 @@ async function runSubagentTool(args, ctx) {
       workerEvent(i, task, "working", `Working independently${run ? ` on ${run.branch}` : " in the shared read-only workspace"}.`, run);
       const target = workerTarget(i);
       const answer = await ctx.runSubagent(task, run ? { workspaceDir: run.workspaceDir, runId: run.id, role: `Agent ${i + 1}`, ...target } : { role: `Agent ${i + 1}`, ...target });
-      if (run) run = await finalizeIsolatedAgentRun(run.id, answer);
-      workerEvent(i, task, "done", run?.changeSummary || String(answer || "Completed."), run);
+      if (run) {
+        run = await finalizeIsolatedAgentRun(run.id, answer);
+        run = await verifyRun(run, i, task, target, 1);
+      }
+      workerEvent(i, task, brokeChecks(run) ? "failed" : "done", brokeChecks(run) ? `Its own ${run.verification.label} failed; the result was kept on ${run.branch} but not merged.` : (run?.changeSummary || String(answer || "Completed.")), run);
       return { i, task, answer, run, target, attempt: 1, text: `--- Sub-agent ${i + 1} result${run ? ` (${run.id})` : ""} ---\n${String(answer || "(no result)").trim()}` +
-        (run ? `\n\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}` : "") };
+        (run ? `\n\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}${verdictText(run)}` : "") };
     } catch (err) {
       const firstError = String(err?.message || err);
       const firstTarget = workerTarget(i);
@@ -2427,8 +2451,9 @@ async function runSubagentTool(args, ctx) {
           workerEvent(i, task, "retrying", `Retrying in the saved worktree after ${firstTarget.model || firstTarget.provider} failed: ${firstError}`, run, 2, fallbackTarget);
           const answer = await ctx.runSubagent(task, { workspaceDir: run.workspaceDir, runId: run.id, role: `Agent ${i + 1}`, attempt: 2, ...fallbackTarget });
           run = await finalizeIsolatedAgentRun(run.id, answer);
-          workerEvent(i, task, "done", run.changeSummary || String(answer || "Completed."), run, 2, fallbackTarget);
-          return { i, task, answer, run, target: fallbackTarget, attempt: 2, text: `--- Sub-agent ${i + 1} result (${run.id}) ---\n${String(answer || "(no result)").trim()}\n\nFallback: ${fallbackTarget.model || fallbackTarget.provider} completed attempt 2 after ${firstTarget.model || firstTarget.provider} failed.\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}` };
+          run = await verifyRun(run, i, task, fallbackTarget, 2);
+          workerEvent(i, task, brokeChecks(run) ? "failed" : "done", brokeChecks(run) ? `Its own ${run.verification.label} failed; the result was kept on ${run.branch} but not merged.` : (run.changeSummary || String(answer || "Completed.")), run, 2, fallbackTarget);
+          return { i, task, answer, run, target: fallbackTarget, attempt: 2, text: `--- Sub-agent ${i + 1} result (${run.id}) ---\n${String(answer || "(no result)").trim()}\n\nFallback: ${fallbackTarget.model || fallbackTarget.provider} completed attempt 2 after ${firstTarget.model || firstTarget.provider} failed.\nBranch: ${run.branch}\nCommit: ${run.commit || "no file changes"}\nChanges: ${run.changeSummary}${verdictText(run)}` };
         } catch (retryError) {
           const detail = `${firstError}; fallback failed: ${retryError?.message || retryError}`;
           workerEvent(i, task, "failed", detail, run, 2, fallbackTarget);
@@ -2440,22 +2465,32 @@ async function runSubagentTool(args, ctx) {
     }
   });
   if (args.apply === true) {
-    const applicable = results.filter((item) => item.run?.commit);
+    const blocked = results.filter((item) => brokeChecks(item.run));
+    const applicable = results.filter((item) => item.run?.commit && !brokeChecks(item.run));
+    for (const item of blocked) item.text += `\nIntegration: NOT applied — the result failed its own ${item.run.verification.label}. Its branch ${item.run.branch} is kept for the lead to fix.`;
     if (applicable.length) {
       const ok = await ctx.approve(`apply ${applicable.length} completed parallel agent result${applicable.length === 1 ? "" : "s"} to ${ctx.projectDir}`);
       if (!ok) return truncate(results.map((item) => item.text).join("\n\n") + "\n\nIntegration paused: user declined applying the completed results.");
-      for (const item of applicable) {
-        try {
-          const applied = await applyAgentRun(item.run.id, ctx.projectDir);
-          item.text += `\nIntegration: applied ${applied.commit} successfully.`;
-          workerEvent(item.i, item.task, "done", "Changes verified and integrated into the lead workspace.", applied, item.attempt || 1, item.target || null);
-        } catch (error) {
-          item.text += `\nIntegration: NOT applied. ${error?.message || error}`;
-          workerEvent(item.i, item.task, "failed", `Integration conflict: ${error?.message || error}`, item.run);
+      // All-or-nothing: a conflict on the last result must not leave the earlier
+      // ones merged, so applyAgentRuns resets the project to its recorded HEAD.
+      try {
+        const applied = await applyAgentRuns(applicable.map((item) => item.run.id), ctx.projectDir);
+        const byId = new Map(applied.map((run) => [run.id, run]));
+        for (const item of applicable) {
+          const run = byId.get(item.run.id);
+          item.text += `\nIntegration: applied ${run?.commit || item.run.commit} successfully.`;
+          workerEvent(item.i, item.task, "done", "Checked in isolation and integrated into the lead workspace.", run || item.run, item.attempt || 1, item.target || null);
+        }
+      } catch (error) {
+        const detail = String(error?.message || error);
+        for (const item of applicable) {
+          item.text += `\nIntegration: NOT applied. ${detail}`;
+          workerEvent(item.i, item.task, "failed", `Integration rolled back: ${detail}`, item.run, item.attempt || 1, item.target || null);
         }
       }
     }
   }
+  try { await gcAgentWorktrees(ctx.projectDir || ""); } catch {}
   return truncate(results.map((item) => item.text).join("\n\n"));
 }
 

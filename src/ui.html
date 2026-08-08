@@ -1105,6 +1105,7 @@
   .change-summary b{ color:var(--text); font-weight:550; }
   .change-summary .add{ color:var(--green); font-weight:600; }
   .change-summary .del{ color:#dc3f42; font-weight:600; }
+  .change-summary-row{ display:flex; align-items:center; min-height:22px; margin-top:3px; padding:1px 3px; opacity:1; visibility:visible; }
   .msg-copy{ position:relative; width:17px; height:17px; padding:0; border:0; border-radius:5px; display:grid; place-items:center; background:transparent; color:inherit; opacity:.72; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
   .msg-copy:hover,.msg-copy:focus-visible{ opacity:1; color:var(--text); background:var(--hover); outline:0; }
   .msg-copy svg{ width:10px; height:10px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
@@ -1186,6 +1187,17 @@
   .working-card-body{ order:-1; width:100%; padding:0 2px; box-sizing:border-box; border:0; }
   .working-card.collapsed .working-card-body{ display:none; }
   .working-card-events{ display:grid; gap:1px; min-width:0; margin:0; padding:0; }
+  .team-worker-panel{ display:grid; gap:1px; min-width:0; margin:2px 0 9px; padding:0 0 7px; border-bottom:1px solid var(--border); }
+  .team-worker{ display:grid; grid-template-columns:9px minmax(64px,auto) minmax(0,1fr) auto auto; gap:9px; align-items:center; min-width:0; min-height:28px; color:var(--dim); font:400 var(--fs-md)/1.35 var(--ui); }
+  .team-worker-dot{ width:7px; height:7px; border-radius:50%; background:var(--dim); }
+  .team-worker[data-tone="active"] .team-worker-dot{ background:var(--online); animation:teamWorkerPulse 1.4s var(--ease) infinite; }
+  .team-worker[data-tone="done"] .team-worker-dot{ background:var(--ready); }
+  .team-worker[data-tone="fail"] .team-worker-dot{ background:var(--not-ready); }
+  .team-worker[data-tone="warn"] .team-worker-dot{ background:var(--online); }
+  .team-worker-model{ color:var(--text); white-space:nowrap; font-weight:550; }
+  .team-worker-task{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .team-worker-time,.team-worker-state{ white-space:nowrap; font:500 var(--fs-xs)/1 var(--mono); }
+  @keyframes teamWorkerPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
   .working-commentary{ min-width:0; margin:7px 0 5px; overflow-wrap:anywhere; color:var(--text); font:400 var(--chat-fs)/1.52 var(--ui); }
   .working-commentary small{ display:block; margin-top:2px; color:var(--dim); font-size:var(--fs-xs); }
   .working-activity-group{ min-width:0; border:0; border-radius:0; color:var(--dim); background:transparent; }
@@ -1194,6 +1206,7 @@
   .working-activity-group summary::-webkit-details-marker{ display:none; }
   .working-activity-group summary:hover{ background:transparent; color:var(--text); }
   .working-activity-group summary b{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:inherit; font-weight:400; }
+  .working-activity-subject{ margin-left:8px; opacity:.62; font-style:normal; font-size:var(--fs-xs); }
   .working-change-stat{ display:inline-flex; align-items:center; gap:5px; flex:0 0 auto; white-space:nowrap; font:500 var(--fs-xs)/1 var(--mono); }
   .working-change-stat .add{ color:#16a05d; }
   .working-change-stat .del{ color:#df3154; }
@@ -8986,11 +8999,11 @@ body:not(.composer-simple) main::after{
     return provider==="local"?"Local AI":"AI";
   }
   function workingModelLabel(provider,model,aiLabel=""){
+    if(provider==="codex") return "Codex"+(model?" · "+model:"")+" · OpenAI API";
+    if(provider==="claude-code") return "Claude Code"+(model?" · "+model:"")+" · Anthropic API";
     const exact=friendlyModelName(model);
     if(exact) return exact;
     if(aiLabel&&!/^AI$/i.test(aiLabel)) return aiLabel;
-    if(provider==="codex") return "Codex";
-    if(provider==="claude-code") return "Claude Code";
     return shortAiName(provider,model)||"Boollm";
   }
   function aiMetaFromText(text,provider,model,aiLabel){
@@ -9350,9 +9363,19 @@ body:not(.composer-simple) main::after{
     if(key.startsWith("inspect:")) return "inspections";
     return "tools";
   }
+  // The grouped rows say "Reviewed the project files" - true, but it tells the
+  // watcher nothing. Capture the concrete noun each tool acted on so the row can
+  // name it, and so repeated work on the same file collapses into one entry.
   function workingToolActivitySubject(entry){
-    if(entry?.name==="team_worker") return String(entry?.args?.role||"worker").toLowerCase();
-    return "";
+    const name=String(entry?.name||"");
+    const args=entry?.args||{};
+    if(name==="team_worker") return String(args.role||"worker").toLowerCase();
+    if(name==="web_search"||name==="repository_map") return String(args.query||"");
+    if(name==="find_symbol") return String(args.symbol||"");
+    if(name==="search_files"||name==="find_files") return String(args.pattern||"");
+    if(name==="run_command"||name==="run_background") return toolCommandText(entry);
+    if(name==="apply_patch") return workingStepFiles(entry).join(", ");
+    return String(args.path||args.file||args.target||args.url||"");
   }
   function toolDisplayLabel(entry){
     const name=entry?.name||"tool";
@@ -15649,6 +15672,8 @@ body:not(.composer-simple) main::after{
     parts.push(fmtTime(Date.now()-run.startTime));
     if(!state.ui || state.ui.showTokens!==false){ const tk=liveTokenCount(); if(tk.n) parts.push(liveTokenText(tk.n,tk.est,run.tokens?.calls||0)); }
     m.textContent=" · "+parts.join(" · ");
+    // This already ticks once a second; the worker clocks ride along with it.
+    renderTeamWorkers(run);
   }
   function latestOrchestrationTurn(snapshot){
     if(snapshot?.turn) return snapshot.turn;
@@ -15818,8 +15843,29 @@ body:not(.composer-simple) main::after{
     if(ref){ ref._activitySummaryKey=cacheKey; ref._activitySummary=summary; }
     return summary;
   }
+  // A path is only useful as its tail, a command only as its head. Everything
+  // else is trimmed to a glance-sized noun - the full text stays in the
+  // expanded list, so nothing is lost by shortening it here.
+  function workingActivitySubjectText(item){
+    const raw=String(item?.subject||item?.detail||item?.title||"").replace(/\s+/g," ").trim();
+    if(!raw) return "";
+    const first=raw.split(/\s+[·>▸]\s+/)[0].trim()||raw;
+    const text=/[\\/]/.test(first)&&!/\s/.test(first)?(first.split(/[\\/]/).filter(Boolean).pop()||first):first;
+    return text.length>32?text.slice(0,31)+"…":text;
+  }
+  function workingActivitySubjectHtml(items=[]){
+    const names=[];
+    for(const item of items){
+      const text=workingActivitySubjectText(item);
+      if(text&&!names.some(name=>name.toLowerCase()===text.toLowerCase())) names.push(text);
+      if(names.length===2) break;
+    }
+    if(!names.length) return "";
+    const rest=items.length-names.length;
+    return '<i class="working-activity-subject">'+esc(names.join(", ")+(rest>0?" +"+rest:""))+'</i>';
+  }
   function workingActivityGroupInner(item){
-    return '<summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+'</b>'+workingChangeStatHtml(item.items)+'<span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol>';
+    return '<summary><span class="working-activity-glyph" aria-hidden="true">'+workingActivityIcon(item.group)+'</span><b>'+esc(workingActivityGroupLabel(item.group,item.count,item.items))+workingActivitySubjectHtml(item.items)+'</b>'+workingChangeStatHtml(item.items)+'<span class="working-activity-caret" aria-hidden="true">&rsaquo;</span></summary><ol class="working-activity-details">'+item.items.map(detail=>'<li><b>'+esc(detail.title||"Activity")+'</b>'+(detail.detail?'<small>'+esc(detail.detail)+'</small>':'')+'</li>').join("")+'</ol>';
   }
   function workingCommentaryInner(item){
     return esc(item.item.title||"")+(item.item.detail?'<small>'+esc(item.item.detail)+'</small>':'');
@@ -16220,7 +16266,7 @@ body:not(.composer-simple) main::after{
       run.statusEl.setAttribute("role","status");
       run.statusEl.setAttribute("aria-live","polite");
       run.statusEl.setAttribute("aria-label","Boollm task progress");
-      run.statusEl.innerHTML='<div class="working-card-body"><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><button class="working-card-action meta" type="button" data-working-action="steps" aria-expanded="true">0 Steps</button><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
+      run.statusEl.innerHTML='<div class="working-card-body"><div class="team-worker-panel" role="list" aria-label="Parallel agents" hidden></div><div class="working-card-events" role="list" aria-label="Task activity"></div><span class="load-progress" hidden><span class="load-track"><span class="load-fill"></span></span><span class="load-pct"></span></span></div><div class="working-card-header"><span class="working-card-state"><span class="spinner"></span><span class="working-card-mark"></span><b>Working</b></span><span class="working-card-worker"></span><span class="stx"></span><span class="working-card-actions"><button class="working-card-action meta" type="button" data-working-action="steps" aria-expanded="true">0 Steps</button><button class="working-card-action" type="button" data-working-action="output" aria-pressed="false">Show output</button><button class="working-card-action danger" type="button" data-working-action="cancel">Cancel</button><button class="working-card-action working-card-toggle" type="button" data-working-action="toggle" aria-expanded="true" aria-label="Toggle task activity">&#9662;</button></span></div>';
       col.appendChild(run.statusEl);
       wireWorkingCard(run.statusEl,run);
       // Activity can arrive before the card exists (especially fast tool calls).
@@ -16262,16 +16308,51 @@ body:not(.composer-simple) main::after{
     // back rebuilds it from scratch (see the thread-open path), so skipping
     // the repaint here loses nothing.
     if(!viewingRun()) return;
+    renderTeamWorkers(run);
     renderWorkingCardActivity(run);
     syncWorkingCardControls(run);
     scrollDown();
+  }
+  // run.teamWorkers was populated on every worker event and read by nothing, so
+  // parallel agents were invisible behind a single "Asked another model for
+  // help" row. These render it. Elapsed needs a start and a stop, which the
+  // record did not keep, so the active states below decide when the clock runs.
+  const TEAM_WORKER_ACTIVE=["queued","working","retrying","draining","stalled"];
+  const TEAM_WORKER_TONE={queued:"idle",working:"active",retrying:"active",draining:"active",stalled:"warn",done:"done",failed:"fail",cancelled:"idle"};
+  function teamWorkerRowHtml(worker){
+    const end=worker.endedAt||Date.now();
+    const elapsed=fmtWorkedTime(Math.max(0,end-(worker.startedAt||end)));
+    const model=worker.model||worker.provider||"model";
+    const task=compactActivityText(worker.objective||worker.detail||"").trim()||"Preparing…";
+    const title=[worker.role,worker.detail,worker.branch].filter(Boolean).join(" · ");
+    return '<div class="team-worker" role="listitem" data-tone="'+(TEAM_WORKER_TONE[worker.state]||"active")+'" title="'+esc(title)+'">'
+      +'<span class="team-worker-dot" aria-hidden="true"></span>'
+      +'<b class="team-worker-model">'+esc(model)+'</b>'
+      +'<span class="team-worker-task">'+esc(task)+'</span>'
+      +'<span class="team-worker-time">'+esc(elapsed)+'</span>'
+      +'<span class="team-worker-state">'+esc(worker.state+(worker.attempt>1?" ·"+worker.attempt:""))+'</span></div>';
+  }
+  function renderTeamWorkers(ref=run){
+    const panel=ref?.statusEl?.querySelector(".team-worker-panel");
+    if(!panel) return;
+    const workers=Object.values(ref.teamWorkers||{});
+    if(!workers.length){ if(!panel.hidden){ panel.hidden=true; panel.innerHTML=""; panel._signature=""; } return; }
+    workers.sort((a,b)=>(a.startedAt||0)-(b.startedAt||0)||String(a.role||"").localeCompare(String(b.role||"")));
+    const html=workers.map(teamWorkerRowHtml).join("");
+    if(panel._signature!==html){ panel.innerHTML=html; panel._signature=html; }
+    if(panel.hidden) panel.hidden=false;
   }
   function updateTeamWorker(entry){
     if(!run||entry?.name!=="team_worker")return;
     const args=entry.args||{},role=String(args.role||"Specialist");
     run.teamWorkers=run.teamWorkers||{};
     const state=["queued","working","stalled","retrying","draining","done","failed","cancelled"].includes(args.state)?args.state:"working";
-    run.teamWorkers[role]={role,provider:String(args.provider||""),model:String(args.model||args.provider||"model"),state,attempt:Math.max(1,Number(args.attempt)||1),detail:String(entry.result||"")};
+    const prior=run.teamWorkers[role];
+    const now=Date.now();
+    run.teamWorkers[role]={role,provider:String(args.provider||""),model:String(args.model||args.provider||"model"),state,attempt:Math.max(1,Number(args.attempt)||1),detail:String(entry.result||""),
+      objective:String(args.objective||prior?.objective||""),branch:String(args.branch||prior?.branch||""),runId:String(args.runId||prior?.runId||""),
+      startedAt:prior?.startedAt||now,endedAt:TEAM_WORKER_ACTIVE.includes(state)?0:(prior?.endedAt||now)};
+    renderTeamWorkers(run);
     run.status=state==="failed"?role+" unavailable; the lead will continue":state==="done"?role+" finished":state==="retrying"?role+" is retrying with another model":role+" is working";
   }
   const NOTE_SAVE_HTML='<button class="note-save" title="Save to notepad" aria-label="Save response to notepad">&#8600;</button>';
@@ -16870,6 +16951,52 @@ body:not(.composer-simple) main::after{
       }
     }
   }
+  // Only codex-runner ever tags a status with kind:"commentary", so on every
+  // other provider the model's own narration lane is empty by construction and
+  // the informative text is flattened by plainWorkingStatus, then overwritten by
+  // the next event. This tap records what actually arrives and what survived, so
+  // the gap is measurable rather than inferred. Read it with
+  // __booleanNarration.report() in the devtools console.
+  // agent.js already writes the narration this card was missing - "applying
+  // compatibility edit to index.html", "switching to the compatibility tool
+  // bridge", "Verified by glm-5.1" - but only Codex tagged it, so on every other
+  // provider it was flattened to a generic header line and overwritten a second
+  // later. Promote the explanatory ones to real rows. Tool echoes are excluded
+  // because the tool already has its own row, and engine progress is excluded
+  // because it has its own UI.
+  const narrationEcho=/^(running\s|writing your answer|model loaded|auto-approved:|opening verified preview|taking the announced step|continuing until the project)/i;
+  function narrationRowText(ev){
+    const text=String(ev?.text||"").replace(/\s+/g," ").trim();
+    if(ev?.kind==="commentary") return text;
+    if(ev?.kind||!text||text.length<18||narrationEcho.test(text)) return "";
+    return text;
+  }
+  const narrationTap={total:0,commentary:0,rendered:0,flattened:0,byKind:{},byProvider:{},recent:[]};
+  function tapNarration(ev,flattened,rendered){
+    const kind=String(ev?.kind||"plain");
+    const raw=String(ev?.text||"");
+    const provider=(run?.provider||"?")+"/"+(run?.model||"?");
+    narrationTap.total++;
+    narrationTap.byKind[kind]=(narrationTap.byKind[kind]||0)+1;
+    narrationTap.byProvider[provider]=(narrationTap.byProvider[provider]||0)+1;
+    if(kind==="commentary") narrationTap.commentary++;
+    if(rendered) narrationTap.rendered++;
+    if(flattened!==raw) narrationTap.flattened++;
+    narrationTap.recent.push({at:new Date().toISOString().slice(11,23),kind,rendered,provider,raw:raw.slice(0,180),shown:String(flattened||"").slice(0,180)});
+    if(narrationTap.recent.length>80) narrationTap.recent.shift();
+    window.__booleanNarration=narrationTap;
+  }
+  narrationTap.report=function(){
+    const pct=value=>narrationTap.total?Math.round(value/narrationTap.total*100)+"%":"0%";
+    console.table(narrationTap.recent);
+    console.log("status events:",narrationTap.total,
+      "| model-written commentary:",narrationTap.commentary,"("+pct(narrationTap.commentary)+")",
+      "| rendered as a row:",narrationTap.rendered,"("+pct(narrationTap.rendered)+")",
+      "| rewritten by plainWorkingStatus:",narrationTap.flattened,"("+pct(narrationTap.flattened)+")");
+    console.log("by kind:",narrationTap.byKind,"by provider:",narrationTap.byProvider);
+    return narrationTap;
+  };
+  window.__booleanNarration=narrationTap;
   function handleEvent(ev){
     if(!run) return;
     const showing=viewingRun();
@@ -16882,9 +17009,12 @@ body:not(.composer-simple) main::after{
     }
     if(ev.type==="step") renderThreads();
     if(ev.type==="status"){
-      run.status=plainWorkingStatus(ev.text);
+      const flattened=plainWorkingStatus(ev.text);
+      const narration=narrationRowText(ev);
+      tapNarration(ev,flattened,!!narration);
+      run.status=flattened;
       run.statusUpdatedAt=Date.now();
-      if(ev.kind==="commentary") addWorkingActivity(ev.text,{key:"commentary:"+String(ev.text||"").slice(0,80),group:"commentary"});
+      if(narration) addWorkingActivity(narration,{key:"commentary:"+narration.slice(0,80),group:"commentary"});
       setBoollmActivity(inferBoollmActivity(ev.text));
       run.localModelLoad=ev.kind==="local-model-load"?{phase:ev.phase||"",pct:Number(ev.pct)||0,model:ev.model||""}:null;
       renderThreads(); if(showing&&!workspaceBackground) ensureStatusEl();
@@ -16914,7 +17044,12 @@ body:not(.composer-simple) main::after{
       const phase=run.controller?.phase;
       if(phase){
         const labels={planning:"Planning the best way to do this...",executing:"Working on the next step...",verifying:"Checking that everything works...",recovering:"Fixing a problem and trying again..."};
-        if(labels[phase]&&(phase!=="executing"||!run.statusUpdatedAt||Date.now()-run.statusUpdatedAt>1800)) run.status=labels[phase];
+        if(labels[phase]&&(phase!=="executing"||!run.statusUpdatedAt||Date.now()-run.statusUpdatedAt>1800)){
+          // The second place specific text dies: a phase label replaces whatever
+          // the model just said. Counted so the tap shows both losses, not one.
+          if(run.status&&run.status!==labels[phase]) narrationTap.phaseOverwrites=(narrationTap.phaseOverwrites||0)+1;
+          run.status=labels[phase];
+        }
         setBoollmActivity(inferBoollmActivity(run.status));
         renderThreads(); if(showing&&!workspaceBackground){ ensureStatusEl(); ensurePlanChecklist(ev.controller); renderWorkingCardActivity(run); }
       }
@@ -24945,9 +25080,9 @@ Optional bundled starter model:
     if(!last) return;
     const foot=last.querySelector(".msg-foot");
     if(!foot) return;
-    const existing=foot.querySelector(".change-summary");
-    if(existing) existing.remove();
-    foot.insertAdjacentHTML("afterbegin",changeSummaryHtml(stat));
+    let row=last.querySelector(":scope > .change-summary-row");
+    if(!row){ row=document.createElement("div"); row.className="change-summary-row"; last.insertBefore(row,foot); }
+    row.innerHTML=changeSummaryHtml(stat);
     lastCompletionDiffText=s.text;
   }
   let projectDashboardInFlight=null;
@@ -24965,7 +25100,7 @@ Optional bundled starter model:
       document.body.classList.remove("pd-hidden");
       if ($("pdTitle")) $("pdTitle").textContent = r.projectName || "Project";
       const completionSummary=changeSummaryParts(r.diffStat);
-      if((r.taskState||"idle")!=="running" && completionSummary && completionSummary.text!==lastCompletionDiffText) renderLatestChangeFooter(r.diffStat);
+      if(completionSummary && completionSummary.text!==lastCompletionDiffText) renderLatestChangeFooter(r.diffStat);
       updateGitSyncUi(r.git || {}, r.branch || "");
       const taskText = r.task || "Idle";
       const fileCount = r.changedFiles?.length || 0;
