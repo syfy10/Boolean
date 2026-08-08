@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy to tradestation.local.json and fill in. That filename is gitignored by the repo's *.local.json rule. Never commit real values.",
+  "clientId": "your-client-id-from-the-tradestation-developer-portal",
+  "clientSecret": "your-client-secret-or-empty-string-if-your-app-uses-pkce",
+  "callbackPort": 3000,
+  "live": false,
+  "scopes": ["openid", "profile", "offline_access", "MarketData", "ReadAccount", "Matrix"],
+  "endpoints": {
+    "_comment": "Only override if your portal settings differ. api defaults to the sim environment unless live is true.",
+    "api": "https://sim-api.tradestation.com/v3"
+  }
+}
