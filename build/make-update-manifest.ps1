@@ -14,7 +14,7 @@ $sha256 = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
 
 $manifest = [ordered]@{
   version = $version
-  url = "https://github.com/syfy10/Boollm/releases/download/v$version/Boollm-setup.exe"
+  url = "https://github.com/syfy10/Boolean/releases/download/v$version/Boollm-setup.exe"
   sha256 = $sha256
 } | ConvertTo-Json
 
